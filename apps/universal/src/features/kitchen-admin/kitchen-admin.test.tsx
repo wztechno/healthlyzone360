@@ -1,3 +1,10 @@
+import type {
+    AllergenReferenceCandidate,
+    NutritionReferenceCandidate,
+} from '@healthy360/api-client/contracts';
+import { AllergenReferencePicker } from './allergen-reference-picker.tsx';
+import { IngredientAllergenEditor } from './ingredient-allergen-editor.tsx';
+import { NutritionReferencePicker } from './nutrition-reference-picker.tsx';
 import { apiFailure, conflictFailure, throwFailure } from '@healthy360/api-client/contracts';
 import type {
     AdminEntityMeta,
@@ -108,6 +115,33 @@ beforeEach(() => {
  * same contention `jest.config.js` raises `testTimeout` for. Contention headroom only: a screen that
  * needs this long alone is a defect.
  */
+const USDA_CANDIDATE: NutritionReferenceCandidate = {
+    ref: 'usda:12345',
+    provider: 'usda',
+    label: 'Purchased cooked food',
+    brand: null,
+    data_type: 'SR Legacy',
+    nutrition_per_100g: {
+        basis: 'per_100g',
+        amounts: [{ nutrient_id: 'energy', unit: 'kcal', value: 100 }],
+    },
+    suitable: true,
+    reasons: [],
+    missing_nutrients: [],
+    source_hash: 'a'.repeat(64),
+    retrieved_at: '2026-10-14T00:00:00Z',
+};
+
+async function selectUsdaReference() {
+    await untilVisible('nutrition-reference-search');
+    await fireEvent.changeText(screen.getByTestId('nutrition-reference-query-input'), 'chicken');
+    await fireEvent.press(screen.getByTestId('nutrition-reference-search'));
+    await untilVisible('nutrition-reference-select-usda:12345');
+    await fireEvent.press(screen.getByTestId('nutrition-reference-select-usda:12345'));
+    await untilVisible('nutrition-reference-confirm-control');
+    await fireEvent.press(screen.getByTestId('nutrition-reference-confirm-control'));
+}
+
 function untilVisible(testID: string) {
     return waitFor(
         () => {
@@ -910,6 +944,7 @@ describe('the ingredient editor', () => {
                 kitchenAdmin: {
                     ...editorReads(() => [ingredient(1)]),
                     createIngredient: async () => created,
+                    searchNutritionReferences: async () => [USDA_CANDIDATE],
                 },
             },
         });
@@ -937,6 +972,8 @@ describe('the ingredient editor', () => {
             );
         });
 
+        await selectUsdaReference();
+
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
         });
@@ -959,10 +996,11 @@ describe('the ingredient editor', () => {
             // omitting it would leave the server to pick — and "can this be sold on its own?"
             // defaulting to anything is the wrong shape of answer for a new record.
             isSellable: false,
+            nutritionReference: { ref: 'usda:12345', sourceHash: 'a'.repeat(64), confirmed: true },
         });
     });
 
-    it('names every missing required field once Save is pressed, and writes nothing', async () => {
+    it('keeps new food Save disabled until a suitable reference is confirmed', async () => {
         const { repositories } = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
             session: kitchenManagerSession(),
             repositories: { kitchenAdmin: editorReads(() => []) },
@@ -977,15 +1015,7 @@ describe('the ingredient editor', () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
         });
 
-        // The banner names each field, and each field says so under itself.
-        await untilVisible('kitchen-ingredient-issues-errors');
-        expect(screen.getByTestId('kitchen-ingredient-issues-errors-summary')).toHaveTextContent(
-            '2 required',
-        );
-        expect(screen.getByTestId('kitchen-ingredient-issues-errors-name')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-ingredient-issues-errors-category')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-ingredient-name-en-error')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-ingredient-category-error')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-ingredient-editor-screen-save')).toBeDisabled();
         expect(repositories.kitchenAdmin.createIngredient).not.toHaveBeenCalled();
     });
 
@@ -1414,6 +1444,93 @@ describe('the ingredient editor', () => {
  * editable, sent on their own. And a record whose figures a published recipe **derives** gets
  * neither, because the server refuses both on a derivation.
  */
+describe('USDA lookup and explicit allergen review', () => {
+    it('searches only on submission and explains an empty response', async () => {
+        const onChange = jest.fn();
+        const { repositories } = await renderStubScreen(
+            <NutritionReferencePicker name="salt" value={undefined} onChange={onChange} />,
+            {
+                repositories: { kitchenAdmin: { searchNutritionReferences: async () => [] } },
+            },
+        );
+        expect(repositories.kitchenAdmin.searchNutritionReferences).not.toHaveBeenCalled();
+        await fireEvent.press(screen.getByTestId('nutrition-reference-search'));
+        await untilVisible('nutrition-reference-empty');
+        expect(repositories.kitchenAdmin.searchNutritionReferences).toHaveBeenCalledWith('salt');
+        expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('shows unsuitable candidates without permitting selection', async () => {
+        const onChange = jest.fn();
+        await renderStubScreen(
+            <NutritionReferencePicker name="sauce" value={undefined} onChange={onChange} />,
+            {
+                repositories: {
+                    kitchenAdmin: {
+                        searchNutritionReferences: async () => [
+                            {
+                                ...USDA_CANDIDATE,
+                                suitable: false,
+                                reasons: ['Missing fibre'],
+                                missing_nutrients: ['fibre'],
+                            },
+                        ],
+                    },
+                },
+            },
+        );
+        await fireEvent.press(screen.getByTestId('nutrition-reference-search'));
+        await untilVisible('nutrition-reference-select-usda:12345');
+        expect(screen.getByTestId('nutrition-reference-select-usda:12345')).toBeDisabled();
+        await fireEvent.press(screen.getByTestId('nutrition-reference-select-usda:12345'));
+        expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('confirms unchanged pending mappings using review evidence and the snapshot token', async () => {
+        const record = ingredient(91, {
+            allergens: [
+                mapping('milk', { verification: 'requires_review', layer: 'organisation_overlay' }),
+            ],
+            allergenReviewToken: 'b'.repeat(64),
+            allergenReviewRequired: true,
+        });
+        const { repositories } = await renderStubScreen(
+            <IngredientEditScreen ingredient={String(record.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [record]),
+                        getIngredient: async () => record,
+                        confirmIngredientAllergens: async () => ({
+                            ...record,
+                            allergenReviewRequired: false,
+                        }),
+                    },
+                },
+            },
+        );
+        await untilVisible('allergen-review-evidence-input');
+        expect(screen.getByTestId('allergen-review-confirm')).toBeDisabled();
+        await fireEvent.changeText(
+            screen.getByTestId('allergen-review-evidence-input'),
+            'Supplier label checked',
+        );
+        await fireEvent.press(screen.getByTestId('allergen-review-confirm'));
+        await waitFor(() =>
+            expect(repositories.kitchenAdmin.confirmIngredientAllergens).toHaveBeenCalledWith(
+                record.id,
+                {
+                    reviewToken: 'b'.repeat(64),
+                    evidence: 'Supplier label checked',
+                    confirmNoAllergens: false,
+                },
+            ),
+        );
+        expect(repositories.kitchenAdmin.setIngredientAllergens).not.toHaveBeenCalled();
+    });
+});
+
 describe('nutrition per 100 g', () => {
     it('draws every figure the record carries, and offers nothing to type into', async () => {
         const record = ingredient(20, { per100g: per100gFacts(), nutritionEstimated: false });
@@ -1442,7 +1559,7 @@ describe('nutrition per 100 g', () => {
         expect(screen.queryByTestId('kitchen-ingredient-nutrient-energy-input')).toBeNull();
     });
 
-    it('saves the flag and the note, and never the figures', async () => {
+    it('sends the confirmed reference while keeping figures and provenance server-managed', async () => {
         const record = ingredient(21, { per100g: per100gFacts() });
 
         const { repositories } = await renderStubScreen(
@@ -1453,6 +1570,7 @@ describe('nutrition per 100 g', () => {
                     kitchenAdmin: {
                         ...editorReads(() => [record]),
                         getIngredient: async () => record,
+                        searchNutritionReferences: async () => [USDA_CANDIDATE],
                         updateIngredient: async (_id, request) => ({
                             ...record,
                             meta: { ...record.meta, lockVersion: request.lockVersion + 1 },
@@ -1463,18 +1581,8 @@ describe('nutrition per 100 g', () => {
         );
 
         await openIngredientStep('nutrition');
-        await untilVisible('kitchen-ingredient-nutrition-estimated-control');
-
-        await act(async () => {
-            // `-control` is the pressable; the bare testID is the row that wraps it.
-            fireEvent.press(screen.getByTestId('kitchen-ingredient-nutrition-estimated-control'));
-        });
-        await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId('kitchen-ingredient-nutrition-note-input'),
-                'Supplier label, March 2026 batch',
-            );
-        });
+        expect(screen.queryByTestId('kitchen-ingredient-nutrition-estimated-control')).toBeNull();
+        await selectUsdaReference();
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
@@ -1489,8 +1597,13 @@ describe('nutrition per 100 g', () => {
 
         // Absent, not `null`: a missing field is untouched, and `null` would clear the figures.
         expect(request).not.toHaveProperty('per100g');
-        expect(request.nutritionEstimated).toBe(true);
-        expect(request.nutritionNote).toBe('Supplier label, March 2026 batch');
+        expect(request).not.toHaveProperty('nutritionEstimated');
+        expect(request).not.toHaveProperty('nutritionNote');
+        expect(request.nutritionReference).toEqual({
+            ref: 'usda:12345',
+            sourceHash: 'a'.repeat(64),
+            confirmed: true,
+        });
     });
 
     it('offers no inputs on a record whose figures a published recipe derives', async () => {
@@ -1850,4 +1963,165 @@ describe('the allergen class reference', () => {
             /^1$/,
         );
     });
+});
+
+const ALLERGEN_CANDIDATE: AllergenReferenceCandidate = {
+    ref: 'off:3017620422003',
+    provider: 'open_food_facts',
+    label: 'Hazelnut spread',
+    brand: 'Example',
+    source_url: 'https://world.openfoodfacts.org/product/3017620422003',
+    attribution: 'Open Food Facts — ODbL',
+    mappings: [{ allergen_code: 'milk', containment: 'contains', source_tag: 'en:milk' }],
+    unmapped_terms: [],
+    source_hash: 'c'.repeat(64),
+    retrieved_at: '2026-10-15T00:00:00Z',
+    importable: true,
+    selection_token: 'signed-selection',
+};
+
+describe('Open Food Facts allergen lookup', () => {
+    it('only searches on submission and does not treat empty results as confirmed absence', async () => {
+        const onChange = jest.fn();
+        const { repositories } = await renderStubScreen(
+            <AllergenReferencePicker
+                name="spread"
+                classes={[]}
+                value={undefined}
+                onChange={onChange}
+            />,
+            {
+                repositories: {
+                    kitchenAdmin: {
+                        searchAllergenReferences: async () => ({ candidates: [], notices: [] }),
+                    },
+                },
+            },
+        );
+        expect(repositories.kitchenAdmin.searchAllergenReferences).not.toHaveBeenCalled();
+        await fireEvent.press(screen.getByTestId('allergen-reference-search'));
+        await untilVisible('allergen-reference-empty');
+        expect(repositories.kitchenAdmin.searchAllergenReferences).toHaveBeenCalledWith({
+            query: 'spread',
+            barcode: undefined,
+        });
+        expect(onChange).toHaveBeenCalledWith(undefined);
+    });
+
+    it('shows outages separately and prevents selecting a reference with no declarations', async () => {
+        const onChange = jest.fn();
+        await renderStubScreen(
+            <AllergenReferencePicker
+                name="spread"
+                classes={[]}
+                value={undefined}
+                onChange={onChange}
+            />,
+            {
+                repositories: {
+                    kitchenAdmin: {
+                        searchAllergenReferences: async () => ({
+                            candidates: [
+                                {
+                                    ...ALLERGEN_CANDIDATE,
+                                    mappings: [],
+                                    importable: false,
+                                    selection_token: null,
+                                },
+                            ],
+                            notices: ['open_food_facts.throttled'],
+                        }),
+                    },
+                },
+            },
+        );
+        await fireEvent.press(screen.getByTestId('allergen-reference-search'));
+        await untilVisible('allergen-notice-open_food_facts.throttled');
+        expect(screen.queryByTestId('allergen-reference-empty')).toBeNull();
+        expect(screen.getByTestId('allergen-reference-select-off:3017620422003')).toBeDisabled();
+    });
+
+    it('requires purchased-product acknowledgement before importing suggestions with the current review token', async () => {
+        const record = ingredient(90, { allergenReviewToken: 'b'.repeat(64), allergens: [] });
+        const { repositories } = await renderStubScreen(
+            <IngredientAllergenEditor ingredient={record} classes={[]} />,
+            {
+                repositories: {
+                    kitchenAdmin: {
+                        searchAllergenReferences: async () => ({
+                            candidates: [ALLERGEN_CANDIDATE],
+                            notices: [],
+                        }),
+                        importIngredientAllergenReference: async () => record,
+                    },
+                },
+            },
+        );
+        await fireEvent.press(screen.getByTestId('allergen-reference-search'));
+        await untilVisible('allergen-reference-select-off:3017620422003');
+        await fireEvent.press(screen.getByTestId('allergen-reference-select-off:3017620422003'));
+        expect(screen.getByTestId('allergen-reference-import')).toBeDisabled();
+        await fireEvent.press(screen.getByTestId('allergen-reference-confirm-control'));
+        await fireEvent.press(screen.getByTestId('allergen-reference-import'));
+        await waitFor(() =>
+            expect(
+                repositories.kitchenAdmin.importIngredientAllergenReference,
+            ).toHaveBeenCalledWith(record.id, {
+                selectionToken: 'signed-selection',
+                reviewToken: 'b'.repeat(64),
+                confirmed: true,
+            }),
+        );
+        expect(repositories.kitchenAdmin.confirmIngredientAllergens).not.toHaveBeenCalled();
+        expect(repositories.kitchenAdmin.setIngredientAllergens).not.toHaveBeenCalled();
+    });
+});
+
+it('includes acknowledged allergen suggestions when creating a new ingredient and resets them after a name change', async () => {
+    const created = ingredient(92);
+    const { repositories } = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+        session: kitchenManagerSession(),
+        repositories: {
+            kitchenAdmin: {
+                ...editorReads(() => [ingredient(1)]),
+                createIngredient: async () => created,
+                searchNutritionReferences: async () => [USDA_CANDIDATE],
+                searchAllergenReferences: async () => ({
+                    candidates: [ALLERGEN_CANDIDATE],
+                    notices: [],
+                }),
+            },
+        },
+    });
+    await untilVisible('kitchen-ingredient-name-en-input');
+    await fireEvent.changeText(
+        screen.getByTestId('kitchen-ingredient-name-en-input'),
+        'Purchased spread',
+    );
+    await fireEvent.press(screen.getByTestId('kitchen-ingredient-category-trigger'));
+    await untilVisible('kitchen-ingredient-category-option-store-cupboard');
+    await fireEvent.press(screen.getByTestId('kitchen-ingredient-category-option-store-cupboard'));
+    await fireEvent.press(screen.getByTestId('allergen-reference-search'));
+    await untilVisible('allergen-reference-select-off:3017620422003');
+    await fireEvent.press(screen.getByTestId('allergen-reference-select-off:3017620422003'));
+    await fireEvent.press(screen.getByTestId('allergen-reference-confirm-control'));
+    await fireEvent.changeText(
+        screen.getByTestId('kitchen-ingredient-name-en-input'),
+        'Renamed spread',
+    );
+    expect(screen.queryByTestId('allergen-reference-confirm-control')).toBeNull();
+    await selectUsdaReference();
+    await fireEvent.press(screen.getByTestId('allergen-reference-search'));
+    await untilVisible('allergen-reference-select-off:3017620422003');
+    await fireEvent.press(screen.getByTestId('allergen-reference-select-off:3017620422003'));
+    expect(screen.getByTestId('kitchen-ingredient-editor-screen-save')).toBeDisabled();
+    await fireEvent.press(screen.getByTestId('allergen-reference-confirm-control'));
+    await fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+    await waitFor(() =>
+        expect(repositories.kitchenAdmin.createIngredient).toHaveBeenCalledWith(
+            expect.objectContaining({
+                allergenReference: { candidate: ALLERGEN_CANDIDATE, confirmed: true },
+            }),
+        ),
+    );
 });

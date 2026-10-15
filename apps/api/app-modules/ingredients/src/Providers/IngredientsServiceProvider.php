@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Healthy360\Ingredients\Providers;
 
 use Healthy360\Ingredients\Console\ImportIngredientNutritionCommand;
+use Healthy360\Ingredients\Console\MatchIngredientNutritionCommand;
 use Healthy360\Ingredients\Contracts\IngredientUsageRegistry;
 use Healthy360\Ingredients\Contracts\IngredientWeeklyPriceLookup;
+use Healthy360\Ingredients\Nutrition\NutritionReferenceProvider;
+use Healthy360\Ingredients\Nutrition\UsdaFoodDataProvider;
 use Healthy360\Ingredients\Services\NullIngredientUsageRegistry;
 use Healthy360\Ingredients\Services\NullIngredientWeeklyPriceLookup;
 use Healthy360\Ingredients\Services\PlatformLibraryAccess;
@@ -25,6 +28,7 @@ class IngredientsServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(NutritionReferenceProvider::class, UsdaFoodDataProvider::class);
         $this->app->bind(IngredientUsageRegistry::class, NullIngredientUsageRegistry::class);
 
         // The same port shape, for the estimating price. Procurement owns the
@@ -54,6 +58,7 @@ class IngredientsServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 ImportIngredientNutritionCommand::class,
+                MatchIngredientNutritionCommand::class,
             ]);
         }
     }

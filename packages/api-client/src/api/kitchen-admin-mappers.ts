@@ -259,7 +259,9 @@ function mapAllergenVerification(
         case 'verified':
             return 'operator_confirmed';
         case 'requires_supplier_confirmation':
-            return 'supplier_declared';
+            return 'requires_supplier_confirmation';
+        case 'requires_review':
+            return 'requires_review';
         default:
             return 'unverified';
     }
@@ -279,6 +281,8 @@ export function mapIngredientAllergenMapping(wire: WireAllergenMapping): Ingredi
         marketScope: mapMarketScope(wire.market_scope),
         verification: mapAllergenVerification(wire.verification_status),
         sourceNote: wire.evidence ?? null,
+        lookupSource: wire.lookup_source ?? null,
+        layer: wire.layer,
     };
 }
 
@@ -373,6 +377,9 @@ export function mapIngredientAdmin(
         // that read that sub-resource directly.
         allergens: options?.allergens ?? (wire.allergens ?? []).map(mapIngredientAllergenMapping),
         allergensAssessedClear: wire.verification_status === 'verified',
+        nutritionSource: wire.nutrition_source ?? null,
+        allergenReviewRequired: wire.allergen_review_required ?? false,
+        allergenReviewToken: wire.allergen_review_token ?? null,
         dietClassifications: [],
         aliases: options?.aliases ?? [],
         organisationId:

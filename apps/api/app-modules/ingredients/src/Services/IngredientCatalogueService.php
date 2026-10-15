@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Ingredients\Services;
 
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Ingredients\Allergens\AllergenReferenceService;
 use Healthy360\Ingredients\Contracts\IngredientUsageRegistry;
 use Healthy360\Ingredients\Enums\AvailabilityTier;
 use Healthy360\Ingredients\Enums\IngredientStatus;
@@ -14,6 +15,8 @@ use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAlias;
 use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Ingredients\Models\IngredientCategory;
+use Healthy360\Ingredients\Nutrition\NutritionReferenceService;
+use Healthy360\Ingredients\Nutrition\ReferenceUnsuitable;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Support\Api\Exceptions\StaleLockVersion;
@@ -63,7 +66,122 @@ final readonly class IngredientCatalogueService
         private IngredientUsageRegistry $usage,
         private PlatformLibraryAccess $platform,
         private IngredientDerivationInvalidator $invalidator,
+        private NutritionReferenceService $references,
+        private PackagingBranch $packaging,
+        private AllergenReferenceService $allergenReferences,
+        private AllergenMappingService $allergenMappings,
     ) {}
+
+    /**
+     * @param  array{
+     *     name_en: string,
+     *     name_ar?: string|null,
+     *     slug?: string|null,
+     *     ingredient_category_id?: string|null,
+     *     ingredient_subcategory_id?: string|null,
+     *     default_unit_id: string,
+     *     purchase_unit_id?: string|null,
+     *     composition?: string|null,
+     *     items_per_unit?: float|string|null,
+     *     grams_per_unit?: float|string|null,
+     *     nutrition_per_100g?: array<string, mixed>|null,
+     *     nutrition_estimated?: bool|null,
+     *     nutrition_note?: string|null,
+     *     b2b_price_amount?: float|string|null,
+     *     b2c_price_amount?: float|string|null,
+     *     unit_price_amount?: float|string|null,
+     *     price_currency_code?: string|null,
+     *     is_sellable?: bool,
+     *     yield_factor?: float|string|null,
+     *     availability_tier?: string|null,
+     *     notes?: string|null,
+     *     source_ref?: string|null,
+     *     nutrition_reference?: string,
+     *     nutrition_reference_hash?: string,
+     *     nutrition_reference_confirmed?: bool,
+     *     allergen_reference_token?: string,
+     *     allergen_reference_confirmed?: bool
+     * }  $attributes
+     */
+    public function createPublic(array $attributes): Ingredient
+    {
+        $this->requireOrganisation();
+        $this->assertReferenceGate($attributes, null);
+        $facts = $this->resolveReferenceAttributes($attributes);
+        $allergenReference = isset($attributes['allergen_reference_token']) ? $this->allergenReferences->resolve($attributes['allergen_reference_token']) : null;
+
+        return DB::transaction(function () use ($facts, $attributes, $allergenReference): Ingredient {
+            $ingredient = $this->create($facts + $attributes);
+            if ($allergenReference !== null) {
+                $ingredient = $this->allergenMappings->importReference($ingredient, $this->allergenMappings->reviewToken($ingredient), $allergenReference);
+            }
+
+            return $ingredient;
+        });
+    }
+
+    /** @param array<string, mixed> $attributes */
+    public function updatePublic(Ingredient $ingredient, array $attributes, int $expectedLockVersion, bool $fresh = false): Ingredient
+    {
+        $this->assertWritable($ingredient);
+        if (array_key_exists('nutrition_reference', $attributes)) {
+            $this->assertNutritionNotDerived($ingredient, ['nutrition_per_100g' => []]);
+        }
+        $this->assertReferenceGate($attributes, $ingredient);
+        $attributes = $this->resolveReferenceAttributes($attributes, $fresh) + $attributes;
+
+        return DB::transaction(function () use ($ingredient, $attributes, $expectedLockVersion): Ingredient {
+            IngredientMutationLock::acquire((string) $ingredient->getKey());
+            $ingredient->refresh();
+            if ($ingredient->lock_version !== $expectedLockVersion) {
+                throw new StaleLockVersion($ingredient->lock_version);
+            }
+            $this->assertWritable($ingredient);
+            $this->assertNutritionNotDerived($ingredient, $attributes);
+            $this->assertReferenceGate($attributes, $ingredient, resolved: true);
+
+            return $this->update($ingredient, $attributes, $expectedLockVersion);
+        });
+    }
+
+    /** @param array<string, mixed> $attributes */
+    private function assertReferenceGate(array $attributes, ?Ingredient $ingredient, bool $resolved = false): void
+    {
+        $category = $attributes['ingredient_category_id'] ?? $ingredient?->ingredient_category_id;
+        if (array_key_exists('ingredient_category_id', $attributes)) {
+            $category = $attributes['ingredient_category_id'];
+        }
+        $isPackaging = in_array($category, $this->packaging->categoryIds(), true);
+        $hasReference = array_key_exists($resolved ? 'nutrition_source' : 'nutrition_reference', $attributes);
+        if ($isPackaging && ($hasReference || array_key_exists('allergen_reference_token', $attributes))) {
+            throw new ReferenceUnsuitable(['Packaging cannot carry a food nutrition reference.']);
+        }
+        $wasPackaging = $ingredient !== null && in_array($ingredient->ingredient_category_id, $this->packaging->categoryIds(), true);
+        if (! $isPackaging && ($ingredient === null || $wasPackaging) && ! $hasReference) {
+            throw new ReferenceUnsuitable(['Select a suitable nutrition reference for this food ingredient.']);
+        }
+    }
+
+    /** @param array<string, mixed> $attributes
+     * @return array{nutrition_per_100g?: array<string, mixed>, nutrition_estimated?: bool, nutrition_note?: string, nutrition_source?: array<string, mixed>}
+     */
+    private function resolveReferenceAttributes(array $attributes, bool $fresh = false): array
+    {
+        if (! array_key_exists('nutrition_reference', $attributes)) {
+            return [];
+        }
+        $reference = $this->references->resolve(
+            (string) $attributes['nutrition_reference'], (string) ($attributes['nutrition_reference_hash'] ?? ''),
+            filter_var($attributes['nutrition_reference_confirmed'] ?? false, FILTER_VALIDATE_BOOLEAN), $fresh,
+        );
+
+        return [
+            'nutrition_per_100g' => $reference->candidate['nutrition_per_100g'],
+            'nutrition_estimated' => true,
+            'nutrition_note' => mb_substr('Estimated from USDA FoodData Central '.substr((string) $reference->candidate['ref'], 5).' — '.$reference->candidate['label'], 0, 300),
+            'nutrition_source' => $reference->provenance($this->context->userId()),
+        ];
+    }
 
     /**
      * Create a tenant ingredient. New rows start `active` and `unverified`:
@@ -124,6 +242,7 @@ final readonly class IngredientCatalogueService
         $ingredient->items_per_unit = $this->decimalOrNull($attributes['items_per_unit'] ?? null);
         $ingredient->grams_per_unit = $this->decimalOrNull($attributes['grams_per_unit'] ?? null);
         $ingredient->nutrition_per_100g = $attributes['nutrition_per_100g'] ?? null;
+        $ingredient->nutrition_source = $attributes['nutrition_source'] ?? null;
         /*
          * A typed figure is a declaration unless the writer says otherwise.
          *
@@ -157,6 +276,7 @@ final readonly class IngredientCatalogueService
         // spreadsheet instead) and unchecked by anyone, and the response has
         // to be able to say both without a round trip to the database.
         $ingredient->status = IngredientStatus::Active;
+        $ingredient->allergen_review_required = false;
         $ingredient->verification_status = IngredientVerificationStatus::Unverified;
         $ingredient->lock_version = 0;
         $ingredient->notes = $this->trimmedOrNull($attributes['notes'] ?? null);
@@ -257,6 +377,8 @@ final readonly class IngredientCatalogueService
             // it: the mass is the mass of one of *that* unit.
             $fork->grams_per_unit = $source->grams_per_unit;
             $fork->nutrition_per_100g = $source->nutrition_per_100g;
+            $fork->nutrition_source = $source->nutrition_source;
+            $fork->allergen_review_required = $source->allergen_review_required;
             // Copied with the figures they describe. A fork of a row whose
             // 350 kcal is a family figure for dry batter mixes is still a
             // family figure; dropping the flag would silently promote the copy
@@ -399,6 +521,7 @@ final readonly class IngredientCatalogueService
                 $copy->source = $mapping->source;
                 $copy->verification_status = $mapping->verification_status;
                 $copy->evidence = $mapping->evidence;
+                $copy->lookup_source = $mapping->lookup_source;
                 $copy->created_by = $this->context->userId();
                 $copy->save();
             };
@@ -439,7 +562,7 @@ final readonly class IngredientCatalogueService
 
         $changes = [];
 
-        foreach (['name_en', 'name_ar', 'ingredient_category_id', 'ingredient_subcategory_id', 'default_unit_id', 'purchase_unit_id', 'composition', 'items_per_unit', 'grams_per_unit', 'nutrition_per_100g', 'nutrition_estimated', 'nutrition_note', 'b2b_price_amount', 'b2c_price_amount', 'unit_price_amount', 'price_currency_code', 'is_sellable', 'yield_factor', 'availability_tier', 'notes'] as $field) {
+        foreach (['name_en', 'name_ar', 'ingredient_category_id', 'ingredient_subcategory_id', 'default_unit_id', 'purchase_unit_id', 'composition', 'items_per_unit', 'grams_per_unit', 'nutrition_per_100g', 'nutrition_source', 'nutrition_estimated', 'nutrition_note', 'b2b_price_amount', 'b2c_price_amount', 'unit_price_amount', 'price_currency_code', 'is_sellable', 'yield_factor', 'availability_tier', 'notes'] as $field) {
             if (! array_key_exists($field, $attributes)) {
                 continue;
             }
@@ -477,6 +600,14 @@ final readonly class IngredientCatalogueService
          * replacement.
          */
         if (array_key_exists('nutrition_per_100g', $changes)) {
+            if (! array_key_exists('nutrition_source', $changes)) {
+                $changes['nutrition_source'] = null;
+            }
+            $oldSource = $ingredient->nutrition_source;
+            $newSource = $changes['nutrition_source'];
+            if (is_array($newSource) && (! is_array($oldSource) || ($oldSource['ref'] ?? null) !== ($newSource['ref'] ?? null) || ($oldSource['source_hash'] ?? null) !== ($newSource['source_hash'] ?? null))) {
+                $changes['allergen_review_required'] = true;
+            }
             $declared = $changes['nutrition_per_100g'] === null ? null : false;
 
             if (! array_key_exists('nutrition_estimated', $changes)) {

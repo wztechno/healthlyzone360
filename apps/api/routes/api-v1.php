@@ -164,9 +164,12 @@ use Healthy360\Identity\Http\Controllers\ContextController;
 use Healthy360\Identity\Http\Controllers\DeviceController;
 use Healthy360\Identity\Http\Controllers\MeController;
 use Healthy360\Identity\Http\Controllers\MembershipController;
+use Healthy360\Ingredients\Http\Controllers\AllergenReferenceImportController;
+use Healthy360\Ingredients\Http\Controllers\AllergenReferenceSearchController;
 use Healthy360\Ingredients\Http\Controllers\IngredientAliasDestroyController;
 use Healthy360\Ingredients\Http\Controllers\IngredientAliasIndexController;
 use Healthy360\Ingredients\Http\Controllers\IngredientAliasStoreController;
+use Healthy360\Ingredients\Http\Controllers\IngredientAllergenConfirmController;
 use Healthy360\Ingredients\Http\Controllers\IngredientAllergenIndexController;
 use Healthy360\Ingredients\Http\Controllers\IngredientAllergenReplaceController;
 use Healthy360\Ingredients\Http\Controllers\IngredientArchiveController;
@@ -178,6 +181,7 @@ use Healthy360\Ingredients\Http\Controllers\IngredientIndexController;
 use Healthy360\Ingredients\Http\Controllers\IngredientShowController;
 use Healthy360\Ingredients\Http\Controllers\IngredientStoreController;
 use Healthy360\Ingredients\Http\Controllers\IngredientUpdateController;
+use Healthy360\Ingredients\Http\Controllers\NutritionReferenceSearchController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionCountController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionIndexController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionResolveController;
@@ -964,6 +968,10 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         |
         */
         Route::middleware('org.context')->prefix('/catalogue')->group(function (): void {
+            Route::get('/ingredients/nutrition-references', NutritionReferenceSearchController::class)
+                ->middleware('permission:catalogue.manage_organisation')->name('catalogue.ingredients.nutrition-references');
+            Route::get('/ingredients/allergen-references', AllergenReferenceSearchController::class)
+                ->middleware('permission:catalogue.manage_organisation')->name('catalogue.ingredients.allergen-references');
             Route::middleware('permission:catalogue.view_organisation')->group(function (): void {
                 Route::get('/ingredients', IngredientIndexController::class)->name('catalogue.ingredients.index');
                 Route::get('/ingredients/{ingredient}', IngredientShowController::class)->name('catalogue.ingredients.show');
@@ -1002,6 +1010,8 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                     ->name('catalogue.ingredients.fork');
 
                 Route::put('/ingredients/{ingredient}/allergens', IngredientAllergenReplaceController::class)->name('catalogue.ingredients.allergens.replace');
+                Route::post('/ingredients/{ingredient}/allergens/confirm', IngredientAllergenConfirmController::class)->name('catalogue.ingredients.allergens.confirm');
+                Route::post('/ingredients/{ingredient}/allergens/import-reference', AllergenReferenceImportController::class)->name('catalogue.ingredients.allergens.import-reference');
 
                 Route::post('/ingredients/{ingredient}/aliases', IngredientAliasStoreController::class)->name('catalogue.ingredients.aliases.store');
                 Route::delete('/ingredients/{ingredient}/aliases/{alias}', IngredientAliasDestroyController::class)->name('catalogue.ingredients.aliases.destroy');

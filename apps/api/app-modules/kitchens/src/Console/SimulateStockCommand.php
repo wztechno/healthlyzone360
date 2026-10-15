@@ -23,6 +23,7 @@ use Healthy360\Procurement\Services\WeeklyPricePublisher;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Give one kitchen FAKE but realistic purchase prices and stock, so the owner can run it end to
@@ -44,6 +45,11 @@ use Illuminate\Console\Command;
  *
  * Idempotent: a receipt whose document reference already exists is skipped, so a re-run never
  * doubles stock or money. `--fresh-refs=<suffix>` posts another round on purpose.
+ *
+ * `--typed-prices` does something else instead, and only that: it fills the unit price and the
+ * purchase price typed on each of the kitchen's own ingredients from the same file, at last week's
+ * figure, where they are empty. No receipt, no stock. Library rows are not the kitchen's to write,
+ * so they join only with `--include-library`.
  */
 final class SimulateStockCommand extends Command
 {
@@ -66,6 +72,8 @@ final class SimulateStockCommand extends Command
         {--org= : The kitchen organisation (defaults to the configured one)}
         {--branch= : Branch name (defaults to the first branch)}
         {--fresh-refs= : Suffix for the receipt references, to post another round deliberately}
+        {--typed-prices : Only fill empty unit and purchase prices on the kitchen\'s own ingredients; post nothing}
+        {--include-library : With --typed-prices, fill the platform library\'s rows too (development worlds only)}
         {--dry-run : Show what would be received and write nothing}';
 
     protected $description = 'Post fake but realistic supplier receipts, prices and reorder points so a dev kitchen can be simulated.';
@@ -91,6 +99,10 @@ final class SimulateStockCommand extends Command
 
         /** @var int $exit */
         $exit = $this->insideOrganisation($organisation, function (string $organisationId) use ($organisation, $data, $currency, $receipts, $publisher, $derivation): int {
+            if ($this->option('typed-prices')) {
+                return $this->fillTypedPrices($organisationId, (string) $organisation->slug, $data, $currency);
+            }
+
             $branch = $this->branch($organisationId);
             $actorId = OrganisationMembership::withoutTenancy()->where('organisation_id', $organisationId)->value('user_id');
 
@@ -264,7 +276,7 @@ final class SimulateStockCommand extends Command
             // Deterministic per shelf, so a dry run and the real run agree: ±5% around the list
             // price, and one shelf in eight received short of its reorder point.
             $hash = crc32($slug);
-            $drift = 0.95 + ($hash % 50) / 1000;
+            $drift = $this->drift($slug);
             $short = $hash % 8 === 0;
             $received = $short ? $onHand * 0.2 : $onHand;
             $countable = in_array($unit->dimension, ['count', 'package'], true);
@@ -293,6 +305,146 @@ final class SimulateStockCommand extends Command
         }
 
         return $plan;
+    }
+
+    private function drift(string $slug): float
+    {
+        return 0.95 + (crc32($slug) % 50) / 1000;
+    }
+
+    /**
+     * The `--typed-prices` run: last week's simulated price typed onto the ingredient records
+     * themselves, where empty — the unit price per stock unit (what the ingredient list shows and
+     * counts as costed) and the purchase price per the unit it is bought in (its purchase unit, else
+     * its default unit; what saving a recipe version costs from). A price somebody typed is never
+     * overwritten. The kitchen's own rows by default; `--include-library` adds the platform library,
+     * which only a development world should ever have simulated into it.
+     *
+     * @param  array{not_bought: list<string>, fallback_by_category: array<string, array{0: float, 1: float}>, items: array<string, array{0: float, 1: float}>}  $data
+     */
+    private function fillTypedPrices(string $organisationId, string $slug, array $data, string $currency): int
+    {
+        $units = MeasurementUnit::query()->get()->keyBy('id');
+        $canonical = $units->filter(static fn (MeasurementUnit $u): bool => in_array($u->code, ['kg', 'l'], true))->keyBy('dimension');
+        $scale = static fn (MeasurementUnit $unit): float => isset($canonical[$unit->dimension])
+            ? (float) $unit->base_ratio / (float) $canonical[$unit->dimension]->base_ratio
+            : 1.0;
+        $categories = IngredientCategory::withoutTenancy()->pluck('code', 'id');
+        $madeHere = CatalogueItem::withoutTenancy()
+            ->where('organisation_id', $organisationId)
+            ->where('production_mode', ProductionMode::Production)
+            ->whereNotNull('ingredient_id')
+            ->pluck('ingredient_id')
+            ->flip();
+
+        $ingredients = Ingredient::withoutTenancy()
+            ->where(function ($owner) use ($organisationId): void {
+                $owner->where('organisation_id', $organisationId);
+
+                if ($this->option('include-library')) {
+                    $owner->orWhereNull('organisation_id');
+                }
+            })
+            ->where(static fn ($empty) => $empty->whereNull('purchase_price_amount')->orWhereNull('unit_price_amount'))
+            ->orderBy('slug')
+            ->get();
+
+        $rows = [];
+        $skipped = [];
+
+        foreach ($ingredients as $ingredient) {
+            if (isset($madeHere[$ingredient->getKey()]) || in_array($ingredient->slug, $data['not_bought'], true)) {
+                continue;
+            }
+
+            $default = $units[$ingredient->default_unit_id] ?? null;
+            $pricedIn = $units[$ingredient->purchase_unit_id ?? $ingredient->default_unit_id] ?? null;
+
+            if ($default === null || $pricedIn === null) {
+                $skipped[] = $ingredient->slug;
+
+                continue;
+            }
+
+            $category = (string) ($categories[$ingredient->ingredient_category_id] ?? '*');
+            [$listPrice] = $data['items'][$ingredient->slug]
+                ?? $data['fallback_by_category'][$category]
+                ?? $data['fallback_by_category']['*'];
+            $listPrice *= $this->drift($ingredient->slug) + 0.06;
+
+            // The file prices one kg / l / piece. A purchase unit of another dimension is a pack of
+            // `items_per_unit` default units; without that figure the price cannot be stated honestly.
+            $purchase = match (true) {
+                $pricedIn->dimension === $default->dimension => $listPrice * $scale($pricedIn),
+                $ingredient->items_per_unit !== null => $listPrice * $scale($default) * (float) $ingredient->items_per_unit,
+                default => null,
+            };
+
+            $rows[] = [
+                'ingredient' => $ingredient,
+                'unit' => $this->money($listPrice * $scale($default)),
+                'purchase' => $purchase === null ? null : $this->money($purchase),
+                'guessed' => ! isset($data['items'][$ingredient->slug]),
+            ];
+
+            if ($purchase === null) {
+                $skipped[] = $ingredient->slug;
+            }
+        }
+
+        $this->table(
+            ['Ingredient', 'Library', 'Unit price', 'Per', 'Purchase price', 'Per', 'Note'],
+            array_map(static fn (array $row): array => [
+                $row['ingredient']->slug,
+                $row['ingredient']->organisation_id === null ? 'yes' : '',
+                $row['ingredient']->unit_price_amount === null ? $row['unit'] : '(kept)',
+                $units[$row['ingredient']->default_unit_id]->code,
+                $row['ingredient']->purchase_price_amount === null ? ($row['purchase'] ?? '—') : '(kept)',
+                $units[$row['ingredient']->purchase_unit_id ?? $row['ingredient']->default_unit_id]->code,
+                $row['guessed'] ? 'category default' : '',
+            ], $rows),
+        );
+
+        if ($skipped !== []) {
+            $this->components->warn('No honest purchase price (bought in a unit of another dimension, no items per unit): '.implode(', ', $skipped));
+        }
+
+        if ($this->option('dry-run')) {
+            return self::SUCCESS;
+        }
+
+        $unitPrices = 0;
+        $purchasePrices = 0;
+
+        foreach ($rows as $row) {
+            // Each re-checked in the write itself, so a price typed since the read survives.
+            $unitPrices += $this->fillEmpty($row['ingredient'], 'unit_price_amount', $row['unit'], ['price_currency_code' => $currency]);
+
+            if ($row['purchase'] !== null) {
+                $purchasePrices += $this->fillEmpty($row['ingredient'], 'purchase_price_amount', $row['purchase'], ['purchase_price_currency' => $currency]);
+            }
+        }
+
+        $this->components->info(sprintf('%s: %d unit prices and %d purchase prices typed.', $slug, $unitPrices, $purchasePrices));
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @param  numeric-string  $amount
+     * @param  array<string, string>  $currency
+     */
+    private function fillEmpty(Ingredient $ingredient, string $column, string $amount, array $currency): int
+    {
+        return Ingredient::withoutTenancy()
+            ->whereKey($ingredient->getKey())
+            ->whereNull($column)
+            ->update([
+                $column => $amount,
+                ...$currency,
+                'lock_version' => DB::raw('lock_version + 1'),
+                'updated_at' => CarbonImmutable::now(),
+            ]);
     }
 
     private function supplierFor(string $slug, string $category): string

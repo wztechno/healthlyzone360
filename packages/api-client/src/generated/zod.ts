@@ -78,7 +78,10 @@ export const zErrorCode = z.enum([
     'unit.conversion_unsupported',
     'access.self_lockout',
     'rate_limit.exceeded',
-    'server.internal_error'
+    'server.internal_error',
+    'allergens.provider_unavailable',
+    'nutrition.provider_unavailable',
+    'nutrition.provider_configuration'
 ]);
 
 export const zError = z.object({
@@ -376,6 +379,10 @@ export const zIngredientCategoryEnvelope = z.object({
 });
 
 export const zIngredientAllergenMapping = z.object({
+    lookup_source: z.record(z.string(), z.unknown()).nullish(),
+    reviewed_by: z.string().nullish(),
+    reviewed_at: z.iso.datetime({ offset: true }).nullish(),
+    review_evidence: z.string().nullish(),
     id: zUuid,
     allergen_code: zAllergenCode,
     layer: z.enum(['platform_baseline', 'organisation_overlay']),
@@ -409,6 +416,12 @@ export const zIngredientAllergenMapping = z.object({
  *
  */
 export const zAdminIngredient = z.object({
+    nutrition_source: z.record(z.string(), z.unknown()).nullish(),
+    allergen_review_required: z.boolean().optional(),
+    allergen_review_token: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+    allergens_reviewed_by: z.string().nullish(),
+    allergens_reviewed_at: z.iso.datetime({ offset: true }).nullish(),
+    allergens_review_evidence: z.string().nullish(),
     id: zUuid,
     organisation_id: zUuid.nullable(),
     is_platform: z.boolean(),
@@ -461,7 +474,57 @@ export const zIngredientAllergenCollection = z.object({
     meta: zMeta
 });
 
+export const zAllergenReferenceCandidate = z.object({
+    ref: z.string(),
+    provider: z.enum(['open_food_facts']),
+    label: z.string(),
+    brand: z.string().nullable(),
+    source_url: z.url(),
+    attribution: z.string(),
+    mappings: z.array(z.object({
+        allergen_code: zAllergenCode,
+        containment: z.enum(['contains', 'may_contain']),
+        source_tag: z.string()
+    })),
+    unmapped_terms: z.array(z.string()),
+    source_hash: z.string(),
+    retrieved_at: z.iso.datetime({ offset: true }),
+    importable: z.boolean(),
+    selection_token: z.string().nullable()
+});
+
+export const zAllergenReferenceSearchResult = z.object({
+    candidates: z.array(zAllergenReferenceCandidate),
+    notices: z.array(z.string())
+});
+
+export const zNutritionReferenceCandidate = z.object({
+    ref: z.string(),
+    provider: z.enum(['usda']),
+    label: z.string(),
+    brand: z.string().nullable(),
+    data_type: z.string(),
+    nutrition_per_100g: zIngredientNutritionPer100g,
+    suitable: z.boolean(),
+    reasons: z.array(z.string()),
+    missing_nutrients: z.array(z.string()),
+    source_hash: z.string().regex(/^[a-f0-9]{64}$/),
+    retrieved_at: z.iso.datetime({ offset: true })
+});
+
+export const zConfirmIngredientAllergensRequest = z.object({
+    review_token: z.string().regex(/^[a-f0-9]{64}$/),
+    evidence: z.string().min(1).max(2000),
+    supplier_evidence: z.string().max(2000).nullish(),
+    confirm_no_allergens: z.boolean().optional()
+});
+
 export const zCreateIngredientRequest = z.object({
+    allergen_reference_token: z.string().max(30000).optional(),
+    allergen_reference_confirmed: z.literal(true).optional(),
+    nutrition_reference: z.string().max(40).regex(/^usda:[0-9]+$/).optional(),
+    nutrition_reference_hash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+    nutrition_reference_confirmed: z.literal(true).optional(),
     name_en: z.string().max(255),
     name_ar: z.string().max(255).nullish(),
     slug: z.string().max(110).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullish(),
@@ -472,9 +535,6 @@ export const zCreateIngredientRequest = z.object({
     composition: z.string().max(2000).nullish(),
     items_per_unit: z.number().gt(0).nullish(),
     grams_per_unit: z.number().gte(0.0001).lte(99999999.9999).nullish(),
-    nutrition_per_100g: zIngredientNutritionPer100g.nullish(),
-    nutrition_estimated: z.boolean().nullish(),
-    nutrition_note: z.string().max(300).nullish(),
     b2b_price_amount: z.number().gte(0).nullish(),
     b2c_price_amount: z.number().gte(0).nullish(),
     unit_price_amount: z.number().gte(0).nullish(),
@@ -492,6 +552,9 @@ export const zCreateIngredientRequest = z.object({
  *
  */
 export const zUpdateIngredientRequest = z.object({
+    nutrition_reference: z.string().max(40).regex(/^usda:[0-9]+$/).optional(),
+    nutrition_reference_hash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+    nutrition_reference_confirmed: z.literal(true).optional(),
     name_en: z.string().max(255).optional(),
     name_ar: z.string().max(255).optional(),
     ingredient_category_id: zUuid.nullish(),
@@ -501,9 +564,6 @@ export const zUpdateIngredientRequest = z.object({
     composition: z.string().max(2000).nullish(),
     items_per_unit: z.number().gt(0).nullish(),
     grams_per_unit: z.number().gte(0.0001).lte(99999999.9999).nullish(),
-    nutrition_per_100g: zIngredientNutritionPer100g.nullish(),
-    nutrition_estimated: z.boolean().nullish(),
-    nutrition_note: z.string().max(300).nullish(),
     b2b_price_amount: z.number().gte(0).nullish(),
     b2c_price_amount: z.number().gte(0).nullish(),
     unit_price_amount: z.number().gte(0).nullish(),
@@ -10264,6 +10324,73 @@ export const zCreateIngredientHeaders = z.object({
  * The ingredient was created.
  */
 export const zCreateIngredientResponse = zIngredientEnvelope;
+
+export const zSearchAllergenReferencesHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+export const zSearchAllergenReferencesQuery = z.object({
+    q: z.string().min(2).max(150).optional(),
+    barcode: z.string().regex(/^[0-9]{8,14}$/).optional()
+});
+
+/**
+ * Suggestions and provider-specific availability notices.
+ */
+export const zSearchAllergenReferencesResponse = z.object({
+    data: zAllergenReferenceSearchResult,
+    meta: zMeta
+});
+
+export const zImportIngredientAllergenReferenceBody = z.object({
+    selection_token: z.string().max(30000),
+    review_token: z.string().regex(/^[a-f0-9]{64}$/),
+    confirmed: z.literal(true)
+});
+
+export const zImportIngredientAllergenReferenceHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+export const zImportIngredientAllergenReferencePath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * Refreshed ingredient, mappings and review token.
+ */
+export const zImportIngredientAllergenReferenceResponse = zIngredientEnvelope;
+
+export const zSearchNutritionReferencesHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+export const zSearchNutritionReferencesQuery = z.object({
+    q: z.string().min(2).max(150)
+});
+
+/**
+ * Hydrated candidate references, including unsuitable candidates and rejection reasons.
+ */
+export const zSearchNutritionReferencesResponse = z.object({
+    data: z.array(zNutritionReferenceCandidate).max(10),
+    meta: zMeta
+});
+
+export const zConfirmIngredientAllergensBody = zConfirmIngredientAllergensRequest;
+
+export const zConfirmIngredientAllergensHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+export const zConfirmIngredientAllergensPath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * Refreshed ingredient, mappings and review token.
+ */
+export const zConfirmIngredientAllergensResponse = zIngredientEnvelope;
 
 export const zShowIngredientHeaders = z.object({
     'X-Organisation-Id': zUuid,

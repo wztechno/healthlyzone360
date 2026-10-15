@@ -9,6 +9,7 @@ use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Tests\Fixtures\RecipeWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Tests\Support\NutritionReferenceFixture;
 
 /*
 |--------------------------------------------------------------------------
@@ -237,7 +238,7 @@ it('reaches the parents snapshot when an ingredient inside the component is corr
     $url = '/api/v1/catalogue/ingredients/'.$basil->getKey();
     $etag = $this->getJson($url, $this->headers)->assertOk()->headers->get('ETag');
 
-    $this->patchJson($url, ['nutrition_per_100g' => outputFacts(200)], $this->headers + ['If-Match' => (string) $etag])
+    $this->patchJson($url, NutritionReferenceFixture::selection(outputFacts(200)), $this->headers + ['If-Match' => (string) $etag])
         ->assertOk();
 
     // 200 g at 200 plus 200 g at 300 is 1000 kcal over 400 g — 250 per 100 g —
@@ -258,7 +259,7 @@ it('refuses an edit to the facts and the density of a row a recipe derives', fun
 
     // Both halves of the same arithmetic: the facts themselves, and the mass a
     // parent line stated in litres would be weighed through.
-    $this->patchJson($url, ['nutrition_per_100g' => outputFacts(999)], $this->headers + ['If-Match' => $etag])
+    $this->patchJson($url, NutritionReferenceFixture::selection(outputFacts(999)), $this->headers + ['If-Match' => $etag])
         ->assertStatus(422)
         ->assertJsonPath('error.code', 'validation.failed')
         ->assertJsonPath('error.details.fields.nutrition_per_100g.0',

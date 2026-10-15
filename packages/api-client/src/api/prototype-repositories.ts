@@ -730,6 +730,20 @@ export const apiProfessionalRepository: ProfessionalRepository = {
  * this object remains the rejecting base for the spread.
  */
 export const apiKitchenAdminRepository: KitchenAdminRepository = {
+    searchAllergenReferences() {
+        return notImplemented(`GET ${BASE}/catalogue/ingredients/allergen-references`);
+    },
+    importIngredientAllergenReference() {
+        return notImplemented(
+            `POST ${BASE}/catalogue/ingredients/{ingredient}/allergens/import-reference`,
+        );
+    },
+    searchNutritionReferences() {
+        return notImplemented(`GET ${BASE}/catalogue/ingredients/nutrition-references`);
+    },
+    confirmIngredientAllergens() {
+        return notImplemented(`POST ${BASE}/catalogue/ingredients/{ingredient}/allergens/confirm`);
+    },
     listAllergenClasses(): Promise<readonly AllergenClass[]> {
         return notImplemented(`GET ${BASE}/reference/allergen-classes`);
     },

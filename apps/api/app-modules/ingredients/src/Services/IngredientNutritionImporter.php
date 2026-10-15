@@ -292,6 +292,9 @@ final readonly class IngredientNutritionImporter
                  * would queue a recompute that cannot change a single number.
                  */
                 if ($wroteEnvelope || self::canonical($ingredient->nutrition_per_100g) === self::canonical($fileEnvelope)) {
+                    if ($wroteEnvelope) {
+                        $ingredient->nutrition_source = null;
+                    }
                     if ($wroteEnvelope || $ingredient->nutrition_estimated === null) {
                         $ingredient->nutrition_estimated = (bool) ($row['estimated'] ?? false);
                     }

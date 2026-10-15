@@ -2,6 +2,15 @@
 
 return [
 
+    'open_food_facts' => [
+        'user_agent' => env('OPEN_FOOD_FACTS_USER_AGENT', 'Healthy360/1.0 (ingredient-allergen-lookup)'),
+    ],
+
+    'usda_fdc' => [
+        'key' => env('USDA_FDC_API_KEY'),
+        'budget' => (int) env('USDA_FDC_HOURLY_BUDGET', 900),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Third Party Services

@@ -3,11 +3,33 @@ import { describe, expect, it } from 'vitest';
 import type { AdminCatalogueItem, EnergyBand, PlanVariantCell } from '../generated/types.ts';
 import {
     mapIngredientPublishableStatus,
+    mapIngredientAllergenMapping,
     mapMealAdminFromItem,
     mapPlanVariantsFromCells,
     mapProductAdminFromItem,
     planDurationsFromAssignments,
 } from './kitchen-admin-mappers.ts';
+
+it('preserves pending allergen verification and writable layer information', () => {
+    for (const status of ['requires_review', 'requires_supplier_confirmation'] as const) {
+        const mapped = mapIngredientAllergenMapping({
+            id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e3001',
+            allergen_code: 'milk',
+            layer: 'organisation_overlay',
+            organisation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e3900',
+            containment: 'contains',
+            market_scope: 'all',
+            source: 'supplier_declaration',
+            verification_status: status,
+            evidence: 'Supplier label',
+            lookup_source: { attribution: 'Open Food Facts — ODbL', ref: 'off:3017620422003' },
+        });
+        expect(mapped.verification).toBe(status);
+        expect(mapped.layer).toBe('organisation_overlay');
+        expect(mapped.sourceNote).toBe('Supplier label');
+        expect(mapped.lookupSource?.['ref']).toBe('off:3017620422003');
+    }
+});
 
 describe('mapIngredientPublishableStatus', () => {
     it('maps archived rows to retired', () => {

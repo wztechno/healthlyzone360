@@ -228,6 +228,8 @@ export type AllergenContainment = (typeof ALLERGEN_CONTAINMENTS)[number];
 /** How well established a mapping is. Ordered weakest to strongest. */
 export const ALLERGEN_VERIFICATIONS = [
     'unverified',
+    'requires_review',
+    'requires_supplier_confirmation',
     'supplier_declared',
     'laboratory_tested',
     'operator_confirmed',
@@ -235,6 +237,7 @@ export const ALLERGEN_VERIFICATIONS = [
 export type AllergenVerification = (typeof ALLERGEN_VERIFICATIONS)[number];
 
 export interface IngredientAllergenMapping {
+    readonly layer?: 'platform_baseline' | 'organisation_overlay';
     readonly allergenCode: AllergenCode;
     readonly containment: AllergenContainment;
     /**
@@ -246,6 +249,81 @@ export interface IngredientAllergenMapping {
     readonly verification: AllergenVerification;
     /** Where the determination came from — a supplier specification, a test report, a person. */
     readonly sourceNote: string | null;
+    readonly lookupSource?: Readonly<Record<string, unknown>> | null;
+}
+
+export interface AllergenReferenceCandidate {
+    readonly ref: string;
+    readonly provider: 'open_food_facts';
+    readonly label: string;
+    readonly brand: string | null;
+    readonly source_url: string;
+    readonly attribution: string;
+    readonly mappings: readonly {
+        readonly allergen_code: string;
+        readonly containment: AllergenContainment;
+        readonly source_tag: string;
+    }[];
+    readonly unmapped_terms: readonly string[];
+    readonly source_hash: string;
+    readonly retrieved_at: string;
+    readonly importable: boolean;
+    readonly selection_token: string | null;
+}
+
+export interface AllergenReferenceSelection {
+    readonly candidate: AllergenReferenceCandidate;
+    readonly confirmed: boolean;
+}
+
+export interface AllergenReferenceSearchRequest {
+    readonly query: string;
+    readonly barcode?: string | undefined;
+}
+
+export interface AllergenReferenceSearchResult {
+    readonly candidates: readonly AllergenReferenceCandidate[];
+    readonly notices: readonly string[];
+}
+
+export interface ImportIngredientAllergenReferenceRequest {
+    readonly selectionToken: string;
+    readonly reviewToken: string;
+    readonly confirmed: true;
+}
+
+export interface NutritionReferenceSelection {
+    readonly ref: string;
+    readonly sourceHash: string;
+    readonly confirmed: boolean;
+}
+
+export interface NutritionReferenceCandidate {
+    readonly ref: string;
+    readonly provider: 'usda';
+    readonly label: string;
+    readonly brand: string | null;
+    readonly data_type: string;
+    readonly nutrition_per_100g: {
+        readonly basis: 'per_100g';
+        readonly amounts: readonly {
+            readonly nutrient_id: string;
+            readonly value: number;
+            readonly unit: string;
+        }[];
+    };
+    readonly suitable: boolean;
+    readonly reasons: readonly string[];
+    readonly missing_nutrients: readonly string[];
+    readonly source_hash: string;
+    readonly retrieved_at: string;
+}
+
+export interface ConfirmIngredientAllergensRequest {
+    readonly reviewToken: string;
+    readonly evidence: string;
+    readonly supplierEvidence?: string | undefined;
+    readonly confirmNoAllergens: boolean;
 }
 
 /**
@@ -280,6 +358,9 @@ export interface IngredientCategoryAdmin {
 }
 
 export interface IngredientAdmin {
+    readonly nutritionSource?: Readonly<Record<string, unknown>> | null;
+    readonly allergenReviewRequired?: boolean;
+    readonly allergenReviewToken?: string | null;
     readonly id: IngredientId;
     readonly meta: AdminEntityMeta;
     readonly name: LocalisedText;
@@ -581,6 +662,8 @@ export type IngredientAdminSort =
 export type IngredientReferenceSeries = 'ING-' | 'PKG-';
 
 export interface CreateIngredientRequest {
+    readonly allergenReference?: AllergenReferenceSelection | undefined;
+    readonly nutritionReference?: NutritionReferenceSelection | undefined;
     readonly name: LocalisedText;
     readonly categoryCode: string;
     /** Must be a child of `categoryCode`; the server refuses a leaf from another branch. */
@@ -591,16 +674,6 @@ export interface CreateIngredientRequest {
     readonly itemsPerUnit?: number | undefined;
     /** Mass of one `measurementUnit` in grams; omit on a mass unit, which needs none. */
     readonly gramsPerUnit?: number | undefined;
-    /**
-     * Per-100 g reference facts, when the form collected a complete set. Only `amounts` is sent —
-     * the server stores a slim envelope and dates it itself, so the provenance this type carries
-     * is the reader's, not the writer's.
-     */
-    readonly per100g?: NutritionFacts | undefined;
-    /** `true` marks the facts representative rather than declared. Omitted beside facts means `false`. */
-    readonly nutritionEstimated?: boolean | undefined;
-    /** One sentence about the figures, up to 300 characters. */
-    readonly nutritionNote?: string | undefined;
     readonly b2bPrice?: CostAmount | undefined;
     readonly b2cPrice?: CostAmount | undefined;
     readonly unitPrice?: CostAmount | undefined;
@@ -613,6 +686,7 @@ export interface CreateIngredientRequest {
 }
 
 export interface UpdateIngredientRequest extends LockedRequest {
+    readonly nutritionReference?: NutritionReferenceSelection | undefined;
     readonly name?: LocalisedText | undefined;
     readonly categoryCode?: string | undefined;
     /** `null` files the ingredient at the top level. Must be a child of the effective category. */
@@ -634,17 +708,6 @@ export interface UpdateIngredientRequest extends LockedRequest {
     readonly unitPrice?: CostAmount | null | undefined;
     /** No null state: the column defaults to false, so omit the field to leave it alone. */
     readonly isSellable?: boolean | undefined;
-    /** Per-100 g reference facts; `null` clears them. */
-    readonly per100g?: NutritionFacts | null | undefined;
-    /**
-     * `true` marks the facts representative rather than declared; `null` says nobody has.
-     *
-     * Sending {@link per100g} without this resets it to `false`, and clearing the facts resets it
-     * to `null` — the provenance belongs to the figures, so a replacement replaces it.
-     */
-    readonly nutritionEstimated?: boolean | null | undefined;
-    /** One sentence about the figures; `null` clears it, and so does sending {@link per100g} alone. */
-    readonly nutritionNote?: string | null | undefined;
     readonly reference?: string | null | undefined;
     readonly costPer100g?: CostAmount | null | undefined;
     readonly dietClassifications?: readonly DietClassification[] | undefined;
@@ -2098,6 +2161,18 @@ export interface SetBranchOperatingRequest extends LockedRequest {
  * tenant's rows.
  */
 export interface KitchenAdminRepository {
+    searchAllergenReferences(
+        request: AllergenReferenceSearchRequest,
+    ): Promise<AllergenReferenceSearchResult>;
+    importIngredientAllergenReference(
+        ingredientId: IngredientId,
+        request: ImportIngredientAllergenReferenceRequest,
+    ): Promise<IngredientAdmin>;
+    searchNutritionReferences(query: string): Promise<readonly NutritionReferenceCandidate[]>;
+    confirmIngredientAllergens(
+        ingredientId: IngredientId,
+        request: ConfirmIngredientAllergensRequest,
+    ): Promise<IngredientAdmin>;
     /* ── platform reference (read-only) ─────────────────────────────────────────────────────── */
 
     /**

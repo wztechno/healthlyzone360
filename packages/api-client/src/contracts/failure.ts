@@ -194,6 +194,9 @@ export const API_FAILURE_CODES = [
     'offboarding.refused',
     'offboarding.settlement_outstanding',
     'record_export.unavailable',
+    'allergens.provider_unavailable',
+    'nutrition.provider_unavailable',
+    'nutrition.provider_configuration',
     'network',
     'server',
     'prototype.not_implemented',
@@ -380,6 +383,7 @@ export type ApiFailure =
 
 /** Codes where retrying the same request unchanged is pointless or harmful. */
 const NEVER_RETRYABLE: ReadonlySet<ApiFailureCode> = new Set<ApiFailureCode>([
+    'nutrition.provider_configuration',
     'auth.invalid_credentials',
     'auth.unauthenticated',
     'auth.email_unverified',
@@ -476,6 +480,10 @@ export interface FailureOptions {
 
 /** Human-readable last resort. Screens translate by code; this is what reaches logs. */
 const FALLBACK_MESSAGES: Readonly<Record<ApiFailureCode, string>> = {
+    'allergens.provider_unavailable': 'Allergen lookup is temporarily unavailable. Try later.',
+    'nutrition.provider_unavailable':
+        'Nutrition lookup is temporarily unavailable. Please retry later.',
+    'nutrition.provider_configuration': 'Nutrition lookup requires administrator configuration.',
     'auth.invalid_credentials': 'Those credentials do not match our records.',
     'auth.unauthenticated': 'This session is no longer valid.',
     'auth.email_unverified': 'This email address has not been confirmed yet.',

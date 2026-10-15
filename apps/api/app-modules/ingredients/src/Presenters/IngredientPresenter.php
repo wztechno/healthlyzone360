@@ -8,6 +8,7 @@ use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAlias;
 use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Ingredients\Models\IngredientCategory;
+use Healthy360\Ingredients\Services\AllergenMappingService;
 use Healthy360\Ingredients\Services\IngredientCatalogueService;
 
 /**
@@ -30,7 +31,7 @@ use Healthy360\Ingredients\Services\IngredientCatalogueService;
  */
 final class IngredientPresenter
 {
-    public function __construct(private readonly IngredientCatalogueService $catalogue) {}
+    public function __construct(private readonly IngredientCatalogueService $catalogue, private readonly AllergenMappingService $mappings) {}
 
     /**
      * @param  iterable<IngredientAllergen>|null  $allergens  the mappings visible to this caller,
@@ -132,6 +133,11 @@ final class IngredientPresenter
             'capacity_quantity' => $ingredient->capacity_quantity === null ? null : (string) $ingredient->capacity_quantity,
             'capacity_unit_code' => $ingredient->relationLoaded('capacityUnit') ? $ingredient->capacityUnit?->code : null,
             'nutrition_per_100g' => $ingredient->nutrition_per_100g,
+            'nutrition_source' => $ingredient->nutrition_source,
+            'allergen_review_required' => $ingredient->allergen_review_required,
+            'allergens_reviewed_by' => $ingredient->allergens_reviewed_by,
+            'allergens_reviewed_at' => $ingredient->allergens_reviewed_at?->toIso8601String(),
+            'allergens_review_evidence' => $ingredient->allergens_review_evidence,
             /*
              * Set when the facts above were derived from a published recipe version rather than
              * entered — a sub-recipe's output, whose nutrition is whatever the recipe that makes it
@@ -174,6 +180,7 @@ final class IngredientPresenter
         // Added rather than spread in: a conditional spread leaves the shape of what comes back
         // unknowable, and this array is the documented one every catalogue response is built on.
         if ($allergens !== null) {
+            $presented['allergen_review_token'] = $this->mappings->reviewToken($ingredient, $allergens);
             $presented['allergens'] = array_values(array_map(
                 fn (IngredientAllergen $mapping): array => $this->mapping($mapping),
                 is_array($allergens) ? $allergens : iterator_to_array($allergens),
@@ -256,6 +263,10 @@ final class IngredientPresenter
             'source' => $mapping->source->value,
             'verification_status' => $mapping->verification_status->value,
             'evidence' => $mapping->evidence,
+            'reviewed_by' => $mapping->reviewed_by,
+            'reviewed_at' => $mapping->reviewed_at?->toIso8601String(),
+            'review_evidence' => $mapping->review_evidence,
+            'lookup_source' => $mapping->lookup_source,
         ];
     }
 }

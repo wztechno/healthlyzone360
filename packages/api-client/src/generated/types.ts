@@ -24,7 +24,7 @@ export type Meta = {
  * `Healthy360\Support\Api\ErrorCode`; a Pest test asserts the two agree.
  *
  */
-export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'cart.channel_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'b2b.quotation_state_invalid' | 'b2b.quotation_empty' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'payment.refund_exceeds_capture' | 'inventory.insufficient_stock' | 'production.state_invalid' | 'production.plan_refused' | 'production.consumption_recorded' | 'unit.conversion_unsupported' | 'access.self_lockout' | 'rate_limit.exceeded' | 'server.internal_error';
+export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'cart.channel_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'b2b.quotation_state_invalid' | 'b2b.quotation_empty' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'payment.refund_exceeds_capture' | 'inventory.insufficient_stock' | 'production.state_invalid' | 'production.plan_refused' | 'production.consumption_recorded' | 'unit.conversion_unsupported' | 'access.self_lockout' | 'rate_limit.exceeded' | 'server.internal_error' | 'allergens.provider_unavailable' | 'nutrition.provider_unavailable' | 'nutrition.provider_configuration';
 
 export type Error = {
     code: ErrorCode;
@@ -402,6 +402,14 @@ export type IngredientNutritionPer100g = {
  *
  */
 export type AdminIngredient = {
+    nutrition_source?: {
+        [key: string]: unknown;
+    } | null;
+    allergen_review_required?: boolean;
+    allergen_review_token?: string;
+    allergens_reviewed_by?: string | null;
+    allergens_reviewed_at?: string | null;
+    allergens_review_evidence?: string | null;
     id: Uuid;
     /**
      * Null for a platform-library row.
@@ -637,6 +645,12 @@ export type IngredientCategoryEnvelope = {
 };
 
 export type IngredientAllergenMapping = {
+    lookup_source?: {
+        [key: string]: unknown;
+    } | null;
+    reviewed_by?: string | null;
+    reviewed_at?: string | null;
+    review_evidence?: string | null;
     id: Uuid;
     allergen_code: AllergenCode;
     /**
@@ -672,7 +686,60 @@ export type IngredientAllergenCollection = {
     meta: Meta;
 };
 
+export type AllergenReferenceSearchResult = {
+    candidates: Array<AllergenReferenceCandidate>;
+    notices: Array<string>;
+};
+
+export type AllergenReferenceCandidate = {
+    ref: string;
+    provider: 'open_food_facts';
+    label: string;
+    brand: string | null;
+    source_url: string;
+    attribution: string;
+    mappings: Array<{
+        allergen_code: AllergenCode;
+        containment: 'contains' | 'may_contain';
+        source_tag: string;
+    }>;
+    unmapped_terms: Array<string>;
+    source_hash: string;
+    retrieved_at: string;
+    importable: boolean;
+    selection_token: string | null;
+};
+
+export type NutritionReferenceCandidate = {
+    ref: string;
+    provider: 'usda';
+    label: string;
+    brand: string | null;
+    data_type: string;
+    nutrition_per_100g: IngredientNutritionPer100g;
+    suitable: boolean;
+    reasons: Array<string>;
+    missing_nutrients: Array<string>;
+    source_hash: string;
+    retrieved_at: string;
+};
+
+export type ConfirmIngredientAllergensRequest = {
+    review_token: string;
+    evidence: string;
+    supplier_evidence?: string | null;
+    confirm_no_allergens?: boolean;
+};
+
 export type CreateIngredientRequest = {
+    allergen_reference_token?: string;
+    allergen_reference_confirmed?: true;
+    /**
+     * Required for new food and packaging-to-food transitions; prohibited on packaging and derived ingredients.
+     */
+    nutrition_reference?: string;
+    nutrition_reference_hash?: string;
+    nutrition_reference_confirmed?: true;
     name_en: string;
     /**
      * Falls back to the English name when absent.
@@ -696,25 +763,6 @@ export type CreateIngredientRequest = {
      *
      */
     grams_per_unit?: number | null;
-    nutrition_per_100g?: IngredientNutritionPer100g | null;
-    /**
-     * Whether `nutrition_per_100g` is a representative figure rather than
-     * a declared one. Omit it beside a set of facts and the server records
-     * `false` — a typed figure is a declaration unless the writer says
-     * otherwise. Send `true` for a figure that is true of the category
-     * rather than measured of this ingredient. `null` says nobody has
-     * said, and is what clearing the facts leaves behind.
-     *
-     */
-    nutrition_estimated?: boolean | null;
-    /**
-     * One sentence about the figures — their basis, a caveat, the brand
-     * they were read off. Cleared whenever `nutrition_per_100g` is sent
-     * without it: a note describes the numbers beside it, and a
-     * replacement leaves it describing nothing.
-     *
-     */
-    nutrition_note?: string | null;
     /**
      * Trade list price in major currency units. Requires `price_currency_code`.
      */
@@ -747,6 +795,12 @@ export type CreateIngredientRequest = {
  *
  */
 export type UpdateIngredientRequest = {
+    /**
+     * Required for new food and packaging-to-food transitions; prohibited on packaging and derived ingredients.
+     */
+    nutrition_reference?: string;
+    nutrition_reference_hash?: string;
+    nutrition_reference_confirmed?: true;
     name_en?: string;
     name_ar?: string;
     ingredient_category_id?: Uuid | null;
@@ -766,25 +820,6 @@ export type UpdateIngredientRequest = {
      *
      */
     grams_per_unit?: number | null;
-    nutrition_per_100g?: IngredientNutritionPer100g | null;
-    /**
-     * Whether `nutrition_per_100g` is a representative figure rather than
-     * a declared one. Omit it beside a set of facts and the server records
-     * `false` — a typed figure is a declaration unless the writer says
-     * otherwise. Send `true` for a figure that is true of the category
-     * rather than measured of this ingredient. `null` says nobody has
-     * said, and is what clearing the facts leaves behind.
-     *
-     */
-    nutrition_estimated?: boolean | null;
-    /**
-     * One sentence about the figures — their basis, a caveat, the brand
-     * they were read off. Cleared whenever `nutrition_per_100g` is sent
-     * without it: a note describes the numbers beside it, and a
-     * replacement leaves it describing nothing.
-     *
-     */
-    nutrition_note?: string | null;
     /**
      * Trade list price in major currency units. Requires `price_currency_code`.
      */
@@ -15612,6 +15647,14 @@ export type CreateIngredientErrors = {
      */
     403: ErrorEnvelope;
     /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
      * The submitted data is invalid.
      */
     422: ErrorEnvelope;
@@ -15619,6 +15662,10 @@ export type CreateIngredientErrors = {
      * The rate limit for this endpoint was exceeded.
      */
     429: ErrorEnvelope;
+    /**
+     * Nutrition provider temporarily unavailable or requires administrator configuration. details.retryable distinguishes the cases.
+     */
+    503: ErrorEnvelope;
 };
 
 export type CreateIngredientError = CreateIngredientErrors[keyof CreateIngredientErrors];
@@ -15631,6 +15678,243 @@ export type CreateIngredientResponses = {
 };
 
 export type CreateIngredientResponse = CreateIngredientResponses[keyof CreateIngredientResponses];
+
+export type SearchAllergenReferencesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+    };
+    path?: never;
+    query?: {
+        q?: string;
+        barcode?: string;
+    };
+    url: '/catalogue/ingredients/allergen-references';
+};
+
+export type SearchAllergenReferencesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+};
+
+export type SearchAllergenReferencesError = SearchAllergenReferencesErrors[keyof SearchAllergenReferencesErrors];
+
+export type SearchAllergenReferencesResponses = {
+    /**
+     * Suggestions and provider-specific availability notices.
+     */
+    200: {
+        data: AllergenReferenceSearchResult;
+        meta: Meta;
+    };
+};
+
+export type SearchAllergenReferencesResponse = SearchAllergenReferencesResponses[keyof SearchAllergenReferencesResponses];
+
+export type ImportIngredientAllergenReferenceData = {
+    body: {
+        selection_token: string;
+        review_token: string;
+        confirmed: true;
+    };
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+    };
+    path: {
+        /**
+         * The ingredient identifier.
+         */
+        ingredient: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/ingredients/{ingredient}/allergens/import-reference';
+};
+
+export type ImportIngredientAllergenReferenceErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * Allergen provider unavailable; retryable.
+     */
+    503: ErrorEnvelope;
+};
+
+export type ImportIngredientAllergenReferenceError = ImportIngredientAllergenReferenceErrors[keyof ImportIngredientAllergenReferenceErrors];
+
+export type ImportIngredientAllergenReferenceResponses = {
+    /**
+     * Refreshed ingredient, mappings and review token.
+     */
+    200: IngredientEnvelope;
+};
+
+export type ImportIngredientAllergenReferenceResponse = ImportIngredientAllergenReferenceResponses[keyof ImportIngredientAllergenReferenceResponses];
+
+export type SearchNutritionReferencesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+    };
+    path?: never;
+    query: {
+        q: string;
+    };
+    url: '/catalogue/ingredients/nutrition-references';
+};
+
+export type SearchNutritionReferencesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * Nutrition provider temporarily unavailable or requires administrator configuration. details.retryable distinguishes the cases.
+     */
+    503: ErrorEnvelope;
+};
+
+export type SearchNutritionReferencesError = SearchNutritionReferencesErrors[keyof SearchNutritionReferencesErrors];
+
+export type SearchNutritionReferencesResponses = {
+    /**
+     * Hydrated candidate references, including unsuitable candidates and rejection reasons.
+     */
+    200: {
+        data: Array<NutritionReferenceCandidate>;
+        meta: Meta;
+    };
+};
+
+export type SearchNutritionReferencesResponse = SearchNutritionReferencesResponses[keyof SearchNutritionReferencesResponses];
+
+export type ConfirmIngredientAllergensData = {
+    body: ConfirmIngredientAllergensRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+    };
+    path: {
+        /**
+         * The ingredient identifier.
+         */
+        ingredient: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/ingredients/{ingredient}/allergens/confirm';
+};
+
+export type ConfirmIngredientAllergensErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+};
+
+export type ConfirmIngredientAllergensError = ConfirmIngredientAllergensErrors[keyof ConfirmIngredientAllergensErrors];
+
+export type ConfirmIngredientAllergensResponses = {
+    /**
+     * Refreshed ingredient, mappings and review token.
+     */
+    200: IngredientEnvelope;
+};
+
+export type ConfirmIngredientAllergensResponse = ConfirmIngredientAllergensResponses[keyof ConfirmIngredientAllergensResponses];
 
 export type ShowIngredientData = {
     body?: never;
@@ -15780,6 +16064,10 @@ export type UpdateIngredientErrors = {
      * The rate limit for this endpoint was exceeded.
      */
     429: ErrorEnvelope;
+    /**
+     * Nutrition provider temporarily unavailable or requires administrator configuration. details.retryable distinguishes the cases.
+     */
+    503: ErrorEnvelope;
 };
 
 export type UpdateIngredientError = UpdateIngredientErrors[keyof UpdateIngredientErrors];

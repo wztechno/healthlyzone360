@@ -9,6 +9,7 @@ use Healthy360\Ingredients\Enums\AvailabilityTier;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
+use Illuminate\Validation\Validator;
 
 /**
  * Validation for creating a tenant ingredient.
@@ -83,6 +84,40 @@ class StoreIngredientRequest extends FormRequest
             'nutrition_estimated' => ['sometimes', 'nullable', 'boolean'],
             'nutrition_note' => ['sometimes', 'nullable', 'string', 'max:300'],
         ];
+    }
+
+    /** @return array<string, mixed> */
+    public static function referenceRules(): array
+    {
+        $absent = function (string $attribute, mixed $value, Closure $fail): void {
+            $fail('Nutrition facts and provenance are managed by the server.');
+        };
+
+        return [
+            'nutrition_per_100g' => ['sometimes', $absent],
+            'nutrition_estimated' => ['sometimes', $absent],
+            'nutrition_note' => ['sometimes', $absent],
+            'nutrition_source' => ['sometimes', $absent],
+            'nutrition_reference' => ['required_with:nutrition_reference_hash,nutrition_reference_confirmed', 'string', 'regex:/^usda:[0-9]+$/D', 'max:40'],
+            'nutrition_reference_hash' => ['required_with:nutrition_reference', 'string', 'regex:/^[a-f0-9]{64}$/D'],
+            'nutrition_reference_confirmed' => ['required_with:nutrition_reference', 'boolean', function (string $attribute, mixed $value, Closure $fail): void {
+                if ($value !== true && $value !== 1 && $value !== '1') {
+                    $fail('Confirm the purchased preparation state before saving.');
+                }
+            }],
+        ];
+    }
+
+    /** Reject even null-valued attempts to write protected fields. */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            foreach (['nutrition_per_100g', 'nutrition_estimated', 'nutrition_note', 'nutrition_source'] as $field) {
+                if (array_key_exists($field, $this->all()) && ! $validator->errors()->has($field)) {
+                    $validator->errors()->add($field, 'Nutrition facts and provenance are managed by the server.');
+                }
+            }
+        });
     }
 
     /**
@@ -180,7 +215,13 @@ class StoreIngredientRequest extends FormRequest
             'is_sellable' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
             ...self::priceRules(),
-            ...self::nutritionRules(),
+            ...self::referenceRules(),
+            'allergen_reference_token' => ['required_with:allergen_reference_confirmed', 'string', 'max:30000'],
+            'allergen_reference_confirmed' => ['required_with:allergen_reference_token', 'boolean', function (string $attribute, mixed $value, Closure $fail): void {
+                if ($value !== true && $value !== 1 && $value !== '1') {
+                    $fail('Confirm that the selected product matches the purchased ingredient.');
+                }
+            }],
         ];
     }
 }

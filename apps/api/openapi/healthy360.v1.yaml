@@ -1750,6 +1750,162 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/NutritionProviderFailure'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+
+  /catalogue/ingredients/allergen-references:
+    get:
+      operationId: searchAllergenReferences
+      tags: [Kitchen catalogue]
+      summary: Search Open Food Facts for allergen suggestions
+      description: Requires catalogue management permission. Supply q or barcode. Results never certify absence.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: q
+          in: query
+          schema: { type: string, minLength: 2, maxLength: 150 }
+        - name: barcode
+          in: query
+          schema: { type: string, pattern: '^[0-9]{8,14}$' }
+      responses:
+        '200':
+          description: Suggestions and provider-specific availability notices.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AllergenReferenceSearchResult'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /catalogue/ingredients/{ingredient}/allergens/import-reference:
+    post:
+      operationId: importIngredientAllergenReference
+      tags: [Kitchen catalogue]
+      summary: Add product suggestions to the caller's allergen layer
+      description: Requires catalogue management permission and trading context. Only adds or strengthens pending mappings, preserving supplier-confirmation requirements and existing declarations. Never certifies absence.
+      parameters:
+        - $ref: '#/components/parameters/IngredientPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [selection_token, review_token, confirmed]
+              properties:
+                selection_token: { type: string, maxLength: 30000 }
+                review_token: { type: string, pattern: '^[a-f0-9]{64}$' }
+                confirmed: { type: boolean, const: true }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Refreshed ingredient, mappings and review token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngredientEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          description: Allergen provider unavailable; retryable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /catalogue/ingredients/nutrition-references:
+    get:
+      operationId: searchNutritionReferences
+      tags: [Kitchen catalogue]
+      summary: Search USDA nutrition references
+      description: Requires catalogue management permission. Results are representative estimates; allergens require separate assessment.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 150
+      responses:
+        '200':
+          description: Hydrated candidate references, including unsuitable candidates and rejection reasons.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    maxItems: 10
+                    items:
+                      $ref: '#/components/schemas/NutritionReferenceCandidate'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/NutritionProviderFailure'
+
+  /catalogue/ingredients/{ingredient}/allergens/confirm:
+    post:
+      operationId: confirmIngredientAllergens
+      tags: [Kitchen catalogue]
+      summary: Confirm the caller’s complete allergen assessment
+      description: Requires catalogue management permission and trading context. A snapshot token protects all market scopes in the caller’s layer; baseline rows remain protected.
+      parameters:
+        - $ref: '#/components/parameters/IngredientPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmIngredientAllergensRequest'
+      responses:
+        '200':
+          description: Refreshed ingredient, mappings and review token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngredientEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
 
   /catalogue/ingredients/{ingredient}:
     get:
@@ -1862,6 +2018,8 @@ paths:
           $ref: '#/components/responses/PreconditionRequired'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/NutritionProviderFailure'
 
   /catalogue/ingredients/{ingredient}/archive:
     post:
@@ -21960,6 +22118,13 @@ components:
         $ref: '#/components/schemas/Uuid'
 
   responses:
+    NutritionProviderFailure:
+      description: Nutrition provider temporarily unavailable or requires administrator configuration. details.retryable distinguishes the cases.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+
     Accepted:
       description: Accepted for delivery.
       headers:
@@ -23312,6 +23477,9 @@ components:
         - access.self_lockout
         - rate_limit.exceeded
         - server.internal_error
+        - allergens.provider_unavailable
+        - nutrition.provider_unavailable
+        - nutrition.provider_configuration
 
     Error:
       type: object
@@ -23869,6 +24037,21 @@ components:
         ignores `Accept-Language` for them: a bilingual editor has to see what
         it is editing. There is no public ingredient projection.
       properties:
+        nutrition_source:
+          type: [object, 'null']
+          additionalProperties: true
+        allergen_review_required:
+          type: boolean
+        allergen_review_token:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        allergens_reviewed_by:
+          type: ['string', 'null']
+        allergens_reviewed_at:
+          type: ['string', 'null']
+          format: date-time
+        allergens_review_evidence:
+          type: ['string', 'null']
         id:
           $ref: '#/components/schemas/Uuid'
         organisation_id:
@@ -24169,6 +24352,16 @@ components:
       type: object
       required: [id, allergen_code, layer, organisation_id, containment, market_scope, source, verification_status]
       properties:
+        lookup_source:
+          type: [object, 'null']
+          additionalProperties: true
+        reviewed_by:
+          type: ['string', 'null']
+        reviewed_at:
+          type: ['string', 'null']
+          format: date-time
+        review_evidence:
+          type: ['string', 'null']
         id:
           $ref: '#/components/schemas/Uuid'
         allergen_code:
@@ -24218,10 +24411,125 @@ components:
         meta:
           $ref: '#/components/schemas/Meta'
 
+    AllergenReferenceSearchResult:
+      type: object
+      required: [candidates, notices]
+      properties:
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/AllergenReferenceCandidate'
+        notices:
+          type: array
+          items: { type: string }
+      additionalProperties: false
+
+    AllergenReferenceCandidate:
+      type: object
+      required: [ref, provider, label, brand, source_url, attribution, mappings, unmapped_terms, source_hash, retrieved_at, importable, selection_token]
+      properties:
+        ref: { type: string }
+        provider: { type: string, enum: [open_food_facts] }
+        label: { type: string }
+        brand: { type: [string, 'null'] }
+        source_url: { type: string, format: uri }
+        attribution: { type: string }
+        mappings:
+          type: array
+          items:
+            type: object
+            required: [allergen_code, containment, source_tag]
+            properties:
+              allergen_code:
+                $ref: '#/components/schemas/AllergenCode'
+              containment: { type: string, enum: [contains, may_contain] }
+              source_tag: { type: string }
+            additionalProperties: false
+        unmapped_terms:
+          type: array
+          items: { type: string }
+        source_hash: { type: string }
+        retrieved_at: { type: string, format: date-time }
+        importable: { type: boolean }
+        selection_token: { type: [string, 'null'] }
+      additionalProperties: false
+
+    NutritionReferenceCandidate:
+      type: object
+      required: [ref, provider, label, brand, data_type, nutrition_per_100g, suitable, reasons, missing_nutrients, source_hash, retrieved_at]
+      properties:
+        ref:
+          type: string
+        provider:
+          type: string
+          enum: [usda]
+        label:
+          type: string
+        brand:
+          type: ['string', 'null']
+        data_type:
+          type: string
+        nutrition_per_100g:
+          $ref: '#/components/schemas/IngredientNutritionPer100g'
+        suitable:
+          type: boolean
+        reasons:
+          type: array
+          items:
+            type: string
+        missing_nutrients:
+          type: array
+          items:
+            type: string
+        source_hash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        retrieved_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    ConfirmIngredientAllergensRequest:
+      type: object
+      required: [review_token, evidence]
+      properties:
+        review_token:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        evidence:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        supplier_evidence:
+          type: ['string', 'null']
+          maxLength: 2000
+        confirm_no_allergens:
+          type: boolean
+      additionalProperties: false
+
     CreateIngredientRequest:
       type: object
       required: [name_en, default_unit_id]
+      dependentRequired:
+        allergen_reference_token: [allergen_reference_confirmed]
+        allergen_reference_confirmed: [allergen_reference_token]
+        nutrition_reference: [nutrition_reference_hash, nutrition_reference_confirmed]
+        nutrition_reference_hash: [nutrition_reference, nutrition_reference_confirmed]
+        nutrition_reference_confirmed: [nutrition_reference, nutrition_reference_hash]
       properties:
+        allergen_reference_token: { type: string, maxLength: 30000 }
+        allergen_reference_confirmed: { type: boolean, const: true }
+        nutrition_reference:
+          type: string
+          pattern: '^usda:[0-9]+$'
+          maxLength: 40
+          description: Required for new food and packaging-to-food transitions; prohibited on packaging and derived ingredients.
+        nutrition_reference_hash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        nutrition_reference_confirmed:
+          type: boolean
+          const: true
         name_en:
           type: string
           maxLength: 255
@@ -24263,27 +24571,9 @@ components:
             non-mass unit. `minimum` is the column's own precision, so a value
             that would round to zero is refused here rather than by the
             database CHECK.
-        nutrition_per_100g:
-          oneOf:
-            - $ref: '#/components/schemas/IngredientNutritionPer100g'
-            - type: 'null'
-        nutrition_estimated:
-          type: ['boolean', 'null']
-          description: |
-            Whether `nutrition_per_100g` is a representative figure rather than
-            a declared one. Omit it beside a set of facts and the server records
-            `false` — a typed figure is a declaration unless the writer says
-            otherwise. Send `true` for a figure that is true of the category
-            rather than measured of this ingredient. `null` says nobody has
-            said, and is what clearing the facts leaves behind.
-        nutrition_note:
-          type: ['string', 'null']
-          maxLength: 300
-          description: |
-            One sentence about the figures — their basis, a caveat, the brand
-            they were read off. Cleared whenever `nutrition_per_100g` is sent
-            without it: a note describes the numbers beside it, and a
-            replacement leaves it describing nothing.
+
+
+
         b2b_price_amount:
           type: ['number', 'null']
           minimum: 0
@@ -24322,7 +24612,22 @@ components:
         A partial update. `slug` and `status` are absent by design — the slug
         is the handle a re-import converges on, and status changes are
         lifecycle actions with their own routes.
+      dependentRequired:
+        nutrition_reference: [nutrition_reference_hash, nutrition_reference_confirmed]
+        nutrition_reference_hash: [nutrition_reference, nutrition_reference_confirmed]
+        nutrition_reference_confirmed: [nutrition_reference, nutrition_reference_hash]
       properties:
+        nutrition_reference:
+          type: string
+          pattern: '^usda:[0-9]+$'
+          maxLength: 40
+          description: Required for new food and packaging-to-food transitions; prohibited on packaging and derived ingredients.
+        nutrition_reference_hash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        nutrition_reference_confirmed:
+          type: boolean
+          const: true
         name_en:
           type: string
           maxLength: 255
@@ -24361,27 +24666,9 @@ components:
 
             Sent as `null` to clear. Cleared by the server when
             `default_unit_id` changes without a new figure beside it.
-        nutrition_per_100g:
-          oneOf:
-            - $ref: '#/components/schemas/IngredientNutritionPer100g'
-            - type: 'null'
-        nutrition_estimated:
-          type: ['boolean', 'null']
-          description: |
-            Whether `nutrition_per_100g` is a representative figure rather than
-            a declared one. Omit it beside a set of facts and the server records
-            `false` — a typed figure is a declaration unless the writer says
-            otherwise. Send `true` for a figure that is true of the category
-            rather than measured of this ingredient. `null` says nobody has
-            said, and is what clearing the facts leaves behind.
-        nutrition_note:
-          type: ['string', 'null']
-          maxLength: 300
-          description: |
-            One sentence about the figures — their basis, a caveat, the brand
-            they were read off. Cleared whenever `nutrition_per_100g` is sent
-            without it: a note describes the numbers beside it, and a
-            replacement leaves it describing nothing.
+
+
+
         b2b_price_amount:
           type: ['number', 'null']
           minimum: 0

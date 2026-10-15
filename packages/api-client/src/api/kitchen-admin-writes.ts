@@ -12,7 +12,7 @@ import type {
     PriceListId,
     RecipeVersionId,
 } from '@healthy360/domain-types';
-import type { MeasureUnit, NutritionFacts } from '@healthy360/nutrition';
+import type { MeasureUnit } from '@healthy360/nutrition';
 
 import type {
     BranchOperating,
@@ -29,6 +29,9 @@ import type {
     IngredientAdmin,
     IngredientAllergenMapping,
     KitchenAdminRepository,
+    AllergenReferenceSearchResult,
+    NutritionReferenceCandidate,
+    NutritionReferenceSelection,
     LockedRequest,
     MealAdmin,
     PlanAdmin,
@@ -105,6 +108,10 @@ export type ApiKitchenAdminWrites = Pick<
     | 'archiveIngredient'
     | 'forkIngredient'
     | 'setIngredientAllergens'
+    | 'searchAllergenReferences'
+    | 'importIngredientAllergenReference'
+    | 'searchNutritionReferences'
+    | 'confirmIngredientAllergens'
     | 'createRecipe'
     | 'createRecipeVersion'
     | 'updateRecipe'
@@ -324,6 +331,10 @@ function wireAllergenVerification(
     verification: IngredientAllergenMapping['verification'],
 ): string | undefined {
     switch (verification) {
+        case 'requires_review':
+            return 'requires_review';
+        case 'requires_supplier_confirmation':
+            return 'requires_supplier_confirmation';
         case 'operator_confirmed':
         case 'laboratory_tested':
             return 'verified';
@@ -596,47 +607,17 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
         });
     }
 
-    /**
-     * The three nutrition fields of an ingredient body, from the three the
-     * contract carries.
-     *
-     * One helper for create and update, because the two have to agree about
-     * more than the shape. `nutrition_per_100g` is a **slim** envelope —
-     * `{basis, amounts}` and nothing else: the column stores what an operator
-     * asserted, and the source/calculation provenance the full `NutritionFacts`
-     * carries is the *reader's* (see `mapIngredientPer100g`), regenerated on
-     * every read from the row's own timestamp. Sending it back would be echoing
-     * a derivation at the server as if it were input.
-     *
-     * The two provenance fields are sent only when the caller stated them. The
-     * server's own rule fills the gap — facts with no flag beside them are
-     * recorded as declared, and facts being cleared clear both — so a caller
-     * that means "declared" may say so or say nothing, and gets the same row.
-     */
-    function nutritionFields(
-        per100g: NutritionFacts | null | undefined,
-        estimated: boolean | null | undefined,
-        note: string | null | undefined,
+    /** Send only the reviewed reference. Figures and provenance are resolved by the server. */
+    function referenceFields(
+        selection: NutritionReferenceSelection | undefined,
     ): Record<string, unknown> {
-        return {
-            ...(per100g === undefined
-                ? {}
-                : {
-                      nutrition_per_100g:
-                          per100g === null
-                              ? null
-                              : {
-                                    basis: 'per_100g',
-                                    amounts: per100g.amounts.map((amount) => ({
-                                        nutrient_id: amount.nutrientId,
-                                        unit: amount.unit,
-                                        value: amount.value,
-                                    })),
-                                },
-                  }),
-            ...(estimated === undefined ? {} : { nutrition_estimated: estimated }),
-            ...(note === undefined ? {} : { nutrition_note: note }),
-        };
+        return selection === undefined
+            ? {}
+            : {
+                  nutrition_reference: selection.ref,
+                  nutrition_reference_hash: selection.sourceHash,
+                  nutrition_reference_confirmed: selection.confirmed,
+              };
     }
 
     /**
@@ -681,6 +662,48 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
     }
 
     return {
+        async searchAllergenReferences(request) {
+            const params = new URLSearchParams();
+            if (request.barcode) params.set('barcode', request.barcode);
+            else params.set('q', request.query);
+            return transport.request<AllergenReferenceSearchResult>({
+                method: 'GET',
+                path: `/catalogue/ingredients/allergen-references?${params.toString()}`,
+            });
+        },
+        async importIngredientAllergenReference(ingredientId, request) {
+            await transport.requestEnvelope({
+                method: 'POST',
+                path: `/catalogue/ingredients/${encodeURIComponent(String(ingredientId))}/allergens/import-reference`,
+                body: {
+                    selection_token: request.selectionToken,
+                    review_token: request.reviewToken,
+                    confirmed: request.confirmed,
+                },
+            });
+            return reads.getIngredient(ingredientId);
+        },
+        async searchNutritionReferences(query) {
+            return transport.request<readonly NutritionReferenceCandidate[]>({
+                method: 'GET',
+                path: `/catalogue/ingredients/nutrition-references?q=${encodeURIComponent(query)}`,
+            });
+        },
+        async confirmIngredientAllergens(ingredientId, request) {
+            await transport.requestEnvelope({
+                method: 'POST',
+                path: `/catalogue/ingredients/${encodeURIComponent(String(ingredientId))}/allergens/confirm`,
+                body: {
+                    review_token: request.reviewToken,
+                    evidence: request.evidence,
+                    ...(request.supplierEvidence === undefined
+                        ? {}
+                        : { supplier_evidence: request.supplierEvidence }),
+                    confirm_no_allergens: request.confirmNoAllergens,
+                },
+            });
+            return reads.getIngredient(ingredientId);
+        },
         async createIngredient(request: CreateIngredientRequest): Promise<IngredientAdmin> {
             const lookup = await loadCategoryLookup();
             const categoryId = lookup.codeToId.get(request.categoryCode);
@@ -718,11 +741,14 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                     // Same three fields, same flattening, as the update below — a create that
                     // dropped the facts made the form state them twice, which is how the first
                     // save after a create used to be the one that stuck.
-                    ...nutritionFields(
-                        request.per100g,
-                        request.nutritionEstimated,
-                        request.nutritionNote,
-                    ),
+                    ...(request.allergenReference === undefined
+                        ? {}
+                        : {
+                              allergen_reference_token:
+                                  request.allergenReference.candidate.selection_token,
+                              allergen_reference_confirmed: request.allergenReference.confirmed,
+                          }),
+                    ...referenceFields(request.nutritionReference),
                     ...priceFields(request.b2bPrice, request.b2cPrice, request.unitPrice),
                     ...(request.isSellable === undefined
                         ? {}
@@ -789,10 +815,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             if (request.gramsPerUnit !== undefined) body.grams_per_unit = request.gramsPerUnit;
             Object.assign(body, priceFields(request.b2bPrice, request.b2cPrice, request.unitPrice));
             if (request.isSellable !== undefined) body.is_sellable = request.isSellable;
-            Object.assign(
-                body,
-                nutritionFields(request.per100g, request.nutritionEstimated, request.nutritionNote),
-            );
+            Object.assign(body, referenceFields(request.nutritionReference));
             if (request.notes !== undefined) body.notes = request.notes;
 
             await transport.request({

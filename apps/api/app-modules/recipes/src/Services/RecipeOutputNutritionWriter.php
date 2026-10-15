@@ -129,6 +129,11 @@ final readonly class RecipeOutputNutritionWriter
             }
 
             $ingredient->nutrition_per_100g = $facts;
+            if ($ingredient->nutrition_source !== null) {
+                $ingredient->nutrition_estimated = null;
+                $ingredient->nutrition_note = null;
+            }
+            $ingredient->nutrition_source = null;
             $ingredient->nutrition_derived_from_version_id = $versionId;
 
             // The seeder's rule, for the seeder's reason and one more. Saving an

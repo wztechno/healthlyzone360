@@ -9,17 +9,21 @@ use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Identity\Models\UserProfile;
+use Healthy360\Ingredients\Contracts\IngredientUsageRegistry;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAlias;
 use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Ingredients\Models\IngredientCategory;
+use Healthy360\Ingredients\Nutrition\NutritionReferenceService;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Organisations\Models\OrganisationType;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Tests\SeedDatabaseOnce;
+use Tests\Support\NutritionReferenceFixture;
 
 /*
 |--------------------------------------------------------------------------
@@ -147,6 +151,216 @@ beforeEach(function (): void {
     $this->b = catalogueTenant('chef-b@kitchen.test');
 });
 
+it('requires a reference on new food and refuses protected null fields', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $this->postJson('/api/v1/catalogue/ingredients', ['name_en' => 'No reference', 'default_unit_id' => gramsId()], $headers)
+        ->assertStatus(422)->assertJsonPath('error.code', 'validation.failed');
+    foreach (['nutrition_per_100g', 'nutrition_estimated', 'nutrition_note', 'nutrition_source'] as $field) {
+        $this->postJson('/api/v1/catalogue/ingredients', ['name_en' => 'Null override', 'default_unit_id' => gramsId(), $field => null], $headers)
+            ->assertStatus(422)->assertJsonPath('error.code', 'validation.failed');
+    }
+});
+
+it('exempts packaging but requires nutrition when it becomes food', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $packagingId = IngredientCategory::withoutTenancy()->where('code', 'packaging-disposables')->sole()->getKey();
+    $created = $this->postJson('/api/v1/catalogue/ingredients', ['name_en' => 'New food box', 'default_unit_id' => gramsId(), 'ingredient_category_id' => $packagingId], $headers)
+        ->assertCreated()->assertJsonPath('data.ingredient.nutrition_per_100g', null);
+    $url = '/api/v1/catalogue/ingredients/'.$created->json('data.ingredient.id');
+    $this->patchJson($url, ['ingredient_category_id' => null], $headers + ['If-Match' => '"0"'])->assertStatus(422);
+    $this->patchJson($url, ['ingredient_category_id' => null] + NutritionReferenceFixture::selection(), $headers + ['If-Match' => '"0"'])->assertOk();
+});
+
+it('rejects a USDA reference on a derived ingredient before fetching', function (): void {
+    $this->actingAs($this->a->user);
+    $ingredient = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'default_unit_id' => gramsId(), 'nutrition_derived_from_version_id' => (string) Str::uuid7()]);
+    $selection = NutritionReferenceFixture::selection();
+    $this->patchJson('/api/v1/catalogue/ingredients/'.$ingredient->getKey(), $selection, catalogueHeaders($this->a) + ['If-Match' => '"0"'])->assertStatus(422);
+    Http::assertNothingSent();
+});
+
+it('requires supplier evidence and detects mapping edits before confirmation', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $ingredient = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'default_unit_id' => gramsId()]);
+    $mapping = IngredientAllergen::factory()->create(['ingredient_id' => $ingredient->getKey(), 'organisation_id' => $this->a->organisation->getKey(), 'allergen_code' => 'milk', 'verification_status' => 'requires_supplier_confirmation', 'evidence' => 'Original supplier note']);
+    $url = '/api/v1/catalogue/ingredients/'.$ingredient->getKey();
+    $token = $this->getJson($url, $headers)->json('data.ingredient.allergen_review_token');
+    $this->postJson($url.'/allergens/confirm', ['review_token' => $token, 'evidence' => 'Reviewed'], $headers)->assertStatus(422);
+    $mapping->containment = 'may_contain';
+    $mapping->save();
+    $this->postJson($url.'/allergens/confirm', ['review_token' => $token, 'evidence' => 'Reviewed', 'supplier_evidence' => 'Supplier certificate'], $headers)->assertStatus(409);
+    $token = $this->getJson($url, $headers)->json('data.ingredient.allergen_review_token');
+    $this->postJson($url.'/allergens/confirm', ['review_token' => $token, 'evidence' => 'Reviewed', 'supplier_evidence' => 'Supplier certificate'], $headers)->assertOk();
+    expect($mapping->refresh()->verification_status->value)->toBe('verified')
+        ->and($mapping->evidence)->toBe('Original supplier note')
+        ->and($mapping->reviewed_by)->toBe((string) $this->a->user->getKey());
+});
+
+it('cannot confirm another tenant or a platform baseline', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $foreign = Ingredient::factory()->create(['organisation_id' => $this->b->organisation->getKey(), 'default_unit_id' => gramsId()]);
+    $this->postJson('/api/v1/catalogue/ingredients/'.$foreign->getKey().'/allergens/confirm', ['review_token' => str_repeat('a', 64), 'evidence' => 'Reviewed'], $headers)->assertNotFound();
+    $platform = Ingredient::factory()->platform()->create(['default_unit_id' => gramsId()]);
+    $mapping = IngredientAllergen::factory()->create(['ingredient_id' => $platform->getKey(), 'organisation_id' => null, 'allergen_code' => 'milk']);
+    $url = '/api/v1/catalogue/ingredients/'.$platform->getKey();
+    $token = $this->getJson($url, $headers)->json('data.ingredient.allergen_review_token');
+    $this->postJson($url.'/allergens/confirm', ['review_token' => $token, 'evidence' => 'Reviewed'], $headers)->assertStatus(422);
+    expect($mapping->refresh()->verification_status->value)->toBe('unverified');
+});
+
+it('rolls back nutrition and audit when dependent stale marking fails', function (): void {
+    $this->actingAs($this->a->user);
+    $ingredient = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'default_unit_id' => gramsId(), 'nutrition_per_100g' => null]);
+    $registry = Mockery::mock(IngredientUsageRegistry::class);
+    $registry->shouldReceive('markDependentDerivationsStale')->once()->andThrow(new RuntimeException('Simulated stale marking failure'));
+    app()->instance(IngredientUsageRegistry::class, $registry);
+    $before = AuditLog::query()->where('action', 'catalogue.ingredient_updated')->count();
+    $this->patchJson('/api/v1/catalogue/ingredients/'.$ingredient->getKey(), NutritionReferenceFixture::selection(), catalogueHeaders($this->a) + ['If-Match' => '"0"'])->assertStatus(500);
+    expect($ingredient->refresh()->nutrition_source)->toBeNull()->and($ingredient->lock_version)->toBe(0)
+        ->and(AuditLog::query()->where('action', 'catalogue.ingredient_updated')->count())->toBe($before);
+});
+
+it('rolls back reference facts and review state when audit recording fails', function (): void {
+    $this->actingAs($this->a->user);
+    $ingredient = Ingredient::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(), 'default_unit_id' => gramsId(),
+        'nutrition_per_100g' => null, 'allergen_review_required' => false,
+    ]);
+    AuditLog::creating(static function (AuditLog $entry): void {
+        if ($entry->action === 'catalogue.ingredient_updated') {
+            throw new RuntimeException('Simulated audit failure');
+        }
+    });
+    $this->patchJson('/api/v1/catalogue/ingredients/'.$ingredient->getKey(), NutritionReferenceFixture::selection(), catalogueHeaders($this->a) + ['If-Match' => '"0"'])->assertStatus(500);
+    expect($ingredient->refresh()->nutrition_per_100g)->toBeNull()
+        ->and($ingredient->nutrition_source)->toBeNull()
+        ->and($ingredient->allergen_review_required)->toBeFalse()
+        ->and($ingredient->lock_version)->toBe(0)
+        ->and(AuditLog::query()->where('action', 'catalogue.ingredient_updated')->count())->toBe(0);
+});
+
+it('looks up USDA references before matching the ingredient route and leaves allergens unknown', function (): void {
+    $this->actingAs($this->a->user);
+    $selection = NutritionReferenceFixture::selection();
+    $headers = catalogueHeaders($this->a);
+    $this->getJson('/api/v1/catalogue/ingredients/nutrition-references?q=chicken', $headers)
+        ->assertOk()->assertJsonPath('data.0.ref', 'usda:12345');
+    $created = $this->postJson('/api/v1/catalogue/ingredients', $selection + ['name_en' => 'Cooked chicken', 'default_unit_id' => gramsId()], $headers)
+        ->assertCreated()->assertJsonPath('data.ingredient.nutrition_estimated', true)
+        ->assertJsonPath('data.ingredient.allergen_review_required', false)
+        ->assertJsonPath('data.ingredient.verification_status', 'unverified');
+    expect(IngredientAllergen::withoutTenancy()->where('ingredient_id', $created->json('data.ingredient.id'))->count())->toBe(0);
+});
+
+it('requires explicit empty-set confirmation and rejects stale review snapshots', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $ingredient = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'default_unit_id' => gramsId(), 'verification_status' => 'unverified']);
+    $url = '/api/v1/catalogue/ingredients/'.$ingredient->getKey();
+    $token = $this->getJson($url, $headers)->assertOk()->json('data.ingredient.allergen_review_token');
+    $body = ['review_token' => $token, 'evidence' => 'Reviewed supplier specification'];
+    $this->postJson($url.'/allergens/confirm', $body, $headers)->assertStatus(422);
+    $this->postJson($url.'/allergens/confirm', $body + ['confirm_no_allergens' => true], $headers)
+        ->assertOk()->assertJsonPath('data.ingredient.verification_status', 'verified');
+    $this->postJson($url.'/allergens/confirm', $body + ['confirm_no_allergens' => true], $headers)->assertStatus(409);
+});
+
+it('persists the allergen review reminder after reference replacement and preserves mappings', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $ingredient = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'default_unit_id' => gramsId(), 'verification_status' => 'verified']);
+    $url = '/api/v1/catalogue/ingredients/'.$ingredient->getKey();
+    $selection = NutritionReferenceFixture::selection();
+    $this->patchJson($url, $selection, $headers + ['If-Match' => '"0"'])->assertOk()
+        ->assertJsonPath('data.ingredient.allergen_review_required', true)
+        ->assertJsonPath('data.ingredient.verification_status', 'verified');
+    $shown = $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.ingredient.allergen_review_required', true);
+    $this->postJson($url.'/allergens/confirm', ['review_token' => $shown->json('data.ingredient.allergen_review_token'), 'evidence' => 'Supplier label checked', 'confirm_no_allergens' => true], $headers)
+        ->assertOk()->assertJsonPath('data.ingredient.allergen_review_required', false);
+});
+
+it('applies a reviewed batch once and safely skips unaccepted rows', function (): void {
+    NutritionReferenceFixture::selection();
+    $ingredient = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'default_unit_id' => gramsId(), 'nutrition_per_100g' => null]);
+    $path = sys_get_temp_dir().'/nutrition-review-'.Str::uuid7().'.json';
+    try {
+        $this->artisan('ingredients:match-nutrition', ['--org' => (string) $this->a->organisation->getKey(), '--write' => $path])->assertExitCode(0);
+        $document = json_decode(file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
+        $document['rows'][0]['accept'] = 'usda:12345';
+        $document['rows'][0]['preparation_confirmed'] = true;
+        $document['rows'][] = ['organisation_id' => (string) $this->a->organisation->getKey(), 'ingredient_id' => (string) Str::uuid7(), 'accept' => null];
+        file_put_contents($path, json_encode($document, JSON_THROW_ON_ERROR));
+        $this->artisan('ingredients:match-nutrition', ['--org' => (string) $this->a->organisation->getKey(), '--apply' => $path])->assertExitCode(0);
+        $version = $ingredient->refresh()->lock_version;
+        $this->artisan('ingredients:match-nutrition', ['--org' => (string) $this->a->organisation->getKey(), '--apply' => $path])->assertExitCode(0);
+        expect($ingredient->refresh()->lock_version)->toBe($version)->and($ingredient->nutrition_source['ref'])->toBe('usda:12345');
+    } finally {
+        @unlink($path);
+    }
+});
+
+it('rejects foreign batch rows, stale exports and changed provider snapshots', function (): void {
+    config(['services.usda_fdc.key' => 'test-key']);
+    $first = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'default_unit_id' => gramsId(), 'nutrition_per_100g' => null]);
+    $second = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'default_unit_id' => gramsId(), 'nutrition_per_100g' => null]);
+    $food = NutritionReferenceFixture::food();
+    $candidate = app(NutritionReferenceService::class)->map(['food' => $food, 'retrieved_at' => '2026-01-01T00:00:00Z'])->candidate;
+    $food['description'] = 'Changed preparation';
+    Http::fake(['api.nal.usda.gov/fdc/v1/food/*' => Http::response($food)]);
+    $row = ['organisation_id' => (string) $this->a->organisation->getKey(), 'ingredient_id' => (string) $first->getKey(), 'lock_version' => 0, 'candidates' => [$candidate], 'accept' => 'usda:12345', 'preparation_confirmed' => true];
+    $path = sys_get_temp_dir().'/nutrition-review-'.Str::uuid7().'.json';
+    try {
+        file_put_contents($path, json_encode(['version' => 1, 'organisation_id' => (string) $this->a->organisation->getKey(), 'rows' => [
+            array_replace($row, ['organisation_id' => (string) $this->b->organisation->getKey()]),
+            array_replace($row, ['lock_version' => 10]),
+            array_replace($row, ['ingredient_id' => (string) $second->getKey()]),
+        ]], JSON_THROW_ON_ERROR));
+        $this->artisan('ingredients:match-nutrition', ['--org' => (string) $this->a->organisation->getKey(), '--apply' => $path])->assertExitCode(1);
+        expect($first->refresh()->nutrition_source)->toBeNull()->and($second->refresh()->nutrition_source)->toBeNull();
+        Http::assertSentCount(1);
+    } finally {
+        @unlink($path);
+    }
+});
+
+it('stops batch provider requests on an outage and resumes the same review file', function (): void {
+    config(['services.usda_fdc.key' => 'test-key']);
+    $food = NutritionReferenceFixture::food();
+    $candidate = app(NutritionReferenceService::class)->map(['food' => $food, 'retrieved_at' => 'now'])->candidate;
+    $ingredients = collect([1, 2])->map(fn (int $index): Ingredient => Ingredient::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(), 'name_en' => 'Batch ingredient '.$index,
+        'default_unit_id' => gramsId(), 'nutrition_per_100g' => null,
+    ]));
+    $rows = $ingredients->map(fn (Ingredient $ingredient): array => [
+        'organisation_id' => (string) $this->a->organisation->getKey(), 'ingredient_id' => (string) $ingredient->getKey(),
+        'lock_version' => 0, 'candidates' => [$candidate], 'accept' => 'usda:12345', 'preparation_confirmed' => true,
+    ])->all();
+    $path = sys_get_temp_dir().'/nutrition-outage-'.Str::uuid7().'.json';
+    try {
+        file_put_contents($path, json_encode(['version' => 1, 'organisation_id' => (string) $this->a->organisation->getKey(), 'rows' => $rows], JSON_THROW_ON_ERROR));
+        $unavailable = true;
+        Http::fake(function () use (&$unavailable, $food) {
+            return $unavailable ? Http::response([], 503) : Http::response($food);
+        });
+        $this->artisan('ingredients:match-nutrition', ['--org' => (string) $this->a->organisation->getKey(), '--apply' => $path])->assertExitCode(1);
+        Http::assertSentCount(2);
+        foreach ($ingredients as $ingredient) {
+            expect($ingredient->refresh()->nutrition_source)->toBeNull();
+        }
+        $unavailable = false;
+        $this->artisan('ingredients:match-nutrition', ['--org' => (string) $this->a->organisation->getKey(), '--apply' => $path])->assertExitCode(0);
+        foreach ($ingredients as $ingredient) {
+            expect($ingredient->refresh()->nutrition_source['ref'])->toBe('usda:12345');
+        }
+    } finally {
+        @unlink($path);
+    }
+});
+
 it('names the person who last changed an ingredient on its own read', function (): void {
     UserProfile::factory()->create([
         'user_id' => $this->a->user->getKey(),
@@ -155,10 +369,10 @@ it('names the person who last changed an ingredient on its own read', function (
     ]);
     $this->actingAs($this->a->user);
 
-    $id = $this->postJson('/api/v1/catalogue/ingredients', [
+    $id = $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload([
         'name_en' => 'Bulgur',
         'default_unit_id' => gramsId(),
-    ], catalogueHeaders($this->a))->assertCreated()->json('data.ingredient.id');
+    ]), catalogueHeaders($this->a))->assertCreated()->json('data.ingredient.id');
 
     $this->getJson('/api/v1/catalogue/ingredients/'.$id, catalogueHeaders($this->a))
         ->assertOk()
@@ -168,10 +382,10 @@ it('names the person who last changed an ingredient on its own read', function (
 it('leaves a blank Arabic name blank rather than copying the English', function (): void {
     $this->actingAs($this->a->user);
 
-    $id = $this->postJson('/api/v1/catalogue/ingredients', [
+    $id = $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload([
         'name_en' => 'Red Lentils',
         'default_unit_id' => gramsId(),
-    ], catalogueHeaders($this->a))
+    ]), catalogueHeaders($this->a))
         ->assertCreated()
         ->json('data.ingredient.id');
 
@@ -182,11 +396,11 @@ it('leaves a blank Arabic name blank rather than copying the English', function 
 it('creates an ingredient as an active, unverified tenant row', function (): void {
     $this->actingAs($this->a->user);
 
-    $response = $this->postJson('/api/v1/catalogue/ingredients', [
+    $response = $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload([
         'name_en' => 'House Za\'atar Blend',
         'name_ar' => 'خلطة الزعتر',
         'default_unit_id' => gramsId(),
-    ], catalogueHeaders($this->a))
+    ]), catalogueHeaders($this->a))
         ->assertCreated()
         ->assertJsonPath('data.ingredient.slug', 'house-zaatar-blend')
         ->assertJsonPath('data.ingredient.status', 'active')
@@ -333,10 +547,10 @@ it('carries the allergen declaration on the list as well as the record', functio
 it('reports an empty allergen set as empty rather than as absent', function (): void {
     $this->actingAs($this->a->user);
 
-    $created = $this->postJson('/api/v1/catalogue/ingredients', [
+    $created = $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload([
         'name_en' => 'Rock salt',
         'default_unit_id' => gramsId(),
-    ], catalogueHeaders($this->a))->assertCreated()->json('data.ingredient.id');
+    ]), catalogueHeaders($this->a))->assertCreated()->json('data.ingredient.id');
 
     // "Declares none" and "nobody loaded them" are different answers, and a
     // regulated field must not render the second as the first.
@@ -562,7 +776,7 @@ it('never writes an audit metadata key the redactor would blank', function (): v
     $this->patchJson('/api/v1/catalogue/ingredients/'.$ingredient->getKey(), ['name_en' => 'Renamed'],
         $headers + ['If-Match' => '"0"'])->assertOk();
 
-    $this->postJson('/api/v1/catalogue/ingredients', ['name_en' => 'Another', 'default_unit_id' => gramsId()], $headers)
+    $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload(['name_en' => 'Another', 'default_unit_id' => gramsId()]), $headers)
         ->assertCreated();
 
     $events = AuditLog::query()->where('action', 'like', 'catalogue.%')->get();
@@ -690,7 +904,7 @@ it('answers page 1 of an empty collection rather than refusing it', function ():
 it('round-trips the three prices and the sale flag on create', function (): void {
     $this->actingAs($this->a->user);
 
-    $response = $this->postJson('/api/v1/catalogue/ingredients', [
+    $response = $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload([
         'name_en' => 'Sesame Paste',
         'default_unit_id' => gramsId(),
         'unit_price_amount' => 3.5,
@@ -698,7 +912,7 @@ it('round-trips the three prices and the sale flag on create', function (): void
         'b2c_price_amount' => 6.9,
         'price_currency_code' => 'USD',
         'is_sellable' => true,
-    ], catalogueHeaders($this->a))
+    ]), catalogueHeaders($this->a))
         ->assertCreated()
         ->assertJsonPath('data.ingredient.unit_price_amount', '3.500000')
         ->assertJsonPath('data.ingredient.b2b_price_amount', '4.200000')
@@ -717,10 +931,10 @@ it('defaults an ingredient to not for sale', function (): void {
 
     // A raw material until somebody says otherwise: omitting the flag must not
     // put the row on sale.
-    $this->postJson('/api/v1/catalogue/ingredients', [
+    $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload([
         'name_en' => 'Plain Flour',
         'default_unit_id' => gramsId(),
-    ], catalogueHeaders($this->a))
+    ]), catalogueHeaders($this->a))
         ->assertCreated()
         ->assertJsonPath('data.ingredient.is_sellable', false);
 });
@@ -730,11 +944,11 @@ it('refuses a price with no currency rather than letting the database refuse it'
 
     // Without `required_with` naming the new column, this would reach the CHECK
     // and come back as a 500.
-    $this->postJson('/api/v1/catalogue/ingredients', [
+    $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload([
         'name_en' => 'Unpriced',
         'default_unit_id' => gramsId(),
         'unit_price_amount' => 3.5,
-    ], catalogueHeaders($this->a))
+    ]), catalogueHeaders($this->a))
         ->assertStatus(422)
         ->assertJsonPath('error.code', 'validation.failed');
 });
@@ -782,31 +996,31 @@ it('accepts a sub-category that belongs to the category, and refuses one that do
     $this->actingAs($this->a->user);
     $headers = catalogueHeaders($this->a);
 
-    $this->postJson('/api/v1/catalogue/ingredients', [
+    $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload([
         'name_en' => 'Sumac',
         'default_unit_id' => gramsId(),
         'ingredient_category_id' => $herbs->getKey(),
         'ingredient_subcategory_id' => $spice->getKey(),
-    ], $headers)
+    ]), $headers)
         ->assertCreated()
         ->assertJsonPath('data.ingredient.ingredient_subcategory_id', (string) $spice->getKey());
 
     // A leaf from another branch.
-    $this->postJson('/api/v1/catalogue/ingredients', [
+    $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload([
         'name_en' => 'Mismatched',
         'default_unit_id' => gramsId(),
         'ingredient_category_id' => $herbs->getKey(),
         'ingredient_subcategory_id' => $starch->getKey(),
-    ], $headers)
+    ]), $headers)
         ->assertStatus(422)
         ->assertJsonPath('error.code', 'validation.failed');
 
     // A leaf with no branch at all.
-    $this->postJson('/api/v1/catalogue/ingredients', [
+    $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload([
         'name_en' => 'Orphaned',
         'default_unit_id' => gramsId(),
         'ingredient_subcategory_id' => $spice->getKey(),
-    ], $headers)
+    ]), $headers)
         ->assertStatus(422)
         ->assertJsonPath('error.code', 'validation.failed');
 });
@@ -862,11 +1076,11 @@ function litresId(): string
 it('round-trips the mass of one unit on create', function (): void {
     $this->actingAs($this->a->user);
 
-    $response = $this->postJson('/api/v1/catalogue/ingredients', [
+    $response = $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload([
         'name_en' => 'Soya Sauce',
         'default_unit_id' => litresId(),
         'grams_per_unit' => 1080,
-    ], catalogueHeaders($this->a))
+    ]), catalogueHeaders($this->a))
         ->assertCreated()
         // Four places, because that is what the column holds: a client that
         // parses a decimal string never has to guess how many it will get.
@@ -985,11 +1199,11 @@ it('refuses a mass the column cannot hold rather than letting the CHECK refuse i
     // a plausible payload. `min` sits at the column's own precision so both
     // come back as the 422 they are.
     foreach ([0, 0.00001] as $refused) {
-        $response = $this->postJson('/api/v1/catalogue/ingredients', [
+        $response = $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload([
             'name_en' => 'Weightless '.$refused,
             'default_unit_id' => litresId(),
             'grams_per_unit' => $refused,
-        ], catalogueHeaders($this->a))
+        ]), catalogueHeaders($this->a))
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'validation.failed');
 
@@ -1032,11 +1246,10 @@ function canonicalAmounts(): array
 it('accepts the seven canonical amounts and reads them back', function (): void {
     $this->actingAs($this->a->user);
 
-    $this->postJson('/api/v1/catalogue/ingredients', [
+    $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload([
         'name_en' => 'Sumac',
         'default_unit_id' => gramsId(),
-        'nutrition_per_100g' => ['basis' => 'per_100g', 'amounts' => canonicalAmounts()],
-    ], catalogueHeaders($this->a))
+    ]), catalogueHeaders($this->a))
         ->assertCreated()
         ->assertJsonPath('data.ingredient.nutrition_per_100g.basis', 'per_100g')
         ->assertJsonPath('data.ingredient.nutrition_per_100g.amounts.0.nutrient_id', 'energy')
@@ -1050,19 +1263,19 @@ it('refuses a nutrient stated twice', function (): void {
 
     // Which of the two is the protein? There is no answer, so there is no
     // write — rather than one of them silently winning on read.
-    $response = $this->postJson('/api/v1/catalogue/ingredients', [
+    $response = $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload([
         'name_en' => 'Double Counted',
         'default_unit_id' => gramsId(),
         'nutrition_per_100g' => ['basis' => 'per_100g', 'amounts' => [
             ['nutrient_id' => 'protein', 'unit' => 'g', 'value' => 1.2],
             ['nutrient_id' => 'protein', 'unit' => 'g', 'value' => 4.8],
         ]],
-    ], catalogueHeaders($this->a))
+    ]), catalogueHeaders($this->a))
         ->assertStatus(422)
         ->assertJsonPath('error.code', 'validation.failed');
 
     expect(array_keys($response->json('error.details.fields')))
-        ->toContain('nutrition_per_100g.amounts.0.nutrient_id');
+        ->toContain('nutrition_per_100g');
 });
 
 it('refuses energy in kilojoules, and every other non-canonical pairing', function (): void {
@@ -1078,11 +1291,11 @@ it('refuses energy in kilojoules, and every other non-canonical pairing', functi
     ];
 
     foreach ($payloads as $amount) {
-        $this->postJson('/api/v1/catalogue/ingredients', [
+        $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload([
             'name_en' => 'Mis-stated '.$amount['nutrient_id'],
             'default_unit_id' => gramsId(),
             'nutrition_per_100g' => ['basis' => 'per_100g', 'amounts' => [$amount]],
-        ], catalogueHeaders($this->a))
+        ]), catalogueHeaders($this->a))
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'validation.failed');
     }
@@ -1106,49 +1319,47 @@ it('refuses energy in kilojoules, and every other non-canonical pairing', functi
 |
 */
 
-it('records an estimate flag and its note beside the facts a create states', function (): void {
+it('refuses kitchen-written nutrition facts and provenance', function (): void {
     $this->actingAs($this->a->user);
 
-    $this->postJson('/api/v1/catalogue/ingredients', [
+    $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload([
         'name_en' => 'Tempura mix',
         'default_unit_id' => gramsId(),
         'nutrition_per_100g' => ['basis' => 'per_100g', 'amounts' => canonicalAmounts()],
         'nutrition_estimated' => true,
         'nutrition_note' => 'Estimated generic dry tempura batter mix',
-    ], catalogueHeaders($this->a))
-        ->assertCreated()
-        ->assertJsonPath('data.ingredient.nutrition_estimated', true)
-        ->assertJsonPath('data.ingredient.nutrition_note', 'Estimated generic dry tempura batter mix');
+    ]), catalogueHeaders($this->a))
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed');
 });
 
-it('reads facts with no flag beside them as a declaration, and no facts as no answer', function (): void {
+it('records USDA references as estimates for all new food ingredients', function (): void {
     $this->actingAs($this->a->user);
 
     // A kitchen typing figures in is stating what *this* ingredient is. The
     // estimate flag exists for the other case, and that is a claim the writer
     // has to make — defaulting to `true` would mark every honest transcription
     // off a packet as a guess, and every screen would badge it.
-    $this->postJson('/api/v1/catalogue/ingredients', [
+    $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload([
         'name_en' => 'Declared Sumac',
         'default_unit_id' => gramsId(),
-        'nutrition_per_100g' => ['basis' => 'per_100g', 'amounts' => canonicalAmounts()],
-    ], catalogueHeaders($this->a))
+    ]), catalogueHeaders($this->a))
         ->assertCreated()
-        ->assertJsonPath('data.ingredient.nutrition_estimated', false)
-        ->assertJsonPath('data.ingredient.nutrition_note', null);
+        ->assertJsonPath('data.ingredient.nutrition_estimated', true)
+        ->assertJsonPath('data.ingredient.nutrition_source.ref', 'usda:12345');
 
     // And a row with no figures has nothing to be estimated *about*: `false`
     // would claim a declared figure where there is none.
-    $this->postJson('/api/v1/catalogue/ingredients', [
+    $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload([
         'name_en' => 'Unmeasured Sumac',
         'default_unit_id' => gramsId(),
-    ], catalogueHeaders($this->a))
+    ]), catalogueHeaders($this->a))
         ->assertCreated()
-        ->assertJsonPath('data.ingredient.nutrition_estimated', null)
-        ->assertJsonPath('data.ingredient.nutrition_note', null);
+        ->assertJsonPath('data.ingredient.nutrition_estimated', true)
+        ->assertJsonPath('data.ingredient.nutrition_source.ref', 'usda:12345');
 });
 
-it('resets the provenance when a PATCH replaces the facts without it', function (): void {
+it('replaces provenance when a PATCH selects a USDA reference', function (): void {
     $ingredient = Ingredient::factory()->create([
         'organisation_id' => $this->a->organisation->getKey(),
         'default_unit_id' => gramsId(),
@@ -1166,17 +1377,15 @@ it('resets the provenance when a PATCH replaces the facts without it', function 
     // Somebody has transcribed the supplier's own label over the family figure.
     // Leaving the flag standing would badge a declaration as an estimate, and
     // leaving the sentence would describe a number that is no longer there.
-    $this->patchJson($url, [
-        'nutrition_per_100g' => ['basis' => 'per_100g', 'amounts' => canonicalAmounts()],
-    ], $headers + ['If-Match' => (string) $etag])
+    $this->patchJson($url, NutritionReferenceFixture::selection(), $headers + ['If-Match' => (string) $etag])
         ->assertOk()
-        ->assertJsonPath('data.ingredient.nutrition_estimated', false)
-        ->assertJsonPath('data.ingredient.nutrition_note', null);
+        ->assertJsonPath('data.ingredient.nutrition_estimated', true)
+        ->assertJsonPath('data.ingredient.nutrition_source.ref', 'usda:12345');
 
     $stored = Ingredient::withoutTenancy()->whereKey($ingredient->getKey())->sole();
 
-    expect($stored->nutrition_estimated)->toBeFalse()
-        ->and($stored->nutrition_note)->toBeNull();
+    expect($stored->nutrition_estimated)->toBeTrue()
+        ->and($stored->nutrition_source['ref'])->toBe('usda:12345');
 });
 
 it('leaves the provenance alone on a PATCH that never mentions the facts', function (): void {
@@ -1224,7 +1433,7 @@ it('refuses an estimate flag and a note on a row a published recipe derives', fu
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'validation.failed');
 
-        expect(array_keys($response->json('error.details.fields')))->toContain('nutrition_per_100g');
+        expect(array_keys($response->json('error.details.fields')))->toContain(array_key_first($payload));
     }
 
     expect(Ingredient::withoutTenancy()->whereKey($ingredient->getKey())->value('nutrition_estimated'))

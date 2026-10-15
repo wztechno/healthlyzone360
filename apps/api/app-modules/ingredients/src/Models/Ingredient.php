@@ -71,6 +71,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $lock_version
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
+ * @property array<string, mixed>|null $nutrition_source
+ * @property bool $allergen_review_required
+ * @property string|null $allergens_reviewed_by
+ * @property CarbonImmutable|null $allergens_reviewed_at
+ * @property string|null $allergens_review_evidence
  */
 #[Classified(DataClassification::Internal, 'slug', 'name_en', 'name_ar', 'notes', 'source_system', 'source_ref')]
 class Ingredient extends BaseModel implements OrganisationScoped
@@ -91,6 +96,9 @@ class Ingredient extends BaseModel implements OrganisationScoped
     protected function casts(): array
     {
         return [
+            'nutrition_source' => 'array',
+            'allergen_review_required' => 'boolean',
+            'allergens_reviewed_at' => 'immutable_datetime',
             'availability_tier' => AvailabilityTier::class,
             'status' => IngredientStatus::class,
             'verification_status' => IngredientVerificationStatus::class,
