@@ -11,8 +11,9 @@ import type {
     PlaceOrderDeskSaleRequest,
     ProductAdmin,
     ProductAdminFilter,
+    ServiceArea,
 } from '@healthy360/api-client/contracts';
-import { KitchenId, MealId, OrderId, ProductId } from '@healthy360/domain-types';
+import { KitchenId, MealId, OrderId, ProductId, ServiceAreaId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
@@ -224,6 +225,8 @@ interface SaleStubs {
     readonly createCustomer?: () => Promise<OrderDeskCustomerCreated>;
     readonly listMeals?: () => Promise<CursorPage<MealAdmin>>;
     readonly listProducts?: (filter?: ProductAdminFilter) => Promise<CursorPage<ProductAdmin>>;
+    readonly listDeliveryAreas?: () => Promise<readonly ServiceArea[]>;
+    readonly listServiceAreas?: () => Promise<CursorPage<ServiceArea>>;
 }
 
 async function renderSale(stubs: SaleStubs = {}) {
@@ -233,12 +236,13 @@ async function renderSale(stubs: SaleStubs = {}) {
             kitchenAdmin: {
                 listMeals: stubs.listMeals ?? (async () => pageOf([adminMeal()])),
                 listProducts: stubs.listProducts ?? (async () => pageOf([adminProduct()])),
-                listServiceAreas: async () => pageOf([]),
+                listServiceAreas: stubs.listServiceAreas ?? (async () => pageOf([])),
             },
             orderDesk: {
                 quoteSale: stubs.quoteSale ?? (async (request) => quoteFor(request)),
                 placeSale: stubs.placeSale ?? (async () => placedOrder()),
                 searchCustomers: async () => ({ rows: [customer()], limit: 20 }),
+                listDeliveryAreas: stubs.listDeliveryAreas ?? (async () => []),
                 listDeliveryWindows: async () => [
                     {
                         code: 'morning',
@@ -704,6 +708,47 @@ describe('sale — collections and deliveries', () => {
             );
         });
         expect(screen.getByTestId(SUBMIT)).toBeDisabled();
+    });
+
+    it('offers only the areas this kitchen delivers to, never the whole gazetteer', async () => {
+        const served: ServiceArea = {
+            id: ServiceAreaId.unsafe('0198e3a0-0000-7000-8000-00000000a001'),
+            name: { en: 'Achrafieh', ar: 'الأشرفية' },
+            countryCode: 'LB',
+            parentName: null,
+            isActive: true,
+        };
+        const listServiceAreas = jest.fn(async () => pageOf<ServiceArea>([]));
+        await renderSale({ listDeliveryAreas: async () => [served], listServiceAreas });
+        await tapMeal();
+        await chooseKind('delivery');
+        await untilVisible('kitchen-order-desk-sale-customer');
+        await chooseLayla();
+        await untilVisible('kitchen-order-desk-sale-address-area-trigger');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-address-area-trigger'));
+        });
+
+        await untilVisible(`kitchen-order-desk-sale-address-area-option-${String(served.id)}`);
+        expect(screen.getByTestId('kitchen-order-desk-sale-address-area-list')).toHaveTextContent(
+            /Achrafieh/,
+        );
+        expect(listServiceAreas).not.toHaveBeenCalled();
+    });
+
+    it('says so when this kitchen delivers nowhere yet', async () => {
+        await renderSale({ listDeliveryAreas: async () => [] });
+        await tapMeal();
+        await chooseKind('delivery');
+        await untilVisible('kitchen-order-desk-sale-customer');
+        await chooseLayla();
+
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('kitchen-order-desk-sale-address-area-trigger'),
+            ).toHaveTextContent(/This kitchen does not deliver anywhere yet/);
+        });
     });
 
     it('drops the customer and closes both cards when the sale goes back to the counter', async () => {

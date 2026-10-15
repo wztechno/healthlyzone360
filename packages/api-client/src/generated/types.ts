@@ -4296,6 +4296,13 @@ export type PublicDeliveryAreasEnvelope = {
     };
 };
 
+export type OrderDeskDeliveryAreasEnvelope = {
+    data: Array<AdminDeliveryArea>;
+    meta: Meta & {
+        count: number;
+    };
+};
+
 export type DeliveryZoneAreasEnvelope = {
     data: Array<AdminDeliveryArea>;
     meta: Meta & {
@@ -30021,6 +30028,57 @@ export type AddOrderDeskCustomerAddressResponses = {
 };
 
 export type AddOrderDeskCustomerAddressResponse = AddOrderDeskCustomerAddressResponses[keyof AddOrderDeskCustomerAddressResponses];
+
+export type ListOrderDeskDeliveryAreasData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/order-desk/delivery-areas';
+};
+
+export type ListOrderDeskDeliveryAreasErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListOrderDeskDeliveryAreasError = ListOrderDeskDeliveryAreasErrors[keyof ListOrderDeskDeliveryAreasErrors];
+
+export type ListOrderDeskDeliveryAreasResponses = {
+    /**
+     * The areas this kitchen delivers to.
+     */
+    200: OrderDeskDeliveryAreasEnvelope;
+};
+
+export type ListOrderDeskDeliveryAreasResponse = ListOrderDeskDeliveryAreasResponses[keyof ListOrderDeskDeliveryAreasResponses];
 
 export type GetOrderDeskCalendarData = {
     body?: never;

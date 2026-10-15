@@ -22,15 +22,14 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { toFailure } from '../../../data/hooks.ts';
-import { useServiceAreasQuery } from '../../../data/kitchen-admin-hooks.ts';
 import {
     CUSTOMER_SEARCH_MIN_LENGTH,
     useAddOrderDeskCustomerAddressMutation,
     useCreateOrderDeskCustomerMutation,
     useOrderDeskCustomerSearchQuery,
+    useOrderDeskDeliveryAreasQuery,
     useUpdateOrderDeskCustomerMutation,
 } from '../../../data/order-desk-hooks.ts';
-import { useAccessState, useSession } from '../../../session/session-provider.tsx';
 import { displayName } from '../format.ts';
 import { useDebouncedValue } from './use-debounced-value.ts';
 
@@ -527,25 +526,6 @@ export function CustomerSection({
  * The address
  * ---------------------------------------------------------------------------------------------- */
 
-/**
- * The country whose gazetteer this desk may write addresses in, from the session.
- *
- * The area table spans every market the platform has opened, and an unscoped picker would offer an
- * agent hundreds of places their kitchen can never deliver to. Read from `me()`'s membership exactly
- * as the delivery-zone editor reads it.
- */
-function useOrganisationCountry(): string | null {
-    const access = useAccessState();
-    const { me } = useSession();
-    const membershipId = access.organisation?.membershipId;
-
-    return useMemo(() => {
-        if (membershipId === undefined) return null;
-        const membership = me?.memberships.find((candidate) => candidate.id === membershipId);
-        return membership?.organisation.countryCode ?? null;
-    }, [me, membershipId]);
-}
-
 export function AddressSection({
     customerAccountId,
     customerAddressId,
@@ -557,8 +537,9 @@ export function AddressSection({
 }) {
     const { t } = useTranslation();
     const { locale } = useLocale();
-    const country = useOrganisationCountry();
-    const gazetteer = useServiceAreasQuery(country);
+    // Only the areas this kitchen's own map serves — the whole gazetteer would offer places the save
+    // then refuses with `area_not_served`.
+    const deliveryAreas = useOrderDeskDeliveryAreasQuery();
     const save = useAddOrderDeskCustomerAddressMutation();
 
     const [areaId, setAreaId] = useState<string | null>(null);
@@ -575,7 +556,7 @@ export function AddressSection({
 
     const options = useMemo(
         () =>
-            (gazetteer.data?.areas ?? []).map((area: ServiceArea) => ({
+            (deliveryAreas.data ?? []).map((area: ServiceArea) => ({
                 value: String(area.id),
                 label: displayName(area.name, locale).value,
                 // The governorate under the name, because two districts share a name often enough
@@ -584,7 +565,7 @@ export function AddressSection({
                     ? {}
                     : { description: displayName(area.parentName, locale).value }),
             })),
-        [gazetteer.data, locale],
+        [deliveryAreas.data, locale],
     );
 
     return (
@@ -633,10 +614,14 @@ export function AddressSection({
                         <Select
                             testID="kitchen-order-desk-sale-address-area"
                             label={t('kitchen:desk.sale.areaLabel')}
-                            placeholder={t('kitchen:desk.sale.areaPlaceholder')}
+                            placeholder={
+                                deliveryAreas.isSuccess && options.length === 0
+                                    ? t('kitchen:desk.sale.areaPlaceholderNone')
+                                    : t('kitchen:desk.sale.areaPlaceholder')
+                            }
                             searchable
                             required
-                            disabled={gazetteer.isPending || options.length === 0}
+                            disabled={deliveryAreas.isPending || options.length === 0}
                             value={areaId}
                             options={options}
                             onChange={setAreaId}

@@ -13474,6 +13474,45 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/delivery-areas:
+    get:
+      operationId: listOrderDeskDeliveryAreas
+      tags:
+        - Order desk
+      summary: The areas a desk sale can be delivered to
+      description: |
+        The picker behind `addOrderDeskCustomerAddress`, narrowed to what the
+        desk's quote would accept: areas claimed by one of this kitchen's
+        **active, organisation-wide** delivery zones. A desk sale states no
+        branch, and with no branch only the organisation-wide map is consulted,
+        so a branch-only claim or a suspended zone is left out. Areas the
+        platform has withdrawn are left out even while a zone still claims them.
+
+        Unpaginated: the set is bounded by the kitchen's own map. Ordered by the
+        gazetteer's display order, then code.
+
+        Requires `customer.create_on_behalf_organisation` — the code that writes
+        the address — rather than `delivery_zone.manage_organisation`, which
+        governs the map and which a desk agent need not hold.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The areas this kitchen delivers to.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskDeliveryAreasEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/order-desk/calendar:
     get:
       operationId: getOrderDeskCalendar
@@ -31511,6 +31550,26 @@ components:
                   type: string
                   minLength: 2
                   maxLength: 2
+    OrderDeskDeliveryAreasEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminDeliveryArea'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required:
+                - count
+              properties:
+                count:
+                  type: integer
+                  minimum: 0
     DeliveryZoneAreasEnvelope:
       type: object
       required:

@@ -1,5 +1,6 @@
 import type { BranchId } from '@healthy360/domain-types';
 
+import type { ServiceArea } from '../contracts/kitchen-admin.ts';
 import type { KitchenOrder } from '../contracts/kitchen-orders.ts';
 import type {
     AddOrderDeskCustomerAddressRequest,
@@ -28,6 +29,7 @@ import type {
     UpdateOrderDeskCustomerRequest,
 } from '../contracts/order-desk.ts';
 import type {
+    AdminDeliveryArea,
     AssignedDeliveryJob as WireAssignedDeliveryJob,
     CustomerAddressEnvelope,
     DeliveryWindow as WireDeliveryWindow,
@@ -49,6 +51,7 @@ import type {
     PlaceOrderDeskRequest,
 } from '../generated/types.ts';
 import { generateRequestId } from './config.ts';
+import { mapServiceAreaFromDeliveryArea } from './kitchen-admin-mappers.ts';
 import { mapKitchenOrder } from './kitchen-orders-repository.ts';
 import {
     mapAssignedDeliveryJob,
@@ -369,6 +372,14 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                 startsAt: window.starts_at,
                 endsAt: window.ends_at,
             }));
+        },
+
+        async listDeliveryAreas(): Promise<readonly ServiceArea[]> {
+            const areas = await transport.request<readonly AdminDeliveryArea[]>({
+                method: 'GET',
+                path: '/catalogue/order-desk/delivery-areas',
+            });
+            return areas.map(mapServiceAreaFromDeliveryArea);
         },
 
         async getCashReport(filters: OrderDeskCashReportFilters): Promise<OrderDeskCashReport> {

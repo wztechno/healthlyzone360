@@ -1828,6 +1828,7 @@
             "addressNoteBody": "The desk can add an address but cannot read the ones a customer already has, so this is written fresh each time. Check it back to them before saving.",
             "areaLabel": "Area",
             "areaPlaceholder": "Search for the area",
+            "areaPlaceholderNone": "This kitchen does not deliver anywhere yet",
             "lineOneLabel": "Address",
             "lineOnePlaceholder": "For example Bliss Street, Hamra",
             "lineTwoLabel": "Second line",

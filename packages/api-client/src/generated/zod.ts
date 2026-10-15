@@ -2847,6 +2847,13 @@ export const zPublicDeliveryAreasEnvelope = z.object({
     }))
 });
 
+export const zOrderDeskDeliveryAreasEnvelope = z.object({
+    data: z.array(zAdminDeliveryArea),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0)
+    }))
+});
+
 export const zDeliveryZoneAreasEnvelope = z.object({
     data: z.array(zAdminDeliveryArea),
     meta: zMeta.and(z.object({
@@ -13558,6 +13565,16 @@ export const zAddOrderDeskCustomerAddressPath = z.object({
  * The address was added, with whether anybody delivers to it today.
  */
 export const zAddOrderDeskCustomerAddressResponse = zCustomerAddressEnvelope;
+
+export const zListOrderDeskDeliveryAreasHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The areas this kitchen delivers to.
+ */
+export const zListOrderDeskDeliveryAreasResponse = zOrderDeskDeliveryAreasEnvelope;
 
 export const zGetOrderDeskCalendarHeaders = z.object({
     'X-Organisation-Id': zUuid,

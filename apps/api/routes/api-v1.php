@@ -222,6 +222,7 @@ use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAddressStoreCo
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerUpdateController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDeliveryAreaIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDeliveryWindowIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDriverIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlacementController;
@@ -2285,6 +2286,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
 
                 Route::post('/order-desk/customers/{account}/addresses', OrderDeskCustomerAddressStoreController::class)
                     ->name('catalogue.order-desk.customers.addresses.store');
+
+                // The areas that address may be in: only the ones this
+                // kitchen's own map delivers to, so a refusal is not the
+                // first thing an agent learns about a place.
+                Route::get('/order-desk/delivery-areas', OrderDeskDeliveryAreaIndexController::class)
+                    ->name('catalogue.order-desk.delivery-areas.index');
 
                 // Correcting a misheard name or a mistyped number, instead of
                 // writing the same person down a second time.

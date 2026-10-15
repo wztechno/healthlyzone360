@@ -337,6 +337,7 @@ export const REPOSITORY_SURFACE = {
         'createCustomer',
         'getCashReport',
         'listCalendar',
+        'listDeliveryAreas',
         'listDeliveryWindows',
         'listDrivers',
         'listQueue',
