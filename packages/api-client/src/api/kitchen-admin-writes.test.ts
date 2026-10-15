@@ -364,3 +364,20 @@ describe('delivery windows', () => {
         expect(zone.windowIds.map(String)).toEqual([WINDOW_UUID]);
     });
 });
+
+it('looks up allergens by barcode without sending ingredient nutrition or client mappings', async () => {
+    const { writes, calls } = harness([
+        {
+            status: 200,
+            body: { data: { candidates: [], notices: ['open_food_facts.unavailable'] }, meta: {} },
+        },
+    ]);
+    const result = await writes.searchAllergenReferences({
+        query: 'ignored name',
+        barcode: '3017620422003',
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.path).toBe('/catalogue/ingredients/allergen-references?barcode=3017620422003');
+    expect(calls[0]?.method).toBe('GET');
+    expect(result.notices).toEqual(['open_food_facts.unavailable']);
+});

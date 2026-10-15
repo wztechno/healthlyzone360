@@ -97,6 +97,7 @@ describe('the failure vocabulary', () => {
             'offboarding.refused',
             'offboarding.settlement_outstanding',
             'record_export.unavailable',
+            'allergens.provider_unavailable',
             'nutrition.provider_unavailable',
             'nutrition.provider_configuration',
             'network',
@@ -131,7 +132,12 @@ describe('the failure vocabulary', () => {
      */
     it('marks temporary transport and provider failures as retryable', () => {
         const retryable = API_FAILURE_CODES.filter(defaultRetryable);
-        expect([...retryable]).toEqual(['nutrition.provider_unavailable', 'network', 'server']);
+        expect([...retryable]).toEqual([
+            'allergens.provider_unavailable',
+            'nutrition.provider_unavailable',
+            'network',
+            'server',
+        ]);
     });
 });
 

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8334 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8347 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2549,6 +2549,7 @@ export interface NamespaceKeys {
     | 'failure.access_self_lockout'
     | 'failure.account_verification_required'
     | 'failure.address_area_not_served'
+    | 'failure.allergens_provider_unavailable'
     | 'failure.auth_email_unverified'
     | 'failure.auth_invalid_credentials'
     | 'failure.auth_step_up_required'
@@ -2846,6 +2847,18 @@ export interface NamespaceKeys {
     | 'aliases.remove'
     | 'aliases.removedToast'
     | 'aliases.title'
+    | 'allergenLookup.barcode'
+    | 'allergenLookup.configuration'
+    | 'allergenLookup.confirmProduct'
+    | 'allergenLookup.empty'
+    | 'allergenLookup.guidance'
+    | 'allergenLookup.import'
+    | 'allergenLookup.noDeclarations'
+    | 'allergenLookup.query'
+    | 'allergenLookup.search'
+    | 'allergenLookup.title'
+    | 'allergenLookup.unavailable'
+    | 'allergenLookup.unmapped'
     | 'allergens.addRow'
     | 'allergens.assessedClear'
     | 'allergens.chooseClass'
@@ -10904,6 +10917,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:failure.access_self_lockout',
   'errors:failure.account_verification_required',
   'errors:failure.address_area_not_served',
+  'errors:failure.allergens_provider_unavailable',
   'errors:failure.auth_email_unverified',
   'errors:failure.auth_invalid_credentials',
   'errors:failure.auth_step_up_required',
@@ -11198,6 +11212,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:aliases.remove',
   'kitchen:aliases.removedToast',
   'kitchen:aliases.title',
+  'kitchen:allergenLookup.barcode',
+  'kitchen:allergenLookup.configuration',
+  'kitchen:allergenLookup.confirmProduct',
+  'kitchen:allergenLookup.empty',
+  'kitchen:allergenLookup.guidance',
+  'kitchen:allergenLookup.import',
+  'kitchen:allergenLookup.noDeclarations',
+  'kitchen:allergenLookup.query',
+  'kitchen:allergenLookup.search',
+  'kitchen:allergenLookup.title',
+  'kitchen:allergenLookup.unavailable',
+  'kitchen:allergenLookup.unmapped',
   'kitchen:allergens.addRow',
   'kitchen:allergens.assessedClear',
   'kitchen:allergens.chooseClass',

@@ -4095,5 +4095,19 @@
         "confirmReview": "Confirm allergen assessment",
         "configuration": "Nutrition lookup needs configuration",
         "clearSelection": "Clear selection"
+    },
+    "allergenLookup": {
+        "title": "Look up product allergens",
+        "guidance": "Search Open Food Facts by product name or barcode. Check the purchased product label. Suggestions require a separate allergen review; missing data never means allergen-free.",
+        "query": "Product or ingredient name",
+        "barcode": "Barcode (optional; takes priority over name)",
+        "search": "Search allergens",
+        "unavailable": "This provider is temporarily unavailable or rate limited. Try again later.",
+        "configuration": "Open Food Facts refused the request. Ask an administrator to check the app identification and network access.",
+        "empty": "No products found. Try the exact barcode or a shorter product name.",
+        "noDeclarations": "No mapped allergen declarations. This does not confirm absence.",
+        "unmapped": "Unrecognized terms — review the supplier label",
+        "confirmProduct": "This reference matches the product I purchase. I will review its allergen declarations.",
+        "import": "Add suggestions for review"
     }
 }

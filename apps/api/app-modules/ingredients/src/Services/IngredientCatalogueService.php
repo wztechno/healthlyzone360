@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Ingredients\Services;
 
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Ingredients\Allergens\AllergenReferenceService;
 use Healthy360\Ingredients\Contracts\IngredientUsageRegistry;
 use Healthy360\Ingredients\Enums\AvailabilityTier;
 use Healthy360\Ingredients\Enums\IngredientStatus;
@@ -67,6 +68,8 @@ final readonly class IngredientCatalogueService
         private IngredientDerivationInvalidator $invalidator,
         private NutritionReferenceService $references,
         private PackagingBranch $packaging,
+        private AllergenReferenceService $allergenReferences,
+        private AllergenMappingService $allergenMappings,
     ) {}
 
     /**
@@ -95,7 +98,9 @@ final readonly class IngredientCatalogueService
      *     source_ref?: string|null,
      *     nutrition_reference?: string,
      *     nutrition_reference_hash?: string,
-     *     nutrition_reference_confirmed?: bool
+     *     nutrition_reference_confirmed?: bool,
+     *     allergen_reference_token?: string,
+     *     allergen_reference_confirmed?: bool
      * }  $attributes
      */
     public function createPublic(array $attributes): Ingredient
@@ -103,8 +108,16 @@ final readonly class IngredientCatalogueService
         $this->requireOrganisation();
         $this->assertReferenceGate($attributes, null);
         $facts = $this->resolveReferenceAttributes($attributes);
+        $allergenReference = isset($attributes['allergen_reference_token']) ? $this->allergenReferences->resolve($attributes['allergen_reference_token']) : null;
 
-        return DB::transaction(fn (): Ingredient => $this->create($facts + $attributes));
+        return DB::transaction(function () use ($facts, $attributes, $allergenReference): Ingredient {
+            $ingredient = $this->create($facts + $attributes);
+            if ($allergenReference !== null) {
+                $ingredient = $this->allergenMappings->importReference($ingredient, $this->allergenMappings->reviewToken($ingredient), $allergenReference);
+            }
+
+            return $ingredient;
+        });
     }
 
     /** @param array<string, mixed> $attributes */
@@ -140,7 +153,7 @@ final readonly class IngredientCatalogueService
         }
         $isPackaging = in_array($category, $this->packaging->categoryIds(), true);
         $hasReference = array_key_exists($resolved ? 'nutrition_source' : 'nutrition_reference', $attributes);
-        if ($isPackaging && $hasReference) {
+        if ($isPackaging && ($hasReference || array_key_exists('allergen_reference_token', $attributes))) {
             throw new ReferenceUnsuitable(['Packaging cannot carry a food nutrition reference.']);
         }
         $wasPackaging = $ingredient !== null && in_array($ingredient->ingredient_category_id, $this->packaging->categoryIds(), true);
@@ -508,6 +521,7 @@ final readonly class IngredientCatalogueService
                 $copy->source = $mapping->source;
                 $copy->verification_status = $mapping->verification_status;
                 $copy->evidence = $mapping->evidence;
+                $copy->lookup_source = $mapping->lookup_source;
                 $copy->created_by = $this->context->userId();
                 $copy->save();
             };

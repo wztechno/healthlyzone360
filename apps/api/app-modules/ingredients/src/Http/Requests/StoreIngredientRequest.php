@@ -216,6 +216,12 @@ class StoreIngredientRequest extends FormRequest
             'notes' => ['nullable', 'string', 'max:2000'],
             ...self::priceRules(),
             ...self::referenceRules(),
+            'allergen_reference_token' => ['required_with:allergen_reference_confirmed', 'string', 'max:30000'],
+            'allergen_reference_confirmed' => ['required_with:allergen_reference_token', 'boolean', function (string $attribute, mixed $value, Closure $fail): void {
+                if ($value !== true && $value !== 1 && $value !== '1') {
+                    $fail('Confirm that the selected product matches the purchased ingredient.');
+                }
+            }],
         ];
     }
 }

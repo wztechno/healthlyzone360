@@ -249,6 +249,47 @@ export interface IngredientAllergenMapping {
     readonly verification: AllergenVerification;
     /** Where the determination came from — a supplier specification, a test report, a person. */
     readonly sourceNote: string | null;
+    readonly lookupSource?: Readonly<Record<string, unknown>> | null;
+}
+
+export interface AllergenReferenceCandidate {
+    readonly ref: string;
+    readonly provider: 'open_food_facts';
+    readonly label: string;
+    readonly brand: string | null;
+    readonly source_url: string;
+    readonly attribution: string;
+    readonly mappings: readonly {
+        readonly allergen_code: string;
+        readonly containment: AllergenContainment;
+        readonly source_tag: string;
+    }[];
+    readonly unmapped_terms: readonly string[];
+    readonly source_hash: string;
+    readonly retrieved_at: string;
+    readonly importable: boolean;
+    readonly selection_token: string | null;
+}
+
+export interface AllergenReferenceSelection {
+    readonly candidate: AllergenReferenceCandidate;
+    readonly confirmed: boolean;
+}
+
+export interface AllergenReferenceSearchRequest {
+    readonly query: string;
+    readonly barcode?: string | undefined;
+}
+
+export interface AllergenReferenceSearchResult {
+    readonly candidates: readonly AllergenReferenceCandidate[];
+    readonly notices: readonly string[];
+}
+
+export interface ImportIngredientAllergenReferenceRequest {
+    readonly selectionToken: string;
+    readonly reviewToken: string;
+    readonly confirmed: true;
 }
 
 export interface NutritionReferenceSelection {
@@ -621,6 +662,7 @@ export type IngredientAdminSort =
 export type IngredientReferenceSeries = 'ING-' | 'PKG-';
 
 export interface CreateIngredientRequest {
+    readonly allergenReference?: AllergenReferenceSelection | undefined;
     readonly nutritionReference?: NutritionReferenceSelection | undefined;
     readonly name: LocalisedText;
     readonly categoryCode: string;
@@ -2119,6 +2161,13 @@ export interface SetBranchOperatingRequest extends LockedRequest {
  * tenant's rows.
  */
 export interface KitchenAdminRepository {
+    searchAllergenReferences(
+        request: AllergenReferenceSearchRequest,
+    ): Promise<AllergenReferenceSearchResult>;
+    importIngredientAllergenReference(
+        ingredientId: IngredientId,
+        request: ImportIngredientAllergenReferenceRequest,
+    ): Promise<IngredientAdmin>;
     searchNutritionReferences(query: string): Promise<readonly NutritionReferenceCandidate[]>;
     confirmIngredientAllergens(
         ingredientId: IngredientId,

@@ -1,5 +1,6 @@
 import type {
     AllergenClass,
+    AllergenReferenceSelection,
     AllergenContainment,
     IngredientAdmin,
     IngredientAllergenMapping,
@@ -23,8 +24,11 @@ import { useTranslation } from 'react-i18next';
 import { toFailure } from '../../data/hooks.ts';
 import {
     useSetIngredientAllergensMutation,
+    useImportIngredientAllergenReference,
     useConfirmIngredientAllergensMutation,
 } from '../../data/kitchen-admin-hooks.ts';
+import { AllergenReferencePicker } from './allergen-reference-picker.tsx';
+import { AllergenReferenceSource } from './allergen-reference-source.tsx';
 import { displayName, containmentKey, verificationKey } from './format.ts';
 
 type Choice = AllergenContainment | 'none';
@@ -50,6 +54,8 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
     const { locale } = useLocale();
     const toast = useToast();
     const save = useSetIngredientAllergensMutation();
+    const importReference = useImportIngredientAllergenReference();
+    const [selection, setSelection] = useState<AllergenReferenceSelection | undefined>();
     const confirm = useConfirmIngredientAllergensMutation();
     const [evidence, setEvidence] = useState('');
     const [supplierEvidence, setSupplierEvidence] = useState('');
@@ -111,13 +117,58 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
         );
     };
 
-    const failure = toFailure(save.error ?? confirm.error);
+    const failure = toFailure(save.error ?? confirm.error ?? importReference.error);
 
     return (
         <Stack space="sm" testID="kitchen-ingredient-mapping">
             {ingredient.allergenReviewRequired ? (
                 <Callout tone="warning" title={t('kitchen:nutritionLookup.reviewChanged')} />
             ) : null}
+            {ingredient.nutritionDerivedFromVersionId === null ? (
+                <AllergenReferencePicker
+                    name={ingredient.name.en}
+                    classes={classes}
+                    value={selection}
+                    onChange={setSelection}
+                    disabled={
+                        dirty || save.isPending || confirm.isPending || importReference.isPending
+                    }
+                />
+            ) : null}
+            {selection === undefined ? null : (
+                <Button
+                    testID="allergen-reference-import"
+                    label={t('kitchen:allergenLookup.import')}
+                    loading={importReference.isPending}
+                    disabled={
+                        dirty ||
+                        save.isPending ||
+                        confirm.isPending ||
+                        importReference.isPending ||
+                        !selection.confirmed ||
+                        selection.candidate.selection_token === null ||
+                        ingredient.allergenReviewToken == null
+                    }
+                    onPress={() => {
+                        if (
+                            selection.candidate.selection_token === null ||
+                            ingredient.allergenReviewToken == null
+                        )
+                            return;
+                        importReference.mutate(
+                            {
+                                ingredientId: ingredient.id,
+                                request: {
+                                    selectionToken: selection.candidate.selection_token,
+                                    reviewToken: ingredient.allergenReviewToken,
+                                    confirmed: true,
+                                },
+                            },
+                            { onSuccess: () => setSelection(undefined) },
+                        );
+                    }}
+                />
+            )}
             {assessed ? null : (
                 <Callout
                     testID="kitchen-ingredient-mapping-unassessed"
@@ -131,6 +182,18 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
                 </Text>
             ) : null}
 
+            {[
+                ...new Map(
+                    ingredient.allergens
+                        .filter((mapping) => mapping.lookupSource != null)
+                        .map((mapping) => [
+                            String(mapping.lookupSource?.['source_hash']),
+                            mapping.lookupSource,
+                        ]),
+                ).entries(),
+            ].map(([hash, source]) =>
+                source == null ? null : <AllergenReferenceSource key={hash} source={source} />,
+            )}
             <FormGrid testID="kitchen-ingredient-mapping-grid">
                 {active.map((entry) => {
                     const code = String(entry.code);
@@ -165,7 +228,12 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
                     variant="primary"
                     size="sm"
                     loading={save.isPending}
-                    disabled={save.isPending || (!dirty && assessed)}
+                    disabled={
+                        save.isPending ||
+                        importReference.isPending ||
+                        confirm.isPending ||
+                        (!dirty && assessed)
+                    }
                     label={
                         chosen.length === 0
                             ? t('kitchen:allergens.confirmNone')
@@ -199,6 +267,9 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
                             {' · '}
                             {t(verificationKey(mapping.verification))}
                             {mapping.sourceNote == null ? '' : ` · ${mapping.sourceNote}`}
+                            {mapping.lookupSource == null
+                                ? ''
+                                : ` · ${String(mapping.lookupSource['attribution'] ?? '')} · ${String(mapping.lookupSource['label'] ?? '')}`}
                         </Text>
                     ))}
                     <TextInputField
@@ -237,6 +308,7 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
                         disabled={
                             dirty ||
                             save.isPending ||
+                            importReference.isPending ||
                             confirm.isPending ||
                             evidence.trim() === '' ||
                             (needsSupplier && supplierEvidence.trim() === '') ||

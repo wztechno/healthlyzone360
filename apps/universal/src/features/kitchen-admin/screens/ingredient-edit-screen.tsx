@@ -1,4 +1,7 @@
-import type { NutritionReferenceSelection } from '@healthy360/api-client/contracts';
+import type {
+    NutritionReferenceSelection,
+    AllergenReferenceSelection,
+} from '@healthy360/api-client/contracts';
 import { NutritionReferencePicker } from '../nutrition-reference-picker.tsx';
 import type {
     AllergenClass,
@@ -81,6 +84,7 @@ import {
     unitShortKey,
 } from '../format.ts';
 import { ImageSlot } from '../image-slot.tsx';
+import { AllergenReferencePicker } from '../allergen-reference-picker.tsx';
 import { IngredientAllergenEditor } from '../ingredient-allergen-editor.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
@@ -593,6 +597,12 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         readonly name: string;
         readonly selection: NutritionReferenceSelection | undefined;
     }>({ name: '', selection: undefined });
+    const [allergenDraft, setAllergenDraft] = useState<{
+        readonly name: string;
+        readonly selection: AllergenReferenceSelection | undefined;
+    }>({ name: '', selection: undefined });
+    const allergenReference =
+        allergenDraft.name === details.name.en ? allergenDraft.selection : undefined;
     const nutritionReference =
         referenceDraft.name === details.name.en ? referenceDraft.selection : undefined;
     const isPackaging = details.categoryCode.startsWith('packaging-disposables');
@@ -601,7 +611,11 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         (isCreating || (record.data?.categoryCode.startsWith('packaging-disposables') ?? false));
     const referenceBlocked =
         (referenceRequired && nutritionReference === undefined) ||
-        (nutritionReference !== undefined && !nutritionReference.confirmed);
+        (nutritionReference !== undefined && !nutritionReference.confirmed) ||
+        (isCreating &&
+            !isPackaging &&
+            allergenReference !== undefined &&
+            !allergenReference.confirmed);
 
     const data = record.data;
 
@@ -657,11 +671,13 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         if (!nextDirty) {
             guard.markClean();
             setReferenceDraft({ name: '', selection: undefined });
+            setAllergenDraft({ name: '', selection: undefined });
         }
     };
 
     const reload = useCallback(() => {
         setReferenceDraft({ name: '', selection: undefined });
+        setAllergenDraft({ name: '', selection: undefined });
         setDetailsDirty(false);
         setDetailsKey(null);
         guard.markClean();
@@ -1097,6 +1113,9 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         : { unitPrice: costOf(unitPriceValue)! }),
                     ...(costOf(b2bPriceValue) === null ? {} : { b2bPrice: costOf(b2bPriceValue)! }),
                     ...(costOf(b2cPriceValue) === null ? {} : { b2cPrice: costOf(b2cPriceValue)! }),
+                    ...(allergenReference === undefined || isPackaging
+                        ? {}
+                        : { allergenReference }),
                     ...(nutritionReference === undefined ? {} : { nutritionReference }),
                     isSellable: details.isSellable,
                 },
@@ -2015,6 +2034,17 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                             )
                         }
                     >
+                        {isCreating && classes.data !== undefined ? (
+                            <AllergenReferencePicker
+                                key={details.name.en}
+                                name={details.name.en}
+                                classes={classes.data}
+                                value={allergenReference}
+                                onChange={(selection) =>
+                                    setAllergenDraft({ name: details.name.en, selection })
+                                }
+                            />
+                        ) : null}
                         {editable && data !== undefined && classes.data !== undefined ? (
                             <IngredientAllergenEditor
                                 key={`${data.allergenReviewToken ?? ''}-${String(data.meta.lockVersion)}-${allergens

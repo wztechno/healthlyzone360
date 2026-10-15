@@ -266,6 +266,7 @@ final class IngredientPresenter
             'reviewed_by' => $mapping->reviewed_by,
             'reviewed_at' => $mapping->reviewed_at?->toIso8601String(),
             'review_evidence' => $mapping->review_evidence,
+            'lookup_source' => $mapping->lookup_source,
         ];
     }
 }

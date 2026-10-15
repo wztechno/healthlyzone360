@@ -22,10 +22,12 @@ it('preserves pending allergen verification and writable layer information', () 
             source: 'supplier_declaration',
             verification_status: status,
             evidence: 'Supplier label',
+            lookup_source: { attribution: 'Open Food Facts — ODbL', ref: 'off:3017620422003' },
         });
         expect(mapped.verification).toBe(status);
         expect(mapped.layer).toBe('organisation_overlay');
         expect(mapped.sourceNote).toBe('Supplier label');
+        expect(mapped.lookupSource?.['ref']).toBe('off:3017620422003');
     }
 });
 

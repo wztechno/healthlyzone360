@@ -71,7 +71,8 @@
         "offboarding_settlement_outstanding": "Settlement is not resolved yet, so this cannot be signed off. Settle or waive the outstanding checks first.",
         "record_export_unavailable": "This bundle is not available to download yet. Check back once it is ready.",
         "nutrition_provider_unavailable": "Nutrition lookup is temporarily unavailable. Try later.",
-        "nutrition_provider_configuration": "Ask an administrator to configure nutrition lookup."
+        "nutrition_provider_configuration": "Ask an administrator to configure nutrition lookup.",
+        "allergens_provider_unavailable": "This provider is temporarily unavailable or rate limited. Try again later."
     },
     "orderRefusal": {
         "account_not_ready": "Your account setup is not finished yet. Complete the outstanding steps and try again.",

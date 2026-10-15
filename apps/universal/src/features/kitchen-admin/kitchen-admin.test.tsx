@@ -1,4 +1,9 @@
-import type { NutritionReferenceCandidate } from '@healthy360/api-client/contracts';
+import type {
+    AllergenReferenceCandidate,
+    NutritionReferenceCandidate,
+} from '@healthy360/api-client/contracts';
+import { AllergenReferencePicker } from './allergen-reference-picker.tsx';
+import { IngredientAllergenEditor } from './ingredient-allergen-editor.tsx';
 import { NutritionReferencePicker } from './nutrition-reference-picker.tsx';
 import { apiFailure, conflictFailure, throwFailure } from '@healthy360/api-client/contracts';
 import type {
@@ -1898,4 +1903,165 @@ describe('the allergen class reference', () => {
             /^1$/,
         );
     });
+});
+
+const ALLERGEN_CANDIDATE: AllergenReferenceCandidate = {
+    ref: 'off:3017620422003',
+    provider: 'open_food_facts',
+    label: 'Hazelnut spread',
+    brand: 'Example',
+    source_url: 'https://world.openfoodfacts.org/product/3017620422003',
+    attribution: 'Open Food Facts — ODbL',
+    mappings: [{ allergen_code: 'milk', containment: 'contains', source_tag: 'en:milk' }],
+    unmapped_terms: [],
+    source_hash: 'c'.repeat(64),
+    retrieved_at: '2026-10-15T00:00:00Z',
+    importable: true,
+    selection_token: 'signed-selection',
+};
+
+describe('Open Food Facts allergen lookup', () => {
+    it('only searches on submission and does not treat empty results as confirmed absence', async () => {
+        const onChange = jest.fn();
+        const { repositories } = await renderStubScreen(
+            <AllergenReferencePicker
+                name="spread"
+                classes={[]}
+                value={undefined}
+                onChange={onChange}
+            />,
+            {
+                repositories: {
+                    kitchenAdmin: {
+                        searchAllergenReferences: async () => ({ candidates: [], notices: [] }),
+                    },
+                },
+            },
+        );
+        expect(repositories.kitchenAdmin.searchAllergenReferences).not.toHaveBeenCalled();
+        await fireEvent.press(screen.getByTestId('allergen-reference-search'));
+        await untilVisible('allergen-reference-empty');
+        expect(repositories.kitchenAdmin.searchAllergenReferences).toHaveBeenCalledWith({
+            query: 'spread',
+            barcode: undefined,
+        });
+        expect(onChange).toHaveBeenCalledWith(undefined);
+    });
+
+    it('shows outages separately and prevents selecting a reference with no declarations', async () => {
+        const onChange = jest.fn();
+        await renderStubScreen(
+            <AllergenReferencePicker
+                name="spread"
+                classes={[]}
+                value={undefined}
+                onChange={onChange}
+            />,
+            {
+                repositories: {
+                    kitchenAdmin: {
+                        searchAllergenReferences: async () => ({
+                            candidates: [
+                                {
+                                    ...ALLERGEN_CANDIDATE,
+                                    mappings: [],
+                                    importable: false,
+                                    selection_token: null,
+                                },
+                            ],
+                            notices: ['open_food_facts.throttled'],
+                        }),
+                    },
+                },
+            },
+        );
+        await fireEvent.press(screen.getByTestId('allergen-reference-search'));
+        await untilVisible('allergen-notice-open_food_facts.throttled');
+        expect(screen.queryByTestId('allergen-reference-empty')).toBeNull();
+        expect(screen.getByTestId('allergen-reference-select-off:3017620422003')).toBeDisabled();
+    });
+
+    it('requires purchased-product acknowledgement before importing suggestions with the current review token', async () => {
+        const record = ingredient(90, { allergenReviewToken: 'b'.repeat(64), allergens: [] });
+        const { repositories } = await renderStubScreen(
+            <IngredientAllergenEditor ingredient={record} classes={[]} />,
+            {
+                repositories: {
+                    kitchenAdmin: {
+                        searchAllergenReferences: async () => ({
+                            candidates: [ALLERGEN_CANDIDATE],
+                            notices: [],
+                        }),
+                        importIngredientAllergenReference: async () => record,
+                    },
+                },
+            },
+        );
+        await fireEvent.press(screen.getByTestId('allergen-reference-search'));
+        await untilVisible('allergen-reference-select-off:3017620422003');
+        await fireEvent.press(screen.getByTestId('allergen-reference-select-off:3017620422003'));
+        expect(screen.getByTestId('allergen-reference-import')).toBeDisabled();
+        await fireEvent.press(screen.getByTestId('allergen-reference-confirm-control'));
+        await fireEvent.press(screen.getByTestId('allergen-reference-import'));
+        await waitFor(() =>
+            expect(
+                repositories.kitchenAdmin.importIngredientAllergenReference,
+            ).toHaveBeenCalledWith(record.id, {
+                selectionToken: 'signed-selection',
+                reviewToken: 'b'.repeat(64),
+                confirmed: true,
+            }),
+        );
+        expect(repositories.kitchenAdmin.confirmIngredientAllergens).not.toHaveBeenCalled();
+        expect(repositories.kitchenAdmin.setIngredientAllergens).not.toHaveBeenCalled();
+    });
+});
+
+it('includes acknowledged allergen suggestions when creating a new ingredient and resets them after a name change', async () => {
+    const created = ingredient(92);
+    const { repositories } = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+        session: kitchenManagerSession(),
+        repositories: {
+            kitchenAdmin: {
+                ...editorReads(() => [ingredient(1)]),
+                createIngredient: async () => created,
+                searchNutritionReferences: async () => [USDA_CANDIDATE],
+                searchAllergenReferences: async () => ({
+                    candidates: [ALLERGEN_CANDIDATE],
+                    notices: [],
+                }),
+            },
+        },
+    });
+    await untilVisible('kitchen-ingredient-name-en-input');
+    await fireEvent.changeText(
+        screen.getByTestId('kitchen-ingredient-name-en-input'),
+        'Purchased spread',
+    );
+    await fireEvent.press(screen.getByTestId('kitchen-ingredient-category-trigger'));
+    await untilVisible('kitchen-ingredient-category-option-store-cupboard');
+    await fireEvent.press(screen.getByTestId('kitchen-ingredient-category-option-store-cupboard'));
+    await fireEvent.press(screen.getByTestId('allergen-reference-search'));
+    await untilVisible('allergen-reference-select-off:3017620422003');
+    await fireEvent.press(screen.getByTestId('allergen-reference-select-off:3017620422003'));
+    await fireEvent.press(screen.getByTestId('allergen-reference-confirm-control'));
+    await fireEvent.changeText(
+        screen.getByTestId('kitchen-ingredient-name-en-input'),
+        'Renamed spread',
+    );
+    expect(screen.queryByTestId('allergen-reference-confirm-control')).toBeNull();
+    await selectUsdaReference();
+    await fireEvent.press(screen.getByTestId('allergen-reference-search'));
+    await untilVisible('allergen-reference-select-off:3017620422003');
+    await fireEvent.press(screen.getByTestId('allergen-reference-select-off:3017620422003'));
+    expect(screen.getByTestId('kitchen-ingredient-editor-screen-save')).toBeDisabled();
+    await fireEvent.press(screen.getByTestId('allergen-reference-confirm-control'));
+    await fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+    await waitFor(() =>
+        expect(repositories.kitchenAdmin.createIngredient).toHaveBeenCalledWith(
+            expect.objectContaining({
+                allergenReference: { candidate: ALLERGEN_CANDIDATE, confirmed: true },
+            }),
+        ),
+    );
 });

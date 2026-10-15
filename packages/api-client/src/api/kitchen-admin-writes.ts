@@ -29,6 +29,7 @@ import type {
     IngredientAdmin,
     IngredientAllergenMapping,
     KitchenAdminRepository,
+    AllergenReferenceSearchResult,
     NutritionReferenceCandidate,
     NutritionReferenceSelection,
     LockedRequest,
@@ -107,6 +108,8 @@ export type ApiKitchenAdminWrites = Pick<
     | 'archiveIngredient'
     | 'forkIngredient'
     | 'setIngredientAllergens'
+    | 'searchAllergenReferences'
+    | 'importIngredientAllergenReference'
     | 'searchNutritionReferences'
     | 'confirmIngredientAllergens'
     | 'createRecipe'
@@ -659,6 +662,27 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
     }
 
     return {
+        async searchAllergenReferences(request) {
+            const params = new URLSearchParams();
+            if (request.barcode) params.set('barcode', request.barcode);
+            else params.set('q', request.query);
+            return transport.request<AllergenReferenceSearchResult>({
+                method: 'GET',
+                path: `/catalogue/ingredients/allergen-references?${params.toString()}`,
+            });
+        },
+        async importIngredientAllergenReference(ingredientId, request) {
+            await transport.requestEnvelope({
+                method: 'POST',
+                path: `/catalogue/ingredients/${encodeURIComponent(String(ingredientId))}/allergens/import-reference`,
+                body: {
+                    selection_token: request.selectionToken,
+                    review_token: request.reviewToken,
+                    confirmed: request.confirmed,
+                },
+            });
+            return reads.getIngredient(ingredientId);
+        },
         async searchNutritionReferences(query) {
             return transport.request<readonly NutritionReferenceCandidate[]>({
                 method: 'GET',
@@ -717,6 +741,13 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                     // Same three fields, same flattening, as the update below — a create that
                     // dropped the facts made the form state them twice, which is how the first
                     // save after a create used to be the one that stuck.
+                    ...(request.allergenReference === undefined
+                        ? {}
+                        : {
+                              allergen_reference_token:
+                                  request.allergenReference.candidate.selection_token,
+                              allergen_reference_confirmed: request.allergenReference.confirmed,
+                          }),
                     ...referenceFields(request.nutritionReference),
                     ...priceFields(request.b2bPrice, request.b2cPrice, request.unitPrice),
                     ...(request.isSellable === undefined

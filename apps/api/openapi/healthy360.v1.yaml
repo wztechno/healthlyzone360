@@ -1755,6 +1755,85 @@ paths:
         '409':
           $ref: '#/components/responses/ResourceConflict'
 
+  /catalogue/ingredients/allergen-references:
+    get:
+      operationId: searchAllergenReferences
+      tags: [Kitchen catalogue]
+      summary: Search Open Food Facts for allergen suggestions
+      description: Requires catalogue management permission. Supply q or barcode. Results never certify absence.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: q
+          in: query
+          schema: { type: string, minLength: 2, maxLength: 150 }
+        - name: barcode
+          in: query
+          schema: { type: string, pattern: '^[0-9]{8,14}$' }
+      responses:
+        '200':
+          description: Suggestions and provider-specific availability notices.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AllergenReferenceSearchResult'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /catalogue/ingredients/{ingredient}/allergens/import-reference:
+    post:
+      operationId: importIngredientAllergenReference
+      tags: [Kitchen catalogue]
+      summary: Add product suggestions to the caller's allergen layer
+      description: Requires catalogue management permission and trading context. Only adds or strengthens pending mappings, preserving supplier-confirmation requirements and existing declarations. Never certifies absence.
+      parameters:
+        - $ref: '#/components/parameters/IngredientPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [selection_token, review_token, confirmed]
+              properties:
+                selection_token: { type: string, maxLength: 30000 }
+                review_token: { type: string, pattern: '^[a-f0-9]{64}$' }
+                confirmed: { type: boolean, const: true }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Refreshed ingredient, mappings and review token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngredientEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          description: Allergen provider unavailable; retryable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /catalogue/ingredients/nutrition-references:
     get:
       operationId: searchNutritionReferences
@@ -23317,6 +23396,7 @@ components:
         - access.self_lockout
         - rate_limit.exceeded
         - server.internal_error
+        - allergens.provider_unavailable
         - nutrition.provider_unavailable
         - nutrition.provider_configuration
 
@@ -24191,6 +24271,9 @@ components:
       type: object
       required: [id, allergen_code, layer, organisation_id, containment, market_scope, source, verification_status]
       properties:
+        lookup_source:
+          type: [object, 'null']
+          additionalProperties: true
         reviewed_by:
           type: ['string', 'null']
         reviewed_at:
@@ -24246,6 +24329,49 @@ components:
             $ref: '#/components/schemas/IngredientAllergenMapping'
         meta:
           $ref: '#/components/schemas/Meta'
+
+    AllergenReferenceSearchResult:
+      type: object
+      required: [candidates, notices]
+      properties:
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/AllergenReferenceCandidate'
+        notices:
+          type: array
+          items: { type: string }
+      additionalProperties: false
+
+    AllergenReferenceCandidate:
+      type: object
+      required: [ref, provider, label, brand, source_url, attribution, mappings, unmapped_terms, source_hash, retrieved_at, importable, selection_token]
+      properties:
+        ref: { type: string }
+        provider: { type: string, enum: [open_food_facts] }
+        label: { type: string }
+        brand: { type: [string, 'null'] }
+        source_url: { type: string, format: uri }
+        attribution: { type: string }
+        mappings:
+          type: array
+          items:
+            type: object
+            required: [allergen_code, containment, source_tag]
+            properties:
+              allergen_code:
+                $ref: '#/components/schemas/AllergenCode'
+              containment: { type: string, enum: [contains, may_contain] }
+              source_tag: { type: string }
+            additionalProperties: false
+        unmapped_terms:
+          type: array
+          items: { type: string }
+        source_hash: { type: string }
+        retrieved_at: { type: string, format: date-time }
+        importable: { type: boolean }
+        selection_token: { type: [string, 'null'] }
+      additionalProperties: false
 
     NutritionReferenceCandidate:
       type: object
@@ -24304,10 +24430,14 @@ components:
       type: object
       required: [name_en, default_unit_id]
       dependentRequired:
+        allergen_reference_token: [allergen_reference_confirmed]
+        allergen_reference_confirmed: [allergen_reference_token]
         nutrition_reference: [nutrition_reference_hash, nutrition_reference_confirmed]
         nutrition_reference_hash: [nutrition_reference, nutrition_reference_confirmed]
         nutrition_reference_confirmed: [nutrition_reference, nutrition_reference_hash]
       properties:
+        allergen_reference_token: { type: string, maxLength: 30000 }
+        allergen_reference_confirmed: { type: boolean, const: true }
         nutrition_reference:
           type: string
           pattern: '^usda:[0-9]+$'

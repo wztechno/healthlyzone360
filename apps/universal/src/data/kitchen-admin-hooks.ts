@@ -1,4 +1,6 @@
 import type {
+    AllergenReferenceSearchRequest,
+    ImportIngredientAllergenReferenceRequest,
     AllergenClass,
     BranchOperating,
     CreateDeliveryWindowRequest,
@@ -658,6 +660,37 @@ export function useSetIngredientAllergensMutation(): UseMutationResult<
         mutationFn: ({ ingredientId, request }: SetIngredientAllergensVariables) =>
             repositories.kitchenAdmin.setIngredientAllergens(ingredientId, request),
         onSuccess: onWritten,
+    });
+}
+
+export function useAllergenReferenceSearch() {
+    const repositories = useRepositories();
+    return useMutation({
+        mutationFn: (request: AllergenReferenceSearchRequest) =>
+            repositories.kitchenAdmin.searchAllergenReferences(request),
+        retry: false,
+        gcTime: 0,
+    });
+}
+
+export function useImportIngredientAllergenReference() {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+    const onWritten = useIngredientWriteEffects();
+    return useMutation({
+        mutationFn: ({
+            ingredientId,
+            request,
+        }: {
+            readonly ingredientId: IngredientId;
+            readonly request: ImportIngredientAllergenReferenceRequest;
+        }) => repositories.kitchenAdmin.importIngredientAllergenReference(ingredientId, request),
+        onSuccess: onWritten,
+        onError: (_error, { ingredientId }) => {
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.kitchenAdmin.ingredient(ingredientId),
+            });
+        },
     });
 }
 

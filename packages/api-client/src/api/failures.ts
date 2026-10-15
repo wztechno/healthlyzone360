@@ -217,6 +217,7 @@ function readRetryAfter(headerValue: string | null, details: unknown): number {
  * branch of its own.
  */
 const DIRECT_CODES = {
+    'allergens.provider_unavailable': 'allergens.provider_unavailable',
     'nutrition.provider_unavailable': 'nutrition.provider_unavailable',
     'nutrition.provider_configuration': 'nutrition.provider_configuration',
     'validation.failed': 'validation.failed',
@@ -453,6 +454,7 @@ export function mapErrorEnvelope(body: unknown, context: ErrorEnvelopeContext): 
 
 /** Every wire code, so a spec change that adds one is caught by the compiler in a test. */
 export const WIRE_ERROR_CODES: readonly ErrorCode[] = [
+    'allergens.provider_unavailable',
     'nutrition.provider_unavailable',
     'nutrition.provider_configuration',
     'validation.failed',

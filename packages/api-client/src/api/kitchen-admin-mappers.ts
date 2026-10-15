@@ -281,6 +281,7 @@ export function mapIngredientAllergenMapping(wire: WireAllergenMapping): Ingredi
         marketScope: mapMarketScope(wire.market_scope),
         verification: mapAllergenVerification(wire.verification_status),
         sourceNote: wire.evidence ?? null,
+        lookupSource: wire.lookup_source ?? null,
         layer: wire.layer,
     };
 }
