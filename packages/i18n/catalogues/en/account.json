@@ -239,6 +239,17 @@
         "version": "Version {{version}}",
         "grantedOn": "Agreed on {{date}}",
         "withdrawnOn": "Withdrawn on {{date}}",
+        "neededTitle": "Needed to order",
+        "offersTitle": "Offers and updates",
+        "items": {
+            "terms": "I accept the terms of service",
+            "privacy": "I have read the privacy notice",
+            "healthData": "Healthy360 may use my health details for my meals and care",
+            "age": "I am old enough to order",
+            "allergenAccuracy": "My allergies and diet details are correct",
+            "marketingEmail": "Offers and news by email",
+            "marketingWhatsapp": "Offers and news by WhatsApp"
+        },
         "requiredNote": "This one is needed to use Healthy360 at all.",
         "reconsentTitle": "This has been updated",
         "reconsentBody": "You agreed to an earlier version. Read it again and agree if you are happy with it.",

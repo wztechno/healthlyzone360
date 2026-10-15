@@ -1,6 +1,5 @@
 import type { ConsentState } from '@healthy360/api-client/contracts';
 import {
-    Accordion,
     Badge,
     Button,
     Callout,
@@ -8,6 +7,7 @@ import {
     Checkbox,
     Heading,
     Inline,
+    Separator,
     Stack,
     Text,
 } from '@healthy360/design-system';
@@ -21,20 +21,18 @@ import {
     ageConfirmed,
     consentStatus,
     listableConsents,
-    outstandingRequired,
 } from '../consents.ts';
+import { useConsentLabel } from '../consent-labels.ts';
 
 /**
  * `/customer/account/consents` — what a person has agreed to, in the words they agreed to.
  *
- * ## The full text is on the page, not behind a link
+ * ## One plain line per consent (BUG-11)
  *
- * `ConsentDefinition.text` is authored per locale on the server rather than machine-translated at
- * render time, because a consent somebody agreed to has to be the text they were shown (OQ-033).
- * The screen honours that by showing it: an {@link Accordion} panel per consent, collapsed so the
- * list stays readable and expandable so the words are one tap away. A link to a separate page would
- * mean the agreement and the text it refers to are two different requests, either of which can be
- * the one that fails.
+ * The server sends a consent's code and no wording, so each row is the first-person line from
+ * `../consent-labels.ts`, its status and its one action — nothing else. What is needed to order and
+ * what is optional sit in two cards, split on the definition's own `required` flag. Versions,
+ * requirement badges and counts are left off: they are the ledger's facts, not the customer's.
  *
  * ## The age confirmation blocks, and it blocks visibly
  *
@@ -65,6 +63,7 @@ const STATUS_TONE = {
 export function ConsentsScreen() {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const label = useConsentLabel();
 
     const consents = useConsentsQuery();
     const setConsent = useSetConsentMutation();
@@ -72,98 +71,50 @@ export function ConsentsScreen() {
     const all = consents.data ?? [];
     const age = all.find((consent) => consent.definition.key === AGE_CONFIRMATION_KEY);
     const confirmed = ageConfirmed(all);
-    const outstanding = outstandingRequired(all);
     const listed = listableConsents(all);
 
     const failure = toFailure(setConsent.error);
     const busy = setConsent.isPending;
+    // The one being saved spins; the rest only wait, so a press never looks like every row moved.
+    const savingKey = busy ? setConsent.variables?.key : undefined;
 
     const change = (consent: ConsentState, granted: boolean) => {
         setConsent.mutate({ key: consent.definition.key, granted });
     };
 
-    function consentPanel(consent: ConsentState) {
+    function consentRow(consent: ConsentState, index: number) {
         const status = consentStatus(consent);
         const testID = `consent-${consent.definition.key}`;
         // Optional consents are never gated on the age confirmation: withdrawing marketing email
         // has nothing to do with how old somebody is, and blocking it would be coercive.
         const gated = consent.definition.required && !confirmed;
+        const saving = savingKey === consent.definition.key;
+        const waiting = busy && !saving;
 
-        return {
-            key: consent.definition.key,
-            title: consent.definition.title,
-            children: (
-                <Stack space="sm" testID={testID}>
-                    <Inline space="xs" wrap align="center">
+        return (
+            <Stack key={consent.definition.key} space="sm" testID={testID}>
+                {index === 0 ? null : <Separator />}
+                <Inline space="sm" align="center" justify="between" wrap>
+                    <Text testID={`${testID}-title`} className="min-w-0 flex-1">
+                        {label(consent.definition.key)}
+                    </Text>
+                    <Inline space="sm" align="center">
                         <Badge
                             testID={`${testID}-status`}
+                            // `label`, not the pill: it sits in a row beside the button, and the
+                            // pill's own top alignment would hang it above the button's centre.
+                            variant="label"
                             tone={STATUS_TONE[status]}
                             label={t(`account:consents.status.${status}`)}
                         />
-                        <Badge
-                            testID={`${testID}-requirement`}
-                            tone={consent.definition.required ? 'warning' : 'neutral'}
-                            label={
-                                consent.definition.required
-                                    ? t('account:consents.required')
-                                    : t('account:consents.optional')
-                            }
-                        />
-                        <Badge
-                            testID={`${testID}-version`}
-                            tone="neutral"
-                            icon={null}
-                            label={t('account:consents.version', {
-                                version: consent.definition.version,
-                            })}
-                        />
-                    </Inline>
-
-                    <Text testID={`${testID}-text`}>{consent.definition.text}</Text>
-
-                    {status === 'reconsent' ? (
-                        <Callout
-                            testID={`${testID}-reconsent`}
-                            role="status"
-                            tone="warning"
-                            title={t('account:consents.reconsentTitle')}
-                            body={t('account:consents.reconsentBody')}
-                        />
-                    ) : null}
-
-                    {consent.grantedAt === null ? null : (
-                        <Text variant="caption" tone="secondary" testID={`${testID}-granted-at`}>
-                            {t('account:consents.grantedOn', {
-                                date: formatter.formatDate(consent.grantedAt, {
-                                    dateStyle: 'long',
-                                }),
-                            })}
-                        </Text>
-                    )}
-                    {consent.withdrawnAt === null ? null : (
-                        <Text variant="caption" tone="secondary" testID={`${testID}-withdrawn-at`}>
-                            {t('account:consents.withdrawnOn', {
-                                date: formatter.formatDate(consent.withdrawnAt, {
-                                    dateStyle: 'long',
-                                }),
-                            })}
-                        </Text>
-                    )}
-
-                    {consent.definition.required ? (
-                        <Text variant="caption" tone="secondary">
-                            {t('account:consents.requiredNote')}
-                        </Text>
-                    ) : null}
-
-                    <Inline space="sm" wrap>
                         {consent.granted ? (
                             <Button
                                 testID={`${testID}-withdraw`}
                                 size="sm"
                                 variant="secondary"
                                 label={t('account:consents.withdraw')}
-                                loading={busy}
+                                loading={saving}
+                                disabled={waiting}
                                 onPress={() => {
                                     change(consent, false);
                                 }}
@@ -173,33 +124,61 @@ export function ConsentsScreen() {
                                 testID={`${testID}-grant`}
                                 size="sm"
                                 label={t('account:consents.grant')}
-                                loading={busy}
-                                disabled={gated}
+                                loading={saving}
+                                disabled={gated || waiting}
                                 onPress={() => {
                                     change(consent, true);
                                 }}
                             />
                         )}
                     </Inline>
+                </Inline>
 
-                    {gated ? (
-                        <Text variant="caption" tone="secondary" testID={`${testID}-gated`}>
-                            {t('account:consents.ageGate')}
-                        </Text>
-                    ) : null}
+                {status === 'reconsent' ? (
+                    <Callout
+                        testID={`${testID}-reconsent`}
+                        role="status"
+                        tone="warning"
+                        title={t('account:consents.reconsentTitle')}
+                    />
+                ) : null}
+
+                {consent.grantedAt === null ? null : (
+                    <Text variant="caption" tone="secondary" testID={`${testID}-granted-at`}>
+                        {t('account:consents.grantedOn', {
+                            date: formatter.formatDate(consent.grantedAt, { dateStyle: 'long' }),
+                        })}
+                    </Text>
+                )}
+                {consent.withdrawnAt === null ? null : (
+                    <Text variant="caption" tone="secondary" testID={`${testID}-withdrawn-at`}>
+                        {t('account:consents.withdrawnOn', {
+                            date: formatter.formatDate(consent.withdrawnAt, { dateStyle: 'long' }),
+                        })}
+                    </Text>
+                )}
+            </Stack>
+        );
+    }
+
+    /** One card per group, so what is needed to order and what is optional never mix. */
+    function group(id: string, title: string, rows: readonly ConsentState[]) {
+        if (rows.length === 0) return null;
+        return (
+            <Card testID={`${TEST_ID}-${id}`} padding="md">
+                <Stack space="md">
+                    <Heading level={2}>{title}</Heading>
+                    <Stack space="sm">{rows.map(consentRow)}</Stack>
                 </Stack>
-            ),
-        };
+            </Card>
+        );
     }
 
     return (
         <Stack space="lg" testID={TEST_ID}>
-            <Stack space="xs">
-                <Heading level={1} testID={`${TEST_ID}-title`}>
-                    {t('account:consents.title')}
-                </Heading>
-                <Text tone="secondary">{t('account:consents.subtitle')}</Text>
-            </Stack>
+            <Heading level={1} testID={`${TEST_ID}-title`}>
+                {t('account:consents.title')}
+            </Heading>
 
             {failure === null ? null : (
                 <Callout
@@ -224,8 +203,7 @@ export function ConsentsScreen() {
                             <Heading level={2}>{t('account:consents.ageTitle')}</Heading>
                             <Checkbox
                                 testID={`${TEST_ID}-age-checkbox`}
-                                label={age?.definition.title ?? t('account:consents.ageTitle')}
-                                description={age?.definition.text ?? ''}
+                                label={label(age?.definition.key ?? AGE_CONFIRMATION_KEY)}
                                 required
                                 checked={confirmed}
                                 disabled={busy || age === undefined}
@@ -239,38 +217,21 @@ export function ConsentsScreen() {
                                     role="alert"
                                     tone="warning"
                                     title={t('account:consents.ageGateTitle')}
-                                    body={t('account:consents.ageGate')}
                                 />
                             )}
                         </Stack>
                     </Card>
 
-                    <Callout
-                        testID={`${TEST_ID}-outstanding`}
-                        role="status"
-                        tone={outstanding.length === 0 ? 'success' : 'info'}
-                        title={
-                            outstanding.length === 0
-                                ? t('account:consents.allRequiredDone')
-                                : t('account:consents.outstanding', { count: outstanding.length })
-                        }
-                    />
-
-                    {/*
-                     * Outstanding required consents start expanded.
-                     *
-                     * `defaultExpandedKeys` is uncontrolled, which is exactly right here: it is a
-                     * starting position, not a rule. `QueryStates` renders its children only once
-                     * the data has arrived, so the first mount already knows which consents are
-                     * outstanding — and a person who then collapses a panel is not fought with by
-                     * the next refetch.
-                     */}
-                    <Accordion
-                        testID={`${TEST_ID}-accordion`}
-                        multiple
-                        defaultExpandedKeys={outstanding.map((consent) => consent.definition.key)}
-                        items={listed.map(consentPanel)}
-                    />
+                    {group(
+                        'required',
+                        t('account:consents.neededTitle'),
+                        listed.filter((consent) => consent.definition.required),
+                    )}
+                    {group(
+                        'optional',
+                        t('account:consents.offersTitle'),
+                        listed.filter((consent) => !consent.definition.required),
+                    )}
                 </Stack>
             </QueryStates>
         </Stack>

@@ -15,7 +15,7 @@ import { ApiError, conflictFailure } from '@healthy360/api-client/contracts';
 import type { CursorPage, PlacedOrder } from '@healthy360/api-client/contracts';
 import { OrderId } from '@healthy360/domain-types';
 import type { ServiceAreaId } from '@healthy360/domain-types';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import { testMeResponse } from '../../testing/session-fixtures.ts';
@@ -1088,9 +1088,72 @@ describe('ConsentsScreen', () => {
             );
         });
 
-        // The full text is on the page rather than behind a link — it is what was agreed to.
-        expect(screen.getByTestId('consent-privacy_notice-text')).toHaveTextContent(
-            new RegExp('What Healthy360 records about you'),
+        // Plain words, never the code (BUG-11).
+        expect(screen.getByTestId('consent-privacy_notice-title')).toHaveTextContent(
+            'I have read the privacy notice',
         );
+        expect(screen.getByTestId('consents-screen-required')).toHaveTextContent(
+            /I accept the terms of service/,
+        );
+        expect(screen.queryByText(/privacy_notice|terms_of_service|Version/)).toBeNull();
+        expect(screen.queryByText(privacyText)).toBeNull();
+    });
+
+    it('spins only the button that was pressed while its save runs', async () => {
+        let release: () => void = () => undefined;
+        const consents: readonly ConsentState[] = [
+            consent('consent.age_confirmation', { required: true, granted: true }),
+            consent('terms_of_service', { required: true }),
+            consent('privacy_notice', { required: true }),
+        ];
+        await renderStubScreen(<ConsentsScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    listConsents: async () => consents,
+                    setConsent: () =>
+                        new Promise<ConsentState>((resolve) => {
+                            release = () => {
+                                resolve(consent('terms_of_service', { granted: true }));
+                            };
+                        }),
+                },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('consent-terms_of_service-grant'));
+
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('consent-terms_of_service-grant').props.accessibilityState.busy,
+            ).toBe(true);
+        });
+        const other = screen.getByTestId('consent-privacy_notice-grant').props.accessibilityState;
+        expect(other.busy).toBe(false);
+        expect(other.disabled).toBe(true);
+
+        await act(async () => {
+            release();
+        });
+    });
+
+    it('keeps the optional ones in their own card, labelled in words', async () => {
+        await renderStubScreen(<ConsentsScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    listConsents: async () => [
+                        consent('consent.age_confirmation', { required: true, granted: true }),
+                        consent('consent.marketing_email'),
+                    ],
+                },
+            },
+        });
+
+        expect(await screen.findByTestId('consents-screen-optional')).toHaveTextContent(
+            /Offers and news by email/,
+        );
+        expect(screen.queryByTestId('consents-screen-required')).toBeNull();
+        expect(screen.queryByTestId('consents-screen-age-blocking')).toBeNull();
     });
 });

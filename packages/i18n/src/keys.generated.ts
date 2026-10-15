@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8232 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8241 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -452,6 +452,15 @@ export interface NamespaceKeys {
     | 'consents.emptyBody'
     | 'consents.grant'
     | 'consents.grantedOn'
+    | 'consents.items.age'
+    | 'consents.items.allergenAccuracy'
+    | 'consents.items.healthData'
+    | 'consents.items.marketingEmail'
+    | 'consents.items.marketingWhatsapp'
+    | 'consents.items.privacy'
+    | 'consents.items.terms'
+    | 'consents.neededTitle'
+    | 'consents.offersTitle'
     | 'consents.optional'
     | 'consents.outstanding'
     | 'consents.reconsentBody'
@@ -8713,6 +8722,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:consents.emptyBody',
   'account:consents.grant',
   'account:consents.grantedOn',
+  'account:consents.items.age',
+  'account:consents.items.allergenAccuracy',
+  'account:consents.items.healthData',
+  'account:consents.items.marketingEmail',
+  'account:consents.items.marketingWhatsapp',
+  'account:consents.items.privacy',
+  'account:consents.items.terms',
+  'account:consents.neededTitle',
+  'account:consents.offersTitle',
   'account:consents.optional',
   'account:consents.outstanding',
   'account:consents.reconsentBody',
