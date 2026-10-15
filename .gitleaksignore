@@ -21,3 +21,9 @@
 # 419d4d90 ("Clear the font manifest's secret-scan false positives") — this file's own comment
 # quoted one of those rows verbatim, and the rule read the quotation the same way.
 419d4d902bf334e34bfa9bdaa56e72019ceccbe8:.gitleaksignore:generic-api-key:7
+#
+# c7170d5b — an empty USDA key placeholder captured the following hourly-budget setting
+# across a newline. The reported entropy matches that non-secret setting exactly. The
+# template now quotes its empty value and separates the budget with a comment. This
+# exception covers only the historical finding.
+c7170d5b5bcb929c1f8b996054cd2ef26d61b68e:apps/api/.env.example:generic-api-key:2

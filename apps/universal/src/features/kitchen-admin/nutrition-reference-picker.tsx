@@ -102,7 +102,8 @@ export function NutritionReferencePicker({
                         testID={`nutrition-reference-select-${candidate.ref}`}
                         variant="secondary"
                         label={t(
-                            value?.ref === candidate.ref && value.sourceHash === candidate.source_hash
+                            value?.ref === candidate.ref &&
+                                value.sourceHash === candidate.source_hash
                                 ? 'kitchen:nutritionLookup.selected'
                                 : 'kitchen:nutritionLookup.select',
                         )}

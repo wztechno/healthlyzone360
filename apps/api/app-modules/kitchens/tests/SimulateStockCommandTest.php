@@ -115,6 +115,33 @@ it('writes nothing on a dry run', function (): void {
         ->and(IngredientStockCost::withoutTenancy()->count())->toBe(0);
 });
 
+it('types purchase prices on the kitchen\'s own bought ingredients only, keeping a typed one, posting nothing', function (): void {
+    $this->mystery->forceFill(['purchase_price_amount' => '9.990000', 'purchase_price_currency' => 'USD'])->save();
+    $library = Ingredient::factory()->create(['organisation_id' => null, 'slug' => 'library-onion', 'default_unit_id' => CatalogueWorld::unit('kg')]);
+    $args = ['--org' => $this->kitchen->organisation->slug, '--typed-prices' => true];
+
+    $this->artisan('kitchen:simulate-stock', [...$args, '--dry-run' => true])->run();
+    expect($this->chicken->refresh()->purchase_price_amount)->toBeNull();
+
+    expect($this->artisan('kitchen:simulate-stock', $args)->run())->toBe(0);
+
+    // Last week's figure around the file's 4.80/kg, as both the listed unit price and the purchase price.
+    expect((float) $this->chicken->refresh()->purchase_price_amount)->toBeGreaterThan(4.8)->toBeLessThan(5.4)
+        ->and($this->chicken->unit_price_amount)->toBe($this->chicken->purchase_price_amount)
+        ->and($this->chicken->purchase_price_currency)->toBe('USD')
+        ->and($this->chicken->price_currency_code)->toBe('USD')
+        ->and($this->mystery->refresh()->purchase_price_amount)->toBe('9.990000')
+        ->and($this->mystery->unit_price_amount)->not->toBeNull()
+        ->and($this->houseSauce->refresh()->purchase_price_amount)->toBeNull()
+        ->and($this->houseSauce->unit_price_amount)->toBeNull()
+        ->and($library->refresh()->unit_price_amount)->toBeNull()
+        ->and(GoodsReceipt::withoutTenancy()->count())->toBe(0);
+
+    // The platform library only when asked for.
+    $this->artisan('kitchen:simulate-stock', [...$args, '--include-library' => true])->run();
+    expect($library->refresh()->unit_price_amount)->not->toBeNull();
+});
+
 it('repairs shelves written before the checks: negative back to zero, a broken pair back to its seed', function (): void {
     expect($this->artisan('kitchen:simulate-stock', ['--org' => $this->kitchen->organisation->slug])->run())->toBe(0);
 
