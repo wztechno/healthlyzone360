@@ -136,6 +136,7 @@ it('sweeps every PII literal out of the schema while the order rows survive', fu
         'user_id' => $user->getKey(),
         'given_name' => $givenName,
         'family_name' => $familyName,
+        'preferred_language_code' => 'en',
         'date_of_birth' => '1988-04-11',
     ]);
 
