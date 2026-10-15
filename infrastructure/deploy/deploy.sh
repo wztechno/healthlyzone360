@@ -231,6 +231,21 @@ MAIL_FROM_ADDRESS=$MAIL_FROM_ADDRESS
 MAIL_FROM_NAME="$MAIL_FROM_NAME"
 EOF
 
+# The ingredient reference lookups are opt-in per instance, the same bargain
+# Brevo takes above: put the key in this directory's write-once .env and it
+# reaches the container, leave it out and the instance uses the shipped
+# defaults in config/services.php.
+#
+# Written only when set, and that is the whole point. An empty line is not the
+# same as an absent one — `env()` hands back "" rather than the default, so
+# `USDA_FDC_HOURLY_BUDGET=` would floor the hourly budget at one request
+# instead of nine hundred, and `OPEN_FOOD_FACTS_USER_AGENT=` would send the
+# empty user agent that Open Food Facts asks callers not to send.
+for key in USDA_FDC_API_KEY USDA_FDC_HOURLY_BUDGET OPEN_FOOD_FACTS_USER_AGENT; do
+    value="$(envval "$key")"
+    [ -n "$value" ] && printf '%s="%s"\n' "$key" "$value" >> .env.deploy
+done
+
 # ---------------------------------------------------------------------------
 # 3. Build and start the data layer
 # ---------------------------------------------------------------------------
