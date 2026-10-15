@@ -1,15 +1,5 @@
-import {
-    Breadcrumbs,
-    Button,
-    Callout,
-    EmptyState,
-    Heading,
-    Stack,
-    Table,
-    Text,
-} from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
-import type { PlanVariant, SubscriptionPlan } from '@healthy360/api-client/contracts';
+import { Button, EmptyState } from '@healthy360/design-system';
+import type { SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { SubscriptionPlanId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -17,62 +7,73 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
+import { Text as RNText, View } from 'react-native';
 
 import { usePlanComparisonQuery } from '../../../data/catalogue-hooks.ts';
+import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
+import { Eyebrow } from '../../../ui/eyebrow.tsx';
+import { ListingHeader } from '../../../ui/listing-header.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
+import { listDayPrice } from '../plan-balance.ts';
+import { cheapestVariant } from '../plan-catalogue.ts';
 
 /**
  * `/plans/compare` — two or three plans, side by side.
  *
- * Neither reference product has a comparison surface (doc 17, IA-10), so the whole screen is
- * original. Three decisions carry it.
+ * **One column per plan, the label above the values.** Comparison is a vertical scan of the same
+ * figure across candidates, so every row lays its values out in the same equal columns. The label
+ * sits over the row rather than in a column of its own, which is what lets three plans fit a phone
+ * without a horizontal scroll.
  *
- * **The table is transposed.** One row per *metric*, one column per plan — not one row per plan.
- * Comparison is a vertical scan of the same figure across candidates, and a row-per-plan layout
- * makes the reader compare across a row instead, which is the harder direction and the one that
- * loses alignment as soon as the columns differ in width.
+ * **The head is the plan.** Name, kitchen, price a day and Choose sit at the top of each column and
+ * stay pinned on the web while the figures scroll under them — the reader always knows which
+ * column is which, and the decision is one press from the figure that settled it.
  *
  * **Columns carry equal emphasis.** No "recommended" badge, no highlighted column, no reordering by
- * price. A comparison that nudges is not a comparison; it is an advert with a table around it.
+ * price. A comparison that nudges is an advert with a table around it.
  *
- * **It stacks rather than scrolls.** `Table` becomes one card per metric below `md`, which keeps the
- * horizontal scrolling inside the component and off the document (doc 08, RSP-01).
+ * **Every text is `self-start`.** A Latin plan name or a bare figure inside an Arabic page is an
+ * LTR run, and the web's `text-align: start` resolves against the run rather than the page; shrunk
+ * to its content and placed by the column instead, it sits on the column's start edge either way.
+ *
+ * **A row nobody publishes is not drawn.** Macro ranges are optional on a plan; a row of dashes in
+ * every column tells the reader nothing, so it is left out. A row where *some* plan publishes the
+ * figure keeps a dash for the others — there the absence is the difference.
  */
-
-/** Days in a week — the divisor behind the "price a day" row. */
-const DAYS_PER_WEEK = 7;
 
 interface ComparisonRow {
     readonly key: string;
-    readonly header: string;
-    readonly render: (plan: SubscriptionPlan) => string;
+    readonly label: string;
+    readonly value: (plan: SubscriptionPlan) => string | null;
 }
 
-function cheapestVariant(plan: SubscriptionPlan): PlanVariant | null {
-    return plan.variants.reduce<PlanVariant | null>(
-        (lowest, variant) =>
-            lowest === null || variant.pricePerWeek.amount < lowest.pricePerWeek.amount
-                ? variant
-                : lowest,
-        null,
-    );
+/** A closed range as "3" or "2–3"; `null` for an empty set. */
+function countRange(formatter: Formatter, t: TFunction, values: readonly number[]): string | null {
+    if (values.length === 0) return null;
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    return min === max
+        ? formatter.formatNumber(min)
+        : t('catalogue:compare.countRange', {
+              min: formatter.formatNumber(min),
+              max: formatter.formatNumber(max),
+          });
 }
 
-function rangeText(
+/** The widest range across the plan's bands, or `null` when no band publishes one. */
+function macroRange(
     formatter: Formatter,
     t: TFunction,
     ranges: readonly ({ readonly min: number; readonly max: number } | null)[],
-): string {
+): string | null {
     const known = ranges.filter(
         (range): range is { readonly min: number; readonly max: number } => range !== null,
     );
-    if (known.length === 0) return '—';
-    const min = Math.min(...known.map((range) => range.min));
-    const max = Math.max(...known.map((range) => range.max));
+    if (known.length === 0) return null;
     return t('catalogue:plan.macroRange', {
-        min: formatter.formatNumber(min),
-        max: formatter.formatNumber(max),
+        min: formatter.formatNumber(Math.min(...known.map((range) => range.min))),
+        max: formatter.formatNumber(Math.max(...known.map((range) => range.max))),
     });
 }
 
@@ -93,26 +94,35 @@ export function PlanComparisonScreen() {
 
     const comparison = usePlanComparisonQuery(planIds);
     const plans = comparison.data ?? [];
+    // The same query `/plans` names kitchens with, so it is usually already cached.
+    const kitchens = useKitchensQuery({ channels: ['marketplace'], limit: 20 });
+    const kitchenNameById = useMemo(() => {
+        const map = new Map<string, string>();
+        for (const kitchen of kitchens.data?.items ?? []) map.set(String(kitchen.id), kitchen.name);
+        return map;
+    }, [kitchens.data]);
 
-    const rows: readonly ComparisonRow[] = [
+    const allRows: readonly ComparisonRow[] = [
         {
             key: 'energy',
-            header: t('catalogue:compare.row.energy'),
-            render: (plan) =>
-                plan.variants
-                    .map((variant) =>
-                        t('catalogue:plans.energyBand', {
-                            min: formatter.formatNumber(variant.energyRange.min),
-                            max: formatter.formatNumber(variant.energyRange.max),
-                        }),
-                    )
-                    .join(t('catalogue:common.listSeparator')),
+            label: t('catalogue:compare.row.energy'),
+            value: (plan) =>
+                plan.variants.length === 0
+                    ? null
+                    : plan.variants
+                          .map((variant) =>
+                              t('catalogue:plans.energyBand', {
+                                  min: formatter.formatNumber(variant.energyRange.min),
+                                  max: formatter.formatNumber(variant.energyRange.max),
+                              }),
+                          )
+                          .join(t('catalogue:common.listSeparator')),
         },
         {
             key: 'protein',
-            header: t('catalogue:compare.row.protein'),
-            render: (plan) =>
-                rangeText(
+            label: t('catalogue:compare.row.protein'),
+            value: (plan) =>
+                macroRange(
                     formatter,
                     t,
                     plan.variants.map((variant) => variant.proteinRange),
@@ -120,9 +130,9 @@ export function PlanComparisonScreen() {
         },
         {
             key: 'carbohydrate',
-            header: t('catalogue:compare.row.carbohydrate'),
-            render: (plan) =>
-                rangeText(
+            label: t('catalogue:compare.row.carbohydrate'),
+            value: (plan) =>
+                macroRange(
                     formatter,
                     t,
                     plan.variants.map((variant) => variant.carbohydrateRange),
@@ -130,9 +140,9 @@ export function PlanComparisonScreen() {
         },
         {
             key: 'fat',
-            header: t('catalogue:compare.row.fat'),
-            render: (plan) =>
-                rangeText(
+            label: t('catalogue:compare.row.fat'),
+            value: (plan) =>
+                macroRange(
                     formatter,
                     t,
                     plan.variants.map((variant) => variant.fatRange),
@@ -140,87 +150,62 @@ export function PlanComparisonScreen() {
         },
         {
             key: 'meals',
-            header: t('catalogue:compare.row.meals'),
-            render: (plan) => {
-                const meals = Math.max(...plan.variants.map((variant) => variant.mealsPerDay));
-                const snacks = Math.max(...plan.variants.map((variant) => variant.snacksPerDay));
-                return snacks === 0
-                    ? t('catalogue:plans.mealsPerDayNoSnacks', {
-                          meals: formatter.formatNumber(meals),
-                      })
-                    : t('catalogue:plans.mealsPerDay', {
-                          meals: formatter.formatNumber(meals),
-                          snacks: formatter.formatNumber(snacks),
-                      });
-            },
+            label: t('catalogue:compare.row.meals'),
+            value: (plan) =>
+                countRange(
+                    formatter,
+                    t,
+                    plan.variants.map((variant) => variant.mealsPerDay),
+                ),
+        },
+        {
+            key: 'snacks',
+            label: t('catalogue:compare.row.snacks'),
+            value: (plan) =>
+                countRange(
+                    formatter,
+                    t,
+                    plan.variants.map((variant) => variant.snacksPerDay),
+                ),
         },
         {
             key: 'durations',
-            header: t('catalogue:compare.row.durations'),
-            render: (plan) =>
-                plan.durations
-                    .map((option) =>
-                        option.discountPercent > 0
-                            ? t('catalogue:compare.durationOption', {
-                                  duration: t(`catalogue:compare.duration.${option.duration}`),
-                                  discount: formatter.formatNumber(option.discountPercent),
-                              })
-                            : t('catalogue:compare.durationOptionNoDiscount', {
-                                  duration: t(`catalogue:compare.duration.${option.duration}`),
-                              }),
-                    )
-                    .join(t('catalogue:common.listSeparator')),
-        },
-        {
-            key: 'delivery',
-            header: t('catalogue:compare.row.delivery'),
-            // The consumer contract publishes no delivery-day constraint on a plan; the honest
-            // answer is the sentence that says so, not a guessed list of weekdays.
-            render: () => t('catalogue:plan.deliveryUnpublishedShort'),
-        },
-        {
-            key: 'pricePerDay',
-            header: t('catalogue:compare.row.pricePerDay'),
-            render: (plan) => {
-                const variant = cheapestVariant(plan);
-                if (variant === null) return '—';
-                return formatMoney(formatter, {
-                    amount: Math.round(variant.pricePerWeek.amount / DAYS_PER_WEEK),
-                    currency: variant.pricePerWeek.currency,
-                });
-            },
+            label: t('catalogue:compare.row.durations'),
+            value: (plan) =>
+                plan.durations.length === 0
+                    ? null
+                    : plan.durations
+                          .map((option) =>
+                              option.discountPercent > 0
+                                  ? t('catalogue:compare.durationOption', {
+                                        duration: t(
+                                            `catalogue:compare.duration.${option.duration}`,
+                                        ),
+                                        discount: formatter.formatNumber(option.discountPercent),
+                                    })
+                                  : t(`catalogue:compare.duration.${option.duration}`),
+                          )
+                          .join(t('catalogue:common.listSeparator')),
         },
     ];
+    const rows = allRows.filter((row) => plans.some((plan) => row.value(plan) !== null));
 
-    const columns: readonly TableColumn<ComparisonRow>[] = [
-        {
-            key: 'metric',
-            header: t('catalogue:compare.caption'),
-            rowHeader: true,
-            flex: 1.2,
-            render: (row) => <Text variant="bodyStrong">{row.header}</Text>,
-        },
-        ...plans.map<TableColumn<ComparisonRow>>((plan) => ({
-            key: String(plan.id),
-            header: plan.name,
-            render: (row) => (
-                <Text testID={`plan-compare-${row.key}-${plan.slug}`}>{row.render(plan)}</Text>
-            ),
-        })),
-    ];
+    const back = (
+        <Button
+            testID="plan-comparison-back"
+            variant="quiet"
+            label={t('catalogue:compare.backToPlans')}
+            onPress={() => {
+                router.push('/plans');
+            }}
+        />
+    );
 
     return (
-        <Stack space="lg" testID="plan-comparison-screen">
-            <Breadcrumbs
-                testID="plan-comparison-breadcrumbs"
-                items={[
-                    {
-                        key: 'home',
-                        label: t('catalogue:nav.home'),
-                        onPress: () => {
-                            router.push('/');
-                        },
-                    },
+        <View testID="plan-comparison-screen" className="flex-col">
+            <ListingHeader
+                testID="plan-comparison-header"
+                breadcrumbs={[
                     {
                         key: 'plans',
                         label: t('catalogue:nav.plans'),
@@ -230,88 +215,150 @@ export function PlanComparisonScreen() {
                     },
                     { key: 'compare', label: t('catalogue:nav.compare') },
                 ]}
+                title={t('catalogue:compare.title')}
             />
 
-            <Stack space="xs">
-                <Heading level={1} testID="plan-comparison-title">
-                    {t('catalogue:compare.title')}
-                </Heading>
-                <Text tone="secondary">{t('catalogue:compare.subtitle')}</Text>
-            </Stack>
-
-            {/* An empty selection leaves the query disabled, so it never settles and `QueryStates`
-                would show a skeleton for ever. "Nothing was selected" is not a pending request —
-                it is the answer, and it is rendered as one. */}
-            {planIds.length === 0 ? (
-                <EmptyState
-                    testID="plan-comparison-empty"
-                    title={t('catalogue:compare.emptyTitle')}
-                    body={t('catalogue:compare.emptyBody')}
-                    actions={
-                        <Button
-                            testID="plan-comparison-back"
-                            variant="quiet"
-                            label={t('catalogue:compare.backToPlans')}
-                            onPress={() => {
-                                router.push('/plans');
-                            }}
-                        />
-                    }
-                />
-            ) : (
-                <QueryStates
-                    query={comparison}
-                    isEmpty={plans.length === 0}
-                    emptyTitle={t('catalogue:compare.emptyTitle')}
-                    emptyBody={t('catalogue:compare.emptyBody')}
-                    emptyActions={
-                        <Button
-                            testID="plan-comparison-back"
-                            variant="quiet"
-                            label={t('catalogue:compare.backToPlans')}
-                            onPress={() => {
-                                router.push('/plans');
-                            }}
-                        />
-                    }
-                    skeletonCount={2}
-                    testID="plan-comparison"
-                >
-                    <Stack space="md">
-                        <Table
+            <View className="mt-6">
+                {/* An empty selection leaves the query disabled, so it never settles and
+                    `QueryStates` would show a skeleton for ever. "Nothing was selected" is not a
+                    pending request — it is the answer, and it is rendered as one. */}
+                {planIds.length === 0 ? (
+                    <EmptyState
+                        testID="plan-comparison-empty"
+                        title={t('catalogue:compare.emptyTitle')}
+                        body={t('catalogue:compare.emptyBody')}
+                        actions={back}
+                    />
+                ) : (
+                    <QueryStates
+                        query={comparison}
+                        isEmpty={plans.length === 0}
+                        emptyTitle={t('catalogue:compare.emptyTitle')}
+                        emptyBody={t('catalogue:compare.emptyBody')}
+                        emptyActions={back}
+                        skeletonCount={2}
+                        testID="plan-comparison"
+                    >
+                        <View
                             testID="plan-comparison-table"
-                            caption={t('catalogue:compare.caption')}
-                            captionHidden
-                            columns={columns}
-                            rows={rows}
-                            rowKey={(row) => row.key}
-                        />
+                            role="table"
+                            aria-label={t('catalogue:compare.caption')}
+                            className="flex-col"
+                        >
+                            {/*
+                             * Sticky on the web against the shell's scroll port — `top-0` pins it
+                             * just under the marketplace bar.
+                             */}
+                            <View
+                                testID="plan-comparison-head"
+                                role="row"
+                                className="z-10 flex-row gap-4 border-b border-stroke bg-surface-base pb-4 pt-2 web:sticky web:top-0"
+                            >
+                                {plans.map((plan) => (
+                                    <PlanHead
+                                        key={plan.id}
+                                        plan={plan}
+                                        kitchenName={kitchenNameById.get(String(plan.kitchenId))}
+                                        onChoose={() => {
+                                            router.push(`/plans/${String(plan.id)}` as never);
+                                        }}
+                                    />
+                                ))}
+                            </View>
 
-                        <Stack space="sm" testID="plan-comparison-links">
-                            {plans.map((plan) => (
-                                <Button
-                                    key={plan.id}
-                                    testID={`plan-comparison-open-${plan.slug}`}
-                                    variant="secondary"
-                                    label={t('catalogue:compare.openPlan', { plan: plan.name })}
-                                    onPress={() => {
-                                        router.push(`/plans/${String(plan.id)}` as never);
-                                    }}
-                                />
+                            {rows.map((row) => (
+                                <View
+                                    key={row.key}
+                                    testID={`plan-comparison-row-${row.key}`}
+                                    role="row"
+                                    className="flex-col gap-2 border-b border-stroke-subtle py-4"
+                                >
+                                    <View role="rowheader">
+                                        <Eyebrow>{row.label}</Eyebrow>
+                                    </View>
+                                    <View className="flex-row gap-4">
+                                        {plans.map((plan) => (
+                                            <View
+                                                key={plan.id}
+                                                role="cell"
+                                                className="min-w-0 flex-1"
+                                            >
+                                                <RNText
+                                                    testID={`plan-compare-${row.key}-${plan.slug}`}
+                                                    className="self-start text-base tabular-nums text-content-primary text-start"
+                                                >
+                                                    {row.value(plan) ??
+                                                        t('catalogue:compare.noFigure')}
+                                                </RNText>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </View>
                             ))}
-                        </Stack>
+                        </View>
+                    </QueryStates>
+                )}
+            </View>
+        </View>
+    );
+}
 
-                        <Callout
-                            testID="plan-comparison-caveat"
-                            role="note"
-                            tone="info"
-                            icon="info"
-                            title={t('catalogue:plan.macrosTitle')}
-                            body={t('catalogue:compare.macroCaveat')}
-                        />
-                    </Stack>
-                </QueryStates>
+/** One column's head: the plan, its kitchen, its price a day, and the way to choose it. */
+function PlanHead({
+    plan,
+    kitchenName,
+    onChoose,
+}: {
+    readonly plan: SubscriptionPlan;
+    readonly kitchenName: string | undefined;
+    readonly onChoose: () => void;
+}) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const cheapest = cheapestVariant(plan);
+
+    return (
+        <View
+            testID={`plan-comparison-head-${plan.slug}`}
+            role="columnheader"
+            className="min-w-0 flex-1 flex-col gap-1"
+        >
+            <RNText
+                numberOfLines={2}
+                className="self-start font-display text-lg font-bold tracking-display text-content-primary text-start"
+            >
+                {plan.name}
+            </RNText>
+            {kitchenName === undefined ? null : (
+                <RNText
+                    numberOfLines={1}
+                    className="self-start text-sm text-content-secondary text-start"
+                >
+                    {kitchenName}
+                </RNText>
             )}
-        </Stack>
+            {cheapest === null ? null : (
+                <View className="mt-1 flex-row flex-wrap items-baseline gap-1">
+                    <RNText
+                        testID={`plan-compare-price-${plan.slug}`}
+                        className="font-display text-2xl font-bold tabular-nums tracking-display text-content-primary text-start"
+                    >
+                        {formatMoney(formatter, listDayPrice(cheapest))}
+                    </RNText>
+                    <RNText className="text-sm text-content-secondary">
+                        {t('catalogue:plans.perDaySuffix')}
+                    </RNText>
+                </View>
+            )}
+            <View className="mt-2">
+                <Button
+                    testID={`plan-comparison-open-${plan.slug}`}
+                    variant="primary"
+                    label={t('catalogue:plans.choosePlanShort')}
+                    accessibilityLabel={t('catalogue:plans.choosePlan', { plan: plan.name })}
+                    onPress={onChoose}
+                />
+            </View>
+        </View>
     );
 }

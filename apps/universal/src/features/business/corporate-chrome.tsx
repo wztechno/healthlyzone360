@@ -5,8 +5,6 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useCorporateProgrammesQuery, useQuotationsQuery } from '../../data/business-hooks.ts';
-import { workspaceGroup } from '../../navigation/workspace-group.tsx';
-import { useAccessState } from '../../session/session-provider.tsx';
 import { AreaBrandBlock } from '../../shell/area-brand-block.tsx';
 import { useTrailLeafState } from '../../shell/area-trail.tsx';
 
@@ -68,14 +66,13 @@ export function CorporateBrandBlock() {
 }
 
 /**
- * The rail: the workspace module first, as on every desk rail, then Overview, then the purchasing
- * module — one catalogue per programme, then the quotations.
+ * The rail: Overview, then the purchasing module — one catalogue per programme, then the
+ * quotations. The other areas are the shell's bottom bar (`AreaShell`), not a rail module.
  */
 export function useCorporateNavigation(): readonly NavigationItem[] {
     const { t } = useTranslation();
     const router = useRouter();
     const pathname = usePathname();
-    const state = useAccessState();
     const programmes = useCorporateProgrammesQuery();
     const quotations = useQuotationsQuery();
 
@@ -104,15 +101,6 @@ export function useCorporateNavigation(): readonly NavigationItem[] {
         }));
 
         return [
-            ...workspaceGroup({
-                state,
-                t,
-                pathname,
-                currentArea: 'corporate',
-                navigate: (href) => {
-                    router.push(href as never);
-                },
-            }),
             {
                 key: 'corporate-overview',
                 label: t('business:nav.overview'),
@@ -145,7 +133,7 @@ export function useCorporateNavigation(): readonly NavigationItem[] {
                 onPress: go(CORPORATE_QUOTATIONS_HREF),
             },
         ];
-    }, [awaiting, pathname, programmes.data, router, state, t]);
+    }, [awaiting, pathname, programmes.data, router, t]);
 }
 
 /**

@@ -32,7 +32,7 @@ import { toFailure } from '../../../data/hooks.ts';
 import {
     recipesFromPages,
     useRecipeQuery,
-    useRecipesQuery,
+    useAllRecipesQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { batchFactor, scaleLine, scalePackaging, withWaste } from '../batch-scaling.ts';
 import type { BatchMode } from '../batch-scaling.ts';
@@ -123,7 +123,7 @@ function BatchPlanner() {
     // No status filter, matching the recipe list's own default: a kitchen cooks its drafts.
     // ponytail: one 100-row page, filtered by the select's own search. A longer book wants `query`
     // pushed into the filter and refetched as the reader types, as the recipe list does.
-    const recipes = useRecipesQuery({ limit: 100 });
+    const recipes = useAllRecipesQuery();
     const recipeRows = useMemo(() => recipesFromPages(recipes.data?.pages), [recipes.data]);
 
     const record = useRecipeQuery(recipeId);

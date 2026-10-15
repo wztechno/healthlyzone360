@@ -6,7 +6,14 @@ import { Pressable, Text as RNText, View } from 'react-native';
 
 import { EntityImage } from '../../media/entity-image.tsx';
 import { formatMoney } from '../marketplace/format.ts';
-import { isSoldOut, leadTag, publishedFigure, unavailableReason } from './meal-readings.ts';
+import {
+    cardFigureDigits,
+    isSoldOut,
+    leadTag,
+    publishedFigure,
+    publishedNutrients,
+    unavailableReason,
+} from './meal-readings.ts';
 import { PackSuffix } from '../marketplace/pack-suffix.tsx';
 
 /**
@@ -17,7 +24,9 @@ import { PackSuffix } from '../marketplace/pack-suffix.tsx';
  * The shared `marketplace/meal-card.tsx` is a different card: a 4:3 photograph wearing the kitchen
  * chip, the name with a star rating on its baseline, two lines of description, an allergen line,
  * four macro tiles and a ruled footer. The design's card is a 158px photograph with one tag, the
- * name, one line of small figures — `620 CAL · 48G P · ★ 4.8` — and the price opposite Add. Bending
+ * name, its figures and the price opposite Add. The figures here are every nutrient the kitchen
+ * published, by full name and with its unit, two to a line — the menu is chosen by nutrition, and
+ * the design's `620 CAL · 48G P` left out everything after protein. Bending
  * the shared card into that would change the home page and the storefront too, which are other
  * screens' to decide, so the design's card is drawn here for this grid.
  *
@@ -38,10 +47,6 @@ export interface MenuMealCardProps {
     readonly testID?: string | undefined;
 }
 
-/** The design's mono figure line: 11px, tracked, uppercase — Inter at the bottom of the scale. */
-const FIGURE_CLASS =
-    'text-xs font-medium uppercase tracking-wide tabular-nums text-content-secondary';
-
 export function MenuMealCard({ meal, onOpen, onAdd, testID }: MenuMealCardProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -52,6 +57,7 @@ export function MenuMealCard({ meal, onOpen, onAdd, testID }: MenuMealCardProps)
     const protein = publishedFigure(meal, 'protein');
     const soldOut = isSoldOut(meal);
     const dash = t('catalogue:card.noFigure');
+    const nutrients = publishedNutrients(meal);
 
     return (
         <View
@@ -99,48 +105,83 @@ export function MenuMealCard({ meal, onOpen, onAdd, testID }: MenuMealCardProps)
             </View>
 
             <View className="flex-1 flex-col gap-2 p-[14px]">
-                <Pressable
-                    testID={`${id}-open`}
-                    role="link"
-                    accessibilityRole="link"
-                    accessibilityLabel={t('marketplace:menu.cardLabel', {
-                        meal: meal.name,
-                        energy: energy ?? dash,
-                        protein: protein ?? dash,
-                    })}
-                    onPress={onOpen}
-                    className="self-start"
-                >
-                    <RNText
-                        numberOfLines={2}
-                        className="font-display text-lg font-bold leading-tight tracking-display text-content-primary text-start"
+                <View className="flex-row items-start justify-between gap-2">
+                    <Pressable
+                        testID={`${id}-open`}
+                        role="link"
+                        accessibilityRole="link"
+                        accessibilityLabel={t('marketplace:menu.cardLabel', {
+                            meal: meal.name,
+                            energy: energy ?? dash,
+                            protein: protein ?? dash,
+                        })}
+                        onPress={onOpen}
+                        className="min-w-0 shrink self-start"
                     >
-                        {meal.name}
-                    </RNText>
-                </Pressable>
-
-                <View testID={`${id}-figures`} className="flex-row flex-wrap gap-x-2.5">
-                    <RNText className={FIGURE_CLASS}>
-                        {t('catalogue:card.calories', {
-                            value: energy === null ? dash : formatter.formatNumber(energy),
-                        })}
-                    </RNText>
-                    <RNText className={FIGURE_CLASS}>
-                        {t('catalogue:card.protein', {
-                            value: protein === null ? dash : formatter.formatNumber(protein),
-                        })}
-                    </RNText>
-                    <RNText testID={`${id}-rating`} className={FIGURE_CLASS}>
-                        {meal.rating === null
-                            ? t('catalogue:card.notRated')
-                            : t('catalogue:card.rating', {
-                                  value: formatter.formatNumber(meal.rating, {
-                                      minimumFractionDigits: 1,
-                                      maximumFractionDigits: 1,
-                                  }),
-                              })}
-                    </RNText>
+                        <RNText
+                            numberOfLines={2}
+                            className="font-display text-lg font-bold leading-tight tracking-display text-content-primary text-start"
+                        >
+                            {meal.name}
+                        </RNText>
+                    </Pressable>
+                    {/* A rating only where there is one: "Not rated yet" on most of a new menu
+                        is a line of nothing repeated down the grid. */}
+                    {meal.rating === null ? null : (
+                        <RNText
+                            testID={`${id}-rating`}
+                            className="shrink-0 pt-0.5 text-sm font-semibold tabular-nums text-content-primary"
+                        >
+                            {t('catalogue:card.rating', {
+                                value: formatter.formatNumber(meal.rating, {
+                                    minimumFractionDigits: 1,
+                                    maximumFractionDigits: 1,
+                                }),
+                            })}
+                        </RNText>
+                    )}
                 </View>
+
+                {/*
+                 * Every nutrient the kitchen published, by its full name, two to a line — the
+                 * figures somebody choosing by nutrition came for, without opening the meal.
+                 */}
+                {nutrients.length === 0 ? (
+                    <RNText
+                        testID={`${id}-figures`}
+                        className="self-start text-sm text-content-secondary text-start"
+                    >
+                        {t('catalogue:card.noNutrition')}
+                    </RNText>
+                ) : (
+                    <View testID={`${id}-figures`} className="flex-row flex-wrap gap-y-1.5">
+                        {nutrients.map((nutrient) => (
+                            <View
+                                key={nutrient.nutrientId}
+                                testID={`${id}-nutrient-${nutrient.nutrientId}`}
+                                className="w-1/2 flex-row items-baseline justify-between gap-1.5 pe-3"
+                            >
+                                <RNText
+                                    numberOfLines={1}
+                                    className="min-w-0 shrink text-xs text-content-secondary text-start"
+                                >
+                                    {t(`marketplace:nutrients.${nutrient.nutrientId}`)}
+                                </RNText>
+                                <RNText className="text-xs font-semibold tabular-nums text-content-primary">
+                                    {t('catalogue:card.figure', {
+                                        value: formatter.formatNumber(nutrient.value, {
+                                            maximumFractionDigits: cardFigureDigits(nutrient),
+                                            minimumFractionDigits: cardFigureDigits(nutrient),
+                                        }),
+                                        unit: t(`catalogue:card.unit.${nutrient.unit}`, {
+                                            defaultValue: nutrient.unit,
+                                        }),
+                                    })}
+                                </RNText>
+                            </View>
+                        ))}
+                    </View>
+                )}
 
                 <View className="mt-auto flex-row items-center justify-between gap-3 pt-2.5">
                     <RNText

@@ -1417,16 +1417,17 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             if (request.portionFactor !== undefined) body.portion_factor = request.portionFactor;
             Object.assign(body, finishedStockWire(request));
 
+            // The same chain `updateProduct` carries: an accepted `PATCH` bumps the item, so the
+            // diet write has to send what the `PATCH` answered with. Sending the version the
+            // editor opened on made every meal save a conflict against itself.
+            let lockVersion = request.lockVersion;
+
             if (Object.keys(body).length > 0) {
-                await patchCatalogueItem(id, request.lockVersion, body);
+                lockVersion = await patchCatalogueItem(id, lockVersion, body);
             }
 
             if (request.dietClassifications !== undefined) {
-                await replaceDietClassifications(
-                    id,
-                    request.lockVersion,
-                    request.dietClassifications,
-                );
+                await replaceDietClassifications(id, lockVersion, request.dietClassifications);
             }
 
             return reads.getMeal(mealId);

@@ -11,6 +11,7 @@ use Healthy360\Customers\Presenters\CustomerAddressPresenter;
 use Healthy360\Customers\Services\CustomerAddressService;
 use Healthy360\Orders\OrderDesk\Http\Requests\StoreOrderDeskCustomerAddressRequest;
 use Healthy360\Orders\OrderDesk\Services\DeskCustomerDirectory;
+use Healthy360\Orders\OrderDesk\Services\OrderDeskQueue;
 use Healthy360\Orders\Services\OrderLocator;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\ErrorCode;
@@ -75,6 +76,7 @@ final class OrderDeskCustomerAddressStoreController
         private readonly CustomerAddressService $addresses,
         private readonly CustomerAddressPresenter $presenter,
         private readonly TenantContext $context,
+        private readonly OrderDeskQueue $queue,
     ) {}
 
     /**
@@ -102,6 +104,11 @@ final class OrderDeskCustomerAddressStoreController
                 'apartment' => $payload['apartment'],
                 'directions' => $payload['directions'],
                 'postal_code' => $payload['postal_code'],
+                // The number the courier is handed: the customer's own, resolved
+                // here rather than taken from the request (see the request class).
+                // Placement snapshots it onto the order, which is the only number
+                // a driver's run sheet ever shows.
+                'contact_point_id' => $this->queue->phoneContactPointIdFor($customer),
             ],
             actorUserId: $this->agentId(),
         );

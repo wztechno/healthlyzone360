@@ -3,6 +3,7 @@
     "nav": {
         "label": "Account sections",
         "orders": "Orders",
+        "subscriptions": "Subscriptions",
         "profile": "Profile",
         "addresses": "Addresses",
         "notifications": "Notifications",

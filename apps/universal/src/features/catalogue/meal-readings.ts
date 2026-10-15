@@ -28,6 +28,44 @@ export function publishedFigure(meal: MarketplaceMeal, nutrientId: string): numb
         : nutrientValue(meal.nutrition, nutrientId);
 }
 
+/** The order a card lists nutrients in: energy, the macros, then what is inside them. */
+export const CARD_NUTRIENTS = [
+    'energy',
+    'protein',
+    'carbohydrate',
+    'fat',
+    'saturated_fat',
+    'sugars',
+    'fibre',
+    'sodium',
+] as const;
+
+export interface PublishedNutrient {
+    readonly nutrientId: string;
+    readonly value: number;
+    readonly unit: string;
+}
+
+/**
+ * Every nutrient the kitchen published for a meal, in {@link CARD_NUTRIENTS} order — and nothing it
+ * did not: an unpublished figure is absent, never a zero.
+ */
+export function publishedNutrients(meal: MarketplaceMeal): readonly PublishedNutrient[] {
+    const amounts = meal.nutrition.amounts;
+    return CARD_NUTRIENTS.flatMap((nutrientId) => {
+        const amount = amounts.find((entry) => entry.nutrientId === nutrientId);
+        return amount === undefined ? [] : [{ nutrientId, value: amount.value, unit: amount.unit }];
+    });
+}
+
+/**
+ * A figure at the precision a card can use: whole kcal and mg, grams to one place below ten and
+ * whole above — "0.6 g fibre" is information, "50.567 g fat" is noise.
+ */
+export function cardFigureDigits(nutrient: PublishedNutrient): number {
+    return nutrient.unit === 'g' && Math.abs(nutrient.value) < 10 ? 1 : 0;
+}
+
 /**
  * The one pill a dish wears on its photograph and above its name — HealthZone's `m.tag`.
  *

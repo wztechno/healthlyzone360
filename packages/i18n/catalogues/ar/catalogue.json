@@ -31,8 +31,6 @@
             "protein": "الأعلى بروتينًا",
             "rating": "الأعلى تقييمًا"
         },
-        "filters": "المرشّحات",
-        "filtersActive": "المرشّحات ({{n}})",
         "countAvailable_zero": "لا توجد وجبات متاحة للطلب من مطابخ السوق.",
         "countAvailable_one": "وجبة واحدة متاحة للطلب من مطابخ السوق.",
         "countAvailable_two": "وجبتان متاحتان للطلب من مطابخ السوق.",
@@ -46,17 +44,9 @@
         "countSoFar_many": "{{count}} وجبة معروضة حتى الآن — يمكن تحميل المزيد.",
         "countSoFar_other": "{{count}} وجبة معروضة حتى الآن — يمكن تحميل المزيد.",
         "moreFilters": "فلاتر إضافية",
-        "moreFiltersActive": "فلاتر إضافية ({{n}})",
         "moreFiltersDone": "عرض الوجبات"
     },
     "filters": {
-        "kitchen": "المطبخ",
-        "mealType": "نوع الوجبة",
-        "diet": "النظام الغذائي",
-        "excludeAllergens": "استبعاد مسبّبات الحساسية",
-        "groupWithCount": "{{label}} ({{n}})",
-        "excludeAllergensHint": "تُحذف من النتائج أي وجبة تُصرّح باحتوائها على ما تختاره هنا.",
-        "rangesTitle": "ضيّق النتائج بالأرقام",
         "rangesHint": "أعِد المؤشر إلى البداية لرفع الحد.",
         "atMost": "أقل من {{value}} {{unit}}",
         "atLeast": "{{value}} {{unit}} على الأقل",
@@ -71,14 +61,28 @@
         "unitGrams": "غ",
         "unitMinutes": "دقيقة",
         "clear": "امسح المرشّحات",
-        "clearAll": "امسح كل المرشّحات",
         "category": "الفئة",
-        "dietary": "النظام الغذائي",
         "allMeals": "الكل",
         "optionWithCount": "{{label}} ({{count}})",
-        "activeCount": "{{active}} مرشّحات مفعّلة",
         "removeFilter": "إزالة عامل التصفية: {{filter}}",
-        "moreDiets": "احتياجات غذائية أخرى"
+        "menu": {
+            "diet": "النظام الغذائي",
+            "calories": "السعرات",
+            "allergies": "الحساسية",
+            "kitchen": "المطبخ",
+            "more": "المزيد"
+        },
+        "menuCount": "{{label}} · {{n}}",
+        "clearGroup": "مسح",
+        "barLabel": "تصفية القائمة",
+        "short": {
+            "protein": "البروتين",
+            "carbohydrate": "الكربوهيدرات",
+            "fat": "الدهون",
+            "price": "السعر",
+            "preparationMinutes": "وقت التحضير"
+        },
+        "rangeChip": "{{label}}: {{readout}}"
     },
     "meal": {
         "loading": "جارٍ تحميل الوجبة",
@@ -184,26 +188,16 @@
         "prototypeFlag": "من إنتاج حاسبة النموذج الأولي"
     },
     "plans": {
-        "title": "غداؤك محسوم للأسبوع كله.",
-        "subtitle": "اشترِ رصيدًا من أيام التوصيل، واختر أيام الأسبوع، وغيّر ما تشاء حتى موعد الإغلاق — قبل التوصيل بـ24 ساعة ما لم يحدّد البرنامج موعده الخاص.",
-        "eyebrow": "برامج أسبوعية · تخطَّ أو ألغِ كما تشاء",
         "energyBand": "{{min}}–{{max}} سعرة",
         "durationsLabel": "مدة الالتزام",
         "durationsFor": "خيارات المدة لبرنامج {{plan}}",
         "durationTotal": "{{price}} إجمالًا",
         "durationSaves": "وفّر {{discount}}٪",
         "durationNoDiscount": "بدون خصم",
-        "mealsPerDay": "{{meals}} وجبات و{{snacks}} وجبات خفيفة يوميًا",
-        "mealsPerDayNoSnacks": "{{meals}} وجبات يوميًا",
         "compareLabel": "قارن",
-        "compareTitle": "قارن البرامج",
         "compareTrayLabel": "لوحة مقارنة البرامج",
-        "compareEmpty": "اختر حتى ثلاثة برامج لمقارنتها جنبًا إلى جنب.",
         "compareClear": "مسح",
         "compareRemove": "أزل {{plan}} من المقارنة",
-        "compareSelected": "اخترت {{selected}} من 3 برامج",
-        "compareOpen": "قارن البرامج المختارة",
-        "compareFull": "ثلاثة برامج هي أقصى ما يتسع جنبًا إلى جنب. ألغِ اختيار واحد لإضافة آخر.",
         "methodologyTitle": "كيف تقرأ أرقام التغذية",
         "ctaTitle": "لست متأكدًا أي برنامج يناسبك؟",
         "ctaBody": "يبدأ كل برنامج باستشارة اختصاصي تغذية، فيحدّد المختصّ نطاق السعرات وأي قيد بدلًا من تخمينه من كتالوج. وإن كنت تفضّل أن تتحدّث أولًا، فهذا هو المكان المناسب للبدء.",
@@ -307,7 +301,15 @@
         "balancePriceFrom_two": "من {{price}} مقابل يومَي توصيل",
         "balancePriceFrom_few": "من {{price}} مقابل {{count}} أيام توصيل",
         "balancePriceFrom_many": "من {{price}} مقابل {{count}} يومَ توصيل",
-        "balancePriceFrom_other": "من {{price}} مقابل {{count}} يوم توصيل"
+        "balancePriceFrom_other": "من {{price}} مقابل {{count}} يوم توصيل",
+        "count_zero": "لا خطط",
+        "count_one": "خطة واحدة",
+        "count_two": "خطتان",
+        "count_few": "{{count}} خطط",
+        "count_many": "{{count}} خطة",
+        "count_other": "{{count}} خطة",
+        "choosePlanShort": "اختر الخطة",
+        "compareCount": "قارن ({{selected}})"
     },
     "howPlans": {
         "breadcrumbPlans": "البرامج الأسبوعية",
@@ -504,33 +506,29 @@
     },
     "compare": {
         "title": "مقارنة البرامج",
-        "subtitle": "الأرقام نفسها لكل برنامج، جنبًا إلى جنب. الأعمدة متساوية — ولا شيء هنا يُعرض بوصفه الخيار المُوصى به.",
         "caption": "مقارنة برامج الاشتراك",
         "emptyTitle": "لم تُختر برامج للمقارنة",
         "emptyBody": "اختر برنامجين أو ثلاثة من قائمة البرامج وتمتلئ المقارنة.",
         "backToPlans": "العودة إلى البرامج",
         "row": {
-            "kitchen": "المطبخ",
-            "energy": "نطاقات السعرات",
-            "protein": "البروتين يوميًا",
-            "carbohydrate": "الكربوهيدرات يوميًا",
-            "fat": "الدهون يوميًا",
-            "meals": "الوجبات يوميًا، شاملة الخفيفة",
-            "durations": "المدد والخصومات",
-            "delivery": "أيام التوصيل",
-            "pricePerDay": "السعر يوميًا",
-            "open": "افتح البرنامج"
+            "energy": "السعرات",
+            "protein": "البروتين",
+            "carbohydrate": "الكربوهيدرات",
+            "fat": "الدهون",
+            "meals": "وجبات في اليوم",
+            "durations": "المدد",
+            "snacks": "وجبات خفيفة في اليوم"
         },
-        "openPlan": "افتح {{plan}}",
         "macroCaveat": "أرقام العناصر الكبرى نطاقات لا قيمًا مفردة: برنامج يدور على قوائم موسم كامل ليس له رقم بروتين واحد صحيح، وذكر رقم مفرد دقة زائفة.",
         "durationOption": "{{duration}} بخصم {{discount}}%",
-        "durationOptionNoDiscount": "{{duration}}، بلا خصم",
         "duration": {
             "1w": "أسبوع واحد",
             "2w": "أسبوعان",
             "4w": "4 أسابيع",
             "12w": "12 أسبوعًا"
-        }
+        },
+        "countRange": "{{min}}–{{max}}",
+        "noFigure": "—"
     },
     "plan": {
         "loading": "جارٍ تحميل البرنامج",
@@ -539,14 +537,11 @@
         "browseAll": "تصفّح كل البرامج",
         "imageLabel": "رسم توضيحي بديل عن صورة {{plan}}",
         "byKitchen": "من إعداد {{kitchen}}",
-        "variantsTitle": "اختر نطاق السعرات",
-        "variantsBody": "كل نطاق هو ما يُبنى اليوم ليقع داخله. اختر الأقرب إلى هدفك.",
+        "variantsTitle": "فئة السعرات",
         "variantLabel": "{{name}} — من {{min}} إلى {{max}} سعرة يوميًا",
         "macrosTitle": "العناصر الكبرى يوميًا",
-        "macrosBody": "نطاقات لا قيم مفردة، لأن القائمة تدور. وكل رقم يتحرك مع النطاق الذي تختاره.",
         "macroRange": "من {{min}} إلى {{max}} غ",
         "macroBandLabel": "{{nutrient}} لنطاق {{variant}}",
-        "combinationTitle": "ما يصلك كل يوم",
         "combinationMeals_zero": "لا وجبات رئيسية",
         "combinationMeals_one": "وجبة رئيسية واحدة",
         "combinationMeals_two": "وجبتان رئيسيتان",
@@ -560,27 +555,16 @@
         "combinationSnacks_many": "{{count}} وجبة خفيفة",
         "combinationSnacks_other": "{{count}} وجبة خفيفة",
         "combinationNoSnacks": "لا وجبات خفيفة في هذا النطاق",
-        "durationsTitle": "مدة الالتزام",
-        "durationsBody": "السعر الأسبوعي واحد في كل الخيارات؛ والخصم هو ما يكسبه الالتزام الأطول.",
+        "durationsTitle": "المدة",
         "durationTotal": "{{total}} إجمالًا",
         "durationDiscount": "خصم {{discount}}%",
         "durationNoDiscount": "بلا خصم",
         "sampleMenuTitle": "أسبوع نموذجي",
-        "sampleMenuBody": "خمسة أطباق مأخوذة من قائمة هذا المطبخ الحالية. بيانات تركيبية — والأسبوع الفعلي يدور.",
-        "sampleMenuEmpty": "لم ينشر هذا البرنامج قائمة نموذجية.",
-        "deliveryTitle": "أيام التوصيل",
-        "deliveryBody": "أيام الأسبوع التي يُوصَّل فيها البرنامج قيد حقيقي — فبعض المطابخ تعمل يومًا بعد يوم، وبرنامج المكاتب لا يوصّل في عطلة الأسبوع أبدًا.",
-        "deliveryUnpublished": "السجل العام للبرنامج لا يحمل تلك القائمة، ولذلك لا تُعرض هنا بدلًا من تخمينها. وتُؤكَّد عند ضبط الاشتراك، وتاريخ بدء يقع خارج أيام المطبخ ينتقل إلى أقرب يوم متاح.",
-        "deliveryUnpublishedShort": "تُؤكَّد عند الضبط؛ غير منشورة على البرنامج",
-        "dietitianTitle": "استشارة أخصائي التغذية",
-        "dietitianBody": "يُعرض كل برنامج مع استشارة، لأن برنامجًا يُشترى من قائمة لا يمكنه أن يعرف بحالة طبية أو دواء أو حمل. الاستشارة هي المكان الذي يعدّل فيه مختص مؤهل النطاق ويسجّل أي تقييد.",
-        "dietitianFind": "ابحث عن أخصائي تغذية",
-        "configure": "اضبط هذا الاشتراك",
+        "configure": "إعداد الخطة",
         "configureSignIn": "سجّل الدخول لضبطه",
         "priceTitle": "السعر",
         "pricePerWeek": "{{price}} أسبوعيًا",
-        "pricePerDay": "نحو {{price}} يوميًا",
-        "priceBothUnits": "يُعرض الرقمان الأسبوعي واليومي معًا حتى لا يبدو البرنامج نفسه أرخص في موضع منه في آخر."
+        "pricePerDay": "نحو {{price}} يوميًا"
     },
     "diet": {
         "loading": "جارٍ تحميل فئة النظام الغذائي",
@@ -721,11 +705,16 @@
     },
     "card": {
         "calories": "{{value}} سعرة",
-        "protein": "{{value}} غ بروتين",
         "rating": "★ {{value}}",
-        "notRated": "لم يُقيَّم بعد",
         "noFigure": "—",
         "soldOut": "نفدت الكمية",
-        "unavailable": "غير متاح"
+        "unavailable": "غير متاح",
+        "noNutrition": "القيم الغذائية غير منشورة",
+        "figure": "{{value}} {{unit}}",
+        "unit": {
+            "kcal": "سعرة",
+            "g": "غ",
+            "mg": "ملغ"
+        }
     }
 }

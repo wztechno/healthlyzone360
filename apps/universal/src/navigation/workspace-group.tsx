@@ -1,4 +1,3 @@
-import { Badge } from '@healthy360/design-system';
 import type { NavigationItem } from '@healthy360/design-system';
 import type { RouteArea } from '@healthy360/domain-types';
 import type { AccessState } from '@healthy360/permissions';
@@ -11,19 +10,21 @@ export interface WorkspaceGroupOptions {
     readonly t: TFunction;
     readonly pathname: string;
     readonly navigate: (href: string) => void;
-    /** The area the shell is drawing, badged "Current" in the list. */
+    /** The area the shell is drawing, lit in the bar. */
     readonly currentArea?: RouteArea | undefined;
 }
 
 /**
- * The Workspace module: the first icon on every workspace rail.
+ * The workspace switcher: the bottom tab bar on every admin page (`AppShell` `bottomNavigation`),
+ * and the driver area's own tabs.
  *
- * One panel, two runs. **Workspaces** goes straight to each area this person can open — the same
- * list, through the same gates, as the tiles on `/workspace`, so the panel never offers an area that
- * would refuse on arrival. **Account** is Profile, Devices and the showcase, filtered as before.
+ * Two runs. The areas this person can open come first — the same list, through the same gates, as
+ * the tiles on `/workspace`, so the bar never offers an area that would refuse on arrival. Then the
+ * account pages, Profile and Devices, filtered as before.
  *
- * The current area is badged, never `active`: an active item would make the shell open this module
- * on every page of the area, hiding the area's own modules behind it.
+ * It used to be the first module on every desk rail, where the current area could only be badged:
+ * an active item made the shell open that module on every page of the area. In the bar nothing
+ * opens, so the current area is simply the lit tab.
  */
 export function workspaceGroup({
     state,
@@ -32,44 +33,24 @@ export function workspaceGroup({
     navigate,
     currentArea,
 }: WorkspaceGroupOptions): readonly NavigationItem[] {
-    const group = t('common:nav.workspace');
-    const workspaces = t('common:nav.sectionWorkspaces');
-    const account = t('common:nav.sectionAccount');
-
     const areas = availableWorkspaceAreas(state).map((option): NavigationItem => ({
         key: `area-${option.area}`,
         label: t(`access:area.${option.area}`),
         icon: AREA_ICONS[option.area],
-        group,
-        groupIcon: 'layers',
-        section: workspaces,
+        active: option.area === currentArea,
         testID: `nav-area-${option.area}`,
-        ...(option.area === currentArea
-            ? {
-                  badge: (
-                      <Badge
-                          testID={`nav-area-${option.area}-current`}
-                          tone="brand"
-                          label={t('common:nav.current')}
-                      />
-                  ),
-              }
-            : {}),
         onPress: () => {
             navigate(option.href);
         },
     }));
 
     const settings = permittedNavigation(state)
-        // The tile page is still the landing after sign-in; the panel above replaces its link.
+        // The tile page is still the landing after sign-in; the bar above replaces its link.
         .filter((item) => item.key !== 'workspace')
         .map((item): NavigationItem => ({
             key: item.key,
             label: t(item.labelKey),
             icon: item.icon,
-            group,
-            groupIcon: 'layers',
-            section: account,
             active: pathname === item.href,
             testID: `nav-${item.key}`,
             onPress: () => {

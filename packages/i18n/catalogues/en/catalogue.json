@@ -31,24 +31,14 @@
             "protein": "Highest protein",
             "rating": "Top rated"
         },
-        "filters": "Filters",
-        "filtersActive": "Filters ({{n}})",
         "countAvailable_one": "{{count}} meal available to order from kitchens on the marketplace.",
         "countAvailable_other": "{{count}} meals available to order from kitchens on the marketplace.",
         "countSoFar_one": "{{count}} meal shown so far — more to load.",
         "countSoFar_other": "{{count}} meals shown so far — more to load.",
         "moreFilters": "More filters",
-        "moreFiltersActive": "More filters ({{n}})",
         "moreFiltersDone": "Show meals"
     },
     "filters": {
-        "kitchen": "Kitchen",
-        "mealType": "Meal",
-        "diet": "Diet",
-        "excludeAllergens": "Exclude allergens",
-        "groupWithCount": "{{label}} ({{n}})",
-        "excludeAllergensHint": "Meals declaring any allergen you select here are removed from the results.",
-        "rangesTitle": "Narrow it by the numbers",
         "rangesHint": "Slide back to the start to lift a limit.",
         "atMost": "Under {{value}} {{unit}}",
         "atLeast": "At least {{value}} {{unit}}",
@@ -63,14 +53,28 @@
         "unitGrams": "g",
         "unitMinutes": "min",
         "clear": "Clear filters",
-        "clearAll": "Clear all filters",
         "category": "Category",
-        "dietary": "Dietary",
         "allMeals": "All",
         "optionWithCount": "{{label}} ({{count}})",
-        "activeCount": "{{active}} filters applied",
         "removeFilter": "Remove filter: {{filter}}",
-        "moreDiets": "More dietary needs"
+        "menu": {
+            "diet": "Diet",
+            "calories": "Calories",
+            "allergies": "Allergies",
+            "kitchen": "Kitchen",
+            "more": "More"
+        },
+        "menuCount": "{{label}} · {{n}}",
+        "clearGroup": "Clear",
+        "barLabel": "Filter the menu",
+        "short": {
+            "protein": "Protein",
+            "carbohydrate": "Carbs",
+            "fat": "Fat",
+            "price": "Price",
+            "preparationMinutes": "Prep time"
+        },
+        "rangeChip": "{{label}}: {{readout}}"
     },
     "meal": {
         "loading": "Loading the meal",
@@ -172,26 +176,16 @@
         "prototypeFlag": "Produced by the prototype calculator"
     },
     "plans": {
-        "title": "Lunch decided for the whole week.",
-        "subtitle": "Buy a balance of delivery days, choose your weekdays, and change anything up to the cut-off — 24 hours before a delivery unless the plan sets its own.",
-        "eyebrow": "Weekly plans · Skip or cancel as you go",
         "energyBand": "{{min}}–{{max}} kcal",
         "durationsLabel": "Commitment",
         "durationsFor": "Commitment options for {{plan}}",
         "durationTotal": "{{price}} total",
         "durationSaves": "Save {{discount}}%",
         "durationNoDiscount": "No discount",
-        "mealsPerDay": "{{meals}} meals and {{snacks}} snacks a day",
-        "mealsPerDayNoSnacks": "{{meals}} meals a day",
         "compareLabel": "Compare",
-        "compareTitle": "Compare plans",
         "compareTrayLabel": "Plan comparison tray",
-        "compareEmpty": "Select up to three plans to compare them side by side.",
         "compareClear": "Clear",
         "compareRemove": "Remove {{plan}} from the comparison",
-        "compareSelected": "{{selected}} of 3 plans selected",
-        "compareOpen": "Compare selected plans",
-        "compareFull": "Three plans is the most that fits side by side. Deselect one to add another.",
         "methodologyTitle": "How to read the nutrition figures",
         "ctaTitle": "Not sure which plan fits you?",
         "ctaBody": "Every plan starts with a dietitian consultation, so the calorie band and any restriction are set by a professional rather than guessed from a catalogue. If you would rather talk it through first, that is the place to start.",
@@ -267,7 +261,11 @@
         "choosePlan": "Choose {{plan}}",
         "compareNamed": "Compare {{plan}}",
         "balancePriceFrom_one": "From {{price}} for {{count}} delivery day",
-        "balancePriceFrom_other": "From {{price}} for {{count}} delivery days"
+        "balancePriceFrom_other": "From {{price}} for {{count}} delivery days",
+        "count_one": "{{count}} plan",
+        "count_other": "{{count}} plans",
+        "choosePlanShort": "Choose plan",
+        "compareCount": "Compare ({{selected}})"
     },
     "howPlans": {
         "breadcrumbPlans": "Weekly plans",
@@ -436,33 +434,29 @@
     },
     "compare": {
         "title": "Compare plans",
-        "subtitle": "The same figures for each plan, side by side. Columns are equal — nothing here is presented as the recommended choice.",
         "caption": "Subscription plans compared",
         "emptyTitle": "Nothing selected to compare",
         "emptyBody": "Choose two or three plans on the plan catalogue and the comparison fills in.",
         "backToPlans": "Back to the plans",
         "row": {
-            "kitchen": "Kitchen",
-            "energy": "Calorie bands",
-            "protein": "Protein a day",
-            "carbohydrate": "Carbohydrate a day",
-            "fat": "Fat a day",
-            "meals": "Meals a day, including snacks",
-            "durations": "Durations and discounts",
-            "delivery": "Delivery days",
-            "pricePerDay": "Price a day",
-            "open": "Open the plan"
+            "energy": "Calories",
+            "protein": "Protein",
+            "carbohydrate": "Carbs",
+            "fat": "Fat",
+            "meals": "Meals a day",
+            "durations": "Durations",
+            "snacks": "Snacks a day"
         },
-        "openPlan": "Open {{plan}}",
         "macroCaveat": "Macro figures are ranges, not point values: a plan that rotates across a season of menus has no single true protein figure, and stating one would be false precision.",
         "durationOption": "{{duration}} at {{discount}}% off",
-        "durationOptionNoDiscount": "{{duration}}, no discount",
         "duration": {
             "1w": "1 week",
             "2w": "2 weeks",
             "4w": "4 weeks",
             "12w": "12 weeks"
-        }
+        },
+        "countRange": "{{min}}–{{max}}",
+        "noFigure": "—"
     },
     "plan": {
         "loading": "Loading the plan",
@@ -471,40 +465,26 @@
         "browseAll": "Browse every plan",
         "imageLabel": "Illustration standing in for a photograph of {{plan}}",
         "byKitchen": "Cooked by {{kitchen}}",
-        "variantsTitle": "Choose a calorie band",
-        "variantsBody": "Each band is what a day is built to land inside. Pick the one nearest your target.",
+        "variantsTitle": "Calorie band",
         "variantLabel": "{{name}} — {{min}} to {{max}} kcal a day",
         "macrosTitle": "Macronutrients a day",
-        "macrosBody": "Ranges rather than point values, because the menu rotates. Every figure moves with the band you choose.",
         "macroRange": "{{min}} to {{max}} g",
         "macroBandLabel": "{{nutrient}} for the {{variant}} band",
-        "combinationTitle": "What arrives each day",
         "combinationMeals_one": "{{count}} main meal",
         "combinationMeals_other": "{{count}} main meals",
         "combinationSnacks_one": "{{count}} snack",
         "combinationSnacks_other": "{{count}} snacks",
         "combinationNoSnacks": "No snacks in this band",
-        "durationsTitle": "How long you commit for",
-        "durationsBody": "The weekly price is the same in every option; the discount is what the longer commitment earns.",
+        "durationsTitle": "Length",
         "durationTotal": "{{total}} in total",
         "durationDiscount": "{{discount}}% off",
         "durationNoDiscount": "No discount",
         "sampleMenuTitle": "A sample week",
-        "sampleMenuBody": "Five dishes drawn from this kitchen's current menu. Synthetic data — an actual week rotates.",
-        "sampleMenuEmpty": "This plan has not published a sample menu.",
-        "deliveryTitle": "Delivery days",
-        "deliveryBody": "Which weekdays a plan is delivered on is a real constraint — some kitchens run alternate days, and the office plan never delivers at a weekend.",
-        "deliveryUnpublished": "The public plan record does not carry that list, so it is not shown here rather than guessed at. It is confirmed when the subscription is configured, and a start date outside the kitchen's days moves to the next available one.",
-        "deliveryUnpublishedShort": "Confirmed at configuration; not published on the plan",
-        "dietitianTitle": "The dietitian consultation",
-        "dietitianBody": "Every plan is presented with a consultation, because a plan bought off a catalogue cannot know about a medical condition, a medication or a pregnancy. The consultation is where a qualified professional adjusts the band and records any restriction.",
-        "dietitianFind": "Find a dietitian",
-        "configure": "Configure this subscription",
+        "configure": "Set up plan",
         "configureSignIn": "Sign in to configure it",
         "priceTitle": "Price",
         "pricePerWeek": "{{price}} a week",
-        "pricePerDay": "about {{price}} a day",
-        "priceBothUnits": "Both a weekly and a daily figure are shown so the same plan cannot look cheaper in one place than another."
+        "pricePerDay": "about {{price}} a day"
     },
     "diet": {
         "loading": "Loading the diet category",
@@ -645,11 +625,16 @@
     },
     "card": {
         "calories": "{{value}} cal",
-        "protein": "{{value}}g P",
         "rating": "★ {{value}}",
-        "notRated": "Not rated yet",
         "noFigure": "—",
         "soldOut": "Sold out",
-        "unavailable": "Unavailable"
+        "unavailable": "Unavailable",
+        "noNutrition": "Nutrition not published",
+        "figure": "{{value}} {{unit}}",
+        "unit": {
+            "kcal": "kcal",
+            "g": "g",
+            "mg": "mg"
+        }
     }
 }

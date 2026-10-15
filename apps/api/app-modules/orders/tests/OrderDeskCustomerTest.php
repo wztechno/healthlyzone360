@@ -455,6 +455,106 @@ it('gives a desk-provisioned customer somewhere for the food to go', function ()
         ->and($address->created_by)->toBe((string) $this->agent->getKey());
 });
 
+it('hands the address the customer own number, so their driver has one to ring', function (): void {
+    /*
+     * The defect: the desk wrote addresses with no contact, placement snapshots
+     * the address's contact onto the order, and a driver's run sheet shows only
+     * that snapshot — so every desk delivery reached its driver with no number,
+     * while the desk itself showed the customer's phone.
+     */
+    $customer = deskProvisionedCustomer('Rita Aoun', $this->agent, '+96170000998');
+    $phone = ContactPoint::query()->where('customer_account_id', $customer->getKey())->sole();
+
+    $this->postJson(
+        "/api/v1/catalogue/order-desk/customers/{$customer->getKey()}/addresses",
+        ['delivery_area_id' => (string) $this->world->area->getKey(), 'line_one' => 'Rue Gouraud 12'],
+        $this->headers,
+    )->assertCreated();
+
+    expect(CustomerAddress::query()->where('customer_account_id', $customer->getKey())->sole()->contact_point_id)
+        ->toBe((string) $phone->getKey());
+
+    // A customer with no number gets an address with none, not someone else's.
+    $silent = deskProvisionedCustomer('No Phone Aoun', $this->agent);
+
+    $this->postJson(
+        "/api/v1/catalogue/order-desk/customers/{$silent->getKey()}/addresses",
+        ['delivery_area_id' => (string) $this->world->area->getKey(), 'line_one' => 'Rue Gouraud 14'],
+        $this->headers,
+    )->assertCreated();
+
+    expect(CustomerAddress::query()->where('customer_account_id', $silent->getKey())->sole()->contact_point_id)
+        ->toBeNull();
+});
+
+it('corrects a misheard name and a mistyped number, and keeps the old number on orders already placed', function (): void {
+    $customer = deskProvisionedCustomer('Rita Aoun', $this->agent, '+96170000001');
+    $wrong = ContactPoint::query()->where('customer_account_id', $customer->getKey())->sole();
+    $placed = deskCustomerOrder($this->world, $customer);
+    $placed->forceFill(['delivery_contact_point_id' => $wrong->getKey()])->save();
+
+    $response = $this->patchJson(
+        "/api/v1/catalogue/order-desk/customers/{$customer->getKey()}",
+        ['display_name' => 'Rita Aouad', 'phone' => '+96170000002'],
+        $this->headers,
+    )->assertOk();
+
+    expect($response->json('data.customer.display_name'))->toBe('Rita Aouad')
+        ->and($response->json('data.customer.phone'))->toBe('+96170000002')
+        ->and($customer->refresh()->display_name)->toBe('Rita Aouad');
+
+    // The wrong number is retired rather than rewritten…
+    expect($wrong->refresh()->retired_at)->not->toBeNull()
+        ->and($wrong->value_normalised)->toBe('+96170000001')
+        // …so the order that was given it still points at it.
+        ->and((string) $placed->refresh()->delivery_contact_point_id)->toBe((string) $wrong->getKey());
+
+    // And the next agent finds them on the corrected number.
+    $this->getJson('/api/v1/catalogue/order-desk/customers?query=%2B96170000002', $this->headers)
+        ->assertOk()
+        ->assertJsonPath('data.0.id', (string) $customer->getKey());
+});
+
+it('corrects only what it is sent, and refuses a correction that names nothing', function (): void {
+    $customer = deskProvisionedCustomer('Rita Aoun', $this->agent, '+96170000003');
+
+    $this->patchJson(
+        "/api/v1/catalogue/order-desk/customers/{$customer->getKey()}",
+        ['display_name' => 'Rita A.'],
+        $this->headers,
+    )
+        ->assertOk()
+        ->assertJsonPath('data.customer.phone', '+96170000003');
+
+    $this->patchJson("/api/v1/catalogue/order-desk/customers/{$customer->getKey()}", [], $this->headers)
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed');
+
+    $this->patchJson(
+        "/api/v1/catalogue/order-desk/customers/{$customer->getKey()}",
+        ['phone' => '70 000 004'],
+        $this->headers,
+    )
+        ->assertStatus(422)
+        ->assertJsonStructure(['error' => ['details' => ['fields' => ['phone']]]]);
+});
+
+it('will not correct a customer this kitchen has no business with', function (): void {
+    $otherWorld = DeskWorld::build('edit-stranger@kitchen.test');
+    $otherAgent = DeskWorld::agent($otherWorld, 'edit-stranger-agent@desk.test');
+    $stranger = deskProvisionedCustomer('Stranger Aoun', $otherAgent);
+
+    $this->patchJson(
+        "/api/v1/catalogue/order-desk/customers/{$stranger->getKey()}",
+        ['display_name' => 'Renamed'],
+        $this->headers,
+    )
+        ->assertStatus(404)
+        ->assertJsonPath('error.code', 'resource.not_found');
+
+    expect($stranger->refresh()->display_name)->toBe('Stranger Aoun');
+});
+
 it('will not attach an address to an account this kitchen has no business with', function (): void {
     // The app-layer control the RLS migration names, on the endpoint where it
     // matters most: what this writes is a street somebody lives on. 404 rather
@@ -523,7 +623,12 @@ it('takes a telephone order for a caller who did not exist five minutes ago', fu
         ->and($order->json('data.order.subtotal_minor'))->toBe(5000)
         ->and($order->json('data.order.delivery_fee_minor'))->toBe(500)
         ->and($order->json('data.order.total_minor'))->toBe(5500)
-        ->and($order->json('data.order.placed_on_behalf_by'))->toBe((string) $this->agent->getKey());
+        ->and($order->json('data.order.placed_on_behalf_by'))->toBe((string) $this->agent->getKey())
+        // The number the caller gave travels onto the order, which is what a
+        // driver's run sheet reads.
+        ->and($order->json('data.order.delivery.contact_point_id'))->toBe(
+            (string) ContactPoint::query()->where('customer_account_id', $customerId)->sole()->getKey(),
+        );
 
     // And now they are searchable on arm (a) as well as arm (b) — a regular
     // rather than a name in the book.

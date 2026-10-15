@@ -1,30 +1,31 @@
 import {
-    Badge,
     Callout,
-    Card,
     Checkbox,
     Chip,
+    Collapse,
     DateField,
-    FilterChip,
-    Inline,
-    SegmentedControl,
+    Icon,
     Select,
-    Stack,
-    Text,
+    cx,
 } from '@healthy360/design-system';
 import type {
+    CustomerAddress,
     MarketplaceMeal,
     PlanVariant,
     SubscriptionPlan,
     SubscriptionPreview,
-    CustomerAddress,
 } from '@healthy360/api-client/contracts';
 import type { AllergenCode, DietClassification, MealId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
+import type { TFunction } from 'i18next';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { MedicalDisclaimer } from '../../safety/medical-disclaimer.tsx';
-import { formatMoney, weekdayKey } from '../marketplace/format.ts';
+import { PillChip } from '../../ui/pill-chip.tsx';
+import { weekdayKey } from '../marketplace/format.ts';
 import { formatAddress, toDeliveryAddress } from './address.ts';
 import type { AddressErrors, AddressField } from './address.ts';
 import { AddressForm } from './address-form.tsx';
@@ -32,441 +33,231 @@ import {
     combinationKey,
     configuredDeliveryDates,
     diffAllergens,
-    discountedTotalMinorUnits,
     grossMinorUnits,
     mealCombinations,
     perDeliveryPrice,
-    savingMinorUnits,
     variantById,
     weeksFor,
 } from './configurator.ts';
-import type { ConfiguratorState } from './configurator.ts';
+import type { ConfiguratorState, ConfiguratorStep } from './configurator.ts';
 import { earliestStartDate, isoWeekday, nextAllowedDate } from './dates.ts';
 import { DELIVERY_SLOTS } from './delivery.ts';
 import type { DeliveryAreaStatus } from './delivery.ts';
 import { PriceSummary } from './price-summary.tsx';
+import { CardPanel, SummaryCard } from './summary-card.tsx';
 import type { PriceRow } from './price-summary.tsx';
 import { displayableWarnings, isCriticalWarning, warningMessageKey } from './warnings.ts';
 
 /**
- * The eight step bodies of the subscription configurator.
+ * The three step bodies of the subscription configurator — plan, delivery, review.
  *
- * They are components rather than a switch inside the screen so each one takes exactly the data it
- * needs — a step that cannot reach the preview cannot accidentally show a price, which is the
- * property the SUB-02 ordering depends on. The screen owns navigation, validation and the request;
- * these own layout and nothing else.
+ * Each is a stack of labelled rows divided by a hairline. A choice with several options is a row of
+ * `PillChip` radios; a choice with **one** option is the answer as plain text, because a lone
+ * pre-selected chip is a control that asks a question nobody can answer differently. The screen
+ * owns navigation, validation, the request and the summary; these own layout and nothing else.
  */
 
 export interface StepPatch {
     (patch: Partial<ConfiguratorState>): void;
 }
 
-/* ── 1. plan and variant ─────────────────────────────────────────────────────────────────────── */
+/* ── shared rows ─────────────────────────────────────────────────────────────────────────────── */
+
+/** One labelled row of a step, divided from the next by a hairline. */
+function Row({
+    label,
+    children,
+    testID,
+}: {
+    readonly label: string;
+    readonly children: ReactNode;
+    readonly testID?: string | undefined;
+}) {
+    return (
+        <View testID={testID} className="flex-col gap-3 border-b border-stroke-subtle py-5">
+            <RNText className="text-sm font-semibold text-content-primary text-start">
+                {label}
+            </RNText>
+            {children}
+        </View>
+    );
+}
+
+interface Choice {
+    readonly value: string;
+    readonly label: string;
+    readonly testID: string;
+}
+
+/**
+ * A single-choice row: radio pills when there is a choice to make, the answer as text when there is
+ * not.
+ */
+function ChoiceRow({
+    label,
+    choices,
+    value,
+    onChange,
+    detail,
+    testID,
+}: {
+    readonly label: string;
+    readonly choices: readonly Choice[];
+    readonly value: string;
+    readonly onChange: (value: string) => void;
+    /** A line of data under the choice — the band's kcal range, say. */
+    readonly detail?: string | undefined;
+    readonly testID: string;
+}) {
+    const only = choices.length === 1 ? choices[0] : undefined;
+
+    return (
+        <Row label={label} testID={testID}>
+            {only === undefined ? (
+                <View role="radiogroup" aria-label={label} className="flex-row flex-wrap gap-2">
+                    {choices.map((choice) => (
+                        <PillChip
+                            key={choice.value}
+                            testID={choice.testID}
+                            mode="radio"
+                            label={choice.label}
+                            selected={choice.value === value}
+                            onPress={() => {
+                                onChange(choice.value);
+                            }}
+                        />
+                    ))}
+                </View>
+            ) : (
+                <RNText
+                    testID={`${testID}-only`}
+                    className="self-start text-base text-content-primary text-start"
+                >
+                    {only.label}
+                </RNText>
+            )}
+            {detail === undefined ? null : (
+                <RNText
+                    testID={`${testID}-detail`}
+                    className="self-start text-sm tabular-nums text-content-secondary text-start"
+                >
+                    {detail}
+                </RNText>
+            )}
+        </Row>
+    );
+}
+
+/* ── ① plan: band, meals, length ─────────────────────────────────────────────────────────────── */
 
 export interface PlanStepProps {
     readonly plan: SubscriptionPlan;
     readonly variant: PlanVariant | null;
     readonly state: ConfiguratorState;
     readonly patch: StepPatch;
+    /** A combination was chosen; the screen moves to the nearest variant that offers it. */
+    readonly onCombination: (key: string) => void;
 }
 
-export function PlanStep({ plan, variant, state, patch }: PlanStepProps) {
+export function PlanStep({ plan, variant, state, patch, onCombination }: PlanStepProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const combinations = mealCombinations(plan);
 
     return (
-        <Stack space="md" testID="configurator-step-plan">
-            <Stack space="xs">
-                <Text variant="label">{plan.name}</Text>
-                <Text tone="secondary">{plan.summary}</Text>
-            </Stack>
-
-            <SegmentedControl
-                testID="configurator-variant-picker"
+        <View testID="configurator-step-plan" className="flex-col">
+            <ChoiceRow
+                testID="configurator-variant"
                 label={t('commerce:configurator.plan.variantLabel')}
-                block
                 value={state.variantId === null ? '' : String(state.variantId)}
                 onChange={(next) => {
                     const chosen = plan.variants.find((option) => String(option.id) === next);
                     if (chosen !== undefined) patch({ variantId: chosen.id });
                 }}
-                items={plan.variants.map((option) => ({
+                choices={plan.variants.map((option) => ({
                     value: String(option.id),
                     label: option.name,
                     testID: `configurator-variant-${String(option.id)}`,
                 }))}
+                detail={
+                    variant === null
+                        ? undefined
+                        : t('commerce:configurator.plan.band', {
+                              min: formatter.formatNumber(variant.energyRange.min),
+                              max: formatter.formatNumber(variant.energyRange.max),
+                          })
+                }
             />
 
-            {variant === null ? null : (
-                <Stack space="sm">
-                    <Text testID="configurator-energy-band">
-                        {t('commerce:configurator.plan.band', {
-                            min: formatter.formatNumber(variant.energyRange.min),
-                            max: formatter.formatNumber(variant.energyRange.max),
-                        })}
-                    </Text>
-
-                    <Stack space="xs" testID="configurator-macro-ranges">
-                        <Text variant="label">{t('commerce:configurator.plan.macrosTitle')}</Text>
-                        {(
-                            [
-                                ['protein', variant.proteinRange],
-                                ['carbohydrate', variant.carbohydrateRange],
-                                ['fat', variant.fatRange],
-                            ] as const
-                        ).map(([nutrientId, range]) =>
-                            range === null ? null : (
-                                <Text key={nutrientId} testID={`configurator-macro-${nutrientId}`}>
-                                    {t('commerce:configurator.plan.macroRange', {
-                                        nutrient: t(`marketplace:nutrients.${nutrientId}`),
-                                        min: formatter.formatNumber(range.min),
-                                        max: formatter.formatNumber(range.max),
-                                    })}
-                                </Text>
-                            ),
-                        )}
-                        {/* Doc 17, SUB-07: ranges, with the variability said out loud. A rotating
-                            menu has no single true protein figure and a point value would be false
-                            precision dressed up as accuracy. */}
-                        <Text tone="secondary" variant="caption">
-                            {t('commerce:configurator.plan.macroCaveat')}
-                        </Text>
-                    </Stack>
-
-                    <Text tone="secondary" testID="configurator-plan-price">
-                        {t('commerce:configurator.plan.weeklyPrice', {
-                            price: formatMoney(formatter, variant.pricePerWeek),
-                        })}
-                    </Text>
-                </Stack>
-            )}
-
-            <MedicalDisclaimer context={t('commerce:configurator.disclaimerContext')} />
-        </Stack>
-    );
-}
-
-/* ── 2. meal combination ─────────────────────────────────────────────────────────────────────── */
-
-export interface CombinationStepProps {
-    readonly plan: SubscriptionPlan;
-    readonly variant: PlanVariant | null;
-    readonly onSelect: (key: string) => void;
-}
-
-export function CombinationStep({ plan, variant, onSelect }: CombinationStepProps) {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
-    const combinations = mealCombinations(plan);
-    const selected = variant === null ? '' : combinationKey(variant);
-
-    return (
-        <Stack space="md" testID="configurator-step-combination">
-            <Text tone="secondary">{t('commerce:configurator.combination.body')}</Text>
-
-            <SegmentedControl
-                testID="configurator-combination-picker"
+            <ChoiceRow
+                testID="configurator-combination"
                 label={t('commerce:configurator.combination.label')}
-                block
-                value={selected}
-                onChange={onSelect}
-                items={combinations.map((combination) => ({
+                value={variant === null ? '' : combinationKey(variant)}
+                onChange={onCombination}
+                choices={combinations.map((combination) => ({
                     value: combinationKey(combination),
-                    label: t('commerce:configurator.combination.option', {
-                        meals: formatter.formatNumber(combination.mealsPerDay),
-                        snacks: formatter.formatNumber(combination.snacksPerDay),
-                    }),
+                    label: combinationLabel(combination, formatter.formatNumber, t),
                     testID: `configurator-combination-${combinationKey(combination)}`,
                 }))}
             />
 
-            {variant === null ? null : (
-                <Inline space="xs" wrap testID="configurator-combination-detail">
-                    <Badge
-                        tone="neutral"
-                        label={t('commerce:configurator.combination.meals', {
-                            count: variant.mealsPerDay,
-                            meals: formatter.formatNumber(variant.mealsPerDay),
-                        })}
-                    />
-                    <Badge
-                        testID="configurator-combination-snacks"
-                        tone="neutral"
-                        label={
-                            variant.snacksPerDay === 0
-                                ? t('commerce:configurator.combination.noSnacks')
-                                : t('commerce:configurator.combination.snacks', {
-                                      count: variant.snacksPerDay,
-                                      snacks: formatter.formatNumber(variant.snacksPerDay),
-                                  })
-                        }
-                    />
-                </Inline>
-            )}
-
-            {/*
-             * Doc 17, SUB-08. Meals and snacks *are* two separate attributes here, which is the
-             * half of the recommendation the catalogue contract already satisfies. What it does not
-             * satisfy is independence: both live on the same `PlanVariant` as the calorie band, so
-             * changing the combination can move the band. Saying so is better than a control that
-             * quietly changes a number the person chose two steps ago.
-             */}
-            <Callout
-                testID="configurator-combination-note"
-                role="note"
-                tone="info"
-                title={t('commerce:configurator.combination.couplingTitle')}
-                body={t('commerce:configurator.combination.couplingBody')}
+            <ChoiceRow
+                testID="configurator-duration"
+                label={t('commerce:configurator.duration.label')}
+                value={state.duration}
+                onChange={(next) => {
+                    const option = plan.durations.find((each) => each.duration === next);
+                    if (option !== undefined) patch({ duration: option.duration });
+                }}
+                choices={plan.durations.map((option) => ({
+                    value: option.duration,
+                    label:
+                        option.discountPercent > 0
+                            ? t('commerce:configurator.duration.withDiscount', {
+                                  duration: t(`catalogue:compare.duration.${option.duration}`),
+                                  percent: formatter.formatNumber(option.discountPercent),
+                              })
+                            : t(`catalogue:compare.duration.${option.duration}`),
+                    testID: `configurator-duration-${option.duration}`,
+                }))}
             />
-        </Stack>
+        </View>
     );
 }
 
-/* ── 3. duration ─────────────────────────────────────────────────────────────────────────────── */
-
-export interface DurationStepProps {
-    readonly plan: SubscriptionPlan;
-    readonly variant: PlanVariant | null;
-    readonly state: ConfiguratorState;
-    readonly patch: StepPatch;
+/** "3 meals · 1 snack" — plural on each count, no snack clause when there are none. */
+export function combinationLabel(
+    combination: { readonly mealsPerDay: number; readonly snacksPerDay: number },
+    formatNumber: (value: number) => string,
+    t: TFunction,
+): string {
+    const meals = t('commerce:configurator.combination.meals', {
+        count: combination.mealsPerDay,
+        meals: formatNumber(combination.mealsPerDay),
+    });
+    if (combination.snacksPerDay === 0) return meals;
+    return t('commerce:configurator.combination.withSnacks', {
+        meals,
+        snacks: t('commerce:configurator.combination.snacks', {
+            count: combination.snacksPerDay,
+            snacks: formatNumber(combination.snacksPerDay),
+        }),
+    });
 }
 
-export function DurationStep({ plan, variant, state, patch }: DurationStepProps) {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
-
-    return (
-        <Stack space="md" testID="configurator-step-duration">
-            <Text tone="secondary">{t('commerce:configurator.duration.body')}</Text>
-
-            <Stack space="sm" testID="configurator-duration-options">
-                {plan.durations.map((option) => {
-                    const weeks = weeksFor(option.duration);
-                    const weekly = variant?.pricePerWeek ?? null;
-                    const total =
-                        weekly === null
-                            ? null
-                            : {
-                                  amount: discountedTotalMinorUnits(
-                                      weekly.amount,
-                                      weeks,
-                                      option.discountPercent,
-                                  ),
-                                  currency: weekly.currency,
-                              };
-                    const saving =
-                        weekly === null
-                            ? null
-                            : {
-                                  amount: savingMinorUnits(
-                                      weekly.amount,
-                                      weeks,
-                                      option.discountPercent,
-                                  ),
-                                  currency: weekly.currency,
-                              };
-                    const chosen = state.duration === option.duration;
-
-                    return (
-                        <Card
-                            key={option.duration}
-                            testID={`configurator-duration-${option.duration}`}
-                            padding="md"
-                            tone={chosen ? 'brand' : 'default'}
-                            onPress={() => {
-                                patch({ duration: option.duration });
-                            }}
-                            accessibilityLabel={t('commerce:configurator.duration.optionLabel', {
-                                duration: t(`commerce:durations.${option.duration}`),
-                            })}
-                        >
-                            <Stack space="xs">
-                                <Inline space="sm" align="center" justify="between">
-                                    <Text variant="bodyStrong">
-                                        {t(`commerce:durations.${option.duration}`)}
-                                    </Text>
-                                    {/* Doc 17, SUB-05: the discount is a badge on the option
-                                        itself, not a separate promotional block. */}
-                                    <Badge
-                                        testID={`configurator-duration-${option.duration}-discount`}
-                                        tone={option.discountPercent > 0 ? 'success' : 'neutral'}
-                                        label={
-                                            option.discountPercent > 0
-                                                ? t('commerce:configurator.duration.discount', {
-                                                      percent: formatter.formatNumber(
-                                                          option.discountPercent,
-                                                      ),
-                                                  })
-                                                : t('commerce:configurator.duration.noDiscount')
-                                        }
-                                    />
-                                </Inline>
-                                {total === null ? null : (
-                                    <Text testID={`configurator-duration-${option.duration}-total`}>
-                                        {t('commerce:configurator.duration.total', {
-                                            total: formatMoney(formatter, total),
-                                            weeks: formatter.formatNumber(weeks),
-                                        })}
-                                    </Text>
-                                )}
-                                {saving === null || saving.amount === 0 ? null : (
-                                    <Text tone="success" variant="caption">
-                                        {t('commerce:configurator.duration.saving', {
-                                            saving: formatMoney(formatter, saving),
-                                        })}
-                                    </Text>
-                                )}
-                                {chosen ? (
-                                    <Text tone="secondary" variant="caption">
-                                        {t('commerce:configurator.duration.selected')}
-                                    </Text>
-                                ) : null}
-                            </Stack>
-                        </Card>
-                    );
-                })}
-            </Stack>
-
-            <Text tone="secondary" variant="caption" testID="configurator-duration-caveat">
-                {t('commerce:configurator.duration.caveat')}
-            </Text>
-        </Stack>
-    );
+/** The chosen weekdays as a run of names — or "Every day" when it is all seven. */
+export function weekdayRun(weekdays: readonly number[], t: TFunction): string {
+    if (weekdays.length === 7) return t('commerce:configurator.summary.everyDay');
+    return [...weekdays]
+        .sort((a, b) => a - b)
+        .map((weekday) => t(weekdayKey(weekday)))
+        .join(t('commerce:common.listSeparator'));
 }
 
-/* ── 4. dietary preferences and allergies ────────────────────────────────────────────────────── */
-
-export interface DietaryStepProps {
-    readonly plan: SubscriptionPlan;
-    readonly state: ConfiguratorState;
-    readonly patch: StepPatch;
-    /** Allergens this kitchen declares on its own menu, plus anything the profile already excludes. */
-    readonly allergenOptions: readonly AllergenCode[];
-    readonly storedAllergens: readonly AllergenCode[];
-    readonly restrictionsPending: boolean;
-}
-
-export function DietaryStep({
-    plan,
-    state,
-    patch,
-    allergenOptions,
-    storedAllergens,
-    restrictionsPending,
-}: DietaryStepProps) {
-    const { t } = useTranslation();
-    const change = diffAllergens(storedAllergens, state.excludeAllergens);
-
-    const toggleDiet = (diet: DietClassification, selected: boolean) => {
-        patch({
-            dietClassifications: selected
-                ? [...state.dietClassifications, diet]
-                : state.dietClassifications.filter((value) => value !== diet),
-        });
-    };
-
-    const toggleAllergen = (code: AllergenCode, selected: boolean) => {
-        patch({
-            allergensTouched: true,
-            excludeAllergens: selected
-                ? [...state.excludeAllergens, code]
-                : state.excludeAllergens.filter((value) => value !== code),
-        });
-    };
-
-    return (
-        <Stack space="lg" testID="configurator-step-dietary">
-            <Stack space="sm" testID="configurator-diets">
-                <Text variant="label">{t('commerce:configurator.dietary.dietsTitle')}</Text>
-                <Text tone="secondary" variant="caption">
-                    {t('commerce:configurator.dietary.dietsBody')}
-                </Text>
-                <Inline space="xs" wrap>
-                    {plan.dietClassifications.map((diet) => (
-                        <FilterChip
-                            key={diet}
-                            testID={`configurator-diet-${diet}`}
-                            label={t(`marketplace:diets.${diet}`)}
-                            selected={state.dietClassifications.includes(diet)}
-                            onChange={(selected) => {
-                                toggleDiet(diet, selected);
-                            }}
-                        />
-                    ))}
-                </Inline>
-            </Stack>
-
-            <Stack space="sm" testID="configurator-allergens">
-                <Text variant="label">{t('commerce:configurator.dietary.allergensTitle')}</Text>
-                <Text tone="secondary" variant="caption">
-                    {restrictionsPending
-                        ? t('commerce:configurator.dietary.allergensLoading')
-                        : t('commerce:configurator.dietary.allergensBody')}
-                </Text>
-                {allergenOptions.length === 0 ? (
-                    <Text testID="configurator-allergens-none">
-                        {t('commerce:configurator.dietary.allergensNone')}
-                    </Text>
-                ) : (
-                    <Inline space="xs" wrap>
-                        {allergenOptions.map((code) => (
-                            <FilterChip
-                                key={code}
-                                testID={`configurator-allergen-${code}`}
-                                label={t(`marketplace:allergens.${code}`)}
-                                selected={state.excludeAllergens.includes(code)}
-                                onChange={(selected) => {
-                                    toggleAllergen(code, selected);
-                                }}
-                            />
-                        ))}
-                    </Inline>
-                )}
-            </Stack>
-
-            {/*
-             * Adding an exclusion tightens what the kitchen may send and needs no ceremony.
-             * Removing one is a person telling the product to stop filtering for something they
-             * previously recorded as an allergy — so it is an alert, it names what was dropped, and
-             * it travels with the medical disclaimer.
-             */}
-            {change.relaxed ? (
-                <Callout
-                    testID="configurator-allergen-relaxed"
-                    role="alert"
-                    tone="danger"
-                    icon="warning"
-                    title={t('commerce:configurator.dietary.relaxedTitle')}
-                    body={t('commerce:configurator.dietary.relaxedBody', {
-                        allergens: change.removed
-                            .map((code) => t(`marketplace:allergens.${code}`))
-                            .join(t('commerce:common.listSeparator')),
-                    })}
-                />
-            ) : null}
-
-            {change.changed && !change.relaxed ? (
-                <Callout
-                    testID="configurator-allergen-added"
-                    role="status"
-                    tone="info"
-                    title={t('commerce:configurator.dietary.addedTitle')}
-                    body={t('commerce:configurator.dietary.addedBody', {
-                        allergens: change.added
-                            .map((code) => t(`marketplace:allergens.${code}`))
-                            .join(t('commerce:common.listSeparator')),
-                    })}
-                />
-            ) : null}
-
-            <MedicalDisclaimer context={t('commerce:configurator.allergyDisclaimerContext')} />
-        </Stack>
-    );
-}
-
-/* ── 5. delivery, and the two checks that come before any price ──────────────────────────────── */
+/* ── ② delivery: days, start, window, address, diet and allergies ───────────────────────────── */
 
 export interface DeliveryStepProps {
+    readonly plan: SubscriptionPlan;
     readonly state: ConfiguratorState;
     readonly patch: StepPatch;
     /**
@@ -477,36 +268,37 @@ export interface DeliveryStepProps {
      */
     readonly onAddressField: (field: AddressField, value: string) => void;
     readonly allowedWeekdays: readonly number[] | null;
-    readonly weekdaysPending: boolean;
     readonly areaStatus: DeliveryAreaStatus;
     readonly servedAreas: readonly string[];
     readonly addressErrors: AddressErrors;
+    /** Allergens this kitchen declares on its own menu, plus anything the profile already excludes. */
+    readonly allergenOptions: readonly AllergenCode[];
     readonly storedAllergens: readonly AllergenCode[];
     readonly showIssues: boolean;
     readonly savedAddresses?: readonly CustomerAddress[] | undefined;
     readonly addressId?: string | null | undefined;
-    readonly addressesPending?: boolean | undefined;
     readonly onAddressIdChange?: ((id: string | null) => void) | undefined;
 }
 
 export function DeliveryStep({
+    plan,
     state,
     patch,
     onAddressField,
     allowedWeekdays,
-    weekdaysPending,
     areaStatus,
     servedAreas,
     addressErrors,
+    allergenOptions,
     storedAllergens,
     showIssues,
     savedAddresses,
     addressId,
-    addressesPending,
     onAddressIdChange,
 }: DeliveryStepProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const separator = t('commerce:common.listSeparator');
 
     const allowed = allowedWeekdays ?? [];
     const startWeekday = state.startDate === null ? null : isoWeekday(state.startDate);
@@ -518,110 +310,118 @@ export function DeliveryStep({
             : nextAllowedDate(state.startDate, allowed);
 
     const change = diffAllergens(storedAllergens, state.excludeAllergens);
+    const hasSaved = savedAddresses !== undefined && savedAddresses.length > 0;
+    const area =
+        savedAddresses?.find((entry) => entry.id === addressId)?.areaName ?? state.address.area;
+
+    const toggle = <T,>(list: readonly T[], value: T, on: boolean): T[] =>
+        on ? [...list, value] : list.filter((each) => each !== value);
 
     return (
-        <Stack space="lg" testID="configurator-step-delivery">
-            <Stack space="sm" testID="configurator-start-date">
-                <DateField
-                    testID="configurator-start-date-field"
-                    label={t('commerce:configurator.delivery.startLabel')}
-                    hint={t('commerce:configurator.delivery.startHint')}
-                    value={state.startDate}
-                    min={earliestStartDate()}
-                    required
-                    onChange={(next) => {
-                        patch({ startDate: next });
-                    }}
-                    {...(showIssues && !startWeekdayAllowed
-                        ? { error: t('commerce:configurator.issues.startWeekday') }
-                        : {})}
-                />
-                {repair === null ? null : (
-                    <Chip
-                        testID="configurator-start-date-repair"
-                        tone="info"
-                        label={t('commerce:configurator.delivery.useNextAllowed', {
-                            date: formatter.formatDate(repair, { dateStyle: 'medium' }),
-                        })}
-                        onPress={() => {
-                            patch({ startDate: repair });
-                        }}
-                    />
-                )}
-            </Stack>
-
-            <Stack space="sm" testID="configurator-weekdays">
-                <Text variant="label">{t('commerce:configurator.delivery.weekdaysTitle')}</Text>
-                <Text tone="secondary" variant="caption">
-                    {weekdaysPending
-                        ? t('commerce:configurator.delivery.weekdaysLoading')
-                        : t('commerce:configurator.delivery.weekdaysBody')}
-                </Text>
-                <Inline space="xs" wrap>
+        <View testID="configurator-step-delivery" className="flex-col">
+            <Row
+                label={t('commerce:configurator.delivery.weekdaysTitle')}
+                testID="configurator-weekdays"
+            >
+                <View className="flex-row flex-wrap gap-2">
                     {[1, 2, 3, 4, 5, 6, 7].map((weekday) => {
-                        const available = allowedWeekdays === null || allowed.includes(weekday);
+                        const on = state.deliveryWeekdays.includes(weekday);
                         return (
-                            <FilterChip
+                            <PillChip
                                 key={weekday}
                                 testID={`configurator-weekday-${String(weekday)}`}
                                 label={t(weekdayKey(weekday))}
-                                selected={state.deliveryWeekdays.includes(weekday)}
-                                disabled={!available}
-                                onChange={(selected) => {
+                                selected={on}
+                                disabled={allowedWeekdays !== null && !allowed.includes(weekday)}
+                                onPress={() => {
                                     patch({
-                                        deliveryWeekdays: selected
-                                            ? [...state.deliveryWeekdays, weekday]
-                                            : state.deliveryWeekdays.filter(
-                                                  (value) => value !== weekday,
-                                              ),
+                                        deliveryWeekdays: toggle(
+                                            state.deliveryWeekdays,
+                                            weekday,
+                                            !on,
+                                        ),
                                     });
                                 }}
                             />
                         );
                     })}
-                </Inline>
+                </View>
                 {allowedWeekdays === null || allowed.length === 7 ? null : (
-                    <Text tone="secondary" variant="caption" testID="configurator-weekdays-limited">
+                    <RNText
+                        testID="configurator-weekdays-limited"
+                        className="self-start text-sm text-content-secondary text-start"
+                    >
                         {t('commerce:configurator.delivery.weekdaysLimited', {
-                            days: allowed
-                                .map((weekday) => t(weekdayKey(weekday)))
-                                .join(t('commerce:common.listSeparator')),
+                            days: allowed.map((weekday) => t(weekdayKey(weekday))).join(separator),
                         })}
-                    </Text>
+                    </RNText>
                 )}
-            </Stack>
+            </Row>
 
-            <Stack space="sm" testID="configurator-slot">
-                <Text variant="label">{t('commerce:configurator.delivery.slotTitle')}</Text>
-                <SegmentedControl
-                    testID="configurator-slot-picker"
-                    label={t('commerce:configurator.delivery.slotTitle')}
-                    block
-                    value={state.slotCode}
-                    onChange={(next) => {
-                        patch({ slotCode: next });
-                    }}
-                    items={DELIVERY_SLOTS.map((slot) => ({
-                        value: slot.code,
-                        label: t(`commerce:slots.${slot.code}`),
-                        testID: `configurator-slot-${slot.code}`,
-                    }))}
-                />
-            </Stack>
-
-            <Stack space="sm" testID="configurator-address">
-                <Text variant="label">{t('commerce:configurator.delivery.addressTitle')}</Text>
-                {savedAddresses === undefined || savedAddresses.length === 0 ? (
-                    <AddressForm
-                        testID="configurator-address-form"
-                        values={state.address}
-                        errors={showIssues ? addressErrors : {}}
-                        onChange={onAddressField}
+            <View className="flex-col border-b border-stroke-subtle md:flex-row md:gap-6">
+                <View testID="configurator-start-date" className="flex-col gap-2 py-5 md:flex-1">
+                    <DateField
+                        testID="configurator-start-date-field"
+                        label={t('commerce:configurator.delivery.startLabel')}
+                        value={state.startDate}
+                        min={earliestStartDate()}
+                        required
+                        onChange={(next) => {
+                            patch({ startDate: next });
+                        }}
+                        {...(showIssues && !startWeekdayAllowed
+                            ? { error: t('commerce:configurator.issues.startWeekday') }
+                            : {})}
                     />
-                ) : (
+                    {repair === null ? null : (
+                        <View className="self-start">
+                            <Chip
+                                testID="configurator-start-date-repair"
+                                tone="info"
+                                label={t('commerce:configurator.delivery.useNextAllowed', {
+                                    date: formatter.formatDate(repair, { dateStyle: 'medium' }),
+                                })}
+                                onPress={() => {
+                                    patch({ startDate: repair });
+                                }}
+                            />
+                        </View>
+                    )}
+                </View>
+                <View testID="configurator-slot" className="flex-col gap-3 py-5 md:flex-1">
+                    <RNText className="text-sm font-semibold text-content-primary text-start">
+                        {t('commerce:configurator.delivery.slotTitle')}
+                    </RNText>
+                    <View
+                        role="radiogroup"
+                        aria-label={t('commerce:configurator.delivery.slotTitle')}
+                        className="flex-row flex-wrap gap-2"
+                    >
+                        {DELIVERY_SLOTS.map((slot) => (
+                            <PillChip
+                                key={slot.code}
+                                testID={`configurator-slot-${slot.code}`}
+                                mode="radio"
+                                label={t(`commerce:slots.${slot.code}`)}
+                                selected={state.slotCode === slot.code}
+                                onPress={() => {
+                                    patch({ slotCode: slot.code });
+                                }}
+                            />
+                        ))}
+                    </View>
+                </View>
+            </View>
+
+            <Row
+                label={t('commerce:configurator.delivery.addressTitle')}
+                testID="configurator-address"
+            >
+                {hasSaved ? (
                     <Select
                         testID="configurator-address-picker"
                         label={t('commerce:configurator.delivery.addressTitle')}
+                        labelHidden
                         value={addressId ?? null}
                         onChange={(next) => {
                             onAddressIdChange?.(next);
@@ -632,265 +432,216 @@ export function DeliveryStep({
                                 .filter((part) => part.trim() !== '')
                                 .join(' · '),
                         }))}
-                        placeholder={t('commerce:configurator.delivery.addressTitle')}
-                    />
-                )}
-                {addressesPending === true ? (
-                    <Text tone="secondary" variant="caption">
-                        {t('commerce:configurator.delivery.weekdaysLoading')}
-                    </Text>
-                ) : null}
-                {showIssues &&
-                addressId === null &&
-                savedAddresses !== undefined &&
-                savedAddresses.length > 0 ? (
-                    <Text tone="danger" variant="caption" testID="configurator-address-error">
-                        {t('commerce:validation.required')}
-                    </Text>
-                ) : null}
-            </Stack>
-
-            {/*
-             * The SUB-02 checkpoint (doc 11 §3, DEC-SUB-01; doc 17, SUB-02).
-             *
-             * The reference confirms delivery availability after the pricing decision and routes
-             * allergies to customer service after purchase. Both are answered here — before the
-             * price step — because both are cheap to ask and both are dispositive, and selling a
-             * subscription that cannot be delivered or cannot be eaten is worse than one extra
-             * question.
-             */}
-            <Card testID="configurator-checks" padding="md" tone="sunken">
-                <Stack space="md">
-                    <Stack space="xs">
-                        <Text variant="label">{t('commerce:configurator.checks.title')}</Text>
-                        <Text tone="secondary" variant="caption">
-                            {t('commerce:configurator.checks.body')}
-                        </Text>
-                    </Stack>
-
-                    <AreaCheck
-                        status={areaStatus}
-                        area={state.address.area}
-                        servedAreas={servedAreas}
-                    />
-
-                    <Stack space="xs" testID="configurator-check-allergens">
-                        <Text>
-                            {state.excludeAllergens.length === 0
-                                ? t('commerce:configurator.checks.noAllergens')
-                                : t('commerce:configurator.checks.allergens', {
-                                      allergens: state.excludeAllergens
-                                          .map((code) => t(`marketplace:allergens.${code}`))
-                                          .join(t('commerce:common.listSeparator')),
-                                  })}
-                        </Text>
-                        {change.relaxed ? (
-                            <Callout
-                                testID="configurator-check-relaxed"
-                                role="alert"
-                                tone="danger"
-                                icon="warning"
-                                title={t('commerce:configurator.checks.relaxedTitle')}
-                                body={t('commerce:configurator.checks.relaxedBody', {
-                                    allergens: change.removed
-                                        .map((code) => t(`marketplace:allergens.${code}`))
-                                        .join(t('commerce:common.listSeparator')),
-                                })}
-                            />
-                        ) : null}
-                    </Stack>
-
-                    <Checkbox
-                        testID="configurator-checks-acknowledge"
-                        checked={state.checksAcknowledged}
-                        onChange={(checked) => {
-                            patch({ checksAcknowledged: checked });
-                        }}
-                        label={t('commerce:configurator.checks.acknowledgeLabel')}
-                        description={t('commerce:configurator.checks.acknowledgeDescription')}
-                        required
-                        {...(showIssues && !state.checksAcknowledged
-                            ? { error: t('commerce:configurator.issues.checks') }
+                        placeholder={t('commerce:configurator.delivery.addressPlaceholder')}
+                        {...(showIssues && addressId === null
+                            ? { error: t('commerce:validation.required') }
                             : {})}
                     />
-                </Stack>
-            </Card>
+                ) : (
+                    <AddressForm
+                        testID="configurator-address-form"
+                        values={state.address}
+                        errors={showIssues ? addressErrors : {}}
+                        onChange={onAddressField}
+                    />
+                )}
+                {hasSaved && addressId === null ? null : (
+                    <AreaStatus status={areaStatus} area={area} servedAreas={servedAreas} />
+                )}
+            </Row>
 
-            <MedicalDisclaimer context={t('commerce:configurator.allergyDisclaimerContext')} />
-        </Stack>
+            {plan.dietClassifications.length === 0 ? null : (
+                <Row
+                    label={t('commerce:configurator.dietary.dietsTitle')}
+                    testID="configurator-diets"
+                >
+                    <View className="flex-row flex-wrap gap-2">
+                        {plan.dietClassifications.map((diet: DietClassification) => {
+                            const on = state.dietClassifications.includes(diet);
+                            return (
+                                <PillChip
+                                    key={diet}
+                                    testID={`configurator-diet-${diet}`}
+                                    label={t(`marketplace:diets.${diet}`)}
+                                    selected={on}
+                                    onPress={() => {
+                                        patch({
+                                            dietClassifications: toggle(
+                                                state.dietClassifications,
+                                                diet,
+                                                !on,
+                                            ),
+                                        });
+                                    }}
+                                />
+                            );
+                        })}
+                    </View>
+                </Row>
+            )}
+
+            <Row
+                label={t('commerce:configurator.dietary.allergensTitle')}
+                testID="configurator-allergens"
+            >
+                {allergenOptions.length === 0 ? (
+                    <RNText
+                        testID="configurator-allergens-none"
+                        className="self-start text-base text-content-secondary text-start"
+                    >
+                        {t('commerce:configurator.checks.noAllergens')}
+                    </RNText>
+                ) : (
+                    <View className="flex-row flex-wrap gap-2">
+                        {allergenOptions.map((code) => {
+                            const on = state.excludeAllergens.includes(code);
+                            return (
+                                <PillChip
+                                    key={code}
+                                    testID={`configurator-allergen-${code}`}
+                                    label={t(`marketplace:allergens.${code}`)}
+                                    selected={on}
+                                    onPress={() => {
+                                        patch({
+                                            allergensTouched: true,
+                                            excludeAllergens: toggle(
+                                                state.excludeAllergens,
+                                                code,
+                                                !on,
+                                            ),
+                                        });
+                                    }}
+                                />
+                            );
+                        })}
+                    </View>
+                )}
+
+                {/*
+                 * Adding an exclusion tightens what the kitchen may send and needs no ceremony.
+                 * Removing one the profile records widens it — a safety decision — so it is an
+                 * alert that names what was dropped, and it has to be acknowledged.
+                 */}
+                {change.relaxed ? (
+                    <View className="flex-col gap-3">
+                        <Callout
+                            testID="configurator-allergen-relaxed"
+                            role="alert"
+                            tone="danger"
+                            icon="warning"
+                            title={t('commerce:configurator.dietary.relaxedTitle', {
+                                allergens: change.removed
+                                    .map((code) => t(`marketplace:allergens.${code}`))
+                                    .join(separator),
+                            })}
+                        />
+                        <Checkbox
+                            testID="configurator-checks-acknowledge"
+                            checked={state.checksAcknowledged}
+                            onChange={(checked) => {
+                                patch({ checksAcknowledged: checked });
+                            }}
+                            label={t('commerce:configurator.checks.acknowledgeLabel')}
+                            required
+                            {...(showIssues && !state.checksAcknowledged
+                                ? { error: t('commerce:configurator.issues.checks') }
+                                : {})}
+                        />
+                    </View>
+                ) : null}
+            </Row>
+        </View>
     );
 }
 
-interface AreaCheckProps {
+/** One line under the address: whether this kitchen delivers there. Status, never prose. */
+function AreaStatus({
+    status,
+    area,
+    servedAreas,
+}: {
     readonly status: DeliveryAreaStatus;
     readonly area: string;
     readonly servedAreas: readonly string[];
-}
-
-function AreaCheck({ status, area, servedAreas }: AreaCheckProps) {
+}) {
     const { t } = useTranslation();
-    const areas = servedAreas.join(t('commerce:common.listSeparator'));
 
     if (status === 'served') {
         return (
-            <Callout
+            <View
                 testID="configurator-area-served"
                 role="status"
-                tone="success"
-                icon="success"
-                title={t('commerce:configurator.checks.areaServedTitle')}
-                body={t('commerce:configurator.checks.areaServedBody', { area })}
-            />
+                className="flex-row items-center gap-2"
+            >
+                <Icon name="check" size="sm" className="text-success-on-subtle" />
+                <RNText className="text-sm font-medium text-success-on-subtle text-start">
+                    {t('commerce:configurator.checks.areaServed', { area })}
+                </RNText>
+            </View>
         );
     }
 
     if (status === 'unserved') {
         return (
-            <Callout
+            <View
                 testID="configurator-area-unserved"
                 role="alert"
-                tone="danger"
-                icon="warning"
-                title={t('commerce:configurator.checks.areaUnservedTitle')}
-                body={t('commerce:configurator.checks.areaUnservedBody', { area, areas })}
-            />
+                className="flex-row items-center gap-2"
+            >
+                <Icon name="warning" size="sm" className="text-danger-on-subtle" />
+                <RNText className="shrink text-sm font-medium text-danger-on-subtle text-start">
+                    {t('commerce:configurator.checks.areaUnserved', {
+                        area,
+                        areas: servedAreas
+                            .filter((name) => name.trim() !== '')
+                            .join(t('commerce:common.listSeparator')),
+                    })}
+                </RNText>
+            </View>
         );
     }
 
-    return (
-        <Callout
+    return area.trim() === '' ? null : (
+        <View
             testID="configurator-area-unknown"
-            role="note"
-            tone="warning"
-            icon="info"
-            title={t('commerce:configurator.checks.areaUnknownTitle')}
-            body={t('commerce:configurator.checks.areaUnknownBody')}
-        />
+            role="status"
+            className="flex-row items-center gap-2"
+        >
+            <Icon name="info" size="sm" className="text-content-secondary" />
+            <RNText className="shrink text-sm text-content-secondary text-start">
+                {t('commerce:configurator.checks.areaUnknown')}
+            </RNText>
+        </View>
     );
 }
 
-/* ── 6. the sample week ──────────────────────────────────────────────────────────────────────── */
+/* ── ③ review: the choices, the server's price, first-week meals ────────────────────────────── */
 
-export interface MealsStepProps {
+export interface ReviewStepProps {
     readonly plan: SubscriptionPlan;
     readonly state: ConfiguratorState;
     readonly patch: StepPatch;
-    /** The kitchen's own menu. Empty when it could not be loaded — the step degrades honestly. */
-    readonly menu: readonly MarketplaceMeal[];
-    readonly menuPending: boolean;
-}
-
-/** How many delivery days the preview shows. One week, which is the rotation the kitchen publishes. */
-const SAMPLE_DAYS = 7;
-
-export function MealsStep({ plan, state, patch, menu, menuPending }: MealsStepProps) {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
-
-    const dates = configuredDeliveryDates(state).slice(0, SAMPLE_DAYS);
-    const swappable = menu.length > 0;
-
-    /** The default meal for a slot: the plan's own sample list, rotated. */
-    const defaultMealId = (index: number): MealId | null =>
-        plan.sampleMealIds[index % Math.max(1, plan.sampleMealIds.length)] ?? null;
-
-    const chosenAt = (index: number): MealId | null =>
-        state.selectedMealIds[index] ?? defaultMealId(index);
-
-    const nameFor = (mealId: MealId | null): string => {
-        if (mealId === null) return t('commerce:configurator.meals.unknown');
-        return (
-            menu.find((meal) => meal.id === mealId)?.name ??
-            t('commerce:configurator.meals.fromPlan')
-        );
-    };
-
-    const select = (index: number, mealId: MealId) => {
-        const next = dates.map((_, position) =>
-            position === index ? mealId : (chosenAt(position) ?? mealId),
-        );
-        patch({ selectedMealIds: next.filter((value): value is MealId => value !== null) });
-    };
-
-    return (
-        <Stack space="md" testID="configurator-step-meals">
-            <Text tone="secondary">{t('commerce:configurator.meals.body')}</Text>
-
-            {dates.length === 0 ? (
-                <Text testID="configurator-meals-empty">
-                    {t('commerce:configurator.meals.noDates')}
-                </Text>
-            ) : (
-                <Stack space="sm" testID="configurator-meals-week">
-                    {dates.map((date, index) => {
-                        const mealId = chosenAt(index);
-                        return (
-                            <Card key={date} testID={`configurator-meal-${date}`} padding="md">
-                                <Stack space="xs">
-                                    <Text variant="label">
-                                        {formatter.formatDate(date, { dateStyle: 'full' })}
-                                    </Text>
-                                    {swappable ? (
-                                        <Select
-                                            testID={`configurator-meal-${date}-select`}
-                                            label={t('commerce:configurator.meals.selectLabel', {
-                                                date: formatter.formatDate(date, {
-                                                    dateStyle: 'medium',
-                                                }),
-                                            })}
-                                            value={mealId === null ? null : String(mealId)}
-                                            onChange={(next) => {
-                                                const meal = menu.find(
-                                                    (option) => String(option.id) === next,
-                                                );
-                                                if (meal !== undefined) select(index, meal.id);
-                                            }}
-                                            options={menu.map((meal) => ({
-                                                value: String(meal.id),
-                                                label: meal.name,
-                                            }))}
-                                        />
-                                    ) : (
-                                        <Text testID={`configurator-meal-${date}-static`}>
-                                            {nameFor(mealId)}
-                                        </Text>
-                                    )}
-                                </Stack>
-                            </Card>
-                        );
-                    })}
-                </Stack>
-            )}
-
-            <Callout
-                testID="configurator-meals-note"
-                role="note"
-                tone="info"
-                title={t('commerce:configurator.meals.noteTitle')}
-                body={
-                    menuPending
-                        ? t('commerce:configurator.meals.noteLoading')
-                        : swappable
-                          ? t('commerce:configurator.meals.noteSwappable')
-                          : t('commerce:configurator.meals.noteStatic')
-                }
-            />
-        </Stack>
-    );
-}
-
-/* ── 7. summary and price ────────────────────────────────────────────────────────────────────── */
-
-export interface SummaryStepProps {
-    readonly plan: SubscriptionPlan;
-    readonly state: ConfiguratorState;
     readonly preview: SubscriptionPreview | undefined;
+    /** The saved address chosen on the delivery step, when one was. */
+    readonly savedAddress: CustomerAddress | undefined;
+    readonly menu: readonly MarketplaceMeal[];
+    readonly onEdit: (step: ConfiguratorStep) => void;
 }
 
-export function SummaryStep({ plan, state, preview }: SummaryStepProps) {
+export function ReviewStep({
+    plan,
+    state,
+    patch,
+    preview,
+    savedAddress,
+    menu,
+    onEdit,
+}: ReviewStepProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const separator = t('commerce:common.listSeparator');
     const variant = variantById(plan, state.variantId);
+    const [mealsOpen, setMealsOpen] = useState(false);
 
     const rows: readonly PriceRow[] =
         preview === undefined
@@ -905,92 +656,108 @@ export function SummaryStep({ plan, state, preview }: SummaryStepProps) {
                   }),
                   total: t('commerce:configurator.summary.total'),
                   perDelivery: t('commerce:configurator.summary.perDelivery'),
-                  perDeliveryNote: t('commerce:configurator.summary.perDeliveryNote', {
-                      count: preview.deliveryCount,
-                      deliveries: formatter.formatNumber(preview.deliveryCount),
-                  }),
               });
 
-    return (
-        <Stack space="lg" testID="configurator-step-summary">
-            <Stack space="sm" testID="configurator-summary-configuration">
-                <Text variant="label">{t('commerce:configurator.summary.configTitle')}</Text>
-                <SummaryRow
-                    testID="configurator-summary-plan"
-                    label={t('commerce:configurator.summary.plan')}
-                    value={`${plan.name} · ${variant?.name ?? '—'}`}
-                />
-                <SummaryRow
-                    testID="configurator-summary-duration"
-                    label={t('commerce:configurator.summary.duration')}
-                    value={t(`commerce:durations.${state.duration}`)}
-                />
-                <SummaryRow
-                    testID="configurator-summary-days"
-                    label={t('commerce:configurator.summary.days')}
-                    value={state.deliveryWeekdays
-                        .map((weekday) => t(weekdayKey(weekday)))
-                        .join(t('commerce:common.listSeparator'))}
-                />
-                <SummaryRow
-                    testID="configurator-summary-slot"
-                    label={t('commerce:configurator.summary.slot')}
-                    value={t(`commerce:slots.${state.slotCode}`)}
-                />
-                <SummaryRow
-                    testID="configurator-summary-address"
-                    label={t('commerce:configurator.summary.address')}
-                    value={formatAddress(toDeliveryAddress(state.address))}
-                />
-                <SummaryRow
-                    testID="configurator-summary-allergens"
-                    label={t('commerce:configurator.summary.allergens')}
-                    value={
-                        state.excludeAllergens.length === 0
-                            ? t('commerce:configurator.checks.noAllergens')
-                            : state.excludeAllergens
-                                  .map((code) => t(`marketplace:allergens.${code}`))
-                                  .join(t('commerce:common.listSeparator'))
-                    }
-                />
-                {preview === undefined ? null : (
-                    <SummaryRow
-                        testID="configurator-summary-window"
-                        label={t('commerce:configurator.summary.window')}
-                        value={t('commerce:configurator.summary.windowValue', {
-                            first: formatter.formatDate(preview.firstDeliveryDate, {
-                                dateStyle: 'medium',
-                            }),
-                            last: formatter.formatDate(preview.lastDeliveryDate, {
-                                dateStyle: 'medium',
-                            }),
-                        })}
-                    />
-                )}
-            </Stack>
+    const address =
+        savedAddress === undefined
+            ? formatAddress(toDeliveryAddress(state.address))
+            : [savedAddress.label, savedAddress.line1, savedAddress.areaName]
+                  .filter((part) => part.trim() !== '')
+                  .join(' · ');
 
-            {/* The SUB-02 checks, restated where the price is, so the ordering is visible and not
-                merely true. */}
-            <Callout
-                testID="configurator-summary-checks"
-                role="note"
-                tone="success"
-                icon="success"
-                title={t('commerce:configurator.summary.checksTitle')}
-                body={t('commerce:configurator.summary.checksBody')}
+    return (
+        <View testID="configurator-step-review" className="flex-col gap-4">
+            <SummaryCard
+                testID="configurator-review-plan"
+                title={t('commerce:configurator.review.planTitle')}
+                action={{
+                    label: t('commerce:configurator.edit'),
+                    testID: 'configurator-review-plan-edit',
+                    onPress: () => {
+                        onEdit('plan');
+                    },
+                }}
+                rows={[
+                    {
+                        key: 'plan',
+                        testID: 'configurator-summary-plan',
+                        label: t('commerce:configurator.summary.plan'),
+                        value:
+                            variant === null
+                                ? plan.name
+                                : `${variant.name} · ${combinationLabel(variant, formatter.formatNumber, t)}`,
+                    },
+                    {
+                        key: 'duration',
+                        testID: 'configurator-summary-duration',
+                        label: t('commerce:configurator.summary.duration'),
+                        value: t(`catalogue:compare.duration.${state.duration}`),
+                    },
+                ]}
+            />
+
+            <SummaryCard
+                testID="configurator-review-delivery"
+                title={t('commerce:configurator.review.deliveryTitle')}
+                action={{
+                    label: t('commerce:configurator.edit'),
+                    testID: 'configurator-review-delivery-edit',
+                    onPress: () => {
+                        onEdit('delivery');
+                    },
+                }}
+                rows={[
+                    {
+                        key: 'days',
+                        testID: 'configurator-summary-days',
+                        label: t('commerce:configurator.summary.days'),
+                        value: `${weekdayRun(state.deliveryWeekdays, t)} · ${t(`commerce:slots.${state.slotCode}`)}`,
+                    },
+                    {
+                        key: 'window',
+                        testID: 'configurator-summary-window',
+                        label: t('commerce:configurator.summary.window'),
+                        value:
+                            preview === undefined
+                                ? state.startDate === null
+                                    ? '—'
+                                    : formatter.formatDate(state.startDate, { dateStyle: 'medium' })
+                                : t('commerce:configurator.summary.windowValue', {
+                                      first: formatter.formatDate(preview.firstDeliveryDate, {
+                                          dateStyle: 'medium',
+                                      }),
+                                      last: formatter.formatDate(preview.lastDeliveryDate, {
+                                          dateStyle: 'medium',
+                                      }),
+                                  }),
+                    },
+                    {
+                        key: 'address',
+                        testID: 'configurator-summary-address',
+                        label: t('commerce:configurator.summary.address'),
+                        value: address,
+                    },
+                    {
+                        key: 'allergens',
+                        testID: 'configurator-summary-allergens',
+                        label: t('commerce:configurator.summary.allergens'),
+                        value:
+                            state.excludeAllergens.length === 0
+                                ? t('commerce:configurator.checks.noAllergens')
+                                : state.excludeAllergens
+                                      .map((code) => t(`marketplace:allergens.${code}`))
+                                      .join(separator),
+                    },
+                ]}
             />
 
             {preview === undefined ? null : (
-                <Card testID="configurator-summary-price" padding="md" tone="sunken">
-                    <Stack space="md">
-                        <Text variant="label">{t('commerce:configurator.summary.priceTitle')}</Text>
-                        <PriceSummary
-                            rows={rows}
-                            testID="configurator-price"
-                            caption={t('commerce:configurator.summary.priceCaption')}
-                        />
-                    </Stack>
-                </Card>
+                <SummaryCard
+                    testID="configurator-summary-price"
+                    title={t('commerce:configurator.review.priceTitle')}
+                >
+                    <PriceSummary rows={rows} testID="configurator-price" />
+                </SummaryCard>
             )}
 
             {displayableWarnings(preview?.warnings ?? []).map((code) => (
@@ -1000,13 +767,159 @@ export function SummaryStep({ plan, state, preview }: SummaryStepProps) {
                     role={isCriticalWarning(code) ? 'alert' : 'note'}
                     tone={isCriticalWarning(code) ? 'danger' : 'warning'}
                     icon="warning"
-                    title={t('commerce:warnings.title')}
-                    body={t(warningMessageKey(code), { code })}
+                    title={t(warningMessageKey(code), { code })}
                 />
             ))}
 
+            <CardPanel className="gap-0 py-2">
+                <Pressable
+                    testID="configurator-meals-toggle"
+                    role="button"
+                    accessibilityRole="button"
+                    aria-expanded={mealsOpen}
+                    accessibilityState={{ expanded: mealsOpen }}
+                    aria-controls="configurator-meals"
+                    onPress={() => {
+                        setMealsOpen((open) => !open);
+                    }}
+                    className="min-h-touch flex-row items-center justify-between gap-3"
+                >
+                    <RNText className="text-base font-semibold text-content-primary text-start">
+                        {t('commerce:configurator.meals.title')}
+                    </RNText>
+                    <Icon
+                        name={mealsOpen ? 'chevronUp' : 'chevronDown'}
+                        size="sm"
+                        className="text-content-secondary"
+                    />
+                </Pressable>
+                <Collapse
+                    open={mealsOpen}
+                    nativeID="configurator-meals"
+                    testID="configurator-meals"
+                >
+                    <FirstWeekMeals plan={plan} state={state} patch={patch} menu={menu} />
+                </Collapse>
+            </CardPanel>
+
             <MedicalDisclaimer context={t('commerce:configurator.disclaimerContext')} />
-        </Stack>
+        </View>
+    );
+}
+
+/**
+ * The terms acknowledgement, drawn by the screen beside the Subscribe button rather than in the
+ * step: it is the last thing standing between the person and the action. When it is missing the
+ * summary's notice says so, directly above it — once, rather than here as well.
+ */
+export function TermsAcknowledgement({
+    state,
+    patch,
+}: {
+    readonly state: ConfiguratorState;
+    readonly patch: StepPatch;
+}) {
+    const { t } = useTranslation();
+
+    return (
+        <Checkbox
+            testID="configurator-confirm-acknowledge"
+            checked={state.termsAcknowledged}
+            onChange={(checked) => {
+                patch({ termsAcknowledged: checked });
+            }}
+            label={t('commerce:configurator.confirm.acknowledgeLabel')}
+            required
+        />
+    );
+}
+
+/** How many delivery days the first-week picker shows: one week, the rotation the kitchen publishes. */
+const SAMPLE_DAYS = 7;
+
+/** The first week's meals, one picker per delivery day. Optional: untouched, the plan's rotation. */
+function FirstWeekMeals({
+    plan,
+    state,
+    patch,
+    menu,
+}: {
+    readonly plan: SubscriptionPlan;
+    readonly state: ConfiguratorState;
+    readonly patch: StepPatch;
+    readonly menu: readonly MarketplaceMeal[];
+}) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const dates = configuredDeliveryDates(state).slice(0, SAMPLE_DAYS);
+    const swappable = menu.length > 0;
+
+    /** The default meal for a slot: the plan's own sample list, rotated. */
+    const defaultMealId = (index: number): MealId | null =>
+        plan.sampleMealIds[index % Math.max(1, plan.sampleMealIds.length)] ?? null;
+    const chosenAt = (index: number): MealId | null =>
+        state.selectedMealIds[index] ?? defaultMealId(index);
+    const nameFor = (mealId: MealId | null): string =>
+        mealId === null
+            ? t('commerce:configurator.meals.unknown')
+            : (menu.find((meal) => meal.id === mealId)?.name ??
+              t('commerce:configurator.meals.unknown'));
+
+    const select = (index: number, mealId: MealId) => {
+        const next = dates.map((_, position) =>
+            position === index ? mealId : (chosenAt(position) ?? mealId),
+        );
+        patch({ selectedMealIds: next.filter((value): value is MealId => value !== null) });
+    };
+
+    return (
+        <View testID="configurator-meals-week" className="flex-col gap-3 pb-4 pt-2">
+            {dates.map((date, index) => {
+                const mealId = chosenAt(index);
+                const day = formatter.formatDate(date, { dateStyle: 'medium' });
+                return (
+                    <View
+                        key={date}
+                        testID={`configurator-meal-${date}`}
+                        className="flex-col gap-1 md:flex-row md:items-center md:gap-4"
+                    >
+                        <RNText className="self-start text-sm text-content-secondary text-start md:w-[140px] md:self-center">
+                            {day}
+                        </RNText>
+                        <View className={cx('min-w-0 md:flex-1')}>
+                            {swappable ? (
+                                <Select
+                                    testID={`configurator-meal-${date}-select`}
+                                    label={t('commerce:configurator.meals.selectLabel', {
+                                        date: day,
+                                    })}
+                                    labelHidden
+                                    value={mealId === null ? null : String(mealId)}
+                                    placeholder={t('commerce:configurator.meals.unknown')}
+                                    onChange={(next) => {
+                                        const meal = menu.find(
+                                            (option) => String(option.id) === next,
+                                        );
+                                        if (meal !== undefined) select(index, meal.id);
+                                    }}
+                                    options={menu.map((meal) => ({
+                                        value: String(meal.id),
+                                        label: meal.name,
+                                    }))}
+                                />
+                            ) : (
+                                <RNText
+                                    testID={`configurator-meal-${date}-static`}
+                                    className="self-start text-base text-content-primary text-start"
+                                >
+                                    {nameFor(mealId)}
+                                </RNText>
+                            )}
+                        </View>
+                    </View>
+                );
+            })}
+        </View>
     );
 }
 
@@ -1016,7 +929,6 @@ export interface PriceLabels {
     readonly discount: string;
     readonly total: string;
     readonly perDelivery: string;
-    readonly perDeliveryNote: string;
 }
 
 /**
@@ -1055,99 +967,6 @@ export function buildPriceRows(
         { key: 'total', label: labels.total, amount: preview.total, emphasis: true },
         ...(perDelivery === null
             ? []
-            : [
-                  {
-                      key: 'per-delivery',
-                      label: labels.perDelivery,
-                      amount: perDelivery,
-                      note: labels.perDeliveryNote,
-                  },
-              ]),
+            : [{ key: 'per-delivery', label: labels.perDelivery, amount: perDelivery }]),
     ];
-}
-
-interface SummaryRowProps {
-    readonly label: string;
-    readonly value: string;
-    readonly testID: string;
-}
-
-function SummaryRow({ label, value, testID }: SummaryRowProps) {
-    return (
-        <Inline space="sm" align="center" justify="between" testID={testID}>
-            <Text tone="secondary">{label}</Text>
-            <Text variant="bodyStrong">{value}</Text>
-        </Inline>
-    );
-}
-
-/* ── 8. confirm ──────────────────────────────────────────────────────────────────────────────── */
-
-export interface ConfirmStepProps {
-    readonly plan: SubscriptionPlan;
-    readonly state: ConfiguratorState;
-    readonly patch: StepPatch;
-    readonly preview: SubscriptionPreview | undefined;
-    readonly showIssues: boolean;
-}
-
-export function ConfirmStep({ plan, state, patch, preview, showIssues }: ConfirmStepProps) {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
-
-    return (
-        <Stack space="lg" testID="configurator-step-confirm">
-            <Stack space="xs">
-                <Text variant="label">{t('commerce:configurator.confirm.title')}</Text>
-                <Text tone="secondary">{t('commerce:configurator.confirm.body')}</Text>
-            </Stack>
-
-            {preview === undefined ? null : (
-                <Card testID="configurator-confirm-summary" padding="md" tone="sunken">
-                    <Stack space="xs">
-                        <Text testID="configurator-confirm-plan" variant="bodyStrong">
-                            {plan.name}
-                        </Text>
-                        <Text testID="configurator-confirm-total">
-                            {t('commerce:configurator.confirm.total', {
-                                total: formatMoney(formatter, preview.total),
-                                duration: t(`commerce:durations.${state.duration}`),
-                            })}
-                        </Text>
-                        <Text tone="secondary" variant="caption">
-                            {t('commerce:configurator.confirm.deliveries', {
-                                count: preview.deliveryCount,
-                                deliveries: formatter.formatNumber(preview.deliveryCount),
-                                first: formatter.formatDate(preview.firstDeliveryDate, {
-                                    dateStyle: 'medium',
-                                }),
-                            })}
-                        </Text>
-                    </Stack>
-                </Card>
-            )}
-
-            <Callout
-                testID="configurator-confirm-terms"
-                role="note"
-                tone="info"
-                title={t('commerce:configurator.confirm.termsTitle')}
-                body={t('commerce:configurator.confirm.termsBody')}
-            />
-
-            <Checkbox
-                testID="configurator-confirm-acknowledge"
-                checked={state.termsAcknowledged}
-                onChange={(checked) => {
-                    patch({ termsAcknowledged: checked });
-                }}
-                label={t('commerce:configurator.confirm.acknowledgeLabel')}
-                description={t('commerce:configurator.confirm.acknowledgeDescription')}
-                required
-                {...(showIssues && !state.termsAcknowledged
-                    ? { error: t('commerce:configurator.issues.terms') }
-                    : {})}
-            />
-        </Stack>
-    );
 }

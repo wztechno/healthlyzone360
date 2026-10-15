@@ -44,7 +44,7 @@ import {
     useProductCategoriesQuery,
     useProductQuery,
     usePublishProductMutation,
-    useRecipesQuery,
+    useAllRecipesQuery,
     useSetProductChannelAvailabilityMutation,
     useUpdateProductMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
@@ -348,7 +348,7 @@ function ProductEditor({
 
     const record = useProductQuery(parsed);
     const categories = useProductCategoriesQuery();
-    const recipes = useRecipesQuery({ limit: 100 });
+    const recipes = useAllRecipesQuery();
 
     const create = useCreateProductMutation();
     const update = useUpdateProductMutation();

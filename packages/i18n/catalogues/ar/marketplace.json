@@ -45,8 +45,7 @@
         "body": "الأرقام المعروضة هنا صادرة عن حاسبة أولية وعن مجموعة بيانات اصطناعية. هي تقدير تقريبي، وليست تشخيصًا. تحدث إلى أخصائي تغذية مؤهل أو إلى طبيب قبل الاعتماد عليها، خاصة إذا كنت تتعايش مع حالة صحية، أو كنتِ حاملًا، أو كنت تُعدّ الطعام لطفل."
     },
     "landing": {
-        "browseKitchens": "تصفّح المطابخ",
-        "howItWorks": "اطّلع على طريقة العمل"
+        "browseKitchens": "تصفّح المطابخ"
     },
     "discover": {
         "heroEyebrow": "من مطابخ المتجر",
@@ -128,29 +127,14 @@
         "collectionOnly": "الاستلام من المطبخ فقط",
         "areaSeparator": " · ",
         "finder": {
-            "eyebrowOpen_zero": "لا توجد مطابخ تطبخ اليوم",
-            "eyebrowOpen_one": "مطبخ واحد يطبخ اليوم",
-            "eyebrowOpen_two": "مطبخان يطبخان اليوم",
-            "eyebrowOpen_few": "{{count}} مطابخ تطبخ اليوم",
-            "eyebrowOpen_many": "{{count}} مطبخًا يطبخ اليوم",
-            "eyebrowOpen_other": "{{count}} مطبخ يطبخ اليوم",
-            "eyebrowListed_zero": "لا توجد مطابخ في المتجر",
-            "eyebrowListed_one": "مطبخ واحد في المتجر",
-            "eyebrowListed_two": "مطبخان في المتجر",
-            "eyebrowListed_few": "{{count}} مطابخ في المتجر",
-            "eyebrowListed_many": "{{count}} مطبخًا في المتجر",
-            "eyebrowListed_other": "{{count}} مطبخ في المتجر",
-            "eyebrowPending": "المطابخ في المتجر",
-            "title": "ابحث عن مطبخ يطبخ بالطريقة التي تأكل بها.",
             "searchLabel": "ابحث في المطابخ بالاسم",
-            "searchPlaceholder": "ابحث في المطابخ بالاسم…",
+            "searchPlaceholder": "ابحث عن مطبخ",
             "filtersLabel": "تضييق نتائج المطابخ",
             "toggle": {
                 "openToday": "مفتوح اليوم",
                 "pickup": "استلام من المطبخ",
                 "subscription": "يقدّم خططًا"
             },
-            "sortLabel": "الترتيب",
             "sortFieldLabel": "ترتيب المطابخ",
             "sort": {
                 "rating": "الأعلى تقييمًا",
@@ -161,87 +145,54 @@
             },
             "openToday": "مفتوح اليوم · {{opensAt}}–{{closesAt}}",
             "closedToday": "مغلق اليوم",
-            "topRated": "الأعلى تقييمًا",
-            "fact": {
-                "rating": "التقييم",
-                "delivery": "التوصيل",
-                "fee": "الرسوم",
-                "minimum": "الحد الأدنى"
-            },
             "minutes": "{{minutes}} دقيقة",
-            "free": "مجاني",
-            "from": "ابتداءً من {{amount}}",
-            "openKitchen": "افتح المطبخ",
-            "seePlans": "اطّلع على خططه",
             "listAll": "كل المطابخ",
             "listMatching": "المطابخ المطابقة",
-            "count_zero": "{{shown}} من {{count}} مطبخ · مرتّبة حسب {{sort}}",
-            "count_one": "{{shown}} من مطبخ واحد · مرتّبة حسب {{sort}}",
-            "count_two": "{{shown}} من مطبخين · مرتّبة حسب {{sort}}",
-            "count_few": "{{shown}} من {{count}} مطابخ · مرتّبة حسب {{sort}}",
-            "count_many": "{{shown}} من {{count}} مطبخًا · مرتّبة حسب {{sort}}",
-            "count_other": "{{shown}} من {{count}} مطبخ · مرتّبة حسب {{sort}}",
             "emptyTitle": "لا يوجد مطبخ يطابق كل ذلك",
             "emptyBody": "جرّب إزالة أحد عوامل التصفية — أو وسّع نطاق بحثك.",
-            "dishFigures": "{{energy}} سعرة · {{protein}} غ بروتين",
-            "openDish": "{{meal}} — افتح الطبق",
-            "addDish": "أضف {{meal}} إلى السلة",
-            "term": {
-                "delivery": "التوصيل",
-                "fee": "الرسوم",
-                "minimum": "الحد الأدنى"
-            },
-            "viewMenu": "عرض القائمة",
-            "plans": "الخطط",
-            "noPlans": "لا خطط",
             "goalsTitle": "كل حسب هدفك",
-            "goalsMeta": "وجبات من جميع المطابخ",
             "goalAction": "تصفّح الوجبات",
             "goal": {
                 "high_protein": {
-                    "title": "غني بالبروتين",
-                    "body": "أطباق يتصدّرها البروتين."
+                    "title": "غني بالبروتين"
                 },
                 "vegan": {
-                    "title": "نباتي",
-                    "body": "طهي نباتي بالكامل، دون منتجات حيوانية."
+                    "title": "نباتي"
                 },
                 "under500": {
-                    "title": "أقل من 500 سعرة",
-                    "body": "أطباق أخف تبقى مُشبعة."
+                    "title": "أقل من 500 سعرة"
                 },
                 "low_carb": {
-                    "title": "منخفض الكربوهيدرات",
-                    "body": "أطباق تقوم على البروتين والخضروات."
+                    "title": "منخفض الكربوهيدرات"
                 }
             },
-            "ledeMatched": "مطابقة مع ملفك الشخصي — ",
-            "ledeUnmatched": "طابِق المطابخ مع ملفك الشخصي — ",
-            "ledeSetPreferences": "حدّد تفضيلاتك",
-            "ledeTail": ". كل طبق يذكر قيمه الغذائية ومسبّبات الحساسية فيه.",
-            "deliveringTo": "التوصيل إلى ",
+            "deliveringTo": "التوصيل إلى {{address}}. تغيير",
             "addressChange": "تغيير",
-            "addressAdd": "إضافة",
-            "addressNone": "لا يوجد عنوان محفوظ",
+            "addressAdd": "أضف عنوانًا",
             "addressPending": "…",
-            "addressSignedOut": "سجّل الدخول لاستخدام عنوان محفوظ",
-            "addressSignIn": "تسجيل الدخول",
             "under30": "أقل من 30 دقيقة",
-            "dietMatch": "يناسب نظامك الغذائي",
-            "bestFit": "الأنسب لك · يطهو {{diets}}",
-            "whyMatch": "يطهو {{diets}} — نظامك الغذائي.",
-            "whyDiets": "يطبخ {{diets}}.",
-            "ratingValue": "★ {{rating}}",
-            "noFigure": "—",
-            "signatureDishes": "أطباق مميّزة",
-            "noDishes": "لا توجد أطباق في القائمة بعد.",
             "goalCount_zero": "لا وجبات ←",
             "goalCount_one": "وجبة واحدة ←",
             "goalCount_two": "وجبتان ←",
             "goalCount_few": "{{count}} وجبات ←",
             "goalCount_many": "{{count}} وجبة ←",
             "goalCount_other": "{{count}} وجبة ←",
-            "whyWithSummary": "{{why}} {{summary}}"
+            "count_zero": "لا مطابخ",
+            "count_one": "مطبخ واحد",
+            "count_two": "مطبخان",
+            "count_few": "{{count}} مطابخ",
+            "count_many": "{{count}} مطبخًا",
+            "count_other": "{{count}} مطبخ",
+            "countOf_zero": "{{shown}} من {{count}} مطبخ",
+            "countOf_one": "{{shown}} من مطبخ واحد",
+            "countOf_two": "{{shown}} من مطبخين",
+            "countOf_few": "{{shown}} من {{count}} مطابخ",
+            "countOf_many": "{{shown}} من {{count}} مطبخًا",
+            "countOf_other": "{{shown}} من {{count}} مطبخ",
+            "fee": "رسوم {{amount}}",
+            "feeFrom": "رسوم من {{amount}}",
+            "minimum": "الحد الأدنى {{amount}}",
+            "minimumFrom": "الحد الأدنى من {{amount}}"
         }
     },
     "kitchen": {
@@ -391,7 +342,6 @@
     },
     "consumer": {
         "nav": {
-            "home": "الرئيسية",
             "discover": "استكشاف",
             "planner": "المخطِّط",
             "nutrition": "التغذية",
@@ -407,9 +357,6 @@
             "body": "كنت تطّلع على {{destination}} قبل تسجيل الدخول.",
             "continue": "متابعة",
             "dismiss": "ليس الآن"
-        },
-        "links": {
-            "title": "حسابك"
         },
         "subscription": {
             "nextDelivery": "التوصيل التالي {{date}}",

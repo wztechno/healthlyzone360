@@ -24,12 +24,19 @@ namespace Healthy360\Orders\OrderDesk\Enums;
  *
  * `overdue` deliberately does **not** inherit that rule. A dateless order is
  * never late, because there is no day it has missed.
+ *
+ * `range` is the fourth question: "what is due between *these* two days" — any
+ * span, past or future, named by the request's `from` and `to` (inclusive; the
+ * same day twice is one day). A range that contains today also carries the
+ * dateless orders, for the reason `today` does, so the two never disagree about
+ * the same date.
  */
 enum OrderDeskWindow: string
 {
     case Today = 'today';
     case Overdue = 'overdue';
     case Next7 = 'next_7';
+    case Range = 'range';
 
     /**
      * How far past `today` the window reaches, in days. Only `next_7` looks
@@ -38,7 +45,7 @@ enum OrderDeskWindow: string
     public function forwardDays(): int
     {
         return match ($this) {
-            self::Today, self::Overdue => 0,
+            self::Today, self::Overdue, self::Range => 0,
             self::Next7 => 7,
         };
     }

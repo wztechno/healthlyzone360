@@ -51,6 +51,10 @@ import { View } from 'react-native';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
+    useItemLatestPurchasesQuery,
+    useStockItemsQuery,
+} from '../../../data/kitchen-ops-hooks.ts';
+import {
     subcategoriesOf,
     topLevelCategories,
     useAllergenClassesQuery,
@@ -66,7 +70,11 @@ import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { DerivedPanel } from '../catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../catalogue/derived-panel.tsx';
-import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
+import {
+    CATALOGUE_MANAGE_PERMISSION,
+    CATALOGUE_VIEW_PERMISSION,
+    INVENTORY_VIEW_COSTS_PERMISSION,
+} from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import {
     UNIT_DIMENSIONS,
@@ -619,6 +627,28 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
 
     const data = record.data;
 
+    /*
+     * The unit price shown on this screen is what the kitchen last paid a supplier — the same
+     * figure the Stock page's "Last purchase" column reads — and it is shown, never typed. A receipt
+     * moves it; this screen does not. The stock item is the link: a purchase is recorded against
+     * the shelf, and the shelf names the ingredient it holds.
+     */
+    const canViewCosts = useCan(INVENTORY_VIEW_COSTS_PERMISSION);
+    const stockItems = useStockItemsQuery(family.food && !isCreating && canViewCosts);
+    const stockItemId = useMemo(() => {
+        if (parsed === null) return null;
+        const shelf = stockItems.data?.find(
+            (item) => item.ingredientId !== null && String(item.ingredientId) === String(parsed),
+        );
+        return shelf === undefined ? null : shelf.id;
+    }, [stockItems.data, parsed]);
+    const latestPurchaseIds = useMemo(
+        () => (stockItemId === null ? [] : [stockItemId]),
+        [stockItemId],
+    );
+    const latestPurchases = useItemLatestPurchasesQuery(latestPurchaseIds, canViewCosts);
+    const latestPurchase = latestPurchases.data?.[0] ?? null;
+
     /**
      * Whether this record is in the stored quarantine — read from the record, not remembered.
      *
@@ -943,21 +973,6 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const nutritionEditable = family.food && nutritionDerived === null;
 
     /*
-     * The unit price is required of a new food record, as the design draws it: it is the figure a
-     * raw material is costed at until a receipt says otherwise, and the margin under Sale divides by
-     * it. Three limits on that, each load-bearing:
-     *
-     * - **Food only.** Packaging states its cost as a pack price instead (see `UnstoredDraft`).
-     * - **On create only.** Hundreds of imported rows carry no list price, and a rule that refused
-     *   every save of one would stop a kitchen correcting a name until somebody found a price.
-     * - **Only once a currency is known.** A price cannot be written without one, so in a kitchen
-     *   that has priced nothing yet the field would be required and unsaveable at the same time —
-     *   a form nobody could ever submit.
-     */
-    const unitPriceMissing =
-        family.food && isCreating && currency !== null && details.unitPrice.trim() === '';
-
-    /*
      * Everything that stops the save, in the order the fields appear, each naming the field it is
      * about and the control that fixes it. The banner reads this list; the fields read the same
      * flags, so the two cannot disagree about what is wrong.
@@ -991,16 +1006,6 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                       label: t('kitchen:fields.category'),
                       fieldId: 'kitchen-ingredient-category',
                       required: true,
-                  },
-              ]
-            : []),
-        ...(unitPriceMissing || unitPriceValue === undefined
-            ? [
-                  {
-                      key: 'unit-price',
-                      label: t('kitchen:fields.unitPrice'),
-                      fieldId: 'kitchen-ingredient-unit-price',
-                      required: unitPriceMissing,
                   },
               ]
             : []),
@@ -1247,6 +1252,40 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
 
     const busy = create.isPending || update.isPending;
     const priceUnit = currency === null ? {} : { unit: currency };
+
+    /*
+     * The read-only unit price: the last purchase's amount when there is one, otherwise a word in
+     * the placeholder for why there is none — still loading, nothing bought yet, or a figure this
+     * member may not see. Never a zero: an unbought ingredient and a free one are different facts.
+     */
+    const currentPriceValue =
+        latestPurchase === null || latestPurchase.unitPriceAmount === null
+            ? ''
+            : formatter.formatNumber(Number(latestPurchase.unitPriceAmount), {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+              });
+    const currentPricePlaceholder = !canViewCosts
+        ? t('kitchen:ops.stock.lastPurchaseHidden')
+        : stockItems.isPending || latestPurchases.isPending
+          ? isCreating || stockItemId === null
+              ? t('kitchen:ops.stock.neverBought')
+              : t('kitchen:ops.stock.lastPurchaseLoading')
+          : t('kitchen:ops.stock.neverBought');
+    const currentPriceSource =
+        latestPurchase === null
+            ? undefined
+            : latestPurchase.receivedAt === null
+              ? latestPurchase.supplier === null
+                  ? t('kitchen:ops.stock.noPurchaseSupplier')
+                  : latestPurchase.supplier.nameEn
+              : t('kitchen:ops.stock.lastPurchaseFrom', {
+                    supplier:
+                        latestPurchase.supplier === null
+                            ? t('kitchen:ops.stock.noPurchaseSupplier')
+                            : latestPurchase.supplier.nameEn,
+                    date: formatter.formatDate(latestPurchase.receivedAt, { dateStyle: 'medium' }),
+                });
 
     /** One field of the draft, and the dirty flag with it — the shape every input below writes. */
     const edit = (patch: Partial<DetailsDraft>) => {
@@ -1704,26 +1743,30 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                          * the unit slot as a static suffix — a price carrying its own currency is a
                          * string no cost cascade can multiply.
                          */}
+                        {/*
+                         * Read-only: what the kitchen last paid, per the unit it was bought in, and
+                         * from whom. It follows the receipts — the next delivery posted moves it.
+                         */}
                         {!family.food ? null : (
                             <QuantityInput
                                 testID="kitchen-ingredient-unit-price"
                                 id="kitchen-ingredient-unit-price"
                                 size="sm"
-                                required={isCreating && currency !== null}
+                                readOnly
                                 label={t('kitchen:fields.unitPrice')}
-                                placeholder={t('kitchen:fields.unitPricePlaceholder')}
-                                value={details.unitPrice}
-                                disabled={!editable}
-                                {...priceUnit}
-                                {...flag(
-                                    'unit-price',
-                                    unitPriceMissing
-                                        ? t('kitchen:forms.required')
-                                        : t('kitchen:sale.priceInvalid'),
-                                )}
-                                onChangeText={(next) => {
-                                    edit({ unitPrice: next });
-                                }}
+                                placeholder={currentPricePlaceholder}
+                                value={currentPriceValue}
+                                {...(latestPurchase === null ||
+                                latestPurchase.unitPriceAmount === null
+                                    ? {}
+                                    : {
+                                          unit: t('kitchen:fields.unitPricePer', {
+                                              currency: latestPurchase.costCurrencyCode ?? '',
+                                              unit: latestPurchase.unitCode ?? '',
+                                          }),
+                                          hint: currentPriceSource,
+                                      })}
+                                onChangeText={() => {}}
                             />
                         )}
 

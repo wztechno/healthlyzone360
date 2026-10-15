@@ -1,11 +1,11 @@
-import type { Kitchen, MealFilter } from '@healthy360/api-client/contracts';
+import type { Kitchen } from '@healthy360/api-client/contracts';
 import { DIET_CLASSIFICATIONS } from '@healthy360/domain-types';
-import type { DietClassification, KitchenId } from '@healthy360/domain-types';
+import type { DietClassification } from '@healthy360/domain-types';
 
 import { deliveryTerms, fastestDeliveryMinutes, hoursToday } from './storefront-facts.ts';
 
 /**
- * The pure half of the `/kitchens` finder — ordering, narrowing, and which kitchen leads.
+ * The pure half of the `/kitchens` finder — ordering and narrowing.
  *
  * Kept out of the screen for the reason `storefront-facts.ts` gives: each function is a small,
  * arguable reading of the `Kitchen` contract, and a reading that can only be exercised by rendering
@@ -19,8 +19,7 @@ import { deliveryTerms, fastestDeliveryMinutes, hoursToday } from './storefront-
  * it. What *is* real is the overlap between two closed vocabularies the API does answer: the diets
  * a signed-in shopper declared (`DietaryProfile.dietCategoryCode`) and the diets a kitchen cooks
  * for (`Kitchen.dietClassifications`). Both are `DIET_CLASSIFICATIONS` codes. So "best match" here
- * is "cooks for the most of your diets", printed as "2/3" — a count a reader can check against the
- * chips on the card — and it is only offered to someone who has declared a diet.
+ * is "cooks for the most of your diets", and it is only offered to someone who has declared a diet.
  */
 
 export const KITCHEN_SORTS = ['match', 'fastest', 'rating', 'fee', 'name'] as const;
@@ -150,74 +149,6 @@ export function publishesHours(kitchen: Kitchen): boolean {
 /** Kitchens with a trading window today, by the hours they published. */
 export function openToday(kitchens: readonly Kitchen[], weekday?: number): readonly Kitchen[] {
     return kitchens.filter((kitchen) => hoursToday(kitchen, weekday) !== null);
-}
-
-export interface Spotlight {
-    readonly kitchen: Kitchen;
-    /**
-     * Why it leads, which is the only claim its badge may make: it cooks for the most of the
-     * shopper's diets (`match`), it is the best rated (`rating`), or nothing (`null`) — simply the
-     * first of the list, with no badge.
-     */
-    readonly reason: 'match' | 'rating' | null;
-}
-
-/**
- * The kitchen the canopy panel leads with.
- *
- * The one cooking for the most of the shopper's declared diets, when it cooks for at least one;
- * otherwise the highest-rated kitchen when any has a rating; otherwise the first of the list as it
- * is currently ordered.
- */
-export function pickSpotlight(
-    kitchens: readonly Kitchen[],
-    profileDiets: readonly DietClassification[] = [],
-): Spotlight | null {
-    if (profileDiets.length > 0) {
-        const [best] = sortKitchens(kitchens, 'match', profileDiets);
-        if (best !== undefined && matchedDiets(best, profileDiets).length > 0) {
-            return { kitchen: best, reason: 'match' };
-        }
-    }
-    const rated = kitchens.filter((kitchen) => kitchen.rating !== null);
-    if (rated.length > 0) {
-        const [best] = [...rated].sort(byRating);
-        if (best !== undefined) return { kitchen: best, reason: 'rating' };
-    }
-    const first = kitchens[0];
-    return first === undefined ? null : { kitchen: first, reason: null };
-}
-
-/**
- * The finder's menu preview for one kitchen: its three highest-rated dishes.
- *
- * One function so the card and the spotlight ask with exactly the same filter, and so share one
- * cache entry rather than fetching the same three dishes twice.
- */
-export function dishPreviewFilter(kitchenId: KitchenId): Omit<MealFilter, 'cursor'> {
-    return { kitchenIds: [kitchenId], itemTypes: ['meal'], sort: 'rating', limit: 3 };
-}
-
-/**
- * The two letters on a kitchen's mark. Word initials where the name has words, the first two
- * characters otherwise — "Verdant Kitchen" is VK, "Saffron" is SA.
- */
-export function kitchenInitials(name: string): string {
-    const words = name
-        .trim()
-        .split(/\s+/u)
-        .filter((word) => /\p{L}/u.test(word));
-    if (words.length >= 2) {
-        return words
-            .slice(0, 2)
-            .map((word) => Array.from(word)[0] ?? '')
-            .join('')
-            .toLocaleUpperCase();
-    }
-    return Array.from(words[0] ?? name)
-        .slice(0, 2)
-        .join('')
-        .toLocaleUpperCase();
 }
 
 /**

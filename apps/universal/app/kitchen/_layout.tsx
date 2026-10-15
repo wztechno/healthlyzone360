@@ -18,8 +18,8 @@ import { AreaShell } from '../../src/shell/area-shell.tsx';
 /**
  * The `kitchen` area. `AreaShell` applies `<Gate area="kitchen">` and this area's chrome — here
  * the family rail from `kitchen-chrome.tsx`: every permitted destination in its registry group,
- * queue badges on Review and Exceptions, the workspace trio under its own heading, and Sign out
- * pinned to the bottom of the sidebar.
+ * queue badges on Review and Exceptions, and Sign out pinned to the bottom of the sidebar. The
+ * workspace switcher is the bottom bar `AreaShell` draws under the page.
  *
  * The breadcrumb trail is drawn in the top bar in place of the area title. Its provider wraps the
  * shell rather than sitting inside it, because the bar and the screen that names the trail's leaf

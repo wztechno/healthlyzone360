@@ -1,29 +1,28 @@
-import { Button, Icon, IconButton, Inline, Stack, Text } from '@healthy360/design-system';
+import { Button, Icon } from '@healthy360/design-system';
 import type { SubscriptionPlan } from '@healthy360/api-client/contracts';
-import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-
-import { EntityImage } from '../../media/entity-image.tsx';
+import { Pressable, ScrollView, Text as RNText, View } from 'react-native';
 
 /**
- * The comparison tray.
+ * The comparison bar: the chosen plans, Clear, and Compare — one row, which `/plans` pins to the
+ * foot of the page on the web while a selection exists.
  *
  * ## When it is here
  *
- * `/plans` mounts the tray once at least one plan is selected. HealthZone's plan screen has no tray,
- * and each card's own "Compare" chip is what tells a person comparing is possible, so an empty tray
- * would be a standing panel with nothing to say. Once mounted, the open action stays put and reports
- * itself disabled until there are two plans to set side by side, rather than vanishing (a control
- * that vanishes is a control a keyboard user cannot find).
+ * `/plans` mounts it once at least one plan is selected; each card's own "Compare" chip is what says
+ * comparing is possible, so an empty bar would be a standing panel with nothing to say. Once
+ * mounted, Compare stays put and reports itself disabled until there are two plans to set side by
+ * side, rather than vanishing (a control that vanishes is one a keyboard user cannot find).
  *
- * The count is a live region, so adding or removing a plan is announced, not merely redrawn. Each
- * chosen plan keeps its own remove control — one target that both opened and removed would be
- * unrecoverable by accident (`Chip`'s docstring makes the same argument). The selection can hold
- * plans that the current filters have hidden, which is deliberate: you compare across the catalogue,
- * not only across whatever is on screen right now, so the tray resolves its plans from the full set.
+ * Each chosen plan is its own remove control — the active-filter chip of `toolbar-row.tsx` — and
+ * the selection can hold plans the kitchen choice has hidden: you compare across the catalogue, not
+ * only across what is on screen, so the screen resolves the plans from the full set.
+ *
+ * The count is on the Compare button and is a live region, so adding or removing a plan is
+ * announced, not merely redrawn.
  */
 export interface PlanComparisonTrayProps {
-    /** The chosen plans, in selection order, resolved from the unfiltered set (for the thumbnails). */
+    /** The chosen plans, in selection order, resolved from the unfiltered set. */
     readonly plans: readonly SubscriptionPlan[];
     /**
      * How many plans are selected, from the URL rather than from `plans`. The two agree once the
@@ -31,7 +30,6 @@ export interface PlanComparisonTrayProps {
      * not a list that is still resolving, or a shared link to two plans would open disabled.
      */
     readonly selectedCount: number;
-    readonly max: number;
     readonly onRemove: (planId: string) => void;
     readonly onClear: () => void;
     readonly onCompare: () => void;
@@ -40,100 +38,66 @@ export interface PlanComparisonTrayProps {
 export function PlanComparisonTray({
     plans,
     selectedCount,
-    max,
     onRemove,
     onClear,
     onCompare,
 }: PlanComparisonTrayProps) {
     const { t } = useTranslation();
-    const count = selectedCount;
 
     return (
         <View
             testID="plans-compare-tray"
             role="region"
             aria-label={t('catalogue:plans.compareTrayLabel')}
-            className="rounded-panel border border-stroke bg-surface-raised p-5"
+            className="flex-row items-center gap-3 rounded-panel border border-stroke bg-surface-raised px-4 py-3 shadow-elevation-2"
         >
-            <Stack space="sm">
-                <Inline space="sm" align="center" justify="between" wrap>
-                    <Stack space="none">
-                        <Text variant="bodyStrong">{t('catalogue:plans.compareTitle')}</Text>
-                        <Text
-                            testID="plans-compare-count"
-                            role="status"
-                            aria-live="polite"
-                            variant="caption"
-                            tone="secondary"
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                className="min-w-0 flex-1"
+                contentContainerClassName="flex-row items-center gap-2"
+            >
+                {plans.map((plan) => (
+                    <Pressable
+                        key={plan.id}
+                        testID={`plans-compare-remove-${plan.slug}`}
+                        role="button"
+                        accessibilityRole="button"
+                        accessibilityLabel={t('catalogue:plans.compareRemove', { plan: plan.name })}
+                        onPress={() => {
+                            onRemove(String(plan.id));
+                        }}
+                        className="min-h-touch flex-row items-center gap-2 rounded-full border border-surface-brand bg-surface-brand-subtle px-4"
+                    >
+                        <RNText
+                            numberOfLines={1}
+                            className="max-w-[180px] text-sm font-medium text-content-on-brand-subtle"
                         >
-                            {t('catalogue:plans.compareSelected', { selected: count })}
-                        </Text>
-                    </Stack>
+                            {plan.name}
+                        </RNText>
+                        <Icon name="close" size="sm" className="text-content-on-brand-subtle" />
+                    </Pressable>
+                ))}
+            </ScrollView>
 
-                    <Inline space="sm" align="center" wrap>
-                        {count > 0 ? (
-                            <Button
-                                testID="plans-compare-clear"
-                                variant="ghost"
-                                size="sm"
-                                label={t('catalogue:plans.compareClear')}
-                                onPress={onClear}
-                            />
-                        ) : null}
-                        <Button
-                            testID="plans-compare-open"
-                            variant="primary"
-                            label={t('catalogue:plans.compareOpen')}
-                            disabled={count < 2}
-                            onPress={onCompare}
-                        />
-                    </Inline>
-                </Inline>
-
-                {count === 0 ? (
-                    <Text testID="plans-compare-empty" variant="caption" tone="secondary">
-                        {t('catalogue:plans.compareEmpty')}
-                    </Text>
-                ) : (
-                    <Inline space="sm" wrap>
-                        {plans.map((plan) => (
-                            <View
-                                key={plan.id}
-                                testID={`plans-compare-item-${plan.slug}`}
-                                className="flex-row items-center gap-2 rounded-lg border border-stroke-subtle bg-surface-base py-1 pe-1 ps-2"
-                            >
-                                <EntityImage
-                                    assetId={plan.imagePlaceholderId}
-                                    variant="card"
-                                    seed={plan.slug}
-                                    label={plan.name}
-                                    aspect="square"
-                                    decorative
-                                    className="h-8 w-8 rounded-md"
-                                />
-                                <Text variant="caption" numberOfLines={1} className="max-w-[140px]">
-                                    {plan.name}
-                                </Text>
-                                <IconButton
-                                    testID={`plans-compare-remove-${plan.slug}`}
-                                    size="sm"
-                                    label={t('catalogue:plans.compareRemove', { plan: plan.name })}
-                                    icon={<Icon name="close" size="sm" />}
-                                    onPress={() => {
-                                        onRemove(String(plan.id));
-                                    }}
-                                />
-                            </View>
-                        ))}
-                    </Inline>
-                )}
-
-                {count >= max ? (
-                    <Text testID="plans-compare-full" variant="caption" tone="secondary">
-                        {t('catalogue:plans.compareFull')}
-                    </Text>
-                ) : null}
-            </Stack>
+            <View className="flex-row items-center gap-2">
+                <Button
+                    testID="plans-compare-clear"
+                    variant="quiet"
+                    size="sm"
+                    label={t('catalogue:plans.compareClear')}
+                    onPress={onClear}
+                />
+                <View role="status" aria-live="polite">
+                    <Button
+                        testID="plans-compare-open"
+                        variant="primary"
+                        label={t('catalogue:plans.compareCount', { selected: selectedCount })}
+                        disabled={selectedCount < 2}
+                        onPress={onCompare}
+                    />
+                </View>
+            </View>
         </View>
     );
 }

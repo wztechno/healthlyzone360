@@ -3,6 +3,7 @@
     "nav": {
         "label": "أقسام الحساب",
         "orders": "الطلبات",
+        "subscriptions": "الاشتراكات",
         "profile": "الملف الشخصي",
         "addresses": "العناوين",
         "notifications": "الإشعارات",

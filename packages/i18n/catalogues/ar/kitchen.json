@@ -1893,7 +1893,10 @@
         "window": {
             "today": "اليوم",
             "overdue": "متأخرة",
-            "next7": "الأيام السبعة القادمة"
+            "next7": "الأيام السبعة القادمة",
+            "range": "نطاق التاريخ",
+            "from": "من",
+            "to": "إلى"
         },
         "statusLabel": "الحالة",
         "columnNumber": "الطلب",
@@ -2039,6 +2042,9 @@
             "customerPhoneHint": "مع رمز الدولة، مثل ‎+9613000111. نحن لا نخمّنه.",
             "customerCreate": "حفظ العميل",
             "customerCancelCreate": "إلغاء",
+            "customerEdit": "تعديل",
+            "customerEditSave": "حفظ التعديلات",
+            "customerEditDuplicatesTitle": "شخص آخر لديه هذا الرقم أيضًا",
             "customerDuplicatesTitle": "هذا الرقم مسجّل لشخص آخر",
             "customerDuplicatesBody": "هذا مسموح — بيت واحد أو مكتب واحد يتشارك خطًا واحدًا. إن كان الشخص نفسه فعلًا، استخدم سجله القائم كي ينضمّ الطلب إلى تاريخه.",
             "customerUseInstead": "استخدم هذا بدلًا منه",
@@ -2788,6 +2794,7 @@
         "subcategoryNone": "مدرج في المستوى الأعلى",
         "unitPrice": "سعر الوحدة",
         "unitPriceHint": "سعر وحدة المخزون المدرج.",
+        "unitPricePer": "{{currency}} / {{unit}}",
         "stockUnit": "وحدة المخزون",
         "stockUnitHint": "الوحدة التي يُصرف ويُسعّر بها هذا المكوّن.",
         "itemsPerPurchaseUnit": "القطع في وحدة الشراء",

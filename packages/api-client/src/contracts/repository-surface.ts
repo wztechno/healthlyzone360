@@ -344,6 +344,7 @@ export const REPOSITORY_SURFACE = {
         'placeSale',
         'quoteSale',
         'searchCustomers',
+        'updateCustomer',
     ],
     kitchenQuotations: ['getQuotation', 'listQuotations', 'quoteQuotation'],
     driverJobs: ['claimJob', 'deliverJob', 'listJobs'],

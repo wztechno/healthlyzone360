@@ -62,8 +62,7 @@
         "countryCodePlaceholder": "e.g. AE",
         "instructions": "Delivery instructions",
         "instructionsHint": "Optional. Anything the rider needs to know to find you.",
-        "instructionsPlaceholder": "e.g. Call when you arrive",
-        "notStored": "This address is used for this order only. Nothing is saved to your account, because this prototype has no address book yet."
+        "instructionsPlaceholder": "e.g. Call when you arrive"
     },
     "cart": {
         "title": "Your cart",
@@ -160,13 +159,10 @@
     },
     "configurator": {
         "title": "Set up your subscription",
-        "body": "Eight short steps. We check delivery and allergies before we show you a price.",
         "progressLabel": "Subscription set-up progress",
-        "position": "Step {{current}} of {{total}}",
-        "priceLater": "You will see the full price at step seven, after we have checked that we can deliver to you and what we need to leave out.",
         "back": "Back",
-        "next": "Next",
-        "create": "Start this subscription",
+        "next": "Continue",
+        "create": "Subscribe",
         "browsePlans": "Browse plans",
         "notFoundTitle": "We could not find that plan",
         "notFoundBody": "The link may be out of date. Browse the plans and pick one to configure.",
@@ -175,16 +171,10 @@
         "previewEmptyTitle": "We cannot price this yet",
         "previewEmptyBody": "Go back a step and check the start date and the delivery days.",
         "disclaimerContext": "Calorie bands and macro ranges describe a rotating menu, not a measured meal.",
-        "allergyDisclaimerContext": "Allergen exclusions here are a kitchen instruction, not a medical assessment.",
         "steps": {
-            "plan": "Plan and calorie band",
-            "combination": "Meals and snacks",
-            "duration": "How long",
-            "dietary": "Preferences and allergies",
-            "delivery": "Delivery and checks",
-            "meals": "Your first week",
-            "summary": "Summary and price",
-            "confirm": "Confirm"
+            "plan": "Plan",
+            "delivery": "Delivery",
+            "review": "Review"
         },
         "issues": {
             "variant": "Choose a calorie band to continue.",
@@ -197,127 +187,82 @@
             "slot": "Choose a delivery window.",
             "address": "Complete the delivery address.",
             "areaUnserved": "This kitchen does not deliver to that area, so this subscription cannot go ahead.",
-            "checks": "Confirm the delivery and allergen checks before we price this.",
-            "terms": "Confirm the summary before starting the subscription."
+            "checks": "Confirm you want to continue without leaving it out.",
+            "terms": "Tick the box below to subscribe."
         },
         "plan": {
             "variantLabel": "Calorie band",
-            "band": "{{min}} to {{max}} kcal a day",
-            "macrosTitle": "Macronutrients a day",
-            "macroRange": "{{nutrient}}: {{min}} to {{max}} g",
-            "macroCaveat": "These are ranges across a rotating menu, not a figure for a single meal. Any given day lands somewhere inside them.",
-            "weeklyPrice": "{{price}} a week at this band."
+            "band": "{{min}} to {{max}} kcal a day"
         },
         "combination": {
-            "body": "How many meals a day, and how many snacks with them.",
-            "label": "Meals and snacks",
-            "option": "{{meals}} meals, {{snacks}} snacks",
-            "meals_one": "{{meals}} meal a day",
-            "meals_other": "{{meals}} meals a day",
-            "snacks_one": "{{snacks}} snack a day",
-            "snacks_other": "{{snacks}} snacks a day",
-            "noSnacks": "No snacks",
-            "couplingTitle": "Changing this can move your calorie band",
-            "couplingBody": "In this catalogue the meal combination and the calorie band belong to the same plan option, so choosing a different combination may also change the band. We would rather tell you than move the number quietly."
+            "label": "Meals a day",
+            "meals_one": "{{meals}} meal",
+            "meals_other": "{{meals}} meals",
+            "snacks_one": "{{snacks}} snack",
+            "snacks_other": "{{snacks}} snacks",
+            "withSnacks": "{{meals}} · {{snacks}}"
         },
         "duration": {
-            "body": "Longer commitments earn a bigger discount. You can pause or skip days on any of them.",
-            "optionLabel": "Choose {{duration}}",
-            "discount": "{{percent}} % off",
-            "noDiscount": "No discount",
-            "total": "{{total}} for {{weeks}} weeks",
-            "saving": "You save {{saving}}.",
-            "selected": "Selected",
-            "caveat": "These totals are worked out from the weekly price. The kitchen prices the subscription itself at the summary step, and that figure is the one that counts."
+            "label": "Length",
+            "withDiscount": "{{duration}} · −{{percent}}%"
         },
         "dietary": {
-            "dietsTitle": "Dietary preferences",
-            "dietsBody": "The profiles this plan can cook to. Choosing none means the standard rotation.",
-            "allergensTitle": "Allergens to exclude",
-            "allergensBody": "Pre-filled from the allergies on your profile. The list shows what this kitchen declares on its own menu.",
-            "allergensLoading": "Reading the allergies on your profile...",
-            "allergensNone": "This kitchen declares no allergens on the menu we can see, and your profile records none.",
-            "relaxedTitle": "You have removed an allergy",
-            "relaxedBody": "Your profile records an allergy to {{allergens}} and this subscription would no longer exclude it. Meals containing it could be delivered. Please only do this if you are certain.",
-            "addedTitle": "Extra exclusions added",
-            "addedBody": "This subscription will also exclude {{allergens}}, on top of what your profile records."
+            "dietsTitle": "Diet",
+            "allergensTitle": "Leave out",
+            "relaxedTitle": "{{allergens}} will no longer be left out"
         },
         "delivery": {
             "startLabel": "Start date",
-            "startHint": "The earliest is tomorrow, and it has to be a day this plan delivers on.",
             "useNextAllowed": "Use {{date}} instead",
             "weekdaysTitle": "Delivery days",
-            "weekdaysBody": "Choose the days you want food to arrive. Days this plan does not deliver on cannot be chosen.",
-            "weekdaysLoading": "Checking which days this plan delivers on...",
             "weekdaysLimited": "This plan delivers on {{days}} only.",
             "slotTitle": "Delivery window",
-            "addressTitle": "Delivery address"
+            "addressTitle": "Delivery address",
+            "addressPlaceholder": "Choose an address"
         },
         "checks": {
-            "title": "Two checks before we show a price",
-            "body": "Whether we can deliver to you, and what we must leave out. Both are cheap to ask and both decide whether this subscription can work at all, so they come first.",
-            "noAllergens": "No allergens excluded",
-            "allergens": "Excluding {{allergens}}",
-            "relaxedTitle": "An allergy from your profile is not being excluded",
-            "relaxedBody": "{{allergens}} will not be filtered out of your deliveries. Go back a step if that is not what you meant.",
-            "acknowledgeLabel": "I have read the delivery and allergen checks above.",
-            "acknowledgeDescription": "We record this so it is clear the checks were seen before any price was shown.",
-            "areaServedTitle": "We deliver to your area",
-            "areaServedBody": "This kitchen publishes a delivery zone covering {{area}}.",
-            "areaUnservedTitle": "This kitchen does not deliver to that area",
-            "areaUnservedBody": "We cannot deliver to {{area}}. This kitchen currently publishes zones for {{areas}}. Change the area, or choose a plan from another kitchen.",
-            "areaUnknownTitle": "We cannot confirm your area yet",
-            "areaUnknownBody": "This kitchen has not published its delivery zones, so we cannot check the address from here. Enter the area and we will confirm before the first delivery."
+            "noAllergens": "Nothing left out",
+            "acknowledgeLabel": "I understand, and want to continue",
+            "areaServed": "Delivers to {{area}}",
+            "areaUnserved": "Does not deliver to {{area}}. Delivers to {{areas}}.",
+            "areaUnknown": "Your area is confirmed before the first delivery"
         },
         "meals": {
-            "body": "A sample of your first week, drawn from this plan's own menu. You can swap any day.",
-            "noDates": "Choose a start date and some delivery days first, and your first week will appear here.",
             "selectLabel": "Meal for {{date}}",
-            "unknown": "To be chosen by the kitchen",
-            "fromPlan": "From this plan's sample menu",
-            "noteTitle": "About this week",
-            "noteLoading": "Loading this kitchen's menu...",
-            "noteSwappable": "Swaps are recorded with the subscription. The kitchen rotates its menu, so later weeks will differ.",
-            "noteStatic": "We could not load this kitchen's full menu, so this is the plan's published sample and cannot be swapped here."
+            "unknown": "Chosen by the kitchen",
+            "title": "Pick your first week’s meals"
         },
         "summary": {
-            "configTitle": "What you have chosen",
             "plan": "Plan",
             "duration": "Length",
-            "days": "Delivery days",
-            "slot": "Delivery window",
+            "days": "Days",
             "address": "Address",
-            "allergens": "Excluded",
-            "window": "Deliveries run",
+            "allergens": "Left out",
+            "window": "Deliveries",
             "windowValue": "{{first}} to {{last}}",
-            "checksTitle": "Delivery and allergen checks are done",
-            "checksBody": "You confirmed both before this price was worked out, which is the point of asking them early.",
-            "priceTitle": "Price",
-            "priceCaption": "Worked out by the kitchen from the configuration above. It reserves nothing and charges nothing.",
             "weekly": "Weekly price",
             "gross": "Before discount, {{weeks}} weeks",
             "discount": "Duration discount, {{percent}} %",
             "total": "Total",
             "perDelivery": "Per delivery",
-            "perDeliveryNote_one": "Across {{deliveries}} delivery.",
-            "perDeliveryNote_other": "Across {{deliveries}} deliveries."
+            "starts": "Starts {{date}}",
+            "everyDay": "Every day"
         },
         "confirm": {
-            "title": "Ready to start",
-            "body": "One last look. Nothing is charged, and you can pause, skip a day or change the address afterwards.",
             "total": "{{total}} for {{duration}}",
-            "deliveries_one": "{{deliveries}} delivery, starting {{first}}.",
-            "deliveries_other": "{{deliveries}} deliveries, starting {{first}}.",
-            "termsTitle": "What starting this means",
-            "termsBody": "The subscription is created immediately and appears in your subscriptions. No payment is taken now and none is taken later: this prototype has no payment step at all.",
-            "acknowledgeLabel": "I have read the summary and want to start this subscription.",
-            "acknowledgeDescription": "Recorded so it is clear the summary was seen before the subscription was created."
+            "acknowledgeLabel": "I have checked the details and want to subscribe"
         },
         "successTitle": "Your subscription is set up",
         "successBody": "{{plan}} is now on your account.",
-        "successNoPayment": "No payment was taken. This prototype has no payment step.",
         "successOpen": "Open the subscription",
-        "successList": "See all subscriptions"
+        "successList": "See all subscriptions",
+        "titleFor": "Set up {{plan}}",
+        "edit": "Edit",
+        "review": {
+            "planTitle": "Your plan",
+            "deliveryTitle": "Delivery",
+            "priceTitle": "Price"
+        }
     },
     "subscriptions": {
         "title": "Subscriptions",
@@ -346,11 +291,7 @@
         "notFoundTitle": "We could not find that subscription",
         "notFoundBody": "The link may be out of date, or the subscription may belong to another account.",
         "backToList": "All subscriptions",
-        "configTitle": "How this delivers",
-        "configCaption": "The delivery configuration of this subscription",
         "rows": {
-            "field": "Detail",
-            "value": "Value",
             "plan": "Plan",
             "duration": "Length",
             "start": "Started",
@@ -359,13 +300,8 @@
             "address": "Address",
             "allergens": "Excluded"
         },
-        "timelineTitle": "What the record shows",
-        "timelineNote": "This is what the subscription record holds today. There is no event history behind it yet, so we do not claim to know when each change happened.",
-        "created": "Created",
-        "stateSince": "Last changed {{date}}",
         "pausedUntilBadge": "Paused until",
         "skippedBadge": "Skipped days",
-        "noSkippedDates": "None",
         "actionFailedTitle": "That did not go through",
         "readOnlyTitle": "This subscription is closed",
         "readOnly": {
@@ -376,8 +312,6 @@
             "cancelled": "It was cancelled, so nothing can be changed. Start a new subscription from any meal plan.",
             "expired": "It has run its full length, so nothing can be changed. Start a new subscription from any meal plan."
         },
-        "actionsTitle": "Manage this subscription",
-        "actionsNote": "Every action here changes the subscription immediately. No payment is involved in any of them.",
         "pause": "Pause",
         "resume": "Resume",
         "skip": "Skip a delivery",
@@ -409,10 +343,14 @@
         "slotDialogBody": "Pick a new window, and adjust the delivery days if you want to.",
         "slotConfirm": "Save these changes",
         "slotDaysTitle": "Delivery days",
-        "slotDaysNote": "Leave these as they are to keep the current schedule. Days this plan does not deliver on will be refused by the kitchen."
+        "slotDaysNote": "Leave these as they are to keep the current schedule. Days this plan does not deliver on will be refused by the kitchen.",
+        "change": "Change",
+        "planTitle": "Your plan",
+        "manageTitle": "Manage",
+        "crumbAccount": "Account",
+        "crumbSubscriptions": "Subscriptions"
     },
     "balance": {
-        "title": "Your balance",
         "remaining_one": "1 delivery day left",
         "remaining_other": "{{count}} delivery days left",
         "used": "{{consumed}} of {{total}} used",
@@ -430,7 +368,6 @@
         "empty": "No delivery days have been planned yet.",
         "consumedYes": "Used a day",
         "consumedNo": "Free",
-        "skipNote": "Skipped days cost nothing. Your balance simply stretches further into the future.",
         "columns": {
             "date": "Date",
             "status": "What happened",

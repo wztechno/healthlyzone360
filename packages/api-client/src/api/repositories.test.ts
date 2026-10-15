@@ -2978,6 +2978,40 @@ describe('reading a meal back after a write', () => {
             { channel: 'b2c', isAvailable: true, availableFrom: null, availableUntil: null },
         ]);
     });
+
+    /**
+     * One editor save, two lock-versioned writes. The `PATCH` consumes the version the editor
+     * opened on and answers with the next one; sending the opened-on version to the diet write made
+     * every meal save a "someone else changed this record" against itself.
+     */
+    it('carries the version the PATCH answered with into the diet write', async () => {
+        const { repositories, calls } = harness([
+            {
+                status: 200,
+                body: {
+                    data: { item: { ...mealRow(MEAL_ID), lock_version: 4 } },
+                    meta: { correlation_id: 'c-patch' },
+                },
+            },
+            { status: 200, body: { data: {}, meta: { correlation_id: 'c-diet' } } },
+            CHANNELS_OK,
+            SHOW_OK,
+            ALLERGENS_OK,
+        ]);
+
+        await repositories.kitchenAdmin.updateMeal(MealId.unsafe(MEAL_ID), {
+            lockVersion: 3,
+            name: { en: 'Charred aubergine bowl', ar: 'وعاء الباذنجان المشوي' },
+            dietClassifications: ['vegan'],
+        });
+
+        expect(calls[0]?.method).toBe('PATCH');
+        expect(calls[0]?.headers['If-Match']).toBe('"3"');
+        expect(calls[1]?.url).toBe(
+            `https://api.example/api/v1/catalogue/items/${MEAL_ID}/diet-classifications`,
+        );
+        expect(calls[1]?.headers['If-Match']).toBe('"4"');
+    });
 });
 
 /**

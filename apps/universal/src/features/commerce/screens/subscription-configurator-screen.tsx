@@ -3,16 +3,17 @@ import {
     Callout,
     Card,
     EmptyState,
-    Heading,
+    Icon,
     Inline,
     Stack,
-    Stepper,
+    StepProgress,
     Text,
+    useBreakpoint,
 } from '@healthy360/design-system';
 import type {
+    CustomerAddress,
     MarketplaceMeal,
     Subscription,
-    CustomerAddress,
 } from '@healthy360/api-client/contracts';
 import { SubscriptionPlanId } from '@healthy360/domain-types';
 import type { AllergenCode, PlanVariantId } from '@healthy360/domain-types';
@@ -20,6 +21,7 @@ import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Text as RNText, View } from 'react-native';
 
 import { mealsFromPages, useMealsQuery, usePlanQuery } from '../../../data/catalogue-hooks.ts';
 import {
@@ -31,25 +33,22 @@ import {
 import { useAddressesQuery } from '../../../data/account-hooks.ts';
 import { useCurrentTargetsQuery, useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { useValidationTranslate } from '../../../screens/form-helpers.ts';
+import { ListingHeader } from '../../../ui/listing-header.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { EMPTY_ADDRESS, toDeliveryAddress, validateAddress } from '../address.ts';
 import type { AddressField } from '../address.ts';
 import {
-    CombinationStep,
-    ConfirmStep,
     DeliveryStep,
-    DietaryStep,
-    DurationStep,
-    MealsStep,
     PlanStep,
-    SummaryStep,
+    ReviewStep,
+    TermsAcknowledgement,
 } from '../configurator-steps.tsx';
 import {
-    CONFIGURATOR_STEP_COUNT,
+    CONFIGURATOR_STEPS,
     combinationKey,
     initialConfiguratorState,
-    isBeforePriceStep,
+    isStepReachable,
     mealCombinations,
     nextConfiguratorStep,
     previousConfiguratorStep,
@@ -64,23 +63,19 @@ import {
 import type { ConfiguratorState, ConfiguratorStep, StepContext } from '../configurator.ts';
 import { earliestStartDate } from '../dates.ts';
 import { deliveryAreaStatus, servedAreas } from '../delivery.ts';
+import { PlanSetupSummary } from '../plan-setup-summary.tsx';
 import { SubscriptionStateBadge } from '../state-badge.tsx';
 
 /**
- * `/customer/subscriptions/new?plan={id}` — the eight-step subscription configurator.
+ * `/customer/subscriptions/new?plan={id}` — setting up a subscription, in three steps.
  *
- * ## Deliberately longer than the reference, for exactly two reasons
+ * ① **Plan** — calorie band, meals a day, length. ② **Delivery** — days, start, window, address,
+ * diet and allergies. ③ **Review** — the choices with an Edit back to each, the server's price, the
+ * first week's meals (optional, folded away) and the terms. `configurator.ts` holds the rules.
  *
- * Doc 11 records the reference product's whole pre-purchase configuration as three decisions on one
- * page (`SUB-01`, `SUB-03`), and doc 17 `SUB-01` agrees that configuration should be short. Ours is
- * eight steps because two of the questions the reference defers past payment — *do you deliver
- * here?* (`DEF-04`) and *what must be excluded?* (`DEF-06`) — are asked here, before the price. Doc
- * 17 `SUB-02` marks that divergence as important: both are cheap to ask, both are dispositive, and
- * neither is a question anybody wants answered after paying.
- *
- * The ordering is enforced structurally rather than by convention. Steps one to six never receive
- * the preview, so they *cannot* show a price; `useSubscriptionPreviewQuery` is only enabled from
- * the summary step onwards.
+ * Beside the step, from `lg`, a summary card states what has been chosen and the price, and carries
+ * the action that moves the flow on; below `lg` it is a bar pinned to the foot of the page. The
+ * price is there from the first step — an estimate until the review step has the server's preview.
  *
  * ## The confirm step is real
  *
@@ -107,7 +102,7 @@ export function SubscriptionConfiguratorScreen({
 }: SubscriptionConfiguratorScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
-    const formatter = useFormatter();
+    const { atLeast } = useBreakpoint();
     const validationTranslate = useValidationTranslate();
 
     const parsedPlanId = planId === undefined ? null : SubscriptionPlanId.safeParse(planId);
@@ -233,14 +228,14 @@ export function SubscriptionConfiguratorScreen({
         [state, validationTranslate],
     );
 
+    const savedAddress = addressList.find((entry) => entry.id === addressId);
     const areaStatus = useMemo(() => {
-        const selected = addressList.find((entry) => entry.id === addressId);
         // A saved address carries the server's own answer, computed against the published zone
         // coverage — authoritative over any client-side comparison of area strings, whose
         // granularities (gazetteer rows vs a zone's display label) need not match textually.
-        if (selected !== undefined) return selected.isDeliverable ? 'served' : 'unserved';
+        if (savedAddress !== undefined) return savedAddress.isDeliverable ? 'served' : 'unserved';
         return deliveryAreaStatus(kitchen.data, state?.address.area ?? '');
-    }, [addressId, addressList, kitchen.data, state?.address.area]);
+    }, [savedAddress, kitchen.data, state?.address.area]);
 
     const areas = useMemo(() => servedAreas(kitchen.data), [kitchen.data]);
 
@@ -258,18 +253,17 @@ export function SubscriptionConfiguratorScreen({
             areaStatus,
             hasSavedAddress: addressId !== null,
             earliestStartDate: earliestStartDate(),
+            storedAllergens,
             translate: (key: string) => validationTranslate(key),
         };
-    }, [addressId, allowedWeekdays, areaStatus, item, validationTranslate]);
+    }, [addressId, allowedWeekdays, areaStatus, item, storedAllergens, validationTranslate]);
 
     const issues =
         state === null || context === null ? [] : validateConfiguratorStep(step, state, context);
 
-    // The structural guarantee behind the SUB-02 ordering: no configuration reaches the preview
-    // until the summary step, so nothing before it can render a price even by accident.
+    // The server prices the configuration on the review step; until then the summary estimates.
     const configuration = useMemo(() => {
-        if (item === undefined || state === null) return null;
-        if (step !== 'summary' && step !== 'confirm') return null;
+        if (item === undefined || state === null || step !== 'review') return null;
         return toConfiguration(state, item, (values) => toDeliveryAddress(values));
     }, [item, state, step]);
 
@@ -279,13 +273,15 @@ export function SubscriptionConfiguratorScreen({
 
     /* ── navigation ──────────────────────────────────────────────────────────────────────────── */
 
+    const goTo = useCallback((target: ConfiguratorStep) => {
+        setShowIssues(false);
+        setStep(target);
+    }, []);
+
     const onBack = useCallback(() => {
         const target = previousConfiguratorStep(step);
-        if (target !== null) {
-            setShowIssues(false);
-            setStep(target);
-        }
-    }, [step]);
+        if (target !== null) goTo(target);
+    }, [goTo, step]);
 
     const onNext = useCallback(() => {
         if (state === null || context === null) return;
@@ -294,14 +290,12 @@ export function SubscriptionConfiguratorScreen({
             return;
         }
         const target = nextConfiguratorStep(step);
-        if (target === null) return;
-        setShowIssues(false);
-        setStep(target);
-    }, [context, state, step]);
+        if (target !== null) goTo(target);
+    }, [context, goTo, state, step]);
 
     const onCreate = useCallback(() => {
         if (state === null || item === undefined || context === null) return;
-        if (validateConfiguratorStep('confirm', state, context).length > 0) {
+        if (validateConfiguratorStep('review', state, context).length > 0) {
             setShowIssues(true);
             return;
         }
@@ -340,7 +334,7 @@ export function SubscriptionConfiguratorScreen({
                     router.replace(`/customer/subscriptions/${String(created.id)}` as never);
                 }}
                 onList={() => {
-                    router.replace('/customer/subscriptions' as never);
+                    router.replace('/customer/account?section=subscriptions' as never);
                 }}
             />
         );
@@ -359,21 +353,38 @@ export function SubscriptionConfiguratorScreen({
         );
     }
 
-    return (
-        <Stack space="lg" testID="configurator-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="configurator-title">
-                    {t('commerce:configurator.title')}
-                </Heading>
-                <Text tone="secondary">{t('commerce:configurator.body')}</Text>
-            </Stack>
+    const current = stepPosition(step) - 1;
+    const wide = atLeast('lg');
 
-            <Stepper
-                testID="configurator-stepper"
-                label={t('commerce:configurator.progressLabel')}
-                current={stepPosition(step)}
-                total={CONFIGURATOR_STEP_COUNT}
-                stepLabel={t(`commerce:configurator.steps.${step}`)}
+    return (
+        <View testID="configurator-screen" className="flex-col">
+            <ListingHeader
+                testID="configurator-header"
+                breadcrumbs={[
+                    {
+                        key: 'plans',
+                        label: t('catalogue:nav.plans'),
+                        onPress: () => {
+                            router.push('/plans');
+                        },
+                    },
+                    ...(item === undefined
+                        ? []
+                        : [
+                              {
+                                  key: 'plan',
+                                  label: item.name,
+                                  onPress: () => {
+                                      router.push(`/plans/${String(item.id)}` as never);
+                                  },
+                              },
+                          ]),
+                ]}
+                title={
+                    item === undefined
+                        ? t('commerce:configurator.title')
+                        : t('commerce:configurator.titleFor', { plan: item.name })
+                }
             />
 
             <QueryStates
@@ -386,174 +397,198 @@ export function SubscriptionConfiguratorScreen({
                 testID="configurator"
             >
                 {item === undefined || state === null ? null : (
-                    <Stack space="lg">
-                        {step === 'plan' ? (
-                            <PlanStep plan={item} variant={variant} state={state} patch={patch} />
-                        ) : null}
-
-                        {step === 'combination' ? (
-                            <CombinationStep
-                                plan={item}
-                                variant={variant}
-                                onSelect={(key) => {
-                                    const combination = mealCombinations(item).find(
-                                        (option) => combinationKey(option) === key,
-                                    );
-                                    if (combination === undefined) return;
-                                    const next = variantForCombination(item, combination, variant);
-                                    if (next !== null) patch({ variantId: next.id });
-                                }}
-                            />
-                        ) : null}
-
-                        {step === 'duration' ? (
-                            <DurationStep
-                                plan={item}
-                                variant={variant}
-                                state={state}
-                                patch={patch}
-                            />
-                        ) : null}
-
-                        {step === 'dietary' ? (
-                            <DietaryStep
-                                plan={item}
-                                state={state}
-                                patch={patch}
-                                allergenOptions={allergenOptions}
-                                storedAllergens={storedAllergens}
-                                restrictionsPending={targets.isPending}
-                            />
-                        ) : null}
-
-                        {step === 'delivery' ? (
-                            <DeliveryStep
-                                state={state}
-                                patch={patch}
-                                onAddressField={patchAddressField}
-                                allowedWeekdays={allowedWeekdays}
-                                weekdaysPending={weekdays.isPending}
-                                areaStatus={areaStatus}
-                                servedAreas={areas}
-                                addressErrors={addressErrors}
-                                storedAllergens={storedAllergens}
-                                showIssues={showIssues}
-                                savedAddresses={addressList}
-                                addressId={addressId}
-                                addressesPending={addresses.isPending}
-                                onAddressIdChange={setAddressId}
-                            />
-                        ) : null}
-
-                        {step === 'meals' ? (
-                            <MealsStep
-                                plan={item}
-                                state={state}
-                                patch={patch}
-                                menu={menu}
-                                menuPending={menuQuery.isPending}
-                            />
-                        ) : null}
-
-                        {step === 'summary' ? (
-                            <QueryStates
-                                query={preview}
-                                isEmpty={preview.data === undefined}
-                                emptyTitle={t('commerce:configurator.previewEmptyTitle')}
-                                emptyBody={t('commerce:configurator.previewEmptyBody')}
-                                skeletonCount={2}
-                                testID="configurator-preview"
-                            >
-                                <SummaryStep plan={item} state={state} preview={preview.data} />
-                            </QueryStates>
-                        ) : null}
-
-                        {step === 'confirm' ? (
-                            <ConfirmStep
-                                plan={item}
-                                state={state}
-                                patch={patch}
-                                preview={preview.data}
-                                showIssues={showIssues}
-                            />
-                        ) : null}
-
-                        {showIssues && issues.length > 0 ? (
-                            <Callout
-                                testID="configurator-issues"
-                                role="alert"
-                                tone="danger"
-                                icon="warning"
-                                title={t('commerce:configurator.issuesTitle')}
-                            >
-                                <Stack space="none">
-                                    {issues.map((key) => (
-                                        <Text
-                                            key={key}
-                                            testID={`configurator-issue-${key.split('.').pop() ?? key}`}
-                                        >
-                                            {t(key)}
-                                        </Text>
-                                    ))}
-                                </Stack>
-                            </Callout>
-                        ) : null}
-
-                        {createFailure === null ? null : (
-                            <Callout
-                                testID="configurator-create-error"
-                                role="alert"
-                                tone="danger"
-                                title={t('commerce:configurator.createFailedTitle')}
-                                body={createFailure.message}
-                            />
-                        )}
-
-                        <Inline space="sm" wrap testID="configurator-navigation">
-                            <Button
-                                testID="configurator-back"
-                                variant="quiet"
-                                label={t('commerce:configurator.back')}
-                                disabled={previousConfiguratorStep(step) === null}
-                                onPress={onBack}
-                            />
-                            {step === 'confirm' ? (
-                                <Button
-                                    testID="configurator-create"
-                                    label={t('commerce:configurator.create')}
-                                    loading={create.isPending}
-                                    onPress={onCreate}
+                    <View className="mt-6 flex-col gap-8 lg:flex-row lg:items-start">
+                        <View className="min-w-0 flex-col lg:flex-1">
+                            <View className="mb-2">
+                                <StepProgress
+                                    testID="configurator-stepper"
+                                    label={t('commerce:configurator.progressLabel')}
+                                    steps={CONFIGURATOR_STEPS.map((key) => ({
+                                        key,
+                                        label: t(`commerce:configurator.steps.${key}`),
+                                        disabled:
+                                            state === null ||
+                                            context === null ||
+                                            !isStepReachable(key, state, context),
+                                        testID: `configurator-progress-${key}`,
+                                    }))}
+                                    current={current}
+                                    completed={
+                                        new Set(
+                                            CONFIGURATOR_STEPS.map((_, index) => index).filter(
+                                                (i) => i < current,
+                                            ),
+                                        )
+                                    }
+                                    onSelect={(index) => {
+                                        const target = CONFIGURATOR_STEPS[index];
+                                        if (target !== undefined && target !== step) goTo(target);
+                                    }}
                                 />
-                            ) : (
-                                <Button
-                                    testID="configurator-next"
-                                    label={t('commerce:configurator.next')}
-                                    onPress={onNext}
+                            </View>
+                            {step === 'plan' ? (
+                                <PlanStep
+                                    plan={item}
+                                    variant={variant}
+                                    state={state}
+                                    patch={patch}
+                                    onCombination={(key) => {
+                                        const combination = mealCombinations(item).find(
+                                            (option) => combinationKey(option) === key,
+                                        );
+                                        if (combination === undefined) return;
+                                        const next = variantForCombination(
+                                            item,
+                                            combination,
+                                            variant,
+                                        );
+                                        if (next !== null) patch({ variantId: next.id });
+                                    }}
                                 />
+                            ) : null}
+
+                            {step === 'delivery' ? (
+                                <DeliveryStep
+                                    plan={item}
+                                    state={state}
+                                    patch={patch}
+                                    onAddressField={patchAddressField}
+                                    allowedWeekdays={allowedWeekdays}
+                                    areaStatus={areaStatus}
+                                    servedAreas={areas}
+                                    addressErrors={addressErrors}
+                                    allergenOptions={allergenOptions}
+                                    storedAllergens={storedAllergens}
+                                    showIssues={showIssues}
+                                    savedAddresses={addressList}
+                                    addressId={addressId}
+                                    onAddressIdChange={setAddressId}
+                                />
+                            ) : null}
+
+                            {step === 'review' ? (
+                                <QueryStates
+                                    query={preview}
+                                    isEmpty={preview.data === undefined}
+                                    emptyTitle={t('commerce:configurator.previewEmptyTitle')}
+                                    emptyBody={t('commerce:configurator.previewEmptyBody')}
+                                    skeletonCount={2}
+                                    testID="configurator-preview"
+                                >
+                                    <ReviewStep
+                                        plan={item}
+                                        state={state}
+                                        patch={patch}
+                                        preview={preview.data}
+                                        savedAddress={savedAddress}
+                                        menu={menu}
+                                        onEdit={goTo}
+                                    />
+                                </QueryStates>
+                            ) : null}
+
+                            {previousConfiguratorStep(step) === null ? null : (
+                                <View className="mt-5 self-start">
+                                    <Button
+                                        testID="configurator-back"
+                                        variant="quiet"
+                                        label={t('commerce:configurator.back')}
+                                        onPress={onBack}
+                                    />
+                                </View>
                             )}
-                            <Text tone="secondary" variant="caption" testID="configurator-position">
-                                {t('commerce:configurator.position', {
-                                    current: formatter.formatNumber(stepPosition(step)),
-                                    total: formatter.formatNumber(CONFIGURATOR_STEP_COUNT),
-                                })}
-                            </Text>
-                        </Inline>
+                        </View>
 
-                        {/* The price is not on this screen until step seven, and this line says why
-                            rather than leaving somebody hunting for a total. */}
-                        {isBeforePriceStep(step) ? (
-                            <Text
-                                tone="secondary"
-                                variant="caption"
-                                testID="configurator-price-later"
-                            >
-                                {t('commerce:configurator.priceLater')}
-                            </Text>
-                        ) : null}
-                    </Stack>
+                        {/*
+                         * Sticky on the web against the shell's scroll port: beside the step from
+                         * `lg`, pinned to the foot of the page below it. The wrapper sticks, not the
+                         * card — a sticky box sticks within its parent.
+                         */}
+                        <View
+                            className={
+                                wide
+                                    ? 'w-[320px] web:sticky web:top-6'
+                                    : 'z-10 web:sticky web:bottom-4'
+                            }
+                        >
+                            <PlanSetupSummary
+                                plan={item}
+                                variant={variant}
+                                state={state}
+                                showDelivery={step !== 'plan'}
+                                preview={preview.data}
+                                actionLabel={
+                                    step === 'review'
+                                        ? t('commerce:configurator.create')
+                                        : t('commerce:configurator.next')
+                                }
+                                actionTestID={
+                                    step === 'review' ? 'configurator-create' : 'configurator-next'
+                                }
+                                actionLoading={step === 'review' && create.isPending}
+                                onAction={step === 'review' ? onCreate : onNext}
+                                notice={
+                                    <SetupNotice
+                                        issues={showIssues ? issues : []}
+                                        failure={createFailure?.message ?? null}
+                                    />
+                                }
+                                {...(step === 'review'
+                                    ? {
+                                          confirm: (
+                                              <TermsAcknowledgement state={state} patch={patch} />
+                                          ),
+                                      }
+                                    : {})}
+                            />
+                        </View>
+                    </View>
                 )}
             </QueryStates>
-        </Stack>
+        </View>
+    );
+}
+
+/**
+ * What still stands between the person and the action, drawn beside the action itself: each
+ * unanswered question as one line, and a refusal from the server under its title. Nothing at all
+ * when there is nothing to say.
+ */
+function SetupNotice({
+    issues,
+    failure,
+}: {
+    readonly issues: readonly string[];
+    readonly failure: string | null;
+}) {
+    const { t } = useTranslation();
+    if (issues.length === 0 && failure === null) return null;
+
+    return (
+        <View testID="configurator-issues" role="alert" className="flex-col gap-1.5">
+            {failure === null ? null : (
+                <View testID="configurator-create-error" className="flex-col gap-0.5">
+                    <RNText className="self-start text-sm font-semibold text-danger-on-subtle text-start">
+                        {t('commerce:configurator.createFailedTitle')}
+                    </RNText>
+                    <RNText className="self-start text-sm text-danger-on-subtle text-start">
+                        {failure}
+                    </RNText>
+                </View>
+            )}
+            {issues.map((key) => (
+                <View
+                    key={key}
+                    testID={`configurator-issue-${key.split('.').pop() ?? key}`}
+                    className="flex-row items-start gap-2"
+                >
+                    <Icon name="warning" size="sm" className="mt-0.5 text-danger-on-subtle" />
+                    <RNText className="min-w-0 shrink self-start text-sm text-danger-on-subtle text-start">
+                        {t(key)}
+                    </RNText>
+                </View>
+            ))}
+        </View>
     );
 }
 
@@ -607,9 +642,6 @@ function SubscriptionCreated({ subscription, onOpen, onList }: SubscriptionCreat
                                       dateStyle: 'full',
                                   }),
                               })}
-                    </Text>
-                    <Text tone="secondary" variant="caption">
-                        {t('commerce:configurator.successNoPayment')}
                     </Text>
                 </Stack>
             </Card>

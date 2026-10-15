@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 
 import { useReviewQueueQuery } from '../../data/kitchen-admin-hooks.ts';
 import { useConsumptionExceptionCountQuery } from '../../data/kitchen-ops-hooks.ts';
-import { workspaceGroup } from '../../navigation/workspace-group.tsx';
 import { AreaBrandBlock, AreaRailTop, DESK_SIDEBAR_WIDTH } from '../../shell/area-brand-block.tsx';
 import { useAccessState } from '../../session/session-provider.tsx';
 import {
@@ -58,9 +57,8 @@ export function KitchenBrandBlock() {
 }
 
 /**
- * The rail's destinations: Overview, then the permitted families in their registry groups, then
- * the workspace trio the sidebar carried before this rail existed — kept reachable, under its own
- * heading, with its `nav-*` test ids intact.
+ * The rail's destinations: Overview, then the permitted families in their registry groups. The
+ * other areas and the account pages are the shell's bottom bar (`AreaShell`), not a rail module.
  *
  * The review and exceptions badges read the same queries their pages count with, so the sidebar
  * number and the page number cannot disagree (the KITCHEN.md acceptance check). The review
@@ -142,16 +140,6 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
         };
 
         return [
-            // Workspace first: the areas and the account, above the kitchen's own modules.
-            ...workspaceGroup({
-                state,
-                t,
-                pathname,
-                currentArea: 'kitchen',
-                navigate: (href) => {
-                    router.push(href as never);
-                },
-            }),
             {
                 key: 'overview',
                 label: t('kitchen:nav.overview'),
@@ -170,5 +158,5 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
                 })),
             ),
         ];
-    }, [sections, state, pathname, reviewTotal, exceptionTotal, router, t]);
+    }, [sections, pathname, reviewTotal, exceptionTotal, router, t]);
 }

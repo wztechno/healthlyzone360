@@ -22,8 +22,8 @@ import { useAccessState, useSession } from '../session/session-provider.tsx';
  *
  * ## Neither state here is `landing-screen`
  *
- * That test id belongs to {@link PublicLandingScreen}, the marketplace page an anonymous visitor
- * actually lands on. Both states below used to carry it too, and the collision was not cosmetic:
+ * That test id belonged to the marketplace page an anonymous visitor used to land on at `/` (they
+ * are sent to `/discover` now). Both states below used to carry it too, and the collision was not cosmetic:
  * `/` renders *this* screen while the session restores, so anything keying on `landing-screen` to
  * mean "the visitor is anonymous" matched the restoring splash first — a signed-in user, one frame
  * after `router.replace('/')`, with `me()` still in flight. Two different screens answering to one

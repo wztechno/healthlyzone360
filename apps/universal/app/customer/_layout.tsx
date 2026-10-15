@@ -9,13 +9,13 @@ import { ConsumerShell } from '../../src/shell/consumer-shell.tsx';
  * site as the menu.
  *
  * Screens inside the area whose feature has no backend yet (planner, grocery, recipes, nutrition,
- * onboarding, virtual dietitian) redirect to the area's home before any of that mounts. `/customer`
- * itself is always available, so the redirect cannot loop.
+ * onboarding, virtual dietitian) redirect to the marketplace home before any of that mounts.
+ * `/discover` is outside this layout, so the redirect cannot loop.
  */
 export default function CustomerLayout() {
     const pathname = usePathname();
 
-    if (!isPathAvailable(pathname)) return <Redirect href="/customer" />;
+    if (!isPathAvailable(pathname)) return <Redirect href="/discover" />;
 
     return (
         <ConsumerShell>

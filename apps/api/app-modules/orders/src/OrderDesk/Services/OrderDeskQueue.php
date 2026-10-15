@@ -136,13 +136,15 @@ final class OrderDeskQueue
         ?string $deliveryWindowCode = null,
         ?string $orderNumberQuery = null,
         ?FulfilmentType $fulfilmentType = null,
+        ?string $from = null,
+        ?string $to = null,
     ): array {
         $timezone = $this->timezoneFor($organisationId, $branchId);
         $today = CarbonImmutable::now($timezone)->toDateString();
 
         $query = $this->base($organisationId, $statuses ?? self::openStatuses());
 
-        $this->applyWindow($query, $window, $today);
+        $this->applyWindow($query, $window, $today, $from, $to);
         $this->applyBranch($query, $branchId);
         $this->applyDeliveryWindowCode($query, $deliveryWindowCode);
         $this->applyOrderNumber($query, $orderNumberQuery);
@@ -246,26 +248,8 @@ final class OrderDeskQueue
 
         $phoneByAccount = [];
 
-        $phones = DB::table('contact_points')
+        $phones = $this->phoneRows($accountIds, $userIds)
             ->select(['customer_account_id', 'user_id', 'value_normalised'])
-            ->where('channel', 'phone')
-            ->whereNull('retired_at')
-            ->where(function (QueryBuilder $owner) use ($accountIds, $userIds): void {
-                $owner->whereIn('customer_account_id', $accountIds);
-
-                if ($userIds !== []) {
-                    $owner->orWhereIn('user_id', $userIds);
-                }
-            })
-            // Primary first, then proven, then oldest — the last of the three
-            // so that a tie resolves to the number the customer has had
-            // longest rather than to whichever row the planner happened to
-            // emit first. The first row this ordering yields for a person is
-            // the one they get, whichever arm it hangs on.
-            ->orderByDesc('is_primary')
-            ->orderByRaw('(verified_at is not null) desc')
-            ->orderBy('created_at')
-            ->orderBy('id')
             ->get();
 
         foreach ($phones as $phone) {
@@ -296,6 +280,63 @@ final class OrderDeskQueue
         }
 
         return $contacts;
+    }
+
+    /**
+     * The contact point {@see contactsFor()} would answer for one account — its
+     * identifier rather than its number — or null when the account has no phone.
+     *
+     * For the desk's address write. A delivery address carries the contact the
+     * courier is handed, and placement snapshots it onto the order; an address
+     * the desk wrote with none left every desk delivery reaching its driver with
+     * no number at all, while the desk itself showed one. Resolved here, on the
+     * server and from the account's own rows, which is what makes it safe where
+     * an identifier sent by the client would not be.
+     */
+    public function phoneContactPointIdFor(CustomerAccount $account): ?string
+    {
+        $userIds = $account->user_id === null || $account->user_id === '' ? [] : [(string) $account->user_id];
+
+        // The first row of the shared ordering — exactly the row `contactsFor()`
+        // keeps for this account, so the desk and the driver name one number.
+        $id = $this->phoneRows([(string) $account->getKey()], $userIds)->value('id');
+
+        return $id === null ? null : (string) $id;
+    }
+
+    /**
+     * Live phone rows reaching these accounts, best first.
+     *
+     * Primary first, then account-owned, then proven, then oldest — the last so
+     * that a tie resolves to the number the customer has had longest rather than
+     * to whichever row the planner happened to emit first. The first row this
+     * ordering yields for a person is the one they get, whichever arm it hangs on.
+     *
+     * Account-owned outranks user-owned among primaries because it is the number
+     * arranged *for this relationship* (see {@see contactsFor()}) — and it is
+     * what a desk correction writes, so a corrected number must beat the login
+     * number it was correcting.
+     *
+     * @param  list<string>  $accountIds
+     * @param  list<string>  $userIds
+     */
+    private function phoneRows(array $accountIds, array $userIds): QueryBuilder
+    {
+        return DB::table('contact_points')
+            ->where('channel', 'phone')
+            ->whereNull('retired_at')
+            ->where(function (QueryBuilder $owner) use ($accountIds, $userIds): void {
+                $owner->whereIn('customer_account_id', $accountIds);
+
+                if ($userIds !== []) {
+                    $owner->orWhereIn('user_id', $userIds);
+                }
+            })
+            ->orderByDesc('is_primary')
+            ->orderByRaw('(customer_account_id is not null) desc')
+            ->orderByRaw('(verified_at is not null) desc')
+            ->orderBy('created_at')
+            ->orderBy('id');
     }
 
     /**
@@ -555,13 +596,32 @@ final class OrderDeskQueue
     /**
      * @param  Builder<Order>  $query
      */
-    private function applyWindow(Builder $query, OrderDeskWindow $window, string $today): void
-    {
+    private function applyWindow(
+        Builder $query,
+        OrderDeskWindow $window,
+        string $today,
+        ?string $from = null,
+        ?string $to = null,
+    ): void {
+        // A range with no ends is no range; it reads as `today`.
+        if ($window === OrderDeskWindow::Range && ($from === null || $to === null)) {
+            $window = OrderDeskWindow::Today;
+        }
+
         match ($window) {
             // A dateless order is not unscheduled, it is *now* — see the enum.
             OrderDeskWindow::Today => $query->where(function (Builder $day) use ($today): void {
                 $day->where('orders.requested_delivery_date', $today)
                     ->orWhereNull('orders.requested_delivery_date');
+            }),
+            // Inclusive at both ends. A span containing today carries the
+            // dateless orders too, as `today` does — see the enum.
+            OrderDeskWindow::Range => $query->where(function (Builder $span) use ($from, $to, $today): void {
+                $span->whereBetween('orders.requested_delivery_date', [$from, $to]);
+
+                if ($from <= $today && $today <= $to) {
+                    $span->orWhereNull('orders.requested_delivery_date');
+                }
             }),
             OrderDeskWindow::Overdue => $query->where('orders.requested_delivery_date', '<', $today),
             OrderDeskWindow::Next7 => $query->whereBetween('orders.requested_delivery_date', [

@@ -521,6 +521,7 @@ export interface NamespaceKeys {
     | 'nav.orders'
     | 'nav.payments'
     | 'nav.profile'
+    | 'nav.subscriptions'
     | 'orders.backToHistory'
     | 'orders.browse'
     | 'orders.empty'
@@ -1380,12 +1381,15 @@ export interface NamespaceKeys {
     | 'title';
   readonly "catalogue":
     | 'card.calories'
+    | 'card.figure'
     | 'card.noFigure'
-    | 'card.notRated'
-    | 'card.protein'
+    | 'card.noNutrition'
     | 'card.rating'
     | 'card.soldOut'
     | 'card.unavailable'
+    | 'card.unit.g'
+    | 'card.unit.kcal'
+    | 'card.unit.mg'
     | 'common.back'
     | 'common.listSeparator'
     | 'common.loading'
@@ -1394,27 +1398,23 @@ export interface NamespaceKeys {
     | 'common.syntheticData'
     | 'compare.backToPlans'
     | 'compare.caption'
+    | 'compare.countRange'
     | 'compare.duration.12w'
     | 'compare.duration.1w'
     | 'compare.duration.2w'
     | 'compare.duration.4w'
     | 'compare.durationOption'
-    | 'compare.durationOptionNoDiscount'
     | 'compare.emptyBody'
     | 'compare.emptyTitle'
     | 'compare.macroCaveat'
-    | 'compare.openPlan'
+    | 'compare.noFigure'
     | 'compare.row.carbohydrate'
-    | 'compare.row.delivery'
     | 'compare.row.durations'
     | 'compare.row.energy'
     | 'compare.row.fat'
-    | 'compare.row.kitchen'
     | 'compare.row.meals'
-    | 'compare.row.open'
-    | 'compare.row.pricePerDay'
     | 'compare.row.protein'
-    | 'compare.subtitle'
+    | 'compare.row.snacks'
     | 'compare.title'
     | 'diet.browseAll'
     | 'diet.countsLabel'
@@ -1453,32 +1453,35 @@ export interface NamespaceKeys {
     | 'facts.syntheticNote'
     | 'facts.title'
     | 'facts.version'
-    | 'filters.activeCount'
     | 'filters.allMeals'
     | 'filters.anyValue'
     | 'filters.atLeast'
     | 'filters.atMost'
+    | 'filters.barLabel'
     | 'filters.carbohydrate'
     | 'filters.category'
     | 'filters.clear'
-    | 'filters.clearAll'
-    | 'filters.diet'
-    | 'filters.dietary'
+    | 'filters.clearGroup'
     | 'filters.energy'
-    | 'filters.excludeAllergens'
-    | 'filters.excludeAllergensHint'
     | 'filters.fat'
-    | 'filters.groupWithCount'
-    | 'filters.kitchen'
-    | 'filters.mealType'
-    | 'filters.moreDiets'
+    | 'filters.menu.allergies'
+    | 'filters.menu.calories'
+    | 'filters.menu.diet'
+    | 'filters.menu.kitchen'
+    | 'filters.menu.more'
+    | 'filters.menuCount'
     | 'filters.optionWithCount'
     | 'filters.preparationMinutes'
     | 'filters.price'
     | 'filters.protein'
+    | 'filters.rangeChip'
     | 'filters.rangesHint'
-    | 'filters.rangesTitle'
     | 'filters.removeFilter'
+    | 'filters.short.carbohydrate'
+    | 'filters.short.fat'
+    | 'filters.short.preparationMinutes'
+    | 'filters.short.price'
+    | 'filters.short.protein'
     | 'filters.unitGrams'
     | 'filters.unitKcal'
     | 'filters.unitMinutes'
@@ -1663,12 +1666,9 @@ export interface NamespaceKeys {
     | 'meals.countSoFar'
     | 'meals.emptyBody'
     | 'meals.emptyTitle'
-    | 'meals.filters'
-    | 'meals.filtersActive'
     | 'meals.loadMore'
     | 'meals.loadingMore'
     | 'meals.moreFilters'
-    | 'meals.moreFiltersActive'
     | 'meals.moreFiltersDone'
     | 'meals.sort.price'
     | 'meals.sort.protein'
@@ -1689,53 +1689,37 @@ export interface NamespaceKeys {
     | 'plan.combinationMeals'
     | 'plan.combinationNoSnacks'
     | 'plan.combinationSnacks'
-    | 'plan.combinationTitle'
     | 'plan.configure'
     | 'plan.configureSignIn'
-    | 'plan.deliveryBody'
-    | 'plan.deliveryTitle'
-    | 'plan.deliveryUnpublished'
-    | 'plan.deliveryUnpublishedShort'
-    | 'plan.dietitianBody'
-    | 'plan.dietitianFind'
-    | 'plan.dietitianTitle'
     | 'plan.durationDiscount'
     | 'plan.durationNoDiscount'
     | 'plan.durationTotal'
-    | 'plan.durationsBody'
     | 'plan.durationsTitle'
     | 'plan.imageLabel'
     | 'plan.loading'
     | 'plan.macroBandLabel'
     | 'plan.macroRange'
-    | 'plan.macrosBody'
     | 'plan.macrosTitle'
     | 'plan.notFoundBody'
     | 'plan.notFoundTitle'
-    | 'plan.priceBothUnits'
     | 'plan.pricePerDay'
     | 'plan.pricePerWeek'
     | 'plan.priceTitle'
-    | 'plan.sampleMenuBody'
-    | 'plan.sampleMenuEmpty'
     | 'plan.sampleMenuTitle'
     | 'plan.variantLabel'
-    | 'plan.variantsBody'
     | 'plan.variantsTitle'
     | 'plans.allKitchens'
     | 'plans.balancePrice'
     | 'plans.balancePriceFrom'
     | 'plans.choosePlan'
+    | 'plans.choosePlanShort'
     | 'plans.compareClear'
-    | 'plans.compareEmpty'
-    | 'plans.compareFull'
+    | 'plans.compareCount'
     | 'plans.compareLabel'
     | 'plans.compareNamed'
-    | 'plans.compareOpen'
     | 'plans.compareRemove'
-    | 'plans.compareSelected'
-    | 'plans.compareTitle'
     | 'plans.compareTrayLabel'
+    | 'plans.count'
     | 'plans.ctaBody'
     | 'plans.ctaPrimary'
     | 'plans.ctaSecondary'
@@ -1753,7 +1737,6 @@ export interface NamespaceKeys {
     | 'plans.emptyBody'
     | 'plans.emptyTitle'
     | 'plans.energyBand'
-    | 'plans.eyebrow'
     | 'plans.featureBalances'
     | 'plans.featureBands'
     | 'plans.featureDiscount'
@@ -1763,8 +1746,6 @@ export interface NamespaceKeys {
     | 'plans.kitchenFilterLabel'
     | 'plans.managePlan'
     | 'plans.managePlanNamed'
-    | 'plans.mealsPerDay'
-    | 'plans.mealsPerDayNoSnacks'
     | 'plans.methodologyTitle'
     | 'plans.perDaySuffix'
     | 'plans.ratingLabel'
@@ -1800,9 +1781,7 @@ export interface NamespaceKeys {
     | 'plans.subscriber.unknown'
     | 'plans.subscriber.weekCount'
     | 'plans.subscriber.weekTitle'
-    | 'plans.subtitle'
     | 'plans.taglineWithKitchen'
-    | 'plans.title'
     | 'title'
     | 'tools.activity.extra_active'
     | 'tools.activity.lightly_active'
@@ -1925,12 +1904,10 @@ export interface NamespaceKeys {
     | 'address.line2'
     | 'address.line2Hint'
     | 'address.line2Placeholder'
-    | 'address.notStored'
     | 'balance.cutOffNote'
     | 'balance.perDay'
     | 'balance.remaining'
     | 'balance.skipped'
-    | 'balance.title'
     | 'balance.used'
     | 'cancel.body'
     | 'cancel.confirm'
@@ -2045,70 +2022,35 @@ export interface NamespaceKeys {
     | 'common.close'
     | 'common.listSeparator'
     | 'common.noPayment'
-    | 'configurator.allergyDisclaimerContext'
     | 'configurator.back'
-    | 'configurator.body'
     | 'configurator.browsePlans'
-    | 'configurator.checks.acknowledgeDescription'
     | 'configurator.checks.acknowledgeLabel'
-    | 'configurator.checks.allergens'
-    | 'configurator.checks.areaServedBody'
-    | 'configurator.checks.areaServedTitle'
-    | 'configurator.checks.areaUnknownBody'
-    | 'configurator.checks.areaUnknownTitle'
-    | 'configurator.checks.areaUnservedBody'
-    | 'configurator.checks.areaUnservedTitle'
-    | 'configurator.checks.body'
+    | 'configurator.checks.areaServed'
+    | 'configurator.checks.areaUnknown'
+    | 'configurator.checks.areaUnserved'
     | 'configurator.checks.noAllergens'
-    | 'configurator.checks.relaxedBody'
-    | 'configurator.checks.relaxedTitle'
-    | 'configurator.checks.title'
-    | 'configurator.combination.body'
-    | 'configurator.combination.couplingBody'
-    | 'configurator.combination.couplingTitle'
     | 'configurator.combination.label'
     | 'configurator.combination.meals'
-    | 'configurator.combination.noSnacks'
-    | 'configurator.combination.option'
     | 'configurator.combination.snacks'
-    | 'configurator.confirm.acknowledgeDescription'
+    | 'configurator.combination.withSnacks'
     | 'configurator.confirm.acknowledgeLabel'
-    | 'configurator.confirm.body'
-    | 'configurator.confirm.deliveries'
-    | 'configurator.confirm.termsBody'
-    | 'configurator.confirm.termsTitle'
-    | 'configurator.confirm.title'
     | 'configurator.confirm.total'
     | 'configurator.create'
     | 'configurator.createFailedTitle'
+    | 'configurator.delivery.addressPlaceholder'
     | 'configurator.delivery.addressTitle'
     | 'configurator.delivery.slotTitle'
-    | 'configurator.delivery.startHint'
     | 'configurator.delivery.startLabel'
     | 'configurator.delivery.useNextAllowed'
-    | 'configurator.delivery.weekdaysBody'
     | 'configurator.delivery.weekdaysLimited'
-    | 'configurator.delivery.weekdaysLoading'
     | 'configurator.delivery.weekdaysTitle'
-    | 'configurator.dietary.addedBody'
-    | 'configurator.dietary.addedTitle'
-    | 'configurator.dietary.allergensBody'
-    | 'configurator.dietary.allergensLoading'
-    | 'configurator.dietary.allergensNone'
     | 'configurator.dietary.allergensTitle'
-    | 'configurator.dietary.dietsBody'
     | 'configurator.dietary.dietsTitle'
-    | 'configurator.dietary.relaxedBody'
     | 'configurator.dietary.relaxedTitle'
     | 'configurator.disclaimerContext'
-    | 'configurator.duration.body'
-    | 'configurator.duration.caveat'
-    | 'configurator.duration.discount'
-    | 'configurator.duration.noDiscount'
-    | 'configurator.duration.optionLabel'
-    | 'configurator.duration.saving'
-    | 'configurator.duration.selected'
-    | 'configurator.duration.total'
+    | 'configurator.duration.label'
+    | 'configurator.duration.withDiscount'
+    | 'configurator.edit'
     | 'configurator.issues.address'
     | 'configurator.issues.areaUnserved'
     | 'configurator.issues.checks'
@@ -2122,62 +2064,43 @@ export interface NamespaceKeys {
     | 'configurator.issues.terms'
     | 'configurator.issues.variant'
     | 'configurator.issuesTitle'
-    | 'configurator.meals.body'
-    | 'configurator.meals.fromPlan'
-    | 'configurator.meals.noDates'
-    | 'configurator.meals.noteLoading'
-    | 'configurator.meals.noteStatic'
-    | 'configurator.meals.noteSwappable'
-    | 'configurator.meals.noteTitle'
     | 'configurator.meals.selectLabel'
+    | 'configurator.meals.title'
     | 'configurator.meals.unknown'
     | 'configurator.next'
     | 'configurator.notFoundBody'
     | 'configurator.notFoundTitle'
     | 'configurator.plan.band'
-    | 'configurator.plan.macroCaveat'
-    | 'configurator.plan.macroRange'
-    | 'configurator.plan.macrosTitle'
     | 'configurator.plan.variantLabel'
-    | 'configurator.plan.weeklyPrice'
-    | 'configurator.position'
     | 'configurator.previewEmptyBody'
     | 'configurator.previewEmptyTitle'
-    | 'configurator.priceLater'
     | 'configurator.progressLabel'
-    | 'configurator.steps.combination'
-    | 'configurator.steps.confirm'
+    | 'configurator.review.deliveryTitle'
+    | 'configurator.review.planTitle'
+    | 'configurator.review.priceTitle'
     | 'configurator.steps.delivery'
-    | 'configurator.steps.dietary'
-    | 'configurator.steps.duration'
-    | 'configurator.steps.meals'
     | 'configurator.steps.plan'
-    | 'configurator.steps.summary'
+    | 'configurator.steps.review'
     | 'configurator.successBody'
     | 'configurator.successList'
-    | 'configurator.successNoPayment'
     | 'configurator.successOpen'
     | 'configurator.successTitle'
     | 'configurator.summary.address'
     | 'configurator.summary.allergens'
-    | 'configurator.summary.checksBody'
-    | 'configurator.summary.checksTitle'
-    | 'configurator.summary.configTitle'
     | 'configurator.summary.days'
     | 'configurator.summary.discount'
     | 'configurator.summary.duration'
+    | 'configurator.summary.everyDay'
     | 'configurator.summary.gross'
     | 'configurator.summary.perDelivery'
-    | 'configurator.summary.perDeliveryNote'
     | 'configurator.summary.plan'
-    | 'configurator.summary.priceCaption'
-    | 'configurator.summary.priceTitle'
-    | 'configurator.summary.slot'
+    | 'configurator.summary.starts'
     | 'configurator.summary.total'
     | 'configurator.summary.weekly'
     | 'configurator.summary.window'
     | 'configurator.summary.windowValue'
     | 'configurator.title'
+    | 'configurator.titleFor'
     | 'deliveries.caption'
     | 'deliveries.columns.consumed'
     | 'deliveries.columns.date'
@@ -2186,7 +2109,6 @@ export interface NamespaceKeys {
     | 'deliveries.consumedYes'
     | 'deliveries.count'
     | 'deliveries.empty'
-    | 'deliveries.skipNote'
     | 'deliveries.statuses.cancelled'
     | 'deliveries.statuses.delivered'
     | 'deliveries.statuses.generated'
@@ -2209,18 +2131,16 @@ export interface NamespaceKeys {
     | 'states.paused'
     | 'states.skipped_today'
     | 'subscription.actionFailedTitle'
-    | 'subscription.actionsNote'
-    | 'subscription.actionsTitle'
     | 'subscription.addressConfirm'
     | 'subscription.addressDialogBody'
     | 'subscription.addressDialogTitle'
     | 'subscription.backToList'
+    | 'subscription.change'
     | 'subscription.changeAddress'
     | 'subscription.changeSlot'
-    | 'subscription.configCaption'
-    | 'subscription.configTitle'
-    | 'subscription.created'
-    | 'subscription.noSkippedDates'
+    | 'subscription.crumbAccount'
+    | 'subscription.crumbSubscriptions'
+    | 'subscription.manageTitle'
     | 'subscription.notFoundBody'
     | 'subscription.notFoundTitle'
     | 'subscription.pause'
@@ -2233,6 +2153,7 @@ export interface NamespaceKeys {
     | 'subscription.pauseUntilHint'
     | 'subscription.pauseUntilLabel'
     | 'subscription.pausedUntilBadge'
+    | 'subscription.planTitle'
     | 'subscription.readOnly.active'
     | 'subscription.readOnly.cancelled'
     | 'subscription.readOnly.draft'
@@ -2248,11 +2169,9 @@ export interface NamespaceKeys {
     | 'subscription.rows.allergens'
     | 'subscription.rows.days'
     | 'subscription.rows.duration'
-    | 'subscription.rows.field'
     | 'subscription.rows.plan'
     | 'subscription.rows.slot'
     | 'subscription.rows.start'
-    | 'subscription.rows.value'
     | 'subscription.skip'
     | 'subscription.skipConfirm'
     | 'subscription.skipConsequenceBody'
@@ -2268,9 +2187,6 @@ export interface NamespaceKeys {
     | 'subscription.slotDaysTitle'
     | 'subscription.slotDialogBody'
     | 'subscription.slotDialogTitle'
-    | 'subscription.stateSince'
-    | 'subscription.timelineNote'
-    | 'subscription.timelineTitle'
     | 'subscriptions.body'
     | 'subscriptions.browse'
     | 'subscriptions.clearFilter'
@@ -3349,6 +3265,9 @@ export interface NamespaceKeys {
     | 'desk.sale.customerCreateTitle'
     | 'desk.sale.customerDuplicatesBody'
     | 'desk.sale.customerDuplicatesTitle'
+    | 'desk.sale.customerEdit'
+    | 'desk.sale.customerEditDuplicatesTitle'
+    | 'desk.sale.customerEditSave'
     | 'desk.sale.customerNameLabel'
     | 'desk.sale.customerNamePlaceholder'
     | 'desk.sale.customerNew'
@@ -3446,8 +3365,11 @@ export interface NamespaceKeys {
     | 'desk.title'
     | 'desk.truncatedBody'
     | 'desk.truncatedTitle'
+    | 'desk.window.from'
     | 'desk.window.next7'
     | 'desk.window.overdue'
+    | 'desk.window.range'
+    | 'desk.window.to'
     | 'desk.window.today'
     | 'desk.windowLabel'
     | 'dressings.create'
@@ -3640,6 +3562,7 @@ export interface NamespaceKeys {
     | 'fields.unitPlaceholder'
     | 'fields.unitPrice'
     | 'fields.unitPriceHint'
+    | 'fields.unitPricePer'
     | 'fields.unitPricePlaceholder'
     | 'fields.zoneNamePlaceholderAr'
     | 'fields.zoneNamePlaceholderEn'
@@ -6479,12 +6402,10 @@ export interface NamespaceKeys {
     | 'channels.pos'
     | 'channels.subscription'
     | 'common.listSeparator'
-    | 'consumer.links.title'
     | 'consumer.nav.account'
     | 'consumer.nav.cart'
     | 'consumer.nav.cartWithCount'
     | 'consumer.nav.discover'
-    | 'consumer.nav.home'
     | 'consumer.nav.nutrition'
     | 'consumer.nav.planner'
     | 'consumer.nav.profile'
@@ -6656,82 +6577,43 @@ export interface NamespaceKeys {
     | 'kitchens.emptyBody'
     | 'kitchens.emptyTitle'
     | 'kitchens.etaMinutes'
-    | 'kitchens.finder.addDish'
     | 'kitchens.finder.addressAdd'
     | 'kitchens.finder.addressChange'
-    | 'kitchens.finder.addressNone'
     | 'kitchens.finder.addressPending'
-    | 'kitchens.finder.addressSignIn'
-    | 'kitchens.finder.addressSignedOut'
-    | 'kitchens.finder.bestFit'
     | 'kitchens.finder.closedToday'
     | 'kitchens.finder.count'
+    | 'kitchens.finder.countOf'
     | 'kitchens.finder.deliveringTo'
-    | 'kitchens.finder.dietMatch'
-    | 'kitchens.finder.dishFigures'
     | 'kitchens.finder.emptyBody'
     | 'kitchens.finder.emptyTitle'
-    | 'kitchens.finder.eyebrowListed'
-    | 'kitchens.finder.eyebrowOpen'
-    | 'kitchens.finder.eyebrowPending'
-    | 'kitchens.finder.fact.delivery'
-    | 'kitchens.finder.fact.fee'
-    | 'kitchens.finder.fact.minimum'
-    | 'kitchens.finder.fact.rating'
+    | 'kitchens.finder.fee'
+    | 'kitchens.finder.feeFrom'
     | 'kitchens.finder.filtersLabel'
-    | 'kitchens.finder.free'
-    | 'kitchens.finder.from'
-    | 'kitchens.finder.goal.high_protein.body'
     | 'kitchens.finder.goal.high_protein.title'
-    | 'kitchens.finder.goal.low_carb.body'
     | 'kitchens.finder.goal.low_carb.title'
-    | 'kitchens.finder.goal.under500.body'
     | 'kitchens.finder.goal.under500.title'
-    | 'kitchens.finder.goal.vegan.body'
     | 'kitchens.finder.goal.vegan.title'
     | 'kitchens.finder.goalAction'
     | 'kitchens.finder.goalCount'
-    | 'kitchens.finder.goalsMeta'
     | 'kitchens.finder.goalsTitle'
-    | 'kitchens.finder.ledeMatched'
-    | 'kitchens.finder.ledeSetPreferences'
-    | 'kitchens.finder.ledeTail'
-    | 'kitchens.finder.ledeUnmatched'
     | 'kitchens.finder.listAll'
     | 'kitchens.finder.listMatching'
+    | 'kitchens.finder.minimum'
+    | 'kitchens.finder.minimumFrom'
     | 'kitchens.finder.minutes'
-    | 'kitchens.finder.noDishes'
-    | 'kitchens.finder.noFigure'
-    | 'kitchens.finder.noPlans'
-    | 'kitchens.finder.openDish'
-    | 'kitchens.finder.openKitchen'
     | 'kitchens.finder.openToday'
-    | 'kitchens.finder.plans'
-    | 'kitchens.finder.ratingValue'
     | 'kitchens.finder.searchLabel'
     | 'kitchens.finder.searchPlaceholder'
-    | 'kitchens.finder.seePlans'
-    | 'kitchens.finder.signatureDishes'
     | 'kitchens.finder.sort.fastest'
     | 'kitchens.finder.sort.fee'
     | 'kitchens.finder.sort.match'
     | 'kitchens.finder.sort.name'
     | 'kitchens.finder.sort.rating'
     | 'kitchens.finder.sortFieldLabel'
-    | 'kitchens.finder.sortLabel'
-    | 'kitchens.finder.term.delivery'
-    | 'kitchens.finder.term.fee'
-    | 'kitchens.finder.term.minimum'
-    | 'kitchens.finder.title'
     | 'kitchens.finder.toggle.openToday'
     | 'kitchens.finder.toggle.pickup'
     | 'kitchens.finder.toggle.subscription'
-    | 'kitchens.finder.topRated'
     | 'kitchens.finder.under30'
-    | 'kitchens.finder.viewMenu'
-    | 'kitchens.finder.whyDiets'
-    | 'kitchens.finder.whyMatch'
-    | 'kitchens.finder.whyWithSummary'
     | 'kitchens.freeDelivery'
     | 'kitchens.imageLabel'
     | 'kitchens.noPublishedZone'
@@ -6743,7 +6625,6 @@ export interface NamespaceKeys {
     | 'kitchens.title'
     | 'kitchens.verified'
     | 'landing.browseKitchens'
-    | 'landing.howItWorks'
     | 'levels.excessive'
     | 'levels.good'
     | 'levels.high'
@@ -8897,6 +8778,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:nav.orders',
   'account:nav.payments',
   'account:nav.profile',
+  'account:nav.subscriptions',
   'account:orders.backToHistory',
   'account:orders.browse',
   'account:orders.empty',
@@ -9752,12 +9634,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:schedule.title',
   'business:title',
   'catalogue:card.calories',
+  'catalogue:card.figure',
   'catalogue:card.noFigure',
-  'catalogue:card.notRated',
-  'catalogue:card.protein',
+  'catalogue:card.noNutrition',
   'catalogue:card.rating',
   'catalogue:card.soldOut',
   'catalogue:card.unavailable',
+  'catalogue:card.unit.g',
+  'catalogue:card.unit.kcal',
+  'catalogue:card.unit.mg',
   'catalogue:common.back',
   'catalogue:common.listSeparator',
   'catalogue:common.loading',
@@ -9766,27 +9651,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:common.syntheticData',
   'catalogue:compare.backToPlans',
   'catalogue:compare.caption',
+  'catalogue:compare.countRange',
   'catalogue:compare.duration.12w',
   'catalogue:compare.duration.1w',
   'catalogue:compare.duration.2w',
   'catalogue:compare.duration.4w',
   'catalogue:compare.durationOption',
-  'catalogue:compare.durationOptionNoDiscount',
   'catalogue:compare.emptyBody',
   'catalogue:compare.emptyTitle',
   'catalogue:compare.macroCaveat',
-  'catalogue:compare.openPlan',
+  'catalogue:compare.noFigure',
   'catalogue:compare.row.carbohydrate',
-  'catalogue:compare.row.delivery',
   'catalogue:compare.row.durations',
   'catalogue:compare.row.energy',
   'catalogue:compare.row.fat',
-  'catalogue:compare.row.kitchen',
   'catalogue:compare.row.meals',
-  'catalogue:compare.row.open',
-  'catalogue:compare.row.pricePerDay',
   'catalogue:compare.row.protein',
-  'catalogue:compare.subtitle',
+  'catalogue:compare.row.snacks',
   'catalogue:compare.title',
   'catalogue:diet.browseAll',
   'catalogue:diet.countsLabel',
@@ -9825,32 +9706,35 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:facts.syntheticNote',
   'catalogue:facts.title',
   'catalogue:facts.version',
-  'catalogue:filters.activeCount',
   'catalogue:filters.allMeals',
   'catalogue:filters.anyValue',
   'catalogue:filters.atLeast',
   'catalogue:filters.atMost',
+  'catalogue:filters.barLabel',
   'catalogue:filters.carbohydrate',
   'catalogue:filters.category',
   'catalogue:filters.clear',
-  'catalogue:filters.clearAll',
-  'catalogue:filters.diet',
-  'catalogue:filters.dietary',
+  'catalogue:filters.clearGroup',
   'catalogue:filters.energy',
-  'catalogue:filters.excludeAllergens',
-  'catalogue:filters.excludeAllergensHint',
   'catalogue:filters.fat',
-  'catalogue:filters.groupWithCount',
-  'catalogue:filters.kitchen',
-  'catalogue:filters.mealType',
-  'catalogue:filters.moreDiets',
+  'catalogue:filters.menu.allergies',
+  'catalogue:filters.menu.calories',
+  'catalogue:filters.menu.diet',
+  'catalogue:filters.menu.kitchen',
+  'catalogue:filters.menu.more',
+  'catalogue:filters.menuCount',
   'catalogue:filters.optionWithCount',
   'catalogue:filters.preparationMinutes',
   'catalogue:filters.price',
   'catalogue:filters.protein',
+  'catalogue:filters.rangeChip',
   'catalogue:filters.rangesHint',
-  'catalogue:filters.rangesTitle',
   'catalogue:filters.removeFilter',
+  'catalogue:filters.short.carbohydrate',
+  'catalogue:filters.short.fat',
+  'catalogue:filters.short.preparationMinutes',
+  'catalogue:filters.short.price',
+  'catalogue:filters.short.protein',
   'catalogue:filters.unitGrams',
   'catalogue:filters.unitKcal',
   'catalogue:filters.unitMinutes',
@@ -10035,12 +9919,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meals.countSoFar',
   'catalogue:meals.emptyBody',
   'catalogue:meals.emptyTitle',
-  'catalogue:meals.filters',
-  'catalogue:meals.filtersActive',
   'catalogue:meals.loadMore',
   'catalogue:meals.loadingMore',
   'catalogue:meals.moreFilters',
-  'catalogue:meals.moreFiltersActive',
   'catalogue:meals.moreFiltersDone',
   'catalogue:meals.sort.price',
   'catalogue:meals.sort.protein',
@@ -10061,53 +9942,37 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plan.combinationMeals',
   'catalogue:plan.combinationNoSnacks',
   'catalogue:plan.combinationSnacks',
-  'catalogue:plan.combinationTitle',
   'catalogue:plan.configure',
   'catalogue:plan.configureSignIn',
-  'catalogue:plan.deliveryBody',
-  'catalogue:plan.deliveryTitle',
-  'catalogue:plan.deliveryUnpublished',
-  'catalogue:plan.deliveryUnpublishedShort',
-  'catalogue:plan.dietitianBody',
-  'catalogue:plan.dietitianFind',
-  'catalogue:plan.dietitianTitle',
   'catalogue:plan.durationDiscount',
   'catalogue:plan.durationNoDiscount',
   'catalogue:plan.durationTotal',
-  'catalogue:plan.durationsBody',
   'catalogue:plan.durationsTitle',
   'catalogue:plan.imageLabel',
   'catalogue:plan.loading',
   'catalogue:plan.macroBandLabel',
   'catalogue:plan.macroRange',
-  'catalogue:plan.macrosBody',
   'catalogue:plan.macrosTitle',
   'catalogue:plan.notFoundBody',
   'catalogue:plan.notFoundTitle',
-  'catalogue:plan.priceBothUnits',
   'catalogue:plan.pricePerDay',
   'catalogue:plan.pricePerWeek',
   'catalogue:plan.priceTitle',
-  'catalogue:plan.sampleMenuBody',
-  'catalogue:plan.sampleMenuEmpty',
   'catalogue:plan.sampleMenuTitle',
   'catalogue:plan.variantLabel',
-  'catalogue:plan.variantsBody',
   'catalogue:plan.variantsTitle',
   'catalogue:plans.allKitchens',
   'catalogue:plans.balancePrice',
   'catalogue:plans.balancePriceFrom',
   'catalogue:plans.choosePlan',
+  'catalogue:plans.choosePlanShort',
   'catalogue:plans.compareClear',
-  'catalogue:plans.compareEmpty',
-  'catalogue:plans.compareFull',
+  'catalogue:plans.compareCount',
   'catalogue:plans.compareLabel',
   'catalogue:plans.compareNamed',
-  'catalogue:plans.compareOpen',
   'catalogue:plans.compareRemove',
-  'catalogue:plans.compareSelected',
-  'catalogue:plans.compareTitle',
   'catalogue:plans.compareTrayLabel',
+  'catalogue:plans.count',
   'catalogue:plans.ctaBody',
   'catalogue:plans.ctaPrimary',
   'catalogue:plans.ctaSecondary',
@@ -10125,7 +9990,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.emptyBody',
   'catalogue:plans.emptyTitle',
   'catalogue:plans.energyBand',
-  'catalogue:plans.eyebrow',
   'catalogue:plans.featureBalances',
   'catalogue:plans.featureBands',
   'catalogue:plans.featureDiscount',
@@ -10135,8 +9999,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.kitchenFilterLabel',
   'catalogue:plans.managePlan',
   'catalogue:plans.managePlanNamed',
-  'catalogue:plans.mealsPerDay',
-  'catalogue:plans.mealsPerDayNoSnacks',
   'catalogue:plans.methodologyTitle',
   'catalogue:plans.perDaySuffix',
   'catalogue:plans.ratingLabel',
@@ -10172,9 +10034,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.subscriber.unknown',
   'catalogue:plans.subscriber.weekCount',
   'catalogue:plans.subscriber.weekTitle',
-  'catalogue:plans.subtitle',
   'catalogue:plans.taglineWithKitchen',
-  'catalogue:plans.title',
   'catalogue:title',
   'catalogue:tools.activity.extra_active',
   'catalogue:tools.activity.lightly_active',
@@ -10296,12 +10156,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:address.line2',
   'commerce:address.line2Hint',
   'commerce:address.line2Placeholder',
-  'commerce:address.notStored',
   'commerce:balance.cutOffNote',
   'commerce:balance.perDay',
   'commerce:balance.remaining',
   'commerce:balance.skipped',
-  'commerce:balance.title',
   'commerce:balance.used',
   'commerce:cancel.body',
   'commerce:cancel.confirm',
@@ -10416,70 +10274,35 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:common.close',
   'commerce:common.listSeparator',
   'commerce:common.noPayment',
-  'commerce:configurator.allergyDisclaimerContext',
   'commerce:configurator.back',
-  'commerce:configurator.body',
   'commerce:configurator.browsePlans',
-  'commerce:configurator.checks.acknowledgeDescription',
   'commerce:configurator.checks.acknowledgeLabel',
-  'commerce:configurator.checks.allergens',
-  'commerce:configurator.checks.areaServedBody',
-  'commerce:configurator.checks.areaServedTitle',
-  'commerce:configurator.checks.areaUnknownBody',
-  'commerce:configurator.checks.areaUnknownTitle',
-  'commerce:configurator.checks.areaUnservedBody',
-  'commerce:configurator.checks.areaUnservedTitle',
-  'commerce:configurator.checks.body',
+  'commerce:configurator.checks.areaServed',
+  'commerce:configurator.checks.areaUnknown',
+  'commerce:configurator.checks.areaUnserved',
   'commerce:configurator.checks.noAllergens',
-  'commerce:configurator.checks.relaxedBody',
-  'commerce:configurator.checks.relaxedTitle',
-  'commerce:configurator.checks.title',
-  'commerce:configurator.combination.body',
-  'commerce:configurator.combination.couplingBody',
-  'commerce:configurator.combination.couplingTitle',
   'commerce:configurator.combination.label',
   'commerce:configurator.combination.meals',
-  'commerce:configurator.combination.noSnacks',
-  'commerce:configurator.combination.option',
   'commerce:configurator.combination.snacks',
-  'commerce:configurator.confirm.acknowledgeDescription',
+  'commerce:configurator.combination.withSnacks',
   'commerce:configurator.confirm.acknowledgeLabel',
-  'commerce:configurator.confirm.body',
-  'commerce:configurator.confirm.deliveries',
-  'commerce:configurator.confirm.termsBody',
-  'commerce:configurator.confirm.termsTitle',
-  'commerce:configurator.confirm.title',
   'commerce:configurator.confirm.total',
   'commerce:configurator.create',
   'commerce:configurator.createFailedTitle',
+  'commerce:configurator.delivery.addressPlaceholder',
   'commerce:configurator.delivery.addressTitle',
   'commerce:configurator.delivery.slotTitle',
-  'commerce:configurator.delivery.startHint',
   'commerce:configurator.delivery.startLabel',
   'commerce:configurator.delivery.useNextAllowed',
-  'commerce:configurator.delivery.weekdaysBody',
   'commerce:configurator.delivery.weekdaysLimited',
-  'commerce:configurator.delivery.weekdaysLoading',
   'commerce:configurator.delivery.weekdaysTitle',
-  'commerce:configurator.dietary.addedBody',
-  'commerce:configurator.dietary.addedTitle',
-  'commerce:configurator.dietary.allergensBody',
-  'commerce:configurator.dietary.allergensLoading',
-  'commerce:configurator.dietary.allergensNone',
   'commerce:configurator.dietary.allergensTitle',
-  'commerce:configurator.dietary.dietsBody',
   'commerce:configurator.dietary.dietsTitle',
-  'commerce:configurator.dietary.relaxedBody',
   'commerce:configurator.dietary.relaxedTitle',
   'commerce:configurator.disclaimerContext',
-  'commerce:configurator.duration.body',
-  'commerce:configurator.duration.caveat',
-  'commerce:configurator.duration.discount',
-  'commerce:configurator.duration.noDiscount',
-  'commerce:configurator.duration.optionLabel',
-  'commerce:configurator.duration.saving',
-  'commerce:configurator.duration.selected',
-  'commerce:configurator.duration.total',
+  'commerce:configurator.duration.label',
+  'commerce:configurator.duration.withDiscount',
+  'commerce:configurator.edit',
   'commerce:configurator.issues.address',
   'commerce:configurator.issues.areaUnserved',
   'commerce:configurator.issues.checks',
@@ -10493,62 +10316,43 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.issues.terms',
   'commerce:configurator.issues.variant',
   'commerce:configurator.issuesTitle',
-  'commerce:configurator.meals.body',
-  'commerce:configurator.meals.fromPlan',
-  'commerce:configurator.meals.noDates',
-  'commerce:configurator.meals.noteLoading',
-  'commerce:configurator.meals.noteStatic',
-  'commerce:configurator.meals.noteSwappable',
-  'commerce:configurator.meals.noteTitle',
   'commerce:configurator.meals.selectLabel',
+  'commerce:configurator.meals.title',
   'commerce:configurator.meals.unknown',
   'commerce:configurator.next',
   'commerce:configurator.notFoundBody',
   'commerce:configurator.notFoundTitle',
   'commerce:configurator.plan.band',
-  'commerce:configurator.plan.macroCaveat',
-  'commerce:configurator.plan.macroRange',
-  'commerce:configurator.plan.macrosTitle',
   'commerce:configurator.plan.variantLabel',
-  'commerce:configurator.plan.weeklyPrice',
-  'commerce:configurator.position',
   'commerce:configurator.previewEmptyBody',
   'commerce:configurator.previewEmptyTitle',
-  'commerce:configurator.priceLater',
   'commerce:configurator.progressLabel',
-  'commerce:configurator.steps.combination',
-  'commerce:configurator.steps.confirm',
+  'commerce:configurator.review.deliveryTitle',
+  'commerce:configurator.review.planTitle',
+  'commerce:configurator.review.priceTitle',
   'commerce:configurator.steps.delivery',
-  'commerce:configurator.steps.dietary',
-  'commerce:configurator.steps.duration',
-  'commerce:configurator.steps.meals',
   'commerce:configurator.steps.plan',
-  'commerce:configurator.steps.summary',
+  'commerce:configurator.steps.review',
   'commerce:configurator.successBody',
   'commerce:configurator.successList',
-  'commerce:configurator.successNoPayment',
   'commerce:configurator.successOpen',
   'commerce:configurator.successTitle',
   'commerce:configurator.summary.address',
   'commerce:configurator.summary.allergens',
-  'commerce:configurator.summary.checksBody',
-  'commerce:configurator.summary.checksTitle',
-  'commerce:configurator.summary.configTitle',
   'commerce:configurator.summary.days',
   'commerce:configurator.summary.discount',
   'commerce:configurator.summary.duration',
+  'commerce:configurator.summary.everyDay',
   'commerce:configurator.summary.gross',
   'commerce:configurator.summary.perDelivery',
-  'commerce:configurator.summary.perDeliveryNote',
   'commerce:configurator.summary.plan',
-  'commerce:configurator.summary.priceCaption',
-  'commerce:configurator.summary.priceTitle',
-  'commerce:configurator.summary.slot',
+  'commerce:configurator.summary.starts',
   'commerce:configurator.summary.total',
   'commerce:configurator.summary.weekly',
   'commerce:configurator.summary.window',
   'commerce:configurator.summary.windowValue',
   'commerce:configurator.title',
+  'commerce:configurator.titleFor',
   'commerce:deliveries.caption',
   'commerce:deliveries.columns.consumed',
   'commerce:deliveries.columns.date',
@@ -10557,7 +10361,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:deliveries.consumedYes',
   'commerce:deliveries.count',
   'commerce:deliveries.empty',
-  'commerce:deliveries.skipNote',
   'commerce:deliveries.statuses.cancelled',
   'commerce:deliveries.statuses.delivered',
   'commerce:deliveries.statuses.generated',
@@ -10580,18 +10383,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:states.paused',
   'commerce:states.skipped_today',
   'commerce:subscription.actionFailedTitle',
-  'commerce:subscription.actionsNote',
-  'commerce:subscription.actionsTitle',
   'commerce:subscription.addressConfirm',
   'commerce:subscription.addressDialogBody',
   'commerce:subscription.addressDialogTitle',
   'commerce:subscription.backToList',
+  'commerce:subscription.change',
   'commerce:subscription.changeAddress',
   'commerce:subscription.changeSlot',
-  'commerce:subscription.configCaption',
-  'commerce:subscription.configTitle',
-  'commerce:subscription.created',
-  'commerce:subscription.noSkippedDates',
+  'commerce:subscription.crumbAccount',
+  'commerce:subscription.crumbSubscriptions',
+  'commerce:subscription.manageTitle',
   'commerce:subscription.notFoundBody',
   'commerce:subscription.notFoundTitle',
   'commerce:subscription.pause',
@@ -10604,6 +10405,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:subscription.pauseUntilHint',
   'commerce:subscription.pauseUntilLabel',
   'commerce:subscription.pausedUntilBadge',
+  'commerce:subscription.planTitle',
   'commerce:subscription.readOnly.active',
   'commerce:subscription.readOnly.cancelled',
   'commerce:subscription.readOnly.draft',
@@ -10619,11 +10421,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:subscription.rows.allergens',
   'commerce:subscription.rows.days',
   'commerce:subscription.rows.duration',
-  'commerce:subscription.rows.field',
   'commerce:subscription.rows.plan',
   'commerce:subscription.rows.slot',
   'commerce:subscription.rows.start',
-  'commerce:subscription.rows.value',
   'commerce:subscription.skip',
   'commerce:subscription.skipConfirm',
   'commerce:subscription.skipConsequenceBody',
@@ -10639,9 +10439,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:subscription.slotDaysTitle',
   'commerce:subscription.slotDialogBody',
   'commerce:subscription.slotDialogTitle',
-  'commerce:subscription.stateSince',
-  'commerce:subscription.timelineNote',
-  'commerce:subscription.timelineTitle',
   'commerce:subscriptions.body',
   'commerce:subscriptions.browse',
   'commerce:subscriptions.clearFilter',
@@ -11714,6 +11511,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.customerCreateTitle',
   'kitchen:desk.sale.customerDuplicatesBody',
   'kitchen:desk.sale.customerDuplicatesTitle',
+  'kitchen:desk.sale.customerEdit',
+  'kitchen:desk.sale.customerEditDuplicatesTitle',
+  'kitchen:desk.sale.customerEditSave',
   'kitchen:desk.sale.customerNameLabel',
   'kitchen:desk.sale.customerNamePlaceholder',
   'kitchen:desk.sale.customerNew',
@@ -11811,8 +11611,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.title',
   'kitchen:desk.truncatedBody',
   'kitchen:desk.truncatedTitle',
+  'kitchen:desk.window.from',
   'kitchen:desk.window.next7',
   'kitchen:desk.window.overdue',
+  'kitchen:desk.window.range',
+  'kitchen:desk.window.to',
   'kitchen:desk.window.today',
   'kitchen:desk.windowLabel',
   'kitchen:dressings.create',
@@ -12005,6 +11808,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:fields.unitPlaceholder',
   'kitchen:fields.unitPrice',
   'kitchen:fields.unitPriceHint',
+  'kitchen:fields.unitPricePer',
   'kitchen:fields.unitPricePlaceholder',
   'kitchen:fields.zoneNamePlaceholderAr',
   'kitchen:fields.zoneNamePlaceholderEn',
@@ -14843,12 +14647,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:channels.pos',
   'marketplace:channels.subscription',
   'marketplace:common.listSeparator',
-  'marketplace:consumer.links.title',
   'marketplace:consumer.nav.account',
   'marketplace:consumer.nav.cart',
   'marketplace:consumer.nav.cartWithCount',
   'marketplace:consumer.nav.discover',
-  'marketplace:consumer.nav.home',
   'marketplace:consumer.nav.nutrition',
   'marketplace:consumer.nav.planner',
   'marketplace:consumer.nav.profile',
@@ -15020,82 +14822,43 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:kitchens.emptyBody',
   'marketplace:kitchens.emptyTitle',
   'marketplace:kitchens.etaMinutes',
-  'marketplace:kitchens.finder.addDish',
   'marketplace:kitchens.finder.addressAdd',
   'marketplace:kitchens.finder.addressChange',
-  'marketplace:kitchens.finder.addressNone',
   'marketplace:kitchens.finder.addressPending',
-  'marketplace:kitchens.finder.addressSignIn',
-  'marketplace:kitchens.finder.addressSignedOut',
-  'marketplace:kitchens.finder.bestFit',
   'marketplace:kitchens.finder.closedToday',
   'marketplace:kitchens.finder.count',
+  'marketplace:kitchens.finder.countOf',
   'marketplace:kitchens.finder.deliveringTo',
-  'marketplace:kitchens.finder.dietMatch',
-  'marketplace:kitchens.finder.dishFigures',
   'marketplace:kitchens.finder.emptyBody',
   'marketplace:kitchens.finder.emptyTitle',
-  'marketplace:kitchens.finder.eyebrowListed',
-  'marketplace:kitchens.finder.eyebrowOpen',
-  'marketplace:kitchens.finder.eyebrowPending',
-  'marketplace:kitchens.finder.fact.delivery',
-  'marketplace:kitchens.finder.fact.fee',
-  'marketplace:kitchens.finder.fact.minimum',
-  'marketplace:kitchens.finder.fact.rating',
+  'marketplace:kitchens.finder.fee',
+  'marketplace:kitchens.finder.feeFrom',
   'marketplace:kitchens.finder.filtersLabel',
-  'marketplace:kitchens.finder.free',
-  'marketplace:kitchens.finder.from',
-  'marketplace:kitchens.finder.goal.high_protein.body',
   'marketplace:kitchens.finder.goal.high_protein.title',
-  'marketplace:kitchens.finder.goal.low_carb.body',
   'marketplace:kitchens.finder.goal.low_carb.title',
-  'marketplace:kitchens.finder.goal.under500.body',
   'marketplace:kitchens.finder.goal.under500.title',
-  'marketplace:kitchens.finder.goal.vegan.body',
   'marketplace:kitchens.finder.goal.vegan.title',
   'marketplace:kitchens.finder.goalAction',
   'marketplace:kitchens.finder.goalCount',
-  'marketplace:kitchens.finder.goalsMeta',
   'marketplace:kitchens.finder.goalsTitle',
-  'marketplace:kitchens.finder.ledeMatched',
-  'marketplace:kitchens.finder.ledeSetPreferences',
-  'marketplace:kitchens.finder.ledeTail',
-  'marketplace:kitchens.finder.ledeUnmatched',
   'marketplace:kitchens.finder.listAll',
   'marketplace:kitchens.finder.listMatching',
+  'marketplace:kitchens.finder.minimum',
+  'marketplace:kitchens.finder.minimumFrom',
   'marketplace:kitchens.finder.minutes',
-  'marketplace:kitchens.finder.noDishes',
-  'marketplace:kitchens.finder.noFigure',
-  'marketplace:kitchens.finder.noPlans',
-  'marketplace:kitchens.finder.openDish',
-  'marketplace:kitchens.finder.openKitchen',
   'marketplace:kitchens.finder.openToday',
-  'marketplace:kitchens.finder.plans',
-  'marketplace:kitchens.finder.ratingValue',
   'marketplace:kitchens.finder.searchLabel',
   'marketplace:kitchens.finder.searchPlaceholder',
-  'marketplace:kitchens.finder.seePlans',
-  'marketplace:kitchens.finder.signatureDishes',
   'marketplace:kitchens.finder.sort.fastest',
   'marketplace:kitchens.finder.sort.fee',
   'marketplace:kitchens.finder.sort.match',
   'marketplace:kitchens.finder.sort.name',
   'marketplace:kitchens.finder.sort.rating',
   'marketplace:kitchens.finder.sortFieldLabel',
-  'marketplace:kitchens.finder.sortLabel',
-  'marketplace:kitchens.finder.term.delivery',
-  'marketplace:kitchens.finder.term.fee',
-  'marketplace:kitchens.finder.term.minimum',
-  'marketplace:kitchens.finder.title',
   'marketplace:kitchens.finder.toggle.openToday',
   'marketplace:kitchens.finder.toggle.pickup',
   'marketplace:kitchens.finder.toggle.subscription',
-  'marketplace:kitchens.finder.topRated',
   'marketplace:kitchens.finder.under30',
-  'marketplace:kitchens.finder.viewMenu',
-  'marketplace:kitchens.finder.whyDiets',
-  'marketplace:kitchens.finder.whyMatch',
-  'marketplace:kitchens.finder.whyWithSummary',
   'marketplace:kitchens.freeDelivery',
   'marketplace:kitchens.imageLabel',
   'marketplace:kitchens.noPublishedZone',
@@ -15107,7 +14870,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:kitchens.title',
   'marketplace:kitchens.verified',
   'marketplace:landing.browseKitchens',
-  'marketplace:landing.howItWorks',
   'marketplace:levels.excessive',
   'marketplace:levels.good',
   'marketplace:levels.high',

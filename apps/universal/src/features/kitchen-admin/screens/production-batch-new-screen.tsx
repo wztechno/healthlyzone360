@@ -33,7 +33,7 @@ import { toFailure } from '../../../data/hooks.ts';
 import {
     recipesFromPages,
     useRecipeQuery,
-    useRecipesQuery,
+    useAllRecipesQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { useCreateProductionOrderMutation } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
@@ -186,7 +186,7 @@ function ProductionBatchNew() {
      * Deliberately unfiltered by status: see the note on the component about why narrowing to
      * published would hide the edited recipes rather than reveal them.
      */
-    const recipes = useRecipesQuery({ limit: 100 });
+    const recipes = useAllRecipesQuery();
     const recipeRows = recipesFromPages(recipes.data?.pages);
 
     const record = useRecipeQuery(recipeId);

@@ -8161,7 +8161,7 @@ export type OrderPaymentReceiptEnvelope = {
 };
 
 /**
- * Which slice of the open book the desk is looking at — three questions
+ * Which slice of the open book the desk is looking at — four questions
  * somebody at a desk actually asks, rather than a date range that could
  * express a hundred nobody does.
  *
@@ -8171,10 +8171,12 @@ export type OrderPaymentReceiptEnvelope = {
  * set nobody has committed to a day yet. `overdue` does not inherit that
  * rule: a dateless order is never late, because there is no day it has
  * missed. `next_7` runs from today to seven days after it, inclusive at
- * both ends.
+ * both ends. `range` is the span named by the `from` and `to` parameters,
+ * inclusive, past or future; a span containing today also carries the
+ * dateless orders, as `today` does.
  *
  */
-export type OrderDeskWindow = 'today' | 'overdue' | 'next_7';
+export type OrderDeskWindow = 'today' | 'overdue' | 'next_7' | 'range';
 
 /**
  * The run this order became: which driver has it, what state it is in, and
@@ -8300,6 +8302,14 @@ export type OrderDeskQueueEnvelope = {
          */
         truncated: boolean;
         window: OrderDeskWindow;
+        /**
+         * First day of the `window=range` span, echoed; null for the other windows.
+         */
+        from?: string | null;
+        /**
+         * Last day of the `window=range` span, echoed; null for the other windows.
+         */
+        to?: string | null;
         /**
          * The day the window was measured from.
          */
@@ -9002,6 +9012,24 @@ export type CreateOrderDeskCustomerRequest = {
      */
     preferred_language_code?: string | null;
     country_code?: string | null;
+};
+
+/**
+ * At least one of the two; an absent field is left as it is.
+ */
+export type UpdateOrderDeskCustomerRequest = {
+    /**
+     * The corrected name this customer goes by at this kitchen.
+     */
+    display_name?: string;
+    /**
+     * The corrected number, already in E.164, or `422` on this field — the
+     * create operation's rule. It becomes the account's primary phone and
+     * the account's other numbers are retired; orders already placed keep
+     * the number they were given.
+     *
+     */
+    phone?: string;
 };
 
 /**
@@ -29469,6 +29497,18 @@ export type ListOrderDeskQueueData = {
          */
         window?: OrderDeskWindow;
         /**
+         * First day of the span `window=range` looks at, inclusive. Required with
+         * `window=range` (`422` without it) and ignored by the other windows.
+         *
+         */
+        from?: string;
+        /**
+         * Last day of the span `window=range` looks at, inclusive, on or after
+         * `from`. Required with `window=range` and ignored by the other windows.
+         *
+         */
+        to?: string;
+        /**
          * Narrow to one production site, and read `today` on that branch's
          * clock. Omitted, the queue is organisation-wide and the day boundary
          * is UTC.
@@ -29853,6 +29893,70 @@ export type CreateOrderDeskCustomerResponses = {
 };
 
 export type CreateOrderDeskCustomerResponse = CreateOrderDeskCustomerResponses[keyof CreateOrderDeskCustomerResponses];
+
+export type UpdateOrderDeskCustomerData = {
+    body: UpdateOrderDeskCustomerRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The customer account, as returned by the desk's customer search or create.
+         */
+        account: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/order-desk/customers/{account}';
+};
+
+export type UpdateOrderDeskCustomerErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateOrderDeskCustomerError = UpdateOrderDeskCustomerErrors[keyof UpdateOrderDeskCustomerErrors];
+
+export type UpdateOrderDeskCustomerResponses = {
+    /**
+     * The customer as the desk now sees them, and anybody else on the new number.
+     */
+    200: OrderDeskCustomerEnvelope;
+};
+
+export type UpdateOrderDeskCustomerResponse = UpdateOrderDeskCustomerResponses[keyof UpdateOrderDeskCustomerResponses];
 
 export type AddOrderDeskCustomerAddressData = {
     body: AddOrderDeskCustomerAddressRequest;

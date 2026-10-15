@@ -54,7 +54,7 @@ unambiguous way to point at one.
 
 | id           | Design screen            | Implement in                                                                            |
 | ------------ | ------------------------ | --------------------------------------------------------------------------------------- |
-| `home`       | Customer landing         | `marketplace/screens/consumer-home-screen.tsx`                                          |
+| `home`       | Customer landing         | `marketplace/screens/discover-screen.tsx` — the only home; `/` and `/customer` redirect |
 | `catalog`    | Menu / browse grid       | `catalogue/screens/meals-screen.tsx`                                                    |
 | `meal`       | Meal detail              | `catalogue/screens/meal-detail-screen.tsx`                                              |
 | `cart`       | Basket                   | `commerce/screens/cart-screen.tsx`                                                      |
@@ -216,9 +216,11 @@ Those are mood-board artefacts. Snap to the nearest token — `text-xs` 12, `tex
   gone — it could only run against the demo world — so the rule now lives in the Jest tests and
   in review. Logical utilities are still enforced by ESLint, which is the half a machine can
   still check.
-- Documented behaviour survives the redesign: the meals filter panel opens closed **below `lg`**,
-  where it is still a disclosure — above `lg` it is a rail beside the grid and there is nothing to
-  disclose; `plan-card.tsx` is deliberately not one pressable target; the KDS board has no Cancel;
+- Documented behaviour survives the redesign: `/meals` has **no filter panel** at any width — the
+  shelves are a row of tabs and the filters are menu buttons (Diet, Calories, Allergies, Kitchen,
+  More) that open a `Popover` from `lg` and a bottom `Drawer` below it, with what is applied listed
+  as removable chips (`catalogue/meal-filter-bar.tsx`); `plan-card.tsx` is deliberately not one
+  pressable target; the KDS board has no Cancel;
   both register consents are required; the virtual dietitian's acknowledgement checkbox is a real
   gate.
 - **"No slider" is now "no slider on native".** `number-stepper.tsx` rejected a drag rail for three
@@ -228,7 +230,7 @@ Those are mood-board artefacts. Snap to the nearest token — `text-xs` 12, `tex
   native. Do not add a gesture-driven rail to either.
 - **`web:` is how a web-only CSS behaviour is expressed** when there is no structural difference to
   branch on. NativeWind registers the variant on the web preset only, so the classes are never
-  generated for native. The sticky meals rail is the reference use. A _structural_ difference still
+  generated for native. The sticky meals filter bar is the reference use. A _structural_ difference still
   branches in JavaScript on `useBreakpoint` or `Platform.OS`.
 - **The web scroll port is not the document.** `body` is `overflow: hidden`; the shell's
   `ScrollView` (`div[data-testid="…-shell-content"]`) is what scrolls. Sticky offsets resolve
