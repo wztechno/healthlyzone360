@@ -346,7 +346,12 @@ describe('kds ticket board', () => {
     });
 
     it('marks a ticket ready without handing it over, then hands it over', async () => {
-        const book = createOrderBook();
+        // A collection order: the customer takes it from the counter, so the kitchen hands it over.
+        const book = createOrderBook(
+            seedOrders().map((order) =>
+                order.id === orderIdAt(3) ? { ...order, fulfilmentType: 'pickup' } : order,
+            ),
+        );
         const { repositories } = await renderBoard(book);
 
         await waitFor(
@@ -384,6 +389,50 @@ describe('kds ticket board', () => {
             expect(screen.queryByTestId(`${ticketId(confirmed.id)}-handed-over`)).toBeNull();
         });
         expect(screen.getByTestId(ticketId(confirmed.id))).toBeTruthy();
+    });
+
+    it('leaves a ready delivery to the driver instead of offering Handed over (HA-19)', async () => {
+        const run = {
+            status: 'assigned' as const,
+            trackingStatus: 'awaiting_assignment' as const,
+            driverName: 'Sami Haddad',
+            assignedAt: minutesAgo(5),
+            pickedUpAt: null,
+            deliveredAt: null,
+        };
+        const book = createOrderBook([
+            kitchenOrder({
+                id: orderIdAt(6),
+                orderNumber: 'VK-2026-0150',
+                status: 'confirmed',
+                confirmedAt: minutesAgo(30),
+                readyAt: minutesAgo(10),
+                deliveryRun: run,
+            }),
+            kitchenOrder({
+                id: orderIdAt(7),
+                orderNumber: 'VK-2026-0151',
+                status: 'confirmed',
+                confirmedAt: minutesAgo(30),
+                readyAt: minutesAgo(10),
+                deliveryRun: { ...run, status: 'in_transit', pickedUpAt: minutesAgo(2) },
+            }),
+        ]);
+        await renderBoard(book);
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(`${ticketId(orderIdAt(6))}-driver`)).toHaveTextContent(
+                    'Waiting for the driver',
+                );
+            },
+            { timeout: 5000 },
+        );
+        expect(screen.getByTestId(`${ticketId(orderIdAt(7))}-driver`)).toHaveTextContent(
+            'Out with the driver',
+        );
+        expect(screen.queryByTestId(`${ticketId(orderIdAt(6))}-handed-over`)).toBeNull();
+        expect(screen.queryByTestId(`${ticketId(orderIdAt(7))}-handed-over`)).toBeNull();
     });
 
     it('shows the tickets but no bump buttons to somebody who may not manage orders', async () => {

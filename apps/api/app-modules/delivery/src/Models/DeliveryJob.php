@@ -46,6 +46,7 @@ use Healthy360\Tenancy\Contracts\OrganisationScoped;
  * @property string $tracking_status
  * @property string|null $proof_of_delivery_notes
  * @property CarbonImmutable|null $assigned_at
+ * @property CarbonImmutable|null $picked_up_at
  * @property CarbonImmutable|null $delivered_at
  * @property int $lock_version
  * @property CarbonImmutable|null $created_at
@@ -59,6 +60,7 @@ class DeliveryJob extends BaseModel implements OrganisationScoped
     {
         return [
             'assigned_at' => 'immutable_datetime',
+            'picked_up_at' => 'immutable_datetime',
             'delivered_at' => 'immutable_datetime',
             'lock_version' => 'integer',
         ];

@@ -16191,6 +16191,74 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /driver/jobs/{job}/pick-up:
+    post:
+      operationId: pickUpDriverJob
+      tags:
+        - Delivery
+      summary: Say the food is collected and on its way
+      description: |
+        The step between claiming a run and delivering it. Moves the job from
+        `assigned` to `in_transit`, its `tracking_status` to `en_route`, and
+        stamps `picked_up_at` — which is what puts the customer's order "Out
+        for delivery". The order itself stays `confirmed`; only deliver closes
+        it.
+
+        **Only the caller's own run, and only once.** A job that is not the
+        caller's is `404`; one that is not `assigned` (already picked up,
+        delivered or cancelled) is `409 resource.conflict`. No `If-Match`:
+        nobody races a driver for their own job. Audited as
+        `delivery.job_picked_up`.
+      parameters:
+        - $ref: '#/components/parameters/DeliveryJobPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The job, now on its way.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - job
+                    properties:
+                      job:
+                        type: object
+                        required:
+                          - id
+                          - status
+                        properties:
+                          id:
+                            $ref: '#/components/schemas/Uuid'
+                          status:
+                            allOf:
+                              - $ref: '#/components/schemas/DeliveryJobStatus'
+                            description: Always `in_transit` on success.
+                        additionalProperties: false
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /driver/jobs/{job}/deliver:
     post:
       operationId: deliverDriverJob
@@ -37959,6 +38027,18 @@ components:
             - string
             - 'null'
           format: date-time
+        out_for_delivery_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: When the driver collected the food — the order is out for delivery from here. `null` until then, and always on a pickup or counter order.
+        delivered_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: When the driver handed it over. Times only; who drove it is an employee's name and is not served to a customer.
         cancelled_at:
           type:
             - string
@@ -37976,6 +38056,41 @@ components:
           items:
             $ref: '#/components/schemas/CustomerOrderLine'
         created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      additionalProperties: false
+    KitchenOrderDeliveryRun:
+      type: object
+      required:
+        - status
+        - tracking_status
+        - driver_name
+        - assigned_at
+        - picked_up_at
+        - delivered_at
+      properties:
+        status:
+          $ref: '#/components/schemas/DeliveryJobStatus'
+        tracking_status:
+          $ref: '#/components/schemas/DeliveryJobTrackingStatus'
+        driver_name:
+          type:
+            - string
+            - 'null'
+          description: The driver's name as their profile spells it. Null before anybody has the run, or when their profile has no name.
+        assigned_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        picked_up_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        delivered_at:
           type:
             - string
             - 'null'
@@ -38097,6 +38212,11 @@ components:
           oneOf:
             - $ref: '#/components/schemas/CancellationReason'
             - type: 'null'
+        delivery_run:
+          oneOf:
+            - $ref: '#/components/schemas/KitchenOrderDeliveryRun'
+            - type: 'null'
+          description: The order's delivery run. Null on a pickup or counter order, and on a delivery order not yet confirmed — a run is projected on confirm.
         created_by:
           type:
             - string
@@ -43165,6 +43285,7 @@ components:
         - status
         - tracking_status
         - assigned_at
+        - picked_up_at
         - delivery
       properties:
         id:
@@ -43186,6 +43307,12 @@ components:
             - 'null'
           format: date-time
           description: When this run was handed to the caller. `null` on a job nobody has assigned.
+        picked_up_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: When the caller said they had collected the food (`POST /driver/jobs/{job}/pick-up`). `null` until then.
         delivery:
           $ref: '#/components/schemas/DriverJobDelivery'
       additionalProperties: false

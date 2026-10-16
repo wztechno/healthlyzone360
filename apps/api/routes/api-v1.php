@@ -162,6 +162,7 @@ use Healthy360\Delivery\Http\Controllers\DeliveryZoneWindowReplaceController;
 use Healthy360\Delivery\Http\Controllers\DriverJobClaimController;
 use Healthy360\Delivery\Http\Controllers\DriverJobDeliverController;
 use Healthy360\Delivery\Http\Controllers\DriverJobIndexController;
+use Healthy360\Delivery\Http\Controllers\DriverJobPickUpController;
 use Healthy360\Delivery\Http\Controllers\PublicDeliveryAreaIndexController;
 use Healthy360\Identity\Http\Controllers\ContextController;
 use Healthy360\Identity\Http\Controllers\DeviceController;
@@ -719,6 +720,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         */
         Route::middleware('org.context')->group(function (): void {
             Route::get('/driver/jobs', DriverJobIndexController::class)->name('driver.jobs.index');
+            Route::post('/driver/jobs/{job}/pick-up', DriverJobPickUpController::class)->name('driver.jobs.pick-up');
             Route::post('/driver/jobs/{job}/deliver', DriverJobDeliverController::class)->name('driver.jobs.deliver');
             Route::post('/driver/jobs/{job}/claim', DriverJobClaimController::class)->name('driver.jobs.claim');
 

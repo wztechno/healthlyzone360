@@ -139,6 +139,17 @@ export function mapKitchenOrder(wire: WireKitchenOrder): KitchenOrder {
         fulfilledAt: wire.fulfilled_at,
         cancelledAt: wire.cancelled_at,
         cancellationReason: wire.cancellation_reason,
+        deliveryRun:
+            wire.delivery_run === null || wire.delivery_run === undefined
+                ? null
+                : {
+                      status: wire.delivery_run.status,
+                      trackingStatus: wire.delivery_run.tracking_status,
+                      driverName: wire.delivery_run.driver_name,
+                      assignedAt: wire.delivery_run.assigned_at,
+                      pickedUpAt: wire.delivery_run.picked_up_at,
+                      deliveredAt: wire.delivery_run.delivered_at,
+                  },
         lockVersion: wire.lock_version,
         lineCount: wire.line_count,
         lines: wire.lines.map(mapLine),

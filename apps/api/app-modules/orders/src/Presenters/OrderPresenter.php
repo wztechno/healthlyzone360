@@ -88,6 +88,7 @@ final class OrderPresenter
      * The receipt.
      *
      * @param  iterable<int, OrderLine>  $lines
+     * @param  array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null}|null  $run  the order's delivery run, from `OrderDeliveryRuns`
      * @return array{
      *     id: string,
      *     order_number: string,
@@ -118,6 +119,8 @@ final class OrderPresenter
      *     confirmed_at: string|null,
      *     ready_at: string|null,
      *     fulfilled_at: string|null,
+     *     out_for_delivery_at: string|null,
+     *     delivered_at: string|null,
      *     cancelled_at: string|null,
      *     cancellation_reason: string|null,
      *     line_count: int,
@@ -138,7 +141,7 @@ final class OrderPresenter
      *     created_at: string|null
      * }
      */
-    public function customer(Order $order, iterable $lines): array
+    public function customer(Order $order, iterable $lines, ?array $run = null): array
     {
         $presented = [];
 
@@ -184,6 +187,12 @@ final class OrderPresenter
             'confirmed_at' => $order->confirmed_at?->toIso8601String(),
             'ready_at' => $order->ready_at?->toIso8601String(),
             'fulfilled_at' => $order->fulfilled_at?->toIso8601String(),
+            // The two moments of the drive that are the customer's to know
+            // (HA-19): when the driver collected the food and when they handed
+            // it over. Times only — who drove it is an employee's name, which
+            // this shape never carries (see `placed_on_behalf_by` above).
+            'out_for_delivery_at' => $run['picked_up_at'] ?? null,
+            'delivered_at' => $run['delivered_at'] ?? null,
             'cancelled_at' => $order->cancelled_at?->toIso8601String(),
             'cancellation_reason' => $order->cancellation_reason?->value,
             'line_count' => count($presented),
@@ -205,6 +214,7 @@ final class OrderPresenter
      * one party that needs the data to do the job.
      *
      * @param  iterable<int, OrderLine>  $lines
+     * @param  array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null}|null  $run  the order's delivery run, from `OrderDeliveryRuns`
      * @return array{
      *     id: string,
      *     order_number: string,
@@ -242,6 +252,7 @@ final class OrderPresenter
      *     fulfilled_at: string|null,
      *     cancelled_at: string|null,
      *     cancellation_reason: string|null,
+     *     delivery_run: array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null}|null,
      *     created_by: string|null,
      *     placed_on_behalf_by: string|null,
      *     lock_version: int,
@@ -266,7 +277,7 @@ final class OrderPresenter
      *     updated_at: string|null
      * }
      */
-    public function kitchen(Order $order, iterable $lines): array
+    public function kitchen(Order $order, iterable $lines, ?array $run = null): array
     {
         $presented = [];
 
@@ -321,6 +332,11 @@ final class OrderPresenter
             'fulfilled_at' => $order->fulfilled_at?->toIso8601String(),
             'cancelled_at' => $order->cancelled_at?->toIso8601String(),
             'cancellation_reason' => $order->cancellation_reason?->value,
+            // The delivery run, when there is one (HA-19): who drove it and when
+            // they were given it, collected it and handed it over. Null for a
+            // pickup or counter order, and for a delivery order not yet
+            // confirmed — a run is projected on confirm.
+            'delivery_run' => $run,
             'created_by' => $order->created_by,
             // Provenance, and the kitchen's own record of its own shift. Null
             // on every self-service order, which is what makes it readable as

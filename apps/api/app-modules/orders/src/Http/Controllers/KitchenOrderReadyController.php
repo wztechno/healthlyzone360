@@ -6,6 +6,7 @@ namespace Healthy360\Orders\Http\Controllers;
 
 use Healthy360\Orders\Http\Concerns\ReadsPrecondition;
 use Healthy360\Orders\Presenters\OrderPresenter;
+use Healthy360\Orders\Services\OrderDeliveryRuns;
 use Healthy360\Orders\Services\OrderLifecycle;
 use Healthy360\Orders\Services\OrderLocator;
 use Healthy360\Support\Api\ApiResponse;
@@ -27,6 +28,7 @@ final class KitchenOrderReadyController
         private readonly OrderLocator $locator,
         private readonly OrderLifecycle $lifecycle,
         private readonly OrderPresenter $presenter,
+        private readonly OrderDeliveryRuns $runs,
     ) {}
 
     /**
@@ -39,7 +41,7 @@ final class KitchenOrderReadyController
 
         $lines = $ready->lines()->orderBy('created_at')->orderBy('id')->get();
 
-        return ApiResponse::data(['order' => $this->presenter->kitchen($ready, $lines)])
+        return ApiResponse::data(['order' => $this->presenter->kitchen($ready, $lines, $this->runs->forOrder((string) $ready->getKey()))])
             ->withHeaders(['ETag' => '"'.$ready->lock_version.'"']);
     }
 }

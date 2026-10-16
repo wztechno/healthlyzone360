@@ -589,8 +589,28 @@ export interface PlaceOrderRequest {
     readonly deliveryDate?: string | undefined;
 }
 
-export const ORDER_STATES = ['placed', 'confirmed', 'preparing', 'delivered', 'cancelled'] as const;
+export const ORDER_STATES = [
+    'placed',
+    'confirmed',
+    'preparing',
+    'ready_for_pickup',
+    'out_for_delivery',
+    'delivered',
+    'cancelled',
+] as const;
 export type OrderState = (typeof ORDER_STATES)[number];
+
+/**
+ * When the order reached each step after placement — `null` for a step it has not reached, or one
+ * nobody records the moment of (`preparing`, until the kitchen display has a Start for it).
+ */
+export interface OrderStepTimes {
+    readonly confirmed: IsoDateTime | null;
+    readonly preparing: IsoDateTime | null;
+    readonly ready_for_pickup: IsoDateTime | null;
+    readonly out_for_delivery: IsoDateTime | null;
+    readonly delivered: IsoDateTime | null;
+}
 
 export interface PlacedOrderLine {
     readonly id: string;
@@ -620,4 +640,6 @@ export interface PlacedOrder {
     readonly slotCode: string;
     readonly deliveryDate: string;
     readonly placedAt: IsoDateTime;
+    /** When it reached each later step. Absent on an order built without them (a fixture). */
+    readonly stepTimes?: OrderStepTimes | undefined;
 }

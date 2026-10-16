@@ -11,7 +11,7 @@ import type {
     PriceLine,
 } from '../contracts/commerce.ts';
 import { ApiError, apiFailure, validationFailure } from '../contracts/failure.ts';
-import type { OrderState } from '../contracts/commerce.ts';
+import type { OrderState, OrderStepTimes } from '../contracts/commerce.ts';
 import type { CursorPage } from '../contracts/pagination.ts';
 import type {
     CustomerOrder as WireOrder,
@@ -73,9 +73,35 @@ function money(amountMinor: number, currency: string): Money {
     return { amount: amountMinor, currency };
 }
 
-/** The wire's four states against the contract's five; `preparing` has no fulfilment reporter yet. */
-function mapState(status: WireOrder['status']): OrderState {
-    return status === 'fulfilled' ? 'delivered' : status;
+/**
+ * The wire's four states, read with the step times beside them (HA-19).
+ *
+ * A `confirmed` order is still moving: the kitchen's Ready stamps `ready_at` and the driver's
+ * Picked up stamps `out_for_delivery_at`, neither of which is a status of its own, so the step is
+ * the latest of those that has happened. `preparing` has no reporter yet and is never produced.
+ */
+function mapState(wire: WireOrder): OrderState {
+    switch (wire.status) {
+        case 'fulfilled':
+            return 'delivered';
+        case 'confirmed':
+            if (wire.out_for_delivery_at != null) return 'out_for_delivery';
+            if (wire.ready_at != null) return 'ready_for_pickup';
+            return 'confirmed';
+        default:
+            return wire.status;
+    }
+}
+
+export function mapOrderStepTimes(wire: WireOrder): OrderStepTimes {
+    return {
+        confirmed: wire.confirmed_at,
+        preparing: null,
+        ready_for_pickup: wire.ready_at ?? null,
+        out_for_delivery: wire.out_for_delivery_at ?? null,
+        // The driver's own stamp, or — for an order the kitchen closed by hand — when it did.
+        delivered: wire.delivered_at ?? wire.fulfilled_at,
+    };
 }
 
 export function mapOrderLine(wire: WireOrderLine): PlacedOrderLine {
@@ -137,7 +163,7 @@ export function mapPlacedOrder(wire: WireOrder): PlacedOrder {
     return {
         id: OrderId.unsafe(wire.id),
         reference: wire.order_number,
-        state: mapState(wire.status),
+        state: mapState(wire),
         lines: wire.lines.map(mapOrderLine),
         priceLines: mapOrderPriceLines(wire),
         total: money(wire.total_minor, wire.currency_code),
@@ -145,6 +171,7 @@ export function mapPlacedOrder(wire: WireOrder): PlacedOrder {
         slotCode: wire.delivery.window_code ?? '',
         deliveryDate: wire.delivery.requested_date ?? '',
         placedAt: wire.placed_at,
+        stepTimes: mapOrderStepTimes(wire),
     };
 }
 

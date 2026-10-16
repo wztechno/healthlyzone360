@@ -67,6 +67,7 @@ function driverJob(overrides: Partial<DriverJob> = {}): DriverJob {
         status: 'assigned',
         trackingStatus: 'awaiting_assignment',
         assignedAt: '2026-08-16T06:40:00.000Z',
+        pickedUpAt: null,
         delivery: driverDelivery(),
         ...overrides,
     };
@@ -81,6 +82,7 @@ function seedJobs(): DriverJob[] {
             orderNumber: 'H360-2026-0149',
             status: 'in_transit',
             trackingStatus: 'en_route',
+            pickedUpAt: '2026-08-16T06:55:00.000Z',
         }),
     ];
 }
@@ -89,6 +91,7 @@ interface RunSheet {
     readonly jobs: () => readonly DriverJob[];
     readonly listJobs: () => readonly DriverJob[];
     readonly deliverJob: (jobId: string) => void;
+    readonly pickUpJob: (jobId: string) => void;
 }
 
 /**
@@ -106,6 +109,18 @@ function createRunSheet(seed: DriverJob[] = seedJobs()): RunSheet {
                 throw new ApiError(apiFailure('resource.not_found'));
             }
             records = records.filter((job) => job.id !== jobId);
+        },
+        pickUpJob: (jobId) => {
+            records = records.map((job) =>
+                job.id === jobId
+                    ? {
+                          ...job,
+                          status: 'in_transit',
+                          trackingStatus: 'en_route',
+                          pickedUpAt: '2026-08-16T07:00:00.000Z',
+                      }
+                    : job,
+            );
         },
     };
 }
@@ -133,6 +148,7 @@ function renderRunSheet(
         readonly available?: () => readonly DriverJob[];
         readonly deliverJob?: (jobId: string, request?: { notes?: string | undefined }) => void;
         readonly claimJob?: (jobId: string) => void;
+        readonly pickUpJob?: (jobId: string) => void;
     } = {},
 ) {
     return renderStubScreen(<DriverJobsScreen />, {
@@ -152,6 +168,13 @@ function renderRunSheet(
                     : {
                           claimJob: async (jobId: string) => {
                               overrides.claimJob!(jobId);
+                          },
+                      }),
+                ...(overrides.pickUpJob === undefined
+                    ? {}
+                    : {
+                          pickUpJob: async (jobId: string) => {
+                              overrides.pickUpJob!(jobId);
                           },
                       }),
                 ...(overrides.deliverJob === undefined
@@ -386,14 +409,14 @@ describe('delivering a job', () => {
 
         // The stamp is irreversible and there is no lock version behind it, so it is never one tap.
         expect(screen.queryByTestId('driver-jobs-deliver-dialog')).toBeNull();
-        fireEvent.press(screen.getByTestId(`${jobTestId(JOB_ONE)}-deliver`));
+        fireEvent.press(screen.getByTestId(`${jobTestId(JOB_TWO)}-deliver`));
 
         await waitFor(() => {
             expect(screen.getByTestId('driver-jobs-deliver-dialog')).toBeTruthy();
         });
         // The dialog names the order it is about to close in the same words the card just used.
         expect(screen.getByTestId('driver-jobs-deliver-order')).toHaveTextContent(
-            'Order H360-2026-0148',
+            'Order H360-2026-0149',
         );
 
         // `TextInputField` puts its own testID on the labelled field and `-input` on the control.
@@ -404,22 +427,25 @@ describe('delivering a job', () => {
         fireEvent.press(screen.getByTestId('driver-jobs-deliver-confirm'));
 
         await waitFor(() => {
-            expect(repositories.driverJobs.deliverJob).toHaveBeenCalledWith(JOB_ONE, {
+            expect(repositories.driverJobs.deliverJob).toHaveBeenCalledWith(JOB_TWO, {
                 notes: 'Left with the concierge',
             });
         });
 
-        // The confirmation is the sheet itself: the endpoint excludes terminal jobs, so the row
-        // goes when the list re-reads. Nothing here claims a success the server did not report.
+        // Once the server has answered, a toast says so, and the row goes when the list re-reads
+        // (the endpoint excludes terminal jobs).
+        expect(await screen.findByTestId('driver-jobs-delivered')).toHaveTextContent(
+            /H360-2026-0149/,
+        );
         await waitFor(
             () => {
-                expect(screen.queryByTestId(jobTestId(JOB_ONE))).toBeNull();
+                expect(screen.queryByTestId(jobTestId(JOB_TWO))).toBeNull();
             },
             { timeout: 5000 },
         );
-        expect(screen.getByTestId(jobTestId(JOB_TWO))).toBeTruthy();
+        expect(screen.getByTestId(jobTestId(JOB_ONE))).toBeTruthy();
         expect(screen.queryByTestId('driver-jobs-deliver-dialog')).toBeNull();
-        expect(sheet.jobs().map((job) => job.id)).toEqual([JOB_TWO]);
+        expect(sheet.jobs().map((job) => job.id)).toEqual([JOB_ONE]);
     });
 
     it('sends no notes at all when the driver typed none — the field is replace-or-clear', async () => {
@@ -467,7 +493,7 @@ describe('delivering a job', () => {
             { timeout: 5000 },
         );
 
-        fireEvent.press(screen.getByTestId(`${jobTestId(JOB_ONE)}-deliver`));
+        fireEvent.press(screen.getByTestId(`${jobTestId(JOB_TWO)}-deliver`));
         await waitFor(() => {
             expect(screen.getByTestId('driver-jobs-deliver-dialog')).toBeTruthy();
         });
@@ -482,7 +508,7 @@ describe('delivering a job', () => {
 
         // The dialog stays open with the failure in it, and the job is still there to try again.
         expect(screen.getByTestId('driver-jobs-deliver-dialog')).toBeTruthy();
-        expect(screen.getByTestId(jobTestId(JOB_ONE))).toBeTruthy();
+        expect(screen.getByTestId(jobTestId(JOB_TWO))).toBeTruthy();
         expect(sheet.jobs()).toHaveLength(2);
         // Said once, not twice: the screen-level copy is held back while the dialog carries it.
         expect(screen.queryByTestId('driver-jobs-action-error')).toBeNull();
@@ -493,6 +519,50 @@ describe('delivering a job', () => {
         await waitFor(() => {
             expect(screen.getByTestId('driver-jobs-action-error')).toBeTruthy();
         });
+    });
+});
+
+describe('picking up a run (HA-19)', () => {
+    it('offers Picked up before Mark delivered, and the run moves on to delivering', async () => {
+        const sheet = createRunSheet();
+        const { repositories } = await renderRunSheet({
+            listJobs: () => sheet.listJobs(),
+            pickUpJob: (jobId) => {
+                sheet.pickUpJob(jobId);
+            },
+        });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('driver-jobs-list')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        // Held but not collected: the only way on is to say it has been collected.
+        expect(screen.queryByTestId(`${jobTestId(JOB_ONE)}-deliver`)).toBeNull();
+        expect(screen.queryByTestId(`${jobTestId(JOB_ONE)}-picked-up-at`)).toBeNull();
+        // Already on the road: delivering, with when it left.
+        expect(screen.getByTestId(`${jobTestId(JOB_TWO)}-deliver`)).toBeTruthy();
+        expect(screen.getByTestId(`${jobTestId(JOB_TWO)}-picked-up-at`)).toBeTruthy();
+
+        // One tap, no dialog.
+        fireEvent.press(screen.getByTestId(`${jobTestId(JOB_ONE)}-pick-up`));
+        await waitFor(() => {
+            expect(repositories.driverJobs.pickUpJob).toHaveBeenCalledWith(JOB_ONE);
+        });
+        expect(screen.queryByTestId('driver-jobs-deliver-dialog')).toBeNull();
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(`${jobTestId(JOB_ONE)}-deliver`)).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        expect(screen.getByTestId(`${jobTestId(JOB_ONE)}-picked-up-at`)).toBeTruthy();
+        expect(screen.getByTestId(`${jobTestId(JOB_ONE)}-tracking`)).toHaveTextContent(
+            'Customer told: on the way',
+        );
     });
 });
 
@@ -539,7 +609,7 @@ describe('claiming a run from the pool', () => {
         });
         await waitFor(
             () => {
-                expect(screen.getByTestId(`${jobTestId(JOB_TWO)}-deliver`)).toBeTruthy();
+                expect(screen.getByTestId(`${jobTestId(JOB_TWO)}-pick-up`)).toBeTruthy();
             },
             { timeout: 5000 },
         );

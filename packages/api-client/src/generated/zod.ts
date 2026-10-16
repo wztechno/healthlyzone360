@@ -5414,6 +5414,8 @@ export const zCustomerOrder = z.object({
     confirmed_at: z.iso.datetime({ offset: true }).nullable(),
     ready_at: z.iso.datetime({ offset: true }).nullish(),
     fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
+    out_for_delivery_at: z.iso.datetime({ offset: true }).nullish(),
+    delivered_at: z.iso.datetime({ offset: true }).nullish(),
     cancelled_at: z.iso.datetime({ offset: true }).nullable(),
     cancellation_reason: zCancellationReason.nullable(),
     line_count: z.int().gte(0),
@@ -5421,63 +5423,9 @@ export const zCustomerOrder = z.object({
     created_at: z.iso.datetime({ offset: true }).nullable()
 });
 
-/**
- * The seller's view of the same row. Built independently of the customer
- * shape rather than as a superset of it: a wide shape and a narrow one
- * derived from it by subtraction is how a column added next year quietly
- * reaches a receipt.
- *
- * `lock_version` is here because this is the audience that **writes** — a
- * screen that could not read the validator could not send the `If-Match`
- * the three lifecycle actions demand.
- *
- * **`customer_account_id` is nullable and `fulfilment_type` says when.**
- * A counter sale may be a stranger buying a sandwich, and there is nobody
- * to name; a delivery and a pickup always have somebody. The pair has to
- * be read together — a null customer is a fact about a walk-in, never a
- * row that failed to load.
- *
- */
-export const zKitchenOrder = z.object({
-    id: zUuid,
-    order_number: z.string(),
-    organisation_id: zUuid,
-    customer_account_id: z.uuid().nullable(),
-    sales_channel_id: zUuid,
-    branch_id: z.uuid().nullable(),
-    status: zOrderStatus,
-    currency_code: z.string().length(3),
-    subtotal_minor: z.int(),
-    delivery_fee_minor: z.int().nullable(),
-    total_minor: z.int(),
-    payment_method: zPaymentMethod,
-    fulfilment_type: zFulfilmentType,
-    delivery: zKitchenOrderDelivery,
-    placed_at: z.iso.datetime({ offset: true }),
-    confirmed_at: z.iso.datetime({ offset: true }).nullable(),
-    ready_at: z.iso.datetime({ offset: true }).nullish(),
-    fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
-    cancelled_at: z.iso.datetime({ offset: true }).nullable(),
-    cancellation_reason: zCancellationReason.nullable(),
-    created_by: z.uuid().nullable(),
-    placed_on_behalf_by: z.uuid().nullable(),
-    lock_version: z.int().gte(0),
-    line_count: z.int().gte(0),
-    lines: z.array(zKitchenOrderLine),
-    created_at: z.iso.datetime({ offset: true }).nullable(),
-    updated_at: z.iso.datetime({ offset: true }).nullable()
-});
-
 export const zCustomerOrderEnvelope = z.object({
     data: z.object({
         order: zCustomerOrder
-    }),
-    meta: zMeta
-});
-
-export const zKitchenOrderEnvelope = z.object({
-    data: z.object({
-        order: zKitchenOrder
     }),
     meta: zMeta
 });
@@ -7406,6 +7354,70 @@ export const zDeliveryJobTrackingStatus = z.enum([
     'delivered'
 ]);
 
+export const zKitchenOrderDeliveryRun = z.object({
+    status: zDeliveryJobStatus,
+    tracking_status: zDeliveryJobTrackingStatus,
+    driver_name: z.string().nullable(),
+    assigned_at: z.iso.datetime({ offset: true }).nullable(),
+    picked_up_at: z.iso.datetime({ offset: true }).nullable(),
+    delivered_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+/**
+ * The seller's view of the same row. Built independently of the customer
+ * shape rather than as a superset of it: a wide shape and a narrow one
+ * derived from it by subtraction is how a column added next year quietly
+ * reaches a receipt.
+ *
+ * `lock_version` is here because this is the audience that **writes** — a
+ * screen that could not read the validator could not send the `If-Match`
+ * the three lifecycle actions demand.
+ *
+ * **`customer_account_id` is nullable and `fulfilment_type` says when.**
+ * A counter sale may be a stranger buying a sandwich, and there is nobody
+ * to name; a delivery and a pickup always have somebody. The pair has to
+ * be read together — a null customer is a fact about a walk-in, never a
+ * row that failed to load.
+ *
+ */
+export const zKitchenOrder = z.object({
+    id: zUuid,
+    order_number: z.string(),
+    organisation_id: zUuid,
+    customer_account_id: z.uuid().nullable(),
+    sales_channel_id: zUuid,
+    branch_id: z.uuid().nullable(),
+    status: zOrderStatus,
+    currency_code: z.string().length(3),
+    subtotal_minor: z.int(),
+    delivery_fee_minor: z.int().nullable(),
+    total_minor: z.int(),
+    payment_method: zPaymentMethod,
+    fulfilment_type: zFulfilmentType,
+    delivery: zKitchenOrderDelivery,
+    placed_at: z.iso.datetime({ offset: true }),
+    confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    ready_at: z.iso.datetime({ offset: true }).nullish(),
+    fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
+    cancelled_at: z.iso.datetime({ offset: true }).nullable(),
+    cancellation_reason: zCancellationReason.nullable(),
+    delivery_run: zKitchenOrderDeliveryRun.nullish(),
+    created_by: z.uuid().nullable(),
+    placed_on_behalf_by: z.uuid().nullable(),
+    lock_version: z.int().gte(0),
+    line_count: z.int().gte(0),
+    lines: z.array(zKitchenOrderLine),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zKitchenOrderEnvelope = z.object({
+    data: z.object({
+        order: zKitchenOrder
+    }),
+    meta: zMeta
+});
+
 /**
  * The run this order became: which driver has it, what state it is in, and
  * when it was assigned.
@@ -7517,6 +7529,7 @@ export const zDriverJob = z.object({
     status: zDeliveryJobStatus,
     tracking_status: zDeliveryJobTrackingStatus,
     assigned_at: z.iso.datetime({ offset: true }).nullable(),
+    picked_up_at: z.iso.datetime({ offset: true }).nullable(),
     delivery: zDriverJobDelivery
 });
 
@@ -14212,6 +14225,28 @@ export const zClaimDriverJobPath = z.object({
  * The job, now the caller's.
  */
 export const zClaimDriverJobResponse = z.object({
+    data: z.object({
+        job: z.object({
+            id: zUuid,
+            status: zDeliveryJobStatus
+        })
+    }),
+    meta: zMeta
+});
+
+export const zPickUpDriverJobHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zPickUpDriverJobPath = z.object({
+    job: zUuid
+});
+
+/**
+ * The job, now on its way.
+ */
+export const zPickUpDriverJobResponse = z.object({
     data: z.object({
         job: z.object({
             id: zUuid,

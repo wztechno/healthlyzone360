@@ -1,4 +1,8 @@
-import type { DeliveryAddress, GuestOrderState } from '@healthy360/api-client/contracts';
+import type {
+    DeliveryAddress,
+    GuestOrderState,
+    OrderStepTimes,
+} from '@healthy360/api-client/contracts';
 import { Button, Callout, Icon, useBreakpoint } from '@healthy360/design-system';
 import type { Money } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -12,6 +16,7 @@ import { formatAddress } from '../commerce/address.ts';
 import { formatMoney } from '../marketplace/format.ts';
 import { OrderLineThumb } from './order-line-thumb.tsx';
 import { currentStepIndex } from './order-progress.ts';
+import type { OrderProgressStep } from './order-progress.ts';
 import { OrderTimeline } from './order-timeline.tsx';
 
 /**
@@ -33,13 +38,15 @@ import { OrderTimeline } from './order-timeline.tsx';
  * * **The headline and lede** — the state, in words. The headline *is* the status; there is no
  *   badge beside it.
  * * **The canopy panel** — "ARRIVING" over the delivery date and the chosen window, or "To be
- *   confirmed" when the kitchen has not been given one. Never a countdown: there is no ETA.
- * * **The timeline card** — six steps (see `order-progress.ts`), the placement time against the
- *   first and "—" against the rest, the first step's detail carrying the payment and the total
- *   owed. Under a hairline, the design's three buttons: the primary refreshes the state from the
- *   server (the design's "simulate next status" is the canvas driving itself, and the honest version
- *   of "show me where it is now" is to ask again); "Message the courier" and "Get help" have no
- *   endpoint, so they are the prototype mechanism's controls.
+ *   confirmed" when the kitchen has not been given one. Never a countdown: there is no ETA. Once
+ *   delivered it says "DELIVERED" over when, if the order says.
+ * * **The timeline card** — six steps (see `order-progress.ts`), each with the time it was reached
+ *   when the order carries one (`stepTimes`) and "—" otherwise, the first step's detail carrying the
+ *   payment and the total owed. Under a hairline, the design's buttons: the primary refreshes the
+ *   state from the server (the design's "simulate next status" is the canvas driving itself, and the
+ *   honest version of "show me where it is now" is to ask again); "Get help" and — only while the
+ *   food is on the road — "Message the courier" have no endpoint, so they are the prototype
+ *   mechanism's controls.
  * * **IN THIS ORDER** — a thumbnail, "qty × name" and the line total per line.
  * * **COURIER** — the contract names no courier, so the avatar is the generic one, the name slot
  *   says so, and the paragraph under the hairline is the real part: where it is going and the note
@@ -64,6 +71,8 @@ export interface TrackableOrder {
     /** `YYYY-MM-DD`, or empty when the kitchen has not been given one. */
     readonly deliveryDate: string;
     readonly placedAt: string;
+    /** When it reached each later step. A guest order carries none. */
+    readonly stepTimes?: OrderStepTimes | undefined;
 }
 
 /** The design's white card: `--card` on a `--line` hairline, 16px corners. */
@@ -114,6 +123,17 @@ export function OrderTracking({
                   .join(t('guest:order.separator'));
     const note = order.address.instructions?.trim() ?? '';
 
+    const times: Partial<Record<OrderProgressStep, string>> = {};
+    if (order.stepTimes !== undefined) {
+        for (const [step, at] of Object.entries(order.stepTimes) as [
+            keyof OrderStepTimes,
+            string | null,
+        ][]) {
+            if (at !== null) times[step] = formatter.formatDate(at, { timeStyle: 'short' });
+        }
+    }
+    const deliveredAt = order.state === 'delivered' ? (order.stepTimes?.delivered ?? null) : null;
+
     return (
         <View className="flex-col">
             {/* ── opening: eyebrow, the status as the headline, the window on the canopy ── */}
@@ -152,12 +172,20 @@ export function OrderTracking({
                     testID={`${testID}-window`}
                     className="min-w-[190px] flex-col gap-1 rounded-panel bg-surface-canopy px-5 py-4"
                 >
-                    <Eyebrow tone="canopy">{t('guest:order.arriving')}</Eyebrow>
+                    <Eyebrow tone="canopy">
+                        {deliveredAt === null ? t('guest:order.arriving') : t('guest:order.delivered')}
+                    </Eyebrow>
                     <RNText
                         testID={`${testID}-slot`}
                         className="font-display text-2xl font-bold tracking-display text-content-on-canopy text-start"
                     >
-                        {arriving}
+                        {deliveredAt === null
+                            ? arriving
+                            : formatter.formatDate(deliveredAt, {
+                                  weekday: 'short',
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                              })}
                     </RNText>
                 </View>
             </View>
@@ -177,6 +205,7 @@ export function OrderTracking({
                         testID={`${testID}-timeline`}
                         current={current}
                         placedAt={placedAt}
+                        times={times}
                         placedDetail={t('guest:order.steps.placed.detail', {
                             payment: paymentLabel,
                             total: formatMoney(formatter, order.total),
@@ -190,15 +219,19 @@ export function OrderTracking({
                         loading={refreshing}
                         onPress={onRefresh}
                     />
-                    <Button
-                        testID={`${testID}-message`}
-                        variant="secondary"
-                        label={t('guest:order.messageCourier')}
-                        accessibilityHint={t('marketplace:prototype.hint')}
-                        onPress={() => {
-                            prototype({ contract: 'POST /api/v1/orders/{order}/courier-messages' });
-                        }}
-                    />
+                    {order.state === 'out_for_delivery' ? (
+                        <Button
+                            testID={`${testID}-message`}
+                            variant="secondary"
+                            label={t('guest:order.messageCourier')}
+                            accessibilityHint={t('marketplace:prototype.hint')}
+                            onPress={() => {
+                                prototype({
+                                    contract: 'POST /api/v1/orders/{order}/courier-messages',
+                                });
+                            }}
+                        />
+                    ) : null}
                     <Button
                         testID={`${testID}-help`}
                         variant="quiet"

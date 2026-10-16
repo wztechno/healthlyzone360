@@ -12,6 +12,7 @@ import {
     Stack,
     Text,
     TextInputField,
+    useToast,
 } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -23,6 +24,7 @@ import {
     toFailure,
     useClaimDriverJobMutation,
     useDeliverDriverJobMutation,
+    usePickUpDriverJobMutation,
     useDriverJobsQuery,
 } from '../../data/driver-jobs-hooks.ts';
 import { useOnlineStatus } from '../../online/online-status.tsx';
@@ -78,7 +80,13 @@ import { useOnlineStatus } from '../../online/online-status.tsx';
  * honestly means here.
  *
  * After a successful stamp the run sheet re-reads and the job leaves the list, because the endpoint
- * excludes terminal jobs. That is the confirmation — no toast claims something the server did not.
+ * excludes terminal jobs, and a toast says so — once the server has answered, never before.
+ *
+ * ## Picked up comes first (HA-19)
+ *
+ * A run the driver holds but has not collected offers **Picked up**, not Mark delivered: pressing it
+ * is what tells the customer their food is on the road. Only a run that is `in_transit` offers
+ * Mark delivered. Picked up is a single tap — it is undone by nobody and costs nothing if early.
  *
  * ## Phone first
  *
@@ -156,6 +164,8 @@ function DriverJobs() {
     const jobs = useDriverJobsQuery(true, { refetchInterval: online ? DRIVER_POLL_MS : false });
     const deliver = useDeliverDriverJobMutation();
     const claim = useClaimDriverJobMutation();
+    const pickUp = usePickUpDriverJobMutation();
+    const toast = useToast();
 
     /** The job the confirmation is open for. `null` closes the dialog. */
     const [delivering, setDelivering] = useState<DriverJob | null>(null);
@@ -164,9 +174,10 @@ function DriverJobs() {
     const listFailure = toFailure(jobs.error);
     const actionFailure = toFailure(deliver.error);
     const claimFailure = toFailure(claim.error);
+    const pickUpFailure = toFailure(pickUp.error);
     const rows = jobs.data?.jobs ?? [];
     const available = jobs.data?.available ?? [];
-    const busy = deliver.isPending || claim.isPending;
+    const busy = deliver.isPending || claim.isPending || pickUp.isPending;
 
     function openDeliver(job: DriverJob) {
         deliver.reset();
@@ -181,9 +192,19 @@ function DriverJobs() {
 
     function submitDeliver() {
         if (delivering === null) return;
+        const reference = delivering.orderNumber ?? String(delivering.orderId);
         deliver.mutate(
             { jobId: delivering.id, notes: notes.trim() === '' ? undefined : notes },
-            { onSuccess: closeDeliver },
+            {
+                onSuccess: () => {
+                    closeDeliver();
+                    toast.show({
+                        testID: 'driver-jobs-delivered',
+                        tone: 'success',
+                        message: t('kitchen:driver.deliveredToast', { reference }),
+                    });
+                },
+            },
         );
     }
 
@@ -212,6 +233,12 @@ function DriverJobs() {
              * Out here rather than inside the pool, because the usual failure — somebody else took
              * the run — re-reads the sheet and can empty the pool the message would have lived in.
              */}
+            {pickUpFailure === null ? null : (
+                <Text testID="driver-jobs-pick-up-error" tone="danger">
+                    {pickUpFailure.message}
+                </Text>
+            )}
+
             {claimFailure === null ? null : (
                 <Text testID="driver-jobs-claim-error" tone="danger">
                     {claimFailure.code === 'resource.conflict'
@@ -253,8 +280,14 @@ function DriverJobs() {
                                     job={job}
                                     locale={locale}
                                     disabled={busy}
-                                    action="deliver"
-                                    onAction={openDeliver}
+                                    action={job.status === 'assigned' ? 'pickUp' : 'deliver'}
+                                    onAction={(picked) => {
+                                        if (picked.status === 'assigned') {
+                                            pickUp.mutate(picked.id);
+                                        } else {
+                                            openDeliver(picked);
+                                        }
+                                    }}
                                 />
                             ))}
                         </Stack>
@@ -362,14 +395,20 @@ function statusTone(status: DriverJob['status']): BadgeTone {
     }
 }
 
+const ACTION_LABEL = {
+    pickUp: 'kitchen:driver.pickUp',
+    deliver: 'kitchen:driver.deliver',
+    claim: 'kitchen:driver.claim',
+} as const;
+
 interface JobCardProps {
     readonly job: DriverJob;
     /** The reader's locale, for the area name. Passed down rather than read again per card. */
     readonly locale: string;
     /** A stamp or a claim is in flight — every action button waits for it. */
     readonly disabled: boolean;
-    /** Deliver one of the caller's own runs, or claim one from the pool. */
-    readonly action: 'deliver' | 'claim';
+    /** Collect or deliver one of the caller's own runs, or claim one from the pool. */
+    readonly action: 'pickUp' | 'deliver' | 'claim';
     readonly onAction: (job: DriverJob) => void;
 }
 
@@ -487,12 +526,18 @@ function JobCard({ job, locale, disabled, action, onAction }: JobCardProps) {
                     </Text>
                 )}
 
+                {job.pickedUpAt === null ? null : (
+                    <Text variant="caption" tone="secondary" testID={`${testID}-picked-up-at`}>
+                        {t('kitchen:driver.pickedUpAt', {
+                            at: formatter.formatDate(job.pickedUpAt, { timeStyle: 'short' }),
+                        })}
+                    </Text>
+                )}
+
                 <Button
-                    testID={`${testID}-${action}`}
+                    testID={`${testID}-${action === 'pickUp' ? 'pick-up' : action}`}
                     block
-                    label={t(
-                        action === 'deliver' ? 'kitchen:driver.deliver' : 'kitchen:driver.claim',
-                    )}
+                    label={t(ACTION_LABEL[action])}
                     disabled={disabled}
                     onPress={() => {
                         onAction(job);

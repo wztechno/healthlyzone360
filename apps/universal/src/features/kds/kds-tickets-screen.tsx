@@ -467,8 +467,19 @@ function Ticket({ order, now, locale, canManage, pending, disabled, onBump }: Ti
                             onBump(order, 'ready');
                         }}
                     />
+                ) : canFulfilKitchenOrder(order.status) && order.fulfilmentType === 'delivery' ? (
+                    // A delivery leaves with a driver, and it is the driver's Picked up that puts it
+                    // on the road (HA-19) — so the board shows where the run is rather than offering
+                    // a Handed over that would tell the customer it had arrived.
+                    <Text variant="caption" tone="secondary" testID={`${testID}-driver`}>
+                        {t(
+                            (order.deliveryRun?.pickedUpAt ?? null) === null
+                                ? 'kitchen:kds.waitingForDriver'
+                                : 'kitchen:kds.withDriver',
+                        )}
+                    </Text>
                 ) : canFulfilKitchenOrder(order.status) ? (
-                    // Cooked and waiting: handing it over is the step that fulfils it.
+                    // Cooked and waiting for its customer: handing it over is the step that fulfils it.
                     <Button
                         testID={`${testID}-handed-over`}
                         block

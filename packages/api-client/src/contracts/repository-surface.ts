@@ -350,7 +350,7 @@ export const REPOSITORY_SURFACE = {
         'updateCustomer',
     ],
     kitchenQuotations: ['getQuotation', 'listQuotations', 'quoteQuotation'],
-    driverJobs: ['claimJob', 'deliverJob', 'listJobs'],
+    driverJobs: ['claimJob', 'deliverJob', 'listJobs', 'pickUpJob'],
     platformAdmin: [
         'createKitchen',
         'getKitchen',

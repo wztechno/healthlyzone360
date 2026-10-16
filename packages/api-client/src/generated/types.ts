@@ -7989,11 +7989,31 @@ export type CustomerOrder = {
      */
     ready_at?: string | null;
     fulfilled_at: string | null;
+    /**
+     * When the driver collected the food — the order is out for delivery from here. `null` until then, and always on a pickup or counter order.
+     */
+    out_for_delivery_at?: string | null;
+    /**
+     * When the driver handed it over. Times only; who drove it is an employee's name and is not served to a customer.
+     */
+    delivered_at?: string | null;
     cancelled_at: string | null;
     cancellation_reason: CancellationReason | null;
     line_count: number;
     lines: Array<CustomerOrderLine>;
     created_at: string | null;
+};
+
+export type KitchenOrderDeliveryRun = {
+    status: DeliveryJobStatus;
+    tracking_status: DeliveryJobTrackingStatus;
+    /**
+     * The driver's name as their profile spells it. Null before anybody has the run, or when their profile has no name.
+     */
+    driver_name: string | null;
+    assigned_at: string | null;
+    picked_up_at: string | null;
+    delivered_at: string | null;
 };
 
 /**
@@ -8044,6 +8064,10 @@ export type KitchenOrder = {
     fulfilled_at: string | null;
     cancelled_at: string | null;
     cancellation_reason: CancellationReason | null;
+    /**
+     * The order's delivery run. Null on a pickup or counter order, and on a delivery order not yet confirmed — a run is projected on confirm.
+     */
+    delivery_run?: KitchenOrderDeliveryRun | null;
     created_by: string | null;
     /**
      * The member of staff who took this order **for** somebody else, and
@@ -11094,6 +11118,10 @@ export type DriverJob = {
      * When this run was handed to the caller. `null` on a job nobody has assigned.
      */
     assigned_at: string | null;
+    /**
+     * When the caller said they had collected the food (`POST /driver/jobs/{job}/pick-up`). `null` until then.
+     */
+    picked_up_at: string | null;
     delivery: DriverJobDelivery;
 };
 
@@ -32652,6 +32680,100 @@ export type ClaimDriverJobResponses = {
 };
 
 export type ClaimDriverJobResponse = ClaimDriverJobResponses[keyof ClaimDriverJobResponses];
+
+export type PickUpDriverJobData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery job identifier. On the driver routes, one that is not the
+         * caller's own answers 404, decided before the request body is looked at;
+         * on the dispatcher's `assign`, one belonging to another organisation
+         * answers 404 for the same reason — a 403 would confirm that the
+         * identifier names something real.
+         *
+         */
+        job: Uuid;
+    };
+    query?: never;
+    url: '/driver/jobs/{job}/pick-up';
+};
+
+export type PickUpDriverJobErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type PickUpDriverJobError = PickUpDriverJobErrors[keyof PickUpDriverJobErrors];
+
+export type PickUpDriverJobResponses = {
+    /**
+     * The job, now on its way.
+     */
+    200: {
+        data: {
+            job: {
+                id: Uuid;
+                /**
+                 * Always `in_transit` on success.
+                 */
+                status: DeliveryJobStatus;
+            };
+        };
+        meta: Meta;
+    };
+};
+
+export type PickUpDriverJobResponse = PickUpDriverJobResponses[keyof PickUpDriverJobResponses];
 
 export type DeliverDriverJobData = {
     body?: DeliverDriverJobRequest;

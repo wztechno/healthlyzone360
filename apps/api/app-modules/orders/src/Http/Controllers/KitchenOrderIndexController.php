@@ -8,6 +8,7 @@ use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
 use Healthy360\Orders\Presenters\OrderPresenter;
+use Healthy360\Orders\Services\OrderDeliveryRuns;
 use Healthy360\Orders\Services\OrderLocator;
 use Healthy360\Orders\Services\OrderQuery;
 use Healthy360\Support\Api\ApiResponse;
@@ -57,6 +58,7 @@ final class KitchenOrderIndexController
         private readonly OrderLocator $locator,
         private readonly OrderQuery $orders,
         private readonly OrderPresenter $presenter,
+        private readonly OrderDeliveryRuns $runs,
     ) {}
 
     /**
@@ -76,11 +78,13 @@ final class KitchenOrderIndexController
 
         $page = CursorPage::page($query->get(), $limit);
         $lines = $this->linesFor($page['items']->modelKeys());
+        $runs = $this->runs->forOrders(array_map('strval', $page['items']->modelKeys()));
 
         return ApiResponse::data(
             $page['items']->map(fn (Order $order): array => $this->presenter->kitchen(
                 $order,
                 $lines[(string) $order->getKey()] ?? [],
+                $runs[(string) $order->getKey()] ?? null,
             ))->all(),
             $page['meta'],
         );

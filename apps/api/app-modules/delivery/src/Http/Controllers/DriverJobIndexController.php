@@ -183,6 +183,7 @@ final class DriverJobIndexController
      *     status: string,
      *     tracking_status: string,
      *     assigned_at: string|null,
+     *     picked_up_at: string|null,
      *     delivery: array{
      *         line_one: string|null,
      *         building: string|null,
@@ -206,6 +207,7 @@ final class DriverJobIndexController
             'status' => $job->status,
             'tracking_status' => $job->tracking_status,
             'assigned_at' => $job->assigned_at?->utc()->toIso8601String(),
+            'picked_up_at' => $job->picked_up_at?->utc()->toIso8601String(),
             'delivery' => [
                 'line_one' => $this->text($job, 'delivery_line_one'),
                 // The half of the snapshot a courier navigates by: the street

@@ -153,6 +153,8 @@ export interface DriverJob {
     readonly trackingStatus: DriverJobTrackingStatus;
     /** When this run was handed to the caller. `null` on a job nobody has assigned. */
     readonly assignedAt: IsoDateTime | null;
+    /** When the caller said they had collected the food. `null` until they press Picked up. */
+    readonly pickedUpAt: IsoDateTime | null;
     /** Never null itself — see {@link DriverJobDelivery}, whose every field is. */
     readonly delivery: DriverJobDelivery;
 }
@@ -186,6 +188,12 @@ export interface DriverJobsRepository {
      * re-reads either way.
      */
     claimJob(jobId: string): Promise<void>;
+
+    /**
+     * "Picked up" — the caller has the food and is on their way. Moves the run to `in_transit` and
+     * the customer's order to "Out for delivery". `resource.conflict` when it was already picked up.
+     */
+    pickUpJob(jobId: string): Promise<void>;
 
     /**
      * Stamp a job delivered, optionally with proof-of-delivery notes.

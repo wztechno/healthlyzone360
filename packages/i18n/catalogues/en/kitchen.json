@@ -156,7 +156,12 @@
             "statAwaitingCaption": "somebody is waiting",
             "statConfirmedCaption": "in the kitchen",
             "statFulfilledCaption": "handed over",
-            "metricFulfilled": "Fulfilled"
+            "metricFulfilled": "Fulfilled",
+            "readyAt": "Ready",
+            "pickedUpAt": "Out for delivery",
+            "deliveredAt": "Delivered",
+            "driver": "Driver",
+            "driverNone": "Nobody yet"
         },
         "quotations": {
             "title": "Quotations",
@@ -1615,7 +1620,9 @@
         "noBranchTitle": "No kitchen chosen",
         "noBranchBody": "Choose the branch this screen is displaying before the board can show its tickets.",
         "mayContain": "May contain {{allergen}}",
-        "handedOver": "Handed over"
+        "handedOver": "Handed over",
+        "waitingForDriver": "Waiting for the driver",
+        "withDriver": "Out with the driver"
     },
     "driver": {
         "title": "Your deliveries",
@@ -1651,12 +1658,15 @@
             "cancelled": "Cancelled"
         },
         "tracking": {
-            "awaiting_assignment": "Customer told: waiting for a driver",
+            "awaiting_assignment": "Customer told: not on its way yet",
             "picked_up": "Customer told: collected",
             "en_route": "Customer told: on the way",
             "arrived": "Customer told: arrived",
             "delivered": "Customer told: delivered"
-        }
+        },
+        "pickUp": "Picked up",
+        "pickedUpAt": "Picked up at {{at}}",
+        "deliveredToast": "Delivered. Order {{reference}} is closed."
     },
     "desk": {
         "title": "Order desk",

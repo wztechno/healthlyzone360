@@ -69,6 +69,7 @@ function wireJob(overrides: Record<string, unknown> = {}) {
         status: 'assigned',
         tracking_status: 'awaiting_assignment',
         assigned_at: '2026-08-16T06:40:00+00:00',
+        picked_up_at: null,
         delivery: wireDelivery(),
         ...overrides,
     };
@@ -207,6 +208,27 @@ describe('createApiDriverJobsRepository — claimJob', () => {
         expect(calls[0]?.path).toBe(`/driver/jobs/${JOB_UUID}/claim`);
 
         await expect(repository.claimJob(JOB_UUID)).rejects.toSatisfy(
+            (caught: unknown) => asApiFailure(caught)?.code === 'resource.conflict',
+        );
+    });
+});
+
+describe('createApiDriverJobsRepository — pickUpJob', () => {
+    it('posts to the pick-up route with no body, and passes a second press through as a conflict', async () => {
+        const { repository, calls } = harness([
+            { status: 200, body: { data: { job: { id: JOB_UUID, status: 'in_transit' } } } },
+            {
+                status: 409,
+                body: { error: { code: 'resource.conflict', message: 'Already.', details: {} } },
+            },
+        ]);
+
+        await repository.pickUpJob(JOB_UUID);
+
+        expect(calls[0]?.method).toBe('POST');
+        expect(calls[0]?.path).toBe(`/driver/jobs/${JOB_UUID}/pick-up`);
+
+        await expect(repository.pickUpJob(JOB_UUID)).rejects.toSatisfy(
             (caught: unknown) => asApiFailure(caught)?.code === 'resource.conflict',
         );
     });

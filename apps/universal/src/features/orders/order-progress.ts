@@ -4,20 +4,17 @@ import type { BadgeTone } from '@healthy360/design-system';
 /**
  * Where an order is on its way to the door, as pure functions over the server's one `state` field.
  *
- * ## The timeline is the states, plus the one step they imply
+ * ## The timeline is the states
  *
  * The design draws six steps — placed, confirmed by the kitchen, cooking, ready for pickup, out for
- * delivery, delivered — with a time against each and a courier's name on one of them. The contract
- * publishes a single state and the moment the order was placed: no per-step timestamps, no courier,
- * and no "ready" state. Five of the six steps are those states. The sixth, **ready for pickup**, is
- * never a state of its own, so it is never the current step; it is drawn done exactly when the order
- * is past it (out for delivery or delivered), which is a fact the state does establish — an order
- * cannot leave the kitchen before it is packed — and still to come otherwise.
+ * delivery, delivered — with a time against each. Each step is a state the order can be on.
  *
- * An account order (`PlacedOrder`) reports fewer states: its wire has placed, confirmed, preparing,
- * fulfilled (read as `delivered`) and cancelled, and no reporter for the drive. Its timeline moves
- * from "cooking" straight to "delivered", and the steps between stay "still to come" until then
- * rather than being ticked on a guess.
+ * An account order (`PlacedOrder`) reads its step from the wire's status and the stamps beside it
+ * (HA-19): the kitchen's Ready makes it **ready for pickup**, the driver's Picked up makes it **out
+ * for delivery**, and only the driver's deliver (or the kitchen closing it by hand) makes it
+ * **delivered**. Nothing stamps **cooking** yet, so a confirmed order moves from "confirmed" to
+ * "ready" and the cooking dot is drawn done as it passes. A guest order still reports placed,
+ * confirmed and delivered only.
  *
  * `cancelled` is not a step. It can happen from any of the first three and says nothing about how
  * far the order got, so it is reported instead of the timeline rather than as a seventh dot.
@@ -62,6 +59,7 @@ export const ORDER_STATE_TONE: Readonly<Record<GuestOrderState, BadgeTone>> = {
     placed: 'warning',
     confirmed: 'info',
     preparing: 'warning',
+    ready_for_pickup: 'success',
     out_for_delivery: 'success',
     delivered: 'neutral',
     cancelled: 'neutral',

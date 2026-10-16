@@ -84,6 +84,24 @@ export function useClaimDriverJobMutation(): UseMutationResult<void, unknown, st
     });
 }
 
+/**
+ * "Picked up" — the driver has the food (HA-19). Re-reads the sheet on failure too: the usual one is
+ * `resource.conflict` from a second tap, and the card should show where the run really stands. The
+ * kitchen's lists are re-read because the order now reads "Out for delivery" there.
+ */
+export function usePickUpDriverJobMutation(): UseMutationResult<void, unknown, string> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (jobId: string) => repositories.driverJobs.pickUpJob(jobId),
+        onSettled: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.driverJobs.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
+        },
+    });
+}
+
 /** What the deliver dialog collects: which job, and whatever the driver typed as proof. */
 export interface DeliverDriverJobCommand {
     readonly jobId: string;

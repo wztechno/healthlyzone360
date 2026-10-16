@@ -8,6 +8,8 @@ import type {
     PriceListId,
 } from '@healthy360/domain-types';
 
+import type { DriverJobStatus, DriverJobTrackingStatus } from './driver-jobs.ts';
+
 /**
  * The kitchen's own view of the orders placed against it — the seller side of the same rows the
  * customer reads through `CommerceRepository`.
@@ -146,6 +148,17 @@ export interface KitchenOrderDelivery {
     readonly zoneId: DeliveryZoneId | null;
 }
 
+/** A delivery order's run, as the kitchen sees it (HA-19). */
+export interface KitchenOrderDeliveryRun {
+    readonly status: DriverJobStatus;
+    readonly trackingStatus: DriverJobTrackingStatus;
+    /** The driver's name as their profile spells it; `null` before anybody has the run. */
+    readonly driverName: string | null;
+    readonly assignedAt: IsoDateTime | null;
+    readonly pickedUpAt: IsoDateTime | null;
+    readonly deliveredAt: IsoDateTime | null;
+}
+
 /**
  * How this order leaves the kitchen, decided at placement and **never afterwards**.
  *
@@ -191,6 +204,12 @@ export interface KitchenOrder {
     readonly fulfilledAt: IsoDateTime | null;
     readonly cancelledAt: IsoDateTime | null;
     readonly cancellationReason: KitchenOrderCancellationReason | null;
+    /**
+     * The order's delivery run — who is driving it and when they were given it, collected it and
+     * handed it over. `null` on a pickup or counter order and on a delivery order not yet confirmed
+     * (a run is projected on confirm); absent on payloads that predate it.
+     */
+    readonly deliveryRun?: KitchenOrderDeliveryRun | null;
     /** The `If-Match` validator every lifecycle action must carry. See the file header. */
     readonly lockVersion: number;
     /** The server's own count, so a collapsed list row can say "4 items" without holding the lines. */

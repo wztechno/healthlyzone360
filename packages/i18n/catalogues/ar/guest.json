@@ -86,7 +86,8 @@
             "preparing": "قيد الطهي الآن",
             "out_for_delivery": "في الطريق إليك",
             "delivered": "تم التوصيل",
-            "cancelled": "أُلغي الطلب"
+            "cancelled": "أُلغي الطلب",
+            "ready_for_pickup": "جاهز"
         },
         "lead": {
             "placed": "بانتظار أن يقبله المطبخ.",
@@ -94,7 +95,8 @@
             "preparing": "المطبخ يطهو طلبك ويغلّفه.",
             "out_for_delivery": "غادر المطبخ وهو في طريقه إليك.",
             "delivered": "تم تسليمه. بالهناء والشفاء.",
-            "cancelled": "لن يُطهى شيء ولن يُوصَل."
+            "cancelled": "لن يُطهى شيء ولن يُوصَل.",
+            "ready_for_pickup": "طُهي وغُلّف وهو جاهز لمغادرة المطبخ."
         },
         "steps": {
             "placed": {
@@ -133,7 +135,8 @@
             "preparing": "قيد التحضير",
             "out_for_delivery": "في الطريق إليك",
             "delivered": "تم التوصيل",
-            "cancelled": "مُلغى"
+            "cancelled": "مُلغى",
+            "ready_for_pickup": "جاهز للاستلام"
         },
         "number": "الطلب رقم ",
         "separator": " · ",
@@ -146,7 +149,8 @@
         "courierName": "مندوب التوصيل",
         "courierDetail": "لا تُعرض بيانات المندوب في هذه الصفحة.",
         "droppingAt": "التسليم إلى {{address}}.",
-        "noteOnFile": "ملاحظة محفوظة:"
+        "noteOnFile": "ملاحظة محفوظة:",
+        "delivered": "تم التوصيل"
     },
     "convert": {
         "title": "هل تريد الاحتفاظ بهذا الطلب في حساب؟",

@@ -62,6 +62,13 @@ export function createApiDriverJobsRepository(transport: Transport): DriverJobsR
             });
         },
 
+        async pickUpJob(jobId: string): Promise<void> {
+            await transport.request({
+                method: 'POST',
+                path: `/driver/jobs/${encodeURIComponent(jobId)}/pick-up`,
+            });
+        },
+
         async deliverJob(jobId: string, request: DeliverDriverJobRequest = {}): Promise<void> {
             await transport.request({
                 method: 'POST',

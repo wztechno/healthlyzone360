@@ -180,7 +180,12 @@
             "statAwaitingCaption": "هناك من ينتظر",
             "statConfirmedCaption": "في المطبخ",
             "statFulfilledCaption": "تم التسليم",
-            "metricFulfilled": "منفَّذة"
+            "metricFulfilled": "منفَّذة",
+            "readyAt": "جاهز",
+            "pickedUpAt": "خرج للتوصيل",
+            "deliveredAt": "سُلِّم",
+            "driver": "السائق",
+            "driverNone": "لا أحد بعد"
         },
         "quotations": {
             "title": "عروض الأسعار",
@@ -1838,7 +1843,9 @@
         "noBranchTitle": "لم يُحدَّد فرع",
         "noBranchBody": "اختر الفرع الذي تعرضه هذه الشاشة كي تظهر تذاكره.",
         "mayContain": "قد يحتوي على {{allergen}}",
-        "handedOver": "تم التسليم"
+        "handedOver": "تم التسليم",
+        "waitingForDriver": "بانتظار السائق",
+        "withDriver": "مع السائق"
     },
     "driver": {
         "title": "توصيلاتك",
@@ -1874,12 +1881,15 @@
             "cancelled": "أُلغيت"
         },
         "tracking": {
-            "awaiting_assignment": "أُبلغ العميل: بانتظار سائق",
+            "awaiting_assignment": "أُبلغ العميل: لم يخرج بعد",
             "picked_up": "أُبلغ العميل: تم الاستلام",
             "en_route": "أُبلغ العميل: في الطريق",
             "arrived": "أُبلغ العميل: وصل السائق",
             "delivered": "أُبلغ العميل: تم التسليم"
-        }
+        },
+        "pickUp": "تم الاستلام",
+        "pickedUpAt": "استلمته في {{at}}",
+        "deliveredToast": "تم التسليم. أُغلق الطلب {{reference}}."
     },
     "desk": {
         "title": "مكتب الطلبات",

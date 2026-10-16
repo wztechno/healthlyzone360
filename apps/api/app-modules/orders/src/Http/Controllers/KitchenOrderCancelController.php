@@ -8,6 +8,7 @@ use Healthy360\Orders\Enums\CancellationReason;
 use Healthy360\Orders\Http\Concerns\ReadsPrecondition;
 use Healthy360\Orders\Http\Requests\CancelOrderRequest;
 use Healthy360\Orders\Presenters\OrderPresenter;
+use Healthy360\Orders\Services\OrderDeliveryRuns;
 use Healthy360\Orders\Services\OrderLifecycle;
 use Healthy360\Orders\Services\OrderLocator;
 use Healthy360\Support\Api\ApiResponse;
@@ -46,6 +47,7 @@ final class KitchenOrderCancelController
         private readonly OrderLocator $locator,
         private readonly OrderLifecycle $lifecycle,
         private readonly OrderPresenter $presenter,
+        private readonly OrderDeliveryRuns $runs,
     ) {}
 
     /**
@@ -65,7 +67,7 @@ final class KitchenOrderCancelController
 
         $lines = $cancelled->lines()->orderBy('created_at')->orderBy('id')->get();
 
-        return ApiResponse::data(['order' => $this->presenter->kitchen($cancelled, $lines)])
+        return ApiResponse::data(['order' => $this->presenter->kitchen($cancelled, $lines, $this->runs->forOrder((string) $cancelled->getKey()))])
             ->withHeaders(['ETag' => '"'.$cancelled->lock_version.'"']);
     }
 }

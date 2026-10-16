@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8243 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8257 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2647,6 +2647,7 @@ export interface NamespaceKeys {
     | 'order.courierDetail'
     | 'order.courierName'
     | 'order.courierTitle'
+    | 'order.delivered'
     | 'order.droppingAt'
     | 'order.getHelp'
     | 'order.headline.cancelled'
@@ -2655,6 +2656,7 @@ export interface NamespaceKeys {
     | 'order.headline.out_for_delivery'
     | 'order.headline.placed'
     | 'order.headline.preparing'
+    | 'order.headline.ready_for_pickup'
     | 'order.itemsTitle'
     | 'order.keepReference'
     | 'order.lead.cancelled'
@@ -2663,6 +2665,7 @@ export interface NamespaceKeys {
     | 'order.lead.out_for_delivery'
     | 'order.lead.placed'
     | 'order.lead.preparing'
+    | 'order.lead.ready_for_pickup'
     | 'order.lineLabel'
     | 'order.messageCourier'
     | 'order.noTime'
@@ -2683,6 +2686,7 @@ export interface NamespaceKeys {
     | 'order.states.out_for_delivery'
     | 'order.states.placed'
     | 'order.states.preparing'
+    | 'order.states.ready_for_pickup'
     | 'order.steps.confirmed.detail'
     | 'order.steps.confirmed.title'
     | 'order.steps.delivered.detail'
@@ -3400,6 +3404,7 @@ export interface NamespaceKeys {
     | 'driver.deliverConfirm'
     | 'driver.deliverDismiss'
     | 'driver.deliverTitle'
+    | 'driver.deliveredToast'
     | 'driver.directions'
     | 'driver.emptyBody'
     | 'driver.emptyTitle'
@@ -3412,6 +3417,8 @@ export interface NamespaceKeys {
     | 'driver.orderLabel'
     | 'driver.orderReference'
     | 'driver.phone'
+    | 'driver.pickUp'
+    | 'driver.pickedUpAt'
     | 'driver.status.assigned'
     | 'driver.status.cancelled'
     | 'driver.status.delivered'
@@ -3681,6 +3688,8 @@ export interface NamespaceKeys {
     | 'kds.start'
     | 'kds.subtitle'
     | 'kds.title'
+    | 'kds.waitingForDriver'
+    | 'kds.withDriver'
     | 'list.actionHeader'
     | 'list.allLoaded'
     | 'list.archive'
@@ -4159,6 +4168,7 @@ export interface NamespaceKeys {
     | 'ops.orders.conflictBody'
     | 'ops.orders.conflictRefresh'
     | 'ops.orders.conflictTitle'
+    | 'ops.orders.deliveredAt'
     | 'ops.orders.deliveryAddress'
     | 'ops.orders.deliveryArea'
     | 'ops.orders.deliveryDate'
@@ -4168,6 +4178,8 @@ export interface NamespaceKeys {
     | 'ops.orders.deliveryZone'
     | 'ops.orders.detailLoadErrorTitle'
     | 'ops.orders.detailTitle'
+    | 'ops.orders.driver'
+    | 'ops.orders.driverNone'
     | 'ops.orders.emptyBody'
     | 'ops.orders.emptyTitle'
     | 'ops.orders.filterAll'
@@ -4192,7 +4204,9 @@ export interface NamespaceKeys {
     | 'ops.orders.noAllergens'
     | 'ops.orders.noDeliveryFee'
     | 'ops.orders.nothingToDo'
+    | 'ops.orders.pickedUpAt'
     | 'ops.orders.placedAt'
+    | 'ops.orders.readyAt'
     | 'ops.orders.reason.addressUnreachable'
     | 'ops.orders.reason.customerRequested'
     | 'ops.orders.reason.deliveryUnavailable'
@@ -10910,6 +10924,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:order.courierDetail',
   'guest:order.courierName',
   'guest:order.courierTitle',
+  'guest:order.delivered',
   'guest:order.droppingAt',
   'guest:order.getHelp',
   'guest:order.headline.cancelled',
@@ -10918,6 +10933,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:order.headline.out_for_delivery',
   'guest:order.headline.placed',
   'guest:order.headline.preparing',
+  'guest:order.headline.ready_for_pickup',
   'guest:order.itemsTitle',
   'guest:order.keepReference',
   'guest:order.lead.cancelled',
@@ -10926,6 +10942,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:order.lead.out_for_delivery',
   'guest:order.lead.placed',
   'guest:order.lead.preparing',
+  'guest:order.lead.ready_for_pickup',
   'guest:order.lineLabel',
   'guest:order.messageCourier',
   'guest:order.noTime',
@@ -10946,6 +10963,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:order.states.out_for_delivery',
   'guest:order.states.placed',
   'guest:order.states.preparing',
+  'guest:order.states.ready_for_pickup',
   'guest:order.steps.confirmed.detail',
   'guest:order.steps.confirmed.title',
   'guest:order.steps.delivered.detail',
@@ -11661,6 +11679,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:driver.deliverConfirm',
   'kitchen:driver.deliverDismiss',
   'kitchen:driver.deliverTitle',
+  'kitchen:driver.deliveredToast',
   'kitchen:driver.directions',
   'kitchen:driver.emptyBody',
   'kitchen:driver.emptyTitle',
@@ -11673,6 +11692,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:driver.orderLabel',
   'kitchen:driver.orderReference',
   'kitchen:driver.phone',
+  'kitchen:driver.pickUp',
+  'kitchen:driver.pickedUpAt',
   'kitchen:driver.status.assigned',
   'kitchen:driver.status.cancelled',
   'kitchen:driver.status.delivered',
@@ -11942,6 +11963,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:kds.start',
   'kitchen:kds.subtitle',
   'kitchen:kds.title',
+  'kitchen:kds.waitingForDriver',
+  'kitchen:kds.withDriver',
   'kitchen:list.actionHeader',
   'kitchen:list.allLoaded',
   'kitchen:list.archive',
@@ -12420,6 +12443,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.conflictBody',
   'kitchen:ops.orders.conflictRefresh',
   'kitchen:ops.orders.conflictTitle',
+  'kitchen:ops.orders.deliveredAt',
   'kitchen:ops.orders.deliveryAddress',
   'kitchen:ops.orders.deliveryArea',
   'kitchen:ops.orders.deliveryDate',
@@ -12429,6 +12453,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.deliveryZone',
   'kitchen:ops.orders.detailLoadErrorTitle',
   'kitchen:ops.orders.detailTitle',
+  'kitchen:ops.orders.driver',
+  'kitchen:ops.orders.driverNone',
   'kitchen:ops.orders.emptyBody',
   'kitchen:ops.orders.emptyTitle',
   'kitchen:ops.orders.filterAll',
@@ -12453,7 +12479,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.noAllergens',
   'kitchen:ops.orders.noDeliveryFee',
   'kitchen:ops.orders.nothingToDo',
+  'kitchen:ops.orders.pickedUpAt',
   'kitchen:ops.orders.placedAt',
+  'kitchen:ops.orders.readyAt',
   'kitchen:ops.orders.reason.addressUnreachable',
   'kitchen:ops.orders.reason.customerRequested',
   'kitchen:ops.orders.reason.deliveryUnavailable',

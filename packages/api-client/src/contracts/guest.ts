@@ -195,6 +195,7 @@ export const GUEST_ORDER_STATES = [
     'placed',
     'confirmed',
     'preparing',
+    'ready_for_pickup',
     'out_for_delivery',
     'delivered',
     'cancelled',

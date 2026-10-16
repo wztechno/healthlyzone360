@@ -125,6 +125,8 @@ type StatusFilter = KitchenOrderStatus | 'all';
 
 /** The admin's one date style — "Oct 12, 2026", as every other kitchen page reads. */
 const MEDIUM_DATE: Intl.DateTimeFormatOptions = { dateStyle: 'medium' };
+/** A timeline step: the day and the minute, because "when did it leave" is a time question. */
+const STEP_TIME: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
 
 export function OrdersScreen() {
     return (
@@ -788,7 +790,7 @@ function OrderRecord({
                     <FactRow
                         testID="kitchen-orders-detail-placed-at"
                         label={t('kitchen:ops.orders.placedAt')}
-                        value={formatter.formatDate(shown.placedAt, MEDIUM_DATE)}
+                        value={formatter.formatDate(shown.placedAt, STEP_TIME)}
                     />
                     {/* The design states every step, recorded or not. */}
                     <FactRow
@@ -796,6 +798,37 @@ function OrderRecord({
                         label={t('kitchen:ops.orders.confirmedAt')}
                         value={stamp(shown.confirmedAt, t, formatter)}
                     />
+                    <FactRow
+                        testID="kitchen-orders-detail-ready-at"
+                        label={t('kitchen:ops.orders.readyAt')}
+                        value={stamp(shown.readyAt ?? null, t, formatter)}
+                    />
+                    {/*
+                     * A delivery's drive (HA-19): who has it, when they collected it and when they
+                     * handed it over. A pickup or counter order has no run and no rows for one.
+                     */}
+                    {shown.fulfilmentType !== 'delivery' ? null : (
+                        <>
+                            <FactRow
+                                testID="kitchen-orders-detail-driver"
+                                label={t('kitchen:ops.orders.driver')}
+                                value={
+                                    shown.deliveryRun?.driverName ??
+                                    t('kitchen:ops.orders.driverNone')
+                                }
+                            />
+                            <FactRow
+                                testID="kitchen-orders-detail-picked-up-at"
+                                label={t('kitchen:ops.orders.pickedUpAt')}
+                                value={stamp(shown.deliveryRun?.pickedUpAt ?? null, t, formatter)}
+                            />
+                            <FactRow
+                                testID="kitchen-orders-detail-delivered-at"
+                                label={t('kitchen:ops.orders.deliveredAt')}
+                                value={stamp(shown.deliveryRun?.deliveredAt ?? null, t, formatter)}
+                            />
+                        </>
+                    )}
                     <FactRow
                         testID="kitchen-orders-detail-fulfilled-at"
                         label={t('kitchen:ops.orders.fulfilledAt')}
@@ -805,7 +838,7 @@ function OrderRecord({
                         <FactRow
                             testID="kitchen-orders-detail-cancelled-at"
                             label={t('kitchen:ops.orders.cancelledAt')}
-                            value={formatter.formatDate(shown.cancelledAt, MEDIUM_DATE)}
+                            value={formatter.formatDate(shown.cancelledAt, STEP_TIME)}
                         />
                     )}
                     {shown.cancellationReason === null ? null : (
@@ -1034,7 +1067,7 @@ function money(
 function stamp(value: string | null, t: TFunction, formatter: Formatter): string {
     return value === null
         ? t('kitchen:common.notRecorded')
-        : formatter.formatDate(value, MEDIUM_DATE);
+        : formatter.formatDate(value, STEP_TIME);
 }
 
 /** "Delivery · 2026-09-14" — how it leaves and the day asked for. */
