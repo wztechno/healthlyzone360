@@ -48,6 +48,7 @@ import {
 } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { MealListing } from '../meal-listing.tsx';
+import { serverFieldErrors } from '../server-field-errors.ts';
 import { ProductEditScreen } from './product-edit-screen.tsx';
 import { RecipeEditScreen } from './recipe-edit-screen.tsx';
 
@@ -510,6 +511,12 @@ function CookedItemEditor({ item: routeItem, kind }: CookedItemEditScreenProps) 
      * the notice starts is a formulation for *this* item, and the page it lands on is the recipe's.
      */
     const startFailure = toFailure(createRecipe.error ?? linkMeal.error ?? linkProduct.error);
+    // This start has no fields of its own, so a refusal is said in the server's words rather than
+    // as "The submitted data is invalid." (BUG-06).
+    const startMessage =
+        startFailure === null
+            ? null
+            : (serverFieldErrors(startFailure).unplaced ?? startFailure.message);
     const starting = createRecipe.isPending || linkMeal.isPending || linkProduct.isPending;
 
     /*
@@ -582,9 +589,9 @@ function CookedItemEditor({ item: routeItem, kind }: CookedItemEditScreenProps) 
                 }
             />
 
-            {startFailure === null ? null : (
+            {startMessage === null ? null : (
                 <Text testID="kitchen-cooked-item-formulation-error" tone="danger">
-                    {startFailure.message}
+                    {startMessage}
                 </Text>
             )}
 

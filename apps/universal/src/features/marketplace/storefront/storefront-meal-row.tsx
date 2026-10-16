@@ -87,6 +87,7 @@ export function StorefrontMealRow({ meal, onOpen, onAdd, testID }: StorefrontMea
                     <EntityImage
                         testID={`${resolvedTestID}-image`}
                         assetId={meal.imagePlaceholderId}
+                        photoUrl={meal.photoUrl}
                         variant="card"
                         seed={meal.slug}
                         label={t('marketplace:menu.imageLabel', { meal: meal.name })}

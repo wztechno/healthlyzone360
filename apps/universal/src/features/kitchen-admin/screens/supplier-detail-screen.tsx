@@ -51,7 +51,9 @@ import { displayName } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { focusField } from '../field-focus.ts';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
-import { suppliedItemRowTestId } from '../ops-format.ts';
+import { suppliedItemRowTestId, supplierContactRowTestId } from '../ops-format.ts';
+import { serverFieldErrors } from '../server-field-errors.ts';
+import type { ServerFieldTarget } from '../server-field-errors.ts';
 import {
     SupplierContactCard,
     emptySupplierContact,
@@ -59,7 +61,10 @@ import {
     supplierContactInputs,
     supplierContactsWellFormed,
 } from '../supplier-contact-editor.tsx';
-import type { SupplierContactDraft } from '../supplier-contact-editor.tsx';
+import type {
+    SupplierContactDraft,
+    SupplierContactWireField,
+} from '../supplier-contact-editor.tsx';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
@@ -140,6 +145,15 @@ const SUPPLIER_STEPS: readonly SupplierStep[] = ['details', 'contacts', 'items']
  * Details alone — one step, which draws no progress row and saves with the frame's own Save.
  */
 const SUPPLIER_CREATE_STEPS: readonly SupplierStep[] = ['details'];
+
+/** A contact card's fields: wire name, the card's testID suffix, and the field's label key. */
+const CONTACT_FIELDS = [
+    ['name', 'name', 'kitchen:ops.suppliers.fieldContactName'],
+    ['role_title', 'role', 'kitchen:ops.suppliers.fieldContactRole'],
+    ['email', 'email', 'kitchen:ops.suppliers.fieldContactEmail'],
+    ['phone', 'phone', 'kitchen:ops.suppliers.fieldContactPhone'],
+    ['whatsapp_phone', 'whatsapp', 'kitchen:ops.suppliers.fieldContactWhatsapp'],
+] as const satisfies readonly (readonly [SupplierContactWireField, string, string])[];
 
 /** A stable empty set, so the memo below does not recompute on every render of a loading page. */
 const EMPTY_SUPPLIED_ITEMS: readonly SuppliedItem[] = [];
@@ -679,9 +693,81 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
     }
 
     const saveFailure = toFailure(update.error ?? create.error);
+    // What the server refused, put on the fields it named (BUG-06).
+    const server = serverFieldErrors(saveFailure, {
+        name_en: {
+            label: t('kitchen:bilingual.englishShort', {
+                field: t('kitchen:ops.suppliers.fieldName'),
+            }),
+            fieldId: 'kitchen-supplier-name-en',
+        },
+        name_ar: {
+            label: t('kitchen:bilingual.arabicShort', {
+                field: t('kitchen:ops.suppliers.fieldName'),
+            }),
+            fieldId: 'kitchen-supplier-name-ar',
+        },
+        code: { label: t('kitchen:ops.suppliers.fieldCode'), fieldId: 'kitchen-supplier-code' },
+        contact_email: {
+            label: t('kitchen:ops.suppliers.fieldEmail'),
+            fieldId: 'kitchen-supplier-email',
+        },
+        contact_phone: {
+            label: t('kitchen:ops.suppliers.fieldPhone'),
+            fieldId: 'kitchen-supplier-phone',
+        },
+        address: {
+            label: t('kitchen:ops.suppliers.fieldAddress'),
+            fieldId: 'kitchen-supplier-address',
+        },
+        payment_terms: {
+            label: t('kitchen:ops.suppliers.fieldPaymentTerms'),
+            fieldId: 'kitchen-supplier-payment-terms',
+        },
+        lead_time_days: {
+            label: t('kitchen:ops.suppliers.fieldLeadTime'),
+            fieldId: 'kitchen-supplier-lead-time',
+        },
+        notes: {
+            label: t('kitchen:ops.suppliers.fieldNotes'),
+            fieldId: 'kitchen-supplier-notes',
+        },
+    });
+
     const contactsFailure = toFailure(saveContacts.error);
+    // Row paths name the card by its position in the set that was sent, which is the order drawn.
+    const contactsServer = serverFieldErrors(
+        contactsFailure,
+        Object.fromEntries(
+            contacts.flatMap((draft, index) =>
+                CONTACT_FIELDS.map(
+                    ([field, suffix, labelKey]): readonly [string, ServerFieldTarget] => [
+                        `contacts.${String(index)}.${field}`,
+                        {
+                            label: t(labelKey),
+                            fieldId: `${supplierContactRowTestId(draft.key)}-${suffix}`,
+                        },
+                    ],
+                ),
+            ),
+        ),
+    );
     const contactsBlocked = !supplierContactsWellFormed(contacts);
+
     const linkFailure = toFailure(linkItem.error ?? unlinkItem.error);
+    // The reference is typed in two places; the open dialog is where a refused one was sent from.
+    const refFieldId =
+        editingRef === null ? 'kitchen-supplier-link-ref' : 'kitchen-supplier-item-ref-value';
+    const linkServer = serverFieldErrors(linkFailure, {
+        stock_item_id: {
+            label: t('kitchen:ops.suppliers.linkItemLabel'),
+            fieldId: 'kitchen-supplier-item-picker',
+        },
+        supplier_item_ref: {
+            label: t('kitchen:ops.suppliers.fieldItemRef'),
+            fieldId: refFieldId,
+        },
+    });
 
     /*
      * What stops the save, each naming the field that fixes it. A blank waits for Save to be
@@ -740,7 +826,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
         contacts: t('kitchen:ops.suppliers.sectionContacts'),
         items: t('kitchen:ops.suppliers.itemsTitle'),
     };
-    const detailsIssueCount = shownIssues.length;
+    const detailsIssueCount = shownIssues.length + server.items.length;
 
     const stepItems: readonly TabItem<SupplierStep>[] = (
         isCreating ? SUPPLIER_CREATE_STEPS : SUPPLIER_STEPS
@@ -854,20 +940,30 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                 }
                 errors={{
                     summary: t(
-                        shownIssues.every((entry) => entry.required)
+                        server.items.length === 0 && shownIssues.every((entry) => entry.required)
                             ? 'kitchen:forms.requiredCount'
                             : 'kitchen:forms.toFixCount',
-                        { count: shownIssues.length },
+                        { count: detailsIssueCount },
                     ),
-                    items: shownIssues.map((entry) => ({
-                        key: entry.key,
-                        label: entry.label,
-                        fieldId: entry.fieldId,
-                        onPress: () => {
-                            form.goTo('details');
-                            focusField(entry.fieldId);
-                        },
-                    })),
+                    items: [
+                        ...shownIssues.map((entry) => ({
+                            key: entry.key,
+                            label: entry.label,
+                            fieldId: entry.fieldId,
+                            onPress: () => {
+                                form.goTo('details');
+                                focusField(entry.fieldId);
+                            },
+                        })),
+                        // Save is pressed from the last step; the refused field is on Details.
+                        ...server.items.map((item) => ({
+                            ...item,
+                            onPress: () => {
+                                form.goTo('details');
+                                item.onPress();
+                            },
+                        })),
+                    ],
                 }}
                 steps={{
                     label: t('kitchen:editor.stepsLabel'),
@@ -887,13 +983,13 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                 />
             ) : null}
 
-            {saveFailure === null ? null : (
+            {saveFailure === null || (server.isValidation && server.unplaced === null) ? null : (
                 <Callout
                     testID="kitchen-supplier-save-error"
                     role="alert"
                     tone="danger"
                     title={t('kitchen:editor.saveError')}
-                    body={saveFailure.message}
+                    body={server.unplaced ?? saveFailure.message}
                 />
             )}
 
@@ -923,6 +1019,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 value={details.code}
                                 autoCapitalize="characters"
                                 disabled={!editable}
+                                {...server.flag('code')}
                                 onChangeText={(code) => {
                                     editDetails({ ...details, code });
                                 }}
@@ -945,7 +1042,12 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 }}
                                 {...(shows('name')
                                     ? { englishError: t('kitchen:forms.required') }
-                                    : {})}
+                                    : server.errorFor('name_en') === undefined
+                                      ? {}
+                                      : { englishError: server.errorFor('name_en') })}
+                                {...(server.errorFor('name_ar') === undefined
+                                    ? {}
+                                    : { arabicError: server.errorFor('name_ar') })}
                             />
 
                             <TextInputField
@@ -958,6 +1060,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                                 disabled={!editable}
+                                {...server.flag('contact_email')}
                                 onChangeText={(contactEmail) => {
                                     editDetails({ ...details, contactEmail });
                                 }}
@@ -972,6 +1075,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 value={details.contactPhone}
                                 keyboardType="phone-pad"
                                 disabled={!editable}
+                                {...server.flag('contact_phone')}
                                 onChangeText={(contactPhone) => {
                                     editDetails({ ...details, contactPhone });
                                 }}
@@ -1002,6 +1106,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 size="sm"
                                 value={details.paymentTerms}
                                 disabled={!editable}
+                                {...server.flag('payment_terms')}
                                 onChangeText={(paymentTerms) => {
                                     editDetails({ ...details, paymentTerms });
                                 }}
@@ -1022,6 +1127,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 {...(shows('lead-time')
                                     ? { error: t('kitchen:ops.suppliers.leadTimeInvalid') }
                                     : {})}
+                                {...server.flag('lead_time_days')}
                             />
 
                             <TextInputField
@@ -1035,6 +1141,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 multiline
                                 numberOfLines={3}
                                 disabled={!editable}
+                                {...server.flag('address')}
                                 onChangeText={(address) => {
                                     editDetails({ ...details, address });
                                 }}
@@ -1051,6 +1158,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 multiline
                                 numberOfLines={3}
                                 disabled={!editable}
+                                {...server.flag('notes')}
                                 onChangeText={(notes) => {
                                     editDetails({ ...details, notes });
                                 }}
@@ -1091,7 +1199,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                     role="alert"
                                     tone="danger"
                                     title={t('kitchen:editor.saveError')}
-                                    body={contactsFailure.message}
+                                    body={contactsServer.unplaced ?? contactsFailure.message}
                                 />
                             )}
 
@@ -1108,6 +1216,11 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                             position={index + 1}
                                             total={contacts.length}
                                             canManage={editable}
+                                            serverError={(field) =>
+                                                contactsServer.errorFor(
+                                                    `contacts.${String(index)}.${field}`,
+                                                )
+                                            }
                                             onChange={(next) => {
                                                 editContacts(
                                                     contacts.map((candidate) =>
@@ -1197,7 +1310,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                     role="alert"
                                     tone="danger"
                                     title={t('kitchen:editor.saveError')}
-                                    body={linkFailure.message}
+                                    body={linkServer.unplaced ?? linkFailure.message}
                                 />
                             )}
 
@@ -1228,6 +1341,8 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                 <Inline space="sm" align="end" wrap>
                                     <Select
                                         testID="kitchen-supplier-item-picker"
+                                        id="kitchen-supplier-item-picker"
+                                        {...linkServer.flag('stock_item_id')}
                                         label={t('kitchen:ops.suppliers.linkItemLabel')}
                                         options={linkableItems.map((item) => ({
                                             value: String(item.id),
@@ -1253,6 +1368,10 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                                      */}
                                     <TextInputField
                                         testID="kitchen-supplier-link-ref"
+                                        id="kitchen-supplier-link-ref"
+                                        {...(editingRef === null
+                                            ? linkServer.flag('supplier_item_ref')
+                                            : {})}
                                         label={t('kitchen:ops.suppliers.fieldItemRef')}
                                         placeholder={t('kitchen:ops.suppliers.itemRefPlaceholder')}
                                         value={pickedRef}
@@ -1314,6 +1433,8 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
             >
                 <TextInputField
                     testID="kitchen-supplier-item-ref-value"
+                    id="kitchen-supplier-item-ref-value"
+                    {...linkServer.flag('supplier_item_ref')}
                     label={t('kitchen:ops.suppliers.fieldItemRef')}
                     placeholder={t('kitchen:ops.suppliers.itemRefPlaceholder')}
                     value={refDraft}

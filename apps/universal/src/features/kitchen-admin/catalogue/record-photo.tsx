@@ -27,19 +27,27 @@ export type RecordPhotoShape = 'square' | 'wide';
 export interface RecordPhotoProps {
     /** The photograph id, e.g. `ingredient-black-pepper` or `recipe-garlic-mayo`. */
     readonly assetId: string;
+    /**
+     * The kitchen's own photo of the record (BUG-14). Shown in place of the bundled photograph —
+     * and without its credit, which belongs to the stock picture — so a record with an upload has
+     * a card even when its id maps to nothing. `null` or absent keeps the behaviour above.
+     */
+    readonly photoUrl?: string | null | undefined;
     /** The record's name, announced for the image. */
     readonly label: string;
     readonly shape: RecordPhotoShape;
     readonly testID: string;
 }
 
-export function RecordPhoto({ assetId, label, shape, testID }: RecordPhotoProps) {
+export function RecordPhoto({ assetId, photoUrl, label, shape, testID }: RecordPhotoProps) {
     const variant = shape === 'square' ? 'card' : 'detail';
-    if (resolveEntityImage(assetId, variant) === null) return null;
+    const uploaded = photoUrl !== undefined && photoUrl !== null && photoUrl !== '';
+    if (!uploaded && resolveEntityImage(assetId, variant) === null) return null;
 
     const image = (
         <EntityImage
             assetId={assetId}
+            photoUrl={photoUrl}
             seed={assetId}
             label={label}
             aspect={shape === 'square' ? 'square' : 'wide'}
@@ -53,7 +61,7 @@ export function RecordPhoto({ assetId, label, shape, testID }: RecordPhotoProps)
             <Stack space="sm">
                 {/* The wide image already spans the rail; only the square one needs a frame. */}
                 {shape === 'square' ? <View className="w-32">{image}</View> : image}
-                <PhotoCredit assetId={assetId} testID={`${testID}-credit`} />
+                {uploaded ? null : <PhotoCredit assetId={assetId} testID={`${testID}-credit`} />}
             </Stack>
         </Card>
     );

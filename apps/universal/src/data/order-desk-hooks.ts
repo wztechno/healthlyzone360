@@ -21,6 +21,7 @@ import type {
     OrderDeskSaleRequest,
     OrderDeskShortfallCount,
     PlaceOrderDeskSaleRequest,
+    ServiceArea,
     UpdateOrderDeskCustomerRequest,
 } from '@healthy360/api-client/contracts';
 import type { BranchId } from '@healthy360/domain-types';
@@ -270,6 +271,27 @@ export function useOrderDeskDeliveryWindowsQuery(
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.orderDesk.listDeliveryWindows();
+        },
+    });
+}
+
+/**
+ * The areas a desk sale can be delivered to — only the ones this kitchen's map serves, so the
+ * address picker cannot offer a place the save would refuse. Kept for the windows' five minutes: a
+ * kitchen redraws its map on the timescale of its menu, not of a telephone call.
+ */
+export function useOrderDeskDeliveryAreasQuery(
+    enabled = true,
+): UseQueryResult<readonly ServiceArea[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.orderDesk.deliveryAreas(),
+        enabled: enabled && repositories !== null,
+        staleTime: DRIVERS_STALE_MS,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.orderDesk.listDeliveryAreas();
         },
     });
 }

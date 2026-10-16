@@ -99,6 +99,7 @@
         "addingToBasket": "Adding",
         "pricePerPack": "{{price}} per {{size}}",
         "addedToBasket": "Added. Your basket now holds {{items}} items.",
+        "addFailed": "Not added to your basket. {{reason}}",
         "actionErrorTitle": "That did not go through",
         "actionErrorBody": "Nothing was changed. Try again, and if it keeps failing the kitchen may have withdrawn the dish while this page was open.",
         "addToPlan": "Add to my meal plan",

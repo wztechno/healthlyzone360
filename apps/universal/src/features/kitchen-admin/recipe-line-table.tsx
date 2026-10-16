@@ -206,6 +206,12 @@ export interface RecipeLineTableProps {
      * member may not see. A dash and not a zero, because a zero is a measurement.
      */
     readonly costs: RecipeCostHalf | null;
+    /**
+     * A server refusal of one row (BUG-06): `line` for the row as a whole (its ingredient or unit),
+     * or the cell it names. A 24px cell has no room for a sentence, so the cell turns red and the
+     * message is listed under the table beside the row's designation.
+     */
+    readonly fieldError?: ((row: LineDraft, column: LineColumn) => string | undefined) | undefined;
     readonly canManage: boolean;
     /** Mints a stable row key. The editor owns the counter so keys never collide across tables. */
     readonly nextKey: () => string;
@@ -214,6 +220,9 @@ export interface RecipeLineTableProps {
     readonly pickerPlaceholder: string;
     readonly testID: string;
 }
+
+/** What a server refusal of one row can be about. */
+export type LineColumn = 'line' | 'quantity' | 'comment';
 
 /** Long enough that typing "mayo" is one request, short enough to feel like typing. */
 const SEARCH_DEBOUNCE_MS = 250;
@@ -297,6 +306,7 @@ export function RecipeLineTable({
     flaggedIngredientIds = [],
     warnZeroQuantity = false,
     costs,
+    fieldError,
     canManage,
     nextKey,
     onChange,
@@ -427,6 +437,18 @@ export function RecipeLineTable({
     };
 
     const rowTestId = (row: LineDraft) => `${testID}-row-${row.key}`;
+    const nameOf = (row: LineDraft): string => {
+        const entry = row.ingredientId === null ? undefined : byId.get(String(row.ingredientId));
+        return entry === undefined
+            ? t('kitchen:recipes.unnamedLine')
+            : displayName(entry.name, locale).value;
+    };
+    const refusals = rows.flatMap((row) => {
+        const messages = (['line', 'quantity', 'comment'] as const)
+            .map((column) => fieldError?.(row, column))
+            .filter((message): message is string => message !== undefined);
+        return messages.length === 0 ? [] : [{ row, message: [...new Set(messages)].join(' ') }];
+    });
     const isZero = (row: LineDraft) => warnZeroQuantity && parseQuantity(row.quantity) === 0;
     const removeLabel = t('kitchen:recipes.removeLine');
 
@@ -507,6 +529,7 @@ export function RecipeLineTable({
                         testID={`${rowTestId(row)}-qty`}
                         value={row.quantity}
                         disabled={!canManage}
+                        error={fieldError?.(row, 'quantity')}
                         align="center"
                         mono
                         // The zero warning lives here and on the designation's mark: `DataList`
@@ -562,6 +585,7 @@ export function RecipeLineTable({
                         testID={`${rowTestId(row)}-comment`}
                         value={row.note}
                         disabled={!canManage}
+                        error={fieldError?.(row, 'comment')}
                         quiet
                         placeholder={t('kitchen:list.noValue')}
                         label={t('kitchen:recipes.lineNote')}
@@ -667,6 +691,26 @@ export function RecipeLineTable({
                     />
                 )}
             </View>
+
+            {/* `nativeID`: the issue banner's chip for these rows scrolls here. */}
+            {refusals.length === 0 ? null : (
+                <View nativeID={`${testID}-refusals`} className="flex-col gap-hair">
+                    {refusals.map(({ row, message }) => (
+                        <View
+                            key={row.key}
+                            testID={`${rowTestId(row)}-error`}
+                            className="flex-row flex-wrap gap-tight"
+                        >
+                            <Text variant="caption" tone="danger">
+                                {nameOf(row)}
+                            </Text>
+                            <Text variant="caption" tone="danger">
+                                {message}
+                            </Text>
+                        </View>
+                    ))}
+                </View>
+            )}
         </View>
     );
 }
@@ -789,6 +833,8 @@ interface CellInputProps {
     readonly quiet?: boolean | undefined;
     /** The warning border — a quantity that is legal and almost certainly wrong. */
     readonly caution?: boolean | undefined;
+    /** A server refusal: the danger border, and the message as the control's description. */
+    readonly error?: string | undefined;
     readonly testID: string;
 }
 
@@ -810,19 +856,21 @@ function CellInput({
     mono,
     quiet,
     caution = false,
+    error,
     testID,
 }: CellInputProps) {
     const [focused, setFocused] = useState(false);
+    const invalid = error !== undefined;
 
     return (
         <View
             className={
-                quiet === true && !focused
+                quiet === true && !focused && !invalid
                     ? // Transparent until it is touched, and the same box underneath — so the row
                       // does not reflow by a pixel when the frame appears.
                       'h-control-xs flex-row items-center gap-control-xs rounded-sm border border-transparent px-control-xs'
                     : inputFrameClassName({
-                          invalid: false,
+                          invalid,
                           caution,
                           focused,
                           disabled,
@@ -838,6 +886,8 @@ function CellInput({
                 placeholder={placeholder}
                 accessibilityLabel={label}
                 aria-label={label}
+                aria-invalid={invalid}
+                {...(error === undefined ? {} : { accessibilityHint: error })}
                 onChangeText={onChangeText}
                 onFocus={() => {
                     setFocused(true);

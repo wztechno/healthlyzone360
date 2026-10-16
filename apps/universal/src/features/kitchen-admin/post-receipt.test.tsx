@@ -1,3 +1,4 @@
+import { ApiError, validationFailure } from '@healthy360/api-client';
 import type {
     ItemLatestPurchase,
     PostGoodsReceiptRequest,
@@ -23,6 +24,7 @@ import { PostReceiptScreen } from './screens/post-receipt-screen.tsx';
  *    and only that — ties each row to its order line, and brings the supplier with it.
  * 4. **An over-receipt has to be said out loud.** More than was outstanding opens the confirmation
  *    and the note, both named as blockers until given, and both sent once they are.
+ * 5. **A server refusal lands on its fields** and in the banner, not in a generic callout (BUG-06).
  */
 
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
@@ -370,6 +372,45 @@ describe('post a goods receipt — a market purchase', () => {
         await untilVisible('kitchen-post-receipt-screen-issues-errors');
         expect(screen.getByText('Line 1 — unit price')).toBeTruthy();
         expect(posted).toHaveLength(0);
+    });
+
+    it('puts a refusal on the fields the server named and names them in the banner (BUG-06)', async () => {
+        const base = world([]);
+        await renderStubScreen(<PostReceiptScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    ...base.kitchenOps,
+                    postGoodsReceipt: async () => {
+                        throw new ApiError(
+                            validationFailure({
+                                supplier_invoice_ref: ['The invoice number is too long.'],
+                                'lines.0.quantity': ['The quantity must be at least 0.0001.'],
+                            }),
+                        );
+                    },
+                },
+            },
+        });
+
+        await untilVisible(`${LINES}-row-line-first-item`);
+        await choose(`${LINES}-row-line-first-item`, String(CHICKEN));
+        await type(`${LINES}-row-line-first-quantity-input`, '24');
+        await type('kitchen-procurement-post-invoice-ref-input', 'INV-0001');
+        await press('kitchen-procurement-post-confirm');
+
+        await untilVisible('kitchen-procurement-post-invoice-ref-error');
+        expect(screen.getByTestId('kitchen-procurement-post-invoice-ref-error')).toHaveTextContent(
+            'The invoice number is too long.',
+        );
+        expect(screen.getAllByText('The quantity must be at least 0.0001.').length).toBeGreaterThan(
+            0,
+        );
+        const banner = screen.getByTestId('kitchen-post-receipt-screen-issues-errors');
+        expect(banner).toHaveTextContent(/Invoice number/);
+        expect(banner).toHaveTextContent(/Line 1 — quantity/);
+        // Every refused field was placed, so the generic callout has nothing left to say.
+        expect(screen.queryByTestId('kitchen-procurement-post-error')).toBeNull();
     });
 });
 

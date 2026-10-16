@@ -1,11 +1,13 @@
 import { Button, Dialog, useToast } from '@healthy360/design-system';
-import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
+import type { ApiFailure, MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { usePathname, useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useAddCartItemMutation } from '../../data/catalogue-hooks.ts';
+import { toFailure } from '../../data/hooks.ts';
+import { useFailureMessage } from '../../screens/form-helpers.ts';
 import { useSession } from '../../session/session-provider.tsx';
 import { recordResumeIntent } from '../marketplace/resume-intent.ts';
 
@@ -37,6 +39,12 @@ import { recordResumeIntent } from '../marketplace/resume-intent.ts';
  *
  * `usePathname` rather than the meal's own route: somebody who pressed Add on `/meals` and chose to
  * sign in wants the grid back, not the record of one dish they never opened.
+ *
+ * ## A refused add is said out loud (BUG-12)
+ *
+ * A grid's Add has nothing beside it to carry an error, so a refusal is a danger toast naming the
+ * reason — a kitchen account with no customer account to shop as is the case that used to vanish.
+ * A surface that reports beside its own control passes `reportsInline` and reads `failure`.
  */
 export interface UseBasketAddOptions {
     /**
@@ -49,6 +57,8 @@ export interface UseBasketAddOptions {
      * point at (`meal-detail-guest-entry-dialog` and its two buttons).
      */
     readonly testID: string;
+    /** The surface shows the failure itself (the meal page's callout), so no toast. */
+    readonly reportsInline?: boolean | undefined;
 }
 
 export interface BasketAdd {
@@ -61,6 +71,8 @@ export interface BasketAdd {
     readonly pending: boolean;
     /** True when the last add failed, for a surface that reports it beside the control. */
     readonly errored: boolean;
+    /** Why the last add failed; `null` when it did not. */
+    readonly failure: ApiFailure | null;
     /** Render once per screen. It is `null` until a signed-out person presses Add. */
     readonly dialog: ReactNode;
 }
@@ -70,16 +82,32 @@ interface PendingAdd {
     readonly quantity: number;
 }
 
-export function useBasketAdd({ labelKey, testID }: UseBasketAddOptions): BasketAdd {
+export function useBasketAdd({
+    labelKey,
+    testID,
+    reportsInline = false,
+}: UseBasketAddOptions): BasketAdd {
     const { t } = useTranslation();
     const router = useRouter();
     const pathname = usePathname();
     const toast = useToast();
+    const failureMessage = useFailureMessage();
     const { me } = useSession();
     const addToBasket = useAddCartItemMutation();
 
     const signedIn = me !== null;
     const [pendingAdd, setPendingAdd] = useState<PendingAdd | null>(null);
+
+    const reportFailure = (error: unknown) => {
+        if (reportsInline) return;
+        toast.show({
+            testID: 'basket-add-failed',
+            tone: 'danger',
+            message: t('catalogue:meal.addFailed', {
+                reason: failureMessage(toFailure(error)) ?? t('errors:generic.body'),
+            }),
+        });
+    };
 
     const add = (meal: MarketplaceMeal, quantity = 1) => {
         if (!signedIn) {
@@ -111,6 +139,7 @@ export function useBasketAdd({ labelKey, testID }: UseBasketAddOptions): BasketA
                         },
                     });
                 },
+                onError: reportFailure,
             },
         );
     };
@@ -150,6 +179,7 @@ export function useBasketAdd({ labelKey, testID }: UseBasketAddOptions): BasketA
                                     onSuccess: () => {
                                         router.push('/guest-checkout');
                                     },
+                                    onError: reportFailure,
                                 },
                             );
                         }}
@@ -159,5 +189,11 @@ export function useBasketAdd({ labelKey, testID }: UseBasketAddOptions): BasketA
         />
     );
 
-    return { add, pending: addToBasket.isPending, errored: addToBasket.isError, dialog };
+    return {
+        add,
+        pending: addToBasket.isPending,
+        errored: addToBasket.isError,
+        failure: toFailure(addToBasket.error),
+        dialog,
+    };
 }

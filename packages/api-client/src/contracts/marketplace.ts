@@ -140,6 +140,11 @@ export interface PackSize {
 
 export interface MarketplaceMeal {
     readonly id: MealId;
+    /**
+     * The kitchen's own photo of this record (BUG-14), served same-origin from
+     * `/api/v1/media/photos/{id}`; `null` (or absent) shows the stock picture.
+     */
+    readonly photoUrl?: string | null | undefined;
     readonly kitchenId: KitchenId;
     readonly kitchenName: string;
     /** Prepared meal, resold product, kitchen-made sauce, dressing, or frozen meal. */

@@ -111,6 +111,7 @@ export function HomeMealCard({ meal, tag, onOpen, onAdd, testID }: HomeMealCardP
                     <EntityImage
                         testID={`${id}-image`}
                         assetId={meal.imagePlaceholderId}
+                        photoUrl={meal.photoUrl}
                         seed={meal.slug}
                         label={t('marketplace:menu.imageLabel', { meal: meal.name })}
                         aspect="card"

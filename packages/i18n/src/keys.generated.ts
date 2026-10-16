@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8347 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8243 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -452,6 +452,15 @@ export interface NamespaceKeys {
     | 'consents.emptyBody'
     | 'consents.grant'
     | 'consents.grantedOn'
+    | 'consents.items.age'
+    | 'consents.items.allergenAccuracy'
+    | 'consents.items.healthData'
+    | 'consents.items.marketingEmail'
+    | 'consents.items.marketingWhatsapp'
+    | 'consents.items.privacy'
+    | 'consents.items.terms'
+    | 'consents.neededTitle'
+    | 'consents.offersTitle'
     | 'consents.optional'
     | 'consents.outstanding'
     | 'consents.reconsentBody'
@@ -1605,6 +1614,7 @@ export interface NamespaceKeys {
     | 'macros.title'
     | 'meal.actionErrorBody'
     | 'meal.actionErrorTitle'
+    | 'meal.addFailed'
     | 'meal.addToCart'
     | 'meal.addToCartLabel'
     | 'meal.addToPlan'
@@ -2463,6 +2473,7 @@ export interface NamespaceKeys {
     | 'timeField.placeholder';
   readonly "errors":
     | 'failure.access_self_lockout'
+    | 'failure.account_customer_missing'
     | 'failure.account_verification_required'
     | 'failure.address_area_not_served'
     | 'failure.allergens_provider_unavailable'
@@ -3250,6 +3261,7 @@ export interface NamespaceKeys {
     | 'desk.sale.addressUndeliverableTitle'
     | 'desk.sale.areaLabel'
     | 'desk.sale.areaPlaceholder'
+    | 'desk.sale.areaPlaceholderNone'
     | 'desk.sale.backToMenu'
     | 'desk.sale.buildingLabel'
     | 'desk.sale.buildingPlaceholder'
@@ -3307,6 +3319,9 @@ export interface NamespaceKeys {
     | 'desk.sale.notSold'
     | 'desk.sale.notesLabel'
     | 'desk.sale.onTicket'
+    | 'desk.sale.phoneCountryCode'
+    | 'desk.sale.phoneInvalid'
+    | 'desk.sale.phoneLength'
     | 'desk.sale.pickerEmptyBody'
     | 'desk.sale.pickerEmptyTitle'
     | 'desk.sale.pickerErrorTitle'
@@ -8709,6 +8724,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:consents.emptyBody',
   'account:consents.grant',
   'account:consents.grantedOn',
+  'account:consents.items.age',
+  'account:consents.items.allergenAccuracy',
+  'account:consents.items.healthData',
+  'account:consents.items.marketingEmail',
+  'account:consents.items.marketingWhatsapp',
+  'account:consents.items.privacy',
+  'account:consents.items.terms',
+  'account:consents.neededTitle',
+  'account:consents.offersTitle',
   'account:consents.optional',
   'account:consents.outstanding',
   'account:consents.reconsentBody',
@@ -9858,6 +9882,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:macros.title',
   'catalogue:meal.actionErrorBody',
   'catalogue:meal.actionErrorTitle',
+  'catalogue:meal.addFailed',
   'catalogue:meal.addToCart',
   'catalogue:meal.addToCartLabel',
   'catalogue:meal.addToPlan',
@@ -10712,6 +10737,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:timeField.open',
   'designSystem:timeField.placeholder',
   'errors:failure.access_self_lockout',
+  'errors:failure.account_customer_missing',
   'errors:failure.account_verification_required',
   'errors:failure.address_area_not_served',
   'errors:failure.allergens_provider_unavailable',
@@ -11496,6 +11522,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.addressUndeliverableTitle',
   'kitchen:desk.sale.areaLabel',
   'kitchen:desk.sale.areaPlaceholder',
+  'kitchen:desk.sale.areaPlaceholderNone',
   'kitchen:desk.sale.backToMenu',
   'kitchen:desk.sale.buildingLabel',
   'kitchen:desk.sale.buildingPlaceholder',
@@ -11553,6 +11580,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.notSold',
   'kitchen:desk.sale.notesLabel',
   'kitchen:desk.sale.onTicket',
+  'kitchen:desk.sale.phoneCountryCode',
+  'kitchen:desk.sale.phoneInvalid',
+  'kitchen:desk.sale.phoneLength',
   'kitchen:desk.sale.pickerEmptyBody',
   'kitchen:desk.sale.pickerEmptyTitle',
   'kitchen:desk.sale.pickerErrorTitle',

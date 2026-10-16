@@ -68,6 +68,8 @@ import type {
 import { readAmount, readQuantity, todayIsoDate } from '../receive-delivery-model.ts';
 import { RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
+import { serverFieldErrors } from '../server-field-errors.ts';
+import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
@@ -160,6 +162,19 @@ const COLUMN_GAP = 16;
 const BOOK_ROUTE = '/kitchen/procurement';
 const LINES_ID = 'kitchen-procurement-post-lines';
 
+/**
+ * A posted line's server fields, by the row cell that shows them. The unit and the order line come
+ * with the item, so a refusal of either lands on the item.
+ */
+const LINE_SERVER_FIELDS: readonly (readonly [string, StockItemLineField])[] = [
+    ['stock_item_id', 'item'],
+    ['unit_id', 'item'],
+    ['purchase_order_line_id', 'item'],
+    ['quantity', 'quantity'],
+    ['unit_price_amount', 'unitPrice'],
+    ['cost_currency_code', 'unitPrice'],
+];
+
 type ArrivalMode = 'market' | 'order';
 
 export function PostReceiptScreen() {
@@ -225,6 +240,8 @@ function PostReceipt() {
     const [varianceNote, setVarianceNote] = useState('');
     // Problems are shown once Post has been pressed, and follow the form live from then on.
     const [submitted, setSubmitted] = useState(false);
+    // The rows the last post sent, in order: the server names a refused line by its position.
+    const [postedLineKeys, setPostedLineKeys] = useState<readonly string[]>([]);
     /*
      * Read from the node rather than `onLayout`, which on the web delivered one early width and
      * nothing after — see the sale screen. The port re-reads on resize and when the page panel settles.
@@ -591,8 +608,105 @@ function PostReceipt() {
     }
 
     const shownIssues = submitted ? issues : [];
-    const shownLineIssues = submitted ? lineIssues : liveLineIssues;
     const postFailure = toFailure(postReceipt.error);
+
+    /*
+     * What the server refused, put on the fields it named (BUG-06). The server names a line by its
+     * place in what was posted, so the rows are matched through the keys that post sent; each row's
+     * fields get a chip of their own.
+     */
+    const lineChip = (index: number, field: StockItemLineField): string =>
+        t('kitchen:ops.procurement.issueLine', {
+            line: index + 1,
+            fields: t(
+                field === 'item'
+                    ? 'kitchen:ops.procurement.issueFieldItem'
+                    : field === 'quantity'
+                      ? 'kitchen:ops.procurement.issueFieldQuantity'
+                      : 'kitchen:ops.procurement.issueFieldUnitPrice',
+            ),
+        });
+    const lineTargets: Record<string, ServerFieldTarget> = {};
+    postedLineKeys.forEach((key, posted) => {
+        const row = lines.findIndex((line) => line.key === key);
+        if (row === -1) return;
+        for (const [name, field] of LINE_SERVER_FIELDS) {
+            lineTargets[`lines.${String(posted)}.${name}`] = {
+                label: lineChip(row, field),
+                fieldId: stockItemLineFieldId(LINES_ID, key, field),
+            };
+        }
+    });
+    const server = serverFieldErrors(postFailure, {
+        purchase_order_id: {
+            label: t('kitchen:ops.procurement.fieldOrder'),
+            fieldId: 'kitchen-procurement-post-order',
+        },
+        supplier_id: {
+            label: t('kitchen:ops.procurement.fieldSupplier'),
+            fieldId: 'kitchen-procurement-post-supplier',
+        },
+        document_ref: {
+            label: t('kitchen:ops.procurement.fieldDeliveryNote'),
+            fieldId: 'kitchen-procurement-post-document-ref',
+        },
+        supplier_invoice_ref: {
+            label: t('kitchen:ops.procurement.fieldInvoiceRef'),
+            fieldId: 'kitchen-procurement-post-invoice-ref',
+        },
+        received_on: {
+            label: t('kitchen:ops.procurement.fieldReceivedOn'),
+            fieldId: 'kitchen-procurement-post-received-on',
+        },
+        over_receipt_confirmed: {
+            label: t('kitchen:ops.receiving.overReceiptConfirm'),
+            fieldId: 'kitchen-procurement-post-over-confirm',
+        },
+        variance_note: {
+            label: t('kitchen:ops.receiving.fieldVarianceNote'),
+            fieldId: 'kitchen-procurement-post-variance-note',
+        },
+        ...lineTargets,
+    });
+
+    // The new-supplier dialog has no issue banner, so its error line stays and the fields are marked.
+    const supplierFailure = toFailure(createSupplier.error);
+    const supplierServer = serverFieldErrors(supplierFailure, {
+        name_en: {
+            label: t('kitchen:ops.procurement.fieldSupplierName'),
+            fieldId: 'kitchen-procurement-supplier-name',
+        },
+        code: {
+            label: t('kitchen:ops.procurement.fieldSupplierCode'),
+            fieldId: 'kitchen-procurement-supplier-code',
+        },
+        contact_email: {
+            label: t('kitchen:ops.procurement.fieldSupplierEmail'),
+            fieldId: 'kitchen-procurement-supplier-email',
+        },
+        contact_phone: {
+            label: t('kitchen:ops.procurement.fieldSupplierPhone'),
+            fieldId: 'kitchen-procurement-supplier-phone',
+        },
+    });
+
+    const baseLineIssues = submitted ? lineIssues : liveLineIssues;
+    const shownLineIssues = server.isValidation
+        ? new Map(
+              lines.map((line) => {
+                  const posted = postedLineKeys.indexOf(line.key);
+                  const fromServer: Partial<Record<StockItemLineField, string>> = {};
+                  for (const [name, field] of LINE_SERVER_FIELDS) {
+                      if (posted === -1) break;
+                      const message = server.errorFor(`lines.${String(posted)}.${name}`);
+                      if (message !== undefined && fromServer[field] === undefined) {
+                          fromServer[field] = message;
+                      }
+                  }
+                  return [line.key, { ...baseLineIssues.get(line.key), ...fromServer }] as const;
+              }),
+          )
+        : baseLineIssues;
 
     // The aside's figures.
     const risingLines = lines.filter(stockItemLineWellFormed);
@@ -636,6 +750,8 @@ function PostReceipt() {
         const postedSupplier = orderMode ? orderSupplier : supplierId;
         const risen = risingLines.length;
 
+        // Every row posts: a row without its item or quantity has already stopped the post.
+        setPostedLineKeys(lines.map((line) => line.key));
         postReceipt.mutate(
             {
                 branchId,
@@ -726,14 +842,17 @@ function PostReceipt() {
     const sideBySide = bodyWidth >= ASIDE_WIDTH + FORM_MIN_WIDTH + COLUMN_GAP;
     const loading = stockItems.isPending || reference.isPending;
 
-    const issueItems: FormIssueItem[] = shownIssues.map((issue) => ({
-        key: issue.key,
-        label: issue.label,
-        fieldId: issue.fieldId,
-        onPress: () => {
-            if (issue.fieldId !== undefined) focusField(issue.fieldId);
-        },
-    }));
+    const issueItems: FormIssueItem[] = [
+        ...shownIssues.map((issue) => ({
+            key: issue.key,
+            label: issue.label,
+            fieldId: issue.fieldId,
+            onPress: () => {
+                if (issue.fieldId !== undefined) focusField(issue.fieldId);
+            },
+        })),
+        ...server.items,
+    ];
 
     return (
         <Cascade space="md" testID="kitchen-post-receipt-screen">
@@ -743,7 +862,7 @@ function PostReceipt() {
                 dirty={guard.isDirty}
                 errors={{
                     summary: t('kitchen:ops.procurement.issuesSummary', {
-                        count: shownIssues.length,
+                        count: issueItems.length,
                     }),
                     items: issueItems,
                 }}
@@ -787,13 +906,15 @@ function PostReceipt() {
                 >
                     {/* The form is the row's filler beside the fixed summary. */}
                     <View className="z-auto min-w-0 flex-1 flex-col gap-base">
-                        {postFailure === null ? null : (
+                        {/* Gone once the banner names every refused field (BUG-06). */}
+                        {postFailure === null ||
+                        (server.unplaced === null && server.items.length > 0) ? null : (
                             <Callout
                                 testID="kitchen-procurement-post-error"
                                 tone="danger"
                                 role="alert"
                                 title={t('kitchen:ops.procurement.postFailed')}
-                                body={postFailure.message}
+                                body={server.unplaced ?? postFailure.message}
                             />
                         )}
 
@@ -864,6 +985,7 @@ function PostReceipt() {
                                                           ),
                                                       }
                                                     : {})}
+                                                {...server.flag('purchase_order_id')}
                                                 searchable
                                             />
                                         </View>
@@ -873,6 +995,8 @@ function PostReceipt() {
                                     <Stack space="xs">
                                         <Select
                                             testID="kitchen-procurement-post-supplier"
+                                            id="kitchen-procurement-post-supplier"
+                                            {...server.flag('supplier_id')}
                                             label={t('kitchen:ops.procurement.fieldSupplier')}
                                             size="sm"
                                             placeholder={t(
@@ -908,6 +1032,8 @@ function PostReceipt() {
                                     </Stack>
                                     <TextInputField
                                         testID="kitchen-procurement-post-document-ref"
+                                        id="kitchen-procurement-post-document-ref"
+                                        {...server.flag('document_ref')}
                                         label={t('kitchen:ops.procurement.fieldDeliveryNote')}
                                         placeholder={t(
                                             'kitchen:ops.procurement.deliveryNotePlaceholder',
@@ -918,6 +1044,8 @@ function PostReceipt() {
                                     />
                                     <TextInputField
                                         testID="kitchen-procurement-post-invoice-ref"
+                                        id="kitchen-procurement-post-invoice-ref"
+                                        {...server.flag('supplier_invoice_ref')}
                                         label={t('kitchen:ops.procurement.fieldInvoiceRef')}
                                         placeholder={t(
                                             'kitchen:ops.procurement.invoicePlaceholder',
@@ -939,7 +1067,7 @@ function PostReceipt() {
                                         error={
                                             receivedInFuture
                                                 ? t('kitchen:ops.procurement.receivedOnFuture')
-                                                : undefined
+                                                : server.errorFor('received_on')
                                         }
                                         onChange={(next) => {
                                             setReceivedOn(next);
@@ -1044,6 +1172,7 @@ function PostReceipt() {
                                                 <Checkbox
                                                     testID="kitchen-procurement-post-over-confirm"
                                                     id="kitchen-procurement-post-over-confirm"
+                                                    {...server.flag('over_receipt_confirmed')}
                                                     checked={overConfirmed}
                                                     label={t(
                                                         'kitchen:ops.receiving.overReceiptConfirm',
@@ -1060,6 +1189,7 @@ function PostReceipt() {
                                                 )}
                                                 size="sm"
                                                 required
+                                                {...server.flag('variance_note')}
                                                 value={varianceNote}
                                                 onChangeText={edited(setVarianceNote)}
                                             />
@@ -1187,7 +1317,8 @@ function PostReceipt() {
                 <Stack space="md">
                     {createSupplier.error === null ? null : (
                         <Text testID="kitchen-procurement-supplier-error" tone="danger">
-                            {toFailure(createSupplier.error)?.message ??
+                            {supplierServer.unplaced ??
+                                supplierFailure?.message ??
                                 t('kitchen:ops.procurement.newSupplierFailed')}
                         </Text>
                     )}
@@ -1199,6 +1330,7 @@ function PostReceipt() {
                     <FormGrid maxColumns={2} testID="kitchen-procurement-supplier-grid">
                         <TextInputField
                             testID="kitchen-procurement-supplier-name"
+                            id="kitchen-procurement-supplier-name"
                             label={t('kitchen:ops.procurement.fieldSupplierName')}
                             placeholder={t('kitchen:ops.procurement.supplierNamePlaceholder')}
                             size="sm"
@@ -1207,9 +1339,12 @@ function PostReceipt() {
                             {...(newSupplierTried && newSupplierName.trim() === ''
                                 ? { error: t('kitchen:ops.procurement.supplierNameRequired') }
                                 : {})}
+                            {...supplierServer.flag('name_en')}
                         />
                         <TextInputField
                             testID="kitchen-procurement-supplier-code"
+                            id="kitchen-procurement-supplier-code"
+                            {...supplierServer.flag('code')}
                             label={t('kitchen:ops.procurement.fieldSupplierCode')}
                             placeholder={t('kitchen:ops.procurement.supplierCodePlaceholder')}
                             size="sm"
@@ -1218,6 +1353,8 @@ function PostReceipt() {
                         />
                         <TextInputField
                             testID="kitchen-procurement-supplier-email"
+                            id="kitchen-procurement-supplier-email"
+                            {...supplierServer.flag('contact_email')}
                             label={t('kitchen:ops.procurement.fieldSupplierEmail')}
                             placeholder={t('kitchen:ops.suppliers.emailPlaceholder')}
                             size="sm"
@@ -1227,6 +1364,8 @@ function PostReceipt() {
                         />
                         <TextInputField
                             testID="kitchen-procurement-supplier-phone"
+                            id="kitchen-procurement-supplier-phone"
+                            {...supplierServer.flag('contact_phone')}
                             label={t('kitchen:ops.procurement.fieldSupplierPhone')}
                             placeholder={t('kitchen:ops.suppliers.phonePlaceholder')}
                             size="sm"

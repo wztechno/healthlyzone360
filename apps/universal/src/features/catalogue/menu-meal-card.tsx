@@ -79,6 +79,7 @@ export function MenuMealCard({ meal, onOpen, onAdd, testID }: MenuMealCardProps)
                     <EntityImage
                         testID={`${id}-image`}
                         assetId={meal.imagePlaceholderId}
+                        photoUrl={meal.photoUrl}
                         variant="card"
                         seed={meal.slug}
                         label={t('marketplace:menu.imageLabel', { meal: meal.name })}
@@ -251,6 +252,7 @@ export function RelatedMealCard({ meal, onOpen, testID }: RelatedMealCardProps) 
                 <EntityImage
                     testID={`${id}-image`}
                     assetId={meal.imagePlaceholderId}
+                    photoUrl={meal.photoUrl}
                     variant="card"
                     seed={meal.slug}
                     label={t('marketplace:menu.imageLabel', { meal: meal.name })}

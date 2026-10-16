@@ -91,7 +91,10 @@ export interface DeliverDriverJobCommand {
     readonly notes?: string | undefined;
 }
 
-/** Stamps a job delivered, then re-reads the run sheet so the closed job leaves it. */
+/**
+ * Stamps a job delivered, then re-reads the run sheet so the closed job leaves it. The handover also
+ * fulfils the order (BUG-10), so the kitchen's order lists and the desk are re-read too.
+ */
 export function useDeliverDriverJobMutation(): UseMutationResult<
     void,
     unknown,
@@ -105,6 +108,8 @@ export function useDeliverDriverJobMutation(): UseMutationResult<
             repositories.driverJobs.deliverJob(command.jobId, { notes: command.notes }),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.driverJobs.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
         },
     });
 }

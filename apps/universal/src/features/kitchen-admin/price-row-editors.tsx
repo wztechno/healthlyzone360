@@ -579,6 +579,13 @@ function fixedTrack(width: number) {
 
 const ITEM_TRACK = { flexBasis: TRACK.item, flexGrow: 1, flexShrink: 0, minWidth: 0 } as const;
 
+/** What the server refused about one row's save, in its own words, by the field it is about. */
+export interface PriceEntryRefusal {
+    readonly item?: string | undefined;
+    readonly amount?: string | undefined;
+    readonly basis?: string | undefined;
+}
+
 export interface PriceEntriesCardProps {
     readonly rows: readonly PriceEntryDraft[];
     readonly onChange: (rows: readonly PriceEntryDraft[]) => void;
@@ -588,6 +595,8 @@ export interface PriceEntriesCardProps {
     readonly baseline: ReadonlyMap<string, PriceEntryDraft>;
     /** Shown once a save has been tried. Keyed by row. */
     readonly problems: ReadonlyMap<string, readonly PriceEntryProblem[]>;
+    /** The server's refusal of the last save, keyed by row (BUG-06). */
+    readonly refusals?: ReadonlyMap<string, PriceEntryRefusal> | undefined;
     readonly options: readonly PriceItemOption[];
     readonly currency: CurrencyCode;
     readonly canManage: boolean;
@@ -609,6 +618,7 @@ export function PriceEntriesCard({
     onAdd,
     baseline,
     problems,
+    refusals,
     options,
     currency,
     canManage,
@@ -793,6 +803,22 @@ export function PriceEntriesCard({
             rowProblems?.[0] === undefined ? null : priceProblemField(rowProblems[0]);
         const firstText =
             rowProblems?.[0] === undefined ? undefined : problemText(rowProblems[0], name);
+        /*
+         * The server's word goes under the field it is about. A saved row's item and the basis
+         * have no field that takes an error, so theirs is the row's note.
+         */
+        const refusal = refusals?.get(row.key);
+        const itemError =
+            firstField === 'item' && firstText !== undefined
+                ? firstText
+                : isNew
+                  ? refusal?.item
+                  : undefined;
+        const amountError =
+            firstField === 'amount' && firstText !== undefined ? firstText : refusal?.amount;
+        const refusalNote = [isNew ? undefined : refusal?.item, refusal?.basis]
+            .filter((text): text is string => text !== undefined)
+            .join(' ');
 
         const was = (() => {
             if (!confirmed || saved === undefined || saved.priceStatus !== 'confirmed') return null;
@@ -825,9 +851,7 @@ export function PriceEntriesCard({
                     options={unitOptions}
                     value={row.item === null ? null : priceItemKey(row.item)}
                     placeholder={t('kitchen:priceLists.itemPlaceholder')}
-                    {...(firstField === 'item' && firstText !== undefined
-                        ? { error: firstText }
-                        : {})}
+                    error={itemError}
                     onChange={(next) => {
                         const chosen = units.find((unit) => unit.key === next);
                         if (chosen !== undefined) patchRow(row.key, { item: chosen.item });
@@ -881,7 +905,7 @@ export function PriceEntriesCard({
                 nativeID={base}
                 className={cx(
                     'border-b border-stroke-subtle px-base py-1.5',
-                    rowProblems !== undefined
+                    rowProblems !== undefined || refusal !== undefined
                         ? 'bg-danger-subtle/50'
                         : isSelected
                           ? 'bg-surface-sunken'
@@ -965,9 +989,7 @@ export function PriceEntriesCard({
                             placeholder={confirmed ? minorAmountToInput(0, currency) : '—'}
                             required={confirmed}
                             disabled={!confirmed || !canManage || lockedMeal}
-                            {...(firstField === 'amount' && firstText !== undefined
-                                ? { error: firstText }
-                                : {})}
+                            error={amountError}
                             onChangeText={(next) => {
                                 patchRow(row.key, { amount: next });
                             }}
@@ -1089,6 +1111,13 @@ export function PriceEntriesCard({
                                         .join(' · '),
                                 ),
                             })}
+                        </Text>
+                    </View>
+                )}
+                {refusalNote === '' ? null : (
+                    <View className="mt-1.5 ps-8">
+                        <Text testID={`${base}-refused`} variant="caption" tone="danger">
+                            {refusalNote}
                         </Text>
                     </View>
                 )}

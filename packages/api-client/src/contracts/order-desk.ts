@@ -1,6 +1,7 @@
 import type { BranchId, CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
 import type { DriverJobStatus, DriverJobTrackingStatus } from './driver-jobs.ts';
+import type { ServiceArea } from './kitchen-admin.ts';
 import type {
     KitchenOrder,
     KitchenOrderFulfilmentType,
@@ -1047,6 +1048,14 @@ export interface OrderDeskRepository {
 
     /** This kitchen's active delivery windows, in display order — the desk sale's slot choice. */
     listDeliveryWindows(): Promise<readonly OrderDeskDeliveryWindow[]>;
+
+    /**
+     * The areas a desk sale can be delivered to: those this kitchen's **active, organisation-wide**
+     * zones claim — what the desk's quote would accept, since a desk sale states no branch. The
+     * address picker reads this rather than the whole gazetteer, so an agent is never offered a
+     * place the save would refuse with `address.area_not_served`.
+     */
+    listDeliveryAreas(): Promise<readonly ServiceArea[]>;
 
     /**
      * One day's takings, by agent, method and currency — **the till-shift mitigation**.

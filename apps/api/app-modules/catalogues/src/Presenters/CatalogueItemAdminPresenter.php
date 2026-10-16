@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Catalogues\Presenters;
 
+use Healthy360\Catalogues\Enums\RecordPhotoSubject;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemAvailabilityDay;
 use Healthy360\Catalogues\Models\CatalogueItemIngredient;
@@ -11,6 +12,7 @@ use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Catalogues\Services\RecordPhotoService;
 use Healthy360\Kitchens\Presenters\BranchOperatingPresenter;
 
 /**
@@ -37,6 +39,8 @@ use Healthy360\Kitchens\Presenters\BranchOperatingPresenter;
  */
 final class CatalogueItemAdminPresenter
 {
+    public function __construct(private readonly RecordPhotoService $photos) {}
+
     /**
      * @return array{
      *     id: string,
@@ -120,6 +124,8 @@ final class CatalogueItemAdminPresenter
             'status' => $item->status->value,
             'review_reason' => $item->review_reason,
             'image_placeholder_id' => $item->image_placeholder_id,
+            // The kitchen's own photo of this item, when it saved one (BUG-14).
+            'photo_url' => $this->photos->urlFor(RecordPhotoSubject::CatalogueItem, (string) $item->getKey()),
             'data_quality_flags' => $flags,
             'source_system' => $item->source_system,
             'source_ref' => $item->source_ref,

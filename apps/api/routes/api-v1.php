@@ -110,6 +110,9 @@ use Healthy360\Catalogues\Http\Controllers\PlanVariantDurationReplaceController;
 use Healthy360\Catalogues\Http\Controllers\PlanVariantIndexController;
 use Healthy360\Catalogues\Http\Controllers\PlanVariantReplaceController;
 use Healthy360\Catalogues\Http\Controllers\PublicDietClassificationIndexController;
+use Healthy360\Catalogues\Http\Controllers\RecordPhotoDestroyController;
+use Healthy360\Catalogues\Http\Controllers\RecordPhotoShowController;
+use Healthy360\Catalogues\Http\Controllers\RecordPhotoStoreController;
 use Healthy360\Catalogues\Http\Controllers\SalesChannelIndexController;
 use Healthy360\Catalogues\Http\Controllers\SalesChannelShowController;
 use Healthy360\Catalogues\Http\Controllers\SalesChannelStoreController;
@@ -222,6 +225,7 @@ use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAddressStoreCo
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerUpdateController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDeliveryAreaIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDeliveryWindowIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDriverIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlacementController;
@@ -1014,6 +1018,14 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/ingredients/{ingredient}/allergens/import-reference', AllergenReferenceImportController::class)->name('catalogue.ingredients.allergens.import-reference');
 
                 Route::post('/ingredients/{ingredient}/aliases', IngredientAliasStoreController::class)->name('catalogue.ingredients.aliases.store');
+
+                // A kitchen's own photo of the ingredient (BUG-14).
+                Route::post('/ingredients/{record}/photo', RecordPhotoStoreController::class)
+                    ->defaults('subject', 'ingredient')
+                    ->name('catalogue.ingredients.photo.store');
+                Route::delete('/ingredients/{record}/photo', RecordPhotoDestroyController::class)
+                    ->defaults('subject', 'ingredient')
+                    ->name('catalogue.ingredients.photo.destroy');
                 Route::delete('/ingredients/{ingredient}/aliases/{alias}', IngredientAliasDestroyController::class)->name('catalogue.ingredients.aliases.destroy');
 
                 Route::post('/ingredient-categories', IngredientCategoryStoreController::class)->name('catalogue.ingredient-categories.store');
@@ -1062,6 +1074,14 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
 
             Route::middleware(['org.trading', 'permission:recipe.manage_organisation'])->group(function (): void {
                 Route::post('/recipes', RecipeStoreController::class)->name('catalogue.recipes.store');
+
+                // A kitchen's own photo of the recipe (BUG-14).
+                Route::post('/recipes/{record}/photo', RecordPhotoStoreController::class)
+                    ->defaults('subject', 'recipe')
+                    ->name('catalogue.recipes.photo.store');
+                Route::delete('/recipes/{record}/photo', RecordPhotoDestroyController::class)
+                    ->defaults('subject', 'recipe')
+                    ->name('catalogue.recipes.photo.destroy');
 
                 Route::patch('/recipes/{recipe}', RecipeUpdateController::class)
                     ->middleware('precondition')
@@ -1200,6 +1220,14 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                     ->name('catalogue.sales-channels.update');
 
                 Route::post('/items', CatalogueItemStoreController::class)->name('catalogue.items.store');
+
+                // A kitchen's own photo of the product or meal (BUG-14).
+                Route::post('/items/{record}/photo', RecordPhotoStoreController::class)
+                    ->defaults('subject', 'catalogue_item')
+                    ->name('catalogue.items.photo.store');
+                Route::delete('/items/{record}/photo', RecordPhotoDestroyController::class)
+                    ->defaults('subject', 'catalogue_item')
+                    ->name('catalogue.items.photo.destroy');
 
                 Route::patch('/items/{item}', CatalogueItemUpdateController::class)
                     ->middleware('precondition')
@@ -2286,6 +2314,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/order-desk/customers/{account}/addresses', OrderDeskCustomerAddressStoreController::class)
                     ->name('catalogue.order-desk.customers.addresses.store');
 
+                // The areas that address may be in: only the ones this
+                // kitchen's own map delivers to, so a refusal is not the
+                // first thing an agent learns about a place.
+                Route::get('/order-desk/delivery-areas', OrderDeskDeliveryAreaIndexController::class)
+                    ->name('catalogue.order-desk.delivery-areas.index');
+
                 // Correcting a misheard name or a mistyped number, instead of
                 // writing the same person down a second time.
                 Route::patch('/order-desk/customers/{account}', OrderDeskCustomerUpdateController::class)
@@ -3157,6 +3191,11 @@ Route::get('/reference/diet-classifications', PublicDietClassificationIndexContr
 // — area codes are unique within a country, not across the platform.
 Route::get('/reference/delivery-areas', PublicDeliveryAreaIndexController::class)
     ->name('reference.delivery-areas.index');
+
+// Anonymous because a customer's shop shows these and an `<img>` carries no
+// token (BUG-14). Named by an unguessable id, cached as immutable.
+Route::get('/media/photos/{photo}', RecordPhotoShowController::class)
+    ->name('media.photos.show');
 
 /*
 |--------------------------------------------------------------------------

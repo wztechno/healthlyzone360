@@ -315,6 +315,7 @@ export function mapIngredientAdmin(
 
     return {
         id: IngredientId.unsafe(wire.id),
+        photoUrl: wire.photo_url ?? null,
         meta: {
             lockVersion: wire.lock_version,
             status: publishableStatus,
@@ -630,6 +631,7 @@ export function mapProductAdminFromItem(
 ): ProductAdmin {
     return {
         id: ProductId.unsafe(wire.id),
+        photoUrl: wire.photo_url ?? null,
         meta: mapCatalogueItemMeta(wire),
         itemType:
             wire.item_type === 'sauce' || wire.item_type === 'dressing'
@@ -684,6 +686,7 @@ export function mapMealAdminFromItem(
 
     return {
         id: MealId.unsafe(wire.id),
+        photoUrl: wire.photo_url ?? null,
         meta: mapCatalogueItemMeta(wire),
         name: localised(wire.name_en, wire.name_ar),
         description: localised(wire.description_en ?? '', wire.description_ar),
@@ -871,6 +874,7 @@ export function mapRecipeAdminSummary(
 
     return {
         id: RecipeId.unsafe(wire.id),
+        photoUrl: wire.photo_url ?? null,
         meta: {
             lockVersion: wire.lock_version,
             status: mapRecipeIdentityPublishableStatus(

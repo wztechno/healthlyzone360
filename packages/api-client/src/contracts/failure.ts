@@ -179,6 +179,11 @@ export const API_FAILURE_CODES = [
     'otp.channel_unavailable',
     'contact.already_in_use',
     'account.verification_required',
+    // BUG-12. Client-side, like `network`: the wire says `account.verification_required` with
+    // `customer_account_missing` outstanding, and no verification can fix that. A kitchen owner or
+    // staff member has no customer account to shop as, and telling them to confirm their email
+    // sent them to a step they had already done.
+    'account.customer_missing',
     'address.area_not_served',
     'guest.session_invalid',
     'cart.line_refused',
@@ -422,6 +427,7 @@ const NEVER_RETRYABLE: ReadonlySet<ApiFailureCode> = new Set<ApiFailureCode>([
     // order is two accepted ones.
     'contact.already_in_use',
     'account.verification_required',
+    'account.customer_missing',
     'address.area_not_served',
     'guest.session_invalid',
     'cart.line_refused',
@@ -507,6 +513,7 @@ const FALLBACK_MESSAGES: Readonly<Record<ApiFailureCode, string>> = {
     'otp.channel_unavailable': 'A code cannot be sent that way.',
     'contact.already_in_use': 'That contact is already in use on another account.',
     'account.verification_required': 'Confirm a contact before continuing.',
+    'account.customer_missing': 'This account cannot place orders.',
     'address.area_not_served': 'Healthy360 does not deliver to that area yet.',
     'cart.line_refused': 'Something in your basket cannot be ordered right now.',
     'guest.session_invalid': 'This guest session has ended.',

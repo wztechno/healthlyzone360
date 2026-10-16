@@ -214,6 +214,7 @@ export function ingredientColumns({
             sortType: 'text',
             value: (row) => displayName(row.name, locale).value,
             thumbnail: (row) => `ingredient-${row.slug}`,
+            thumbnailUrl: (row) => row.photoUrl,
             render: (row) => {
                 const name = displayName(row.name, locale);
                 return (

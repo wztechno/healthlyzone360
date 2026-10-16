@@ -244,6 +244,8 @@ interface MenuTile {
     readonly id: string;
     readonly name: LocalisedText;
     readonly imageId: string;
+    /** The record's uploaded photo (BUG-14), shown in place of `imageId`'s when set. */
+    readonly photoUrl: string | null | undefined;
 }
 
 export function OrderDeskSaleScreen() {
@@ -864,6 +866,7 @@ function MenuGrid({
                 id: String(row.id),
                 name: row.name,
                 imageId: row.imagePlaceholderId,
+                photoUrl: row.photoUrl,
             })),
         [read.data],
     );
@@ -1029,6 +1032,7 @@ function MenuTileButton({
         >
             <EntityImage
                 assetId={tile.imageId}
+                photoUrl={tile.photoUrl}
                 seed={tile.id}
                 label={name}
                 aspect="card"

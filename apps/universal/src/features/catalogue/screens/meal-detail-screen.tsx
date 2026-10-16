@@ -7,7 +7,7 @@ import {
     IconButton,
     TextInputField,
 } from '@healthy360/design-system';
-import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
+import type { ApiFailure, MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { MealId } from '@healthy360/domain-types';
 import type { KitchenId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -22,6 +22,7 @@ import { EntityImage } from '../../../media/entity-image.tsx';
 import { PhotoCredit } from '../../../media/photo-credit.tsx';
 import { usePrototypeAction } from '../../../prototype/index.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
+import { useFailureMessage } from '../../../screens/form-helpers.ts';
 import { Eyebrow } from '../../../ui/eyebrow.tsx';
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { formatMoney, formatPackSize } from '../../marketplace/format.ts';
@@ -94,7 +95,11 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
      * The grids' "add to basket", with the quantity threaded through — the mutation, the
      * confirmation, and the guest-entry dialog for somebody who is not signed in.
      */
-    const basket = useBasketAdd({ labelKey: 'catalogue:nav.meals', testID: 'meal-detail' });
+    const basket = useBasketAdd({
+        labelKey: 'catalogue:nav.meals',
+        testID: 'meal-detail',
+        reportsInline: true,
+    });
 
     const relatedFilter = useMemo(
         () => ({
@@ -180,7 +185,7 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
                                     instructions={instructions}
                                     onInstructionsChange={setInstructions}
                                     pending={basket.pending}
-                                    errored={basket.errored}
+                                    failure={basket.failure}
                                     onAdd={() => {
                                         basket.add(item, quantity);
                                         if (instructions.trim() !== '') {
@@ -273,6 +278,7 @@ function MealGallery({ item }: { readonly item: MarketplaceMeal }) {
                 <EntityImage
                     testID="meal-detail-image"
                     assetId={item.imagePlaceholderId}
+                    photoUrl={item.photoUrl}
                     variant="detail"
                     seed={item.slug}
                     label={t('catalogue:meal.imageLabel', { meal: item.name })}
@@ -289,6 +295,7 @@ function MealGallery({ item }: { readonly item: MarketplaceMeal }) {
                 >
                     <EntityImage
                         assetId={item.imagePlaceholderId}
+                        photoUrl={item.photoUrl}
                         variant="card"
                         seed={item.slug}
                         label={t('catalogue:meal.imageLabel', { meal: item.name })}
@@ -337,8 +344,10 @@ function MealGallery({ item }: { readonly item: MarketplaceMeal }) {
             </View>
 
             {/* The credit a photograph's licence obliges, under the photograph it belongs to —
-                nothing at all for one that obliges none. */}
-            <PhotoCredit assetId={item.imagePlaceholderId} testID="meal-detail-photo-credit" />
+                nothing at all for one that obliges none, or for the kitchen's own upload. */}
+            {item.photoUrl === undefined || item.photoUrl === null || item.photoUrl === '' ? (
+                <PhotoCredit assetId={item.imagePlaceholderId} testID="meal-detail-photo-credit" />
+            ) : null}
         </View>
     );
 }
@@ -352,7 +361,8 @@ interface MealInfoColumnProps {
     readonly instructions: string;
     readonly onInstructionsChange: (next: string) => void;
     readonly pending: boolean;
-    readonly errored: boolean;
+    /** Why the last add failed. A generic `server` keeps the page's own sentence. */
+    readonly failure: ApiFailure | null;
     readonly onAdd: () => void;
 }
 
@@ -363,11 +373,12 @@ function MealInfoColumn({
     instructions,
     onInstructionsChange,
     pending,
-    errored,
+    failure,
     onAdd,
 }: MealInfoColumnProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const failureMessage = useFailureMessage();
 
     const tag = leadTag(item, t);
     const total = formatMoney(formatter, {
@@ -539,13 +550,17 @@ function MealInfoColumn({
                     </RNText>
                 )}
 
-                {errored ? (
+                {failure !== null ? (
                     <Callout
                         testID="meal-detail-action-error"
                         role="alert"
                         tone="danger"
                         title={t('catalogue:meal.actionErrorTitle')}
-                        body={t('catalogue:meal.actionErrorBody')}
+                        body={
+                            failure.code === 'server'
+                                ? t('catalogue:meal.actionErrorBody')
+                                : (failureMessage(failure) ?? t('catalogue:meal.actionErrorBody'))
+                        }
                     />
                 ) : null}
             </View>

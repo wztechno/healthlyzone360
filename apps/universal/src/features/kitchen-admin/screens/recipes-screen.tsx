@@ -309,6 +309,7 @@ function RecipesList() {
                 media={
                     <RecordPhoto
                         assetId={recipePhotoId(viewed)}
+                        photoUrl={viewed.photoUrl}
                         label={displayName(viewed.name, locale).value}
                         shape="wide"
                         testID="kitchen-recipes-view-photo"

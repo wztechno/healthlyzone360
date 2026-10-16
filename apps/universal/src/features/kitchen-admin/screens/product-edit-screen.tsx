@@ -45,6 +45,7 @@ import {
     useProductQuery,
     usePublishProductMutation,
     useAllRecipesQuery,
+    useSaveRecordPhotoMutation,
     useSetProductChannelAvailabilityMutation,
     useUpdateProductMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
@@ -58,7 +59,7 @@ import {
     emptyPack,
     packErrors,
 } from '../catalogue-row-editors.tsx';
-import type { ChannelDraft, PackDraft } from '../catalogue-row-editors.tsx';
+import type { ChannelDraft, PackColumn, PackDraft } from '../catalogue-row-editors.tsx';
 import {
     CATALOGUE_MANAGE_PERMISSION,
     CATALOGUE_VIEW_PERMISSION,
@@ -76,6 +77,7 @@ import {
 } from '../format.ts';
 import { ImageSlot } from '../image-slot.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { serverFieldErrors } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -134,11 +136,13 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * Only what changed is written: a save that re-sent untouched channels would put a false entry in
  * the log.
  *
- * ## Two things this screen draws and does not keep
+ * ## The photo is a third write
  *
- * **The photo.** No image column exists on the catalogue item and no endpoint takes one. It is
- * drawn as it is on the ingredient and recipe editors — held in this screen's state, never sent,
- * never marking the record dirty.
+ * The photo has an endpoint of its own, as on the ingredient and recipe editors, and goes last —
+ * after the record and the channels — because it needs the item's id and a refused upload must not
+ * undo what is already saved (BUG-14). A photo-only change writes the photo alone.
+ *
+ * ## One thing this screen draws and does not keep
  *
  * **Diet classifications as a field.** `ProductAdmin.dietClassifications` is answered from the
  * linked recipe's published version. `UpdateProductRequest` nominally accepts them, but nothing
@@ -355,6 +359,7 @@ function ProductEditor({
     const setChannels = useSetProductChannelAvailabilityMutation();
     const publish = usePublishProductMutation();
     const archive = useArchiveProductMutation();
+    const photoSave = useSaveRecordPhotoMutation();
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
 
@@ -372,8 +377,14 @@ function ProductEditor({
 
     /** Whether Save has been pressed — what lets an empty required field call itself out. */
     const [attempted, setAttempted] = useState(false);
-    /** The photo, which nothing saves yet. See the module note. */
-    const [image, setImage] = useState<string | null>(null);
+    /*
+     * The photo, the link it was last filled from (`undefined` until the record arrives), and
+     * whether it has been changed since. Rehydrated on its own key: the photo endpoint moves the
+     * link and not the lock version.
+     */
+    const [photo, setPhoto] = useState<string | null>(null);
+    const [photoKey, setPhotoKey] = useState<string | null | undefined>(undefined);
+    const [photoDirty, setPhotoDirty] = useState(false);
 
     const [nextPackOrdinal, setNextPackOrdinal] = useState(1);
     const [showPublish, setShowPublish] = useState(false);
@@ -392,6 +403,10 @@ function ProductEditor({
     if (data !== undefined && serverKey !== channelsKey && !channelsDirty) {
         setChannelsKey(serverKey);
         setChannelRows(channelsFrom(data));
+    }
+    if (data !== undefined && (data.photoUrl ?? null) !== photoKey && !photoDirty) {
+        setPhotoKey(data.photoUrl ?? null);
+        setPhoto(data.photoUrl ?? null);
     }
 
     const title = isCreating
@@ -426,6 +441,8 @@ function ProductEditor({
         setChannelsDirty(false);
         setDetailsKey(null);
         setChannelsKey(null);
+        setPhotoDirty(false);
+        setPhotoKey(undefined);
         guard.markClean();
         void record.refetch();
     }, [guard, record]);
@@ -679,6 +696,52 @@ function ProductEditor({
      * `wroteRecord` says whether the record write went first in this same save: if it did and this
      * one is refused, the record *is* saved, and only the channels are left to try again.
      */
+    /**
+     * The photo, written last: it needs the item's id, and a refused upload must not undo what is
+     * already saved. Answers the failure, or null. An untouched slot is a no-op, so every save
+     * calls it.
+     */
+    const writePhoto = async (
+        productId: ProductId,
+        saved: string | null | undefined,
+    ): Promise<unknown> => {
+        try {
+            await photoSave.mutateAsync({
+                subject: 'catalogue_item',
+                recordId: String(productId),
+                chosen: photo,
+                saved,
+            });
+            setPhotoDirty(false);
+            return null;
+        } catch (error) {
+            return error;
+        }
+    };
+
+    /**
+     * After the record's writes: the photo, then the dirty flags and the toast. A refused photo
+     * keeps the guard armed — the record is saved, and only the photo is left to try again.
+     */
+    const finishWithPhoto = (productId: ProductId, onSaved: () => void) => {
+        void writePhoto(productId, data?.photoUrl).then((photoError) => {
+            settle(false, false);
+            if (photoError === null) {
+                onSaved();
+                return;
+            }
+            guard.markDirty();
+        });
+    };
+
+    const showSaved = () => {
+        toast.show({
+            testID: 'kitchen-product-saved-toast',
+            tone: 'success',
+            message: t('kitchen:editor.savedToast'),
+        });
+    };
+
     const writeChannels = (productId: ProductId, lockVersion: number, wroteRecord: boolean) => {
         setChannels.mutate(
             {
@@ -687,20 +750,17 @@ function ProductEditor({
             },
             {
                 onSuccess: () => {
-                    settle(false, false);
-                    toast.show(
-                        wroteRecord
-                            ? {
-                                  testID: 'kitchen-product-saved-toast',
-                                  tone: 'success',
-                                  message: t('kitchen:editor.savedToast'),
-                              }
-                            : {
-                                  testID: 'kitchen-product-channels-saved-toast',
-                                  tone: 'success',
-                                  message: t('kitchen:channels.savedToast'),
-                              },
-                    );
+                    finishWithPhoto(productId, () => {
+                        if (wroteRecord) {
+                            showSaved();
+                            return;
+                        }
+                        toast.show({
+                            testID: 'kitchen-product-channels-saved-toast',
+                            tone: 'success',
+                            message: t('kitchen:channels.savedToast'),
+                        });
+                    });
                 },
                 onError: (error) => {
                     if (wroteRecord) settle(false, true);
@@ -733,7 +793,8 @@ function ProductEditor({
                     ...netContentRequest,
                 },
                 {
-                    onSuccess: (created) => {
+                    onSuccess: async (created) => {
+                        const photoError = await writePhoto(created.id, null);
                         toast.show({
                             testID: 'kitchen-product-created-toast',
                             tone: 'success',
@@ -741,6 +802,16 @@ function ProductEditor({
                                 name: displayName(created.name, locale).value,
                             }),
                         });
+                        // The page is about to leave, so a refused photo is said in a toast rather
+                        // than the save callout, which would go with it.
+                        if (photoError !== null) {
+                            toast.show({
+                                tone: 'danger',
+                                message:
+                                    toFailure(photoError)?.message ?? t('kitchen:editor.saveError'),
+                            });
+                            photoSave.reset();
+                        }
 
                         const open = () => {
                             settle(false, false);
@@ -784,6 +855,11 @@ function ProductEditor({
             writeChannels(data.id, data.meta.lockVersion, false);
             return;
         }
+        // Only the photo changed: the same reasoning, so the photo is the one write.
+        if (!detailsDirty && photoDirty) {
+            finishWithPhoto(data.id, showSaved);
+            return;
+        }
 
         update.mutate(
             {
@@ -807,12 +883,7 @@ function ProductEditor({
                         writeChannels(updated.id, updated.meta.lockVersion, true);
                         return;
                     }
-                    settle(false, false);
-                    toast.show({
-                        testID: 'kitchen-product-saved-toast',
-                        tone: 'success',
-                        message: t('kitchen:editor.savedToast'),
-                    });
+                    finishWithPhoto(updated.id, showSaved);
                 },
                 onError: (error) => {
                     concurrency.capture(error);
@@ -878,10 +949,99 @@ function ProductEditor({
     }
 
     const saveFailure = toFailure(update.error ?? create.error);
+    // What the server refused, put on the fields it named (BUG-06). The pack rows go out in the
+    // order the table draws them, so `variants.2.…` is the third row.
+    const packsAnchor = 'kitchen-product-packs-anchor';
+    const server = serverFieldErrors(saveFailure, {
+        name_en: {
+            label: t('kitchen:bilingual.englishShort', { field: t('kitchen:list.columnItem') }),
+            fieldId: 'kitchen-product-name-en',
+        },
+        name_ar: {
+            label: t('kitchen:bilingual.arabicShort', { field: t('kitchen:list.columnItem') }),
+            fieldId: 'kitchen-product-name-ar',
+        },
+        description_en: {
+            label: t('kitchen:bilingual.englishShort', {
+                field: t('kitchen:products.descriptionLabel'),
+            }),
+            fieldId: 'kitchen-product-description-en',
+        },
+        description_ar: {
+            label: t('kitchen:bilingual.arabicShort', {
+                field: t('kitchen:products.descriptionLabel'),
+            }),
+            fieldId: 'kitchen-product-description-ar',
+        },
+        // Embedded, neither picker is drawn, so a refusal of either stays in the callout.
+        ...(embedded
+            ? {}
+            : {
+                  product_category_id: {
+                      label: t('kitchen:fields.category'),
+                      fieldId: 'kitchen-product-category',
+                  },
+                  recipe_id: {
+                      label: t('kitchen:products.recipeLabel'),
+                      fieldId: 'kitchen-product-recipe-select',
+                  },
+              }),
+        ...(canReadUnits
+            ? {
+                  net_content_quantity: {
+                      label: t('kitchen:products.netContentLabel'),
+                      fieldId: 'kitchen-product-net-content',
+                  },
+                  net_content_unit_id: {
+                      label: t('kitchen:products.netContentUnitLabel'),
+                      fieldId: 'kitchen-product-net-content-unit',
+                  },
+              }
+            : {}),
+        is_market_priced: {
+            label: t('kitchen:products.marketPricedShort'),
+            fieldId: 'kitchen-product-market-priced',
+        },
+        is_assorted: {
+            label: t('kitchen:products.assortedShort'),
+            fieldId: 'kitchen-product-assorted',
+        },
+        variants: { label: t('kitchen:products.sectionPacks'), fieldId: packsAnchor },
+        'variants.*.code': { label: t('kitchen:products.packCodeLabel'), fieldId: packsAnchor },
+        'variants.*.name_en': { label: t('kitchen:products.packLabel'), fieldId: packsAnchor },
+        'variants.*.pack.pack_quantity': {
+            label: t('kitchen:products.packQuantityLabel'),
+            fieldId: packsAnchor,
+        },
+        'variants.*.pack.pack_unit_id': {
+            label: t('kitchen:products.packUnitLabel'),
+            fieldId: packsAnchor,
+        },
+        'variants.*.pack.pack_piece_count': {
+            label: t('kitchen:products.unitsPerPackLabel'),
+            fieldId: packsAnchor,
+        },
+    });
+    const packServerField: Readonly<Record<PackColumn, string>> = {
+        code: 'code',
+        label: 'name_en',
+        quantity: 'pack.pack_quantity',
+        unit: 'pack.pack_unit_id',
+        'units-per-pack': 'pack.pack_piece_count',
+    };
+    const packFieldError = (row: PackDraft, column: PackColumn): string | undefined => {
+        const index = details.packs.findIndex((entry) => entry.key === row.key);
+        return index < 0
+            ? undefined
+            : server.errorFor(`variants.${String(index)}.${packServerField[column]}`);
+    };
+    const dangerItems: readonly FormIssueItem[] = [...blockerItems, ...server.items];
     const channelFailure = toFailure(setChannels.error);
     const status = data?.meta.status ?? 'draft';
     const quarantined = status === 'review_required';
-    const busy = create.isPending || update.isPending || setChannels.isPending;
+    const photoFailure = toFailure(photoSave.error);
+    const busy =
+        create.isPending || update.isPending || setChannels.isPending || photoSave.isPending;
 
     /*
      * The client-side half of the publish gate: everything that stops the save, the one warning,
@@ -890,7 +1050,12 @@ function ProductEditor({
      * and refuses more than this; these are only the ones a person can see and fix from this form.
      */
     const publishBlocked =
-        blockers.length > 0 || noChannel || detailsDirty || channelsDirty || quarantined;
+        blockers.length > 0 ||
+        noChannel ||
+        detailsDirty ||
+        channelsDirty ||
+        photoDirty ||
+        quarantined;
     const offersPublish =
         !isCreating && canManage && status !== 'published' && status !== 'retired';
     /*
@@ -1009,7 +1174,14 @@ function ProductEditor({
                 value={details.name}
                 requiredEnglish
                 disabled={!canManage}
-                {...(shows('name') ? { englishError: t('kitchen:forms.required') } : {})}
+                {...(shows('name')
+                    ? { englishError: t('kitchen:forms.required') }
+                    : server.errorFor('name_en') === undefined
+                      ? {}
+                      : { englishError: server.errorFor('name_en') })}
+                {...(server.errorFor('name_ar') === undefined
+                    ? {}
+                    : { arabicError: server.errorFor('name_ar') })}
                 onChange={(next) => {
                     edit({ name: next });
                 }}
@@ -1033,6 +1205,7 @@ function ProductEditor({
                     options={categoryOptions}
                     value={details.categoryCode === '' ? null : details.categoryCode}
                     {...(shows('category') ? { error: t('kitchen:forms.required') } : {})}
+                    {...server.flag('product_category_id')}
                     onChange={(next) => {
                         edit({ categoryCode: next });
                     }}
@@ -1049,6 +1222,7 @@ function ProductEditor({
                     disabled={!canManage}
                     options={recipeOptions}
                     value={details.recipeId === null ? NO_RECIPE : String(details.recipeId)}
+                    {...server.flag('recipe_id')}
                     onChange={(next) => {
                         edit({ recipeId: next === NO_RECIPE ? null : (next as RecipeId) });
                     }}
@@ -1067,6 +1241,12 @@ function ProductEditor({
                 }}
                 value={details.description}
                 disabled={!canManage}
+                {...(server.errorFor('description_en') === undefined
+                    ? {}
+                    : { englishError: server.errorFor('description_en') })}
+                {...(server.errorFor('description_ar') === undefined
+                    ? {}
+                    : { arabicError: server.errorFor('description_ar') })}
                 onChange={(next) => {
                     edit({ description: next });
                 }}
@@ -1137,19 +1317,20 @@ function ProductEditor({
                     />
                 )}
 
-                {blockerItems.length === 0 && warningItems.length === 0 ? null : (
+                {dangerItems.length === 0 && warningItems.length === 0 ? null : (
                     <Inline space="xs" wrap testID="kitchen-product-issues">
-                        {blockerItems.length === 0 ? null : (
+                        {dangerItems.length === 0 ? null : (
                             <FormIssueBanner
                                 testID="kitchen-product-issues-errors"
                                 tone="danger"
                                 summary={t(
-                                    shownBlockers.every((entry) => entry.required)
+                                    server.items.length === 0 &&
+                                        shownBlockers.every((entry) => entry.required)
                                         ? 'kitchen:forms.requiredCount'
                                         : 'kitchen:forms.toFixCount',
-                                    { count: blockerItems.length },
+                                    { count: dangerItems.length },
                                 )}
-                                items={blockerItems}
+                                items={dangerItems}
                             />
                         )}
                         {warningItems.length === 0 ? null : (
@@ -1202,13 +1383,13 @@ function ProductEditor({
                     </Inline>
                 </Callout>
             )}
-            {saveFailure === null ? null : (
+            {saveFailure === null || (server.isValidation && server.unplaced === null) ? null : (
                 <Callout
                     testID="kitchen-product-save-error"
                     role="alert"
                     tone="danger"
                     title={t('kitchen:editor.saveError')}
-                    body={saveFailure.message}
+                    body={server.unplaced ?? saveFailure.message}
                 />
             )}
             {channelFailure === null ? null : (
@@ -1218,6 +1399,15 @@ function ProductEditor({
                     tone="danger"
                     title={t('kitchen:channels.saveError')}
                     body={channelFailure.message}
+                />
+            )}
+            {photoFailure === null ? null : (
+                <Callout
+                    testID="kitchen-product-photo-error"
+                    role="alert"
+                    tone="danger"
+                    title={t('kitchen:editor.saveError')}
+                    body={photoFailure.message}
                 />
             )}
 
@@ -1234,12 +1424,17 @@ function ProductEditor({
                         identityFields
                     ) : (
                         <View className="z-auto flex-row flex-wrap items-start gap-base">
-                            {/* Not saved yet: see the module note. */}
+                            {/* Written after the record: see the module note. */}
                             <ImageSlot
                                 testID="kitchen-product-image"
-                                uri={image}
+                                uri={photo}
                                 disabled={!canManage}
-                                onChange={setImage}
+                                onChange={(next) => {
+                                    setPhoto(next);
+                                    const changed = next !== (photoKey ?? null);
+                                    setPhotoDirty(changed);
+                                    if (changed) guard.markDirty();
+                                }}
                             />
                             {identityFields}
                         </View>
@@ -1278,6 +1473,7 @@ function ProductEditor({
                             testID={PACK_EDITOR_TEST_ID}
                             rows={details.packs}
                             errors={shownPackErrors}
+                            fieldError={packFieldError}
                             canManage={canManage}
                             onChange={(next) => {
                                 edit({ packs: next });
@@ -1332,6 +1528,7 @@ function ProductEditor({
                                         {...(shows('net-content')
                                             ? { error: t('kitchen:products.netContentInvalid') }
                                             : {})}
+                                        {...server.flag('net_content_quantity')}
                                         onChangeText={(next) => {
                                             edit({ netContentQuantity: next });
                                         }}
@@ -1348,6 +1545,7 @@ function ProductEditor({
                                         {...(shows('net-content-unit')
                                             ? { error: t('kitchen:forms.required') }
                                             : {})}
+                                        {...server.flag('net_content_unit_id')}
                                         onChange={(next) => {
                                             edit({ netContentUnitId: next });
                                         }}
@@ -1378,6 +1576,7 @@ function ProductEditor({
                                 label={t('kitchen:products.marketPricedShort')}
                                 checked={details.isMarketPriced}
                                 disabled={!canManage}
+                                {...server.flag('is_market_priced')}
                                 onChange={(checked) => {
                                     edit({ isMarketPriced: checked });
                                 }}
@@ -1388,6 +1587,7 @@ function ProductEditor({
                                 label={t('kitchen:products.assortedShort')}
                                 checked={details.isAssorted}
                                 disabled={!canManage}
+                                {...server.flag('is_assorted')}
                                 onChange={(checked) => {
                                     edit({ isAssorted: checked });
                                 }}

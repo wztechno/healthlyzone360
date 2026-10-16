@@ -1,3 +1,4 @@
+import { ApiError, validationFailure } from '@healthy360/api-client';
 import type {
     LastPurchase,
     StockItem,
@@ -588,6 +589,45 @@ describe('supplier detail', () => {
         expect(screen.queryByTestId('kitchen-supplier-screen-steps')).toBeNull();
         expect(screen.queryByTestId('kitchen-supplier-screen-steps-nav')).toBeNull();
         expect(screen.queryByTestId('kitchen-supplier-contacts')).toBeNull();
+    });
+
+    it('puts a refused email on the Email field and names it in the issue banner (BUG-06)', async () => {
+        await renderStubScreen(<SupplierDetailScreen supplier="new" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    createSupplier: async () => {
+                        throw new ApiError(
+                            validationFailure({
+                                contact_email: ['The email field must be a valid email address.'],
+                            }),
+                        );
+                    },
+                },
+            },
+        });
+
+        await untilVisible('kitchen-supplier-details');
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-supplier-name-en-input'), 'Cedar');
+        });
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-supplier-email-input'), 'notanemail');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-supplier-screen-save'));
+        });
+
+        await untilVisible('kitchen-supplier-email-error');
+        expect(screen.getByTestId('kitchen-supplier-email-error')).toHaveTextContent(
+            'The email field must be a valid email address.',
+        );
+        expect(screen.getByTestId('kitchen-supplier-screen-issues-errors')).toHaveTextContent(
+            /Email/,
+        );
+        // Every refused field was placed, so the generic callout has nothing left to say.
+        expect(screen.queryByTestId('kitchen-supplier-save-error')).toBeNull();
     });
 
     it('shows the designed not-found state for a parameter that is not an identifier', async () => {

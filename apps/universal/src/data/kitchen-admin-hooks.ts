@@ -1,5 +1,6 @@
 import type {
     AllergenReferenceSearchRequest,
+    RecordPhotoSubject,
     ImportIngredientAllergenReferenceRequest,
     AllergenClass,
     BranchOperating,
@@ -3519,3 +3520,59 @@ export function useDeliveryZoneWholeSetQuery(
         enabled,
     );
 }
+
+/* ── record photos (BUG-14) ─────────────────────────────────────────────────────────────────── */
+
+export interface SaveRecordPhotoVariables {
+    readonly subject: RecordPhotoSubject;
+    readonly recordId: string;
+    /** What the editor's photo slot holds now: a picked file's local URI, the saved link, or none. */
+    readonly chosen: string | null;
+    /** The link the record was loaded with, so an untouched slot sends nothing. */
+    readonly saved: string | null | undefined;
+}
+
+/**
+ * A record's photo, written after the record's own save (BUG-14).
+ *
+ * The editor keeps the picked image as a local URI; this turns it into bytes and uploads it, or
+ * removes the photo when the slot was cleared. An unchanged slot is a no-op, so every save can call
+ * it. Lists, view pages and the customer shop all read the link, so they are all re-read after.
+ */
+export function useSaveRecordPhotoMutation(): UseMutationResult<
+    void,
+    unknown,
+    SaveRecordPhotoVariables
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ subject, recordId, chosen, saved }: SaveRecordPhotoVariables) => {
+            if (chosen === (saved ?? null)) return;
+
+            if (chosen === null) {
+                await repositories.kitchenAdmin.removeRecordPhoto(subject, recordId);
+                return;
+            }
+
+            const photo = await (await fetch(chosen)).blob();
+            await repositories.kitchenAdmin.setRecordPhoto({
+                subject,
+                recordId,
+                photo,
+                fileName: `photo.${PHOTO_EXTENSION[photo.type] ?? 'jpg'}`,
+            });
+        },
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.all() });
+        },
+    });
+}
+
+const PHOTO_EXTENSION: Readonly<Record<string, string>> = {
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/jpeg': 'jpg',
+};

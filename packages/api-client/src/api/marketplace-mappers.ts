@@ -321,6 +321,7 @@ export function mapMarketplaceMeal(wire: WireMeal): MarketplaceMeal | null {
 
     return {
         id: MealId.unsafe(wire.id),
+        photoUrl: wire.photo_url ?? null,
         kitchenId: KitchenId.unsafe(wire.kitchen_id),
         kitchenName: wire.kitchen_name,
         // Faithful for the five known kinds; an unknown future kind renders

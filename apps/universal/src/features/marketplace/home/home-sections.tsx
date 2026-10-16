@@ -98,6 +98,7 @@ export function HomeHero({ testID, meals, eyebrow, primaryTestID, secondary }: H
             body={t('marketplace:discover.heroBody')}
             imageLabel={t('marketplace:discover.heroImageLabel')}
             imageAssetId={heroMeal?.imagePlaceholderId}
+            imagePhotoUrl={heroMeal?.photoUrl}
             imageSeed={testID}
             overlay={
                 heroMeal === undefined
@@ -270,6 +271,7 @@ export function HomeCategories({
                                                       assetId={
                                                           category.imageMeal?.imagePlaceholderId
                                                       }
+                                                      photoUrl={category.imageMeal?.photoUrl}
                                                       seed={`${testID}-category-${category.value}`}
                                                       label={name}
                                                       aspect="wide"
@@ -527,6 +529,7 @@ export function HomeClosing({ testID, meals, offer }: HomeClosingProps) {
                                     <View className="h-14 w-14 overflow-hidden rounded">
                                         <EntityImage
                                             assetId={meal.imagePlaceholderId}
+                                            photoUrl={meal.photoUrl}
                                             decorative
                                             seed={meal.slug}
                                             label={meal.name}

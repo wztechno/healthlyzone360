@@ -22,16 +22,18 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { toFailure } from '../../../data/hooks.ts';
-import { useServiceAreasQuery } from '../../../data/kitchen-admin-hooks.ts';
 import {
     CUSTOMER_SEARCH_MIN_LENGTH,
     useAddOrderDeskCustomerAddressMutation,
     useCreateOrderDeskCustomerMutation,
     useOrderDeskCustomerSearchQuery,
+    useOrderDeskDeliveryAreasQuery,
     useUpdateOrderDeskCustomerMutation,
 } from '../../../data/order-desk-hooks.ts';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
 import { displayName } from '../format.ts';
+import { serverFieldErrors } from '../server-field-errors.ts';
+import { checkDeskPhone, dialFor, isBlankPhone, normaliseDeskPhone } from './desk-phone.ts';
 import { useDebouncedValue } from './use-debounced-value.ts';
 
 /**
@@ -65,6 +67,22 @@ const EM_DASH = '—';
  * The customer
  * ---------------------------------------------------------------------------------------------- */
 
+/**
+ * The kitchen's dialling code, from its country on the session's membership — what the phone field
+ * opens with, so the agent types only the number the caller reads out.
+ */
+function useKitchenDial(): string | null {
+    const access = useAccessState();
+    const { me } = useSession();
+    const membershipId = access.organisation?.membershipId;
+
+    return useMemo(() => {
+        if (membershipId === undefined) return null;
+        const membership = me?.memberships.find((candidate) => candidate.id === membershipId);
+        return dialFor(membership?.organisation.countryCode ?? null);
+    }, [me, membershipId]);
+}
+
 export function CustomerSection({
     customerAccountId,
     onChoose,
@@ -74,10 +92,14 @@ export function CustomerSection({
     readonly onChoose: (customer: OrderDeskCustomer) => void;
 }) {
     const { t } = useTranslation();
+    const dial = useKitchenDial();
     const [query, setQuery] = useState('');
     const [creating, setCreating] = useState(false);
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
+    /** Set by the first Create press: the number is judged once the agent says they are done. */
+    const [createAttempted, setCreateAttempted] = useState(false);
+    const [editAttempted, setEditAttempted] = useState(false);
     /** The record behind `customerAccountId`, held so the folded card can name them. */
     const [chosen, setChosen] = useState<OrderDeskCustomer | null>(null);
     const [changing, setChanging] = useState(false);
@@ -94,6 +116,30 @@ export function CustomerSection({
 
     const searchFailure = toFailure(search.error);
     const createFailure = toFailure(create.error);
+
+    // What the server refused, on the field it named (BUG-06).
+    const customerFields = (form: 'customer' | 'customer-edit') => ({
+        display_name: {
+            label: t('kitchen:desk.sale.customerNameLabel'),
+            fieldId: `kitchen-order-desk-sale-${form}-name`,
+        },
+        phone: {
+            label: t('kitchen:desk.sale.customerPhoneLabel'),
+            fieldId: `kitchen-order-desk-sale-${form}-phone`,
+        },
+    });
+    const createServer = serverFieldErrors(createFailure, customerFields('customer'));
+    const updateServer = serverFieldErrors(updateFailure, customerFields('customer-edit'));
+    const createPhoneProblem = checkDeskPhone(phone, dial);
+    const editPhoneProblem = checkDeskPhone(editPhone, dial);
+    const createPhoneError =
+        createAttempted && createPhoneProblem !== null
+            ? t(createPhoneProblem.key, createPhoneProblem.params)
+            : createServer.errorFor('phone');
+    const editPhoneError =
+        editAttempted && editPhoneProblem !== null
+            ? t(editPhoneProblem.key, editPhoneProblem.params)
+            : updateServer.errorFor('phone');
     const tooShort = debounced.length > 0 && debounced.length < CUSTOMER_SEARCH_MIN_LENGTH;
     const rows = search.data?.rows ?? [];
     const answered =
@@ -110,6 +156,7 @@ export function CustomerSection({
 
     function startEditing(customer: OrderDeskCustomer) {
         update.reset();
+        setEditAttempted(false);
         setEditName(customer.displayName ?? '');
         setEditPhone(customer.phone ?? '');
         setEditing(true);
@@ -117,8 +164,10 @@ export function CustomerSection({
 
     /** Only what changed is sent, so a correction to the name never re-sends the number. */
     function saveEdit(customer: OrderDeskCustomer) {
+        setEditAttempted(true);
         const nextName = editName.trim();
-        const nextPhone = editPhone.trim();
+        const nextPhone = normaliseDeskPhone(editPhone);
+        if (nextPhone !== (customer.phone ?? '') && editPhoneProblem !== null) return;
         update.mutate(
             {
                 customerId: customer.id,
@@ -139,7 +188,7 @@ export function CustomerSection({
     const editUnchanged =
         chosen !== null &&
         editName.trim() === (chosen.displayName ?? '') &&
-        editPhone.trim() === (chosen.phone ?? '');
+        normaliseDeskPhone(editPhone) === (chosen.phone ?? '');
 
     return (
         <FormSection
@@ -183,6 +232,7 @@ export function CustomerSection({
                             label={t('kitchen:desk.sale.customerNameLabel')}
                             size="sm"
                             required
+                            {...updateServer.flag('display_name')}
                             value={editName}
                             onChangeText={setEditName}
                         />
@@ -193,6 +243,7 @@ export function CustomerSection({
                             hint={t('kitchen:desk.sale.customerPhoneHint')}
                             size="sm"
                             required
+                            {...(editPhoneError === undefined ? {} : { error: editPhoneError })}
                             value={editPhone}
                             onChangeText={setEditPhone}
                             autoCapitalize="none"
@@ -201,9 +252,10 @@ export function CustomerSection({
                         />
                     </FormGrid>
 
-                    {updateFailure === null ? null : (
+                    {updateFailure === null ||
+                    (updateServer.isValidation && updateServer.unplaced === null) ? null : (
                         <Text tone="danger" testID="kitchen-order-desk-sale-customer-edit-error">
-                            {updateFailure.message}
+                            {updateServer.unplaced ?? updateFailure.message}
                         </Text>
                     )}
 
@@ -235,7 +287,9 @@ export function CustomerSection({
                             label={t('kitchen:desk.sale.customerEditSave')}
                             loading={update.isPending}
                             disabled={
-                                editUnchanged || editName.trim() === '' || editPhone.trim() === ''
+                                editUnchanged ||
+                                editName.trim() === '' ||
+                                isBlankPhone(editPhone, dial)
                             }
                             onPress={() => {
                                 saveEdit(chosen);
@@ -394,6 +448,7 @@ export function CustomerSection({
                                     placeholder={t('kitchen:desk.sale.customerNamePlaceholder')}
                                     size="sm"
                                     required
+                                    {...createServer.flag('display_name')}
                                     value={name}
                                     onChangeText={setName}
                                 />
@@ -402,9 +457,11 @@ export function CustomerSection({
                                     id="kitchen-order-desk-sale-customer-phone"
                                     label={t('kitchen:desk.sale.customerPhoneLabel')}
                                     hint={t('kitchen:desk.sale.customerPhoneHint')}
-                                    placeholder="+9613000111"
                                     size="sm"
                                     required
+                                    {...(createPhoneError === undefined
+                                        ? {}
+                                        : { error: createPhoneError })}
                                     value={phone}
                                     onChangeText={setPhone}
                                     autoCapitalize="none"
@@ -413,12 +470,13 @@ export function CustomerSection({
                                 />
                             </FormGrid>
 
-                            {createFailure === null ? null : (
+                            {createFailure === null ||
+                            (createServer.isValidation && createServer.unplaced === null) ? null : (
                                 <Text
                                     tone="danger"
                                     testID="kitchen-order-desk-sale-customer-create-error"
                                 >
-                                    {createFailure.message}
+                                    {createServer.unplaced ?? createFailure.message}
                                 </Text>
                             )}
 
@@ -469,10 +527,15 @@ export function CustomerSection({
                                     size="sm"
                                     label={t('kitchen:desk.sale.customerCreate')}
                                     loading={create.isPending}
-                                    disabled={name.trim() === '' || phone.trim() === ''}
+                                    disabled={name.trim() === '' || isBlankPhone(phone, dial)}
                                     onPress={() => {
+                                        setCreateAttempted(true);
+                                        if (createPhoneProblem !== null) return;
                                         create.mutate(
-                                            { displayName: name.trim(), phone: phone.trim() },
+                                            {
+                                                displayName: name.trim(),
+                                                phone: normaliseDeskPhone(phone),
+                                            },
                                             {
                                                 onSuccess: (result) => {
                                                     // Chosen at once: the agent just typed this
@@ -513,6 +576,9 @@ export function CustomerSection({
                                 iconStart={<Icon name="plus" size="sm" />}
                                 onPress={() => {
                                     setCreating(true);
+                                    setCreateAttempted(false);
+                                    // Opens on the kitchen's own code; the agent types the rest.
+                                    if (phone === '' && dial !== null) setPhone(`${dial} `);
                                 }}
                             />
                         </Inline>
@@ -527,25 +593,6 @@ export function CustomerSection({
  * The address
  * ---------------------------------------------------------------------------------------------- */
 
-/**
- * The country whose gazetteer this desk may write addresses in, from the session.
- *
- * The area table spans every market the platform has opened, and an unscoped picker would offer an
- * agent hundreds of places their kitchen can never deliver to. Read from `me()`'s membership exactly
- * as the delivery-zone editor reads it.
- */
-function useOrganisationCountry(): string | null {
-    const access = useAccessState();
-    const { me } = useSession();
-    const membershipId = access.organisation?.membershipId;
-
-    return useMemo(() => {
-        if (membershipId === undefined) return null;
-        const membership = me?.memberships.find((candidate) => candidate.id === membershipId);
-        return membership?.organisation.countryCode ?? null;
-    }, [me, membershipId]);
-}
-
 export function AddressSection({
     customerAccountId,
     customerAddressId,
@@ -557,8 +604,9 @@ export function AddressSection({
 }) {
     const { t } = useTranslation();
     const { locale } = useLocale();
-    const country = useOrganisationCountry();
-    const gazetteer = useServiceAreasQuery(country);
+    // Only the areas this kitchen's own map serves — the whole gazetteer would offer places the save
+    // then refuses with `area_not_served`.
+    const deliveryAreas = useOrderDeskDeliveryAreasQuery();
     const save = useAddOrderDeskCustomerAddressMutation();
 
     const [areaId, setAreaId] = useState<string | null>(null);
@@ -569,13 +617,35 @@ export function AddressSection({
     const [changing, setChanging] = useState(false);
 
     const saveFailure = toFailure(save.error);
+    const server = serverFieldErrors(saveFailure, {
+        delivery_area_id: {
+            label: t('kitchen:desk.sale.areaLabel'),
+            fieldId: 'kitchen-order-desk-sale-address-area',
+        },
+        line_one: {
+            label: t('kitchen:desk.sale.lineOneLabel'),
+            fieldId: 'kitchen-order-desk-sale-address-line-one',
+        },
+        line_two: {
+            label: t('kitchen:desk.sale.lineTwoLabel'),
+            fieldId: 'kitchen-order-desk-sale-address-line-two',
+        },
+        building: {
+            label: t('kitchen:desk.sale.buildingLabel'),
+            fieldId: 'kitchen-order-desk-sale-address-building',
+        },
+        directions: {
+            label: t('kitchen:desk.sale.directionsLabel'),
+            fieldId: 'kitchen-order-desk-sale-address-directions',
+        },
+    });
     const saved = save.data ?? null;
     // Folded only while the saved address is still the sale's — a new customer clears it.
     const folded = saved !== null && saved.id === customerAddressId && !changing;
 
     const options = useMemo(
         () =>
-            (gazetteer.data?.areas ?? []).map((area: ServiceArea) => ({
+            (deliveryAreas.data ?? []).map((area: ServiceArea) => ({
                 value: String(area.id),
                 label: displayName(area.name, locale).value,
                 // The governorate under the name, because two districts share a name often enough
@@ -584,7 +654,7 @@ export function AddressSection({
                     ? {}
                     : { description: displayName(area.parentName, locale).value }),
             })),
-        [gazetteer.data, locale],
+        [deliveryAreas.data, locale],
     );
 
     return (
@@ -632,11 +702,17 @@ export function AddressSection({
                     <FormGrid columns={3}>
                         <Select
                             testID="kitchen-order-desk-sale-address-area"
+                            id="kitchen-order-desk-sale-address-area"
+                            {...server.flag('delivery_area_id')}
                             label={t('kitchen:desk.sale.areaLabel')}
-                            placeholder={t('kitchen:desk.sale.areaPlaceholder')}
+                            placeholder={
+                                deliveryAreas.isSuccess && options.length === 0
+                                    ? t('kitchen:desk.sale.areaPlaceholderNone')
+                                    : t('kitchen:desk.sale.areaPlaceholder')
+                            }
                             searchable
                             required
-                            disabled={gazetteer.isPending || options.length === 0}
+                            disabled={deliveryAreas.isPending || options.length === 0}
                             value={areaId}
                             options={options}
                             onChange={setAreaId}
@@ -644,6 +720,7 @@ export function AddressSection({
                         <TextInputField
                             testID="kitchen-order-desk-sale-address-line-one"
                             id="kitchen-order-desk-sale-address-line-one"
+                            {...server.flag('line_one')}
                             label={t('kitchen:desk.sale.lineOneLabel')}
                             placeholder={t('kitchen:desk.sale.lineOnePlaceholder')}
                             size="sm"
@@ -654,6 +731,7 @@ export function AddressSection({
                         <TextInputField
                             testID="kitchen-order-desk-sale-address-line-two"
                             id="kitchen-order-desk-sale-address-line-two"
+                            {...server.flag('line_two')}
                             label={t('kitchen:desk.sale.lineTwoLabel')}
                             placeholder={t('kitchen:desk.sale.lineTwoPlaceholder')}
                             size="sm"
@@ -663,6 +741,7 @@ export function AddressSection({
                         <TextInputField
                             testID="kitchen-order-desk-sale-address-building"
                             id="kitchen-order-desk-sale-address-building"
+                            {...server.flag('building')}
                             label={t('kitchen:desk.sale.buildingLabel')}
                             placeholder={t('kitchen:desk.sale.buildingPlaceholder')}
                             size="sm"
@@ -672,6 +751,7 @@ export function AddressSection({
                         <TextInputField
                             testID="kitchen-order-desk-sale-address-directions"
                             id="kitchen-order-desk-sale-address-directions"
+                            {...server.flag('directions')}
                             label={t('kitchen:desk.sale.directionsLabel')}
                             placeholder={t('kitchen:desk.sale.directionsPlaceholder')}
                             size="sm"
@@ -682,9 +762,10 @@ export function AddressSection({
                         />
                     </FormGrid>
 
-                    {saveFailure === null ? null : (
+                    {saveFailure === null ||
+                    (server.isValidation && server.unplaced === null) ? null : (
                         <Text tone="danger" testID="kitchen-order-desk-sale-address-error">
-                            {saveFailure.message}
+                            {server.unplaced ?? saveFailure.message}
                         </Text>
                     )}
 

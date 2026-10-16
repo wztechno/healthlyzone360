@@ -8,6 +8,7 @@ use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\Audit\Models\AuditLog;
+use Healthy360\Catalogues\Models\RecordPhoto;
 use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Ingredients\Contracts\IngredientUsageRegistry;
 use Healthy360\Ingredients\Enums\IngredientStatus;
@@ -20,7 +21,9 @@ use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Organisations\Models\OrganisationType;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\SeedDatabaseOnce;
 use Tests\Support\NutritionReferenceFixture;
@@ -171,6 +174,15 @@ it('exempts packaging but requires nutrition when it becomes food', function ():
     $url = '/api/v1/catalogue/ingredients/'.$created->json('data.ingredient.id');
     $this->patchJson($url, ['ingredient_category_id' => null], $headers + ['If-Match' => '"0"'])->assertStatus(422);
     $this->patchJson($url, ['ingredient_category_id' => null] + NutritionReferenceFixture::selection(), $headers + ['If-Match' => '"0"'])->assertOk();
+});
+
+it('lets an edit leave the Arabic name blank, as create does', function (): void {
+    $this->actingAs($this->a->user);
+    $ingredient = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'default_unit_id' => gramsId(), 'name_ar' => 'ملح']);
+
+    $this->patchJson('/api/v1/catalogue/ingredients/'.$ingredient->getKey(), ['name_ar' => ''], catalogueHeaders($this->a) + ['If-Match' => '"0"'])
+        ->assertOk()
+        ->assertJsonPath('data.ingredient.name_ar', '');
 });
 
 it('rejects a USDA reference on a derived ingredient before fetching', function (): void {
@@ -1574,4 +1586,60 @@ it('refuses a sort it does not offer, a direction it does not understand, and a 
     $this->getJson('/api/v1/catalogue/ingredients?limit=5&sort=name_en', $headers)
         ->assertStatus(400)
         ->assertJsonPath('error.details.parameter', 'sort');
+});
+
+/*
+| A kitchen's own photo of an ingredient (BUG-14). The same endpoints serve
+| recipes and catalogue items; the ingredient is the one with a platform row
+| no kitchen may photograph, so it is the one tested here.
+*/
+
+it('saves, serves, replaces and removes an ingredient photo', function (): void {
+    Storage::fake('local');
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $ingredient = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'default_unit_id' => gramsId()]);
+    $url = '/api/v1/catalogue/ingredients/'.$ingredient->getKey().'/photo';
+
+    $first = $this->post($url, ['photo' => UploadedFile::fake()->image('salt.png', 40, 40)], $headers)
+        ->assertOk()
+        ->json('data.photo');
+    $stored = RecordPhoto::withoutTenancy()->sole();
+
+    Storage::disk('local')->assertExists($stored->path);
+    expect($first['url'])->toEndWith('/api/v1/media/photos/'.$first['id'])
+        ->and($this->getJson('/api/v1/catalogue/ingredients/'.$ingredient->getKey(), $headers)->json('data.ingredient.photo_url'))->toBe($first['url']);
+
+    // Public: an `<img>` on the customer's shop carries no token.
+    $this->app['auth']->forgetGuards();
+    $this->get('/api/v1/media/photos/'.$first['id'])->assertOk()->assertHeader('Content-Type', 'image/png');
+
+    $this->actingAs($this->a->user);
+    $this->post($url, ['photo' => UploadedFile::fake()->image('salt.jpg', 40, 40)], $headers)->assertOk();
+    Storage::disk('local')->assertMissing($stored->path);
+    expect(RecordPhoto::withoutTenancy()->count())->toBe(1);
+
+    $this->deleteJson($url, [], $headers)->assertNoContent();
+    expect(RecordPhoto::withoutTenancy()->count())->toBe(0)
+        ->and($this->getJson('/api/v1/catalogue/ingredients/'.$ingredient->getKey(), $headers)->json('data.ingredient.photo_url'))->toBeNull();
+});
+
+it('refuses a photo on another kitchen\'s ingredient, a platform one, or a file that is not an image', function (): void {
+    Storage::fake('local');
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $theirs = Ingredient::factory()->create(['organisation_id' => $this->b->organisation->getKey(), 'default_unit_id' => gramsId()]);
+    $platform = Ingredient::factory()->create(['organisation_id' => null, 'default_unit_id' => gramsId()]);
+    $mine = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'default_unit_id' => gramsId()]);
+
+    foreach ([$theirs, $platform] as $ingredient) {
+        $this->post('/api/v1/catalogue/ingredients/'.$ingredient->getKey().'/photo', ['photo' => UploadedFile::fake()->image('x.png')], $headers)
+            ->assertNotFound();
+    }
+
+    $this->post('/api/v1/catalogue/ingredients/'.$mine->getKey().'/photo', ['photo' => UploadedFile::fake()->create('notes.pdf', 10, 'application/pdf')], $headers + ['Accept' => 'application/json'])
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed');
+
+    expect(RecordPhoto::withoutTenancy()->count())->toBe(0);
 });

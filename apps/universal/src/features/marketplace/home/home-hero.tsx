@@ -16,6 +16,8 @@ export interface HomeHeroLayoutProps {
     readonly actions: ReactNode;
     readonly imageLabel: string;
     readonly imageAssetId: string | undefined;
+    /** The pictured meal's uploaded photo (BUG-14); wins over `imageAssetId` when set. */
+    readonly imagePhotoUrl?: string | null | undefined;
     readonly imageSeed: string;
     /** The white card over the photograph's foot: an eyebrow and "name · price". */
     readonly overlay: { readonly label: string; readonly value: string } | undefined;
@@ -42,6 +44,7 @@ export function HomeHeroLayout({
     actions,
     imageLabel,
     imageAssetId,
+    imagePhotoUrl,
     imageSeed,
     overlay,
 }: HomeHeroLayoutProps) {
@@ -102,6 +105,7 @@ export function HomeHeroLayout({
                     <EntityImage
                         testID={`${testID}-image`}
                         assetId={imageAssetId}
+                        photoUrl={imagePhotoUrl}
                         seed={imageSeed}
                         label={imageLabel}
                         aspect="card"

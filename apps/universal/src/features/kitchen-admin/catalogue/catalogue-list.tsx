@@ -307,6 +307,7 @@ function withTableThumbnail<Row>(
                 <Inline space="xs" align="center" wrap={false} className="min-w-0 flex-1">
                     <RowThumbnail
                         assetId={thumbnail(row)}
+                        photoUrl={column.thumbnailUrl?.(row)}
                         seed={rowKey(row)}
                         label={cellText(column, row)}
                         size="table"
@@ -333,6 +334,7 @@ function narrowThumbnail<Row>(
     return (
         <RowThumbnail
             assetId={title.thumbnail(row)}
+            photoUrl={title.thumbnailUrl?.(row)}
             seed={rowKey(row)}
             label={cellText(title, row)}
             size="narrow"

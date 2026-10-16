@@ -150,6 +150,7 @@ export function productColumns({
             sortType: 'text',
             value: (row) => displayName(row.name, locale).value,
             thumbnail: (row) => row.imagePlaceholderId,
+            thumbnailUrl: (row) => row.photoUrl,
             render: (row) => {
                 const name = displayName(row.name, locale);
                 return (

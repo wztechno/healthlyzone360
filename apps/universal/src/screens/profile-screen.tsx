@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { useCan } from '../access/gate.tsx';
+import { useConsentLabel } from '../features/account/consent-labels.ts';
 import { useSession } from '../session/session-provider.tsx';
 import { FactGrid, MarkTile, SettingsPage } from '../ui/settings-page.tsx';
 
@@ -58,6 +59,7 @@ const MEMBERSHIP_TONE: Readonly<Record<MembershipStatus, BadgeTone>> = {
  */
 export function ProfileScreen() {
     const { t } = useTranslation();
+    const consentLabel = useConsentLabel();
     const { me } = useSession();
     const formatter = useFormatter();
     const router = useRouter();
@@ -380,7 +382,7 @@ export function ProfileScreen() {
                                 key={consent.code}
                                 testID={`profile-consent-${consent.code}`}
                                 tone={consent.required ? 'warning' : 'neutral'}
-                                label={`${consent.code} · ${consent.version}`}
+                                label={consentLabel(consent.code)}
                             />
                         ))}
                     </Inline>

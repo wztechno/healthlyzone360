@@ -30,6 +30,7 @@ import {
     useB2bAddCatalogueItemMutation,
     B2B_CART_CHANNEL_CODE,
 } from '../../../data/business-hooks.ts';
+import { useFailureMessage } from '../../../screens/form-helpers.ts';
 import { CATALOGUE_ROW_ICONS } from '../../kitchen-admin/catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
@@ -88,6 +89,7 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
     const router = useRouter();
     const formatter = useFormatter();
     const toast = useToast();
+    const failureMessage = useFailureMessage();
 
     const parsed = programmeId === undefined ? null : CorporateProgrammeId.safeParse(programmeId);
 
@@ -127,6 +129,15 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
                         message: t('business:catalogue.addedToCart', { items: cart.itemCount }),
                     });
                     onSuccess?.();
+                },
+                onError: (error) => {
+                    toast.show({
+                        testID: `catalogue-item-${item.id}-add-failed`,
+                        tone: 'danger',
+                        message: t('catalogue:meal.addFailed', {
+                            reason: failureMessage(toFailure(error)) ?? t('errors:generic.body'),
+                        }),
+                    });
                 },
             },
         );

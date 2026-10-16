@@ -88,10 +88,21 @@ export const WINDOW_TRACKS = {
  * Delivery windows
  * ---------------------------------------------------------------------------------------------- */
 
+/**
+ * What the server refused about one row — the row whose write failed, since the page writes row by
+ * row and stops at the first refusal. `errorFor` takes the request's own field names (`starts_at`).
+ */
+export interface RefusedRow {
+    readonly key: string;
+    readonly errorFor: (serverField: string) => string | undefined;
+}
+
 export interface DeliveryWindowRowsProps {
     readonly rows: readonly DeliveryWindowDraft[];
     readonly onChange: (rows: readonly DeliveryWindowDraft[]) => void;
     readonly errors: ReadonlyMap<string, string>;
+    /** The server's refusal of one row's save, put on that row's fields (BUG-06). */
+    readonly refused?: RefusedRow | undefined;
     readonly canManage: boolean;
     readonly onAdd: () => void;
     /** Drawn beside "Add a window" — the section's save, which the screen owns. */
@@ -131,6 +142,7 @@ export function DeliveryWindowRows({
     rows,
     onChange,
     errors,
+    refused,
     canManage,
     onAdd,
     saveAction,
@@ -142,6 +154,9 @@ export function DeliveryWindowRows({
         readonly row: DeliveryWindowDraft;
         readonly index: number;
     } | null>(null);
+
+    const serverError = (row: DeliveryWindowDraft, field: string): string | undefined =>
+        refused?.key === row.key ? refused.errorFor(field) : undefined;
 
     const patch = (index: number, next: Partial<DeliveryWindowDraft>) => {
         onChange(rows.map((row, position) => (position === index ? { ...row, ...next } : row)));
@@ -166,7 +181,11 @@ export function DeliveryWindowRows({
             fill: true,
             render: (row) => {
                 const { index, rowTestId, rowName } = describe(row);
-                const error = errors.get(row.key);
+                // The weekday toggles have no error of their own; a refusal of them is the row's note.
+                const error =
+                    errors.get(row.key) ??
+                    serverError(row, 'weekdays') ??
+                    serverError(row, 'weekdays.*');
                 return (
                     <View className="z-auto w-full flex-col gap-hair py-tight">
                         <BilingualField
@@ -174,6 +193,8 @@ export function DeliveryWindowRows({
                             fieldLabel={`${rowName} — ${t('kitchen:windows.labelField')}`}
                             value={row.label}
                             requiredEnglish
+                            englishError={serverError(row, 'name_en')}
+                            arabicError={serverError(row, 'name_ar')}
                             labelHidden
                             layout="fill"
                             // What a window is called, by example: the name a customer picks a
@@ -266,6 +287,7 @@ export function DeliveryWindowRows({
                             label={`${rowName} — ${t('kitchen:windows.startsLabel')}`}
                             labelHidden
                             value={row.startsAt}
+                            error={serverError(row, 'starts_at')}
                             disabled={!canManage}
                             onChange={(next) => {
                                 patch(index, { startsAt: next });
@@ -292,6 +314,7 @@ export function DeliveryWindowRows({
                             labelHidden
                             value={row.endsAt}
                             min={row.startsAt === '' ? undefined : row.startsAt}
+                            error={serverError(row, 'ends_at')}
                             disabled={!canManage}
                             onChange={(next) => {
                                 patch(index, { endsAt: next });
@@ -318,6 +341,7 @@ export function DeliveryWindowRows({
                             labelHidden
                             size="sm"
                             disabled={!canManage}
+                            error={serverError(row, 'is_active')}
                             value={row.isActive ? 'yes' : 'no'}
                             options={[
                                 { value: 'yes', label: t('kitchen:windows.offeredYes') },
@@ -502,6 +526,9 @@ export interface OperatingWeekRowsProps {
     readonly onChange: (rows: readonly OperatingDayDraft[]) => void;
     /** One problem per day, drawn under the field it belongs to. */
     readonly issues: ReadonlyMap<number, OperatingIssue>;
+    /** The server's refusal of a day's field, by weekday and request field (`closes_at`). */
+    readonly serverError?:
+        ((weekday: number, serverField: string) => string | undefined) | undefined;
     readonly canManage: boolean;
     /** Copies this day's three times onto every other open day. */
     readonly onCopyToOpenDays: (weekday: number) => void;
@@ -549,6 +576,7 @@ export function OperatingWeekRows({
     rows,
     onChange,
     issues,
+    serverError,
     canManage,
     onCopyToOpenDays,
     announcement,
@@ -567,6 +595,7 @@ export function OperatingWeekRows({
     const timeColumn = (
         key: string,
         field: OperatingField,
+        serverField: string,
         label: string,
         width: number,
         priority: number,
@@ -595,7 +624,11 @@ export function OperatingWeekRows({
                         labelHidden
                         value={read(day)}
                         disabled={!canManage || day.isClosed}
-                        error={issue?.field === field ? issue.message : undefined}
+                        error={
+                            issue?.field === field
+                                ? issue.message
+                                : serverError?.(day.weekday, serverField)
+                        }
                         onChange={(next) => {
                             update(write(day, next));
                         }}
@@ -647,6 +680,7 @@ export function OperatingWeekRows({
                             labelHidden
                             size="sm"
                             disabled={!canManage}
+                            error={serverError?.(day.weekday, 'weekday')}
                             value={day.isClosed ? 'closed' : 'open'}
                             options={[
                                 { value: 'open', label: t('kitchen:branchHours.tradingOpen') },
@@ -663,6 +697,7 @@ export function OperatingWeekRows({
         timeColumn(
             'opens',
             'opens',
+            'opens_at',
             t('kitchen:branchHours.opensLabel'),
             TIME_TRACK,
             90,
@@ -672,6 +707,7 @@ export function OperatingWeekRows({
         timeColumn(
             'closes',
             'closes',
+            'closes_at',
             t('kitchen:branchHours.closesLabel'),
             TIME_TRACK,
             90,
@@ -682,6 +718,7 @@ export function OperatingWeekRows({
         timeColumn(
             'cut-off',
             'cutOff',
+            'order_cut_off_at',
             t('kitchen:branchHours.cutOffLabel'),
             CUT_OFF_TRACK,
             85,

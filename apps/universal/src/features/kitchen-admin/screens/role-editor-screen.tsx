@@ -38,6 +38,7 @@ import { toSavedCodes } from '../page-permissions.ts';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { RolePagesTab } from '../role-pages-tab.tsx';
 import { RolePermissionsTab } from '../role-permissions-tab.tsx';
+import { serverFieldErrors } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -301,6 +302,32 @@ function RoleEditor() {
           : issues.filter((issue) => !issue.required);
     const shows = (key: string): boolean => shownIssues.some((issue) => issue.key === key);
 
+    /*
+     * What the server refused, put on the fields it named (BUG-06). `permissions` is left out: the
+     * matrix has no field to carry a message, so that refusal stays in the callout.
+     */
+    const descriptionLabel = t('accessAdmin:role.description');
+    const server = serverFieldErrors(writeFailure, {
+        code: { label: t('accessAdmin:role.code'), fieldId: 'kitchen-role-editor-code' },
+        name_en: {
+            label: t('kitchen:bilingual.englishShort', { field: nameLabel }),
+            fieldId: 'kitchen-role-editor-name-en',
+        },
+        name_ar: {
+            label: t('kitchen:bilingual.arabicShort', { field: nameLabel }),
+            fieldId: 'kitchen-role-editor-name-ar',
+        },
+        description_en: {
+            label: t('kitchen:bilingual.englishShort', { field: descriptionLabel }),
+            fieldId: 'kitchen-role-editor-description-en',
+        },
+        description_ar: {
+            label: t('kitchen:bilingual.arabicShort', { field: descriptionLabel }),
+            fieldId: 'kitchen-role-editor-description-ar',
+        },
+    });
+    const detailsIssueCount = shownIssues.length + server.items.length;
+
     function save() {
         const permissions = toSavedCodes(current.codes);
         const body = {
@@ -379,12 +406,12 @@ function RoleEditor() {
         value: key,
         label: stepLabels[key],
         ...(key === 'advanced' ? { count: current.codes.size } : {}),
-        ...(key === 'details' && shownIssues.length > 0
+        ...(key === 'details' && detailsIssueCount > 0
             ? {
                   issues: {
-                      count: shownIssues.length,
+                      count: detailsIssueCount,
                       tone: 'danger' as const,
-                      label: t('kitchen:forms.toFixCount', { count: shownIssues.length }),
+                      label: t('kitchen:forms.toFixCount', { count: detailsIssueCount }),
                   },
               }
             : {}),
@@ -448,20 +475,31 @@ function RoleEditor() {
                     }
                     errors={{
                         summary: t(
-                            shownIssues.every((issue) => issue.required)
+                            server.items.length === 0 &&
+                                shownIssues.every((issue) => issue.required)
                                 ? 'kitchen:forms.requiredCount'
                                 : 'kitchen:forms.toFixCount',
-                            { count: shownIssues.length },
+                            { count: detailsIssueCount },
                         ),
-                        items: shownIssues.map((issue) => ({
-                            key: issue.key,
-                            label: issue.label,
-                            fieldId: issue.fieldId,
-                            onPress: () => {
-                                setStep('details');
-                                focusField(issue.fieldId);
-                            },
-                        })),
+                        items: [
+                            ...shownIssues.map((issue) => ({
+                                key: issue.key,
+                                label: issue.label,
+                                fieldId: issue.fieldId,
+                                onPress: () => {
+                                    setStep('details');
+                                    focusField(issue.fieldId);
+                                },
+                            })),
+                            // Save is pressed from the last step; every refused field is on Details.
+                            ...server.items.map((item) => ({
+                                ...item,
+                                onPress: () => {
+                                    setStep('details');
+                                    item.onPress();
+                                },
+                            })),
+                        ],
                     }}
                     steps={{
                         label: t('kitchen:editor.stepsLabel'),
@@ -501,7 +539,8 @@ function RoleEditor() {
                     />
                 ) : null}
 
-                {writeFailure === null ? null : (
+                {writeFailure === null ||
+                (server.isValidation && server.unplaced === null) ? null : (
                     <Callout
                         testID="kitchen-role-editor-write-error"
                         tone="danger"
@@ -514,7 +553,7 @@ function RoleEditor() {
                                   ? t('accessAdmin:role.deleteBlocked', {
                                         count: writeFailure.membershipCount,
                                     })
-                                  : writeFailure.message
+                                  : (server.unplaced ?? writeFailure.message)
                         }
                     />
                 )}
@@ -558,6 +597,7 @@ function RoleEditor() {
                                                       : t('accessAdmin:role.codeInvalid'),
                                           }
                                         : {})}
+                                    {...server.flag('code')}
                                 />
 
                                 <BilingualField
@@ -578,10 +618,14 @@ function RoleEditor() {
                                     }}
                                     {...(shows('name-en')
                                         ? { englishError: t('kitchen:forms.required') }
-                                        : {})}
+                                        : server.errorFor('name_en') === undefined
+                                          ? {}
+                                          : { englishError: server.errorFor('name_en') })}
                                     {...(shows('name-ar')
                                         ? { arabicError: t('kitchen:forms.required') }
-                                        : {})}
+                                        : server.errorFor('name_ar') === undefined
+                                          ? {}
+                                          : { arabicError: server.errorFor('name_ar') })}
                                 />
 
                                 <BilingualField
@@ -589,7 +633,13 @@ function RoleEditor() {
                                     layout="row"
                                     multiline
                                     testID="kitchen-role-editor-description"
-                                    fieldLabel={t('accessAdmin:role.description')}
+                                    fieldLabel={descriptionLabel}
+                                    {...(server.errorFor('description_en') === undefined
+                                        ? {}
+                                        : { englishError: server.errorFor('description_en') })}
+                                    {...(server.errorFor('description_ar') === undefined
+                                        ? {}
+                                        : { arabicError: server.errorFor('description_ar') })}
                                     placeholder={{
                                         en: t('accessAdmin:role.descriptionPlaceholderEn'),
                                         ar: t('accessAdmin:role.descriptionPlaceholderAr'),

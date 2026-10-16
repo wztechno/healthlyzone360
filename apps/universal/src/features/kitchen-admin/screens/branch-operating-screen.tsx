@@ -36,6 +36,7 @@ import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
+import { serverFieldErrors } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -279,6 +280,32 @@ function BranchOperatingEditor() {
     }
 
     const saveFailure = toFailure(save.error);
+    // What the server refused, put on the day's field it named (BUG-06). No issue banner here, so
+    // the callout stays and carries whatever no field could.
+    const server = serverFieldErrors(saveFailure, {
+        'days.*.weekday': {
+            label: t('kitchen:branchHours.columnTrading'),
+            fieldId: 'kitchen-branch-hours-rows',
+        },
+        'days.*.opens_at': {
+            label: t('kitchen:branchHours.opensLabel'),
+            fieldId: 'kitchen-branch-hours-rows',
+        },
+        'days.*.closes_at': {
+            label: t('kitchen:branchHours.closesLabel'),
+            fieldId: 'kitchen-branch-hours-rows',
+        },
+        'days.*.order_cut_off_at': {
+            label: t('kitchen:branchHours.cutOffLabel'),
+            fieldId: 'kitchen-branch-hours-rows',
+        },
+    });
+    // `days.N` is the day's place in the request, which `operatingRequest` sends in weekday order.
+    const requestOrder = operatingRequest(days).map((day) => day.weekday);
+    const dayError = (weekday: number, field: string): string | undefined => {
+        const index = requestOrder.indexOf(weekday);
+        return index === -1 ? undefined : server.errorFor(`days.${String(index)}.${field}`);
+    };
     const everyDayClosed = summary.openDays === 0;
     const sideBySide = bodyWidth >= ASIDE_WIDTH + FORM_MIN_WIDTH + COLUMN_GAP;
     const dayCount = (count: number) =>
@@ -323,7 +350,7 @@ function BranchOperatingEditor() {
                     role="alert"
                     tone="danger"
                     title={t('kitchen:branchHours.saveError')}
-                    body={saveFailure.message}
+                    body={server.unplaced ?? saveFailure.message}
                 />
             )}
 
@@ -357,6 +384,7 @@ function BranchOperatingEditor() {
                             testID="kitchen-branch-hours-rows"
                             rows={days}
                             issues={dayIssues}
+                            serverError={dayError}
                             canManage={canManage}
                             announcement={announcement}
                             onChange={(next) => {

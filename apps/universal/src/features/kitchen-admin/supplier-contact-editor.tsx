@@ -125,7 +125,12 @@ export interface SupplierContactCardProps {
     readonly onRemove: () => void;
     /** Makes this card the primary one and clears the flag everywhere else. */
     readonly onMakePrimary: () => void;
+    /** The server's message for one of this card's fields, by its wire name (BUG-06). */
+    readonly serverError?: ((field: SupplierContactWireField) => string | undefined) | undefined;
 }
+
+/** The card's fields as the replace endpoint names them — `contacts.{n}.<field>` in a refusal. */
+export type SupplierContactWireField = 'name' | 'role_title' | 'email' | 'phone' | 'whatsapp_phone';
 
 export function SupplierContactCard({
     draft,
@@ -135,10 +140,15 @@ export function SupplierContactCard({
     onChange,
     onRemove,
     onMakePrimary,
+    serverError,
 }: SupplierContactCardProps) {
     const { t } = useTranslation();
     const testID = supplierContactRowTestId(draft.key);
     const unreachable = !supplierContactIsReachable(draft);
+    const flag = (field: SupplierContactWireField): { readonly error?: string } => {
+        const message = serverError?.(field);
+        return message === undefined ? {} : { error: message };
+    };
 
     return (
         <RowShell
@@ -173,6 +183,7 @@ export function SupplierContactCard({
                         value={draft.name}
                         required
                         disabled={!canManage}
+                        {...flag('name')}
                         onChangeText={(value) => {
                             onChange({ ...draft, name: value });
                         }}
@@ -186,6 +197,7 @@ export function SupplierContactCard({
                         placeholder={t('kitchen:ops.suppliers.contactRolePlaceholder')}
                         value={draft.roleTitle}
                         disabled={!canManage}
+                        {...flag('role_title')}
                         onChangeText={(value) => {
                             onChange({ ...draft, roleTitle: value });
                         }}
@@ -201,6 +213,7 @@ export function SupplierContactCard({
                         keyboardType="email-address"
                         autoCapitalize="none"
                         disabled={!canManage}
+                        {...flag('email')}
                         onChangeText={(value) => {
                             onChange({ ...draft, email: value });
                         }}
@@ -215,6 +228,7 @@ export function SupplierContactCard({
                         value={draft.phone}
                         keyboardType="phone-pad"
                         disabled={!canManage}
+                        {...flag('phone')}
                         onChangeText={(value) => {
                             onChange({ ...draft, phone: value });
                         }}
@@ -229,6 +243,7 @@ export function SupplierContactCard({
                         value={draft.whatsappPhone}
                         keyboardType="phone-pad"
                         disabled={!canManage}
+                        {...flag('whatsapp_phone')}
                         onChangeText={(value) => {
                             onChange({ ...draft, whatsappPhone: value });
                         }}

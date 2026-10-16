@@ -8,7 +8,9 @@ use Healthy360\Cart\Services\CartService;
 use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
 use Healthy360\Delivery\Models\DeliveryJob;
 use Healthy360\Identity\Models\ContactPoint;
+use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\Order;
+use Healthy360\Orders\Models\OrderPaymentReceipt;
 use Healthy360\Orders\Services\OrderPlacementService;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
@@ -215,4 +217,43 @@ it('lets one driver claim an open run, and tells the second one it is gone', fun
     $this->getJson('/api/v1/driver/jobs', $this->headers)->assertOk()
         ->assertJsonCount(0, 'data.available')
         ->assertJsonCount(1, 'data.jobs');
+});
+
+it('closes the order when the driver hands it over, with the cash against the driver (BUG-10)', function (): void {
+    $driverId = (string) $this->world->tenant->user->getKey();
+    $order = Order::factory()->confirmed()->create([
+        'organisation_id' => $this->world->organisation->getKey(),
+        'customer_account_id' => $this->world->customer->account->getKey(),
+        'sales_channel_id' => $this->world->channel->getKey(),
+    ]);
+    $job = smokeJob($this, $order, ['status' => 'assigned', 'tracking_status' => 'en_route', 'driver_user_id' => $driverId]);
+
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/deliver", [], $this->headers)
+        ->assertOk()
+        ->assertJsonPath('data.job.status', 'delivered');
+
+    $order->refresh();
+    $receipt = OrderPaymentReceipt::query()->where('order_id', $order->getKey())->sole();
+
+    expect($order->status)->toBe(OrderStatus::Fulfilled)
+        ->and($order->fulfilled_at)->not->toBeNull()
+        ->and($receipt->amount_minor)->toBe($order->total_minor)
+        ->and($receipt->confirmed_by)->toBe($driverId)
+        ->and(AuditLog::query()->where('action', 'order.fulfilled')->where('actor_user_id', $driverId)->count())->toBe(1);
+});
+
+it('leaves a cancelled order cancelled when its run is still marked delivered', function (): void {
+    $driverId = (string) $this->world->tenant->user->getKey();
+    $order = Order::factory()->cancelled()->create([
+        'organisation_id' => $this->world->organisation->getKey(),
+        'customer_account_id' => $this->world->customer->account->getKey(),
+        'sales_channel_id' => $this->world->channel->getKey(),
+    ]);
+    $job = smokeJob($this, $order, ['status' => 'assigned', 'tracking_status' => 'en_route', 'driver_user_id' => $driverId]);
+
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/deliver", [], $this->headers)->assertOk();
+
+    expect($order->refresh()->status)->toBe(OrderStatus::Cancelled)
+        ->and(OrderPaymentReceipt::query()->where('order_id', $order->getKey())->count())->toBe(0)
+        ->and($job->refresh()->status)->toBe('delivered');
 });

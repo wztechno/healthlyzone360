@@ -871,6 +871,27 @@ describe('MealsScreen', () => {
         expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-add`)).toBeTruthy();
     });
 
+    it("says why a card's Add was refused instead of doing nothing (BUG-12)", async () => {
+        await renderStubScreen(<MealsScreen />, {
+            session: CONSUMER_SESSION,
+            repositories: {
+                ...CATALOGUE_REPOSITORIES,
+                commerce: {
+                    getCart: async () => {
+                        throw new ApiError(apiFailure('account.customer_missing'));
+                    },
+                },
+            },
+        });
+
+        await waitFor(() => screen.getByTestId('meals-grid'));
+        await fireEvent.press(screen.getByTestId(`meal-card-${MILK_MEAL_SLUG}-add`));
+
+        expect(await screen.findByTestId('basket-add-failed')).toHaveTextContent(
+            /Not added to your basket\. This account can't place orders\./,
+        );
+    });
+
     it('says so on a card whose meal publishes no nutrition', async () => {
         const [first, ...rest] = CATALOGUE_MEALS;
         const bare = { ...first!, nutrition: { ...first!.nutrition, amounts: [] } };
@@ -1334,6 +1355,29 @@ describe('MealDetailScreen', () => {
         });
         // No note was typed, so nothing claims one was dropped.
         expect(screen.queryByTestId('prototype-notice')).toBeNull();
+    });
+
+    it('names the reason beside the button when an account cannot shop (BUG-12)', async () => {
+        await renderStubScreen(<MealDetailScreen mealId={String(DETAIL_MEAL.id)} />, {
+            session: CONSUMER_SESSION,
+            repositories: {
+                ...CATALOGUE_REPOSITORIES,
+                commerce: {
+                    getCart: async () => {
+                        throw new ApiError(apiFailure('account.customer_missing'));
+                    },
+                },
+            },
+        });
+
+        await waitFor(() => screen.getByTestId('meal-detail-add-to-basket'));
+        await fireEvent.press(screen.getByTestId('meal-detail-add-to-basket'));
+
+        expect(await screen.findByTestId('meal-detail-action-error')).toHaveTextContent(
+            /This account can't place orders\. Sign in with a customer account to shop\./,
+        );
+        // Reported once, beside the control — not a second time as a toast.
+        expect(screen.queryByTestId('basket-add-failed')).toBeNull();
     });
 
     it('adds the meal and says plainly that a typed note cannot reach the kitchen yet', async () => {

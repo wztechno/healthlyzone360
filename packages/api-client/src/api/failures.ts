@@ -418,6 +418,19 @@ export function mapErrorEnvelope(body: unknown, context: ErrorEnvelopeContext): 
     }
 
     /**
+     * BUG-12. A cart or order refused because the person has no customer account to shop as — a
+     * kitchen owner or staff member, or a business member whose organisation has no corporate
+     * account. The wire reuses `account.verification_required` for it, but verifying a contact
+     * cannot help, so it gets its own code and its own sentence.
+     */
+    if (
+        code === 'account.verification_required' &&
+        readDetailStrings(details, 'outstanding').includes('customer_account_missing')
+    ) {
+        return apiFailure('account.customer_missing', { message, correlationId });
+    }
+
+    /**
      * The branch picker is one control, and the branch step lives inside it. A client that told
      * these two apart would draw the same screen twice.
      */

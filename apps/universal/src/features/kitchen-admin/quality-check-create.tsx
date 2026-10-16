@@ -41,6 +41,7 @@ import {
     qualityCheckStatusKey,
     qualityCheckStatusTone,
 } from './ops-format.ts';
+import { serverFieldErrors } from './server-field-errors.ts';
 import { useOptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from './use-unsaved-guard.ts';
 
@@ -263,6 +264,14 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
         isReceipt ? receipts.error : (openBatches.error ?? doneBatches.error),
     );
     const saveFailure = toFailure(createCheck.error);
+    /*
+     * The subject is a pick from a list, which has a border to mark but no line to say why — so a
+     * refusal of it is described to nobody here and its message stays in the callout (BUG-06).
+     */
+    const server = serverFieldErrors(saveFailure);
+    const subjectRefused =
+        server.errorFor('subject_id') !== undefined ||
+        server.errorFor('subject_type') !== undefined;
     const missingSubject = submitted && picked === null;
 
     const formatDate = (value: string | null) =>
@@ -462,7 +471,7 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                                 role="alert"
                                 tone="danger"
                                 title={t('kitchen:ops.qc.createFailed')}
-                                body={saveFailure.message}
+                                body={server.unplaced ?? saveFailure.message}
                             />
                         )}
                     </Stack>
@@ -534,7 +543,7 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                                 isReceipt={isReceipt}
                                 rows={shown}
                                 pickedId={pickedId}
-                                invalid={missingSubject}
+                                invalid={missingSubject || subjectRefused}
                                 empty={
                                     rows.length === 0
                                         ? t(
