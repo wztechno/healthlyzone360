@@ -198,7 +198,10 @@ describe('the kitchen’s own photo (BUG-14)', () => {
         expect(sourceUnder(uploaded)).toEqual({ uri: UPLOAD });
 
         // `null` falls back: still the bundled file, not a link.
-        const bundled = screen.getByTestId('list-row-black-pepper-image', HIDDEN) as unknown as Node;
+        const bundled = screen.getByTestId(
+            'list-row-black-pepper-image',
+            HIDDEN,
+        ) as unknown as Node;
         expect(sourceUnder(bundled)).not.toEqual(expect.objectContaining({ uri: UPLOAD }));
         expect(sourceUnder(bundled)).toBeDefined();
     });

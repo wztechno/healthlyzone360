@@ -61,7 +61,10 @@ import {
     supplierContactInputs,
     supplierContactsWellFormed,
 } from '../supplier-contact-editor.tsx';
-import type { SupplierContactDraft, SupplierContactWireField } from '../supplier-contact-editor.tsx';
+import type {
+    SupplierContactDraft,
+    SupplierContactWireField,
+} from '../supplier-contact-editor.tsx';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**

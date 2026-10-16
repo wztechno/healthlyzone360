@@ -228,42 +228,49 @@ function StaffCreateForm() {
               fieldId: 'kitchen-staff-create-local-part',
               step: 'signIn',
           }
-        : { label: t('accessAdmin:add.email'), fieldId: 'kitchen-staff-create-email', step: 'signIn' };
+        : {
+              label: t('accessAdmin:add.email'),
+              fieldId: 'kitchen-staff-create-email',
+              step: 'signIn',
+          };
     const roleTarget = {
         label: t(mode === 'invite' ? 'accessAdmin:add.role' : 'accessAdmin:add.roles'),
         fieldId: 'kitchen-staff-create-role',
         step: 'role' as const,
     };
-    const serverTargets: Readonly<Record<string, ServerFieldTarget & { readonly step: StaffStep }>> =
-        {
-            email: signInTarget,
-            local_part: {
-                label: t('accessAdmin:add.signInName'),
-                fieldId: 'kitchen-staff-create-local-part',
-                step: 'signIn',
-            },
-            password: {
-                label: t('accessAdmin:add.password'),
-                fieldId: 'kitchen-staff-create-password',
-                step: 'signIn',
-            },
-            given_name: {
-                label: t('accessAdmin:add.givenName'),
-                fieldId: 'kitchen-staff-create-given-name',
-                step: 'person',
-            },
-            family_name: {
-                label: t('accessAdmin:add.familyName'),
-                fieldId: 'kitchen-staff-create-family-name',
-                step: 'person',
-            },
-            role_code: roleTarget,
-            role_ids: roleTarget,
-            'role_ids.*': roleTarget,
-        };
+    const serverTargets: Readonly<
+        Record<string, ServerFieldTarget & { readonly step: StaffStep }>
+    > = {
+        email: signInTarget,
+        local_part: {
+            label: t('accessAdmin:add.signInName'),
+            fieldId: 'kitchen-staff-create-local-part',
+            step: 'signIn',
+        },
+        password: {
+            label: t('accessAdmin:add.password'),
+            fieldId: 'kitchen-staff-create-password',
+            step: 'signIn',
+        },
+        given_name: {
+            label: t('accessAdmin:add.givenName'),
+            fieldId: 'kitchen-staff-create-given-name',
+            step: 'person',
+        },
+        family_name: {
+            label: t('accessAdmin:add.familyName'),
+            fieldId: 'kitchen-staff-create-family-name',
+            step: 'person',
+        },
+        role_code: roleTarget,
+        role_ids: roleTarget,
+        'role_ids.*': roleTarget,
+    };
     const server = serverFieldErrors(failure, serverTargets);
     const roleServerError =
-        server.errorFor('role_code') ?? server.errorFor('role_ids') ?? server.errorFor('role_ids.*');
+        server.errorFor('role_code') ??
+        server.errorFor('role_ids') ??
+        server.errorFor('role_ids.*');
     // A chip names its field by label; the label says which step to open before focusing it.
     const serverItems = server.items.map((item) => {
         const on = Object.values(serverTargets).find((target) => target.label === item.label)?.step;

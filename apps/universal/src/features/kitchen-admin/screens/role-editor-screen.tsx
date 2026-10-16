@@ -475,7 +475,8 @@ function RoleEditor() {
                     }
                     errors={{
                         summary: t(
-                            server.items.length === 0 && shownIssues.every((issue) => issue.required)
+                            server.items.length === 0 &&
+                                shownIssues.every((issue) => issue.required)
                                 ? 'kitchen:forms.requiredCount'
                                 : 'kitchen:forms.toFixCount',
                             { count: detailsIssueCount },
@@ -538,7 +539,8 @@ function RoleEditor() {
                     />
                 ) : null}
 
-                {writeFailure === null || (server.isValidation && server.unplaced === null) ? null : (
+                {writeFailure === null ||
+                (server.isValidation && server.unplaced === null) ? null : (
                     <Callout
                         testID="kitchen-role-editor-write-error"
                         tone="danger"
