@@ -68,6 +68,7 @@ function driverJob(overrides: Partial<DriverJob> = {}): DriverJob {
         trackingStatus: 'awaiting_assignment',
         assignedAt: '2026-08-16T06:40:00.000Z',
         pickedUpAt: null,
+        readyAt: '2026-08-16T06:35:00.000Z',
         delivery: driverDelivery(),
         ...overrides,
     };
@@ -563,6 +564,20 @@ describe('picking up a run (HA-19)', () => {
         expect(screen.getByTestId(`${jobTestId(JOB_ONE)}-tracking`)).toHaveTextContent(
             'Customer told: on the way',
         );
+    });
+});
+
+describe('a run the kitchen has not finished (HA-28)', () => {
+    it('says it is waiting for the kitchen instead of offering Picked up', async () => {
+        await renderRunSheet({ listJobs: () => [driverJob({ readyAt: null })] });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(`${jobTestId(JOB_ONE)}-waiting-for-kitchen`)).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        expect(screen.queryByTestId(`${jobTestId(JOB_ONE)}-pick-up`)).toBeNull();
     });
 });
 

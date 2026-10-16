@@ -47,6 +47,7 @@ import {
     OptionCard,
     RadioRow,
     SummaryItems,
+    SummaryRow,
     SummaryTotal,
     TextLink,
 } from '../checkout-frame.tsx';
@@ -144,7 +145,7 @@ export function CheckoutScreen() {
     const deliverySlots = deliverySlotsForKitchen(kitchen.data);
     const kitchenOffersPickup = kitchen.data?.channels.pickup === true;
 
-    const [addressId, setAddressId] = useState<string | null>(null);
+    const [chosenAddressId, setAddressId] = useState<string | null>(null);
     const [chosenSlotCode, setSlotCode] = useState<string | null>(null);
     const [deliveryDate, setDeliveryDate] = useState<string | null>(() => earliestStartDate());
     const [showErrors, setShowErrors] = useState(false);
@@ -159,6 +160,15 @@ export function CheckoutScreen() {
      * rather than sticking.
      */
     const addressList = addresses.data ?? [];
+    /*
+     * The address, like the slot, is derived while nobody has chosen one (HA-22): the default
+     * address, or the only one there is. Somebody with one address was made to open a list of one
+     * to pick it, and the summary could not price delivery until they did.
+     */
+    const addressId =
+        chosenAddressId ??
+        addressList.find((entry) => entry.isDefault)?.id ??
+        (addressList.length === 1 ? (addressList[0]?.id ?? null) : null);
     const selectedAddress = addressList.find((entry) => entry.id === addressId) ?? null;
 
     const previewRequest = useMemo(() => {
@@ -656,6 +666,25 @@ export function CheckoutScreen() {
                 >
                     {quotation === undefined ? null : (
                         <View className="flex-col gap-4">
+                            {/*
+                             * What the total is made of, as the basket showed it (HA-22): a total
+                             * that grew by the delivery fee with no line saying so read as an error.
+                             */}
+                            <View className="flex-col gap-3">
+                                <SummaryRow
+                                    testID="checkout-price-subtotal"
+                                    label={t('commerce:cart.subtotal')}
+                                    value={formatMoney(formatter, quotation.subtotal)}
+                                />
+                                {/* Unknown until an address is chosen; the warning below says so. */}
+                                {quotation.deliveryFee === null ? null : (
+                                    <SummaryRow
+                                        testID="checkout-price-delivery"
+                                        label={t('commerce:cart.delivery')}
+                                        value={formatMoney(formatter, quotation.deliveryFee)}
+                                    />
+                                )}
+                            </View>
                             <SummaryTotal
                                 testID="checkout-price-total"
                                 label={t('commerce:cart.total')}

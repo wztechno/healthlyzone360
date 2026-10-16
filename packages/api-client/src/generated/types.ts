@@ -5060,6 +5060,11 @@ export type CustomerOrderDelivery = {
      */
     contact_point_id: string | null;
     window_code: string | null;
+    /**
+     * The kitchen's own name for the window (as checkout showed it); null when it named none.
+     */
+    window_name_en?: string | null;
+    window_name_ar?: string | null;
     requested_date: string | null;
 };
 
@@ -5071,6 +5076,11 @@ export type KitchenOrderDelivery = CustomerOrderDelivery & {
      *
      */
     zone_id: string | null;
+    /**
+     * The zone's name, for reading; null when the order fell into no zone.
+     */
+    zone_name_en?: string | null;
+    zone_name_ar?: string | null;
 };
 
 /**
@@ -11130,6 +11140,10 @@ export type DriverJob = {
      * When the caller said they had collected the food (`POST /driver/jobs/{job}/pick-up`). `null` until then.
      */
     picked_up_at: string | null;
+    /**
+     * When the kitchen marked the food ready. Picked up is refused until then, and a run is only offered under `available` once it is set.
+     */
+    ready_at: string | null;
     delivery: DriverJobDelivery;
 };
 
@@ -32677,7 +32691,7 @@ export type ListDriverJobsResponses = {
         data: {
             jobs: Array<DriverJob>;
             /**
-             * Unassigned `pending` runs anybody here may claim.
+             * Unassigned `pending` runs anybody here may claim, once the kitchen has marked the food ready.
              */
             available: Array<DriverJob>;
         };

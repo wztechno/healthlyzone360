@@ -146,6 +146,12 @@ export interface KitchenOrderDelivery {
     readonly requestedDate: string | null;
     /** Seller-only: the delivery zone that set the fee. See the file header. */
     readonly zoneId: DeliveryZoneId | null;
+    /** The kitchen's own name for the window in each language (HA-22); absent on older payloads. */
+    readonly windowNameEn?: string | null;
+    readonly windowNameAr?: string | null;
+    /** The zone's name in each language (HA-21); absent on payloads that predate it. */
+    readonly zoneNameEn?: string | null;
+    readonly zoneNameAr?: string | null;
 }
 
 /** A delivery order's run, as the kitchen sees it (HA-19). */

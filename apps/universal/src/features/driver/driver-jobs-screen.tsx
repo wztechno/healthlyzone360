@@ -86,7 +86,9 @@ import { useOnlineStatus } from '../../online/online-status.tsx';
  *
  * A run the driver holds but has not collected offers **Picked up**, not Mark delivered: pressing it
  * is what tells the customer their food is on the road. Only a run that is `in_transit` offers
- * Mark delivered. Picked up is a single tap — it is undone by nobody and costs nothing if early.
+ * Mark delivered. Picked up is a single tap, and it waits for the kitchen: until the order is marked
+ * ready the card says so instead of offering it (HA-28), because a run can be given to a driver days
+ * ahead of a scheduled order.
  *
  * ## Phone first
  *
@@ -534,15 +536,21 @@ function JobCard({ job, locale, disabled, action, onAction }: JobCardProps) {
                     </Text>
                 )}
 
-                <Button
-                    testID={`${testID}-${action === 'pickUp' ? 'pick-up' : action}`}
-                    block
-                    label={t(ACTION_LABEL[action])}
-                    disabled={disabled}
-                    onPress={() => {
-                        onAction(job);
-                    }}
-                />
+                {action === 'pickUp' && job.readyAt === null ? (
+                    <Text tone="secondary" testID={`${testID}-waiting-for-kitchen`}>
+                        {t('kitchen:driver.waitingForKitchen')}
+                    </Text>
+                ) : (
+                    <Button
+                        testID={`${testID}-${action === 'pickUp' ? 'pick-up' : action}`}
+                        block
+                        label={t(ACTION_LABEL[action])}
+                        disabled={disabled}
+                        onPress={() => {
+                            onAction(job);
+                        }}
+                    />
+                )}
             </Stack>
         </Card>
     );

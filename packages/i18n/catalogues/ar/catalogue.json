@@ -106,7 +106,6 @@
         "allergenItem": "يحتوي على {{allergen}}",
         "addingToBasket": "جارٍ الإضافة",
         "pricePerPack": "{{price}} لكل {{size}}",
-        "addedToBasket": "تمت الإضافة. تحتوي سلتك الآن على {{items}} عنصرًا.",
         "addFailed": "لم تتم الإضافة إلى سلّتك. {{reason}}",
         "actionErrorTitle": "لم تُنفَّذ العملية",
         "actionErrorBody": "لم يتغيّر شيء. أعد المحاولة، وإن تكرّر الإخفاق فقد يكون المطبخ قد سحب الطبق بينما كانت هذه الصفحة مفتوحة.",
@@ -151,7 +150,13 @@
         "thumbEmpty": "لا صور أخرى لهذا الطبق بعد",
         "thumbKitchen": "{{kitchen}}، حيث يُطهى هذا الطبق — افتح صفحة المطبخ",
         "factsTitle": "القيم الغذائية",
-        "factsPanelTitle": "التركيب الغذائي الكامل"
+        "factsPanelTitle": "التركيب الغذائي الكامل",
+        "addedToBasket_zero": "تمت الإضافة. سلتك فارغة.",
+        "addedToBasket_one": "تمت الإضافة. تحتوي سلتك الآن على عنصر واحد.",
+        "addedToBasket_two": "تمت الإضافة. تحتوي سلتك الآن على عنصرين.",
+        "addedToBasket_few": "تمت الإضافة. تحتوي سلتك الآن على {{count}} عناصر.",
+        "addedToBasket_many": "تمت الإضافة. تحتوي سلتك الآن على {{count}} عنصرًا.",
+        "addedToBasket_other": "تمت الإضافة. تحتوي سلتك الآن على {{count}} عنصر."
     },
     "macros": {
         "title": "العناصر الكبرى",

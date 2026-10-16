@@ -155,6 +155,8 @@ export interface DriverJob {
     readonly assignedAt: IsoDateTime | null;
     /** When the caller said they had collected the food. `null` until they press Picked up. */
     readonly pickedUpAt: IsoDateTime | null;
+    /** When the kitchen marked the food ready. Picked up waits for it (HA-28). */
+    readonly readyAt: IsoDateTime | null;
     /** Never null itself — see {@link DriverJobDelivery}, whose every field is. */
     readonly delivery: DriverJobDelivery;
 }

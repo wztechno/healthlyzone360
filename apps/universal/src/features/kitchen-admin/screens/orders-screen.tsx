@@ -26,7 +26,7 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { MenuItem, RecordWindowField, TableColumn } from '@healthy360/design-system';
-import { useFormatter } from '@healthy360/i18n';
+import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -598,6 +598,7 @@ function OrderRecord({
     const { t } = useTranslation();
     const windowName = useWindowName();
     const formatter = useFormatter();
+    const { locale } = useLocale();
     const toast = useToast();
     const canManage = useCan(ORDER_MANAGE_PERMISSION);
 
@@ -768,11 +769,7 @@ function OrderRecord({
                     <FactRow
                         testID="kitchen-orders-detail-delivery-zone"
                         label={t('kitchen:ops.orders.deliveryZone')}
-                        value={
-                            shown.delivery.zoneId === null
-                                ? t('kitchen:common.notRecorded')
-                                : String(shown.delivery.zoneId)
-                        }
+                        value={zoneName(shown, locale) ?? t('kitchen:common.notRecorded')}
                     />
                     <FactRow
                         testID="kitchen-orders-detail-delivery-address"
@@ -1067,6 +1064,17 @@ function money(
     currency: KitchenOrder['currencyCode'],
 ): string {
     return formatMoney(formatter, { amount, currency });
+}
+
+/**
+ * The zone the order fell into, by name in the reader's language or the other one (HA-21). Never
+ * the identifier: a kitchen reads "Inner city", and a code on the page reads as a fault.
+ */
+function zoneName(order: KitchenOrder, locale: string): string | null {
+    const arabic = locale.toLowerCase().startsWith('ar');
+    const preferred = arabic ? order.delivery.zoneNameAr : order.delivery.zoneNameEn;
+    const other = arabic ? order.delivery.zoneNameEn : order.delivery.zoneNameAr;
+    return preferred ?? other ?? null;
 }
 
 function stamp(value: string | null, t: TFunction, formatter: Formatter): string {

@@ -15849,7 +15849,7 @@ paths:
                           $ref: '#/components/schemas/DriverJob'
                       available:
                         type: array
-                        description: Unassigned `pending` runs anybody here may claim.
+                        description: Unassigned `pending` runs anybody here may claim, once the kitchen has marked the food ready.
                         items:
                           $ref: '#/components/schemas/DriverJob'
                   meta:
@@ -15935,9 +15935,10 @@ paths:
         for delivery". The order itself stays `confirmed`; only deliver closes
         it.
 
-        **Only the caller's own run, and only once.** A job that is not the
-        caller's is `404`; one that is not `assigned` (already picked up,
-        delivered or cancelled) is `409 resource.conflict`. No `If-Match`:
+        **Only the caller's own run, only once, and only once it is ready.**
+        A job that is not the caller's is `404`; one whose order the kitchen
+        has not marked ready, or that is not `assigned` (already picked up,
+        delivered or cancelled), is `409 resource.conflict`. No `If-Match`:
         nobody races a driver for their own job. Audited as
         `delivery.job_picked_up`.
       parameters:
@@ -31212,6 +31213,11 @@ components:
             changes it once, and the verification state travels with the row.
         window_code:
           type: ['string', 'null']
+        window_name_en:
+          type: ['string', 'null']
+          description: The kitchen's own name for the window (as checkout showed it); null when it named none.
+        window_name_ar:
+          type: ['string', 'null']
         requested_date:
           type: ['string', 'null']
           format: date
@@ -31230,6 +31236,11 @@ components:
                 Which slice of the kitchen's delivery map the address fell into,
                 and what set the fee. The seller's operating arrangement, so it
                 is not on the customer's shape.
+            zone_name_en:
+              type: ['string', 'null']
+              description: The zone's name, for reading; null when the order fell into no zone.
+            zone_name_ar:
+              type: ['string', 'null']
 
     StockItem:
       type: object
@@ -39639,7 +39650,7 @@ components:
 
     DriverJob:
       type: object
-      required: [id, order_id, order_number, status, tracking_status, assigned_at, picked_up_at, delivery]
+      required: [id, order_id, order_number, status, tracking_status, assigned_at, picked_up_at, ready_at, delivery]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -39660,6 +39671,10 @@ components:
           type: ['string', 'null']
           format: date-time
           description: When the caller said they had collected the food (`POST /driver/jobs/{job}/pick-up`). `null` until then.
+        ready_at:
+          type: ['string', 'null']
+          format: date-time
+          description: When the kitchen marked the food ready. Picked up is refused until then, and a run is only offered under `available` once it is set.
         delivery:
           $ref: '#/components/schemas/DriverJobDelivery'
       additionalProperties: false

@@ -8,6 +8,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Customers\Models\CustomerAccount;
+use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Orders\Database\Factories\OrderFactory;
 use Healthy360\Orders\Enums\CancellationReason;
 use Healthy360\Orders\Enums\FulfilmentType;
@@ -182,6 +183,17 @@ class Order extends BaseModel
     public function branch(): BelongsTo
     {
         return $this->belongsTo(OrganisationBranch::class, 'branch_id');
+    }
+
+    /**
+     * The delivery zone the address fell into, for the kitchen's own record page (HA-21) — its name,
+     * where the order only snapshots the identifier.
+     *
+     * @return BelongsTo<DeliveryZone, $this>
+     */
+    public function deliveryZone(): BelongsTo
+    {
+        return $this->belongsTo(DeliveryZone::class, 'delivery_zone_id');
     }
 
     /**

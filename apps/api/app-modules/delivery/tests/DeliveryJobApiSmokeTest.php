@@ -178,13 +178,16 @@ it('keeps finished runs off the driver\'s sheet', function (): void {
 });
 
 it('offers the unassigned pending runs as available, and nothing else', function (): void {
-    $order = fn (): Order => Order::factory()->create([
+    $order = fn (bool $ready = true): Order => Order::factory()->confirmed()->create([
         'organisation_id' => $this->world->organisation->getKey(),
         'customer_account_id' => $this->world->customer->account->getKey(),
         'sales_channel_id' => $this->world->channel->getKey(),
+        'ready_at' => $ready ? now() : null,
     ]);
 
     $open = smokeJob($this, $order());
+    // Accepted but not cooked yet — a scheduled order days ahead (HA-28). Not offered.
+    smokeJob($this, $order(ready: false));
     // Somebody already has this one, and this one is over.
     smokeJob($this, $order(), ['driver_user_id' => $this->world->tenant->user->getKey(), 'status' => 'assigned']);
     smokeJob($this, $order(), ['status' => 'cancelled']);
@@ -267,6 +270,7 @@ it('lets the driver say they have the food, once, without closing the order (HA-
         'organisation_id' => $this->world->organisation->getKey(),
         'customer_account_id' => $this->world->customer->account->getKey(),
         'sales_channel_id' => $this->world->channel->getKey(),
+        'ready_at' => now(),
     ]);
     $job = smokeJob($this, $order, ['status' => 'assigned', 'driver_user_id' => $driverId, 'assigned_at' => now()]);
 
@@ -294,6 +298,7 @@ it('will not let anybody pick up a run that is not theirs', function (): void {
         'organisation_id' => $this->world->organisation->getKey(),
         'customer_account_id' => $this->world->customer->account->getKey(),
         'sales_channel_id' => $this->world->channel->getKey(),
+        'ready_at' => now(),
     ]);
     $job = smokeJob($this, $order);
 
@@ -310,6 +315,7 @@ it('tells the customer and the kitchen each step of the drive (HA-19)', function
         'organisation_id' => $this->world->organisation->getKey(),
         'customer_account_id' => $this->world->customer->account->getKey(),
         'sales_channel_id' => $this->world->channel->getKey(),
+        'ready_at' => now(),
     ]);
     $job = smokeJob($this, $order, ['status' => 'assigned', 'driver_user_id' => $driverId, 'assigned_at' => now()]);
     $shopper = User::query()->whereKey($this->world->customer->account->user_id)->sole();
@@ -359,4 +365,29 @@ it('tells the customer and the kitchen each step of the drive (HA-19)', function
     expect($kitchenRun['status'])->toBe('delivered')
         ->and($kitchenRun['picked_up_at'])->toBeString()
         ->and($kitchenRun['delivered_at'])->toBeString();
+});
+
+it('will not let a driver pick up food the kitchen has not marked ready (HA-28)', function (): void {
+    $driverId = (string) $this->world->tenant->user->getKey();
+    $order = Order::factory()->confirmed()->create([
+        'organisation_id' => $this->world->organisation->getKey(),
+        'customer_account_id' => $this->world->customer->account->getKey(),
+        'sales_channel_id' => $this->world->channel->getKey(),
+    ]);
+    // Given to the driver ahead of time — a dispatcher can do that for a scheduled order.
+    $job = smokeJob($this, $order, ['status' => 'assigned', 'driver_user_id' => $driverId, 'assigned_at' => now()]);
+
+    // The run is on their sheet, and says it is not ready yet.
+    expect($this->getJson('/api/v1/driver/jobs', $this->headers)->assertOk()->json('data.jobs.0.ready_at'))->toBeNull();
+
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/pick-up", [], $this->headers)
+        ->assertStatus(409)
+        ->assertJsonPath('error.code', 'resource.conflict');
+
+    expect($job->refresh()->status)->toBe('assigned')
+        ->and($job->picked_up_at)->toBeNull();
+
+    $order->forceFill(['ready_at' => now()])->save();
+
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/pick-up", [], $this->headers)->assertOk();
 });

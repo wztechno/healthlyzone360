@@ -1807,8 +1807,26 @@ describe('CheckoutScreen', () => {
         expect(screen.getByTestId('checkout-street-input').props.editable).toBe(false);
     });
 
-    it('refuses to review until an address has been chosen', async () => {
+    it('chooses the default address by itself and prices delivery straight away (HA-22)', async () => {
         await renderCheckout(basketOf(1), { addresses: [HOME_ADDRESS] });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('checkout-street-input').props.value).not.toBe('');
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId('checkout-price-delivery')).toBeTruthy();
+        });
+        expect(screen.getByTestId('checkout-price-subtotal')).toBeTruthy();
+    });
+
+    it('refuses to review until an address has been chosen', async () => {
+        // Two addresses and neither is the default: there is nothing to choose for them.
+        await renderCheckout(basketOf(1), {
+            addresses: [
+                testAddress({ id: 'address-office', isDefault: false }),
+                { ...HOME_ADDRESS, isDefault: false },
+            ],
+        });
         await waitFor(() => {
             expect(screen.getByTestId('checkout-review')).toBeTruthy();
         });

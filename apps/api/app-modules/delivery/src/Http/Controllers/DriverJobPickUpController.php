@@ -12,6 +12,7 @@ use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 /**
  * POST /api/v1/driver/jobs/{job}/pick-up — I have the food and I am on my way.
@@ -20,6 +21,11 @@ use Illuminate\Http\JsonResponse;
  * the customer's order "Out for delivery": the run moves to `in_transit` and
  * `en_route` and `picked_up_at` is stamped. The order itself stays `confirmed`
  * — only the driver's deliver closes it.
+ *
+ * **Only once the kitchen has marked the food ready (HA-28).** A run can be
+ * assigned days ahead of a scheduled order; picking it up before it is cooked
+ * would tell the customer it is on its way. Refused as `409` with a sentence
+ * the driver can act on.
  *
  * **Only the driver whose run it is, and only once.** `driver_user_id = me AND
  * status = 'assigned'` travels inside the `UPDATE`, the claim's own shape: a run
@@ -45,6 +51,12 @@ final class DriverJobPickUpController
 
         if (! $record instanceof DeliveryJob) {
             throw new ApiException(ErrorCode::ResourceNotFound);
+        }
+
+        $readyAt = DB::table('orders')->where('id', $record->order_id)->value('ready_at');
+
+        if ($readyAt === null) {
+            throw new ApiException(ErrorCode::ResourceConflict, 'The kitchen has not marked this order ready yet.');
         }
 
         $pickedUpAt = CarbonImmutable::now();

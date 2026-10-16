@@ -3371,11 +3371,15 @@ export const zCustomerOrderDelivery = z.object({
     directions: z.string().nullable(),
     contact_point_id: z.uuid().nullable(),
     window_code: z.string().nullable(),
+    window_name_en: z.string().nullish(),
+    window_name_ar: z.string().nullish(),
     requested_date: z.iso.date().nullable()
 });
 
 export const zKitchenOrderDelivery = zCustomerOrderDelivery.and(z.object({
-    zone_id: z.uuid().nullable()
+    zone_id: z.uuid().nullable(),
+    zone_name_en: z.string().nullish(),
+    zone_name_ar: z.string().nullish()
 }));
 
 /**
@@ -7532,6 +7536,7 @@ export const zDriverJob = z.object({
     tracking_status: zDeliveryJobTrackingStatus,
     assigned_at: z.iso.datetime({ offset: true }).nullable(),
     picked_up_at: z.iso.datetime({ offset: true }).nullable(),
+    ready_at: z.iso.datetime({ offset: true }).nullable(),
     delivery: zDriverJobDelivery
 });
 

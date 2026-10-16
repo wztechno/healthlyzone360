@@ -76,7 +76,8 @@ final class KitchenOrderIndexController
         $limit = CursorPage::limit($request);
         CursorPage::constrain($query, $limit, CursorPage::cursor($request), newestFirst: true);
 
-        $page = CursorPage::page($query->get(), $limit);
+        // The zone's name is on every row (HA-21): one statement for the page, not one per row.
+        $page = CursorPage::page($query->with('deliveryZone')->get(), $limit);
         $lines = $this->linesFor($page['items']->modelKeys());
         $runs = $this->runs->forOrders(array_map('strval', $page['items']->modelKeys()));
 

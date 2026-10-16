@@ -50,6 +50,7 @@ export function mapDriverJob(wire: WireDriverJob): DriverJob {
         trackingStatus: wire.tracking_status,
         assignedAt: wire.assigned_at,
         pickedUpAt: wire.picked_up_at,
+        readyAt: wire.ready_at,
         delivery: mapDelivery(wire.delivery),
     };
 }

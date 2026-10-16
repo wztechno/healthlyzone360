@@ -396,3 +396,18 @@ it('will not start an order that is already ready', function (): void {
         ->assertStatus(409)
         ->assertJsonPath('error.code', 'resource.conflict');
 });
+
+it('names the delivery zone on the kitchen record and its list, never just the code (HA-21)', function (): void {
+    $order = OrderWorld::place($this->world);
+
+    expect($order->delivery_zone_id)->not->toBeNull();
+
+    $this->getJson('/api/v1/catalogue/orders/'.$order->getKey(), $this->kitchenHeaders)
+        ->assertOk()
+        ->assertJsonPath('data.order.delivery.zone_name_en', $this->world->zone->name_en)
+        ->assertJsonPath('data.order.delivery.zone_name_ar', $this->world->zone->name_ar);
+
+    $this->getJson('/api/v1/catalogue/orders', $this->kitchenHeaders)
+        ->assertOk()
+        ->assertJsonPath('data.0.delivery.zone_name_en', $this->world->zone->name_en);
+});

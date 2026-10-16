@@ -114,6 +114,10 @@ function mapDelivery(wire: WireKitchenOrderDelivery): KitchenOrderDelivery {
         windowCode: wire.window_code,
         requestedDate: wire.requested_date,
         zoneId: wire.zone_id === null ? null : DeliveryZoneId.unsafe(wire.zone_id),
+        zoneNameEn: wire.zone_name_en ?? null,
+        windowNameEn: wire.window_name_en ?? null,
+        windowNameAr: wire.window_name_ar ?? null,
+        zoneNameAr: wire.zone_name_ar ?? null,
     };
 }
 

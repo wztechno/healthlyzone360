@@ -638,6 +638,8 @@ export interface PlacedOrder {
     readonly total: Money;
     readonly address: DeliveryAddress;
     readonly slotCode: string;
+    /** The kitchen's own name for the window, in each language (HA-22); `null` when it named none. */
+    readonly slotNames?: { readonly en: string | null; readonly ar: string | null } | undefined;
     readonly deliveryDate: string;
     readonly placedAt: IsoDateTime;
     /** When it reached each later step. Absent on an order built without them (a fixture). */

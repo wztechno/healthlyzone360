@@ -5,7 +5,7 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { Button, Callout, Icon, useBreakpoint } from '@healthy360/design-system';
 import type { Money } from '@healthy360/domain-types';
-import { useFormatter } from '@healthy360/i18n';
+import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
@@ -68,6 +68,8 @@ export interface TrackableOrder {
     readonly address: DeliveryAddress;
     /** Empty when the person expressed no window choice. */
     readonly slotCode: string;
+    /** The kitchen's own name for the window, when the order carries it (HA-22). */
+    readonly slotNames?: { readonly en: string | null; readonly ar: string | null } | undefined;
     /** `YYYY-MM-DD`, or empty when the kitchen has not been given one. */
     readonly deliveryDate: string;
     readonly placedAt: string;
@@ -101,13 +103,23 @@ export function OrderTracking({
 }: OrderTrackingProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const { locale } = useLocale();
     const { atLeast } = useBreakpoint();
     const prototype = usePrototypeAction();
     const wide = atLeast('md');
 
     const current = currentStepIndex(order.state);
     const placedAt = formatter.formatDate(order.placedAt, { timeStyle: 'short' });
-    const slot = order.slotCode === '' ? null : t(`commerce:slots.${order.slotCode}`);
+    // The kitchen's own name, as checkout showed it ("Lunch"), before the platform's generic one.
+    const kitchenSlot =
+        (locale.toLowerCase().startsWith('ar') ? order.slotNames?.ar : order.slotNames?.en) ??
+        order.slotNames?.en ??
+        null;
+    const slot =
+        order.slotCode === ''
+            ? null
+            : (kitchenSlot ??
+              t(`commerce:slots.${order.slotCode}`, { defaultValue: order.slotCode }));
     const arriving =
         order.deliveryDate === ''
             ? t('guest:order.windowPending')

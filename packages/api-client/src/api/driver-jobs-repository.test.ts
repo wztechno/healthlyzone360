@@ -70,6 +70,7 @@ function wireJob(overrides: Record<string, unknown> = {}) {
         tracking_status: 'awaiting_assignment',
         assigned_at: '2026-08-16T06:40:00+00:00',
         picked_up_at: null,
+        ready_at: '2026-08-16T06:35:00+00:00',
         delivery: wireDelivery(),
         ...overrides,
     };

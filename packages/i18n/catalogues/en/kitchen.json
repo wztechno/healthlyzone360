@@ -1670,7 +1670,8 @@
         },
         "pickUp": "Picked up",
         "pickedUpAt": "Picked up at {{at}}",
-        "deliveredToast": "Delivered. Order {{reference}} is closed."
+        "deliveredToast": "Delivered. Order {{reference}} is closed.",
+        "waitingForKitchen": "Waiting for the kitchen"
     },
     "desk": {
         "title": "Order desk",

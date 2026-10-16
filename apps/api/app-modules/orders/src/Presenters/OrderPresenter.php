@@ -7,6 +7,7 @@ namespace Healthy360\Orders\Presenters;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
 use Healthy360\Orders\Models\OrderPaymentReceipt;
+use Healthy360\Orders\Services\OrderWindowNames;
 
 /**
  * The two wire shapes of an order, built separately on purpose.
@@ -84,6 +85,8 @@ use Healthy360\Orders\Models\OrderPaymentReceipt;
  */
 final class OrderPresenter
 {
+    public function __construct(private readonly OrderWindowNames $windows) {}
+
     /**
      * The receipt.
      *
@@ -113,6 +116,8 @@ final class OrderPresenter
      *         directions: string|null,
      *         contact_point_id: string|null,
      *         window_code: string|null,
+     *         window_name_en: string|null,
+     *         window_name_ar: string|null,
      *         requested_date: string|null
      *     },
      *     placed_at: string,
@@ -182,6 +187,9 @@ final class OrderPresenter
                 'directions' => $order->delivery_directions,
                 'contact_point_id' => $order->delivery_contact_point_id,
                 'window_code' => $order->delivery_window_code,
+                // The kitchen's own name for it, as checkout showed it (HA-22).
+                'window_name_en' => $this->windows->for($order->organisation_id, $order->delivery_window_code)['en'] ?? null,
+                'window_name_ar' => $this->windows->for($order->organisation_id, $order->delivery_window_code)['ar'] ?? null,
                 'requested_date' => $order->requested_delivery_date?->toDateString(),
             ],
             'placed_at' => $order->placed_at->toIso8601String(),
@@ -240,12 +248,16 @@ final class OrderPresenter
      *         area_name_ar: string|null,
      *         area_id: string|null,
      *         zone_id: string|null,
+     *         zone_name_en: string|null,
+     *         zone_name_ar: string|null,
      *         building: string|null,
      *         floor: string|null,
      *         apartment: string|null,
      *         directions: string|null,
      *         contact_point_id: string|null,
      *         window_code: string|null,
+     *         window_name_en: string|null,
+     *         window_name_ar: string|null,
      *         requested_date: string|null
      *     },
      *     placed_at: string,
@@ -316,6 +328,9 @@ final class OrderPresenter
                 'area_name_ar' => $order->delivery_area_name_ar,
                 'area_id' => $order->delivery_area_id,
                 'zone_id' => $order->delivery_zone_id,
+                // Its name, so the kitchen reads "Inner city" rather than a code (HA-21).
+                'zone_name_en' => $order->delivery_zone_id === null ? null : $order->deliveryZone?->name_en,
+                'zone_name_ar' => $order->delivery_zone_id === null ? null : $order->deliveryZone?->name_ar,
                 // The half of the snapshot a courier actually navigates by. The
                 // street gets somebody to the building; the building, the
                 // floor, the flat and the customer's own directions get them to
@@ -327,6 +342,9 @@ final class OrderPresenter
                 'directions' => $order->delivery_directions,
                 'contact_point_id' => $order->delivery_contact_point_id,
                 'window_code' => $order->delivery_window_code,
+                // The kitchen's own name for it, as checkout showed it (HA-22).
+                'window_name_en' => $this->windows->for($order->organisation_id, $order->delivery_window_code)['en'] ?? null,
+                'window_name_ar' => $this->windows->for($order->organisation_id, $order->delivery_window_code)['ar'] ?? null,
                 'requested_date' => $order->requested_delivery_date?->toDateString(),
             ],
             'placed_at' => $order->placed_at->toIso8601String(),

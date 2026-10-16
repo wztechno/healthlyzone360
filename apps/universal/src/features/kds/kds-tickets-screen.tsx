@@ -507,7 +507,12 @@ function Ticket({ order, now, locale, canManage, pending, disabled, onBump }: Ti
                           ? t('kitchen:kds.deliveryOn', { date: deliveryDate })
                           : t('kitchen:kds.deliveryOnAt', {
                                 date: deliveryDate,
-                                window: humaniseCode(order.delivery.windowCode),
+                                window:
+                                    (locale.toLowerCase().startsWith('ar')
+                                        ? order.delivery.windowNameAr
+                                        : order.delivery.windowNameEn) ??
+                                    order.delivery.windowNameEn ??
+                                    humaniseCode(order.delivery.windowCode),
                             })}
                 </Text>
 

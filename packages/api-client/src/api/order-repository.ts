@@ -170,6 +170,10 @@ export function mapPlacedOrder(wire: WireOrder): PlacedOrder {
         total: money(wire.total_minor, wire.currency_code),
         address: mapOrderAddress(wire.delivery),
         slotCode: wire.delivery.window_code ?? '',
+        slotNames: {
+            en: wire.delivery.window_name_en ?? null,
+            ar: wire.delivery.window_name_ar ?? null,
+        },
         deliveryDate: wire.delivery.requested_date ?? '',
         placedAt: wire.placed_at,
         stepTimes: mapOrderStepTimes(wire),

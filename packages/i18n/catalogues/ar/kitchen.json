@@ -1893,7 +1893,8 @@
         },
         "pickUp": "تم الاستلام",
         "pickedUpAt": "استلمته في {{at}}",
-        "deliveredToast": "تم التسليم. أُغلق الطلب {{reference}}."
+        "deliveredToast": "تم التسليم. أُغلق الطلب {{reference}}.",
+        "waitingForKitchen": "بانتظار المطبخ"
     },
     "desk": {
         "title": "مكتب الطلبات",
