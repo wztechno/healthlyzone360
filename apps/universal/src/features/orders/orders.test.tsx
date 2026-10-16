@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 import { testMeResponse } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { currentStepIndex, stepPosition } from './order-progress.ts';
-import { CustomerOrderScreen } from './screens/customer-order-screen.tsx';
+import { CustomerOrderScreen, ORDER_TRACKING_POLL_MS } from './screens/customer-order-screen.tsx';
 
 /**
  * The signed-in order page, over the same tracking body the guest page draws.
@@ -204,6 +204,48 @@ describe('CustomerOrderScreen', () => {
         expect(await screen.findByTestId('customer-order-window')).toHaveTextContent(/^Delivered/);
         expect(screen.getByTestId('customer-order-timeline-delivered-time')).toBeTruthy();
         expect(screen.queryByTestId('customer-order-message')).toBeNull();
+    });
+
+    it('keeps itself current while the order is moving, and stops once it is delivered (HA-23)', async () => {
+        // Time still flows, so the screen settles as usual; the jump below is the interval only.
+        jest.useFakeTimers({ advanceTimers: true });
+        try {
+            let state: PlacedOrder['state'] = 'placed';
+            const { repositories } = await renderStubScreen(
+                <CustomerOrderScreen orderId={ORDER_ID} />,
+                {
+                    session: testMeResponse(),
+                    repositories: { commerce: { getMyOrder: async () => placedOrder({ state }) } },
+                },
+            );
+            expect(await screen.findByTestId('customer-order-title')).toHaveTextContent(
+                'Order placed',
+            );
+            const reads = (repositories.commerce.getMyOrder as jest.Mock).mock.calls.length;
+
+            // The kitchen confirms; nobody presses Refresh.
+            state = 'confirmed';
+            await jest.advanceTimersByTimeAsync(ORDER_TRACKING_POLL_MS);
+            await waitFor(() => {
+                expect(screen.getByTestId('customer-order-title')).toHaveTextContent(
+                    'Kitchen confirmed',
+                );
+            });
+
+            state = 'delivered';
+            await jest.advanceTimersByTimeAsync(ORDER_TRACKING_POLL_MS);
+            await waitFor(() => {
+                expect(screen.getByTestId('customer-order-title')).toHaveTextContent('Delivered');
+            });
+            const delivered = (repositories.commerce.getMyOrder as jest.Mock).mock.calls.length;
+            expect(delivered).toBeGreaterThan(reads);
+
+            // Nothing more can happen to a delivered order, so the page stops asking.
+            await jest.advanceTimersByTimeAsync(ORDER_TRACKING_POLL_MS * 3);
+            expect(repositories.commerce.getMyOrder).toHaveBeenCalledTimes(delivered);
+        } finally {
+            jest.useRealTimers();
+        }
     });
 
     it('answers a malformed identifier as not found, without asking the server', async () => {

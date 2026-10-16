@@ -274,12 +274,29 @@ export function useMyOrdersQuery(
 }
 
 /** One of the caller's orders. Nullable identifier for the routing race every detail screen has. */
-export function useMyOrderQuery(orderId: OrderId | null): UseQueryResult<PlacedOrder> {
+export interface MyOrderQueryOptions {
+    /**
+     * Re-read the order every this many milliseconds while it is still on its way (HA-23), so the
+     * tracking page moves when the kitchen or the driver does. Stops by itself once the order is
+     * delivered or cancelled — nothing further can happen to it. `false` (the default) never polls.
+     */
+    readonly pollMs?: number | false | undefined;
+}
+
+export function useMyOrderQuery(
+    orderId: OrderId | null,
+    options: MyOrderQueryOptions = {},
+): UseQueryResult<PlacedOrder> {
     const { repositories } = useRepositoryContext();
+    const pollMs = options.pollMs ?? false;
 
     return useQuery({
         queryKey: queryKeys.commerce.myOrder(orderId ?? ('' as OrderId)),
         enabled: repositories !== null && orderId !== null,
+        refetchInterval: (query) => {
+            const state = query.state.data?.state;
+            return state === 'delivered' || state === 'cancelled' ? false : pollMs;
+        },
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (orderId === null) throw new Error('No order identifier.');
