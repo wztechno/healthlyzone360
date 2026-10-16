@@ -161,7 +161,8 @@
             "pickedUpAt": "Out for delivery",
             "deliveredAt": "Delivered",
             "driver": "Driver",
-            "driverNone": "Nobody yet"
+            "driverNone": "Nobody yet",
+            "preparingAt": "Started cooking"
         },
         "quotations": {
             "title": "Quotations",

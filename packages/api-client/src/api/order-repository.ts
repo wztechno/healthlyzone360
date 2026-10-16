@@ -76,9 +76,9 @@ function money(amountMinor: number, currency: string): Money {
 /**
  * The wire's four states, read with the step times beside them (HA-19).
  *
- * A `confirmed` order is still moving: the kitchen's Ready stamps `ready_at` and the driver's
- * Picked up stamps `out_for_delivery_at`, neither of which is a status of its own, so the step is
- * the latest of those that has happened. `preparing` has no reporter yet and is never produced.
+ * A `confirmed` order is still moving: the kitchen's Start stamps `preparing_at` (HA-24), its Ready
+ * stamps `ready_at` and the driver's Picked up stamps `out_for_delivery_at`, none of which is a status
+ * of its own, so the step is the latest of those that has happened.
  */
 function mapState(wire: WireOrder): OrderState {
     switch (wire.status) {
@@ -87,6 +87,7 @@ function mapState(wire: WireOrder): OrderState {
         case 'confirmed':
             if (wire.out_for_delivery_at != null) return 'out_for_delivery';
             if (wire.ready_at != null) return 'ready_for_pickup';
+            if (wire.preparing_at != null) return 'preparing';
             return 'confirmed';
         default:
             return wire.status;
@@ -96,7 +97,7 @@ function mapState(wire: WireOrder): OrderState {
 export function mapOrderStepTimes(wire: WireOrder): OrderStepTimes {
     return {
         confirmed: wire.confirmed_at,
-        preparing: null,
+        preparing: wire.preparing_at ?? null,
         ready_for_pickup: wire.ready_at ?? null,
         out_for_delivery: wire.out_for_delivery_at ?? null,
         // The driver's own stamp, or — for an order the kitchen closed by hand — when it did.

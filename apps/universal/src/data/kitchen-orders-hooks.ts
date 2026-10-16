@@ -151,6 +151,24 @@ function useKitchenOrderWriteEffects(): (order: KitchenOrder) => void {
     };
 }
 
+/**
+ * "Start" on the kitchen display (HA-24): stamps `preparingAt`, confirming a placed order first.
+ */
+export function useStartOrderMutation(): UseMutationResult<
+    KitchenOrder,
+    unknown,
+    KitchenOrderTransitionRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOrderWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: KitchenOrderTransitionRequest) =>
+            repositories.kitchenOrders.startOrder(request),
+        onSuccess: onWritten,
+    });
+}
+
 /** "Ready" on the kitchen display: stamps `readyAt`, the order stays confirmed until handed over. */
 export function useMarkOrderReadyMutation(): UseMutationResult<
     KitchenOrder,

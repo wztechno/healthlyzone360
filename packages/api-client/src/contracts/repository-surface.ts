@@ -331,6 +331,7 @@ export const REPOSITORY_SURFACE = {
         'listOrders',
         'markOrderReady',
         'recordPayment',
+        'startOrder',
     ],
     orderDesk: [
         'addCustomerAddress',

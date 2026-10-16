@@ -185,7 +185,8 @@
             "pickedUpAt": "خرج للتوصيل",
             "deliveredAt": "سُلِّم",
             "driver": "السائق",
-            "driverNone": "لا أحد بعد"
+            "driverNone": "لا أحد بعد",
+            "preparingAt": "بدأ الطهي"
         },
         "quotations": {
             "title": "عروض الأسعار",

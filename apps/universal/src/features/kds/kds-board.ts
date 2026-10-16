@@ -124,6 +124,19 @@ export function ticketBelongsToBranch(order: KitchenOrder, branchId: BranchId | 
 }
 
 /**
+ * Waiting for the kitchen to start it — "Incoming" (HA-24). A placed order, and a confirmed one
+ * nobody has pressed Start on: confirming accepts an order, it does not start cooking it.
+ */
+export function isAwaitingStart(order: KitchenOrder): boolean {
+    if (order.status === 'placed') return true;
+    return (
+        order.status === 'confirmed' &&
+        (order.preparingAt ?? null) === null &&
+        (order.readyAt ?? null) === null
+    );
+}
+
+/**
  * Splits one page of orders into the three columns, keeping only what this branch should see.
  *
  * `cancelled` reaches none of them, and neither does another kitchen's attributed work.
@@ -145,9 +158,12 @@ export function bucketTickets(
         order.status === 'confirmed' && (order.readyAt ?? null) !== null;
 
     return {
-        incoming: mine.filter((order) => order.status === 'placed').sort(byPlacedAscending),
+        incoming: mine.filter(isAwaitingStart).sort(byPlacedAscending),
         preparing: mine
-            .filter((order) => order.status === 'confirmed' && !isReady(order))
+            .filter(
+                (order) =>
+                    order.status === 'confirmed' && !isReady(order) && !isAwaitingStart(order),
+            )
             .sort(byPlacedAscending),
         done: [
             ...mine.filter(isReady).sort(byPlacedAscending),

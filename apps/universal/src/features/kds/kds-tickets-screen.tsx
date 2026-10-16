@@ -21,9 +21,9 @@ import { useTranslation } from 'react-i18next';
 import { Gate, useCan } from '../../access/gate.tsx';
 import { toFailure } from '../../data/hooks.ts';
 import {
-    useConfirmOrderMutation,
     useFulfilOrderMutation,
     useMarkOrderReadyMutation,
+    useStartOrderMutation,
     useKitchenOrdersQuery,
 } from '../../data/kitchen-orders-hooks.ts';
 import { useOnlineStatus } from '../../online/online-status.tsx';
@@ -33,9 +33,10 @@ import {
     ORDER_VIEW_PERMISSION,
 } from '../kitchen-admin/entity-registry.ts';
 import { displayName, humaniseCode } from '../kitchen-admin/format.ts';
-import { canConfirmKitchenOrder, canFulfilKitchenOrder } from '../kitchen-admin/ops-format.ts';
+import { canFulfilKitchenOrder } from '../kitchen-admin/ops-format.ts';
 import {
     bucketTickets,
+    isAwaitingStart,
     kdsColumnTestId,
     kdsTicketTestId,
     minutesSincePlaced,
@@ -49,10 +50,11 @@ import type { KdsColumnKey } from './kds-board.ts';
  * ## It is a display, not a second order system
  *
  * Every ticket here is a `KitchenOrder` read through `useKitchenOrdersQuery`, and the two buttons on
- * a ticket are `confirmOrder` and `fulfilOrder` — the same endpoints, the same lock-versioned
- * writes, the same state machine that `/kitchen/orders` works. Nothing on this screen has a status
- * of its own, and `canConfirmKitchenOrder` / `canFulfilKitchenOrder` (`kitchen-admin/ops-format.ts`)
- * decide what a ticket offers, so a button here can never propose a transition the endpoint refuses.
+ * a ticket are `startOrder` (which confirms a placed order first), `markOrderReady` and
+ * `fulfilOrder` — the same lock-versioned writes, the same state machine that `/kitchen/orders`
+ * works. Nothing on this screen has a status of its own; `isAwaitingStart` (`./kds-board.ts`) and
+ * `canFulfilKitchenOrder` (`kitchen-admin/ops-format.ts`) decide what a ticket offers, so a button
+ * here can never propose a write the endpoint refuses.
  *
  * What the board deliberately does *not* carry is Cancel. Cancelling an order asks a customer-facing
  * question — why — and records an enum somebody will be held to; that is management work and it
@@ -156,7 +158,7 @@ function KdsTickets() {
         refetchInterval: online ? KDS_POLL_MS : false,
     });
 
-    const confirmOrder = useConfirmOrderMutation();
+    const startOrder = useStartOrderMutation();
     const markReady = useMarkOrderReadyMutation();
     const fulfilOrder = useFulfilOrderMutation();
 
@@ -167,11 +169,11 @@ function KdsTickets() {
 
     const listFailure = toFailure(orders.error);
     const actionFailure =
-        toFailure(confirmOrder.error) ?? toFailure(markReady.error) ?? toFailure(fulfilOrder.error);
+        toFailure(startOrder.error) ?? toFailure(markReady.error) ?? toFailure(fulfilOrder.error);
     const isConflict = actionFailure?.code === 'resource.conflict';
 
     function clearActionState() {
-        confirmOrder.reset();
+        startOrder.reset();
         markReady.reset();
         fulfilOrder.reset();
     }
@@ -179,21 +181,21 @@ function KdsTickets() {
     function bump(order: KitchenOrder, action: KdsAction) {
         clearActionState();
         const request = { id: order.id, lockVersion: order.lockVersion };
-        if (action === 'start') confirmOrder.mutate(request);
+        if (action === 'start') startOrder.mutate(request);
         else if (action === 'ready') markReady.mutate(request);
         else fulfilOrder.mutate(request);
     }
 
     /** The ticket a write is in flight for, so only that one shows a spinner. */
-    const pendingRequest = confirmOrder.isPending
-        ? confirmOrder.variables
+    const pendingRequest = startOrder.isPending
+        ? startOrder.variables
         : markReady.isPending
           ? markReady.variables
           : fulfilOrder.isPending
             ? fulfilOrder.variables
             : undefined;
     const pendingId: OrderId | null = pendingRequest?.id ?? null;
-    const actionPending = confirmOrder.isPending || markReady.isPending || fulfilOrder.isPending;
+    const actionPending = startOrder.isPending || markReady.isPending || fulfilOrder.isPending;
 
     const empty =
         board.incoming.length === 0 && board.preparing.length === 0 && board.done.length === 0;
@@ -445,7 +447,7 @@ function Ticket({ order, now, locale, canManage, pending, disabled, onBump }: Ti
                             })}
                 </Text>
 
-                {!canManage ? null : canConfirmKitchenOrder(order.status) ? (
+                {!canManage ? null : isAwaitingStart(order) ? (
                     <Button
                         testID={`${testID}-start`}
                         block

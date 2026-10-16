@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\RolePermission;
@@ -333,4 +334,65 @@ it('marks a confirmed order ready without handing it over, then hands it over', 
     ])
         ->assertOk()
         ->assertJsonPath('data.order.status', 'fulfilled');
+});
+
+it('starts a confirmed order without moving its status, once (HA-24)', function (): void {
+    $order = OrderWorld::place($this->world);
+
+    $confirmed = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/confirm', [], $this->kitchenHeaders + [
+        'If-Match' => '"'.$order->lock_version.'"',
+    ])
+        ->assertOk()
+        // Accepted, not yet cooking: the kitchen display keeps it in Incoming.
+        ->assertJsonPath('data.order.preparing_at', null);
+
+    $started = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/start', [], $this->kitchenHeaders + [
+        'If-Match' => $confirmed->headers->get('ETag'),
+    ])
+        ->assertOk()
+        ->assertJsonPath('data.order.status', 'confirmed')
+        ->assertJsonPath('data.order.preparing_at', fn (mixed $at): bool => is_string($at))
+        ->assertJsonPath('data.order.ready_at', null);
+
+    // A second press is a conflict, not a second stamp.
+    $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/start', [], $this->kitchenHeaders + [
+        'If-Match' => $started->headers->get('ETag'),
+    ])->assertStatus(409);
+
+    // The customer reads the same moment.
+    $this->actingAs(User::query()->whereKey($this->world->customer->account->user_id)->sole());
+    $this->getJson('/api/v1/me/orders/'.$order->getKey(), firstPartyHeaders())
+        ->assertOk()
+        ->assertJsonPath('data.order.preparing_at', fn (mixed $at): bool => is_string($at));
+});
+
+it('confirms a placed order and starts it in one press from the kitchen display (HA-24)', function (): void {
+    $order = OrderWorld::place($this->world);
+
+    $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/start', [], $this->kitchenHeaders + [
+        'If-Match' => '"'.$order->lock_version.'"',
+    ])
+        ->assertOk()
+        ->assertJsonPath('data.order.status', 'confirmed')
+        ->assertJsonPath('data.order.confirmed_at', fn (mixed $at): bool => is_string($at))
+        ->assertJsonPath('data.order.preparing_at', fn (mixed $at): bool => is_string($at))
+        // Confirm then start: two writes, so the validator moved twice.
+        ->assertHeader('ETag', '"'.($order->lock_version + 2).'"');
+});
+
+it('will not start an order that is already ready', function (): void {
+    $order = OrderWorld::place($this->world);
+
+    $confirmed = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/confirm', [], $this->kitchenHeaders + [
+        'If-Match' => '"'.$order->lock_version.'"',
+    ])->assertOk();
+    $ready = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/ready', [], $this->kitchenHeaders + [
+        'If-Match' => $confirmed->headers->get('ETag'),
+    ])->assertOk();
+
+    $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/start', [], $this->kitchenHeaders + [
+        'If-Match' => $ready->headers->get('ETag'),
+    ])
+        ->assertStatus(409)
+        ->assertJsonPath('error.code', 'resource.conflict');
 });

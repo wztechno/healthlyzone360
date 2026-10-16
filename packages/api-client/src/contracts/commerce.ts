@@ -601,8 +601,8 @@ export const ORDER_STATES = [
 export type OrderState = (typeof ORDER_STATES)[number];
 
 /**
- * When the order reached each step after placement — `null` for a step it has not reached, or one
- * nobody records the moment of (`preparing`, until the kitchen display has a Start for it).
+ * When the order reached each step after placement — `null` for a step it has not reached, or whose
+ * moment was never recorded (an order the kitchen started before Start was stamped).
  */
 export interface OrderStepTimes {
     readonly confirmed: IsoDateTime | null;

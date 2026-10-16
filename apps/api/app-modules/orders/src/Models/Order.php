@@ -75,6 +75,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property PaymentMethod $payment_method
  * @property CarbonImmutable $placed_at
  * @property CarbonImmutable|null $confirmed_at
+ * @property CarbonImmutable|null $preparing_at the kitchen started cooking it ("Start" on the kitchen display)
  * @property CarbonImmutable|null $ready_at the kitchen finished it; still confirmed until handed over
  * @property CarbonImmutable|null $fulfilled_at
  * @property CarbonImmutable|null $cancelled_at
@@ -132,6 +133,7 @@ class Order extends BaseModel
             'requested_delivery_date' => 'immutable_date',
             'placed_at' => 'immutable_datetime',
             'confirmed_at' => 'immutable_datetime',
+            'preparing_at' => 'immutable_datetime',
             'ready_at' => 'immutable_datetime',
             'fulfilled_at' => 'immutable_datetime',
             'cancelled_at' => 'immutable_datetime',

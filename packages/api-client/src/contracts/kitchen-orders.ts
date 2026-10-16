@@ -197,6 +197,11 @@ export interface KitchenOrder {
     readonly placedAt: IsoDateTime;
     readonly confirmedAt: IsoDateTime | null;
     /**
+     * When the kitchen pressed Start — cooking began (HA-24). The order stays `confirmed`. Absent on
+     * payloads that predate it, which reads as "not started".
+     */
+    readonly preparingAt?: IsoDateTime | null;
+    /**
      * When the kitchen marked it ready — cooked, not yet handed over. The order stays `confirmed`
      * until `fulfilledAt`. Absent on payloads that predate it, which reads as "not ready".
      */
@@ -360,6 +365,12 @@ export interface KitchenOrdersRepository {
 
     /** `placed → confirmed`. Answers the fresh record, carrying the next `lockVersion`. */
     confirmOrder(request: KitchenOrderTransitionRequest): Promise<KitchenOrder>;
+
+    /**
+     * Stamps `preparingAt` — "Start" on the kitchen display. A `placed` order is confirmed first, in
+     * the same request; a `confirmed` one only gets the stamp. Not a transition of its own.
+     */
+    startOrder(request: KitchenOrderTransitionRequest): Promise<KitchenOrder>;
 
     /** Stamps `readyAt` on a `confirmed` order — "Ready" on the kitchen display. Not a transition. */
     markOrderReady(request: KitchenOrderTransitionRequest): Promise<KitchenOrder>;

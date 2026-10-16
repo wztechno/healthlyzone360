@@ -5412,6 +5412,7 @@ export const zCustomerOrder = z.object({
     delivery: zCustomerOrderDelivery,
     placed_at: z.iso.datetime({ offset: true }),
     confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    preparing_at: z.iso.datetime({ offset: true }).nullish(),
     ready_at: z.iso.datetime({ offset: true }).nullish(),
     fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
     out_for_delivery_at: z.iso.datetime({ offset: true }).nullish(),
@@ -7397,6 +7398,7 @@ export const zKitchenOrder = z.object({
     delivery: zKitchenOrderDelivery,
     placed_at: z.iso.datetime({ offset: true }),
     confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    preparing_at: z.iso.datetime({ offset: true }).nullish(),
     ready_at: z.iso.datetime({ offset: true }).nullish(),
     fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
     cancelled_at: z.iso.datetime({ offset: true }).nullable(),
@@ -13426,6 +13428,21 @@ export const zFulfilKitchenOrderPath = z.object({
  * The fulfilled order, with its new validator.
  */
 export const zFulfilKitchenOrderResponse = zKitchenOrderEnvelope;
+
+export const zStartKitchenOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zStartKitchenOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order, confirmed, with `preparing_at` and its new validator.
+ */
+export const zStartKitchenOrderResponse = zKitchenOrderEnvelope;
 
 export const zMarkKitchenOrderReadyHeaders = z.object({
     'X-Organisation-Id': zUuid,

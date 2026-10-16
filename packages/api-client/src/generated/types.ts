@@ -7985,6 +7985,10 @@ export type CustomerOrder = {
     placed_at: string;
     confirmed_at: string | null;
     /**
+     * When the kitchen pressed Start — cooking began. The order stays `confirmed`.
+     */
+    preparing_at?: string | null;
+    /**
      * When the kitchen marked it ready. The order stays `confirmed` until it is handed over (`fulfilled_at`).
      */
     ready_at?: string | null;
@@ -8057,6 +8061,10 @@ export type KitchenOrder = {
     delivery: KitchenOrderDelivery;
     placed_at: string;
     confirmed_at: string | null;
+    /**
+     * When the kitchen pressed Start — cooking began. The order stays `confirmed`.
+     */
+    preparing_at?: string | null;
     /**
      * When the kitchen marked it ready. The order stays `confirmed` until it is handed over (`fulfilled_at`).
      */
@@ -29232,6 +29240,102 @@ export type FulfilKitchenOrderResponses = {
 };
 
 export type FulfilKitchenOrderResponse = FulfilKitchenOrderResponses[keyof FulfilKitchenOrderResponses];
+
+export type StartKitchenOrderData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/orders/{order}/start';
+};
+
+export type StartKitchenOrderErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type StartKitchenOrderError = StartKitchenOrderErrors[keyof StartKitchenOrderErrors];
+
+export type StartKitchenOrderResponses = {
+    /**
+     * The order, confirmed, with `preparing_at` and its new validator.
+     */
+    200: KitchenOrderEnvelope;
+};
+
+export type StartKitchenOrderResponse = StartKitchenOrderResponses[keyof StartKitchenOrderResponses];
 
 export type MarkKitchenOrderReadyData = {
     body?: never;

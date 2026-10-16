@@ -12,9 +12,9 @@ import type { BadgeTone } from '@healthy360/design-system';
  * An account order (`PlacedOrder`) reads its step from the wire's status and the stamps beside it
  * (HA-19): the kitchen's Ready makes it **ready for pickup**, the driver's Picked up makes it **out
  * for delivery**, and only the driver's deliver (or the kitchen closing it by hand) makes it
- * **delivered**. Nothing stamps **cooking** yet, so a confirmed order moves from "confirmed" to
- * "ready" and the cooking dot is drawn done as it passes. A guest order still reports placed,
- * confirmed and delivered only.
+ * **delivered**. The kitchen display's Start makes it **cooking** (HA-24); an order started before
+ * Start was recorded moves from "confirmed" to "ready" and its cooking dot is drawn done as it
+ * passes. A guest order still reports placed, confirmed and delivered only.
  *
  * `cancelled` is not a step. It can happen from any of the first three and says nothing about how
  * far the order got, so it is reported instead of the timeline rather than as a seventh dot.

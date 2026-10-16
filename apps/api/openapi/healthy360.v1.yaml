@@ -12167,6 +12167,52 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/orders/{order}/start:
+    post:
+      operationId: startKitchenOrder
+      tags: [Kitchen orders]
+      summary: Record that the kitchen started cooking an order
+      description: |
+        "Start" on the kitchen display (HA-24). Stamps `preparing_at` and leaves
+        the order `confirmed`; it is what the customer's tracking reads as
+        Cooking. A `placed` order is confirmed first, in the same press — the
+        stock and the delivery run move exactly as a confirm moves them. A
+        second press, or a press on a ready, fulfilled or cancelled order, is
+        `409`.
+
+        Requires `order.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The order, confirmed, with `preparing_at` and its new validator.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenOrderEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/orders/{order}/ready:
     post:
       operationId: markKitchenOrderReady
@@ -35241,6 +35287,10 @@ components:
         confirmed_at:
           type: ['string', 'null']
           format: date-time
+        preparing_at:
+          type: ['string', 'null']
+          format: date-time
+          description: When the kitchen pressed Start — cooking began. The order stays `confirmed`.
         ready_at:
           type: ['string', 'null']
           format: date-time
@@ -35365,6 +35415,10 @@ components:
         confirmed_at:
           type: ['string', 'null']
           format: date-time
+        preparing_at:
+          type: ['string', 'null']
+          format: date-time
+          description: When the kitchen pressed Start — cooking began. The order stays `confirmed`.
         ready_at:
           type: ['string', 'null']
           format: date-time

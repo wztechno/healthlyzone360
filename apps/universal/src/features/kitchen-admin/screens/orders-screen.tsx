@@ -799,6 +799,11 @@ function OrderRecord({
                         value={stamp(shown.confirmedAt, t, formatter)}
                     />
                     <FactRow
+                        testID="kitchen-orders-detail-preparing-at"
+                        label={t('kitchen:ops.orders.preparingAt')}
+                        value={stamp(shown.preparingAt ?? null, t, formatter)}
+                    />
+                    <FactRow
                         testID="kitchen-orders-detail-ready-at"
                         label={t('kitchen:ops.orders.readyAt')}
                         value={stamp(shown.readyAt ?? null, t, formatter)}

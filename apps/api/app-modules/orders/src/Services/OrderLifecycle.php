@@ -95,6 +95,70 @@ final readonly class OrderLifecycle
     }
 
     /**
+     * The kitchen has started cooking it: "Start" on the kitchen display (HA-24).
+     * Not a transition — it stamps `preparing_at` on a `confirmed` order, at the
+     * caller's lock version, and moves the lock like any other write.
+     *
+     * **A placed order is confirmed first.** The kitchen display is where a
+     * kitchen both accepts and starts; one press there does both, through
+     * {@see confirm()} so the stock and the delivery run move exactly as they
+     * would from the desk. The second write then runs at the lock the first one
+     * left, so a confirm that succeeded is never answered as a conflict.
+     *
+     * @throws ApiException
+     */
+    public function start(Order $order, ?int $expectedLockVersion = null): Order
+    {
+        if ($order->status === OrderStatus::Placed) {
+            $order = $this->confirm($order, $expectedLockVersion);
+            $expectedLockVersion = $order->lock_version;
+        }
+
+        if ($order->status !== OrderStatus::Confirmed || $order->preparing_at !== null || $order->ready_at !== null) {
+            throw new ApiException(
+                ErrorCode::ResourceConflict,
+                'Only an order waiting to be started can be started.',
+                ['status' => $order->status->value, 'current_lock_version' => $order->lock_version],
+            );
+        }
+
+        $query = Order::query()
+            ->whereKey($order->getKey())
+            ->where('status', OrderStatus::Confirmed->value)
+            ->whereNull('preparing_at')
+            ->whereNull('ready_at');
+
+        if ($expectedLockVersion !== null) {
+            $query->where('lock_version', $expectedLockVersion);
+        }
+
+        $updated = $query->update([
+            'preparing_at' => CarbonImmutable::now(),
+            'lock_version' => DB::raw('lock_version + 1'),
+            'updated_at' => CarbonImmutable::now(),
+        ]);
+
+        if ($updated === 0) {
+            throw new ApiException(
+                ErrorCode::ResourceConflict,
+                'This order changed while you were working on it. Reload it and try again.',
+            );
+        }
+
+        $order->refresh();
+
+        $this->audit->record(
+            'order.started',
+            actorUserId: $this->context->userId(),
+            subjectType: 'order',
+            subjectId: (string) $order->getKey(),
+            metadata: ['lock_version' => $order->lock_version],
+        );
+
+        return $order;
+    }
+
+    /**
      * The kitchen has finished it: "Ready" on the kitchen display (owner decision,
      * 13 Oct 2026). Not a transition — the order stays `confirmed` until it is
      * handed over, which is {@see fulfil()} — so it only stamps `ready_at`, at the
