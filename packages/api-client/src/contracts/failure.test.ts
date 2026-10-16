@@ -22,6 +22,26 @@ it('distinguishes provider downtime from configuration errors without suggesting
     }
 });
 
+// BUG-12. The wire reuses `account.verification_required` for "no customer account", which no
+// verification can fix, so the client gives it a code — and a sentence — of its own.
+it('tells a missing customer account apart from an unverified contact', () => {
+    const refusal = (outstanding: readonly string[]) =>
+        mapErrorEnvelope(
+            {
+                error: {
+                    code: 'account.verification_required',
+                    message: 'You do not have a customer account yet.',
+                    details: { outstanding },
+                },
+            },
+            { status: 403 },
+        );
+
+    expect(refusal(['customer_account_missing']).code).toBe('account.customer_missing');
+    expect(refusal(['customer_account_missing']).retryable).toBe(false);
+    expect(refusal(['email_verified']).code).toBe('account.verification_required');
+});
+
 import {
     API_FAILURE_CODES,
     ApiError,
@@ -82,6 +102,7 @@ describe('the failure vocabulary', () => {
             // the whole array rather than a membership test.
             'contact.already_in_use',
             'account.verification_required',
+            'account.customer_missing',
             'address.area_not_served',
             'guest.session_invalid',
             'cart.line_refused',

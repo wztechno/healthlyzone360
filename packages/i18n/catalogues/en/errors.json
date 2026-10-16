@@ -56,6 +56,7 @@
         "request_idempotency_key_reused": "That request repeated an earlier one with different details, so nothing was sent. Start again.",
         "contact_already_in_use": "That email address or number is already in use on another account. Sign in instead, or use a different one.",
         "account_verification_required": "Confirm your email address or mobile number before continuing.",
+        "account_customer_missing": "This account can't place orders. Sign in with a customer account to shop.",
         "address_area_not_served": "Healthy360 does not deliver to that area yet. Choose another area.",
         "guest_session_invalid": "This guest session has ended. Start again to continue without an account.",
         "cart_line_refused": "Something in your basket cannot be ordered right now. Review the basket and try again.",

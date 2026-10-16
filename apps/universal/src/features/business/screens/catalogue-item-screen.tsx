@@ -23,6 +23,7 @@ import {
     useB2bAddCatalogueItemMutation,
     B2B_CART_CHANNEL_CODE,
 } from '../../../data/business-hooks.ts';
+import { useFailureMessage } from '../../../screens/form-helpers.ts';
 import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
 import { RecordViewPage } from '../../kitchen-admin/catalogue/record-view-page.tsx';
@@ -63,6 +64,7 @@ export function CatalogueItemScreen({ itemId }: CatalogueItemScreenProps) {
     const router = useRouter();
     const formatter = useFormatter();
     const toast = useToast();
+    const failureMessage = useFailureMessage();
 
     const query = useCatalogueItemQuery(itemId ?? null);
     const item = query.data;
@@ -122,6 +124,15 @@ export function CatalogueItemScreen({ itemId }: CatalogueItemScreenProps) {
                         message: t('business:item.addedToCart', { items: cart.itemCount }),
                     });
                     onSuccess?.();
+                },
+                onError: (error) => {
+                    toast.show({
+                        testID: 'catalogue-item-add-failed',
+                        tone: 'danger',
+                        message: t('catalogue:meal.addFailed', {
+                            reason: failureMessage(toFailure(error)) ?? t('errors:generic.body'),
+                        }),
+                    });
                 },
             },
         );

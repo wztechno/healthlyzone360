@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8241 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8243 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1614,6 +1614,7 @@ export interface NamespaceKeys {
     | 'macros.title'
     | 'meal.actionErrorBody'
     | 'meal.actionErrorTitle'
+    | 'meal.addFailed'
     | 'meal.addToCart'
     | 'meal.addToCartLabel'
     | 'meal.addToPlan'
@@ -2472,6 +2473,7 @@ export interface NamespaceKeys {
     | 'timeField.placeholder';
   readonly "errors":
     | 'failure.access_self_lockout'
+    | 'failure.account_customer_missing'
     | 'failure.account_verification_required'
     | 'failure.address_area_not_served'
     | 'failure.allergens_provider_unavailable'
@@ -9880,6 +9882,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:macros.title',
   'catalogue:meal.actionErrorBody',
   'catalogue:meal.actionErrorTitle',
+  'catalogue:meal.addFailed',
   'catalogue:meal.addToCart',
   'catalogue:meal.addToCartLabel',
   'catalogue:meal.addToPlan',
@@ -10734,6 +10737,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:timeField.open',
   'designSystem:timeField.placeholder',
   'errors:failure.access_self_lockout',
+  'errors:failure.account_customer_missing',
   'errors:failure.account_verification_required',
   'errors:failure.address_area_not_served',
   'errors:failure.allergens_provider_unavailable',

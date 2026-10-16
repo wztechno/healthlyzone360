@@ -49,6 +49,7 @@ export const FAILURE_MESSAGE_KEYS: Readonly<Record<ApiFailure['code'], string>> 
     'request.idempotency_key_reused': 'errors:failure.request_idempotency_key_reused',
     'contact.already_in_use': 'errors:failure.contact_already_in_use',
     'account.verification_required': 'errors:failure.account_verification_required',
+    'account.customer_missing': 'errors:failure.account_customer_missing',
     'address.area_not_served': 'errors:failure.address_area_not_served',
     'guest.session_invalid': 'errors:failure.guest_session_invalid',
     'cart.line_refused': 'errors:failure.cart_line_refused',
