@@ -15,6 +15,7 @@ import {
     testActiveContext,
 } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { addDays, todayIso } from '../commerce/dates.ts';
 import { KdsTicketsScreen } from './kds-tickets-screen.tsx';
 
 jest.mock('expo-router', () => ({
@@ -358,6 +359,52 @@ describe('kds ticket board', () => {
         // Start is gone and Ready has taken its place on the same ticket.
         expect(screen.getByTestId(`${ticketId(placed.id)}-ready`)).toBeTruthy();
         expect(screen.queryByTestId(`${ticketId(placed.id)}-start`)).toBeNull();
+    });
+
+    it('keeps a later day\'s order under Upcoming, where it is accepted but not started (HA-26, HA-27)', async () => {
+        const tomorrow = addDays(todayIso(new Date()), 1) ?? '';
+        const scheduled = kitchenOrder({
+            id: orderIdAt(9),
+            orderNumber: 'VK-2026-0153',
+            status: 'placed',
+            delivery: { ...kitchenOrder().delivery, requestedDate: tomorrow },
+        });
+        const today = kitchenOrder({ id: orderIdAt(10), orderNumber: 'VK-2026-0154' });
+        const book = createOrderBook([scheduled, today]);
+        const { repositories } = await renderBoard(book);
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kds-upcoming')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        // Today's board holds today's order only; tomorrow's waits under its own day.
+        expect(screen.getByTestId('kds-column-incoming-count')).toHaveTextContent('1');
+        expect(screen.getByTestId(`kds-upcoming-${tomorrow}-count`)).toHaveTextContent('1');
+
+        // Not cooking tomorrow's food today: Accept, no Start.
+        expect(screen.queryByTestId(`${ticketId(scheduled.id)}-start`)).toBeNull();
+        // Today's new order: Start (which accepts it too), with Accept beside it.
+        expect(screen.getByTestId(`${ticketId(today.id)}-start`)).toBeTruthy();
+        expect(screen.getByTestId(`${ticketId(today.id)}-accept`)).toBeTruthy();
+
+        fireEvent.press(screen.getByTestId(`${ticketId(scheduled.id)}-accept`));
+
+        await waitFor(() => {
+            expect(repositories.kitchenOrders.confirmOrder).toHaveBeenCalledWith({
+                id: scheduled.id,
+                lockVersion: scheduled.lockVersion,
+            });
+        });
+        expect(repositories.kitchenOrders.startOrder).not.toHaveBeenCalled();
+        await waitFor(() => {
+            expect(screen.getByTestId(`${ticketId(scheduled.id)}-accepted`)).toBeTruthy();
+        });
+        // Accepted, still tomorrow's: it stays under Upcoming with nothing left to press today.
+        expect(screen.queryByTestId(`${ticketId(scheduled.id)}-accept`)).toBeNull();
+        expect(screen.queryByTestId(`${ticketId(scheduled.id)}-start`)).toBeNull();
+        expect(screen.getByTestId('kds-column-incoming-count')).toHaveTextContent('1');
     });
 
     it('keeps a confirmed order in Incoming until somebody presses Start (HA-24)', async () => {

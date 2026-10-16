@@ -1623,7 +1623,10 @@
         "mayContain": "May contain {{allergen}}",
         "handedOver": "Handed over",
         "waitingForDriver": "Waiting for the driver",
-        "withDriver": "Out with the driver"
+        "withDriver": "Out with the driver",
+        "accept": "Accept",
+        "accepted": "Accepted",
+        "upcoming": "Upcoming"
     },
     "driver": {
         "title": "Your deliveries",

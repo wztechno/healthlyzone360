@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8258 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8261 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3662,6 +3662,8 @@ export interface NamespaceKeys {
     | 'ingredientDetail.usedInTitle'
     | 'ingredientDetail.whereUsedBody'
     | 'ingredientDetail.whereUsedTitle'
+    | 'kds.accept'
+    | 'kds.accepted'
     | 'kds.column.done'
     | 'kds.column.incoming'
     | 'kds.column.preparing'
@@ -3688,6 +3690,7 @@ export interface NamespaceKeys {
     | 'kds.start'
     | 'kds.subtitle'
     | 'kds.title'
+    | 'kds.upcoming'
     | 'kds.waitingForDriver'
     | 'kds.withDriver'
     | 'list.actionHeader'
@@ -11938,6 +11941,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ingredientDetail.usedInTitle',
   'kitchen:ingredientDetail.whereUsedBody',
   'kitchen:ingredientDetail.whereUsedTitle',
+  'kitchen:kds.accept',
+  'kitchen:kds.accepted',
   'kitchen:kds.column.done',
   'kitchen:kds.column.incoming',
   'kitchen:kds.column.preparing',
@@ -11964,6 +11969,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:kds.start',
   'kitchen:kds.subtitle',
   'kitchen:kds.title',
+  'kitchen:kds.upcoming',
   'kitchen:kds.waitingForDriver',
   'kitchen:kds.withDriver',
   'kitchen:list.actionHeader',

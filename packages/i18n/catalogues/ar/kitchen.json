@@ -1846,7 +1846,10 @@
         "mayContain": "قد يحتوي على {{allergen}}",
         "handedOver": "تم التسليم",
         "waitingForDriver": "بانتظار السائق",
-        "withDriver": "مع السائق"
+        "withDriver": "مع السائق",
+        "accept": "قبول",
+        "accepted": "تم القبول",
+        "upcoming": "القادمة"
     },
     "driver": {
         "title": "توصيلاتك",

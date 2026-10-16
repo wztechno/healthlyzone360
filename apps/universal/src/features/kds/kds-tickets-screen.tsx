@@ -17,11 +17,13 @@ import type { OrderId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../access/gate.tsx';
 import { toFailure } from '../../data/hooks.ts';
 import {
     useFulfilOrderMutation,
+    useConfirmOrderMutation,
     useMarkOrderReadyMutation,
     useStartOrderMutation,
     useKitchenOrdersQuery,
@@ -37,6 +39,7 @@ import { canFulfilKitchenOrder } from '../kitchen-admin/ops-format.ts';
 import {
     bucketTickets,
     isAwaitingStart,
+    isUpcoming,
     kdsColumnTestId,
     kdsTicketTestId,
     minutesSincePlaced,
@@ -102,8 +105,8 @@ import type { KdsColumnKey } from './kds-board.ts';
 /** Poll cadence for the board and its clock. See the header. */
 export const KDS_POLL_MS = 15_000;
 
-/** What a ticket's one button does: start it, mark it cooked, or hand it over. */
-type KdsAction = 'start' | 'ready' | 'handOver';
+/** What a ticket's buttons do: accept it, start it, mark it cooked, or hand it over. */
+type KdsAction = 'accept' | 'start' | 'ready' | 'handOver';
 
 export function KdsTicketsScreen() {
     return (
@@ -158,6 +161,7 @@ function KdsTickets() {
         refetchInterval: online ? KDS_POLL_MS : false,
     });
 
+    const acceptOrder = useConfirmOrderMutation();
     const startOrder = useStartOrderMutation();
     const markReady = useMarkOrderReadyMutation();
     const fulfilOrder = useFulfilOrderMutation();
@@ -169,10 +173,14 @@ function KdsTickets() {
 
     const listFailure = toFailure(orders.error);
     const actionFailure =
-        toFailure(startOrder.error) ?? toFailure(markReady.error) ?? toFailure(fulfilOrder.error);
+        toFailure(acceptOrder.error) ??
+        toFailure(startOrder.error) ??
+        toFailure(markReady.error) ??
+        toFailure(fulfilOrder.error);
     const isConflict = actionFailure?.code === 'resource.conflict';
 
     function clearActionState() {
+        acceptOrder.reset();
         startOrder.reset();
         markReady.reset();
         fulfilOrder.reset();
@@ -181,24 +189,49 @@ function KdsTickets() {
     function bump(order: KitchenOrder, action: KdsAction) {
         clearActionState();
         const request = { id: order.id, lockVersion: order.lockVersion };
-        if (action === 'start') startOrder.mutate(request);
+        if (action === 'accept') acceptOrder.mutate(request);
+        else if (action === 'start') startOrder.mutate(request);
         else if (action === 'ready') markReady.mutate(request);
         else fulfilOrder.mutate(request);
     }
 
     /** The ticket a write is in flight for, so only that one shows a spinner. */
-    const pendingRequest = startOrder.isPending
-        ? startOrder.variables
-        : markReady.isPending
-          ? markReady.variables
-          : fulfilOrder.isPending
-            ? fulfilOrder.variables
-            : undefined;
+    const pendingRequest = acceptOrder.isPending
+        ? acceptOrder.variables
+        : startOrder.isPending
+          ? startOrder.variables
+          : markReady.isPending
+            ? markReady.variables
+            : fulfilOrder.isPending
+              ? fulfilOrder.variables
+              : undefined;
     const pendingId: OrderId | null = pendingRequest?.id ?? null;
-    const actionPending = startOrder.isPending || markReady.isPending || fulfilOrder.isPending;
+    const actionPending =
+        acceptOrder.isPending ||
+        startOrder.isPending ||
+        markReady.isPending ||
+        fulfilOrder.isPending;
 
     const empty =
-        board.incoming.length === 0 && board.preparing.length === 0 && board.done.length === 0;
+        board.incoming.length === 0 &&
+        board.preparing.length === 0 &&
+        board.done.length === 0 &&
+        board.upcoming.length === 0;
+
+    function renderTicket(order: KitchenOrder) {
+        return (
+            <Ticket
+                key={String(order.id)}
+                order={order}
+                now={now}
+                locale={locale}
+                canManage={canManage}
+                pending={pendingId === order.id}
+                disabled={actionPending}
+                onBump={bump}
+            />
+        );
+    }
 
     function renderColumn(column: KdsColumnKey, tickets: readonly KitchenOrder[]) {
         return (
@@ -226,18 +259,7 @@ function KdsTickets() {
                         {t(`kitchen:kds.columnEmpty.${column}`)}
                     </Text>
                 ) : (
-                    tickets.map((order) => (
-                        <Ticket
-                            key={String(order.id)}
-                            order={order}
-                            now={now}
-                            locale={locale}
-                            canManage={canManage}
-                            pending={pendingId === order.id}
-                            disabled={actionPending}
-                            onBump={bump}
-                        />
-                    ))
+                    tickets.map(renderTicket)
                 )}
             </Stack>
         );
@@ -344,6 +366,47 @@ function KdsTickets() {
                     {renderColumn('done', board.done)}
                 </Stack>
             )}
+
+            {/*
+             * Scheduled work for later days (HA-27): out of today's columns so the wall shows what
+             * to cook now, but on screen so it can be accepted the day it arrives. It moves into
+             * Incoming by itself on its day.
+             */}
+            {orders.isPending || listFailure !== null || board.upcoming.length === 0 ? null : (
+                <Stack space="sm" testID="kds-upcoming">
+                    <Heading level={2}>{t('kitchen:kds.upcoming')}</Heading>
+                    {board.upcoming.map((group) => (
+                        <Stack space="sm" key={group.day} testID={`kds-upcoming-${group.day}`}>
+                            <Inline space="sm" align="center">
+                                <Heading level={3}>
+                                    {formatter.formatDate(group.day, {
+                                        weekday: 'short',
+                                        day: 'numeric',
+                                        month: 'short',
+                                    })}
+                                </Heading>
+                                <Badge
+                                    testID={`kds-upcoming-${group.day}-count`}
+                                    tone="neutral"
+                                    icon={null}
+                                    label={formatter.formatNumber(group.tickets.length)}
+                                />
+                            </Inline>
+                            {atLeast('md') ? (
+                                <Inline space="md" align="start" wrap>
+                                    {group.tickets.map((order) => (
+                                        <View key={String(order.id)} className="w-[320px]">
+                                            {renderTicket(order)}
+                                        </View>
+                                    ))}
+                                </Inline>
+                            ) : (
+                                <Stack space="sm">{group.tickets.map(renderTicket)}</Stack>
+                            )}
+                        </Stack>
+                    ))}
+                </Stack>
+            )}
         </Stack>
     );
 }
@@ -373,6 +436,7 @@ function Ticket({ order, now, locale, canManage, pending, disabled, onBump }: Ti
 
     const testID = kdsTicketTestId(String(order.id));
     const minutes = minutesSincePlaced(order, now);
+    const later = isUpcoming(order, now);
 
     const deliveryDate =
         order.delivery.requestedDate === null
@@ -448,16 +512,44 @@ function Ticket({ order, now, locale, canManage, pending, disabled, onBump }: Ti
                 </Text>
 
                 {!canManage ? null : isAwaitingStart(order) ? (
-                    <Button
-                        testID={`${testID}-start`}
-                        block
-                        label={t('kitchen:kds.start')}
-                        loading={pending}
-                        disabled={disabled}
-                        onPress={() => {
-                            onBump(order, 'start');
-                        }}
-                    />
+                    /*
+                     * Accept and Start are two moments (HA-26). Accept tells the customer the order
+                     * was seen — a scheduled order is accepted the day it arrives; Start says it is
+                     * cooking, on the day. A later day's ticket offers only Accept; today's offers
+                     * Start, which accepts a new order too, so a same-day order is still one press.
+                     */
+                    <Stack space="xs">
+                        {order.status === 'confirmed' ? (
+                            <Text variant="caption" tone="secondary" testID={`${testID}-accepted`}>
+                                {t('kitchen:kds.accepted')}
+                            </Text>
+                        ) : null}
+                        {later ? null : (
+                            <Button
+                                testID={`${testID}-start`}
+                                block
+                                label={t('kitchen:kds.start')}
+                                loading={pending}
+                                disabled={disabled}
+                                onPress={() => {
+                                    onBump(order, 'start');
+                                }}
+                            />
+                        )}
+                        {order.status === 'placed' ? (
+                            <Button
+                                testID={`${testID}-accept`}
+                                block
+                                variant={later ? 'primary' : 'secondary'}
+                                label={t('kitchen:kds.accept')}
+                                loading={later && pending}
+                                disabled={disabled}
+                                onPress={() => {
+                                    onBump(order, 'accept');
+                                }}
+                            />
+                        ) : null}
+                    </Stack>
                 ) : canFulfilKitchenOrder(order.status) && (order.readyAt ?? null) === null ? (
                     <Button
                         testID={`${testID}-ready`}
