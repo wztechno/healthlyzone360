@@ -361,7 +361,7 @@ describe('kds ticket board', () => {
         expect(screen.queryByTestId(`${ticketId(placed.id)}-start`)).toBeNull();
     });
 
-    it('keeps a later day\'s order under Upcoming, where it is accepted but not started (HA-26, HA-27)', async () => {
+    it("keeps a later day's order under Upcoming, where it is accepted but not started (HA-26, HA-27)", async () => {
         const tomorrow = addDays(todayIso(new Date()), 1) ?? '';
         const scheduled = kitchenOrder({
             id: orderIdAt(9),

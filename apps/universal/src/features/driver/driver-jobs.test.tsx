@@ -573,7 +573,9 @@ describe('a run the kitchen has not finished (HA-28)', () => {
 
         await waitFor(
             () => {
-                expect(screen.getByTestId(`${jobTestId(JOB_ONE)}-waiting-for-kitchen`)).toBeTruthy();
+                expect(
+                    screen.getByTestId(`${jobTestId(JOB_ONE)}-waiting-for-kitchen`),
+                ).toBeTruthy();
             },
             { timeout: 5000 },
         );

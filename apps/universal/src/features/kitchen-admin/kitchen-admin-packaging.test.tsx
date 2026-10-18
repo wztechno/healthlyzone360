@@ -736,14 +736,18 @@ describe('the packaging editor units (HA-30)', () => {
 
         await openSelect('kitchen-ingredient-purchase-unit');
         for (const unit of ['kg', 'l', 'piece']) {
-            expect(screen.getByTestId(`kitchen-ingredient-purchase-unit-option-${unit}`)).toBeTruthy();
+            expect(
+                screen.getByTestId(`kitchen-ingredient-purchase-unit-option-${unit}`),
+            ).toBeTruthy();
         }
         // The record's own pack stays on its list, with a name rather than a key.
-        expect(screen.getByTestId('kitchen-ingredient-purchase-unit-option-pack')).toHaveTextContent(
-            /Packs/,
-        );
+        expect(
+            screen.getByTestId('kitchen-ingredient-purchase-unit-option-pack'),
+        ).toHaveTextContent(/Packs/);
         for (const unit of ['g', 'ml', 'cup', 'bag', 'gallon']) {
-            expect(screen.queryByTestId(`kitchen-ingredient-purchase-unit-option-${unit}`)).toBeNull();
+            expect(
+                screen.queryByTestId(`kitchen-ingredient-purchase-unit-option-${unit}`),
+            ).toBeNull();
         }
 
         await openSelect('kitchen-ingredient-unit');
@@ -778,7 +782,10 @@ describe('the packaging editor units (HA-30)', () => {
             ['capacity', '1.5'],
         ] as const) {
             await act(async () => {
-                fireEvent.changeText(screen.getByTestId(`kitchen-ingredient-${field}-input`), value);
+                fireEvent.changeText(
+                    screen.getByTestId(`kitchen-ingredient-${field}-input`),
+                    value,
+                );
             });
         }
         await act(async () => {

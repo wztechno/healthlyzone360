@@ -185,7 +185,9 @@ export function OrderTracking({
                     className="min-w-[190px] flex-col gap-1 rounded-panel bg-surface-canopy px-5 py-4"
                 >
                     <Eyebrow tone="canopy">
-                        {deliveredAt === null ? t('guest:order.arriving') : t('guest:order.delivered')}
+                        {deliveredAt === null
+                            ? t('guest:order.arriving')
+                            : t('guest:order.delivered')}
                     </Eyebrow>
                     <RNText
                         testID={`${testID}-slot`}

@@ -119,7 +119,9 @@ export function OrderTimeline({
                         <View className="min-w-[56px] items-end pt-1">
                             {time !== undefined ? (
                                 <RNText
-                                    testID={index === 0 ? `${testID}-time` : `${testID}-${step}-time`}
+                                    testID={
+                                        index === 0 ? `${testID}-time` : `${testID}-${step}-time`
+                                    }
                                     className="text-xs font-medium tabular-nums text-content-secondary text-end"
                                 >
                                     {time}
