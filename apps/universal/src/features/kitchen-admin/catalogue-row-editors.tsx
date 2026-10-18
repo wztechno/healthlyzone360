@@ -386,7 +386,7 @@ export function emptyPack(key: string): PackDraft {
         code: '',
         label: { en: '', ar: '' },
         netQuantity: '',
-        netUnit: 'g',
+        netUnit: 'kg',
         unitsPerPack: '1',
     };
 }

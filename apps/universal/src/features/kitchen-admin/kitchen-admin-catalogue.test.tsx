@@ -21,6 +21,7 @@ import {
     IngredientId,
     KitchenId,
     MealId,
+    PriceListId,
     ProductId,
     RoleId,
 } from '@healthy360/domain-types';
@@ -707,7 +708,7 @@ describe('creating and editing a product', () => {
             fireEvent.changeText(screen.getByTestId(`${pack}-code-input`), 'RSL-055');
         });
         await act(async () => {
-            fireEvent.changeText(screen.getByTestId(`${pack}-quantity-input`), '500');
+            fireEvent.changeText(screen.getByTestId(`${pack}-quantity-input`), '0.5');
         });
 
         await act(async () => {
@@ -736,8 +737,8 @@ describe('creating and editing a product', () => {
                 {
                     code: 'RSL-055',
                     label: { en: '', ar: '' },
-                    netQuantity: 500,
-                    netUnit: 'g',
+                    netQuantity: 0.5,
+                    netUnit: 'kg',
                     unitsPerPack: 1,
                 },
             ],
@@ -745,6 +746,97 @@ describe('creating and editing a product', () => {
             // omitted: a row taken off a weighed shelf has to be able to drop it.
             netContentQuantity: null,
             netContentUnitId: null,
+        });
+    });
+
+    it('takes B2B and B2C on a new item, and writes them once the item exists', async () => {
+        const created = product({ ordinal: 9, name: 'Cold-pressed pomegranate' });
+        const getItemChannelPrices = jest.fn(async () => ({
+            lockVersion: 7,
+            b2b: {
+                salesChannelId: 'wholesale',
+                priceListId: PriceListId.unsafe('trade-usd'),
+                currency: 'USD' as const,
+                pack: null,
+                amountMinor: null,
+            },
+            b2c: null,
+        }));
+
+        const { repositories } = await renderStubScreen(<ProductEditScreen product="new" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listProducts: productListing(() => [
+                        product({
+                            ordinal: 1,
+                            overrides: { categoryId: 'category-store-cupboard' },
+                        }),
+                    ]),
+                    listRecipes: async () => page(NO_RECIPES),
+                    createProduct: async () => created,
+                    getItemChannelPrices,
+                    setItemChannelPrices: async () => await getItemChannelPrices(),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-product-name-en-input');
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-product-name-en-input'),
+                'Cold-pressed pomegranate',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-category-trigger'));
+        });
+        await untilVisible('kitchen-product-category-option-store-cupboard');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-category-option-store-cupboard'));
+        });
+        await untilVisible('kitchen-product-packs-add');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-packs-add'));
+        });
+        const pack = 'kitchen-product-pack-editor-row-pack-1';
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${pack}-code-input`), 'RSL-055');
+        });
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${pack}-quantity-input`), '0.5');
+        });
+
+        // The section is on the new form, as a card, with no Save of its own.
+        await untilVisible('kitchen-channel-prices-b2b-weight-input');
+        expect(screen.queryByTestId('kitchen-channel-prices-save')).toBeNull();
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-channel-prices-b2b-weight-input'),
+                '1',
+            );
+        });
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-channel-prices-b2b-price-input'),
+                '12',
+            );
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.setItemChannelPrices).toHaveBeenCalledWith(
+                created.id,
+                { lockVersion: 7, b2b: { quantity: 1, unit: 'kg', amountMinor: 1200 } },
+            );
+        });
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith(
+                `/kitchen/products/${String(created.id)}`,
+            );
         });
     });
 

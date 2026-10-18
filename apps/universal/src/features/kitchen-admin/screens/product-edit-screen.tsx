@@ -26,7 +26,7 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { FormIssueItem, SelectOption } from '@healthy360/design-system';
-import { ProductId, SALES_CHANNELS } from '@healthy360/domain-types';
+import { ProductId, SALES_CHANNELS, isCurrencyCode } from '@healthy360/domain-types';
 import type { RecipeId } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -35,7 +35,13 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
-import { ChannelPricesSection } from '../channel-prices-section.tsx';
+import {
+    ChannelPricesSection,
+    EMPTY_CHANNEL_PRICE_DRAFT,
+    channelPriceDraftValid,
+    useWriteChannelPriceDraft,
+} from '../channel-prices-section.tsx';
+import type { ChannelPriceDraft } from '../channel-prices-section.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     recipesFromPages,
@@ -364,6 +370,13 @@ function ProductEditor({
     const publish = usePublishProductMutation();
     const archive = useArchiveProductMutation();
     const photoSave = useSaveRecordPhotoMutation();
+    /*
+     * B2B and B2C on a new item: held here and written once the item exists, after its routes to
+     * market (that write takes the version the create left, and this one reads the newest).
+     */
+    const [channelPriceDraft, setChannelPriceDraft] =
+        useState<ChannelPriceDraft>(EMPTY_CHANNEL_PRICE_DRAFT);
+    const writeChannelPriceDraft = useWriteChannelPriceDraft();
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
 
@@ -795,6 +808,8 @@ function ProductEditor({
         }
 
         if (isCreating) {
+            // A bad B2B/B2C row says so under the row (the section reads `attempted`).
+            if (!channelPriceDraftValid(channelPriceDraft)) return;
             create.mutate(
                 {
                     name: details.name,
@@ -830,8 +845,27 @@ function ProductEditor({
                         }
 
                         const open = () => {
-                            settle(false, false);
-                            router.replace(`${routeBase}/${String(created.id)}` as never);
+                            void writeChannelPriceDraft(created.id, channelPriceDraft).then(
+                                (prices) => {
+                                    // Leaving the page, so a refusal is a toast, as the photo's is.
+                                    if (prices.error !== null) {
+                                        toast.show({
+                                            tone: 'danger',
+                                            message: t('kitchen:channelPrices.failed'),
+                                        });
+                                    }
+                                    for (const channel of prices.unavailable) {
+                                        toast.show({
+                                            tone: 'warning',
+                                            message: t('kitchen:channelPrices.noPriceList', {
+                                                channel: t(`kitchen:channelPrices.${channel}`),
+                                            }),
+                                        });
+                                    }
+                                    settle(false, false);
+                                    router.replace(`${routeBase}/${String(created.id)}` as never);
+                                },
+                            );
                         };
 
                         /*
@@ -1511,7 +1545,24 @@ function ProductEditor({
                 </FormSection>
 
                 {/* ── B2B / B2C weight and price ──────────────────────────────────────────── */}
-                {data === undefined ? null : <ChannelPricesSection itemId={data.id} />}
+                {isCreating ? (
+                    <ChannelPricesSection
+                        itemId={null}
+                        draft={{
+                            value: channelPriceDraft,
+                            onChange: (next) => {
+                                setChannelPriceDraft(next);
+                                guard.markDirty();
+                            },
+                            attempted,
+                            ...(isCurrencyCode(reference.data?.defaultCurrencyCode)
+                                ? { currency: reference.data.defaultCurrencyCode }
+                                : {}),
+                        }}
+                    />
+                ) : data === undefined ? null : (
+                    <ChannelPricesSection itemId={data.id} />
+                )}
 
                 {/* ── sale ─────────────────────────────────────────────────────────────────── */}
                 <FormSection

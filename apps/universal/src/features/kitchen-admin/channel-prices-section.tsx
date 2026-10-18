@@ -18,9 +18,9 @@ import {
 } from '@healthy360/design-system';
 import type { SelectOption } from '@healthy360/design-system';
 import { minorUnitExponent } from '@healthy360/domain-types';
-import type { MealId, ProductId } from '@healthy360/domain-types';
+import type { CurrencyCode, MealId, ProductId } from '@healthy360/domain-types';
 import type { MeasureUnit } from '@healthy360/nutrition';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -30,6 +30,7 @@ import {
     useItemChannelPricesQuery,
     useSetItemChannelPricesMutation,
 } from '../../data/kitchen-admin-hooks.ts';
+import { useRepositories } from '../../data/repository-provider.tsx';
 import {
     CATALOGUE_MANAGE_PERMISSION,
     PRICE_LIST_MANAGE_PERMISSION,
@@ -48,9 +49,13 @@ import { adminUnitsWith, parseAmount, unitShortKey } from './format.ts';
  *   B2C    [ 0.2    ]    [ kg ]    [ 3.00   USD ]
  * ```
  *
- * Its own save, because it is its own write: the packs and the prices land together through
- * `PUT /catalogue/items/{item}/channel-prices`, which needs the price-list permission as well as the
- * catalogue one. The host form's Save never touches it, and it never touches the host form.
+ * On a saved item it has its own save, because it is its own write: the packs and the prices land
+ * together through `PUT /catalogue/items/{item}/channel-prices`, which needs the price-list
+ * permission as well as the catalogue one. The host form's Save never touches it.
+ *
+ * On a new item there is no id to write against yet, so the rows are a draft the host form holds
+ * (`draft`) and writes once the item exists (`useWriteChannelPriceDraft`) — the same way it writes
+ * the photo. A card either way, like every other section of the editor.
  *
  * A row with a weight and no price keeps the pack and withdraws its price — sized, not sold. A row
  * cleared entirely stops selling on that channel. A channel the kitchen has no price list for is
@@ -59,7 +64,7 @@ import { adminUnitsWith, parseAmount, unitShortKey } from './format.ts';
 
 const CHANNELS: readonly TradeChannel[] = ['b2b', 'b2c'];
 
-interface RowDraft {
+export interface RowDraft {
     readonly quantity: string;
     readonly unit: MeasureUnit;
     readonly price: string;
@@ -120,19 +125,149 @@ function isConflict(error: unknown): boolean {
     return failure !== null && isConflictFailure(failure);
 }
 
+/* ── a new item's draft ──────────────────────────────────────────────────────────────────────── */
+
+export interface ChannelPriceDraft {
+    readonly b2b: RowDraft;
+    readonly b2c: RowDraft;
+}
+
+export const EMPTY_CHANNEL_PRICE_DRAFT: ChannelPriceDraft = {
+    b2b: draftOf(null),
+    b2c: draftOf(null),
+};
+
+/** Whether a draft can be written: every row empty, or a weight with a valid price. */
+export function channelPriceDraftValid(draft: ChannelPriceDraft): boolean {
+    return CHANNELS.every((channel) => rowError(draft[channel]) === null);
+}
+
+/** What writing a new item's draft came to: the failure, and the channels with nowhere to go. */
+export interface ChannelPriceDraftResult {
+    readonly error: unknown;
+    readonly unavailable: readonly TradeChannel[];
+}
+
+/**
+ * Writes a new item's B2B/B2C draft once the item exists. Reads the item's channels first — which
+ * have a price list, in which currency, and the lock version the create left — then sends only the
+ * rows that were filled in. A filled row for a channel with no price list is reported back rather
+ * than dropped without a word.
+ */
+export function useWriteChannelPriceDraft(): (
+    itemId: ProductId | MealId,
+    draft: ChannelPriceDraft,
+) => Promise<ChannelPriceDraftResult> {
+    const repositories = useRepositories();
+    const { mutateAsync } = useSetItemChannelPricesMutation();
+
+    return useCallback(
+        async (itemId, draft) => {
+            const filled = CHANNELS.filter(
+                (channel) =>
+                    draft[channel].quantity.trim() !== '' || draft[channel].price.trim() !== '',
+            );
+            if (filled.length === 0) return { error: null, unavailable: [] };
+
+            try {
+                const current = await repositories.kitchenAdmin.getItemChannelPrices(itemId);
+                let request: SetItemChannelPricesRequest = { lockVersion: current.lockVersion };
+                const unavailable: TradeChannel[] = [];
+                for (const channel of filled) {
+                    const offer = current[channel];
+                    if (offer === null) {
+                        unavailable.push(channel);
+                        continue;
+                    }
+                    const half = requestFor(
+                        draft[channel],
+                        EMPTY_CHANNEL_PRICE_DRAFT[channel],
+                        offer,
+                    );
+                    if (half !== undefined) request = { ...request, [channel]: half };
+                }
+                if (request.b2b !== undefined || request.b2c !== undefined) {
+                    await mutateAsync({ itemId, request });
+                }
+                return { error: null, unavailable };
+            } catch (error) {
+                return { error, unavailable: [] };
+            }
+        },
+        [repositories, mutateAsync],
+    );
+}
+
+/* ── the section ─────────────────────────────────────────────────────────────────────────────── */
+
 export interface ChannelPricesSectionProps {
-    readonly itemId: ProductId | MealId;
+    /** The saved item; `null` on a new one, which then needs `draft`. */
+    readonly itemId: ProductId | MealId | null;
+    /** A new item's rows, held by the host form and written after the create. */
+    readonly draft?:
+        | {
+              readonly value: ChannelPriceDraft;
+              readonly onChange: (next: ChannelPriceDraft) => void;
+              /** Whether the host form's Save has been pressed, so a bad row says so. */
+              readonly attempted: boolean;
+              /** The kitchen's currency, on the price before the item's lists are known. */
+              readonly currency?: CurrencyCode | undefined;
+          }
+        | undefined;
     readonly testID?: string | undefined;
 }
 
 export function ChannelPricesSection({
     itemId,
+    draft,
     testID = 'kitchen-channel-prices',
 }: ChannelPricesSectionProps) {
     const canView = useCan(PRICE_LIST_VIEW_PERMISSION);
     if (!canView) return null;
+    if (itemId === null) {
+        return draft === undefined ? null : <ChannelPricesDraft draft={draft} testID={testID} />;
+    }
 
     return <ChannelPricesEditor itemId={itemId} testID={testID} />;
+}
+
+function useCanManagePrices(): boolean {
+    // Both, because the write sizes the item's packs and prices them on the lists.
+    const canManageCatalogue = useCan(CATALOGUE_MANAGE_PERMISSION);
+    const canManagePrices = useCan(PRICE_LIST_MANAGE_PERMISSION);
+    return canManageCatalogue && canManagePrices;
+}
+
+/** A new item: the rows only — the host form's Save writes them once the item exists. */
+function ChannelPricesDraft({
+    draft,
+    testID,
+}: {
+    readonly draft: NonNullable<ChannelPricesSectionProps['draft']>;
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    const canManage = useCanManagePrices();
+
+    return (
+        <FormSection
+            first
+            variant="card"
+            testID={testID}
+            title={t('kitchen:channelPrices.title')}
+            description={t('kitchen:channelPrices.hint')}
+        >
+            <ChannelPriceRows
+                rows={draft.value}
+                onChange={draft.onChange}
+                attempted={draft.attempted}
+                currencyOf={() => draft.currency}
+                unavailable={() => false}
+                canManage={canManage}
+                testID={testID}
+            />
+        </FormSection>
+    );
 }
 
 function ChannelPricesEditor({
@@ -144,19 +279,16 @@ function ChannelPricesEditor({
 }) {
     const { t } = useTranslation();
     const toast = useToast();
-    // Both, because the write sizes the item's packs and prices them on the lists.
-    const canManageCatalogue = useCan(CATALOGUE_MANAGE_PERMISSION);
-    const canManagePrices = useCan(PRICE_LIST_MANAGE_PERMISSION);
-    const canManage = canManageCatalogue && canManagePrices;
+    const canManage = useCanManagePrices();
 
     const query = useItemChannelPricesQuery(itemId);
     const mutation = useSetItemChannelPricesMutation();
 
-    const saved = useMemo(
+    const saved = useMemo<ChannelPriceDraft>(
         () => ({ b2b: draftOf(query.data?.b2b ?? null), b2c: draftOf(query.data?.b2c ?? null) }),
         [query.data],
     );
-    const [rows, setRows] = useState(saved);
+    const [rows, setRows] = useState<ChannelPriceDraft>(saved);
     const [attempted, setAttempted] = useState(false);
 
     // A fresh read (after a save, or another tab's) replaces the draft — adjusted during render,
@@ -168,13 +300,7 @@ function ChannelPricesEditor({
         setAttempted(false);
     }
 
-    // The admin's Kg, L, Pc — plus a row's unit saved in grams or millilitres before the list was
-    // narrowed, so the field shows what is stored rather than a blank.
-    const unitOptions = (current: MeasureUnit): readonly SelectOption[] =>
-        adminUnitsWith(current).map((unit) => ({ value: unit, label: t(unitShortKey(unit)) }));
-
     const data: ItemChannelPrices | undefined = query.data;
-    const errors = { b2b: rowError(rows.b2b), b2c: rowError(rows.b2c) };
     const dirty = CHANNELS.some(
         (channel) =>
             rows[channel].quantity !== saved[channel].quantity ||
@@ -184,7 +310,7 @@ function ChannelPricesEditor({
 
     const save = () => {
         setAttempted(true);
-        if (data === undefined || errors.b2b !== null || errors.b2c !== null) return;
+        if (data === undefined || !channelPriceDraftValid(rows)) return;
 
         let request: SetItemChannelPricesRequest = { lockVersion: data.lockVersion };
         for (const channel of CHANNELS) {
@@ -213,21 +339,10 @@ function ChannelPricesEditor({
         );
     };
 
-    const errorText = (error: RowError | null): string | undefined => {
-        if (!attempted || error === null) return undefined;
-        switch (error) {
-            case 'weight':
-                return t('kitchen:channelPrices.weightInvalid');
-            case 'price':
-                return t('kitchen:channelPrices.priceInvalid');
-            case 'priceNeedsWeight':
-                return t('kitchen:channelPrices.priceNeedsWeight');
-        }
-    };
-
     return (
         <FormSection
-            variant="underlined"
+            first
+            variant="card"
             testID={testID}
             title={t('kitchen:channelPrices.title')}
             description={t('kitchen:channelPrices.hint')}
@@ -245,91 +360,138 @@ function ChannelPricesEditor({
                 ) : undefined
             }
         >
-            <Stack space="sm">
-                {CHANNELS.map((channel) => {
-                    const offer = data?.[channel] ?? null;
-                    const row = rows[channel];
-                    const rowTestId = `${testID}-${channel}`;
-                    const label = t(`kitchen:channelPrices.${channel}`);
-
-                    if (data !== undefined && offer === null) {
-                        return (
-                            <Text
-                                key={channel}
-                                testID={`${rowTestId}-unavailable`}
-                                tone="secondary"
-                            >
-                                {t('kitchen:channelPrices.noPriceList', { channel: label })}
-                            </Text>
-                        );
-                    }
-
-                    const patch = (next: Partial<RowDraft>) => {
-                        setRows({ ...rows, [channel]: { ...row, ...next } });
-                    };
-                    const error = errorText(errors[channel]);
-
-                    return (
-                        <View
-                            key={channel}
-                            testID={rowTestId}
-                            className="z-auto flex-row flex-wrap items-start gap-tight"
-                        >
-                            <Text variant="label" className="w-16 pt-2">
-                                {label}
-                            </Text>
-                            <View className="w-32">
-                                <QuantityInput
-                                    testID={`${rowTestId}-weight`}
-                                    id={`${rowTestId}-weight`}
-                                    size="sm"
-                                    label={t('kitchen:channelPrices.weight', { channel: label })}
-                                    placeholder={t('kitchen:fields.quantityPlaceholder')}
-                                    value={row.quantity}
-                                    disabled={!canManage}
-                                    onChangeText={(next) => {
-                                        patch({ quantity: next });
-                                    }}
-                                    {...(error !== undefined && errors[channel] === 'weight'
-                                        ? { error }
-                                        : {})}
-                                />
-                            </View>
-                            <View className="z-auto w-28">
-                                <Select
-                                    testID={`${rowTestId}-unit`}
-                                    id={`${rowTestId}-unit`}
-                                    label={t('kitchen:channelPrices.unit', { channel: label })}
-                                    options={unitOptions(row.unit)}
-                                    value={row.unit}
-                                    disabled={!canManage}
-                                    onChange={(next) => {
-                                        patch({ unit: next as MeasureUnit });
-                                    }}
-                                />
-                            </View>
-                            <View className="w-40">
-                                <QuantityInput
-                                    testID={`${rowTestId}-price`}
-                                    id={`${rowTestId}-price`}
-                                    size="sm"
-                                    label={t('kitchen:channelPrices.price', { channel: label })}
-                                    placeholder={t('kitchen:fields.unitPricePlaceholder')}
-                                    value={row.price}
-                                    disabled={!canManage}
-                                    {...(offer === null ? {} : { unit: offer.currency })}
-                                    onChangeText={(next) => {
-                                        patch({ price: next });
-                                    }}
-                                    {...(error !== undefined && errors[channel] !== 'weight'
-                                        ? { error }
-                                        : {})}
-                                />
-                            </View>
-                        </View>
-                    );
-                })}
-            </Stack>
+            <ChannelPriceRows
+                rows={rows}
+                onChange={setRows}
+                attempted={attempted}
+                currencyOf={(channel) => data?.[channel]?.currency}
+                unavailable={(channel) => data !== undefined && data[channel] === null}
+                canManage={canManage}
+                testID={testID}
+            />
         </FormSection>
+    );
+}
+
+/** The two rows — label, weight, unit, price — shared by a saved item and a new one. */
+function ChannelPriceRows({
+    rows,
+    onChange,
+    attempted,
+    currencyOf,
+    unavailable,
+    canManage,
+    testID,
+}: {
+    readonly rows: ChannelPriceDraft;
+    readonly onChange: (next: ChannelPriceDraft) => void;
+    readonly attempted: boolean;
+    readonly currencyOf: (channel: TradeChannel) => CurrencyCode | undefined;
+    readonly unavailable: (channel: TradeChannel) => boolean;
+    readonly canManage: boolean;
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    const errors = { b2b: rowError(rows.b2b), b2c: rowError(rows.b2c) };
+
+    // The admin's Kg, L, Pc — plus a row's unit saved in grams or millilitres before the list was
+    // narrowed, so the field shows what is stored rather than a blank.
+    const unitOptions = (current: MeasureUnit): readonly SelectOption[] =>
+        adminUnitsWith(current).map((unit) => ({ value: unit, label: t(unitShortKey(unit)) }));
+
+    const errorText = (error: RowError | null): string | undefined => {
+        if (!attempted || error === null) return undefined;
+        switch (error) {
+            case 'weight':
+                return t('kitchen:channelPrices.weightInvalid');
+            case 'price':
+                return t('kitchen:channelPrices.priceInvalid');
+            case 'priceNeedsWeight':
+                return t('kitchen:channelPrices.priceNeedsWeight');
+        }
+    };
+
+    return (
+        <Stack space="sm">
+            {CHANNELS.map((channel) => {
+                const row = rows[channel];
+                const rowTestId = `${testID}-${channel}`;
+                const label = t(`kitchen:channelPrices.${channel}`);
+                const currency = currencyOf(channel);
+
+                if (unavailable(channel)) {
+                    return (
+                        <Text key={channel} testID={`${rowTestId}-unavailable`} tone="secondary">
+                            {t('kitchen:channelPrices.noPriceList', { channel: label })}
+                        </Text>
+                    );
+                }
+
+                const patch = (next: Partial<RowDraft>) => {
+                    onChange({ ...rows, [channel]: { ...row, ...next } });
+                };
+                const error = errorText(errors[channel]);
+
+                return (
+                    <View
+                        key={channel}
+                        testID={rowTestId}
+                        className="z-auto flex-row flex-wrap items-start gap-tight"
+                    >
+                        <Text variant="label" className="w-16 pt-2">
+                            {label}
+                        </Text>
+                        <View className="w-32">
+                            <QuantityInput
+                                testID={`${rowTestId}-weight`}
+                                id={`${rowTestId}-weight`}
+                                size="sm"
+                                label={t('kitchen:channelPrices.weight', { channel: label })}
+                                placeholder={t('kitchen:fields.quantityPlaceholder')}
+                                value={row.quantity}
+                                disabled={!canManage}
+                                onChangeText={(next) => {
+                                    patch({ quantity: next });
+                                }}
+                                {...(error !== undefined && errors[channel] === 'weight'
+                                    ? { error }
+                                    : {})}
+                            />
+                        </View>
+                        <View className="z-auto w-28">
+                            <Select
+                                testID={`${rowTestId}-unit`}
+                                id={`${rowTestId}-unit`}
+                                label={t('kitchen:channelPrices.unit', { channel: label })}
+                                options={unitOptions(row.unit)}
+                                value={row.unit}
+                                disabled={!canManage}
+                                onChange={(next) => {
+                                    patch({ unit: next as MeasureUnit });
+                                }}
+                            />
+                        </View>
+                        <View className="w-40">
+                            <QuantityInput
+                                testID={`${rowTestId}-price`}
+                                id={`${rowTestId}-price`}
+                                size="sm"
+                                label={t('kitchen:channelPrices.price', { channel: label })}
+                                placeholder={t('kitchen:fields.unitPricePlaceholder')}
+                                value={row.price}
+                                disabled={!canManage}
+                                {...(currency === undefined ? {} : { unit: currency })}
+                                onChangeText={(next) => {
+                                    patch({ price: next });
+                                }}
+                                {...(error !== undefined && errors[channel] !== 'weight'
+                                    ? { error }
+                                    : {})}
+                            />
+                        </View>
+                    </View>
+                );
+            })}
+        </Stack>
     );
 }
