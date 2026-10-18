@@ -1,6 +1,7 @@
 import {
     DeliveryWindowId,
     DeliveryZoneId,
+    IngredientId,
     RecipeId,
     SubscriptionPlanId,
 } from '@healthy360/domain-types';
@@ -407,6 +408,32 @@ describe('createIngredient', () => {
         });
     });
 
+    it('sends packaging pack price, waste and capacity (HA-30)', async () => {
+        const { writes, calls } = harness(lookups());
+
+        await writes
+            .createIngredient({
+                name: { en: 'Kraft lid', ar: '' },
+                categoryCode: 'packaging-disposables',
+                measurementUnit: 'kg',
+                purchasePrice: { amount: 25.5, currency: 'USD' },
+                wastePercent: 3,
+                capacity: { quantity: 750, unit: 'l' },
+            })
+            .catch(() => undefined);
+
+        expect(calls[2]).toMatchObject({
+            method: 'POST',
+            body: {
+                purchase_price_amount: 25.5,
+                purchase_price_currency: 'USD',
+                waste_percent: 3,
+                capacity_quantity: 750,
+                capacity_unit_id: LITRE_UUID,
+            },
+        });
+    });
+
     it('leaves the purchase unit off when none was chosen', async () => {
         const { writes, calls } = harness(lookups());
 
@@ -420,6 +447,35 @@ describe('createIngredient', () => {
 
         expect(calls[2]?.method).toBe('POST');
         expect(calls[2]?.body).not.toHaveProperty('purchase_unit_id');
+    });
+});
+
+describe('updateIngredient', () => {
+    it('clears packaging pack price, waste and capacity with null (HA-30)', async () => {
+        const { writes, calls } = harness([
+            { status: 200, body: { data: [] } },
+            { status: 200, body: { data: { ingredient: { id: 'ingredient-1' } } } },
+        ]);
+
+        await writes
+            .updateIngredient(IngredientId.unsafe('0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e7001'), {
+                lockVersion: 2,
+                purchasePrice: null,
+                wastePercent: null,
+                capacity: null,
+            })
+            .catch(() => undefined);
+
+        expect(calls[1]).toMatchObject({
+            method: 'PATCH',
+            body: {
+                purchase_price_amount: null,
+                waste_percent: null,
+                capacity_quantity: null,
+                capacity_unit_id: null,
+            },
+        });
+        expect(calls[1]?.body).not.toHaveProperty('purchase_price_currency');
     });
 });
 

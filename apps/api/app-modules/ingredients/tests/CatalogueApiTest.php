@@ -176,6 +176,55 @@ it('exempts packaging but requires nutrition when it becomes food', function ():
     $this->patchJson($url, ['ingredient_category_id' => null] + NutritionReferenceFixture::selection(), $headers + ['If-Match' => '"0"'])->assertOk();
 });
 
+it('stores packaging pack price, waste and capacity on create and edit', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $packagingId = IngredientCategory::withoutTenancy()->where('code', 'packaging-disposables')->sole()->getKey();
+    $unit = fn (string $code): string => (string) MeasurementUnit::query()->where('code', $code)->sole()->getKey();
+
+    $created = $this->postJson('/api/v1/catalogue/ingredients', [
+        'name_en' => 'Kraft lid',
+        'default_unit_id' => $unit('piece'),
+        'purchase_unit_id' => $unit('kg'),
+        'ingredient_category_id' => $packagingId,
+        'purchase_price_amount' => 25.5,
+        'purchase_price_currency' => 'USD',
+        'waste_percent' => 3,
+        'capacity_quantity' => 750,
+        'capacity_unit_id' => $unit('g'),
+    ], $headers)
+        ->assertCreated()
+        ->assertJsonPath('data.ingredient.purchase_price_amount', '25.500000')
+        ->assertJsonPath('data.ingredient.purchase_price_currency', 'USD')
+        ->assertJsonPath('data.ingredient.waste_percent', '3.00')
+        ->assertJsonPath('data.ingredient.capacity_quantity', '750.0000')
+        ->assertJsonPath('data.ingredient.capacity_unit_code', 'g');
+
+    $url = '/api/v1/catalogue/ingredients/'.$created->json('data.ingredient.id');
+    $this->patchJson($url, [
+        'purchase_price_amount' => 30,
+        'purchase_price_currency' => 'USD',
+        'waste_percent' => 0,
+        'capacity_quantity' => null,
+        'capacity_unit_id' => null,
+    ], $headers + ['If-Match' => '"0"'])
+        ->assertOk()
+        ->assertJsonPath('data.ingredient.purchase_price_amount', '30.000000')
+        ->assertJsonPath('data.ingredient.waste_percent', '0.00')
+        ->assertJsonPath('data.ingredient.capacity_quantity', null);
+
+    // Half a pair, or a waste that is the whole pack, is a 422 rather than the database's 500.
+    foreach ([
+        ['purchase_price_amount' => 1],
+        ['capacity_quantity' => 1],
+        ['capacity_unit_id' => $unit('g')],
+        ['waste_percent' => 100],
+    ] as $invalid) {
+        $this->patchJson($url, $invalid, $headers + ['If-Match' => '"1"'])
+            ->assertStatus(422)->assertJsonPath('error.code', 'validation.failed');
+    }
+});
+
 it('lets an edit leave the Arabic name blank, as create does', function (): void {
     $this->actingAs($this->a->user);
     $ingredient = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'default_unit_id' => gramsId(), 'name_ar' => 'ملح']);

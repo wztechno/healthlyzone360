@@ -673,6 +673,36 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
         };
     }
 
+    /**
+     * Packaging's pack price, waste and capacity (HA-30) — drawn on the form and, until this,
+     * never sent, so a save threw all three away. `undefined` leaves a field alone and `null`
+     * clears it. The capacity's unit is `resolve`d, not `require`d: an unknown code drops the
+     * pair whole, which the server's both-or-neither rule needs.
+     */
+    async function packagingFields(
+        purchasePrice: CostAmount | null | undefined,
+        wastePercent: number | null | undefined,
+        capacity: { readonly quantity: number; readonly unit: MeasureUnit } | null | undefined,
+    ): Promise<Record<string, unknown>> {
+        const body: Record<string, unknown> = {};
+        if (purchasePrice !== undefined) {
+            body.purchase_price_amount = purchasePrice === null ? null : purchasePrice.amount;
+            if (purchasePrice !== null) body.purchase_price_currency = purchasePrice.currency;
+        }
+        if (wastePercent !== undefined) body.waste_percent = wastePercent;
+        if (capacity === null) {
+            body.capacity_quantity = null;
+            body.capacity_unit_id = null;
+        } else if (capacity !== undefined) {
+            const unitId = await units.resolve(transport, capacity.unit);
+            if (unitId !== null) {
+                body.capacity_quantity = capacity.quantity;
+                body.capacity_unit_id = unitId;
+            }
+        }
+        return body;
+    }
+
     return {
         async searchAllergenReferences(request) {
             const params = new URLSearchParams();
@@ -787,6 +817,11 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                           }),
                     ...referenceFields(request.nutritionReference),
                     ...priceFields(request.b2bPrice, request.b2cPrice, request.unitPrice),
+                    ...(await packagingFields(
+                        request.purchasePrice,
+                        request.wastePercent,
+                        request.capacity,
+                    )),
                     ...(request.isSellable === undefined
                         ? {}
                         : { is_sellable: request.isSellable }),
@@ -851,6 +886,10 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             if (request.itemsPerUnit !== undefined) body.items_per_unit = request.itemsPerUnit;
             if (request.gramsPerUnit !== undefined) body.grams_per_unit = request.gramsPerUnit;
             Object.assign(body, priceFields(request.b2bPrice, request.b2cPrice, request.unitPrice));
+            Object.assign(
+                body,
+                await packagingFields(request.purchasePrice, request.wastePercent, request.capacity),
+            );
             if (request.isSellable !== undefined) body.is_sellable = request.isSellable;
             Object.assign(body, referenceFields(request.nutritionReference));
             if (request.notes !== undefined) body.notes = request.notes;

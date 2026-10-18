@@ -2567,6 +2567,11 @@
         "cup": "Cups",
         "tbsp": "Tablespoons",
         "tsp": "Teaspoons",
+        "pack": "Packs",
+        "bag": "Bags",
+        "can": "Cans",
+        "bottle": "Bottles",
+        "gallon": "Gallons",
         "dimensionPackage": "Packs"
     },
     "unitsShort": {

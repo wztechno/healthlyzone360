@@ -25724,6 +25724,38 @@ components:
           minLength: 3
           maxLength: 3
           description: ISO 4217 code. Required whenever any amount is sent.
+        purchase_price_amount:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          maximum: 1000000000000
+          description: Packaging's pack price, per purchase pack, in major currency units. Requires `purchase_price_currency`.
+        purchase_price_currency:
+          type:
+            - string
+            - 'null'
+          minLength: 3
+          maxLength: 3
+          description: ISO 4217 code. Required whenever `purchase_price_amount` is sent.
+        waste_percent:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          exclusiveMaximum: 100
+          description: Packaging lost before use. `null` is unmeasured; `0` is measured and none.
+        capacity_quantity:
+          type:
+            - number
+            - 'null'
+          minimum: 0.0001
+          maximum: 99999999.9999
+          description: How much one packaging item holds, in `capacity_unit_id`. Sent with it, or both `null`.
+        capacity_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
         is_sellable:
           type: boolean
           description: Offered for sale as-is, outside recipes.
@@ -25837,6 +25869,38 @@ components:
           minLength: 3
           maxLength: 3
           description: ISO 4217 code. Required whenever any amount is sent.
+        purchase_price_amount:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          maximum: 1000000000000
+          description: Packaging's pack price, per purchase pack, in major currency units. Requires `purchase_price_currency`.
+        purchase_price_currency:
+          type:
+            - string
+            - 'null'
+          minLength: 3
+          maxLength: 3
+          description: ISO 4217 code. Required whenever `purchase_price_amount` is sent.
+        waste_percent:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          exclusiveMaximum: 100
+          description: Packaging lost before use. `null` is unmeasured; `0` is measured and none.
+        capacity_quantity:
+          type:
+            - number
+            - 'null'
+          minimum: 0.0001
+          maximum: 99999999.9999
+          description: How much one packaging item holds, in `capacity_unit_id`. Sent with it, or both `null`.
+        capacity_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
         is_sellable:
           type: boolean
           description: Offered for sale as-is, outside recipes.

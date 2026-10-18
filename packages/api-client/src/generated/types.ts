@@ -786,6 +786,23 @@ export type CreateIngredientRequest = {
      */
     price_currency_code?: string | null;
     /**
+     * Packaging's pack price, per purchase pack, in major currency units. Requires `purchase_price_currency`.
+     */
+    purchase_price_amount?: number | null;
+    /**
+     * ISO 4217 code. Required whenever `purchase_price_amount` is sent.
+     */
+    purchase_price_currency?: string | null;
+    /**
+     * Packaging lost before use. `null` is unmeasured; `0` is measured and none.
+     */
+    waste_percent?: number | null;
+    /**
+     * How much one packaging item holds, in `capacity_unit_id`. Sent with it, or both `null`.
+     */
+    capacity_quantity?: number | null;
+    capacity_unit_id?: Uuid | null;
+    /**
      * Offered for sale as-is, outside recipes.
      */
     is_sellable?: boolean;
@@ -842,6 +859,23 @@ export type UpdateIngredientRequest = {
      * ISO 4217 code. Required whenever any amount is sent.
      */
     price_currency_code?: string | null;
+    /**
+     * Packaging's pack price, per purchase pack, in major currency units. Requires `purchase_price_currency`.
+     */
+    purchase_price_amount?: number | null;
+    /**
+     * ISO 4217 code. Required whenever `purchase_price_amount` is sent.
+     */
+    purchase_price_currency?: string | null;
+    /**
+     * Packaging lost before use. `null` is unmeasured; `0` is measured and none.
+     */
+    waste_percent?: number | null;
+    /**
+     * How much one packaging item holds, in `capacity_unit_id`. Sent with it, or both `null`.
+     */
+    capacity_quantity?: number | null;
+    capacity_unit_id?: Uuid | null;
     /**
      * Offered for sale as-is, outside recipes.
      */

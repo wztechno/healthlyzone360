@@ -37,6 +37,7 @@ import {
 } from '@healthy360/design-system';
 import type { FormIssueItem, SelectOption, TagTone } from '@healthy360/design-system';
 import { IngredientId } from '@healthy360/domain-types';
+import { isCurrencyCode } from '@healthy360/domain-types';
 import type { CurrencyCode } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -52,6 +53,7 @@ import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     useItemLatestPurchasesQuery,
+    useProcurementReferenceQuery,
     useStockItemsQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import {
@@ -75,6 +77,7 @@ import {
     CATALOGUE_MANAGE_PERMISSION,
     CATALOGUE_VIEW_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
+    INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import {
@@ -335,37 +338,28 @@ function detailsFrom(ingredient: IngredientAdmin): DetailsDraft {
 }
 
 /**
- * The design's fields that nothing on the write path accepts yet — drawn, editable, and never sent.
+ * Packaging's three: **pack price, waste, holds** — `purchasePrice`, `wastePercent` and
+ * `capacity` on `IngredientAdmin`.
  *
- * - **Pack price, waste, holds** (packaging). `purchasePrice`, `wastePercent` and `capacity` are on
- *   `IngredientAdmin` — the import writes them and the packaging list reads them — but neither
- *   `CreateIngredientRequest` nor `UpdateIngredientRequest` carries any of the three, and the
- *   server's own request rules refuse them. So they open on the stored figures and a save leaves
- *   those figures as they were.
- *
- * Kept outside {@link DetailsDraft} on purpose. Editing one does not mark the record dirty — there
- * is nothing for the unsaved guard to protect, because nothing would have been saved — and none of
- * them can block the save, which is why the pack price carries no required mark here although the
- * design draws one. A required field whose value is thrown away is a gate with nothing behind it.
- *
- * The photo is not one of them any more: it has an endpoint of its own and is written after the
- * record's save (BUG-14), so it lives beside the details draft as `photo`.
+ * Drawn and editable for a long time while nothing sent them, so a save threw all three away
+ * (HA-30). They are written now, on create and on edit, and only for packaging: food never draws
+ * them, so a food save leaves the columns alone. Editing one marks the record dirty like any field.
  */
-interface UnstoredDraft {
+interface PackagingDraft {
     readonly packPrice: string;
     readonly wastePercent: string;
     readonly capacity: string;
     readonly capacityUnit: MeasureUnit;
 }
 
-const EMPTY_UNSTORED: UnstoredDraft = {
+const EMPTY_PACKAGING: PackagingDraft = {
     packPrice: '',
     wastePercent: '',
     capacity: '',
     capacityUnit: 'ml',
 };
 
-function unstoredFrom(ingredient: IngredientAdmin): UnstoredDraft {
+function packagingFrom(ingredient: IngredientAdmin): PackagingDraft {
     return {
         packPrice: amountToInput(ingredient.purchasePrice),
         wastePercent: ingredient.wastePercent === null ? '' : String(ingredient.wastePercent),
@@ -495,6 +489,9 @@ export interface IngredientEditFamily {
  */
 const STOCK_UNITS: readonly MeasureUnit[] = ['kg', 'l'];
 
+/** What packaging is bought and issued in — the owner's three (HA-30). */
+const PACKAGING_UNITS: readonly MeasureUnit[] = ['kg', 'l', 'piece'];
+
 /** What a packaging item's capacity is stated in — the design's four, volume first. */
 const CAPACITY_UNITS: readonly MeasureUnit[] = ['ml', 'l', 'g', 'kg'];
 
@@ -581,7 +578,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
 
     /** Whether Save has been pressed — what lets an empty required field call itself out. */
     const [attempted, setAttempted] = useState(false);
-    const [unstored, setUnstored] = useState<UnstoredDraft>(EMPTY_UNSTORED);
+    const [packaging, setPackaging] = useState<PackagingDraft>(EMPTY_PACKAGING);
     /*
      * The photo slot, the link it was last filled from (`undefined` until the record arrives), and
      * whether it has been changed since. Rehydrated on its own key rather than the lock version: the
@@ -605,7 +602,12 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const [details, setDetails] = useState<DetailsDraft>(
         family.categoryCode === ''
             ? EMPTY_DETAILS
-            : { ...EMPTY_DETAILS, categoryCode: family.categoryCode },
+            : {
+                  ...EMPTY_DETAILS,
+                  categoryCode: family.categoryCode,
+                  // Grams is not on the packaging list; a counted item is the common case.
+                  ...(family.food ? {} : { measurementUnit: 'piece' }),
+              },
     );
     const [detailsKey, setDetailsKey] = useState<string | null>(null);
     const [detailsDirty, setDetailsDirty] = useState(false);
@@ -680,7 +682,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     if (data !== undefined && serverKey !== detailsKey && !detailsDirty) {
         setDetailsKey(serverKey);
         setDetails(detailsFrom(data));
-        setUnstored(unstoredFrom(data));
+        setPackaging(packagingFrom(data));
     }
     if (data !== undefined && (data.photoUrl ?? null) !== photoKey && !photoDirty) {
         setPhotoKey(data.photoUrl ?? null);
@@ -754,8 +756,9 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
      * `piece` here is offering the state the library was just normalised out of — and it would
      * come back one ingredient at a time, which is how it arrived in the first place.
      *
-     * Packaging keeps the full list. A cap is counted, a roll of film is a roll, and none of it
-     * carries nutrition for a gram to matter to.
+     * Packaging is bought and issued in kilograms, litres or pieces — the owner's list (HA-30).
+     * A record saved before that, in a pack or a bag, keeps its own unit on the list
+     * (`savedUnitOptions`), so opening it never shows a placeholder over a value that is set.
      *
      * `slice` and `portion` are gone from both. They have no `measurement_units` row, so
      * `MeasurementUnitLookup` could not resolve either and the write layer dropped the field
@@ -763,23 +766,30 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
      * `MEASURE_UNITS` because they are the *serving* vocabulary the marketplace uses; they were
      * never stock units.
      */
-    const unitOptions: readonly SelectOption[] = useMemo(
-        () =>
-            UNIT_DIMENSIONS.flatMap((dimension) =>
-                MEASURE_UNITS.filter(
-                    (unit) =>
-                        unitDimension(unit) === dimension &&
-                        (family.food
-                            ? STOCK_UNITS.includes(unit)
-                            : unit !== 'slice' && unit !== 'portion'),
-                ).map((unit) => ({
-                    value: unit,
-                    label: t(unitKey(unit)),
-                    description: t(unitDimensionKey(dimension)),
-                })),
-            ),
-        [t, family.food],
-    );
+    const unitOptions: readonly SelectOption[] = useMemo(() => {
+        const allowed = family.food ? STOCK_UNITS : PACKAGING_UNITS;
+        return UNIT_DIMENSIONS.flatMap((dimension) =>
+            MEASURE_UNITS.filter(
+                (unit) => unitDimension(unit) === dimension && allowed.includes(unit),
+            ).map((unit) => ({
+                value: unit,
+                label: t(unitKey(unit)),
+                description: t(unitDimensionKey(dimension)),
+            })),
+        );
+    }, [t, family.food]);
+
+    const savedUnitOptions = (saved: MeasureUnit | null | undefined): readonly SelectOption[] =>
+        saved === null || saved === undefined || unitOptions.some((option) => option.value === saved)
+            ? unitOptions
+            : [
+                  ...unitOptions,
+                  {
+                      value: saved,
+                      label: t(unitKey(saved)),
+                      description: t(unitDimensionKey(unitDimension(saved))),
+                  },
+              ];
 
     /**
      * The top level of the declared tree.
@@ -876,22 +886,36 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     /**
      * The currency the three prices are quoted in.
      *
-     * Nothing on the session, the organisation or this contract publishes "the currency this kitchen
-     * trades in" — the same gap `kitchen-admin-hooks.ts` records as 17 for delivery zones, and this
-     * resolves it the same way that editor does. The record's own money first, because a priced
-     * ingredient has already answered the question; then whatever the rest of the catalogue is
-     * priced in, by frequency. `null` means the kitchen has priced nothing yet, and the price fields
-     * say so rather than guessing a country's money.
+     * The record's own money first, because a priced ingredient has already answered the question;
+     * then whatever the rest of the catalogue is priced in, by frequency; then the organisation's
+     * default currency from the procurement reference — without it, a kitchen that had priced
+     * nothing yet could never save its first pack price (HA-30). `null` only when none of the
+     * three answers, and the price fields say so rather than guessing a country's money.
      */
+    const canReadReference = useCan(INVENTORY_VIEW_PERMISSION);
+    const procurementReference = useProcurementReferenceQuery(canReadReference);
+    const defaultCurrency = procurementReference.data?.defaultCurrencyCode;
     const currency = useMemo<CurrencyCode | null>(() => {
-        const own = [data?.unitPrice, data?.b2bPrice, data?.b2cPrice, data?.costPer100g];
+        const own = [
+            data?.unitPrice,
+            data?.b2bPrice,
+            data?.b2cPrice,
+            data?.costPer100g,
+            data?.purchasePrice,
+        ];
         for (const cost of own) {
             if (cost !== null && cost !== undefined) return cost.currency;
         }
 
         const counts = new Map<CurrencyCode, number>();
         for (const row of catalogue.data?.items ?? []) {
-            for (const cost of [row.unitPrice, row.b2bPrice, row.b2cPrice, row.costPer100g]) {
+            for (const cost of [
+                row.unitPrice,
+                row.b2bPrice,
+                row.b2cPrice,
+                row.costPer100g,
+                row.purchasePrice,
+            ]) {
                 if (cost === null) continue;
                 counts.set(cost.currency, (counts.get(cost.currency) ?? 0) + 1);
             }
@@ -905,8 +929,8 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 bestCount = count;
             }
         }
-        return best;
-    }, [data, catalogue.data]);
+        return best ?? (isCurrencyCode(defaultCurrency) ? defaultCurrency : null);
+    }, [data, catalogue.data, defaultCurrency]);
 
     /* ── validation ──────────────────────────────────────────────────────────────────────────── */
 
@@ -975,12 +999,15 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const unitPriceValue = parseAmount(details.unitPrice);
     const b2bPriceValue = parseAmount(details.b2bPrice);
     const b2cPriceValue = parseAmount(details.b2cPrice);
+    const packPriceValue = family.food ? null : parseAmount(packaging.packPrice);
 
     // A price cannot be written without a currency to write it in, so an amount typed with no
     // currency resolved is a blocked save rather than a guess.
     const currencyMissing =
         currency === null &&
-        [unitPriceValue, b2bPriceValue, b2cPriceValue].some((value) => typeof value === 'number');
+        [unitPriceValue, b2bPriceValue, b2cPriceValue, packPriceValue].some(
+            (value) => typeof value === 'number',
+        );
 
     // Only non-derived food can select a reference. Figures and provenance remain server-managed.
     const nutritionDerived = data?.nutritionDerivedFromVersionId ?? null;
@@ -1043,6 +1070,17 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                   },
               ]
             : []),
+        // Now that the pack price is saved, a typo in it must stop the save rather than clear it.
+        ...(packPriceValue === undefined
+            ? [
+                  {
+                      key: 'pack-price',
+                      label: t('kitchen:packaging.columnPackPrice'),
+                      fieldId: 'kitchen-ingredient-pack-price',
+                      required: false,
+                  },
+              ]
+            : []),
     ];
 
     /*
@@ -1059,11 +1097,11 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         : {};
 
     /*
-     * Packaging's one caution: a loss above a tenth is unusual enough to say so. Never blocks — and
-     * it could not, because the rate is not saved (see `UnstoredDraft`).
+     * Packaging's one caution: a loss above a tenth is unusual enough to say so. Never blocks: a
+     * film that tears on the sealer really can lose a fifth.
      */
     const wasteHigh =
-        !family.food && (parseQuantity(unstored.wastePercent) ?? 0) > WASTE_WARNING_PERCENT;
+        !family.food && (parseQuantity(packaging.wastePercent) ?? 0) > WASTE_WARNING_PERCENT;
 
     const blockerItems: readonly FormIssueItem[] = shownBlockers.map((entry) => ({
         key: entry.key,
@@ -1100,6 +1138,26 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     /** A typed amount as the contract's `CostAmount`, or the null that clears it. */
     const costOf = (value: number | null | undefined): CostAmount | null =>
         typeof value === 'number' && currency !== null ? { amount: value, currency } : null;
+
+    /** Packaging's three as a request takes them, `null` clearing one. Food sends none of them. */
+    const packPrice = costOf(packPriceValue);
+    const wastePercent = parseQuantity(packaging.wastePercent);
+    const capacityQuantity = positiveNumberOf(packaging.capacity);
+    const capacity =
+        capacityQuantity === null
+            ? null
+            : { quantity: capacityQuantity, unit: packaging.capacityUnit };
+    const packagingWrite = family.food
+        ? {}
+        : { purchasePrice: packPrice, wastePercent, capacity };
+    /** The same, for a create, which has nothing to clear. */
+    const packagingCreate = family.food
+        ? {}
+        : {
+              ...(packPrice === null ? {} : { purchasePrice: packPrice }),
+              ...(wastePercent === null ? {} : { wastePercent }),
+              ...(capacity === null ? {} : { capacity }),
+          };
 
     /**
      * The photo, written once the record's own save has answered: it needs the record's id, and a
@@ -1163,6 +1221,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         : { unitPrice: costOf(unitPriceValue)! }),
                     ...(costOf(b2bPriceValue) === null ? {} : { b2bPrice: costOf(b2bPriceValue)! }),
                     ...(costOf(b2cPriceValue) === null ? {} : { b2cPrice: costOf(b2cPriceValue)! }),
+                    ...packagingCreate,
                     ...(allergenReference === undefined || isPackaging
                         ? {}
                         : { allergenReference }),
@@ -1236,6 +1295,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     unitPrice: costOf(unitPriceValue),
                     b2bPrice: costOf(b2bPriceValue),
                     b2cPrice: costOf(b2cPriceValue),
+                    ...packagingWrite,
                     // Submit the reviewed reference; the server owns figures and provenance.
                     ...(nutritionReference === undefined ? {} : { nutritionReference }),
                     isSellable: details.isSellable,
@@ -1353,6 +1413,18 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
             label: t('kitchen:sale.b2cPrice'),
             fieldId: 'kitchen-ingredient-b2c-price',
         },
+        purchase_price_amount: {
+            label: t('kitchen:packaging.columnPackPrice'),
+            fieldId: 'kitchen-ingredient-pack-price',
+        },
+        waste_percent: {
+            label: t('kitchen:forms.waste'),
+            fieldId: 'kitchen-ingredient-waste',
+        },
+        capacity_quantity: {
+            label: t('kitchen:forms.holds'),
+            fieldId: 'kitchen-ingredient-capacity',
+        },
     });
     const figures = nutrientFigures(data?.per100g ?? null, t, formatter);
 
@@ -1410,9 +1482,10 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         markDetailsDirty();
     };
 
-    /** One of the fields nothing saves yet. No dirty flag: there is nothing for the guard to keep. */
-    const editUnstored = (patch: Partial<UnstoredDraft>) => {
-        setUnstored((current) => ({ ...current, ...patch }));
+    /** One of packaging's three, with the dirty flag like {@link edit}. */
+    const editPackaging = (patch: Partial<PackagingDraft>) => {
+        setPackaging((current) => ({ ...current, ...patch }));
+        markDetailsDirty();
     };
 
     /*
@@ -1420,7 +1493,6 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
      * note against. Empty rather than a zero when either half is missing, for the reason every
      * derived cell on this workspace gives: a `0.0000` would claim the item is free.
      */
-    const packPriceValue = parseAmount(unstored.packPrice);
     const itemsPerPack = positiveNumberOf(details.itemsPerUnit);
     const costPerItem =
         typeof packPriceValue === 'number' && itemsPerPack !== null
@@ -1452,7 +1524,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
             disabled={!editable}
             options={[
                 { value: 'none', label: t('kitchen:fields.purchaseUnitNone') },
-                ...unitOptions,
+                ...savedUnitOptions(data?.purchaseUnit),
             ]}
             value={details.purchaseUnit === '' ? 'none' : details.purchaseUnit}
             onChange={(next) => {
@@ -1470,7 +1542,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
             placeholder={t('kitchen:fields.unitPlaceholder')}
             searchable
             disabled={!editable}
-            options={unitOptions}
+            options={savedUnitOptions(data?.measurementUnit)}
             value={details.measurementUnit}
             onChange={(next) => {
                 /*
@@ -1910,8 +1982,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
 
                         {/*
                          * What one item holds, in two cells: the figure and its unit. Packaging
-                         * only — a cap or a label holds nothing and leaves it blank. Not saved yet:
-                         * see `UnstoredDraft`.
+                         * only — a cap or a label holds nothing and leaves it blank.
                          */}
                         {family.food ? null : (
                             <QuantityInput
@@ -1920,10 +1991,11 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 size="sm"
                                 label={t('kitchen:forms.holds')}
                                 placeholder={t('kitchen:fields.quantityPlaceholder')}
-                                value={unstored.capacity}
+                                value={packaging.capacity}
                                 disabled={!editable}
+                                {...server.flag('capacity_quantity')}
                                 onChangeText={(next) => {
-                                    editUnstored({ capacity: next });
+                                    editPackaging({ capacity: next });
                                 }}
                             />
                         )}
@@ -1938,9 +2010,9 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                     value: unit,
                                     label: t(unitShortKey(unit)),
                                 }))}
-                                value={unstored.capacityUnit}
+                                value={packaging.capacityUnit}
                                 onChange={(next) => {
-                                    editUnstored({ capacityUnit: next as MeasureUnit });
+                                    editPackaging({ capacityUnit: next as MeasureUnit });
                                 }}
                             />
                         )}
@@ -1964,14 +2036,13 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 size="sm"
                                 label={t('kitchen:packaging.columnPackPrice')}
                                 placeholder={t('kitchen:fields.unitPricePlaceholder')}
-                                value={unstored.packPrice}
+                                value={packaging.packPrice}
                                 disabled={!editable}
                                 {...priceUnit}
-                                {...(packPriceValue === undefined
-                                    ? { error: t('kitchen:sale.priceInvalid') }
-                                    : {})}
+                                {...flag('pack-price', t('kitchen:sale.priceInvalid'))}
+                                {...server.flag('purchase_price_amount')}
                                 onChangeText={(next) => {
-                                    editUnstored({ packPrice: next });
+                                    editPackaging({ packPrice: next });
                                 }}
                             />
                             <QuantityInput
@@ -1981,7 +2052,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 label={t('kitchen:forms.waste')}
                                 placeholder={t('kitchen:fields.percentPlaceholder')}
                                 unit="%"
-                                value={unstored.wastePercent}
+                                value={packaging.wastePercent}
                                 disabled={!editable}
                                 {...(wasteHigh
                                     ? {
@@ -1990,8 +2061,9 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                           }),
                                       }
                                     : {})}
+                                {...server.flag('waste_percent')}
                                 onChangeText={(next) => {
-                                    editUnstored({ wastePercent: next });
+                                    editPackaging({ wastePercent: next });
                                 }}
                             />
                             {/*

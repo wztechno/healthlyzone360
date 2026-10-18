@@ -53,6 +53,7 @@ class UpdateIngredientRequest extends StoreIngredientRequest
             'is_sellable' => ['sometimes', 'required', 'boolean'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
             ...StoreIngredientRequest::priceRules(),
+            ...StoreIngredientRequest::packagingRules(),
             ...StoreIngredientRequest::referenceRules(),
         ];
     }

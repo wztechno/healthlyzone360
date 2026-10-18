@@ -693,6 +693,10 @@ export interface CreateIngredientRequest {
     readonly b2bPrice?: CostAmount | undefined;
     readonly b2cPrice?: CostAmount | undefined;
     readonly unitPrice?: CostAmount | undefined;
+    /** Packaging's pack price, per purchase pack — see {@link IngredientAdmin.purchasePrice}. */
+    readonly purchasePrice?: CostAmount | undefined;
+    readonly wastePercent?: number | undefined;
+    readonly capacity?: { readonly quantity: number; readonly unit: MeasureUnit } | undefined;
     readonly isSellable?: boolean | undefined;
     readonly reference?: string | undefined;
     readonly costPer100g?: CostAmount | undefined;
@@ -722,6 +726,10 @@ export interface UpdateIngredientRequest extends LockedRequest {
     readonly b2cPrice?: CostAmount | null | undefined;
     /** `null` clears it. Shares the same currency as the two list prices. */
     readonly unitPrice?: CostAmount | null | undefined;
+    /** `null` clears these three. Packaging's — see {@link IngredientAdmin.purchasePrice}. */
+    readonly purchasePrice?: CostAmount | null | undefined;
+    readonly wastePercent?: number | null | undefined;
+    readonly capacity?: { readonly quantity: number; readonly unit: MeasureUnit } | null | undefined;
     /** No null state: the column defaults to false, so omit the field to leave it alone. */
     readonly isSellable?: boolean | undefined;
     readonly reference?: string | null | undefined;

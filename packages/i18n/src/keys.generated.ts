@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8262 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8267 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -6226,6 +6226,9 @@ export interface NamespaceKeys {
     | 'toolbar.segmentReview'
     | 'toolbar.statusAll'
     | 'toolbar.statusLabel'
+    | 'units.bag'
+    | 'units.bottle'
+    | 'units.can'
     | 'units.cup'
     | 'units.dimensionCount'
     | 'units.dimensionMass'
@@ -6233,9 +6236,11 @@ export interface NamespaceKeys {
     | 'units.dimensionServing'
     | 'units.dimensionVolume'
     | 'units.g'
+    | 'units.gallon'
     | 'units.kg'
     | 'units.l'
     | 'units.ml'
+    | 'units.pack'
     | 'units.piece'
     | 'units.portion'
     | 'units.slice'
@@ -14506,6 +14511,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:toolbar.segmentReview',
   'kitchen:toolbar.statusAll',
   'kitchen:toolbar.statusLabel',
+  'kitchen:units.bag',
+  'kitchen:units.bottle',
+  'kitchen:units.can',
   'kitchen:units.cup',
   'kitchen:units.dimensionCount',
   'kitchen:units.dimensionMass',
@@ -14513,9 +14521,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:units.dimensionServing',
   'kitchen:units.dimensionVolume',
   'kitchen:units.g',
+  'kitchen:units.gallon',
   'kitchen:units.kg',
   'kitchen:units.l',
   'kitchen:units.ml',
+  'kitchen:units.pack',
   'kitchen:units.piece',
   'kitchen:units.portion',
   'kitchen:units.slice',

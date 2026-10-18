@@ -91,6 +91,11 @@ final readonly class IngredientCatalogueService
      *     b2c_price_amount?: float|string|null,
      *     unit_price_amount?: float|string|null,
      *     price_currency_code?: string|null,
+     *     purchase_price_amount?: float|string|null,
+     *     purchase_price_currency?: string|null,
+     *     waste_percent?: float|string|null,
+     *     capacity_quantity?: float|string|null,
+     *     capacity_unit_id?: string|null,
      *     is_sellable?: bool,
      *     yield_factor?: float|string|null,
      *     availability_tier?: string|null,
@@ -206,6 +211,11 @@ final readonly class IngredientCatalogueService
      *     b2c_price_amount?: float|string|null,
      *     unit_price_amount?: float|string|null,
      *     price_currency_code?: string|null,
+     *     purchase_price_amount?: float|string|null,
+     *     purchase_price_currency?: string|null,
+     *     waste_percent?: float|string|null,
+     *     capacity_quantity?: float|string|null,
+     *     capacity_unit_id?: string|null,
      *     is_sellable?: bool,
      *     yield_factor?: float|string|null,
      *     availability_tier?: string|null,
@@ -265,6 +275,11 @@ final readonly class IngredientCatalogueService
         $ingredient->b2c_price_amount = $this->decimalOrNull($attributes['b2c_price_amount'] ?? null);
         $ingredient->unit_price_amount = $this->decimalOrNull($attributes['unit_price_amount'] ?? null);
         $ingredient->price_currency_code = $this->trimmedOrNull($attributes['price_currency_code'] ?? null);
+        $ingredient->purchase_price_amount = $this->decimalOrNull($attributes['purchase_price_amount'] ?? null);
+        $ingredient->purchase_price_currency = $this->trimmedOrNull($attributes['purchase_price_currency'] ?? null);
+        $ingredient->waste_percent = $this->decimalOrNull($attributes['waste_percent'] ?? null);
+        $ingredient->capacity_quantity = $this->decimalOrNull($attributes['capacity_quantity'] ?? null);
+        $ingredient->capacity_unit_id = $attributes['capacity_unit_id'] ?? null;
         // The column defaults to false, so an omitted flag creates a raw
         // material rather than something already on sale.
         $ingredient->is_sellable = (bool) ($attributes['is_sellable'] ?? false);
@@ -562,7 +577,7 @@ final readonly class IngredientCatalogueService
 
         $changes = [];
 
-        foreach (['name_en', 'name_ar', 'ingredient_category_id', 'ingredient_subcategory_id', 'default_unit_id', 'purchase_unit_id', 'composition', 'items_per_unit', 'grams_per_unit', 'nutrition_per_100g', 'nutrition_source', 'nutrition_estimated', 'nutrition_note', 'b2b_price_amount', 'b2c_price_amount', 'unit_price_amount', 'price_currency_code', 'is_sellable', 'yield_factor', 'availability_tier', 'notes'] as $field) {
+        foreach (['name_en', 'name_ar', 'ingredient_category_id', 'ingredient_subcategory_id', 'default_unit_id', 'purchase_unit_id', 'composition', 'items_per_unit', 'grams_per_unit', 'nutrition_per_100g', 'nutrition_source', 'nutrition_estimated', 'nutrition_note', 'b2b_price_amount', 'b2c_price_amount', 'unit_price_amount', 'price_currency_code', 'purchase_price_amount', 'purchase_price_currency', 'waste_percent', 'capacity_quantity', 'capacity_unit_id', 'is_sellable', 'yield_factor', 'availability_tier', 'notes'] as $field) {
             if (! array_key_exists($field, $attributes)) {
                 continue;
             }
