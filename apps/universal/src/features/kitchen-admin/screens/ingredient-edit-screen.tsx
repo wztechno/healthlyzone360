@@ -42,7 +42,7 @@ import { isCurrencyCode } from '@healthy360/domain-types';
 import type { CurrencyCode } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
-import { MEASURE_UNITS, coreNutrientDefinition, findAmount } from '@healthy360/nutrition';
+import { coreNutrientDefinition, findAmount } from '@healthy360/nutrition';
 import type { MeasureUnit, NutritionFacts } from '@healthy360/nutrition';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -85,7 +85,9 @@ import {
 } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import {
+    ADMIN_UNITS,
     UNIT_DIMENSIONS,
+    adminUnitsWith,
     amountToInput,
     displayName,
     humaniseCode,
@@ -360,7 +362,7 @@ const EMPTY_PACKAGING: PackagingDraft = {
     packPrice: '',
     wastePercent: '',
     capacity: '',
-    capacityUnit: 'ml',
+    capacityUnit: 'l',
 };
 
 function packagingFrom(ingredient: IngredientAdmin): PackagingDraft {
@@ -368,7 +370,7 @@ function packagingFrom(ingredient: IngredientAdmin): PackagingDraft {
         packPrice: amountToInput(ingredient.purchasePrice),
         wastePercent: ingredient.wastePercent === null ? '' : String(ingredient.wastePercent),
         capacity: ingredient.capacity === null ? '' : String(ingredient.capacity.quantity),
-        capacityUnit: ingredient.capacity?.unit ?? 'ml',
+        capacityUnit: ingredient.capacity?.unit ?? 'l',
     };
 }
 
@@ -483,21 +485,6 @@ export interface IngredientEditFamily {
      */
     readonly food: boolean;
 }
-
-/**
- * What a raw material may be stocked in.
- *
- * Two, and the list is the whole rule: `RecipeNutritionService` weighs a mass line directly and
- * bridges a volume one through `grams_per_unit`, and there is no third branch. Anything else makes
- * a line that cannot be weighed, which withholds the label of every recipe that names it.
- */
-const STOCK_UNITS: readonly MeasureUnit[] = ['kg', 'l'];
-
-/** What packaging is bought and issued in — the owner's three (HA-30). */
-const PACKAGING_UNITS: readonly MeasureUnit[] = ['kg', 'l', 'piece'];
-
-/** What a packaging item's capacity is stated in — the design's four, volume first. */
-const CAPACITY_UNITS: readonly MeasureUnit[] = ['ml', 'l', 'g', 'kg'];
 
 export const INGREDIENT_FAMILY: IngredientEditFamily = {
     series: 'ING-',
@@ -797,16 +784,14 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
      * dimension travels in the option description and the list is ordered by it, which reads the
      * same way and needs no new design-system component.
      *
-     * ## Food stocks in kilograms or litres, and the picker says so
+     * ## Kg, L or Pc — the admin's three
      *
-     * The owner's unit table: nutrition is only ever held per 100 g, so a raw material has to be
-     * weighable, and a count has no mass without a per-piece figure nobody records. Offering
-     * `piece` here is offering the state the library was just normalised out of — and it would
-     * come back one ingredient at a time, which is how it arrived in the first place.
-     *
-     * Packaging is bought and issued in kilograms, litres or pieces — the owner's list (HA-30).
-     * A record saved before that, in a pack or a bag, keeps its own unit on the list
-     * (`savedUnitOptions`), so opening it never shows a placeholder over a value that is set.
+     * Food and packaging alike are stocked and bought in kilograms, litres or pieces: the owner's
+     * list, shared by every unit picker in the admin (`ADMIN_UNITS`). A litre or a piece of food is
+     * weighed through "what one unit weighs", which this form asks for whenever the unit is not a
+     * mass, so a recipe naming it can still be labelled. A record saved before, in a pack or a bag,
+     * keeps its own unit on the list (`savedUnitOptions`), so opening it never shows a placeholder
+     * over a value that is set.
      *
      * `slice` and `portion` are gone from both. They have no `measurement_units` row, so
      * `MeasurementUnitLookup` could not resolve either and the write layer dropped the field
@@ -815,17 +800,14 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
      * never stock units.
      */
     const unitOptions: readonly SelectOption[] = useMemo(() => {
-        const allowed = family.food ? STOCK_UNITS : PACKAGING_UNITS;
         return UNIT_DIMENSIONS.flatMap((dimension) =>
-            MEASURE_UNITS.filter(
-                (unit) => unitDimension(unit) === dimension && allowed.includes(unit),
-            ).map((unit) => ({
+            ADMIN_UNITS.filter((unit) => unitDimension(unit) === dimension).map((unit) => ({
                 value: unit,
                 label: t(unitKey(unit)),
                 description: t(unitDimensionKey(dimension)),
             })),
         );
-    }, [t, family.food]);
+    }, [t]);
 
     const savedUnitOptions = (saved: MeasureUnit | null | undefined): readonly SelectOption[] =>
         saved === null ||
@@ -2104,7 +2086,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 label={t('kitchen:forms.holdsUnit')}
                                 placeholder={t('kitchen:fields.unitPlaceholder')}
                                 disabled={!editable}
-                                options={CAPACITY_UNITS.map((unit) => ({
+                                options={adminUnitsWith(packaging.capacityUnit).map((unit) => ({
                                     value: unit,
                                     label: t(unitShortKey(unit)),
                                 }))}

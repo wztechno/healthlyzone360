@@ -35,7 +35,7 @@ import {
     PRICE_LIST_MANAGE_PERMISSION,
     PRICE_LIST_VIEW_PERMISSION,
 } from './entity-registry.ts';
-import { parseAmount, unitShortKey } from './format.ts';
+import { adminUnitsWith, parseAmount, unitShortKey } from './format.ts';
 
 /**
  * B2B and B2C — the weight each channel sells and its price, side by side, the way the v6 sheet
@@ -58,9 +58,6 @@ import { parseAmount, unitShortKey } from './format.ts';
  */
 
 const CHANNELS: readonly TradeChannel[] = ['b2b', 'b2c'];
-
-/** The units a pack is weighed or counted in; the purchase containers are not sale sizes. */
-const PACK_UNITS: readonly MeasureUnit[] = ['kg', 'g', 'l', 'ml', 'piece'];
 
 interface RowDraft {
     readonly quantity: string;
@@ -171,10 +168,10 @@ function ChannelPricesEditor({
         setAttempted(false);
     }
 
-    const unitOptions: readonly SelectOption[] = PACK_UNITS.map((unit) => ({
-        value: unit,
-        label: t(unitShortKey(unit)),
-    }));
+    // The admin's Kg, L, Pc — plus a row's unit saved in grams or millilitres before the list was
+    // narrowed, so the field shows what is stored rather than a blank.
+    const unitOptions = (current: MeasureUnit): readonly SelectOption[] =>
+        adminUnitsWith(current).map((unit) => ({ value: unit, label: t(unitShortKey(unit)) }));
 
     const data: ItemChannelPrices | undefined = query.data;
     const errors = { b2b: rowError(rows.b2b), b2c: rowError(rows.b2c) };
@@ -303,7 +300,7 @@ function ChannelPricesEditor({
                                     testID={`${rowTestId}-unit`}
                                     id={`${rowTestId}-unit`}
                                     label={t('kitchen:channelPrices.unit', { channel: label })}
-                                    options={unitOptions}
+                                    options={unitOptions(row.unit)}
                                     value={row.unit}
                                     disabled={!canManage}
                                     onChange={(next) => {

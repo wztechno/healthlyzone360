@@ -17,15 +17,15 @@ import {
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { SALES_CHANNELS } from '@healthy360/domain-types';
 import type { SalesChannel } from '@healthy360/domain-types';
-import { MEASURE_UNITS } from '@healthy360/nutrition';
 import type { MeasureUnit } from '@healthy360/nutrition';
-import { useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import {
     UNIT_DIMENSIONS,
+    adminUnitsWith,
     channelKey,
     parseClockTime,
     parseQuantity,
@@ -96,19 +96,26 @@ export interface PackEditorProps {
 /** The pack table's editable columns, by their column key. */
 export type PackColumn = 'code' | 'label' | 'quantity' | 'unit' | 'units-per-pack';
 
-/** Every measure unit, annotated by the dimension it belongs to. Same grouping as the line editor. */
-function useUnitOptions(): readonly SelectOption[] {
+/**
+ * The admin's units (Kg, L, Pc), annotated by the dimension they belong to — plus the row's own unit
+ * when it was saved in something else, so the cell never blanks over a set value.
+ */
+function useUnitOptions(): (current: MeasureUnit) => readonly SelectOption[] {
     const { t } = useTranslation();
 
-    return useMemo(
-        () =>
-            UNIT_DIMENSIONS.flatMap((dimension) =>
-                MEASURE_UNITS.filter((unit) => unitDimension(unit) === dimension).map((unit) => ({
-                    value: unit,
-                    label: t(unitKey(unit)),
-                    description: t(unitDimensionKey(dimension)),
-                })),
-            ),
+    return useCallback(
+        (current: MeasureUnit) => {
+            const units = adminUnitsWith(current);
+            return UNIT_DIMENSIONS.flatMap((dimension) =>
+                units
+                    .filter((unit) => unitDimension(unit) === dimension)
+                    .map((unit) => ({
+                        value: unit,
+                        label: t(unitKey(unit)),
+                        description: t(unitDimensionKey(dimension)),
+                    })),
+            );
+        },
         [t],
     );
 }
@@ -281,7 +288,7 @@ export function PackVariantEditor({
                         placeholder={t('kitchen:fields.unitPlaceholder')}
                         labelHidden
                         searchable
-                        options={unitOptions}
+                        options={unitOptions(row.netUnit)}
                         value={row.netUnit}
                         disabled={!canManage}
                         {...flagOf(row, 'unit')}

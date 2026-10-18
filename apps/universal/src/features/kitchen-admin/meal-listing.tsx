@@ -62,12 +62,14 @@ import {
 } from './entity-registry.ts';
 import { GateRailCard } from './gate-rail-card.tsx';
 import {
+    adminReferenceUnits,
     displayName,
     isTranslationIncomplete,
     mealTypeKey,
     parseClockTime,
     parseQuantity,
     parseWholeNumber,
+    unitCodeLabel,
     unitDimension,
     unitKey,
 } from './format.ts';
@@ -369,12 +371,14 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
         reference.data?.measurementUnits;
     const unitOptions: readonly SelectOption[] = useMemo(
         () =>
-            (referenceUnits ?? []).map((unit) => ({
+            // The admin's Kg, L, Pc — not every row the server holds (kcal, cm, mg…) — plus the one
+            // already chosen, if it is something else.
+            adminReferenceUnits(referenceUnits ?? [], details.netContentUnitId).map((unit) => ({
                 value: unit.id,
-                label: unit.code,
+                label: unitCodeLabel(unit.code, t),
                 description: unit.nameEn,
             })),
-        [referenceUnits],
+        [referenceUnits, details.netContentUnitId, t],
     );
     const unitsUnavailable = !canReadUnits;
 

@@ -68,6 +68,7 @@ import {
 } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import {
+    adminReferenceUnits,
     dietClassificationKey,
     displayName,
     humaniseCode,
@@ -75,6 +76,7 @@ import {
     parseWholeNumber,
     statusKey,
     statusTone,
+    unitCodeLabel,
 } from '../format.ts';
 import { ImageSlot } from '../image-slot.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
@@ -486,8 +488,7 @@ function ProductEditor({
     const pickedCategory = (categories.data ?? []).find(
         (entry) => entry.code === details.categoryCode,
     );
-    const categoryIdRequest =
-        pickedCategory === undefined ? {} : { categoryId: pickedCategory.id };
+    const categoryIdRequest = pickedCategory === undefined ? {} : { categoryId: pickedCategory.id };
 
     /** `NO_RECIPE` is the "bought in rather than cooked" answer, and never a real identifier. */
     const recipeRows = recipesFromPages(recipes.data?.pages);
@@ -517,12 +518,14 @@ function ProductEditor({
         reference.data?.measurementUnits;
     const unitOptions: readonly SelectOption[] = useMemo(
         () =>
-            (referenceUnits ?? []).map((unit) => ({
+            // The admin's Kg, L, Pc — not every row the server holds (kcal, cm, mg…) — plus the one
+            // already chosen, if it is something else.
+            adminReferenceUnits(referenceUnits ?? [], details.netContentUnitId).map((unit) => ({
                 value: unit.id,
-                label: unit.code,
+                label: unitCodeLabel(unit.code, t),
                 description: unit.nameEn,
             })),
-        [referenceUnits],
+        [referenceUnits, details.netContentUnitId, t],
     );
 
     /* ── validation ──────────────────────────────────────────────────────────────────────────── */

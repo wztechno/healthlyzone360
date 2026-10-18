@@ -1438,6 +1438,31 @@ describe('the ingredient editor', () => {
         }
     });
 
+    it('offers food in Kg, L and Pc, and keeps a unit saved before that', async () => {
+        const stored = ingredient(3, { measurementUnit: 'g' });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: { ...editorReads(() => [stored]), getIngredient: async () => stored },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-unit-trigger');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-unit-trigger'));
+        });
+        await untilVisible('kitchen-ingredient-unit-option-kg');
+        for (const unit of ['kg', 'l', 'piece']) {
+            expect(screen.getByTestId(`kitchen-ingredient-unit-option-${unit}`)).toBeTruthy();
+        }
+        // The record's own grams stay on its list, so the field never blanks over them.
+        expect(screen.getByTestId('kitchen-ingredient-unit-option-g')).toBeTruthy();
+        for (const unit of ['ml', 'pack', 'cup']) {
+            expect(screen.queryByTestId(`kitchen-ingredient-unit-option-${unit}`)).toBeNull();
+        }
+    });
+
     it('shows the unit price as what was last paid, and offers nothing to type into', async () => {
         const id = ingredientId(3);
         const stored = ingredient(3);

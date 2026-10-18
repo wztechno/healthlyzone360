@@ -656,7 +656,10 @@ describe('creating and editing a product', () => {
                     // The category picker's vocabulary is derived from the codes already in use,
                     // so this listing is what makes `store-cupboard` an option at all.
                     listProducts: productListing(() => [
-                        product({ ordinal: 1, overrides: { categoryId: 'category-store-cupboard' } }),
+                        product({
+                            ordinal: 1,
+                            overrides: { categoryId: 'category-store-cupboard' },
+                        }),
                     ]),
                     listRecipes: async () => page(NO_RECIPES),
                     createProduct: async () => created,
@@ -2129,7 +2132,7 @@ describe('converting a meal to sell from finished stock', () => {
         expect(screen.getByTestId('kitchen-meal-finished-stock-control')).not.toBeDisabled();
         expect(screen.getByTestId('kitchen-meal-net-content-input').props.value).toBe('0.3000');
         expect(
-            within(screen.getByTestId('kitchen-meal-net-content-unit')).getByText('kg'),
+            within(screen.getByTestId('kitchen-meal-net-content-unit')).getByText('Kg'),
         ).toBeTruthy();
     });
 });
