@@ -19,6 +19,7 @@ import {
     Button,
     Callout,
     Cascade,
+    Checkbox,
     Dialog,
     ErrorState,
     FormGrid,
@@ -67,6 +68,7 @@ import {
     useIngredientQuery,
     useNextReferenceQuery,
     useSaveRecordPhotoMutation,
+    useSetIngredientAllergensMutation,
     useUpdateIngredientMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { resolveEntityImage } from '../../../media/entity-image.tsx';
@@ -575,6 +577,14 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const update = useUpdateIngredientMutation();
     const fork = useForkIngredientMutation();
     const photoSave = useSaveRecordPhotoMutation();
+    const allergenSave = useSetIngredientAllergensMutation();
+    /*
+     * "This ingredient has no allergens", ticked on the new-ingredient form. The empty set needs the
+     * record's id and version, so it is written right after the record is created — the same write
+     * as the edit page's "Confirm no allergens". A chosen allergen suggestion says otherwise, so
+     * the box goes while one is chosen and counts only without one.
+     */
+    const [noAllergens, setNoAllergens] = useState(false);
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
 
@@ -1232,6 +1242,20 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         }
     };
 
+    /** The ticked "no allergens" box, written against the record just created. Answers the failure, or null. */
+    const confirmNoAllergens = async (created: IngredientAdmin): Promise<unknown> => {
+        if (!noAllergens || allergenReference !== undefined || isPackaging) return null;
+        try {
+            await allergenSave.mutateAsync({
+                ingredientId: created.id,
+                request: { lockVersion: created.meta.lockVersion, mappings: [] },
+            });
+            return null;
+        } catch (error) {
+            return error;
+        }
+    };
+
     const showSaved = () => {
         toast.show({
             testID: 'kitchen-ingredient-saved-toast',
@@ -1280,7 +1304,9 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 },
                 {
                     onSuccess: (created) => {
-                        void writePhoto(created.id, null).then((photoError) => {
+                        void (async () => {
+                            const photoError = await writePhoto(created.id, null);
+                            const allergenError = await confirmNoAllergens(created);
                             settle(false);
                             toast.show({
                                 testID: 'kitchen-ingredient-created-toast',
@@ -1300,8 +1326,16 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 });
                                 photoSave.reset();
                             }
+                            if (allergenError !== null) {
+                                toast.show({
+                                    tone: 'danger',
+                                    message:
+                                        toFailure(allergenError)?.message ??
+                                        t('kitchen:allergens.saveError'),
+                                });
+                            }
                             router.replace(`${family.listRoute}/${String(created.id)}` as never);
-                        });
+                        })();
                     },
                 },
             );
@@ -1555,6 +1589,8 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
 
     const nutritionEmpty = nutritionEditable && (data?.per100g ?? null) === null;
     const allergens = data?.allergens ?? [];
+    /** Checked, and carries nothing — the one empty set that is a claim rather than a gap. */
+    const allergenFree = allergens.length === 0 && data?.allergensAssessedClear === true;
 
     const onlyRequired =
         server.items.length === 0 && shownBlockers.every((entry) => entry.required);
@@ -2249,6 +2285,11 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         variant="card"
                         testID="kitchen-ingredient-nutrition"
                         title={t('kitchen:forms.nutritionTitle')}
+                        {...(nutritionDerived === null && editable && !isPackaging
+                            ? {
+                                  description: `${t('kitchen:nutritionLookup.serverManaged')} ${t('kitchen:nutritionLookup.allergensSeparate')}`,
+                              }
+                            : {})}
                         aside={
                             /*
                              * Where the figures stand, as labels on the heading rather than a
@@ -2305,10 +2346,12 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                     emptyValue={t('kitchen:sale.marginUnavailable')}
                                 />
 
-                                <Text tone="secondary" variant="caption">
-                                    {data?.nutritionNote ??
-                                        t('kitchen:nutritionLookup.serverManaged')}
-                                </Text>
+                                {/* Where the saved figures came from: data, so it stays on the page. */}
+                                {data?.nutritionNote == null ? null : (
+                                    <Text tone="secondary" variant="caption">
+                                        {data.nutritionNote}
+                                    </Text>
+                                )}
                                 {editable && !isPackaging ? (
                                     <NutritionReferencePicker
                                         key={`${String(data?.id ?? 'new')}:${details.name.en}`}
@@ -2340,15 +2383,27 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         variant="card"
                         testID="kitchen-ingredient-allergens"
                         title={t('kitchen:forms.allergensTitle')}
+                        {...(editable ? { description: t('kitchen:allergenLookup.guidance') } : {})}
                         aside={
-                            editable ? undefined : (
-                                <Badge
-                                    variant="label"
-                                    testID="kitchen-ingredient-allergens-source"
-                                    tone="info"
-                                    label={t('kitchen:composition.fromDatabase')}
-                                />
-                            )
+                            <Inline space="xs" align="center" wrap>
+                                {editable ? null : (
+                                    <Badge
+                                        variant="label"
+                                        testID="kitchen-ingredient-allergens-source"
+                                        tone="info"
+                                        label={t('kitchen:composition.fromDatabase')}
+                                    />
+                                )}
+                                {/* Checked and empty: said on the heading, where the eye lands. */}
+                                {allergenFree ? (
+                                    <Badge
+                                        variant="label"
+                                        testID="kitchen-ingredient-allergens-none-badge"
+                                        tone="success"
+                                        label={t('kitchen:allergens.noneBadge')}
+                                    />
+                                ) : null}
+                            </Inline>
                         }
                     >
                         {isCreating && classes.data !== undefined ? (
@@ -2362,6 +2417,18 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 }
                             />
                         ) : null}
+                        {isCreating && allergenReference === undefined ? (
+                            <Checkbox
+                                testID="kitchen-ingredient-no-allergens"
+                                label={t('kitchen:allergens.createNone')}
+                                checked={noAllergens}
+                                disabled={!editable}
+                                onChange={(checked) => {
+                                    setNoAllergens(checked);
+                                    guard.markDirty();
+                                }}
+                            />
+                        ) : null}
                         {editable && data !== undefined && classes.data !== undefined ? (
                             <IngredientAllergenEditor
                                 key={`${data.allergenReviewToken ?? ''}-${String(data.meta.lockVersion)}-${allergens
@@ -2370,6 +2437,12 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 ingredient={data}
                                 classes={classes.data}
                                 onDirtyChange={setAllergensDirty}
+                            />
+                        ) : isCreating ? null : allergenFree ? (
+                            <Tag
+                                testID="kitchen-ingredient-allergens-none"
+                                tone="success"
+                                label={t('kitchen:allergens.noneBadge')}
                             />
                         ) : allergens.length === 0 ? (
                             // An em dash, not a sentence: "none recorded" and "free of all

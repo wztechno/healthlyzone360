@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8273 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8280 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2779,17 +2779,21 @@ export interface NamespaceKeys {
     | 'aliases.removedToast'
     | 'aliases.title'
     | 'allergenLookup.barcode'
+    | 'allergenLookup.barcodeHint'
+    | 'allergenLookup.barcodeShort'
     | 'allergenLookup.configuration'
     | 'allergenLookup.confirmProduct'
     | 'allergenLookup.empty'
     | 'allergenLookup.guidance'
     | 'allergenLookup.import'
     | 'allergenLookup.noDeclarations'
+    | 'allergenLookup.noneListed'
     | 'allergenLookup.query'
     | 'allergenLookup.search'
     | 'allergenLookup.title'
     | 'allergenLookup.unavailable'
     | 'allergenLookup.unmapped'
+    | 'allergenLookup.unmappedTerms'
     | 'allergens.addRow'
     | 'allergens.assessedClear'
     | 'allergens.chooseClass'
@@ -2798,6 +2802,7 @@ export interface NamespaceKeys {
     | 'allergens.classesError'
     | 'allergens.confirmNone'
     | 'allergens.containmentLabel'
+    | 'allergens.createNone'
     | 'allergens.description'
     | 'allergens.duplicateClass'
     | 'allergens.empty'
@@ -2808,6 +2813,7 @@ export interface NamespaceKeys {
     | 'allergens.marketScopeHint'
     | 'allergens.marketScopeLabel'
     | 'allergens.none'
+    | 'allergens.noneBadge'
     | 'allergens.notAssessed'
     | 'allergens.platformBaseline'
     | 'allergens.platformBaselineHint'
@@ -3883,6 +3889,7 @@ export interface NamespaceKeys {
     | 'nutritionLookup.confirmPreparation'
     | 'nutritionLookup.confirmReview'
     | 'nutritionLookup.estimated'
+    | 'nutritionLookup.missing'
     | 'nutritionLookup.noMatches'
     | 'nutritionLookup.query'
     | 'nutritionLookup.reviewChanged'
@@ -11070,17 +11077,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:aliases.removedToast',
   'kitchen:aliases.title',
   'kitchen:allergenLookup.barcode',
+  'kitchen:allergenLookup.barcodeHint',
+  'kitchen:allergenLookup.barcodeShort',
   'kitchen:allergenLookup.configuration',
   'kitchen:allergenLookup.confirmProduct',
   'kitchen:allergenLookup.empty',
   'kitchen:allergenLookup.guidance',
   'kitchen:allergenLookup.import',
   'kitchen:allergenLookup.noDeclarations',
+  'kitchen:allergenLookup.noneListed',
   'kitchen:allergenLookup.query',
   'kitchen:allergenLookup.search',
   'kitchen:allergenLookup.title',
   'kitchen:allergenLookup.unavailable',
   'kitchen:allergenLookup.unmapped',
+  'kitchen:allergenLookup.unmappedTerms',
   'kitchen:allergens.addRow',
   'kitchen:allergens.assessedClear',
   'kitchen:allergens.chooseClass',
@@ -11089,6 +11100,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:allergens.classesError',
   'kitchen:allergens.confirmNone',
   'kitchen:allergens.containmentLabel',
+  'kitchen:allergens.createNone',
   'kitchen:allergens.description',
   'kitchen:allergens.duplicateClass',
   'kitchen:allergens.empty',
@@ -11099,6 +11111,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:allergens.marketScopeHint',
   'kitchen:allergens.marketScopeLabel',
   'kitchen:allergens.none',
+  'kitchen:allergens.noneBadge',
   'kitchen:allergens.notAssessed',
   'kitchen:allergens.platformBaseline',
   'kitchen:allergens.platformBaselineHint',
@@ -12174,6 +12187,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nutritionLookup.confirmPreparation',
   'kitchen:nutritionLookup.confirmReview',
   'kitchen:nutritionLookup.estimated',
+  'kitchen:nutritionLookup.missing',
   'kitchen:nutritionLookup.noMatches',
   'kitchen:nutritionLookup.query',
   'kitchen:nutritionLookup.reviewChanged',

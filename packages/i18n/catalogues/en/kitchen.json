@@ -2645,7 +2645,9 @@
         "none": "Not present",
         "confirmNone": "Confirm no allergens",
         "assessedClear": "Checked: carries no allergens",
-        "notAssessed": "Allergens not recorded yet. Recipes using this ingredient cannot be published."
+        "notAssessed": "Allergens not recorded yet. Recipes using this ingredient cannot be published.",
+        "noneBadge": "No allergens",
+        "createNone": "This ingredient has no allergens"
     },
     "containment": {
         "contains": "Contains",
@@ -4131,7 +4133,8 @@
         "saveMappingsFirst": "Save your mapping changes before confirming the assessment.",
         "confirmReview": "Confirm allergen assessment",
         "configuration": "Nutrition lookup needs configuration",
-        "clearSelection": "Clear selection"
+        "clearSelection": "Clear selection",
+        "missing": "Missing {{list}}"
     },
     "allergenLookup": {
         "title": "Look up product allergens",
@@ -4145,6 +4148,10 @@
         "noDeclarations": "No mapped allergen declarations. This does not confirm absence.",
         "unmapped": "Unrecognized terms — review the supplier label",
         "confirmProduct": "This reference matches the product I purchase. I will review its allergen declarations.",
-        "import": "Add suggestions for review"
+        "import": "Add suggestions for review",
+        "barcodeShort": "Barcode",
+        "barcodeHint": "Optional. When filled in, the barcode is searched instead of the name.",
+        "noneListed": "No allergens listed",
+        "unmappedTerms": "Unrecognised: {{terms}}"
     }
 }

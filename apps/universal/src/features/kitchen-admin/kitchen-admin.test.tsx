@@ -2046,6 +2046,85 @@ describe('composition and allergens', () => {
         });
     });
 
+    it('says plainly that a checked ingredient carries no allergens, with one way to confirm it', async () => {
+        const record = ingredient(9, { allergens: [], allergensAssessedClear: true });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: { ...editorReads(() => [record]), getIngredient: async () => record },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-mapping-clear');
+        expect(screen.getByTestId('kitchen-ingredient-allergens-none-badge')).toHaveTextContent(
+            /No allergens/,
+        );
+        // No second, evidence-based "confirm none" beside the first.
+        expect(screen.queryByTestId('ingredient-allergen-confirmation')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ingredient-mapping-unassessed')).toBeNull();
+    });
+
+    it('records "no allergens" ticked on a new ingredient once it is created', async () => {
+        const created = ingredient(9, {
+            name: { en: 'Toasted burghul', ar: '' },
+            reference: null,
+            meta: meta({ status: 'draft', lockVersion: 3 }),
+        });
+        const { repositories } = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => [ingredient(1)]),
+                    createIngredient: async () => created,
+                    searchNutritionReferences: async () => [USDA_CANDIDATE],
+                    setIngredientAllergens: async () => ({
+                        ...created,
+                        allergensAssessedClear: true,
+                    }),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-name-en-input');
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-ingredient-name-en-input'),
+                'Toasted burghul',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-category-trigger'));
+        });
+        await untilVisible('kitchen-ingredient-category-option-store-cupboard');
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-ingredient-category-option-store-cupboard'),
+            );
+        });
+        await selectUsdaReference();
+        await untilVisible('kitchen-ingredient-no-allergens');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-no-allergens-control'));
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.setIngredientAllergens).toHaveBeenCalledWith(
+                created.id,
+                { lockVersion: 3, mappings: [] },
+            );
+        });
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith(
+                `/kitchen/ingredients/${String(created.id)}`,
+            );
+        });
+    });
+
     it('stops the record Save from discarding unsaved allergen choices (HA-39)', async () => {
         const record = ingredient(10, { allergens: [] });
         const updateIngredient = jest.fn(async () => record);
