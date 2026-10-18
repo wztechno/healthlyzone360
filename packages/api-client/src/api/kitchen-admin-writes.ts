@@ -756,7 +756,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
         },
 
         async removeRecordPhoto(subject: RecordPhotoSubject, recordId: string): Promise<void> {
-            await transport.request<void>({
+            await transport.requestVoid({
                 method: 'DELETE',
                 path: `${PHOTO_PATHS[subject]}/${encodeURIComponent(recordId)}/photo`,
             });
@@ -886,7 +886,11 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             Object.assign(body, priceFields(request.b2bPrice, request.b2cPrice, request.unitPrice));
             Object.assign(
                 body,
-                await packagingFields(request.purchasePrice, request.wastePercent, request.capacity),
+                await packagingFields(
+                    request.purchasePrice,
+                    request.wastePercent,
+                    request.capacity,
+                ),
             );
             if (request.isSellable !== undefined) body.is_sellable = request.isSellable;
             Object.assign(body, referenceFields(request.nutritionReference));

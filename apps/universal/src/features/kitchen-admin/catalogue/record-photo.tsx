@@ -25,8 +25,11 @@ import { PhotoCredit } from '../../../media/photo-credit.tsx';
 export type RecordPhotoShape = 'square' | 'wide';
 
 export interface RecordPhotoProps {
-    /** The photograph id, e.g. `ingredient-black-pepper` or `recipe-garlic-mayo`. */
-    readonly assetId: string;
+    /**
+     * The photograph id, e.g. `ingredient-black-pepper` or `recipe-garlic-mayo`; `undefined` for a
+     * record whose picture the kitchen took off.
+     */
+    readonly assetId: string | undefined;
     /**
      * The kitchen's own photo of the record (BUG-14). Shown in place of the bundled photograph —
      * and without its credit, which belongs to the stock picture — so a record with an upload has
@@ -48,7 +51,7 @@ export function RecordPhoto({ assetId, photoUrl, label, shape, testID }: RecordP
         <EntityImage
             assetId={assetId}
             photoUrl={photoUrl}
-            seed={assetId}
+            seed={assetId ?? label}
             label={label}
             aspect={shape === 'square' ? 'square' : 'wide'}
             variant={variant}
@@ -61,7 +64,9 @@ export function RecordPhoto({ assetId, photoUrl, label, shape, testID }: RecordP
             <Stack space="sm">
                 {/* The wide image already spans the rail; only the square one needs a frame. */}
                 {shape === 'square' ? <View className="w-32">{image}</View> : image}
-                {uploaded ? null : <PhotoCredit assetId={assetId} testID={`${testID}-credit`} />}
+                {uploaded || assetId === undefined ? null : (
+                    <PhotoCredit assetId={assetId} testID={`${testID}-credit`} />
+                )}
             </Stack>
         </Card>
     );

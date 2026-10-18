@@ -12,8 +12,12 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 /**
- * DELETE /api/v1/catalogue/{ingredients|recipes|items}/{id}/photo — remove a record's photo, so it
- * shows its stock picture again (BUG-14). Removing a photo that is not there is still a 204.
+ * DELETE /api/v1/catalogue/{ingredients|recipes|items}/{id}/photo — remove a record's photo (BUG-14).
+ *
+ * A recipe or a product then shows its stock picture again. An ingredient shows no picture at all —
+ * its stock picture is taken off too, and `stock_photo_hidden` says so — because its editor shows
+ * that stock picture in the photo slot, and the slot's clear control has to clear what it shows.
+ * Removing a photo that is not there is still a 204.
  */
 final class RecordPhotoDestroyController
 {

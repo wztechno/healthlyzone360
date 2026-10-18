@@ -25031,6 +25031,12 @@ components:
           description: |
             The kitchen's own photo of this record (`GET /media/photos/{photo}`), or
             null to show the stock picture.
+        stock_photo_hidden:
+          type: boolean
+          description: |
+            True when the kitchen removed this record's picture: it then shows no
+            stock picture either, even when its slug names one. Uploading a photo
+            turns it back off.
         slug:
           type: string
           maxLength: 120

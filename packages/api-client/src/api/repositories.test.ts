@@ -3440,3 +3440,53 @@ describe('the product editor writes', () => {
         expect(body.channels.map((row) => row.sales_channel_id)).toEqual([WEB_SHOP, COUNTER]);
     });
 });
+
+describe('record photos (BUG-14)', () => {
+    it('removes a photo on the 204 the server answers, rather than calling it a failure', async () => {
+        const { repositories, calls } = harness([{ status: 204 }], createMemoryTokenStore('token'));
+
+        await expect(
+            repositories.kitchenAdmin.removeRecordPhoto('ingredient', 'ingredient-1'),
+        ).resolves.toBeUndefined();
+
+        expect(calls[0]!.method).toBe('DELETE');
+        expect(calls[0]!.url).toBe(
+            'https://api.example/api/v1/catalogue/ingredients/ingredient-1/photo',
+        );
+    });
+
+    it("reads whether the kitchen took an ingredient's stock picture off", async () => {
+        const row = (id: string, hidden?: boolean) => ({
+            id,
+            name_en: `Ingredient ${id}`,
+            name_ar: `مكون ${id}`,
+            slug: 'peach',
+            status: 'active',
+            is_platform: false,
+            aliases: [],
+            allergens: [],
+            diet_classifications: [],
+            ingredient_category_id: null,
+            default_unit_code: 'kg',
+            organisation_id: 'org-1',
+            notes: null,
+            lock_version: 0,
+            ...(hidden === undefined ? {} : { stock_photo_hidden: hidden }),
+        });
+        const { repositories } = harness([
+            { status: 200, body: { data: [], meta: { correlation_id: 'c-categories' } } },
+            {
+                status: 200,
+                body: {
+                    data: [row('a', true), row('b', false), row('c')],
+                    meta: { correlation_id: 'c-page', page: 1, per_page: 3, total_count: 3 },
+                },
+            },
+        ]);
+
+        const page = await repositories.kitchenAdmin.listIngredients({ page: 1, perPage: 3 });
+
+        // Absent is an older payload, read as "not taken off".
+        expect(page.items.map((item) => item.stockPhotoHidden)).toEqual([true, false, false]);
+    });
+});

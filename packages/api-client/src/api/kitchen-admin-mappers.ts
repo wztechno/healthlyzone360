@@ -318,6 +318,7 @@ export function mapIngredientAdmin(
     return {
         id: IngredientId.unsafe(wire.id),
         photoUrl: wire.photo_url ?? null,
+        stockPhotoHidden: wire.stock_photo_hidden ?? false,
         meta: {
             lockVersion: wire.lock_version,
             status: publishableStatus,

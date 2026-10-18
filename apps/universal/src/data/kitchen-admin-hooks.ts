@@ -3545,14 +3545,20 @@ export interface SaveRecordPhotoVariables {
     readonly chosen: string | null;
     /** The link the record was loaded with, so an untouched slot sends nothing. */
     readonly saved: string | null | undefined;
+    /**
+     * The slot was cleared while it showed the record's stock picture. There is no upload to
+     * remove, but the removal is still sent: it is what takes the stock picture off.
+     */
+    readonly clearsStock?: boolean | undefined;
 }
 
 /**
  * A record's photo, written after the record's own save (BUG-14).
  *
  * The editor keeps the picked image as a local URI; this turns it into bytes and uploads it, or
- * removes the photo when the slot was cleared. An unchanged slot is a no-op, so every save can call
- * it. Lists, view pages and the customer shop all read the link, so they are all re-read after.
+ * removes the photo when the slot was cleared — which, for an ingredient, also takes its stock
+ * picture off. An unchanged slot is a no-op, so every save can call it. Lists, view pages and the
+ * customer shop all read the link, so they are all re-read after.
  */
 export function useSaveRecordPhotoMutation(): UseMutationResult<
     void,
@@ -3563,8 +3569,14 @@ export function useSaveRecordPhotoMutation(): UseMutationResult<
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ subject, recordId, chosen, saved }: SaveRecordPhotoVariables) => {
-            if (chosen === (saved ?? null)) return;
+        mutationFn: async ({
+            subject,
+            recordId,
+            chosen,
+            saved,
+            clearsStock = false,
+        }: SaveRecordPhotoVariables) => {
+            if (chosen === (saved ?? null) && !(chosen === null && clearsStock)) return;
 
             if (chosen === null) {
                 await repositories.kitchenAdmin.removeRecordPhoto(subject, recordId);

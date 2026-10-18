@@ -427,6 +427,7 @@ export const zAdminIngredient = z.object({
     is_platform: z.boolean(),
     is_editable: z.boolean(),
     photo_url: z.url().nullish(),
+    stock_photo_hidden: z.boolean().optional(),
     slug: z.string().max(120),
     name_en: z.string(),
     name_ar: z.string(),

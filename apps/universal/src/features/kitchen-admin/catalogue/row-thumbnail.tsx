@@ -20,8 +20,8 @@ const SIZE_CLASS: Readonly<Record<RowThumbnailSize, string>> = {
 };
 
 export interface RowThumbnailProps {
-    /** The photograph id, e.g. `ingredient-black-pepper`. */
-    readonly assetId: string;
+    /** The photograph id, e.g. `ingredient-black-pepper`; `undefined` draws the pattern. */
+    readonly assetId: string | undefined;
     /** The kitchen's own photo of the record (BUG-14). Wins over `assetId`; null falls back to it. */
     readonly photoUrl?: string | null | undefined;
     /** Keeps the fallback pattern stable across renames: the row's key, not its name. */

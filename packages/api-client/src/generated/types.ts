@@ -437,6 +437,13 @@ export type AdminIngredient = {
      *
      */
     photo_url?: string | null;
+    /**
+     * True when the kitchen removed this record's picture: it then shows no
+     * stock picture either, even when its slug names one. Uploading a photo
+     * turns it back off.
+     *
+     */
+    stock_photo_hidden?: boolean;
     slug: string;
     name_en: string;
     /**

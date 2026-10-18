@@ -23,11 +23,12 @@ final class RecordPhotoShowController
         // Not an id at all is the same answer as an id nobody holds, rather than a query error.
         $record = Str::isUuid($photo) ? RecordPhoto::withoutTenancy()->whereKey($photo)->first() : null;
 
-        if ($record === null || ! Storage::disk($record->disk)->exists($record->path)) {
+        // A "no picture" row has no file to serve.
+        if ($record === null || ! $record->hasFile() || ! Storage::disk((string) $record->disk)->exists((string) $record->path)) {
             abort(404);
         }
 
-        return Storage::disk($record->disk)->response($record->path, null, [
+        return Storage::disk((string) $record->disk)->response((string) $record->path, null, [
             'Content-Type' => $record->mime_type,
             'Cache-Control' => 'public, max-age=31536000, immutable',
             'X-Content-Type-Options' => 'nosniff',

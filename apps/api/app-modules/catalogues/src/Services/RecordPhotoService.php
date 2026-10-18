@@ -21,10 +21,14 @@ use Illuminate\Support\Str;
  *
  * Links are looked up a whole subject at a time and kept for the request, so a list of a hundred
  * records costs one query, not a hundred.
+ *
+ * A row with no file is "no picture": for a subject whose removal hides the stock picture
+ * (`RecordPhotoSubject::removalHidesStockPicture`), removing the photo leaves one behind, and the
+ * record then shows nothing at all rather than the stock picture its slug names.
  */
 final class RecordPhotoService
 {
-    /** @var array<string, array<string, string>> subject → subject id → photo id */
+    /** @var array<string, array<string, string|null>> subject → subject id → photo id, null for "no picture" */
     private array $loaded = [];
 
     public function __construct(private readonly TenantContext $context) {}
@@ -61,26 +65,37 @@ final class RecordPhotoService
             ]);
         });
 
-        if ($previous !== null) {
-            Storage::disk($previous->disk)->delete($previous->path);
-        }
+        $this->deleteFileOf($previous);
 
         unset($this->loaded[$subject->value]);
 
         return $photo;
     }
 
-    /** Remove the record's photo, if it has one. */
+    /**
+     * Remove the record's photo. For a subject whose removal hides the stock picture, the record is
+     * left saying "no picture" — even when it had no photo, because what it showed then was the
+     * stock picture, and that is what the kitchen asked to take off.
+     */
     public function remove(RecordPhotoSubject $subject, string $subjectId): void
     {
         $photo = $this->find($subject, $subjectId);
 
-        if ($photo === null) {
-            return;
+        if ($subject->removalHidesStockPicture()) {
+            DB::transaction(function () use ($photo, $subject, $subjectId): void {
+                $photo?->delete();
+
+                RecordPhoto::query()->create([
+                    'subject_type' => $subject,
+                    'subject_id' => $subjectId,
+                    'uploaded_by' => $this->context->userId(),
+                ]);
+            });
+        } elseif ($photo !== null) {
+            $photo->delete();
         }
 
-        $photo->delete();
-        Storage::disk($photo->disk)->delete($photo->path);
+        $this->deleteFileOf($photo);
 
         unset($this->loaded[$subject->value]);
     }
@@ -92,23 +107,48 @@ final class RecordPhotoService
             return null;
         }
 
-        if (! isset($this->loaded[$subject->value])) {
-            /** @var array<string, string> $ids */
-            $ids = RecordPhoto::withoutTenancy()
-                ->where('subject_type', $subject->value)
-                ->pluck('id', 'subject_id')
-                ->all();
-            $this->loaded[$subject->value] = $ids;
-        }
-
-        $photoId = $this->loaded[$subject->value][$subjectId] ?? null;
+        $photoId = $this->loadedFor($subject)[$subjectId] ?? null;
 
         return $photoId === null ? null : route('media.photos.show', ['photo' => $photoId]);
+    }
+
+    /** Whether the kitchen took this record's picture off, so it shows no stock picture either. */
+    public function hidesStockPicture(RecordPhotoSubject $subject, string $subjectId): bool
+    {
+        $loaded = $this->loadedFor($subject);
+
+        return array_key_exists($subjectId, $loaded) && $loaded[$subjectId] === null;
     }
 
     public function link(RecordPhoto $photo): string
     {
         return route('media.photos.show', ['photo' => $photo->getKey()]);
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    private function loadedFor(RecordPhotoSubject $subject): array
+    {
+        if (! isset($this->loaded[$subject->value])) {
+            $ids = [];
+            $rows = RecordPhoto::withoutTenancy()
+                ->where('subject_type', $subject->value)
+                ->get(['id', 'subject_id', 'path']);
+            foreach ($rows as $row) {
+                $ids[$row->subject_id] = $row->path === null ? null : (string) $row->getKey();
+            }
+            $this->loaded[$subject->value] = $ids;
+        }
+
+        return $this->loaded[$subject->value];
+    }
+
+    private function deleteFileOf(?RecordPhoto $photo): void
+    {
+        if ($photo !== null && $photo->hasFile()) {
+            Storage::disk((string) $photo->disk)->delete((string) $photo->path);
+        }
     }
 
     private function find(RecordPhotoSubject $subject, string $subjectId): ?RecordPhoto

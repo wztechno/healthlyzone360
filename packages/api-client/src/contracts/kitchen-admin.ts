@@ -378,6 +378,11 @@ export interface IngredientAdmin {
      * `/api/v1/media/photos/{id}`; `null` (or absent) shows the stock picture.
      */
     readonly photoUrl?: string | null | undefined;
+    /**
+     * The kitchen took this record's picture off: it shows no stock picture either, even when its
+     * slug names one. Absent reads as `false`.
+     */
+    readonly stockPhotoHidden?: boolean | undefined;
     readonly meta: AdminEntityMeta;
     readonly name: LocalisedText;
     /**
@@ -729,7 +734,8 @@ export interface UpdateIngredientRequest extends LockedRequest {
     /** `null` clears these three. Packaging's — see {@link IngredientAdmin.purchasePrice}. */
     readonly purchasePrice?: CostAmount | null | undefined;
     readonly wastePercent?: number | null | undefined;
-    readonly capacity?: { readonly quantity: number; readonly unit: MeasureUnit } | null | undefined;
+    readonly capacity?:
+        { readonly quantity: number; readonly unit: MeasureUnit } | null | undefined;
     /** No null state: the column defaults to false, so omit the field to leave it alone. */
     readonly isSellable?: boolean | undefined;
     readonly reference?: string | null | undefined;

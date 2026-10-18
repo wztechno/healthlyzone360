@@ -1650,7 +1650,7 @@ it('saves, serves, replaces and removes an ingredient photo', function (): void 
     $ingredient = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'default_unit_id' => gramsId()]);
     $url = '/api/v1/catalogue/ingredients/'.$ingredient->getKey().'/photo';
 
-    $first = $this->post($url, ['photo' => UploadedFile::fake()->image('salt.png', 40, 40)], $headers)
+    $first = $this->post($url, ['photo' => photoPng('salt.png')], $headers)
         ->assertOk()
         ->json('data.photo');
     $stored = RecordPhoto::withoutTenancy()->sole();
@@ -1664,13 +1664,78 @@ it('saves, serves, replaces and removes an ingredient photo', function (): void 
     $this->get('/api/v1/media/photos/'.$first['id'])->assertOk()->assertHeader('Content-Type', 'image/png');
 
     $this->actingAs($this->a->user);
-    $this->post($url, ['photo' => UploadedFile::fake()->image('salt.jpg', 40, 40)], $headers)->assertOk();
+    $this->post($url, ['photo' => photoPng('salt.jpg')], $headers)->assertOk();
     Storage::disk('local')->assertMissing($stored->path);
     expect(RecordPhoto::withoutTenancy()->count())->toBe(1);
 
+    $replaced = RecordPhoto::withoutTenancy()->sole();
     $this->deleteJson($url, [], $headers)->assertNoContent();
-    expect(RecordPhoto::withoutTenancy()->count())->toBe(0)
-        ->and($this->getJson('/api/v1/catalogue/ingredients/'.$ingredient->getKey(), $headers)->json('data.ingredient.photo_url'))->toBeNull();
+    Storage::disk('local')->assertMissing((string) $replaced->path);
+
+    // What is left says "no picture", so the slug's stock picture stays off too.
+    $left = RecordPhoto::withoutTenancy()->sole();
+    expect($left->hasFile())->toBeFalse()
+        ->and($this->getJson('/api/v1/catalogue/ingredients/'.$ingredient->getKey(), $headers)->json('data.ingredient'))
+        ->toMatchArray(['photo_url' => null, 'stock_photo_hidden' => true]);
+});
+
+/**
+ * A real 1×1 PNG. `UploadedFile::fake()->image()` draws its file with GD, which the API container
+ * does not have; the upload path itself never needs it — the type is sniffed by fileinfo and the
+ * bytes are stored as sent.
+ */
+function photoPng(string $name = 'photo.png'): UploadedFile
+{
+    return UploadedFile::fake()->createWithContent(
+        $name,
+        (string) base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', true),
+    );
+}
+
+it('takes a platform copy\'s inherited stock picture off, and puts it back with an upload', function (): void {
+    Storage::fake('local');
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $peach = Ingredient::factory()->create(['organisation_id' => null, 'slug' => 'peach-'.Str::lower(Str::random(8)), 'name_en' => 'Peach', 'default_unit_id' => gramsId()]);
+
+    // Opening a platform row to edit it takes the kitchen's copy, which keeps the parent's slug.
+    $copyId = $this->postJson('/api/v1/catalogue/ingredients/'.$peach->getKey().'/fork', [], $headers)
+        ->assertCreated()
+        ->json('data.ingredient.id');
+    $show = fn (): array => $this->getJson('/api/v1/catalogue/ingredients/'.$copyId, $headers)->json('data.ingredient');
+
+    expect($show())->toMatchArray(['slug' => $peach->slug, 'photo_url' => null, 'stock_photo_hidden' => false]);
+
+    // No upload to remove: the removal is what takes the stock picture off.
+    $url = '/api/v1/catalogue/ingredients/'.$copyId.'/photo';
+    $this->deleteJson($url, [], $headers)->assertNoContent();
+    $none = RecordPhoto::withoutTenancy()->sole();
+
+    expect($show())->toMatchArray(['photo_url' => null, 'stock_photo_hidden' => true]);
+    // A "no picture" row has no bytes to serve.
+    $this->get('/api/v1/media/photos/'.$none->getKey())->assertNotFound();
+
+    $photo = $this->post($url, ['photo' => photoPng()], $headers)->assertOk()->json('data.photo');
+    $this->get('/api/v1/media/photos/'.$photo['id'])->assertOk()->assertHeader('Content-Type', 'image/png');
+
+    expect($show())->toMatchArray(['photo_url' => $photo['url'], 'stock_photo_hidden' => false])
+        ->and(RecordPhoto::withoutTenancy()->count())->toBe(1);
+});
+
+it('replaces an uploaded photo with the new one, and serves only the new one', function (): void {
+    Storage::fake('local');
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $ingredient = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'default_unit_id' => gramsId()]);
+    $url = '/api/v1/catalogue/ingredients/'.$ingredient->getKey().'/photo';
+
+    $first = $this->post($url, ['photo' => photoPng('first.png')], $headers)->assertOk()->json('data.photo');
+    $second = $this->post($url, ['photo' => photoPng('second.png')], $headers)->assertOk()->json('data.photo');
+
+    expect($second['url'])->not->toBe($first['url'])
+        ->and($this->getJson('/api/v1/catalogue/ingredients/'.$ingredient->getKey(), $headers)->json('data.ingredient.photo_url'))->toBe($second['url']);
+    $this->get('/api/v1/media/photos/'.$first['id'])->assertNotFound();
+    $this->get('/api/v1/media/photos/'.$second['id'])->assertOk();
 });
 
 it('refuses a photo on another kitchen\'s ingredient, a platform one, or a file that is not an image', function (): void {
@@ -1682,7 +1747,7 @@ it('refuses a photo on another kitchen\'s ingredient, a platform one, or a file 
     $mine = Ingredient::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'default_unit_id' => gramsId()]);
 
     foreach ([$theirs, $platform] as $ingredient) {
-        $this->post('/api/v1/catalogue/ingredients/'.$ingredient->getKey().'/photo', ['photo' => UploadedFile::fake()->image('x.png')], $headers)
+        $this->post('/api/v1/catalogue/ingredients/'.$ingredient->getKey().'/photo', ['photo' => photoPng('x.png')], $headers)
             ->assertNotFound();
     }
 

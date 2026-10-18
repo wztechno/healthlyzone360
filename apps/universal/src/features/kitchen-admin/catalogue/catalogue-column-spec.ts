@@ -36,9 +36,9 @@ export interface CatalogueColumn<Row> extends DataListColumn<Row> {
      * narrow row at avatar size on the leading edge, where a two-line row has the height for it.
      * `CatalogueList` draws both, so a spec states the picture once and neither layout can forget
      * it. An id with no bundled photograph draws the generated pattern, which is the designed
-     * fallback, not a gap.
+     * fallback, not a gap — and so does `undefined`, a row whose picture the kitchen took off.
      */
-    readonly thumbnail?: ((row: Row) => string) | undefined;
+    readonly thumbnail?: ((row: Row) => string | undefined) | undefined;
     /**
      * The kitchen's own photo of the row (BUG-14), read beside `thumbnail` on the `title` column.
      * When it returns a link, both renderers draw that instead of the bundled photograph; `null`

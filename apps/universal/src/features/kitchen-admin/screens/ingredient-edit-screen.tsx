@@ -69,10 +69,12 @@ import {
     useSaveRecordPhotoMutation,
     useUpdateIngredientMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
+import { resolveEntityImage } from '../../../media/entity-image.tsx';
 import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { DerivedPanel } from '../catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../catalogue/derived-panel.tsx';
+import { ingredientStockPhotoId } from '../catalogue/ingredient-photo.ts';
 import {
     CATALOGUE_MANAGE_PERMISSION,
     CATALOGUE_VIEW_PERMISSION,
@@ -580,13 +582,15 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const [attempted, setAttempted] = useState(false);
     const [packaging, setPackaging] = useState<PackagingDraft>(EMPTY_PACKAGING);
     /*
-     * The photo slot, the link it was last filled from (`undefined` until the record arrives), and
-     * whether it has been changed since. Rehydrated on its own key rather than the lock version: the
-     * photo endpoint moves the link and not the version, and a slot reset by the record's own save
-     * answer would flash the old photo until the re-read arrives.
+     * The photo slot, whether its stock picture is off, the record state they were last filled from
+     * (`undefined` until the record arrives), and whether they have been changed since. Rehydrated
+     * on their own key rather than the lock version: the photo endpoint moves the link and not the
+     * version, and a slot reset by the record's own save answer would flash the old photo until the
+     * re-read arrives.
      */
     const [photo, setPhoto] = useState<string | null>(null);
-    const [photoKey, setPhotoKey] = useState<string | null | undefined>(undefined);
+    const [stockHidden, setStockHidden] = useState(false);
+    const [photoKey, setPhotoKey] = useState<string | undefined>(undefined);
     const [photoDirty, setPhotoDirty] = useState(false);
 
     /*
@@ -684,10 +688,30 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         setDetails(detailsFrom(data));
         setPackaging(packagingFrom(data));
     }
-    if (data !== undefined && (data.photoUrl ?? null) !== photoKey && !photoDirty) {
-        setPhotoKey(data.photoUrl ?? null);
+    const savedPhotoKey =
+        data === undefined ? undefined : `${data.photoUrl ?? ''}|${String(data.stockPhotoHidden)}`;
+    if (data !== undefined && savedPhotoKey !== photoKey && !photoDirty) {
+        setPhotoKey(savedPhotoKey);
         setPhoto(data.photoUrl ?? null);
+        setStockHidden(data.stockPhotoHidden ?? false);
     }
+
+    /*
+     * The stock picture the list draws for this row when it has no upload: the slot shows it too,
+     * so the reader sees the picture the row really has — and can replace it or take it off. A copy
+     * of a platform row keeps its parent's slug and so its picture, whatever it is renamed to; this
+     * is how a renamed copy of Peach showed a peach nobody chose. A new record has no slug yet.
+     */
+    const stockPhotoOf = (hidden: boolean) =>
+        data === undefined
+            ? null
+            : resolveEntityImage(
+                  ingredientStockPhotoId({ slug: data.slug, stockPhotoHidden: hidden }),
+                  'card',
+              );
+    const stockPhoto = stockPhotoOf(stockHidden);
+    const hasStockPhoto = stockPhotoOf(false) !== null;
+    const savedStockHidden = data?.stockPhotoHidden ?? false;
 
     const title = isCreating
         ? t(family.createTitleKey)
@@ -794,7 +818,9 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     }, [t, family.food]);
 
     const savedUnitOptions = (saved: MeasureUnit | null | undefined): readonly SelectOption[] =>
-        saved === null || saved === undefined || unitOptions.some((option) => option.value === saved)
+        saved === null ||
+        saved === undefined ||
+        unitOptions.some((option) => option.value === saved)
             ? unitOptions
             : [
                   ...unitOptions,
@@ -1172,9 +1198,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         capacityQuantity === null
             ? null
             : { quantity: capacityQuantity, unit: packaging.capacityUnit };
-    const packagingWrite = family.food
-        ? {}
-        : { purchasePrice: packPrice, wastePercent, capacity };
+    const packagingWrite = family.food ? {} : { purchasePrice: packPrice, wastePercent, capacity };
     /** The same, for a create, which has nothing to clear. */
     const packagingCreate = family.food
         ? {}
@@ -1199,6 +1223,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 recordId: String(ingredientId),
                 chosen: photo,
                 saved,
+                clearsStock: hasStockPhoto && stockHidden && !savedStockHidden,
             });
             setPhotoDirty(false);
             return null;
@@ -1853,10 +1878,17 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                             <ImageSlot
                                 testID="kitchen-ingredient-image"
                                 uri={photo}
+                                fallback={stockPhoto}
                                 disabled={!editable}
                                 onChange={(next) => {
+                                    // Clearing takes the stock picture off as well as an upload;
+                                    // an upload puts it back on, server side, when it is saved.
+                                    const hidden = next === null;
                                     setPhoto(next);
-                                    const changed = next !== (photoKey ?? null);
+                                    setStockHidden(hidden);
+                                    const changed =
+                                        next !== (data?.photoUrl ?? null) ||
+                                        (hasStockPhoto && hidden !== savedStockHidden);
                                     setPhotoDirty(changed);
                                     if (changed) guard.markDirty();
                                 }}
