@@ -223,6 +223,13 @@ final readonly class OrderLifecycle
             ['fulfilled_at' => CarbonImmutable::now()],
             function (Order $fulfilled): void {
                 $this->takeCashRemainder($fulfilled);
+
+                // The run ends with the order, or a driver can still claim and
+                // carry food the customer has been told arrived (HA-29). A
+                // no-op when the driver's own Mark delivered got here first.
+                if ($fulfilled->fulfilment_type === FulfilmentType::Delivery) {
+                    $this->jobs->close($fulfilled);
+                }
             },
         );
     }

@@ -845,7 +845,8 @@ describe('order desk queue — the order record page', () => {
                 assignedAt: minutesFromNow(-30),
             }),
         });
-        const fresh = detailOrder(row, { lockVersion: 2 });
+        // Cooked: the desk closes a delivery by hand only once it is ready (HA-29).
+        const fresh = detailOrder(row, { lockVersion: 2, readyAt: minutesFromNow(-40) });
 
         const { repositories } = await renderDeskWithDetail({
             listQueue: async () => queue([row]),
@@ -886,6 +887,29 @@ describe('order desk queue — the order record page', () => {
         });
     });
 
+    it('offers no Fulfil on a delivery the kitchen has not marked ready (HA-29)', async () => {
+        const row = deskRow({ id: orderIdAt(1), status: 'confirmed', lockVersion: 2 });
+        const fresh = detailOrder(row, { lockVersion: 2, readyAt: null });
+
+        await renderDeskWithDetail({
+            listQueue: async () => queue([row]),
+            getOrder: async () => fresh,
+        });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-table')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-order-desk-detail-record-payment')).toBeTruthy();
+        });
+        // The server refuses it before Ready; a button here would only earn a conflict.
+        expect(screen.queryByTestId('kitchen-order-desk-detail-fulfil')).toBeNull();
+    });
+
     it('reads a fulfilled cash order as settled, and stops offering to record the same money', async () => {
         const row = deskRow({
             id: orderIdAt(1),
@@ -894,7 +918,8 @@ describe('order desk queue — the order record page', () => {
             totalMinor: 16_000,
             payment: { method: 'cash_on_delivery', receivedMinor: 0, receipted: false },
         });
-        const fresh = detailOrder(row, { lockVersion: 2 });
+        // Cooked: the desk closes a delivery by hand only once it is ready (HA-29).
+        const fresh = detailOrder(row, { lockVersion: 2, readyAt: minutesFromNow(-40) });
         let fulfilled = false;
 
         await renderDeskWithDetail({

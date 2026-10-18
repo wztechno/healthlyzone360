@@ -47,6 +47,11 @@ final class DriverJobClaimController
             throw new ApiException(ErrorCode::ResourceNotFound);
         }
 
+        // The kitchen closed the order by hand (HA-29): nobody took it, it ended.
+        if (in_array($record->status, ['delivered', 'cancelled'], true)) {
+            throw new ApiException(ErrorCode::ResourceConflict, 'This run is already closed.');
+        }
+
         $claimed = $this->assignment->assign(
             $record,
             (string) auth()->id(),

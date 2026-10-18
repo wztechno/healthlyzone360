@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Healthy360\Delivery\Services;
 
+use Carbon\CarbonImmutable;
 use Healthy360\Delivery\Models\DeliveryJob;
 use Healthy360\Orders\Contracts\DeliveryJobProjection;
 use Healthy360\Orders\Models\Order;
+use Healthy360\Tenancy\Scopes\OrganisationScope;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
@@ -88,6 +90,9 @@ final class DeliveryJobProjector implements DeliveryJobProjection
      */
     private const string INITIAL_TRACKING_STATUS = 'awaiting_assignment';
 
+    /** The two ends of a run; `close()` leaves either one as it is. */
+    private const array CLOSED_STATUSES = ['delivered', 'cancelled'];
+
     public function project(Order $order): void
     {
         try {
@@ -109,5 +114,29 @@ final class DeliveryJobProjector implements DeliveryJobProjection
                 throw $exception;
             }
         }
+    }
+
+    /**
+     * The kitchen fulfilled the order itself (HA-29): the run ends as delivered,
+     * at the moment the order did. One conditional `UPDATE`, so a driver's
+     * claim or Picked up racing it either lands first and is then closed, or
+     * finds the run no longer `pending` / `assigned` and is refused.
+     * `lock_version` moves so a dispatcher holding the old validator reloads.
+     */
+    public function close(Order $order): void
+    {
+        $closedAt = CarbonImmutable::now();
+
+        DeliveryJob::query()
+            ->withoutGlobalScope(OrganisationScope::class)
+            ->where('order_id', $order->getKey())
+            ->whereNotIn('status', self::CLOSED_STATUSES)
+            ->update([
+                'status' => 'delivered',
+                'tracking_status' => 'delivered',
+                'delivered_at' => $closedAt,
+                'lock_version' => DB::raw('lock_version + 1'),
+                'updated_at' => $closedAt,
+            ]);
     }
 }

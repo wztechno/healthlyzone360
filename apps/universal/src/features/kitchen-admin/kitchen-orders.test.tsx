@@ -533,12 +533,150 @@ describe('kitchen orders', () => {
             expect(after?.lockVersion).toBe(placed.lockVersion + 1);
         });
 
-        // Confirm is gone and Fulfil has taken its place — the panel is reading the fresh record
-        // the mutation seeded, which is the version the next action has to send.
+        // Confirm is gone, and the panel is reading the fresh record the mutation seeded. It is a
+        // delivery nobody has cooked yet, so nothing closes it from here (HA-29).
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-orders-detail-run-state')).toHaveTextContent(
+                'Not ready yet',
+            );
+        });
+        expect(screen.queryByTestId('kitchen-orders-confirm')).toBeNull();
+        expect(screen.queryByTestId('kitchen-orders-fulfil')).toBeNull();
+        expect(screen.queryByTestId('kitchen-orders-mark-delivered')).toBeNull();
+    });
+
+    async function openOrder(book: OrderBook, id: OrderId) {
+        const rendered = await renderOrders(book);
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
+        });
+        fireEvent.press(screen.getByTestId(`kitchen-orders-table-row-${String(id)}`));
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-orders-detail-body')).toBeTruthy();
+        });
+        return rendered;
+    }
+
+    function withConfirmed(patch: Partial<KitchenOrder>): KitchenOrder[] {
+        return seedOrders().map((order) =>
+            order.id === orderIdAt(3) ? { ...order, ...patch } : order,
+        );
+    }
+
+    it('offers no way to close a delivery order the kitchen has not marked ready (HA-29)', async () => {
+        const book = createOrderBook();
+        await openOrder(book, orderIdAt(3));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-orders-detail-run-state')).toHaveTextContent(
+                'Not ready yet',
+            );
+        });
+        expect(screen.queryByTestId('kitchen-orders-fulfil')).toBeNull();
+        expect(screen.queryByTestId('kitchen-orders-mark-delivered')).toBeNull();
+        // Cancel is still there: calling an order off is not closing it.
+        expect(screen.getByTestId('kitchen-orders-cancel')).toBeTruthy();
+    });
+
+    it('closes a ready delivery order only after saying the run closes too (HA-29)', async () => {
+        const book = createOrderBook(withConfirmed({ readyAt: '2026-08-05T16:30:00Z' }));
+        const { repositories } = await openOrder(book, orderIdAt(3));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-orders-mark-delivered')).toBeTruthy();
+        });
+        expect(screen.getByTestId('kitchen-orders-detail-run-state')).toHaveTextContent(
+            'Waiting for the driver',
+        );
+        expect(screen.queryByTestId('kitchen-orders-fulfil')).toBeNull();
+
+        fireEvent.press(screen.getByTestId('kitchen-orders-mark-delivered'));
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-orders-mark-delivered-dialog')).toHaveTextContent(
+                /closes the driver's run/,
+            );
+        });
+        expect(repositories.kitchenOrders.fulfilOrder).not.toHaveBeenCalled();
+
+        fireEvent.press(screen.getByTestId('kitchen-orders-mark-delivered-confirm'));
+
+        await waitFor(() => {
+            expect(repositories.kitchenOrders.fulfilOrder).toHaveBeenCalledWith({
+                id: orderIdAt(3),
+                lockVersion: 2,
+            });
+        });
+        await waitFor(() => {
+            expect(book.find(orderIdAt(3))?.status).toBe('fulfilled');
+        });
+        // Settled on screen too, so nothing is still in flight when the next test renders.
+        await waitFor(() => {
+            expect(screen.getByText('Order VK-2026-0146 marked delivered.')).toBeTruthy();
+        });
+    });
+
+    it('sends nothing when the confirmation is dismissed (HA-29)', async () => {
+        const book = createOrderBook(withConfirmed({ readyAt: '2026-08-05T16:30:00Z' }));
+        const { repositories } = await openOrder(book, orderIdAt(3));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-orders-mark-delivered')).toBeTruthy();
+        });
+        fireEvent.press(screen.getByTestId('kitchen-orders-mark-delivered'));
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-orders-mark-delivered-dismiss')).toBeTruthy();
+        });
+        fireEvent.press(screen.getByTestId('kitchen-orders-mark-delivered-dismiss'));
+
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-orders-mark-delivered-dismiss')).toBeNull();
+        });
+        expect(repositories.kitchenOrders.fulfilOrder).not.toHaveBeenCalled();
+        expect(book.find(orderIdAt(3))?.status).toBe('confirmed');
+    });
+
+    it('says when the driver already has it', async () => {
+        const book = createOrderBook(
+            withConfirmed({
+                readyAt: '2026-08-05T16:30:00Z',
+                deliveryRun: {
+                    status: 'in_transit',
+                    trackingStatus: 'en_route',
+                    driverName: 'Sami Haddad',
+                    assignedAt: '2026-08-05T16:35:00Z',
+                    pickedUpAt: '2026-08-05T16:40:00Z',
+                    deliveredAt: null,
+                },
+            }),
+        );
+        await openOrder(book, orderIdAt(3));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-orders-detail-run-state')).toHaveTextContent(
+                'Out with the driver',
+            );
+        });
+    });
+
+    it('keeps a plain Mark fulfilled on a collection order', async () => {
+        const book = createOrderBook(withConfirmed({ fulfilmentType: 'pickup' }));
+        const { repositories } = await openOrder(book, orderIdAt(3));
+
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-orders-fulfil')).toBeTruthy();
         });
-        expect(screen.queryByTestId('kitchen-orders-confirm')).toBeNull();
+        expect(screen.queryByTestId('kitchen-orders-detail-run-state')).toBeNull();
+
+        fireEvent.press(screen.getByTestId('kitchen-orders-fulfil'));
+        await waitFor(() => {
+            expect(repositories.kitchenOrders.fulfilOrder).toHaveBeenCalledWith({
+                id: orderIdAt(3),
+                lockVersion: 2,
+            });
+        });
+        await waitFor(() => {
+            expect(screen.getByText('Order VK-2026-0146 marked fulfilled.')).toBeTruthy();
+        });
     });
 
     it('requires a reason before the cancel dialog will submit', async () => {

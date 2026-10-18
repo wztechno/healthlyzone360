@@ -12414,6 +12414,12 @@ paths:
         than a convenience: an order nobody accepted is not an order anybody
         cooked.
 
+        **A delivery order only once it is ready (HA-29).** Its normal end is
+        the driver's Mark delivered; this is the kitchen closing it by hand.
+        Before `ready_at` is stamped it is `409`, and fulfilling it ends its
+        delivery run as `delivered`, so no driver can claim or pick it up
+        afterwards.
+
         **`If-Match` required**, and it matters slightly more here than on the
         other two: this row is the last word on whether a customer received their
         food, and a lost update against it is a delivery the book says happened

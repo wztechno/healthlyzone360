@@ -129,6 +129,12 @@
             "cancelReasonLabel": "Why is it being cancelled?",
             "cancelConfirm": "Cancel this order",
             "cancelDismiss": "Keep the order",
+            "markDelivered": "Mark delivered",
+            "markDeliveredTitle": "Mark order {{number}} delivered?",
+            "markDeliveredBody": "This also closes the driver's run, so no driver can claim or pick it up.",
+            "markDeliveredDismiss": "Keep it open",
+            "deliveredToast": "Order {{number}} marked delivered.",
+            "notReadyYet": "Not ready yet",
             "reason": {
                 "customerRequested": "The customer asked to cancel",
                 "kitchenUnableToFulfil": "The kitchen cannot fulfil it",

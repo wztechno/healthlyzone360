@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8267 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8273 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4173,6 +4173,7 @@ export interface NamespaceKeys {
     | 'ops.orders.conflictRefresh'
     | 'ops.orders.conflictTitle'
     | 'ops.orders.deliveredAt'
+    | 'ops.orders.deliveredToast'
     | 'ops.orders.deliveryAddress'
     | 'ops.orders.deliveryArea'
     | 'ops.orders.deliveryDate'
@@ -4201,12 +4202,17 @@ export interface NamespaceKeys {
     | 'ops.orders.loadErrorTitle'
     | 'ops.orders.loadMore'
     | 'ops.orders.loadingMore'
+    | 'ops.orders.markDelivered'
+    | 'ops.orders.markDeliveredBody'
+    | 'ops.orders.markDeliveredDismiss'
+    | 'ops.orders.markDeliveredTitle'
     | 'ops.orders.metricFulfilled'
     | 'ops.orders.metrics.awaiting'
     | 'ops.orders.metrics.confirmed'
     | 'ops.orders.metrics.loaded'
     | 'ops.orders.noAllergens'
     | 'ops.orders.noDeliveryFee'
+    | 'ops.orders.notReadyYet'
     | 'ops.orders.nothingToDo'
     | 'ops.orders.pickedUpAt'
     | 'ops.orders.placedAt'
@@ -12458,6 +12464,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.conflictRefresh',
   'kitchen:ops.orders.conflictTitle',
   'kitchen:ops.orders.deliveredAt',
+  'kitchen:ops.orders.deliveredToast',
   'kitchen:ops.orders.deliveryAddress',
   'kitchen:ops.orders.deliveryArea',
   'kitchen:ops.orders.deliveryDate',
@@ -12486,12 +12493,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.loadErrorTitle',
   'kitchen:ops.orders.loadMore',
   'kitchen:ops.orders.loadingMore',
+  'kitchen:ops.orders.markDelivered',
+  'kitchen:ops.orders.markDeliveredBody',
+  'kitchen:ops.orders.markDeliveredDismiss',
+  'kitchen:ops.orders.markDeliveredTitle',
   'kitchen:ops.orders.metricFulfilled',
   'kitchen:ops.orders.metrics.awaiting',
   'kitchen:ops.orders.metrics.confirmed',
   'kitchen:ops.orders.metrics.loaded',
   'kitchen:ops.orders.noAllergens',
   'kitchen:ops.orders.noDeliveryFee',
+  'kitchen:ops.orders.notReadyYet',
   'kitchen:ops.orders.nothingToDo',
   'kitchen:ops.orders.pickedUpAt',
   'kitchen:ops.orders.placedAt',

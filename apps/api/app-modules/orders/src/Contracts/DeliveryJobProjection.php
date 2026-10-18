@@ -43,6 +43,14 @@ use Healthy360\Orders\Models\Order;
  * delivery module. A cancelled order keeps its job row, and cancelling the run
  * is a dispatch decision made on the dispatch board — deleting it from under
  * that board would erase the fact that a driver was once sent.
+ *
+ * **Fulfilment does reach the run (HA-29).** The kitchen can close a delivery
+ * order by hand — the driver's phone died, a colleague drove it — and an order
+ * the book calls delivered over a run still open is a driver claiming, picking
+ * up and carrying food that has already arrived. {@see close()} marks the run
+ * delivered in the fulfil's own transaction. It is not the reverse the
+ * paragraph above declines: nothing is erased, the run simply ends where the
+ * order did.
  */
 interface DeliveryJobProjection
 {
@@ -54,4 +62,14 @@ interface DeliveryJobProjection
      * not a fault.
      */
     public function project(Order $order): void;
+
+    /**
+     * End this order's run because the order was fulfilled, so it leaves every
+     * driver's sheet and can no longer be claimed or picked up.
+     *
+     * A no-op for a run already delivered or cancelled — the driver's own
+     * Mark delivered reaches here after it has closed the run — and for an
+     * order that has none.
+     */
+    public function close(Order $order): void;
 }

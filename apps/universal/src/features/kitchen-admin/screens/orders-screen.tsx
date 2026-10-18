@@ -609,8 +609,13 @@ function OrderRecord({
 
     const [cancelling, setCancelling] = useState(false);
     const [reason, setReason] = useState<KitchenOrderCancellationReason | null>(null);
+    const [delivering, setDelivering] = useState(false);
 
     const order = detail.data ?? null;
+    // A delivery order's normal end is the driver's Mark delivered (HA-19). Closing it here is
+    // the escape hatch, offered once it is ready and behind a confirmation, because it also ends
+    // the driver's run (HA-29).
+    const isDelivery = order?.fulfilmentType === 'delivery';
     const detailFailure = toFailure(detail.error);
     const actionPending = confirmOrder.isPending || fulfilOrder.isPending || cancelOrder.isPending;
     const actionFailure =
@@ -635,13 +640,21 @@ function OrderRecord({
                 message: t(
                     action === 'confirm'
                         ? 'kitchen:ops.orders.confirmedToast'
-                        : 'kitchen:ops.orders.fulfilledToast',
+                        : isDelivery
+                          ? 'kitchen:ops.orders.deliveredToast'
+                          : 'kitchen:ops.orders.fulfilledToast',
                     { number: next.orderNumber },
                 ),
             });
         };
         if (action === 'confirm') confirmOrder.mutate(request, { onSuccess });
-        else fulfilOrder.mutate(request, { onSuccess });
+        else
+            fulfilOrder.mutate(request, {
+                onSuccess,
+                onSettled: () => {
+                    setDelivering(false);
+                },
+            });
     }
 
     function closeCancel() {
@@ -699,6 +712,18 @@ function OrderRecord({
             ) : (
                 <Text testID="kitchen-orders-action-error" tone="danger">
                     {actionFailure.message}
+                </Text>
+            )}
+            {order === null || !isDelivery || !canFulfilKitchenOrder(order.status) ? null : (
+                // Where the run stands, in the kitchen display's words.
+                <Text variant="caption" tone="secondary" testID="kitchen-orders-detail-run-state">
+                    {t(
+                        (order.readyAt ?? null) === null
+                            ? 'kitchen:ops.orders.notReadyYet'
+                            : (order.deliveryRun?.pickedUpAt ?? null) === null
+                              ? 'kitchen:kds.waitingForDriver'
+                              : 'kitchen:kds.withDriver',
+                    )}
                 </Text>
             )}
             {!canManage || order === null ? null : canCancelKitchenOrder(order.status) ? (
@@ -919,18 +944,32 @@ function OrderRecord({
                         transition('confirm');
                     },
                 }
-              : canFulfilKitchenOrder(order.status)
-                ? {
-                      label: t('kitchen:ops.orders.fulfil'),
-                      icon: null,
-                      testID: 'kitchen-orders-fulfil',
-                      loading: fulfilOrder.isPending,
-                      disabled: actionPending,
-                      onPress: () => {
-                          transition('fulfil');
-                      },
-                  }
-                : undefined;
+              : canFulfilKitchenOrder(order.status) && isDelivery
+                ? (order.readyAt ?? null) === null
+                    ? undefined
+                    : {
+                          label: t('kitchen:ops.orders.markDelivered'),
+                          icon: null,
+                          testID: 'kitchen-orders-mark-delivered',
+                          loading: fulfilOrder.isPending,
+                          disabled: actionPending,
+                          onPress: () => {
+                              clearActionState();
+                              setDelivering(true);
+                          },
+                      }
+                : canFulfilKitchenOrder(order.status)
+                  ? {
+                        label: t('kitchen:ops.orders.fulfil'),
+                        icon: null,
+                        testID: 'kitchen-orders-fulfil',
+                        loading: fulfilOrder.isPending,
+                        disabled: actionPending,
+                        onPress: () => {
+                            transition('fulfil');
+                        },
+                    }
+                  : undefined;
 
     return (
         <>
@@ -957,6 +996,37 @@ function OrderRecord({
                 statusContent={actionContent}
                 footNote={t('kitchen:ops.orders.cancelFinal')}
                 primaryAction={forward}
+            />
+
+            <Dialog
+                testID="kitchen-orders-mark-delivered-dialog"
+                open={delivering && order !== null}
+                onClose={() => {
+                    setDelivering(false);
+                }}
+                title={t('kitchen:ops.orders.markDeliveredTitle', { number })}
+                description={t('kitchen:ops.orders.markDeliveredBody')}
+                actions={
+                    <>
+                        <Button
+                            testID="kitchen-orders-mark-delivered-dismiss"
+                            variant="quiet"
+                            label={t('kitchen:ops.orders.markDeliveredDismiss')}
+                            onPress={() => {
+                                setDelivering(false);
+                            }}
+                        />
+                        <Button
+                            testID="kitchen-orders-mark-delivered-confirm"
+                            label={t('kitchen:ops.orders.markDelivered')}
+                            loading={fulfilOrder.isPending}
+                            disabled={actionPending}
+                            onPress={() => {
+                                transition('fulfil');
+                            }}
+                        />
+                    </>
+                }
             />
 
             <Dialog

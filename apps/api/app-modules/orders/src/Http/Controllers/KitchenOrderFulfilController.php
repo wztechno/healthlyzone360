@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Healthy360\Orders\Http\Controllers;
 
+use Healthy360\Orders\Enums\FulfilmentType;
+use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Http\Concerns\ReadsPrecondition;
 use Healthy360\Orders\Presenters\OrderPresenter;
 use Healthy360\Orders\Services\OrderDeliveryRuns;
 use Healthy360\Orders\Services\OrderLifecycle;
 use Healthy360\Orders\Services\OrderLocator;
 use Healthy360\Support\Api\ApiResponse;
+use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -34,6 +37,12 @@ use Illuminate\Http\Request;
  * matters slightly more here: the row this writes is the last word on whether a
  * customer received their food, and a lost update against it is a delivery that
  * the book says happened twice or not at all.
+ *
+ * **A delivery order only once it is ready (HA-29).** Its normal end is the
+ * driver's Mark delivered; this is the kitchen closing it by hand, and doing
+ * that before the food is cooked told the customer "Delivered" while a driver
+ * could still claim the run. Refused as `409` until Ready is stamped, and the
+ * fulfil itself closes the run (`OrderLifecycle::fulfil()`).
  */
 final class KitchenOrderFulfilController
 {
@@ -52,6 +61,13 @@ final class KitchenOrderFulfilController
     public function __invoke(Request $request, string $order): JsonResponse
     {
         $record = $this->locator->sellerOrder($order);
+
+        // Confirmed only: a placed order is the state machine's refusal, which
+        // names both ends of the move.
+        if ($record->status === OrderStatus::Confirmed && $record->fulfilment_type === FulfilmentType::Delivery && $record->ready_at === null) {
+            throw new ApiException(ErrorCode::ResourceConflict, 'Mark this order ready before you close it.');
+        }
+
         $fulfilled = $this->lifecycle->fulfil($record, $this->requiredLockVersion($request));
 
         $lines = $fulfilled->lines()->orderBy('created_at')->orderBy('id')->get();

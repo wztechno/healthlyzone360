@@ -149,6 +149,12 @@
             "cancelReasonLabel": "ما سبب الإلغاء؟",
             "cancelConfirm": "إلغاء هذا الطلب",
             "cancelDismiss": "الإبقاء على الطلب",
+            "markDelivered": "تعليمه مُوصَلاً",
+            "markDeliveredTitle": "تعليم الطلب {{number}} مُوصَلاً؟",
+            "markDeliveredBody": "يُغلق هذا أيضًا مشوار السائق، فلا يمكن لأي سائق أخذه أو استلامه.",
+            "markDeliveredDismiss": "إبقاؤه مفتوحًا",
+            "deliveredToast": "تم تعليم الطلب {{number}} مُوصَلاً.",
+            "notReadyYet": "لم يجهز بعد",
             "reason": {
                 "customerRequested": "طلب العميل الإلغاء",
                 "kitchenUnableToFulfil": "المطبخ غير قادر على التنفيذ",

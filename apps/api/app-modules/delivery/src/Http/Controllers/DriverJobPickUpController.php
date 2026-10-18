@@ -53,6 +53,11 @@ final class DriverJobPickUpController
             throw new ApiException(ErrorCode::ResourceNotFound);
         }
 
+        // Closed by the kitchen by hand (HA-29), or delivered already.
+        if (in_array($record->status, ['delivered', 'cancelled'], true)) {
+            throw new ApiException(ErrorCode::ResourceConflict, 'This run is already closed.');
+        }
+
         $readyAt = DB::table('orders')->where('id', $record->order_id)->value('ready_at');
 
         if ($readyAt === null) {
