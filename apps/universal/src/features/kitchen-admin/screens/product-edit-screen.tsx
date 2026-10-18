@@ -28,7 +28,7 @@ import {
 import type { FormIssueItem, SelectOption } from '@healthy360/design-system';
 import { ProductId, SALES_CHANNELS, isCurrencyCode } from '@healthy360/domain-types';
 import type { RecipeId } from '@healthy360/domain-types';
-import { useLocale } from '@healthy360/i18n';
+import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -56,7 +56,11 @@ import {
     useSetProductChannelAvailabilityMutation,
     useUpdateProductMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
-import { useProcurementReferenceQuery } from '../../../data/kitchen-ops-hooks.ts';
+import {
+    useItemLatestPurchasesQuery,
+    useProcurementReferenceQuery,
+    useStockItemsQuery,
+} from '../../../data/kitchen-ops-hooks.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import {
@@ -70,6 +74,7 @@ import type { ChannelDraft, PackColumn, PackDraft } from '../catalogue-row-edito
 import {
     CATALOGUE_MANAGE_PERMISSION,
     CATALOGUE_VIEW_PERMISSION,
+    INVENTORY_VIEW_COSTS_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
@@ -363,6 +368,55 @@ function ProductEditor({
     const categories = useProductCategoriesQuery();
     const sellableChannels = useSellableChannelsQuery();
     const recipes = useAllRecipesQuery();
+
+    /*
+     * What the kitchen last paid for this item, read the way the ingredient editor reads it: the
+     * shelf that *is* this product (`catalogueItemId`), then that shelf's newest priced receipt.
+     * Shown, never typed — the next delivery posted moves it. A saved item only.
+     */
+    const formatter = useFormatter();
+    const canViewCosts = useCan(INVENTORY_VIEW_COSTS_PERMISSION);
+    const stockItems = useStockItemsQuery(!isCreating && canViewCosts);
+    const stockItemId = useMemo(() => {
+        if (parsed === null) return null;
+        const shelf = stockItems.data?.find(
+            (item) =>
+                item.catalogueItemId !== null && String(item.catalogueItemId) === String(parsed),
+        );
+        return shelf === undefined ? null : shelf.id;
+    }, [stockItems.data, parsed]);
+    const latestPurchaseIds = useMemo(
+        () => (stockItemId === null ? [] : [stockItemId]),
+        [stockItemId],
+    );
+    const latestPurchases = useItemLatestPurchasesQuery(latestPurchaseIds, canViewCosts);
+    const latestPurchase = latestPurchases.data?.[0] ?? null;
+    /* Never a zero in the empty case: an unbought item and a free one are different facts. */
+    const lastPriceValue =
+        latestPurchase === null || latestPurchase.unitPriceAmount === null
+            ? ''
+            : formatter.formatNumber(Number(latestPurchase.unitPriceAmount), {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+              });
+    /* A shelf-less item has nothing to wait for — its purchase query never runs. */
+    const lastPricePlaceholder =
+        stockItems.isPending || (stockItemId !== null && latestPurchases.isPending)
+            ? t('kitchen:ops.stock.lastPurchaseLoading')
+            : t('kitchen:ops.stock.neverBought');
+    const lastPriceSupplier =
+        latestPurchase === null || latestPurchase.supplier === null
+            ? t('kitchen:ops.stock.noPurchaseSupplier')
+            : latestPurchase.supplier.nameEn;
+    const lastPriceSource =
+        latestPurchase === null
+            ? undefined
+            : latestPurchase.receivedAt === null
+              ? lastPriceSupplier
+              : t('kitchen:ops.stock.lastPurchaseFrom', {
+                    supplier: lastPriceSupplier,
+                    date: formatter.formatDate(latestPurchase.receivedAt, { dateStyle: 'medium' }),
+                });
 
     const create = useCreateProductMutation();
     const update = useUpdateProductMutation();
@@ -1572,6 +1626,36 @@ function ProductEditor({
                     title={t('kitchen:sale.title')}
                 >
                     <Stack space="sm">
+                        {/*
+                         * Read-only: what the kitchen last paid, per the unit it was bought in, and
+                         * from whom (the hint). Not on a new item, and not for a member who may not
+                         * see costs.
+                         */}
+                        {isCreating || !canViewCosts ? null : (
+                            <FormGrid track="half" testID="kitchen-product-last-price-grid">
+                                <QuantityInput
+                                    testID="kitchen-product-unit-price"
+                                    id="kitchen-product-unit-price"
+                                    size="sm"
+                                    readOnly
+                                    label={t('kitchen:fields.unitPrice')}
+                                    placeholder={lastPricePlaceholder}
+                                    value={lastPriceValue}
+                                    {...(latestPurchase === null ||
+                                    latestPurchase.unitPriceAmount === null
+                                        ? {}
+                                        : {
+                                              unit: t('kitchen:fields.unitPricePer', {
+                                                  currency: latestPurchase.costCurrencyCode ?? '',
+                                                  unit: latestPurchase.unitCode ?? '',
+                                              }),
+                                              hint: lastPriceSource,
+                                          })}
+                                    onChangeText={() => {}}
+                                />
+                            </FormGrid>
+                        )}
+
                         {/*
                          * What one sold unit takes off the shelf (PROD1), on the half track — a
                          * figure and its unit, each one cell.

@@ -31,6 +31,7 @@ import type { ReactNode } from 'react';
 import { Dimensions } from 'react-native';
 
 import {
+    KITCHEN_MANAGER_PERMISSIONS,
     MEMBER_PERMISSIONS,
     kitchenManagerSession,
     testActiveContext,
@@ -1519,6 +1520,128 @@ describe('creating and editing a product', () => {
         await waitFor(() => {
             expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/products');
         });
+    });
+});
+
+describe('the last purchase on a resale item', () => {
+    /** The shelf that *is* the product — linked by catalogue item, as a resold product's is. */
+    function resaleShelf(productId: ProductId) {
+        return {
+            id: 'stock-item-7' as never,
+            code: 'ITEM-7',
+            nameEn: 'Shelf',
+            unitCode: 'pc',
+            ingredientId: 'ingredient-7' as never,
+            catalogueItemId: String(productId),
+            backing: 'product' as const,
+            isStocked: true,
+            hasHistory: true,
+        };
+    }
+
+    function productReads(stored: ProductAdmin) {
+        return {
+            getProduct: async () => stored,
+            listProducts: productListing(() => [stored]),
+            listRecipes: async () => page(NO_RECIPES),
+        };
+    }
+
+    it('shows what was last paid, per unit, and offers nothing to type into', async () => {
+        const stored = product({ ordinal: 7, name: 'Seven Up' });
+
+        await renderStubScreen(<ProductEditScreen product={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: productReads(stored),
+                kitchenOps: {
+                    listStockItems: async () => [resaleShelf(stored.id)],
+                    listItemLatestPurchases: async (ids) =>
+                        ids.map((stockItemId) => ({
+                            stockItemId,
+                            goodsReceiptId: 'receipt-1' as never,
+                            documentRef: null,
+                            receivedAt: '2026-10-14T09:00:00Z' as never,
+                            quantity: '24',
+                            unitId: null,
+                            unitCode: 'pc',
+                            unitPriceAmount: '0.450000',
+                            costCurrencyCode: 'USD',
+                            supplier: { id: 'supplier-1' as never, code: 'S-1', nameEn: 'Fizz Co' },
+                        })),
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-product-unit-price-input').props.value).toBe('0.45');
+        });
+        expect(screen.getByTestId('kitchen-product-unit-price-input').props.editable).toBe(false);
+        expect(
+            screen.getByTestId('kitchen-product-unit-price-unit', { includeHiddenElements: true }),
+        ).toHaveTextContent('USD / pc');
+    });
+
+    it('says "Never bought" when nothing has been received for it', async () => {
+        const stored = product({ ordinal: 7, name: 'Seven Up' });
+
+        await renderStubScreen(<ProductEditScreen product={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: productReads(stored),
+                kitchenOps: {
+                    listStockItems: async () => [resaleShelf(stored.id)],
+                    listItemLatestPurchases: async () => [],
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-product-unit-price-input').props.placeholder).toBe(
+                'Never bought',
+            );
+        });
+        expect(screen.getByTestId('kitchen-product-unit-price-input').props.value).toBe('');
+    });
+
+    it('is not there for a member who may not see costs', async () => {
+        const stored = product({ ordinal: 7, name: 'Seven Up' });
+        const listStockItems = jest.fn(async () => [resaleShelf(stored.id)]);
+
+        await renderStubScreen(<ProductEditScreen product={String(stored.id)} />, {
+            session: kitchenManagerSession({
+                activeContext: testActiveContext({
+                    permissions: KITCHEN_MANAGER_PERMISSIONS.filter(
+                        (code) => code !== 'inventory.view_costs_organisation',
+                    ),
+                }),
+            }),
+            repositories: {
+                kitchenAdmin: productReads(stored),
+                kitchenOps: { listStockItems },
+            },
+        });
+        await untilVisible('kitchen-product-sale');
+
+        expect(screen.queryByTestId('kitchen-product-unit-price')).toBeNull();
+        expect(listStockItems).not.toHaveBeenCalled();
+    });
+
+    it('is not there on a new item', async () => {
+        const stored = product({ ordinal: 7, name: 'Seven Up' });
+        const listStockItems = jest.fn(async () => [resaleShelf(stored.id)]);
+
+        await renderStubScreen(<ProductEditScreen product="new" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: productReads(stored),
+                kitchenOps: { listStockItems },
+            },
+        });
+        await untilVisible('kitchen-product-sale');
+
+        expect(screen.queryByTestId('kitchen-product-unit-price')).toBeNull();
+        expect(listStockItems).not.toHaveBeenCalled();
     });
 });
 
