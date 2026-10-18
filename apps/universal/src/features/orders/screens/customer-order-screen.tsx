@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { useMyOrderQuery } from '../../../data/commerce-hooks.ts';
+import { useOnlineStatus } from '../../../online/online-status.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { OrderTracking } from '../order-tracking.tsx';
 
@@ -16,6 +17,11 @@ import { OrderTracking } from '../order-tracking.tsx';
  * "keep this reference" reminder — the order lives in their account history, which is where the
  * "back to your orders" control under the cards goes — and no conversion prompt.
  *
+ * **It keeps itself current (HA-23).** While the order is still on its way the page re-reads it
+ * every {@link ORDER_TRACKING_POLL_MS}, so a kitchen's confirm or a driver's pick-up shows up without
+ * anybody pressing Refresh; it stops once the order is delivered or cancelled, and while offline —
+ * an interval firing into a dead network is retries nobody asked for.
+ *
  * The route parameter is the order's **identifier**, never its printed number: the endpoint refuses
  * the number on purpose (a receipt passes through a courier's hands). A malformed identifier is
  * answered as "not found" without a request, and so is another account's order — the server's
@@ -23,6 +29,9 @@ import { OrderTracking } from '../order-tracking.tsx';
  */
 
 const TEST_ID = 'customer-order';
+
+/** The kitchen display's and the driver sheet's fifteen seconds, for the same reasons. */
+export const ORDER_TRACKING_POLL_MS = 15_000;
 
 export interface CustomerOrderScreenProps {
     readonly orderId: string | undefined;
@@ -33,7 +42,8 @@ export function CustomerOrderScreen({ orderId }: CustomerOrderScreenProps) {
     const router = useRouter();
 
     const parsed = orderId === undefined ? null : OrderId.safeParse(orderId);
-    const order = useMyOrderQuery(parsed);
+    const { online } = useOnlineStatus();
+    const order = useMyOrderQuery(parsed, { pollMs: online ? ORDER_TRACKING_POLL_MS : false });
 
     const backToOrders = (
         <Button

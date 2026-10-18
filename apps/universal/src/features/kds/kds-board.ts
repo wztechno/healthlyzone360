@@ -72,10 +72,18 @@ import { todayIso } from '../commerce/dates.ts';
 export const KDS_COLUMN_KEYS = ['incoming', 'preparing', 'done'] as const;
 export type KdsColumnKey = (typeof KDS_COLUMN_KEYS)[number];
 
+/** One later day's scheduled work, under "Upcoming" (HA-27). `day` is `YYYY-MM-DD`. */
+export interface KdsUpcomingDay {
+    readonly day: string;
+    readonly tickets: readonly KitchenOrder[];
+}
+
 export interface KdsBoard {
     readonly incoming: readonly KitchenOrder[];
     readonly preparing: readonly KitchenOrder[];
     readonly done: readonly KitchenOrder[];
+    /** Not-yet-started orders for a later day, earliest day first. Not part of today's columns. */
+    readonly upcoming: readonly KdsUpcomingDay[];
 }
 
 /** The local calendar day an instant falls on, or `null` when there is no instant to read. */
@@ -124,6 +132,31 @@ export function ticketBelongsToBranch(order: KitchenOrder, branchId: BranchId | 
 }
 
 /**
+ * Waiting for the kitchen to start it — "Incoming" (HA-24). A placed order, and a confirmed one
+ * nobody has pressed Start on: confirming accepts an order, it does not start cooking it.
+ */
+export function isAwaitingStart(order: KitchenOrder): boolean {
+    if (order.status === 'placed') return true;
+    return (
+        order.status === 'confirmed' &&
+        (order.preparingAt ?? null) === null &&
+        (order.readyAt ?? null) === null
+    );
+}
+
+/**
+ * Scheduled for a later day and not started yet — "Upcoming", off today's columns (HA-27).
+ *
+ * Only work waiting to be started moves there: a ticket somebody already started, or finished, is
+ * on today's board whatever day it is for, because that is where the hand that moved it is looking.
+ * An order with no requested day, or one for today or a day already past, is today's work.
+ */
+export function isUpcoming(order: KitchenOrder, now: Date): boolean {
+    const day = order.delivery.requestedDate;
+    return isAwaitingStart(order) && day !== null && day > todayIso(now);
+}
+
+/**
  * Splits one page of orders into the three columns, keeping only what this branch should see.
  *
  * `cancelled` reaches none of them, and neither does another kitchen's attributed work.
@@ -145,9 +178,14 @@ export function bucketTickets(
         order.status === 'confirmed' && (order.readyAt ?? null) !== null;
 
     return {
-        incoming: mine.filter((order) => order.status === 'placed').sort(byPlacedAscending),
+        incoming: mine
+            .filter((order) => isAwaitingStart(order) && !isUpcoming(order, now))
+            .sort(byPlacedAscending),
         preparing: mine
-            .filter((order) => order.status === 'confirmed' && !isReady(order))
+            .filter(
+                (order) =>
+                    order.status === 'confirmed' && !isReady(order) && !isAwaitingStart(order),
+            )
             .sort(byPlacedAscending),
         done: [
             ...mine.filter(isReady).sort(byPlacedAscending),
@@ -160,7 +198,21 @@ export function bucketTickets(
                 )
                 .sort(byFulfilledDescending),
         ],
+        upcoming: byDay(mine.filter((order) => isUpcoming(order, now))),
     };
+}
+
+/** Upcoming tickets grouped by their requested day, earliest first, oldest order first within. */
+function byDay(orders: readonly KitchenOrder[]): readonly KdsUpcomingDay[] {
+    const days = new Map<string, KitchenOrder[]>();
+    for (const order of orders) {
+        const day = order.delivery.requestedDate;
+        if (day === null) continue;
+        days.set(day, [...(days.get(day) ?? []), order]);
+    }
+    return [...days.keys()]
+        .sort((left, right) => left.localeCompare(right))
+        .map((day) => ({ day, tickets: [...(days.get(day) ?? [])].sort(byPlacedAscending) }));
 }
 
 /** Whole minutes between an order being placed and `now`; never negative. */

@@ -2382,6 +2382,11 @@ describe('versions', () => {
         await untilVisible('kitchen-recipe-lines-table');
         expect(screen.queryByTestId(LINE_PICKER_INPUT)).toBeNull();
 
+        // The packaging table too: rows typed here on a published version vanished on save (HA-36).
+        await openTab('packaging');
+        await untilVisible('kitchen-recipe-packaging-table');
+        expect(screen.queryByTestId('kitchen-recipe-packaging-table-picker')).toBeNull();
+
         await openTab('description');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-new-draft'));

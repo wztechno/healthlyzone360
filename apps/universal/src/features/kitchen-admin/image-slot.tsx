@@ -3,6 +3,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image, Platform, Pressable, Text as RNText, View } from 'react-native';
+import type { ImageRequireSource } from 'react-native';
 
 /**
  * The record's photo, as the Catalogue Forms editors draw it: a 168px square at the start of
@@ -21,6 +22,13 @@ import { Image, Platform, Pressable, Text as RNText, View } from 'react-native';
  * URI. The editor writes it with `useSaveRecordPhotoMutation` once the record's own save has
  * answered; this component only picks.
  *
+ * ## The stock picture, when there is no upload
+ *
+ * A record with no upload of its own can still have a picture: the bundled one its slug names,
+ * which the list draws beside it. `fallback` is that picture, drawn when `uri` is null so the slot
+ * shows what the list shows rather than an empty frame. It is cleared like an upload — the clear
+ * control answers `null` either way, and the editor saves "no picture".
+ *
  * ## One picker on both platforms
  *
  * `expo-document-picker` with an image filter, for the reason `FileUploadField` gives: on the web it
@@ -32,6 +40,8 @@ import { Image, Platform, Pressable, Text as RNText, View } from 'react-native';
 export interface ImageSlotProps {
     /** A local handle to the chosen image — an object URL on the web, a cache path on native. */
     readonly uri: string | null;
+    /** The stock picture, drawn while `uri` is null; null or absent leaves the slot empty. */
+    readonly fallback?: ImageRequireSource | null | undefined;
     readonly onChange: (uri: string | null) => void;
     readonly disabled?: boolean | undefined;
     readonly testID: string;
@@ -40,9 +50,16 @@ export interface ImageSlotProps {
 /** The design's slot, and one track of the half grid beside it plus its gap: 132 + 16 + 20. */
 const SLOT_SIZE = 168;
 
-export function ImageSlot({ uri, onChange, disabled = false, testID }: ImageSlotProps) {
+export function ImageSlot({
+    uri,
+    fallback = null,
+    onChange,
+    disabled = false,
+    testID,
+}: ImageSlotProps) {
     const { t } = useTranslation();
     const node = useRef<View | null>(null);
+    const filled = uri !== null || fallback !== null;
 
     /*
      * Drop, on the web. React Native Web renders a `View` as a `div` and hands that element back
@@ -89,7 +106,7 @@ export function ImageSlot({ uri, onChange, disabled = false, testID }: ImageSlot
             testID={testID}
             style={{ width: SLOT_SIZE, height: SLOT_SIZE }}
             className={
-                uri === null
+                !filled
                     ? 'shrink-0 overflow-hidden rounded-md border border-dashed border-stroke bg-surface-sunken'
                     : 'shrink-0 overflow-hidden rounded-md border border-stroke bg-surface-sunken'
             }
@@ -106,7 +123,23 @@ export function ImageSlot({ uri, onChange, disabled = false, testID }: ImageSlot
                 }}
                 className="h-full w-full items-center justify-center gap-hair"
             >
-                {uri === null ? (
+                {uri !== null ? (
+                    <Image
+                        testID={`${testID}-preview`}
+                        source={{ uri }}
+                        resizeMode="cover"
+                        accessibilityIgnoresInvertColors
+                        style={{ width: '100%', height: '100%' }}
+                    />
+                ) : fallback !== null ? (
+                    <Image
+                        testID={`${testID}-stock`}
+                        source={fallback}
+                        resizeMode="cover"
+                        accessibilityIgnoresInvertColors
+                        style={{ width: '100%', height: '100%' }}
+                    />
+                ) : (
                     <>
                         <View className="h-7 w-7 items-center justify-center rounded-full border border-stroke bg-surface-raised">
                             <Icon name="plus" size="sm" className="text-content-on-brand-subtle" />
@@ -115,18 +148,10 @@ export function ImageSlot({ uri, onChange, disabled = false, testID }: ImageSlot
                             {t('kitchen:forms.image')}
                         </RNText>
                     </>
-                ) : (
-                    <Image
-                        testID={`${testID}-preview`}
-                        source={{ uri }}
-                        resizeMode="cover"
-                        accessibilityIgnoresInvertColors
-                        style={{ width: '100%', height: '100%' }}
-                    />
                 )}
             </Pressable>
 
-            {uri === null || disabled ? null : (
+            {!filled || disabled ? null : (
                 <Pressable
                     testID={`${testID}-clear`}
                     role="button"

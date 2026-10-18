@@ -26,16 +26,22 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { FormIssueItem, SelectOption } from '@healthy360/design-system';
-import { ProductId, SALES_CHANNELS } from '@healthy360/domain-types';
+import { ProductId, SALES_CHANNELS, isCurrencyCode } from '@healthy360/domain-types';
 import type { RecipeId } from '@healthy360/domain-types';
-import { useLocale } from '@healthy360/i18n';
+import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
-import { ChannelPricesSection } from '../channel-prices-section.tsx';
+import {
+    ChannelPricesSection,
+    EMPTY_CHANNEL_PRICE_DRAFT,
+    channelPriceDraftValid,
+    useWriteChannelPriceDraft,
+} from '../channel-prices-section.tsx';
+import type { ChannelPriceDraft } from '../channel-prices-section.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     recipesFromPages,
@@ -46,10 +52,15 @@ import {
     usePublishProductMutation,
     useAllRecipesQuery,
     useSaveRecordPhotoMutation,
+    useSellableChannelsQuery,
     useSetProductChannelAvailabilityMutation,
     useUpdateProductMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
-import { useProcurementReferenceQuery } from '../../../data/kitchen-ops-hooks.ts';
+import {
+    useItemLatestPurchasesQuery,
+    useProcurementReferenceQuery,
+    useStockItemsQuery,
+} from '../../../data/kitchen-ops-hooks.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import {
@@ -63,10 +74,12 @@ import type { ChannelDraft, PackColumn, PackDraft } from '../catalogue-row-edito
 import {
     CATALOGUE_MANAGE_PERMISSION,
     CATALOGUE_VIEW_PERMISSION,
+    INVENTORY_VIEW_COSTS_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import {
+    adminReferenceUnits,
     dietClassificationKey,
     displayName,
     humaniseCode,
@@ -74,6 +87,7 @@ import {
     parseWholeNumber,
     statusKey,
     statusTone,
+    unitCodeLabel,
 } from '../format.ts';
 import { ImageSlot } from '../image-slot.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
@@ -352,7 +366,57 @@ function ProductEditor({
 
     const record = useProductQuery(parsed);
     const categories = useProductCategoriesQuery();
+    const sellableChannels = useSellableChannelsQuery();
     const recipes = useAllRecipesQuery();
+
+    /*
+     * What the kitchen last paid for this item, read the way the ingredient editor reads it: the
+     * shelf that *is* this product (`catalogueItemId`), then that shelf's newest priced receipt.
+     * Shown, never typed — the next delivery posted moves it. A saved item only.
+     */
+    const formatter = useFormatter();
+    const canViewCosts = useCan(INVENTORY_VIEW_COSTS_PERMISSION);
+    const stockItems = useStockItemsQuery(!isCreating && canViewCosts);
+    const stockItemId = useMemo(() => {
+        if (parsed === null) return null;
+        const shelf = stockItems.data?.find(
+            (item) =>
+                item.catalogueItemId !== null && String(item.catalogueItemId) === String(parsed),
+        );
+        return shelf === undefined ? null : shelf.id;
+    }, [stockItems.data, parsed]);
+    const latestPurchaseIds = useMemo(
+        () => (stockItemId === null ? [] : [stockItemId]),
+        [stockItemId],
+    );
+    const latestPurchases = useItemLatestPurchasesQuery(latestPurchaseIds, canViewCosts);
+    const latestPurchase = latestPurchases.data?.[0] ?? null;
+    /* Never a zero in the empty case: an unbought item and a free one are different facts. */
+    const lastPriceValue =
+        latestPurchase === null || latestPurchase.unitPriceAmount === null
+            ? ''
+            : formatter.formatNumber(Number(latestPurchase.unitPriceAmount), {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+              });
+    /* A shelf-less item has nothing to wait for — its purchase query never runs. */
+    const lastPricePlaceholder =
+        stockItems.isPending || (stockItemId !== null && latestPurchases.isPending)
+            ? t('kitchen:ops.stock.lastPurchaseLoading')
+            : t('kitchen:ops.stock.neverBought');
+    const lastPriceSupplier =
+        latestPurchase === null || latestPurchase.supplier === null
+            ? t('kitchen:ops.stock.noPurchaseSupplier')
+            : latestPurchase.supplier.nameEn;
+    const lastPriceSource =
+        latestPurchase === null
+            ? undefined
+            : latestPurchase.receivedAt === null
+              ? lastPriceSupplier
+              : t('kitchen:ops.stock.lastPurchaseFrom', {
+                    supplier: lastPriceSupplier,
+                    date: formatter.formatDate(latestPurchase.receivedAt, { dateStyle: 'medium' }),
+                });
 
     const create = useCreateProductMutation();
     const update = useUpdateProductMutation();
@@ -360,6 +424,13 @@ function ProductEditor({
     const publish = usePublishProductMutation();
     const archive = useArchiveProductMutation();
     const photoSave = useSaveRecordPhotoMutation();
+    /*
+     * B2B and B2C on a new item: held here and written once the item exists, after its routes to
+     * market (that write takes the version the create left, and this one reads the newest).
+     */
+    const [channelPriceDraft, setChannelPriceDraft] =
+        useState<ChannelPriceDraft>(EMPTY_CHANNEL_PRICE_DRAFT);
+    const writeChannelPriceDraft = useWriteChannelPriceDraft();
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
 
@@ -477,6 +548,15 @@ function ProductEditor({
         return [...known.values()].sort((left, right) => left.label.localeCompare(right.label));
     }, [categories.data, details.categoryCode]);
 
+    /**
+     * The picked category's id — what the write files the item under (HA-31). `undefined` when the
+     * vocabulary does not know the code, so a save never clears a category it could not resolve.
+     */
+    const pickedCategory = (categories.data ?? []).find(
+        (entry) => entry.code === details.categoryCode,
+    );
+    const categoryIdRequest = pickedCategory === undefined ? {} : { categoryId: pickedCategory.id };
+
     /** `NO_RECIPE` is the "bought in rather than cooked" answer, and never a real identifier. */
     const recipeRows = recipesFromPages(recipes.data?.pages);
     const recipeOptions: readonly SelectOption[] = useMemo(
@@ -505,12 +585,14 @@ function ProductEditor({
         reference.data?.measurementUnits;
     const unitOptions: readonly SelectOption[] = useMemo(
         () =>
-            (referenceUnits ?? []).map((unit) => ({
+            // The admin's Kg, L, Pc — not every row the server holds (kcal, cm, mg…) — plus the one
+            // already chosen, if it is something else.
+            adminReferenceUnits(referenceUnits ?? [], details.netContentUnitId).map((unit) => ({
                 value: unit.id,
-                label: unit.code,
+                label: unitCodeLabel(unit.code, t),
                 description: unit.nameEn,
             })),
-        [referenceUnits],
+        [referenceUnits, details.netContentUnitId, t],
     );
 
     /* ── validation ──────────────────────────────────────────────────────────────────────────── */
@@ -780,11 +862,14 @@ function ProductEditor({
         }
 
         if (isCreating) {
+            // A bad B2B/B2C row says so under the row (the section reads `attempted`).
+            if (!channelPriceDraftValid(channelPriceDraft)) return;
             create.mutate(
                 {
                     name: details.name,
                     description: details.description,
                     categoryCode: details.categoryCode,
+                    ...categoryIdRequest,
                     itemType,
                     isMarketPriced: details.isMarketPriced,
                     isAssorted: details.isAssorted,
@@ -814,8 +899,27 @@ function ProductEditor({
                         }
 
                         const open = () => {
-                            settle(false, false);
-                            router.replace(`${routeBase}/${String(created.id)}` as never);
+                            void writeChannelPriceDraft(created.id, channelPriceDraft).then(
+                                (prices) => {
+                                    // Leaving the page, so a refusal is a toast, as the photo's is.
+                                    if (prices.error !== null) {
+                                        toast.show({
+                                            tone: 'danger',
+                                            message: t('kitchen:channelPrices.failed'),
+                                        });
+                                    }
+                                    for (const channel of prices.unavailable) {
+                                        toast.show({
+                                            tone: 'warning',
+                                            message: t('kitchen:channelPrices.noPriceList', {
+                                                channel: t(`kitchen:channelPrices.${channel}`),
+                                            }),
+                                        });
+                                    }
+                                    settle(false, false);
+                                    router.replace(`${routeBase}/${String(created.id)}` as never);
+                                },
+                            );
                         };
 
                         /*
@@ -869,6 +973,9 @@ function ProductEditor({
                     name: details.name,
                     description: details.description,
                     categoryCode: details.categoryCode,
+                    // Only a category the reader moved: re-sending the one the record opened on
+                    // would be a write about nothing.
+                    ...(details.categoryCode === data.categoryCode ? {} : categoryIdRequest),
                     recipeId: details.recipeId,
                     isMarketPriced: details.isMarketPriced,
                     isAssorted: details.isAssorted,
@@ -1492,7 +1599,24 @@ function ProductEditor({
                 </FormSection>
 
                 {/* ── B2B / B2C weight and price ──────────────────────────────────────────── */}
-                {data === undefined ? null : <ChannelPricesSection itemId={data.id} />}
+                {isCreating ? (
+                    <ChannelPricesSection
+                        itemId={null}
+                        draft={{
+                            value: channelPriceDraft,
+                            onChange: (next) => {
+                                setChannelPriceDraft(next);
+                                guard.markDirty();
+                            },
+                            attempted,
+                            ...(isCurrencyCode(reference.data?.defaultCurrencyCode)
+                                ? { currency: reference.data.defaultCurrencyCode }
+                                : {}),
+                        }}
+                    />
+                ) : data === undefined ? null : (
+                    <ChannelPricesSection itemId={data.id} />
+                )}
 
                 {/* ── sale ─────────────────────────────────────────────────────────────────── */}
                 <FormSection
@@ -1502,6 +1626,36 @@ function ProductEditor({
                     title={t('kitchen:sale.title')}
                 >
                     <Stack space="sm">
+                        {/*
+                         * Read-only: what the kitchen last paid, per the unit it was bought in, and
+                         * from whom (the hint). Not on a new item, and not for a member who may not
+                         * see costs.
+                         */}
+                        {isCreating || !canViewCosts ? null : (
+                            <FormGrid track="half" testID="kitchen-product-last-price-grid">
+                                <QuantityInput
+                                    testID="kitchen-product-unit-price"
+                                    id="kitchen-product-unit-price"
+                                    size="sm"
+                                    readOnly
+                                    label={t('kitchen:fields.unitPrice')}
+                                    placeholder={lastPricePlaceholder}
+                                    value={lastPriceValue}
+                                    {...(latestPurchase === null ||
+                                    latestPurchase.unitPriceAmount === null
+                                        ? {}
+                                        : {
+                                              unit: t('kitchen:fields.unitPricePer', {
+                                                  currency: latestPurchase.costCurrencyCode ?? '',
+                                                  unit: latestPurchase.unitCode ?? '',
+                                              }),
+                                              hint: lastPriceSource,
+                                          })}
+                                    onChangeText={() => {}}
+                                />
+                            </FormGrid>
+                        )}
+
                         {/*
                          * What one sold unit takes off the shelf (PROD1), on the half track — a
                          * figure and its unit, each one cell.
@@ -1610,6 +1764,7 @@ function ProductEditor({
                     <ChannelAvailabilityEditor
                         testID="kitchen-product-channel-editor"
                         rows={channels}
+                        offered={sellableChannels.data}
                         canManage={canManage}
                         onChange={(next) => {
                             setChannelRows(next);

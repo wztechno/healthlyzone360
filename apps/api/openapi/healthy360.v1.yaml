@@ -12129,6 +12129,12 @@ paths:
         than a convenience: an order nobody accepted is not an order anybody
         cooked.
 
+        **A delivery order only once it is ready (HA-29).** Its normal end is
+        the driver's Mark delivered; this is the kitchen closing it by hand.
+        Before `ready_at` is stamped it is `409`, and fulfilling it ends its
+        delivery run as `delivered`, so no driver can claim or pick it up
+        afterwards.
+
         **`If-Match` required**, and it matters slightly more here than on the
         other two: this row is the last word on whether a customer received their
         food, and a lost update against it is a delivery the book says happened
@@ -12143,6 +12149,52 @@ paths:
       responses:
         '200':
           description: The fulfilled order, with its new validator.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenOrderEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/orders/{order}/start:
+    post:
+      operationId: startKitchenOrder
+      tags: [Kitchen orders]
+      summary: Record that the kitchen started cooking an order
+      description: |
+        "Start" on the kitchen display (HA-24). Stamps `preparing_at` and leaves
+        the order `confirmed`; it is what the customer's tracking reads as
+        Cooking. A `placed` order is confirmed first, in the same press — the
+        stock and the delivery run move exactly as a confirm moves them. A
+        second press, or a press on a ready, fulfilled or cancelled order, is
+        `409`.
+
+        Requires `order.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The order, confirmed, with `preparing_at` and its new validator.
           headers:
             X-Correlation-Id:
               $ref: '#/components/headers/XCorrelationId'
@@ -15803,7 +15855,7 @@ paths:
                           $ref: '#/components/schemas/DriverJob'
                       available:
                         type: array
-                        description: Unassigned `pending` runs anybody here may claim.
+                        description: Unassigned `pending` runs anybody here may claim, once the kitchen has marked the food ready.
                         items:
                           $ref: '#/components/schemas/DriverJob'
                   meta:
@@ -15874,6 +15926,70 @@ paths:
           $ref: '#/components/responses/ResourceConflict'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /driver/jobs/{job}/pick-up:
+    post:
+      operationId: pickUpDriverJob
+      tags: [Delivery]
+      summary: Say the food is collected and on its way
+      description: |
+        The step between claiming a run and delivering it. Moves the job from
+        `assigned` to `in_transit`, its `tracking_status` to `en_route`, and
+        stamps `picked_up_at` — which is what puts the customer's order "Out
+        for delivery". The order itself stays `confirmed`; only deliver closes
+        it.
+
+        **Only the caller's own run, only once, and only once it is ready.**
+        A job that is not the caller's is `404`; one whose order the kitchen
+        has not marked ready, or that is not `assigned` (already picked up,
+        delivered or cancelled), is `409 resource.conflict`. No `If-Match`:
+        nobody races a driver for their own job. Audited as
+        `delivery.job_picked_up`.
+      parameters:
+        - $ref: '#/components/parameters/DeliveryJobPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The job, now on its way.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [job]
+                    properties:
+                      job:
+                        type: object
+                        required: [id, status]
+                        properties:
+                          id:
+                            $ref: '#/components/schemas/Uuid'
+                          status:
+                            allOf:
+                              - $ref: '#/components/schemas/DeliveryJobStatus'
+                            description: Always `in_transit` on success.
+                        additionalProperties: false
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -24379,6 +24495,12 @@ components:
           description: |
             The kitchen's own photo of this record (`GET /media/photos/{photo}`), or
             null to show the stock picture.
+        stock_photo_hidden:
+          type: boolean
+          description: |
+            True when the kitchen removed this record's picture: it then shows no
+            stock picture either, even when its slug names one. Uploading a photo
+            turns it back off.
         slug:
           type: string
           maxLength: 120
@@ -24897,6 +25019,30 @@ components:
           minLength: 3
           maxLength: 3
           description: ISO 4217 code. Required whenever any amount is sent.
+        purchase_price_amount:
+          type: ['number', 'null']
+          minimum: 0
+          maximum: 999999999999.999999
+          description: Packaging's pack price, per purchase pack, in major currency units. Requires `purchase_price_currency`.
+        purchase_price_currency:
+          type: ['string', 'null']
+          minLength: 3
+          maxLength: 3
+          description: ISO 4217 code. Required whenever `purchase_price_amount` is sent.
+        waste_percent:
+          type: ['number', 'null']
+          minimum: 0
+          exclusiveMaximum: 100
+          description: Packaging lost before use. `null` is unmeasured; `0` is measured and none.
+        capacity_quantity:
+          type: ['number', 'null']
+          minimum: 0.0001
+          maximum: 99999999.9999
+          description: How much one packaging item holds, in `capacity_unit_id`. Sent with it, or both `null`.
+        capacity_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
         is_sellable:
           type: boolean
           description: Offered for sale as-is, outside recipes.
@@ -24992,6 +25138,30 @@ components:
           minLength: 3
           maxLength: 3
           description: ISO 4217 code. Required whenever any amount is sent.
+        purchase_price_amount:
+          type: ['number', 'null']
+          minimum: 0
+          maximum: 999999999999.999999
+          description: Packaging's pack price, per purchase pack, in major currency units. Requires `purchase_price_currency`.
+        purchase_price_currency:
+          type: ['string', 'null']
+          minLength: 3
+          maxLength: 3
+          description: ISO 4217 code. Required whenever `purchase_price_amount` is sent.
+        waste_percent:
+          type: ['number', 'null']
+          minimum: 0
+          exclusiveMaximum: 100
+          description: Packaging lost before use. `null` is unmeasured; `0` is measured and none.
+        capacity_quantity:
+          type: ['number', 'null']
+          minimum: 0.0001
+          maximum: 99999999.9999
+          description: How much one packaging item holds, in `capacity_unit_id`. Sent with it, or both `null`.
+        capacity_unit_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
         is_sellable:
           type: boolean
           description: Offered for sale as-is, outside recipes.
@@ -26925,6 +27095,11 @@ components:
           $ref: '#/components/schemas/SalesChannelStatus'
       additionalProperties: false
 
+    MealTypeCode:
+      type: string
+      enum: [breakfast, lunch, dinner, snack]
+      description: When in the day a meal is eaten.
+
     AdminCatalogueItem:
       type: object
       required:
@@ -27090,6 +27265,11 @@ components:
         is_assorted:
           type: boolean
           description: True for a row that stands for a mixed selection rather than one article.
+        meal_types:
+          type: array
+          description: When in the day the item is eaten. Empty when none is stated.
+          items:
+            $ref: '#/components/schemas/MealTypeCode'
         status:
           $ref: '#/components/schemas/CatalogueItemStatus'
         review_reason:
@@ -27493,6 +27673,13 @@ components:
           type: boolean
         is_assorted:
           type: boolean
+        meal_types:
+          type: array
+          maxItems: 4
+          uniqueItems: true
+          description: The whole list; `[]` clears it.
+          items:
+            $ref: '#/components/schemas/MealTypeCode'
         image_placeholder_id:
           type: ['string', 'null']
           maxLength: 80
@@ -27590,6 +27777,13 @@ components:
           type: boolean
         is_assorted:
           type: boolean
+        meal_types:
+          type: array
+          maxItems: 4
+          uniqueItems: true
+          description: The whole list; `[]` clears it.
+          items:
+            $ref: '#/components/schemas/MealTypeCode'
         image_placeholder_id:
           type: ['string', 'null']
           maxLength: 80
@@ -29714,12 +29908,9 @@ components:
           type: string
         meal_types:
           type: array
-          description: |
-            Always empty. Nothing on a catalogue item records whether a dish is a
-            breakfast or a dinner; a kitchen selling a lunch box and a breakfast
-            box sells two items.
+          description: When in the day the meal is eaten, as the kitchen ticked it on the item.
           items:
-            type: string
+            $ref: '#/components/schemas/MealTypeCode'
         diet_classifications:
           type: array
           items:
@@ -31103,6 +31294,11 @@ components:
             changes it once, and the verification state travels with the row.
         window_code:
           type: ['string', 'null']
+        window_name_en:
+          type: ['string', 'null']
+          description: The kitchen's own name for the window (as checkout showed it); null when it named none.
+        window_name_ar:
+          type: ['string', 'null']
         requested_date:
           type: ['string', 'null']
           format: date
@@ -31121,6 +31317,11 @@ components:
                 Which slice of the kitchen's delivery map the address fell into,
                 and what set the fee. The seller's operating arrangement, so it
                 is not on the customer's shape.
+            zone_name_en:
+              type: ['string', 'null']
+              description: The zone's name, for reading; null when the order fell into no zone.
+            zone_name_ar:
+              type: ['string', 'null']
 
     StockItem:
       type: object
@@ -35178,6 +35379,10 @@ components:
         confirmed_at:
           type: ['string', 'null']
           format: date-time
+        preparing_at:
+          type: ['string', 'null']
+          format: date-time
+          description: When the kitchen pressed Start — cooking began. The order stays `confirmed`.
         ready_at:
           type: ['string', 'null']
           format: date-time
@@ -35185,6 +35390,14 @@ components:
         fulfilled_at:
           type: ['string', 'null']
           format: date-time
+        out_for_delivery_at:
+          type: ['string', 'null']
+          format: date-time
+          description: When the driver collected the food — the order is out for delivery from here. `null` until then, and always on a pickup or counter order.
+        delivered_at:
+          type: ['string', 'null']
+          format: date-time
+          description: When the driver handed it over. Times only; who drove it is an employee's name and is not served to a customer.
         cancelled_at:
           type: ['string', 'null']
           format: date-time
@@ -35200,6 +35413,28 @@ components:
           items:
             $ref: '#/components/schemas/CustomerOrderLine'
         created_at:
+          type: ['string', 'null']
+          format: date-time
+      additionalProperties: false
+
+    KitchenOrderDeliveryRun:
+      type: object
+      required: [status, tracking_status, driver_name, assigned_at, picked_up_at, delivered_at]
+      properties:
+        status:
+          $ref: '#/components/schemas/DeliveryJobStatus'
+        tracking_status:
+          $ref: '#/components/schemas/DeliveryJobTrackingStatus'
+        driver_name:
+          type: ['string', 'null']
+          description: The driver's name as their profile spells it. Null before anybody has the run, or when their profile has no name.
+        assigned_at:
+          type: ['string', 'null']
+          format: date-time
+        picked_up_at:
+          type: ['string', 'null']
+          format: date-time
+        delivered_at:
           type: ['string', 'null']
           format: date-time
       additionalProperties: false
@@ -35272,6 +35507,10 @@ components:
         confirmed_at:
           type: ['string', 'null']
           format: date-time
+        preparing_at:
+          type: ['string', 'null']
+          format: date-time
+          description: When the kitchen pressed Start — cooking began. The order stays `confirmed`.
         ready_at:
           type: ['string', 'null']
           format: date-time
@@ -35286,6 +35525,11 @@ components:
           oneOf:
             - $ref: '#/components/schemas/CancellationReason'
             - type: 'null'
+        delivery_run:
+          oneOf:
+            - $ref: '#/components/schemas/KitchenOrderDeliveryRun'
+            - type: 'null'
+          description: The order's delivery run. Null on a pickup or counter order, and on a delivery order not yet confirmed — a run is projected on confirm.
         created_by:
           type: ['string', 'null']
           format: uuid
@@ -39487,7 +39731,7 @@ components:
 
     DriverJob:
       type: object
-      required: [id, order_id, order_number, status, tracking_status, assigned_at, delivery]
+      required: [id, order_id, order_number, status, tracking_status, assigned_at, picked_up_at, ready_at, delivery]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -39504,6 +39748,14 @@ components:
           type: ['string', 'null']
           format: date-time
           description: When this run was handed to the caller. `null` on a job nobody has assigned.
+        picked_up_at:
+          type: ['string', 'null']
+          format: date-time
+          description: When the caller said they had collected the food (`POST /driver/jobs/{job}/pick-up`). `null` until then.
+        ready_at:
+          type: ['string', 'null']
+          format: date-time
+          description: When the kitchen marked the food ready. Picked up is refused until then, and a run is only offered under `available` once it is set.
         delivery:
           $ref: '#/components/schemas/DriverJobDelivery'
       additionalProperties: false

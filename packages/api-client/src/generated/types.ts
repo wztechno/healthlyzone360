@@ -437,6 +437,13 @@ export type AdminIngredient = {
      *
      */
     photo_url?: string | null;
+    /**
+     * True when the kitchen removed this record's picture: it then shows no
+     * stock picture either, even when its slug names one. Uploading a photo
+     * turns it back off.
+     *
+     */
+    stock_photo_hidden?: boolean;
     slug: string;
     name_en: string;
     /**
@@ -786,6 +793,23 @@ export type CreateIngredientRequest = {
      */
     price_currency_code?: string | null;
     /**
+     * Packaging's pack price, per purchase pack, in major currency units. Requires `purchase_price_currency`.
+     */
+    purchase_price_amount?: number | null;
+    /**
+     * ISO 4217 code. Required whenever `purchase_price_amount` is sent.
+     */
+    purchase_price_currency?: string | null;
+    /**
+     * Packaging lost before use. `null` is unmeasured; `0` is measured and none.
+     */
+    waste_percent?: number | null;
+    /**
+     * How much one packaging item holds, in `capacity_unit_id`. Sent with it, or both `null`.
+     */
+    capacity_quantity?: number | null;
+    capacity_unit_id?: Uuid | null;
+    /**
      * Offered for sale as-is, outside recipes.
      */
     is_sellable?: boolean;
@@ -842,6 +866,23 @@ export type UpdateIngredientRequest = {
      * ISO 4217 code. Required whenever any amount is sent.
      */
     price_currency_code?: string | null;
+    /**
+     * Packaging's pack price, per purchase pack, in major currency units. Requires `purchase_price_currency`.
+     */
+    purchase_price_amount?: number | null;
+    /**
+     * ISO 4217 code. Required whenever `purchase_price_amount` is sent.
+     */
+    purchase_price_currency?: string | null;
+    /**
+     * Packaging lost before use. `null` is unmeasured; `0` is measured and none.
+     */
+    waste_percent?: number | null;
+    /**
+     * How much one packaging item holds, in `capacity_unit_id`. Sent with it, or both `null`.
+     */
+    capacity_quantity?: number | null;
+    capacity_unit_id?: Uuid | null;
     /**
      * Offered for sale as-is, outside recipes.
      */
@@ -2186,6 +2227,11 @@ export type UpdateSalesChannelRequest = {
 };
 
 /**
+ * When in the day a meal is eaten.
+ */
+export type MealTypeCode = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+/**
  * The administrative shape of a sellable item. Carries **both** names and
  * ignores `Accept-Language` for them: a bilingual editor has to see what
  * it is editing.
@@ -2319,6 +2365,10 @@ export type AdminCatalogueItem = {
      * True for a row that stands for a mixed selection rather than one article.
      */
     is_assorted: boolean;
+    /**
+     * When in the day the item is eaten. Empty when none is stated.
+     */
+    meal_types?: Array<MealTypeCode>;
     status: CatalogueItemStatus;
     /**
      * Why the item is quarantined.
@@ -2598,6 +2648,10 @@ export type CreateCatalogueItemRequest = {
     usage_unit_id?: Uuid | null;
     is_market_priced?: boolean;
     is_assorted?: boolean;
+    /**
+     * The whole list; `[]` clears it.
+     */
+    meal_types?: Array<MealTypeCode>;
     image_placeholder_id?: string | null;
 };
 
@@ -2655,6 +2709,10 @@ export type UpdateCatalogueItemRequest = {
     usage_unit_id?: Uuid | null;
     is_market_priced?: boolean;
     is_assorted?: boolean;
+    /**
+     * The whole list; `[]` clears it.
+     */
+    meal_types?: Array<MealTypeCode>;
     image_placeholder_id?: string | null;
 };
 
@@ -4084,12 +4142,9 @@ export type MarketplaceMeal = {
     slug: string;
     description: string;
     /**
-     * Always empty. Nothing on a catalogue item records whether a dish is a
-     * breakfast or a dinner; a kitchen selling a lunch box and a breakfast
-     * box sells two items.
-     *
+     * When in the day the meal is eaten, as the kitchen ticked it on the item.
      */
-    meal_types: Array<string>;
+    meal_types: Array<MealTypeCode>;
     diet_classifications: Array<string>;
     cuisines: Array<string>;
     /**
@@ -5060,6 +5115,11 @@ export type CustomerOrderDelivery = {
      */
     contact_point_id: string | null;
     window_code: string | null;
+    /**
+     * The kitchen's own name for the window (as checkout showed it); null when it named none.
+     */
+    window_name_en?: string | null;
+    window_name_ar?: string | null;
     requested_date: string | null;
 };
 
@@ -5071,6 +5131,11 @@ export type KitchenOrderDelivery = CustomerOrderDelivery & {
      *
      */
     zone_id: string | null;
+    /**
+     * The zone's name, for reading; null when the order fell into no zone.
+     */
+    zone_name_en?: string | null;
+    zone_name_ar?: string | null;
 };
 
 /**
@@ -7985,15 +8050,39 @@ export type CustomerOrder = {
     placed_at: string;
     confirmed_at: string | null;
     /**
+     * When the kitchen pressed Start — cooking began. The order stays `confirmed`.
+     */
+    preparing_at?: string | null;
+    /**
      * When the kitchen marked it ready. The order stays `confirmed` until it is handed over (`fulfilled_at`).
      */
     ready_at?: string | null;
     fulfilled_at: string | null;
+    /**
+     * When the driver collected the food — the order is out for delivery from here. `null` until then, and always on a pickup or counter order.
+     */
+    out_for_delivery_at?: string | null;
+    /**
+     * When the driver handed it over. Times only; who drove it is an employee's name and is not served to a customer.
+     */
+    delivered_at?: string | null;
     cancelled_at: string | null;
     cancellation_reason: CancellationReason | null;
     line_count: number;
     lines: Array<CustomerOrderLine>;
     created_at: string | null;
+};
+
+export type KitchenOrderDeliveryRun = {
+    status: DeliveryJobStatus;
+    tracking_status: DeliveryJobTrackingStatus;
+    /**
+     * The driver's name as their profile spells it. Null before anybody has the run, or when their profile has no name.
+     */
+    driver_name: string | null;
+    assigned_at: string | null;
+    picked_up_at: string | null;
+    delivered_at: string | null;
 };
 
 /**
@@ -8038,12 +8127,20 @@ export type KitchenOrder = {
     placed_at: string;
     confirmed_at: string | null;
     /**
+     * When the kitchen pressed Start — cooking began. The order stays `confirmed`.
+     */
+    preparing_at?: string | null;
+    /**
      * When the kitchen marked it ready. The order stays `confirmed` until it is handed over (`fulfilled_at`).
      */
     ready_at?: string | null;
     fulfilled_at: string | null;
     cancelled_at: string | null;
     cancellation_reason: CancellationReason | null;
+    /**
+     * The order's delivery run. Null on a pickup or counter order, and on a delivery order not yet confirmed — a run is projected on confirm.
+     */
+    delivery_run?: KitchenOrderDeliveryRun | null;
     created_by: string | null;
     /**
      * The member of staff who took this order **for** somebody else, and
@@ -11094,6 +11191,14 @@ export type DriverJob = {
      * When this run was handed to the caller. `null` on a job nobody has assigned.
      */
     assigned_at: string | null;
+    /**
+     * When the caller said they had collected the food (`POST /driver/jobs/{job}/pick-up`). `null` until then.
+     */
+    picked_up_at: string | null;
+    /**
+     * When the kitchen marked the food ready. Picked up is refused until then, and a run is only offered under `available` once it is set.
+     */
+    ready_at: string | null;
     delivery: DriverJobDelivery;
 };
 
@@ -29205,6 +29310,102 @@ export type FulfilKitchenOrderResponses = {
 
 export type FulfilKitchenOrderResponse = FulfilKitchenOrderResponses[keyof FulfilKitchenOrderResponses];
 
+export type StartKitchenOrderData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/orders/{order}/start';
+};
+
+export type StartKitchenOrderErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type StartKitchenOrderError = StartKitchenOrderErrors[keyof StartKitchenOrderErrors];
+
+export type StartKitchenOrderResponses = {
+    /**
+     * The order, confirmed, with `preparing_at` and its new validator.
+     */
+    200: KitchenOrderEnvelope;
+};
+
+export type StartKitchenOrderResponse = StartKitchenOrderResponses[keyof StartKitchenOrderResponses];
+
 export type MarkKitchenOrderReadyData = {
     body?: never;
     headers: {
@@ -32545,7 +32746,7 @@ export type ListDriverJobsResponses = {
         data: {
             jobs: Array<DriverJob>;
             /**
-             * Unassigned `pending` runs anybody here may claim.
+             * Unassigned `pending` runs anybody here may claim, once the kitchen has marked the food ready.
              */
             available: Array<DriverJob>;
         };
@@ -32652,6 +32853,100 @@ export type ClaimDriverJobResponses = {
 };
 
 export type ClaimDriverJobResponse = ClaimDriverJobResponses[keyof ClaimDriverJobResponses];
+
+export type PickUpDriverJobData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery job identifier. On the driver routes, one that is not the
+         * caller's own answers 404, decided before the request body is looked at;
+         * on the dispatcher's `assign`, one belonging to another organisation
+         * answers 404 for the same reason — a 403 would confirm that the
+         * identifier names something real.
+         *
+         */
+        job: Uuid;
+    };
+    query?: never;
+    url: '/driver/jobs/{job}/pick-up';
+};
+
+export type PickUpDriverJobErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type PickUpDriverJobError = PickUpDriverJobErrors[keyof PickUpDriverJobErrors];
+
+export type PickUpDriverJobResponses = {
+    /**
+     * The job, now on its way.
+     */
+    200: {
+        data: {
+            job: {
+                id: Uuid;
+                /**
+                 * Always `in_transit` on success.
+                 */
+                status: DeliveryJobStatus;
+            };
+        };
+        meta: Meta;
+    };
+};
+
+export type PickUpDriverJobResponse = PickUpDriverJobResponses[keyof PickUpDriverJobResponses];
 
 export type DeliverDriverJobData = {
     body?: DeliverDriverJobRequest;

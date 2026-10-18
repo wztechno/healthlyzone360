@@ -62,12 +62,14 @@ import {
 } from './entity-registry.ts';
 import { GateRailCard } from './gate-rail-card.tsx';
 import {
+    adminReferenceUnits,
     displayName,
     isTranslationIncomplete,
     mealTypeKey,
     parseClockTime,
     parseQuantity,
     parseWholeNumber,
+    unitCodeLabel,
     unitDimension,
     unitKey,
 } from './format.ts';
@@ -369,12 +371,14 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
         reference.data?.measurementUnits;
     const unitOptions: readonly SelectOption[] = useMemo(
         () =>
-            (referenceUnits ?? []).map((unit) => ({
+            // The admin's Kg, L, Pc — not every row the server holds (kcal, cm, mg…) — plus the one
+            // already chosen, if it is something else.
+            adminReferenceUnits(referenceUnits ?? [], details.netContentUnitId).map((unit) => ({
                 value: unit.id,
-                label: unit.code,
+                label: unitCodeLabel(unit.code, t),
                 description: unit.nameEn,
             })),
-        [referenceUnits],
+        [referenceUnits, details.netContentUnitId, t],
     );
     const unitsUnavailable = !canReadUnits;
 
@@ -471,12 +475,9 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
      * Unsaved changes are a blocker because publishing publishes what the server holds, not what is
      * on screen — the same rule the recipe editor states.
      *
-     * **Meal types are not one of them**, and that is a statement about the contract rather than a
-     * relaxation. Nothing on `catalogue_items` records whether a dish is a breakfast or a dinner —
-     * the marketplace names `meal_types` among the filters it accepts and cannot honour, and the
-     * admin item shape has no field for it — so `MealAdmin.mealTypes` is empty for every meal this
-     * API can answer with. Blocking on it disabled the confirm button of every publish dialog in the
-     * workspace behind a reason nobody could clear. The gates that are real live on the server
+     * **Meal types are not one of them.** They are stored on the item now (HA-35), but a meal with
+     * none is still sellable — the server's readiness gate does not ask for one — and blocking on
+     * it here would refuse what the server accepts. The gates that are real live on the server
      * (`CatalogueItemReadiness`), and its refusal is rendered below.
      */
     const publishBlockers = useMemo(() => {

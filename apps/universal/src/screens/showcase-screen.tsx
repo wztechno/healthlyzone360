@@ -2570,6 +2570,49 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
             </Stack>
 
             {/*
+             * The driver shell: the run sheet scrolls above the thumb-reachable tabs (HA-25). Framed
+             * shorter than its content on purpose — the last row must be reachable by scrolling,
+             * and never sit under the tab bar.
+             */}
+            <Stack space="xs">
+                <Text variant="section" tone="secondary">
+                    Driver shell
+                </Text>
+                <View
+                    className="overflow-hidden rounded border border-stroke-subtle"
+                    style={{ height: 320 }}
+                >
+                    <AppShell
+                        testID={id('driver-shell')}
+                        variant="driver"
+                        navigation={[
+                            {
+                                key: 'runs',
+                                label: 'Deliveries',
+                                icon: 'bike',
+                                active: true,
+                                onPress: () => undefined,
+                            },
+                            {
+                                key: 'profile',
+                                label: 'Profile',
+                                icon: 'user',
+                                onPress: () => undefined,
+                            },
+                        ]}
+                    >
+                        <Stack space="sm" className="p-4">
+                            {['Run 1', 'Run 2', 'Run 3', 'Run 4', 'Run 5'].map((run) => (
+                                <Card key={run} padding="md">
+                                    <Text variant="bodyStrong">{run}</Text>
+                                </Card>
+                            ))}
+                        </Stack>
+                    </AppShell>
+                </View>
+            </Stack>
+
+            {/*
              * The read-only record page behind every kitchen-admin row's View
              * (`IngredientView.dc.html`): a main column of cards beside a status rail, which drops
              * under the main column below `xl`. Back and Edit are inert here.

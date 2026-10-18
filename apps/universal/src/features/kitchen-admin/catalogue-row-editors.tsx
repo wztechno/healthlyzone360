@@ -17,15 +17,15 @@ import {
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { SALES_CHANNELS } from '@healthy360/domain-types';
 import type { SalesChannel } from '@healthy360/domain-types';
-import { MEASURE_UNITS } from '@healthy360/nutrition';
 import type { MeasureUnit } from '@healthy360/nutrition';
-import { useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import {
     UNIT_DIMENSIONS,
+    adminUnitsWith,
     channelKey,
     parseClockTime,
     parseQuantity,
@@ -96,19 +96,26 @@ export interface PackEditorProps {
 /** The pack table's editable columns, by their column key. */
 export type PackColumn = 'code' | 'label' | 'quantity' | 'unit' | 'units-per-pack';
 
-/** Every measure unit, annotated by the dimension it belongs to. Same grouping as the line editor. */
-function useUnitOptions(): readonly SelectOption[] {
+/**
+ * The admin's units (Kg, L, Pc), annotated by the dimension they belong to — plus the row's own unit
+ * when it was saved in something else, so the cell never blanks over a set value.
+ */
+function useUnitOptions(): (current: MeasureUnit) => readonly SelectOption[] {
     const { t } = useTranslation();
 
-    return useMemo(
-        () =>
-            UNIT_DIMENSIONS.flatMap((dimension) =>
-                MEASURE_UNITS.filter((unit) => unitDimension(unit) === dimension).map((unit) => ({
-                    value: unit,
-                    label: t(unitKey(unit)),
-                    description: t(unitDimensionKey(dimension)),
-                })),
-            ),
+    return useCallback(
+        (current: MeasureUnit) => {
+            const units = adminUnitsWith(current);
+            return UNIT_DIMENSIONS.flatMap((dimension) =>
+                units
+                    .filter((unit) => unitDimension(unit) === dimension)
+                    .map((unit) => ({
+                        value: unit,
+                        label: t(unitKey(unit)),
+                        description: t(unitDimensionKey(dimension)),
+                    })),
+            );
+        },
         [t],
     );
 }
@@ -281,7 +288,7 @@ export function PackVariantEditor({
                         placeholder={t('kitchen:fields.unitPlaceholder')}
                         labelHidden
                         searchable
-                        options={unitOptions}
+                        options={unitOptions(row.netUnit)}
                         value={row.netUnit}
                         disabled={!canManage}
                         {...flagOf(row, 'unit')}
@@ -379,7 +386,7 @@ export function emptyPack(key: string): PackDraft {
         code: '',
         label: { en: '', ar: '' },
         netQuantity: '',
-        netUnit: 'g',
+        netUnit: 'kg',
         unitsPerPack: '1',
     };
 }
@@ -444,17 +451,25 @@ export interface ChannelEditorProps {
     readonly onChange: (rows: readonly ChannelDraft[]) => void;
     readonly canManage: boolean;
     readonly testID: string;
+    /**
+     * The channels this organisation can sell on. Omitted (or still loading) draws all eight.
+     * A tick on a channel the organisation has no row for was thrown away on save (HA-33).
+     */
+    readonly offered?: readonly SalesChannel[] | undefined;
 }
 
 /**
  * Which routes to market a product is sold through, and between which dates.
  *
- * ## Every channel is a row, including the ones that are off
+ * ## Every offered channel is a row, including the ones that are off
  *
- * The vocabulary is `SALES_CHANNELS` — the platform's own enum, eight values, closed — and the
- * editor renders all eight rather than only the ones a record already carries. "Not sold over the
- * counter" and "nobody has decided about the counter" look identical in a list that hides the
- * unticked ones, and the first is a decision while the second is an omission.
+ * The vocabulary is `SALES_CHANNELS` — the platform's own enum, eight values, closed — narrowed to
+ * the channels the organisation actually has (`offered`), since a tick anywhere else has nothing to
+ * be written against. Within that, every channel is drawn rather than only the ones a record already
+ * carries: "not sold over the counter" and "nobody has decided about the counter" look identical in
+ * a list that hides the unticked ones, and the first is a decision while the second is an omission.
+ * A channel the record is already on stays drawn even if it is not offered, so nothing on the
+ * record is hidden.
  *
  * ## The dates are optional and mean what the contract says
  *
@@ -467,10 +482,18 @@ export function ChannelAvailabilityEditor({
     onChange,
     canManage,
     testID,
+    offered,
 }: ChannelEditorProps) {
     const { t } = useTranslation();
 
     const byChannel = new Map(rows.map((row) => [row.channel, row]));
+    const shown =
+        offered === undefined
+            ? SALES_CHANNELS
+            : SALES_CHANNELS.filter(
+                  (channel) =>
+                      offered.includes(channel) || (byChannel.get(channel)?.isAvailable ?? false),
+              );
 
     /*
      * A grid of equal cells, four to a row at most — two rows of four on a desk screen, fewer
@@ -481,7 +504,7 @@ export function ChannelAvailabilityEditor({
      */
     return (
         <View testID={testID} className="max-w-[904px] flex-row flex-wrap gap-tight">
-            {SALES_CHANNELS.map((channel) => {
+            {shown.map((channel) => {
                 const row = byChannel.get(channel) ?? {
                     channel,
                     isAvailable: false,

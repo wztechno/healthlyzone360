@@ -177,6 +177,27 @@ class StoreIngredientRequest extends FormRequest
     }
 
     /**
+     * Packaging's pack price, waste and capacity (HA-30).
+     *
+     * Each pair is required together because the database CHECKs refuse half of one: a price
+     * with no currency, a capacity with no unit. Saying so here makes it a 422, not a 500.
+     * Waste stops short of 100, as `recipe_versions.packaging_waste_percent` does.
+     *
+     * @return array<string, mixed>
+     */
+    public static function packagingRules(): array
+    {
+        return [
+            'purchase_price_amount' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:999999999999.999999'],
+            'purchase_price_currency' => ['required_with:purchase_price_amount', 'nullable', 'string', 'size:3', Rule::exists('currencies', 'code')],
+            'waste_percent' => ['sometimes', 'nullable', 'numeric', 'min:0', 'lt:100'],
+            // No `sometimes`: it would skip the absent half, and `required_with` is what catches it.
+            'capacity_quantity' => ['required_with:capacity_unit_id', 'nullable', 'numeric', 'min:0.0001', 'max:99999999.9999'],
+            'capacity_unit_id' => ['required_with:capacity_quantity', 'nullable', 'uuid', Rule::exists('measurement_units', 'id')],
+        ];
+    }
+
+    /**
      * Authorisation is the route's `permission` middleware and the service's
      * platform-row rule; a form request that also guessed would give two
      * answers to one question.
@@ -215,6 +236,7 @@ class StoreIngredientRequest extends FormRequest
             'is_sellable' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
             ...self::priceRules(),
+            ...self::packagingRules(),
             ...self::referenceRules(),
             'allergen_reference_token' => ['required_with:allergen_reference_confirmed', 'string', 'max:30000'],
             'allergen_reference_confirmed' => ['required_with:allergen_reference_token', 'boolean', function (string $attribute, mixed $value, Closure $fail): void {

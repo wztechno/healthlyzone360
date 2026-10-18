@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
+use Healthy360\Delivery\Models\DeliveryJob;
 use Healthy360\Orders\Enums\PaymentMethod;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Services\OrderPaymentReceipts;
@@ -83,8 +85,13 @@ it('walks an order from placed through confirmed to fulfilled, one validator at 
     expect($afterConfirm)->toBe('"'.($order->lock_version + 1).'"')
         ->and($confirmed->json('data.order.lock_version'))->toBe($order->lock_version + 1);
 
-    $fulfilled = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/fulfil', [], $this->kitchenHeaders + [
+    // A delivery order is closed by hand only once it is cooked (HA-29).
+    $ready = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/ready', [], $this->kitchenHeaders + [
         'If-Match' => $afterConfirm,
+    ])->assertOk();
+
+    $fulfilled = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/fulfil', [], $this->kitchenHeaders + [
+        'If-Match' => $ready->headers->get('ETag'),
     ])
         ->assertOk()
         ->assertJsonPath('data.order.status', 'fulfilled')
@@ -94,8 +101,8 @@ it('walks an order from placed through confirmed to fulfilled, one validator at 
         // answerable a month later.
         ->assertJsonPath('data.order.confirmed_at', $confirmed->json('data.order.confirmed_at'))
         ->assertJsonPath('data.order.cancelled_at', null)
-        ->assertJsonPath('data.order.lock_version', $order->lock_version + 2)
-        ->assertHeader('ETag', '"'.($order->lock_version + 2).'"');
+        ->assertJsonPath('data.order.lock_version', $order->lock_version + 3)
+        ->assertHeader('ETag', '"'.($order->lock_version + 3).'"');
 
     // The kitchen's own read agrees with what the command just returned.
     $this->getJson('/api/v1/catalogue/orders/'.$order->getKey(), $this->kitchenHeaders)
@@ -192,8 +199,12 @@ it('refuses a move the state machine has no edge for, and names both ends', func
         'If-Match' => '"'.$order->lock_version.'"',
     ])->assertOk();
 
-    $fulfilled = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/fulfil', [], $this->kitchenHeaders + [
+    $ready = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/ready', [], $this->kitchenHeaders + [
         'If-Match' => $confirmed->headers->get('ETag'),
+    ])->assertOk();
+
+    $fulfilled = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/fulfil', [], $this->kitchenHeaders + [
+        'If-Match' => $ready->headers->get('ETag'),
     ])->assertOk();
 
     $terminal = $fulfilled->headers->get('ETag');
@@ -281,8 +292,12 @@ it('receipts the cash still outstanding when a cash order is fulfilled, and leav
             'If-Match' => '"'.$order->lock_version.'"',
         ])->assertOk();
 
-        $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/fulfil', [], $this->kitchenHeaders + [
+        $ready = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/ready', [], $this->kitchenHeaders + [
             'If-Match' => $confirmed->headers->get('ETag'),
+        ])->assertOk();
+
+        $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/fulfil', [], $this->kitchenHeaders + [
+            'If-Match' => $ready->headers->get('ETag'),
         ])->assertOk();
     };
 
@@ -333,4 +348,170 @@ it('marks a confirmed order ready without handing it over, then hands it over', 
     ])
         ->assertOk()
         ->assertJsonPath('data.order.status', 'fulfilled');
+});
+
+it('starts a confirmed order without moving its status, once (HA-24)', function (): void {
+    $order = OrderWorld::place($this->world);
+
+    $confirmed = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/confirm', [], $this->kitchenHeaders + [
+        'If-Match' => '"'.$order->lock_version.'"',
+    ])
+        ->assertOk()
+        // Accepted, not yet cooking: the kitchen display keeps it in Incoming.
+        ->assertJsonPath('data.order.preparing_at', null);
+
+    $started = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/start', [], $this->kitchenHeaders + [
+        'If-Match' => $confirmed->headers->get('ETag'),
+    ])
+        ->assertOk()
+        ->assertJsonPath('data.order.status', 'confirmed')
+        ->assertJsonPath('data.order.preparing_at', fn (mixed $at): bool => is_string($at))
+        ->assertJsonPath('data.order.ready_at', null);
+
+    // A second press is a conflict, not a second stamp.
+    $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/start', [], $this->kitchenHeaders + [
+        'If-Match' => $started->headers->get('ETag'),
+    ])->assertStatus(409);
+
+    // The customer reads the same moment.
+    $this->actingAs(User::query()->whereKey($this->world->customer->account->user_id)->sole());
+    $this->getJson('/api/v1/me/orders/'.$order->getKey(), firstPartyHeaders())
+        ->assertOk()
+        ->assertJsonPath('data.order.preparing_at', fn (mixed $at): bool => is_string($at));
+});
+
+it('confirms a placed order and starts it in one press from the kitchen display (HA-24)', function (): void {
+    $order = OrderWorld::place($this->world);
+
+    $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/start', [], $this->kitchenHeaders + [
+        'If-Match' => '"'.$order->lock_version.'"',
+    ])
+        ->assertOk()
+        ->assertJsonPath('data.order.status', 'confirmed')
+        ->assertJsonPath('data.order.confirmed_at', fn (mixed $at): bool => is_string($at))
+        ->assertJsonPath('data.order.preparing_at', fn (mixed $at): bool => is_string($at))
+        // Confirm then start: two writes, so the validator moved twice.
+        ->assertHeader('ETag', '"'.($order->lock_version + 2).'"');
+});
+
+it('will not start an order that is already ready', function (): void {
+    $order = OrderWorld::place($this->world);
+
+    $confirmed = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/confirm', [], $this->kitchenHeaders + [
+        'If-Match' => '"'.$order->lock_version.'"',
+    ])->assertOk();
+    $ready = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/ready', [], $this->kitchenHeaders + [
+        'If-Match' => $confirmed->headers->get('ETag'),
+    ])->assertOk();
+
+    $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/start', [], $this->kitchenHeaders + [
+        'If-Match' => $ready->headers->get('ETag'),
+    ])
+        ->assertStatus(409)
+        ->assertJsonPath('error.code', 'resource.conflict');
+});
+
+it('names the delivery zone on the kitchen record and its list, never just the code (HA-21)', function (): void {
+    $order = OrderWorld::place($this->world);
+
+    expect($order->delivery_zone_id)->not->toBeNull();
+
+    $this->getJson('/api/v1/catalogue/orders/'.$order->getKey(), $this->kitchenHeaders)
+        ->assertOk()
+        ->assertJsonPath('data.order.delivery.zone_name_en', $this->world->zone->name_en)
+        ->assertJsonPath('data.order.delivery.zone_name_ar', $this->world->zone->name_ar);
+
+    $this->getJson('/api/v1/catalogue/orders', $this->kitchenHeaders)
+        ->assertOk()
+        ->assertJsonPath('data.0.delivery.zone_name_en', $this->world->zone->name_en);
+});
+
+it('will not close a delivery order by hand before it is ready (HA-29)', function (): void {
+    $order = OrderWorld::place($this->world);
+
+    $confirmed = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/confirm', [], $this->kitchenHeaders + [
+        'If-Match' => '"'.$order->lock_version.'"',
+    ])->assertOk();
+
+    $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/fulfil', [], $this->kitchenHeaders + [
+        'If-Match' => $confirmed->headers->get('ETag'),
+    ])
+        ->assertStatus(409)
+        ->assertJsonPath('error.code', 'resource.conflict');
+
+    $run = DeliveryJob::withoutTenancy()->where('order_id', $order->getKey())->sole();
+
+    expect($order->fresh()->status->value)->toBe('confirmed')
+        ->and($run->status)->toBe('pending');
+});
+
+it('ends the delivery run when the kitchen closes a delivery order by hand (HA-29)', function (): void {
+    $order = OrderWorld::place($this->world);
+    $driverId = (string) $this->world->tenant->user->getKey();
+
+    $confirmed = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/confirm', [], $this->kitchenHeaders + [
+        'If-Match' => '"'.$order->lock_version.'"',
+    ])->assertOk();
+    $ready = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/ready', [], $this->kitchenHeaders + [
+        'If-Match' => $confirmed->headers->get('ETag'),
+    ])->assertOk();
+
+    // Ready and unclaimed: it is in the pool any driver may take.
+    $this->getJson('/api/v1/driver/jobs', $this->kitchenHeaders)->assertOk()
+        ->assertJsonCount(1, 'data.available');
+
+    $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/fulfil', [], $this->kitchenHeaders + [
+        'If-Match' => $ready->headers->get('ETag'),
+    ])
+        ->assertOk()
+        ->assertJsonPath('data.order.status', 'fulfilled')
+        ->assertJsonPath('data.order.delivery_run.status', 'delivered')
+        ->assertJsonPath('data.order.delivery_run.delivered_at', fn (mixed $at): bool => is_string($at));
+
+    $run = DeliveryJob::withoutTenancy()->where('order_id', $order->getKey())->sole();
+
+    // Gone from every sheet, and nothing a driver presses brings it back.
+    $this->getJson('/api/v1/driver/jobs', $this->kitchenHeaders)->assertOk()
+        ->assertJsonCount(0, 'data.available')
+        ->assertJsonCount(0, 'data.jobs');
+    $this->postJson("/api/v1/driver/jobs/{$run->getKey()}/claim", [], $this->kitchenHeaders)
+        ->assertStatus(409)
+        ->assertJsonPath('error.message', 'This run is already closed.');
+
+    // A driver who had already claimed it fares no better from a stale sheet.
+    $run->forceFill(['driver_user_id' => $driverId])->save();
+    $this->postJson("/api/v1/driver/jobs/{$run->getKey()}/pick-up", [], $this->kitchenHeaders)
+        ->assertStatus(409)
+        ->assertJsonPath('error.code', 'resource.conflict');
+    $this->postJson("/api/v1/driver/jobs/{$run->getKey()}/deliver", [], $this->kitchenHeaders)
+        ->assertStatus(409);
+
+    expect($run->fresh()->status)->toBe('delivered')
+        ->and($run->fresh()->picked_up_at)->toBeNull();
+});
+
+it('ends a run a driver is already carrying when the kitchen closes the order (HA-29)', function (): void {
+    $order = OrderWorld::place($this->world);
+    $driverId = (string) $this->world->tenant->user->getKey();
+
+    $confirmed = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/confirm', [], $this->kitchenHeaders + [
+        'If-Match' => '"'.$order->lock_version.'"',
+    ])->assertOk();
+    $ready = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/ready', [], $this->kitchenHeaders + [
+        'If-Match' => $confirmed->headers->get('ETag'),
+    ])->assertOk();
+
+    $run = DeliveryJob::withoutTenancy()->where('order_id', $order->getKey())->sole();
+    $this->postJson("/api/v1/driver/jobs/{$run->getKey()}/claim", [], $this->kitchenHeaders)->assertOk();
+    $this->postJson("/api/v1/driver/jobs/{$run->getKey()}/pick-up", [], $this->kitchenHeaders)->assertOk();
+    $this->getJson('/api/v1/driver/jobs', $this->kitchenHeaders)->assertOk()->assertJsonCount(1, 'data.jobs');
+
+    $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/fulfil', [], $this->kitchenHeaders + [
+        'If-Match' => $ready->headers->get('ETag'),
+    ])->assertOk();
+
+    $this->getJson('/api/v1/driver/jobs', $this->kitchenHeaders)->assertOk()->assertJsonCount(0, 'data.jobs');
+
+    expect($run->fresh()->status)->toBe('delivered')
+        ->and($run->fresh()->driver_user_id)->toBe($driverId);
 });

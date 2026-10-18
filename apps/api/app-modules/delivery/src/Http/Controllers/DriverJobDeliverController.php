@@ -31,6 +31,12 @@ final class DriverJobDeliverController
             throw new ApiException(ErrorCode::ResourceNotFound);
         }
 
+        // The kitchen may have closed it by hand (HA-29); a stale sheet must not
+        // re-stamp a run that has already ended.
+        if (in_array($record->status, ['delivered', 'cancelled'], true)) {
+            throw new ApiException(ErrorCode::ResourceConflict, 'This run is already closed.');
+        }
+
         $validated = $request->validate([
             'proof_of_delivery_notes' => ['nullable', 'string', 'max:1000'],
         ]);

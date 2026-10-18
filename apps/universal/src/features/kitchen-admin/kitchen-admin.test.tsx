@@ -1234,6 +1234,235 @@ describe('the ingredient editor', () => {
         }
     });
 
+    it('shows the saved photo in the slot, and saves a replacement over it', async () => {
+        const id = ingredientId(3);
+        const stored = ingredient(3, { photoUrl: 'https://media.test/photos/old' });
+
+        const realFetch = global.fetch;
+        global.fetch = jest.fn(async () => ({
+            blob: async () => new Blob(['x'], { type: 'image/png' }),
+        })) as unknown as typeof fetch;
+
+        try {
+            const { repositories } = await renderStubScreen(
+                <IngredientEditScreen ingredient={String(id)} />,
+                {
+                    session: kitchenManagerSession(),
+                    repositories: {
+                        kitchenAdmin: {
+                            ...editorReads(() => [stored]),
+                            getIngredient: async () => stored,
+                            setRecordPhoto: async () => 'https://media.test/photos/new',
+                            removeRecordPhoto: async () => undefined,
+                        },
+                    },
+                },
+            );
+
+            await untilVisible('kitchen-ingredient-image-preview');
+            expect(screen.getByTestId('kitchen-ingredient-image-preview').props.source).toEqual({
+                uri: 'https://media.test/photos/old',
+            });
+
+            pickerMock.getDocumentAsync.mockResolvedValue({
+                canceled: false,
+                assets: [{ uri: 'blob:replacement', name: 'photo.png', mimeType: 'image/png' }],
+            });
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-ingredient-image-pick'));
+            });
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-ingredient-image-preview').props.source).toEqual(
+                    { uri: 'blob:replacement' },
+                );
+            });
+
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+            });
+
+            await waitFor(() => {
+                expect(repositories.kitchenAdmin.setRecordPhoto).toHaveBeenCalledWith(
+                    expect.objectContaining({ subject: 'ingredient', recordId: String(id) }),
+                );
+            });
+            expect(repositories.kitchenAdmin.removeRecordPhoto).not.toHaveBeenCalled();
+        } finally {
+            global.fetch = realFetch;
+        }
+    });
+
+    it('shows the stock picture a copy inherited, and Clear takes it off (the Peach photo)', async () => {
+        const id = ingredientId(3);
+        // A kitchen's copy of the platform's Peach, renamed: it keeps the slug, and so the picture.
+        const stored = ingredient(3, { name: { en: 'FaresR', ar: '' }, slug: 'peach' });
+
+        const { repositories } = await renderStubScreen(
+            <IngredientEditScreen ingredient={String(id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [stored]),
+                        getIngredient: async () => stored,
+                        updateIngredient: async () => stored,
+                        setRecordPhoto: async () => 'https://media.test/photos/1',
+                        removeRecordPhoto: async () => undefined,
+                    },
+                },
+            },
+        );
+
+        // The slot shows what the list shows, rather than an empty frame beside a peach in the list.
+        await untilVisible('kitchen-ingredient-image-stock');
+        expect(screen.queryByTestId('kitchen-ingredient-image-preview')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-image-clear'));
+        });
+        expect(screen.queryByTestId('kitchen-ingredient-image-stock')).toBeNull();
+        expect(screen.getByTestId('kitchen-ingredient-editor-screen-dirty')).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+        });
+
+        // There is no upload to remove; the removal is what takes the stock picture off.
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.removeRecordPhoto).toHaveBeenCalledWith(
+                'ingredient',
+                String(id),
+            );
+        });
+        expect(repositories.kitchenAdmin.setRecordPhoto).not.toHaveBeenCalled();
+        // Only the photo changed, so the record itself is not rewritten.
+        expect(repositories.kitchenAdmin.updateIngredient).not.toHaveBeenCalled();
+    });
+
+    it('leaves the slot empty once the kitchen has taken the stock picture off', async () => {
+        const id = ingredientId(3);
+        const stored = ingredient(3, { slug: 'peach', stockPhotoHidden: true });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: { ...editorReads(() => [stored]), getIngredient: async () => stored },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-image');
+        expect(screen.queryByTestId('kitchen-ingredient-image-stock')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ingredient-image-preview')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ingredient-image-clear')).toBeNull();
+    });
+
+    it('writes a photo picked on a new record against the record it created', async () => {
+        const created = ingredient(9, {
+            name: { en: 'Toasted burghul', ar: '' },
+            reference: null,
+            meta: meta({ status: 'draft' }),
+        });
+
+        const realFetch = global.fetch;
+        global.fetch = jest.fn(async () => ({
+            blob: async () => new Blob(['x'], { type: 'image/png' }),
+        })) as unknown as typeof fetch;
+
+        try {
+            const { repositories } = await renderStubScreen(
+                <IngredientEditScreen ingredient="new" />,
+                {
+                    session: kitchenManagerSession(),
+                    repositories: {
+                        kitchenAdmin: {
+                            ...editorReads(() => [ingredient(1)]),
+                            createIngredient: async () => created,
+                            searchNutritionReferences: async () => [USDA_CANDIDATE],
+                            setRecordPhoto: async () => 'https://media.test/photos/9',
+                            removeRecordPhoto: async () => undefined,
+                        },
+                    },
+                },
+            );
+
+            await untilVisible('kitchen-ingredient-name-en-input');
+            // A new record has no slug yet, so no stock picture: the slot opens empty.
+            expect(screen.queryByTestId('kitchen-ingredient-image-stock')).toBeNull();
+
+            pickerMock.getDocumentAsync.mockResolvedValue({
+                canceled: false,
+                assets: [{ uri: 'blob:new-photo', name: 'photo.png', mimeType: 'image/png' }],
+            });
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-ingredient-image-pick'));
+            });
+            await untilVisible('kitchen-ingredient-image-preview');
+
+            await act(async () => {
+                fireEvent.changeText(
+                    screen.getByTestId('kitchen-ingredient-name-en-input'),
+                    'Toasted burghul',
+                );
+            });
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-ingredient-category-trigger'));
+            });
+            await untilVisible('kitchen-ingredient-category-option-store-cupboard');
+            await act(async () => {
+                fireEvent.press(
+                    screen.getByTestId('kitchen-ingredient-category-option-store-cupboard'),
+                );
+            });
+            await selectUsdaReference();
+
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+            });
+
+            await waitFor(() => {
+                expect(repositories.kitchenAdmin.setRecordPhoto).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        subject: 'ingredient',
+                        recordId: String(created.id),
+                    }),
+                );
+            });
+            expect(repositories.kitchenAdmin.removeRecordPhoto).not.toHaveBeenCalled();
+            await waitFor(() => {
+                expect(routerMock.__replace).toHaveBeenCalledWith(
+                    `/kitchen/ingredients/${String(created.id)}`,
+                );
+            });
+        } finally {
+            global.fetch = realFetch;
+        }
+    });
+
+    it('offers food in Kg, L and Pc, and keeps a unit saved before that', async () => {
+        const stored = ingredient(3, { measurementUnit: 'g' });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: { ...editorReads(() => [stored]), getIngredient: async () => stored },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-unit-trigger');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-unit-trigger'));
+        });
+        await untilVisible('kitchen-ingredient-unit-option-kg');
+        for (const unit of ['kg', 'l', 'piece']) {
+            expect(screen.getByTestId(`kitchen-ingredient-unit-option-${unit}`)).toBeTruthy();
+        }
+        // The record's own grams stay on its list, so the field never blanks over them.
+        expect(screen.getByTestId('kitchen-ingredient-unit-option-g')).toBeTruthy();
+        for (const unit of ['ml', 'pack', 'cup']) {
+            expect(screen.queryByTestId(`kitchen-ingredient-unit-option-${unit}`)).toBeNull();
+        }
+    });
+
     it('shows the unit price as what was last paid, and offers nothing to type into', async () => {
         const id = ingredientId(3);
         const stored = ingredient(3);
@@ -1493,6 +1722,49 @@ describe('the ingredient editor', () => {
         // `null`, not absent: the row has a mass today and the save has to take it away.
         expect(request.gramsPerUnit).toBeNull();
         expect(request.measurementUnit).toBe('kg');
+    });
+
+    it('saves a recipe-derived ingredient without a mass the server would refuse (HA-38)', async () => {
+        const derived = ingredient(14, {
+            measurementUnit: 'l',
+            gramsPerUnit: 1080,
+            nutritionDerivedFromVersionId: RecipeVersionId.unsafe(
+                '01935f6d-0000-7000-8000-00000000f014',
+            ),
+        });
+
+        const { repositories } = await renderStubScreen(
+            <IngredientEditScreen ingredient={String(derived.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [derived]),
+                        getIngredient: async () => derived,
+                        updateIngredient: async (_id, request) => ({
+                            ...derived,
+                            meta: { ...derived.meta, lockVersion: request.lockVersion + 1 },
+                        }),
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-ingredient-name-ar-input');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-ingredient-name-ar-input'), 'صلصة');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateIngredient).toHaveBeenCalled();
+        });
+        const [, request] = (repositories.kitchenAdmin.updateIngredient as jest.Mock).mock
+            .calls[0] as [IngredientId, Record<string, unknown>];
+        expect(request).not.toHaveProperty('gramsPerUnit');
+        expect(request.name).toEqual({ en: derived.name.en, ar: 'صلصة' });
     });
 });
 
@@ -1797,6 +2069,120 @@ describe('composition and allergens', () => {
         await waitFor(() => {
             expect(writes).toEqual([[]]);
         });
+    });
+
+    it('says plainly that a checked ingredient carries no allergens, with one way to confirm it', async () => {
+        const record = ingredient(9, { allergens: [], allergensAssessedClear: true });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: { ...editorReads(() => [record]), getIngredient: async () => record },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-mapping-clear');
+        expect(screen.getByTestId('kitchen-ingredient-allergens-none-badge')).toHaveTextContent(
+            /No allergens/,
+        );
+        // No second, evidence-based "confirm none" beside the first.
+        expect(screen.queryByTestId('ingredient-allergen-confirmation')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ingredient-mapping-unassessed')).toBeNull();
+    });
+
+    it('records "no allergens" ticked on a new ingredient once it is created', async () => {
+        const created = ingredient(9, {
+            name: { en: 'Toasted burghul', ar: '' },
+            reference: null,
+            meta: meta({ status: 'draft', lockVersion: 3 }),
+        });
+        const { repositories } = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => [ingredient(1)]),
+                    createIngredient: async () => created,
+                    searchNutritionReferences: async () => [USDA_CANDIDATE],
+                    setIngredientAllergens: async () => ({
+                        ...created,
+                        allergensAssessedClear: true,
+                    }),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-name-en-input');
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-ingredient-name-en-input'),
+                'Toasted burghul',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-category-trigger'));
+        });
+        await untilVisible('kitchen-ingredient-category-option-store-cupboard');
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-ingredient-category-option-store-cupboard'),
+            );
+        });
+        await selectUsdaReference();
+        await untilVisible('kitchen-ingredient-no-allergens');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-no-allergens-control'));
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.setIngredientAllergens).toHaveBeenCalledWith(
+                created.id,
+                { lockVersion: 3, mappings: [] },
+            );
+        });
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith(
+                `/kitchen/ingredients/${String(created.id)}`,
+            );
+        });
+    });
+
+    it('stops the record Save from discarding unsaved allergen choices (HA-39)', async () => {
+        const record = ingredient(10, { allergens: [] });
+        const updateIngredient = jest.fn(async () => record);
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => [record]),
+                    getIngredient: async () => record,
+                    updateIngredient,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-mapping-milk-trigger');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-milk-trigger'));
+        });
+        await untilVisible('kitchen-ingredient-mapping-milk-option-contains');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-milk-option-contains'));
+        });
+
+        // The page counts it as unsaved…
+        await untilVisible('kitchen-ingredient-editor-screen-dirty');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+        });
+
+        // …and the record Save, which would remount the allergen editor, does not run.
+        await untilVisible('kitchen-ingredient-issues');
+        expect(updateIngredient).not.toHaveBeenCalled();
     });
 
     it('renders the quarantine a write elsewhere put the record into', async () => {

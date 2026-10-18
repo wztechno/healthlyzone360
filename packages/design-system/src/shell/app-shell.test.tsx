@@ -716,6 +716,18 @@ describe('AppShell — kiosk', () => {
         expect(screen.queryByTestId('shell-navigation')).toBeNull();
         expect(screen.getByTestId('content')).toBeTruthy();
     });
+
+    it('still scrolls a board taller than the screen (HA-25)', async () => {
+        await renderWithI18n(
+            <AppShell testID="shell" variant="kiosk">
+                <Text testID="content">Body</Text>
+            </AppShell>,
+        );
+
+        const port = screen.getByTestId('shell-content');
+        expect(port.type).toBe('RCTScrollView');
+        expect(within(port).getByTestId('content')).toBeTruthy();
+    });
 });
 
 describe('AppShell — the workspace switcher bar', () => {
@@ -794,6 +806,20 @@ describe('AppShell — driver', () => {
         expect(screen.getByTestId('nav-overview').props.accessibilityState).toMatchObject({
             selected: true,
         });
+    });
+
+    it('scrolls the run sheet above the tab bar, so no run is out of reach (HA-25)', async () => {
+        await renderWithI18n(
+            <AppShell testID="shell" variant="driver" navigation={navigation}>
+                <Text testID="content">Body</Text>
+            </AppShell>,
+        );
+
+        const port = screen.getByTestId('shell-content');
+        expect(port.type).toBe('RCTScrollView');
+        expect(within(port).getByTestId('content')).toBeTruthy();
+        // The tabs stay outside the scroll port, under the thumb.
+        expect(within(port).queryByTestId('shell-tabs')).toBeNull();
     });
 });
 

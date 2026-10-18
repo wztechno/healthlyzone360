@@ -216,6 +216,20 @@ it('guards a version write with the versions own validator', function (): void {
         ->assertJsonPath('data.version.id', (string) $version->getKey());
 });
 
+it('edits a recipe whose Arabic name is blank, and can blank one', function (): void {
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'name_ar' => '']);
+
+    $this->actingAs($this->a->user);
+    $url = '/api/v1/catalogue/recipes/'.$recipe->getKey();
+    $headers = RecipeWorld::headers($this->a);
+
+    // A blank arrives as null (empty strings are converted); refusing it locked the recipe (HA-37).
+    $this->patchJson($url, ['name_en' => 'Renamed', 'name_ar' => ''], $headers + ['If-Match' => '"'.$recipe->lock_version.'"'])
+        ->assertOk()
+        ->assertJsonPath('data.recipe.name_en', 'Renamed')
+        ->assertJsonPath('data.recipe.name_ar', '');
+});
+
 it('rejects a validator that is not an ETag this API issued', function (): void {
     $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
 

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8243 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8280 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2647,6 +2647,7 @@ export interface NamespaceKeys {
     | 'order.courierDetail'
     | 'order.courierName'
     | 'order.courierTitle'
+    | 'order.delivered'
     | 'order.droppingAt'
     | 'order.getHelp'
     | 'order.headline.cancelled'
@@ -2655,6 +2656,7 @@ export interface NamespaceKeys {
     | 'order.headline.out_for_delivery'
     | 'order.headline.placed'
     | 'order.headline.preparing'
+    | 'order.headline.ready_for_pickup'
     | 'order.itemsTitle'
     | 'order.keepReference'
     | 'order.lead.cancelled'
@@ -2663,6 +2665,7 @@ export interface NamespaceKeys {
     | 'order.lead.out_for_delivery'
     | 'order.lead.placed'
     | 'order.lead.preparing'
+    | 'order.lead.ready_for_pickup'
     | 'order.lineLabel'
     | 'order.messageCourier'
     | 'order.noTime'
@@ -2683,6 +2686,7 @@ export interface NamespaceKeys {
     | 'order.states.out_for_delivery'
     | 'order.states.placed'
     | 'order.states.preparing'
+    | 'order.states.ready_for_pickup'
     | 'order.steps.confirmed.detail'
     | 'order.steps.confirmed.title'
     | 'order.steps.delivered.detail'
@@ -2775,17 +2779,21 @@ export interface NamespaceKeys {
     | 'aliases.removedToast'
     | 'aliases.title'
     | 'allergenLookup.barcode'
+    | 'allergenLookup.barcodeHint'
+    | 'allergenLookup.barcodeShort'
     | 'allergenLookup.configuration'
     | 'allergenLookup.confirmProduct'
     | 'allergenLookup.empty'
     | 'allergenLookup.guidance'
     | 'allergenLookup.import'
     | 'allergenLookup.noDeclarations'
+    | 'allergenLookup.noneListed'
     | 'allergenLookup.query'
     | 'allergenLookup.search'
     | 'allergenLookup.title'
     | 'allergenLookup.unavailable'
     | 'allergenLookup.unmapped'
+    | 'allergenLookup.unmappedTerms'
     | 'allergens.addRow'
     | 'allergens.assessedClear'
     | 'allergens.chooseClass'
@@ -2794,6 +2802,7 @@ export interface NamespaceKeys {
     | 'allergens.classesError'
     | 'allergens.confirmNone'
     | 'allergens.containmentLabel'
+    | 'allergens.createNone'
     | 'allergens.description'
     | 'allergens.duplicateClass'
     | 'allergens.empty'
@@ -2804,6 +2813,7 @@ export interface NamespaceKeys {
     | 'allergens.marketScopeHint'
     | 'allergens.marketScopeLabel'
     | 'allergens.none'
+    | 'allergens.noneBadge'
     | 'allergens.notAssessed'
     | 'allergens.platformBaseline'
     | 'allergens.platformBaselineHint'
@@ -3400,6 +3410,7 @@ export interface NamespaceKeys {
     | 'driver.deliverConfirm'
     | 'driver.deliverDismiss'
     | 'driver.deliverTitle'
+    | 'driver.deliveredToast'
     | 'driver.directions'
     | 'driver.emptyBody'
     | 'driver.emptyTitle'
@@ -3412,6 +3423,8 @@ export interface NamespaceKeys {
     | 'driver.orderLabel'
     | 'driver.orderReference'
     | 'driver.phone'
+    | 'driver.pickUp'
+    | 'driver.pickedUpAt'
     | 'driver.status.assigned'
     | 'driver.status.cancelled'
     | 'driver.status.delivered'
@@ -3425,6 +3438,7 @@ export interface NamespaceKeys {
     | 'driver.tracking.delivered'
     | 'driver.tracking.en_route'
     | 'driver.tracking.picked_up'
+    | 'driver.waitingForKitchen'
     | 'editor.archive'
     | 'editor.archiveBody'
     | 'editor.archiveConfirm'
@@ -3655,6 +3669,8 @@ export interface NamespaceKeys {
     | 'ingredientDetail.usedInTitle'
     | 'ingredientDetail.whereUsedBody'
     | 'ingredientDetail.whereUsedTitle'
+    | 'kds.accept'
+    | 'kds.accepted'
     | 'kds.column.done'
     | 'kds.column.incoming'
     | 'kds.column.preparing'
@@ -3681,6 +3697,9 @@ export interface NamespaceKeys {
     | 'kds.start'
     | 'kds.subtitle'
     | 'kds.title'
+    | 'kds.upcoming'
+    | 'kds.waitingForDriver'
+    | 'kds.withDriver'
     | 'list.actionHeader'
     | 'list.allLoaded'
     | 'list.archive'
@@ -3870,6 +3889,7 @@ export interface NamespaceKeys {
     | 'nutritionLookup.confirmPreparation'
     | 'nutritionLookup.confirmReview'
     | 'nutritionLookup.estimated'
+    | 'nutritionLookup.missing'
     | 'nutritionLookup.noMatches'
     | 'nutritionLookup.query'
     | 'nutritionLookup.reviewChanged'
@@ -4159,6 +4179,8 @@ export interface NamespaceKeys {
     | 'ops.orders.conflictBody'
     | 'ops.orders.conflictRefresh'
     | 'ops.orders.conflictTitle'
+    | 'ops.orders.deliveredAt'
+    | 'ops.orders.deliveredToast'
     | 'ops.orders.deliveryAddress'
     | 'ops.orders.deliveryArea'
     | 'ops.orders.deliveryDate'
@@ -4168,6 +4190,8 @@ export interface NamespaceKeys {
     | 'ops.orders.deliveryZone'
     | 'ops.orders.detailLoadErrorTitle'
     | 'ops.orders.detailTitle'
+    | 'ops.orders.driver'
+    | 'ops.orders.driverNone'
     | 'ops.orders.emptyBody'
     | 'ops.orders.emptyTitle'
     | 'ops.orders.filterAll'
@@ -4185,14 +4209,22 @@ export interface NamespaceKeys {
     | 'ops.orders.loadErrorTitle'
     | 'ops.orders.loadMore'
     | 'ops.orders.loadingMore'
+    | 'ops.orders.markDelivered'
+    | 'ops.orders.markDeliveredBody'
+    | 'ops.orders.markDeliveredDismiss'
+    | 'ops.orders.markDeliveredTitle'
     | 'ops.orders.metricFulfilled'
     | 'ops.orders.metrics.awaiting'
     | 'ops.orders.metrics.confirmed'
     | 'ops.orders.metrics.loaded'
     | 'ops.orders.noAllergens'
     | 'ops.orders.noDeliveryFee'
+    | 'ops.orders.notReadyYet'
     | 'ops.orders.nothingToDo'
+    | 'ops.orders.pickedUpAt'
     | 'ops.orders.placedAt'
+    | 'ops.orders.preparingAt'
+    | 'ops.orders.readyAt'
     | 'ops.orders.reason.addressUnreachable'
     | 'ops.orders.reason.customerRequested'
     | 'ops.orders.reason.deliveryUnavailable'
@@ -6207,6 +6239,9 @@ export interface NamespaceKeys {
     | 'toolbar.segmentReview'
     | 'toolbar.statusAll'
     | 'toolbar.statusLabel'
+    | 'units.bag'
+    | 'units.bottle'
+    | 'units.can'
     | 'units.cup'
     | 'units.dimensionCount'
     | 'units.dimensionMass'
@@ -6214,9 +6249,11 @@ export interface NamespaceKeys {
     | 'units.dimensionServing'
     | 'units.dimensionVolume'
     | 'units.g'
+    | 'units.gallon'
     | 'units.kg'
     | 'units.l'
     | 'units.ml'
+    | 'units.pack'
     | 'units.piece'
     | 'units.portion'
     | 'units.slice'
@@ -10910,6 +10947,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:order.courierDetail',
   'guest:order.courierName',
   'guest:order.courierTitle',
+  'guest:order.delivered',
   'guest:order.droppingAt',
   'guest:order.getHelp',
   'guest:order.headline.cancelled',
@@ -10918,6 +10956,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:order.headline.out_for_delivery',
   'guest:order.headline.placed',
   'guest:order.headline.preparing',
+  'guest:order.headline.ready_for_pickup',
   'guest:order.itemsTitle',
   'guest:order.keepReference',
   'guest:order.lead.cancelled',
@@ -10926,6 +10965,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:order.lead.out_for_delivery',
   'guest:order.lead.placed',
   'guest:order.lead.preparing',
+  'guest:order.lead.ready_for_pickup',
   'guest:order.lineLabel',
   'guest:order.messageCourier',
   'guest:order.noTime',
@@ -10946,6 +10986,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:order.states.out_for_delivery',
   'guest:order.states.placed',
   'guest:order.states.preparing',
+  'guest:order.states.ready_for_pickup',
   'guest:order.steps.confirmed.detail',
   'guest:order.steps.confirmed.title',
   'guest:order.steps.delivered.detail',
@@ -11036,17 +11077,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:aliases.removedToast',
   'kitchen:aliases.title',
   'kitchen:allergenLookup.barcode',
+  'kitchen:allergenLookup.barcodeHint',
+  'kitchen:allergenLookup.barcodeShort',
   'kitchen:allergenLookup.configuration',
   'kitchen:allergenLookup.confirmProduct',
   'kitchen:allergenLookup.empty',
   'kitchen:allergenLookup.guidance',
   'kitchen:allergenLookup.import',
   'kitchen:allergenLookup.noDeclarations',
+  'kitchen:allergenLookup.noneListed',
   'kitchen:allergenLookup.query',
   'kitchen:allergenLookup.search',
   'kitchen:allergenLookup.title',
   'kitchen:allergenLookup.unavailable',
   'kitchen:allergenLookup.unmapped',
+  'kitchen:allergenLookup.unmappedTerms',
   'kitchen:allergens.addRow',
   'kitchen:allergens.assessedClear',
   'kitchen:allergens.chooseClass',
@@ -11055,6 +11100,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:allergens.classesError',
   'kitchen:allergens.confirmNone',
   'kitchen:allergens.containmentLabel',
+  'kitchen:allergens.createNone',
   'kitchen:allergens.description',
   'kitchen:allergens.duplicateClass',
   'kitchen:allergens.empty',
@@ -11065,6 +11111,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:allergens.marketScopeHint',
   'kitchen:allergens.marketScopeLabel',
   'kitchen:allergens.none',
+  'kitchen:allergens.noneBadge',
   'kitchen:allergens.notAssessed',
   'kitchen:allergens.platformBaseline',
   'kitchen:allergens.platformBaselineHint',
@@ -11661,6 +11708,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:driver.deliverConfirm',
   'kitchen:driver.deliverDismiss',
   'kitchen:driver.deliverTitle',
+  'kitchen:driver.deliveredToast',
   'kitchen:driver.directions',
   'kitchen:driver.emptyBody',
   'kitchen:driver.emptyTitle',
@@ -11673,6 +11721,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:driver.orderLabel',
   'kitchen:driver.orderReference',
   'kitchen:driver.phone',
+  'kitchen:driver.pickUp',
+  'kitchen:driver.pickedUpAt',
   'kitchen:driver.status.assigned',
   'kitchen:driver.status.cancelled',
   'kitchen:driver.status.delivered',
@@ -11686,6 +11736,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:driver.tracking.delivered',
   'kitchen:driver.tracking.en_route',
   'kitchen:driver.tracking.picked_up',
+  'kitchen:driver.waitingForKitchen',
   'kitchen:editor.archive',
   'kitchen:editor.archiveBody',
   'kitchen:editor.archiveConfirm',
@@ -11916,6 +11967,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ingredientDetail.usedInTitle',
   'kitchen:ingredientDetail.whereUsedBody',
   'kitchen:ingredientDetail.whereUsedTitle',
+  'kitchen:kds.accept',
+  'kitchen:kds.accepted',
   'kitchen:kds.column.done',
   'kitchen:kds.column.incoming',
   'kitchen:kds.column.preparing',
@@ -11942,6 +11995,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:kds.start',
   'kitchen:kds.subtitle',
   'kitchen:kds.title',
+  'kitchen:kds.upcoming',
+  'kitchen:kds.waitingForDriver',
+  'kitchen:kds.withDriver',
   'kitchen:list.actionHeader',
   'kitchen:list.allLoaded',
   'kitchen:list.archive',
@@ -12131,6 +12187,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nutritionLookup.confirmPreparation',
   'kitchen:nutritionLookup.confirmReview',
   'kitchen:nutritionLookup.estimated',
+  'kitchen:nutritionLookup.missing',
   'kitchen:nutritionLookup.noMatches',
   'kitchen:nutritionLookup.query',
   'kitchen:nutritionLookup.reviewChanged',
@@ -12420,6 +12477,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.conflictBody',
   'kitchen:ops.orders.conflictRefresh',
   'kitchen:ops.orders.conflictTitle',
+  'kitchen:ops.orders.deliveredAt',
+  'kitchen:ops.orders.deliveredToast',
   'kitchen:ops.orders.deliveryAddress',
   'kitchen:ops.orders.deliveryArea',
   'kitchen:ops.orders.deliveryDate',
@@ -12429,6 +12488,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.deliveryZone',
   'kitchen:ops.orders.detailLoadErrorTitle',
   'kitchen:ops.orders.detailTitle',
+  'kitchen:ops.orders.driver',
+  'kitchen:ops.orders.driverNone',
   'kitchen:ops.orders.emptyBody',
   'kitchen:ops.orders.emptyTitle',
   'kitchen:ops.orders.filterAll',
@@ -12446,14 +12507,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.loadErrorTitle',
   'kitchen:ops.orders.loadMore',
   'kitchen:ops.orders.loadingMore',
+  'kitchen:ops.orders.markDelivered',
+  'kitchen:ops.orders.markDeliveredBody',
+  'kitchen:ops.orders.markDeliveredDismiss',
+  'kitchen:ops.orders.markDeliveredTitle',
   'kitchen:ops.orders.metricFulfilled',
   'kitchen:ops.orders.metrics.awaiting',
   'kitchen:ops.orders.metrics.confirmed',
   'kitchen:ops.orders.metrics.loaded',
   'kitchen:ops.orders.noAllergens',
   'kitchen:ops.orders.noDeliveryFee',
+  'kitchen:ops.orders.notReadyYet',
   'kitchen:ops.orders.nothingToDo',
+  'kitchen:ops.orders.pickedUpAt',
   'kitchen:ops.orders.placedAt',
+  'kitchen:ops.orders.preparingAt',
+  'kitchen:ops.orders.readyAt',
   'kitchen:ops.orders.reason.addressUnreachable',
   'kitchen:ops.orders.reason.customerRequested',
   'kitchen:ops.orders.reason.deliveryUnavailable',
@@ -14468,6 +14537,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:toolbar.segmentReview',
   'kitchen:toolbar.statusAll',
   'kitchen:toolbar.statusLabel',
+  'kitchen:units.bag',
+  'kitchen:units.bottle',
+  'kitchen:units.can',
   'kitchen:units.cup',
   'kitchen:units.dimensionCount',
   'kitchen:units.dimensionMass',
@@ -14475,9 +14547,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:units.dimensionServing',
   'kitchen:units.dimensionVolume',
   'kitchen:units.g',
+  'kitchen:units.gallon',
   'kitchen:units.kg',
   'kitchen:units.l',
   'kitchen:units.ml',
+  'kitchen:units.pack',
   'kitchen:units.piece',
   'kitchen:units.portion',
   'kitchen:units.slice',

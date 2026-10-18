@@ -14,6 +14,7 @@ import type {
     ProductId,
     QuotationId,
     RecipeId,
+    SalesChannel,
     SubscriptionId,
     SubscriptionPlanId,
     UserId,
@@ -872,6 +873,9 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     },
     getItemChannelPrices(_itemId: ProductId | MealId): Promise<ItemChannelPrices> {
         return notImplemented(`GET ${BASE}/catalogue/items/{item}/channel-prices`);
+    },
+    listSellableChannels(): Promise<readonly SalesChannel[]> {
+        return notImplemented(`GET ${BASE}/catalogue/sales-channels`);
     },
     setItemChannelPrices(
         _itemId: ProductId | MealId,

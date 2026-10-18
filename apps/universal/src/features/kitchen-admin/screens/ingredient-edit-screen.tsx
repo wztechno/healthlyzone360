@@ -19,6 +19,7 @@ import {
     Button,
     Callout,
     Cascade,
+    Checkbox,
     Dialog,
     ErrorState,
     FormGrid,
@@ -37,10 +38,11 @@ import {
 } from '@healthy360/design-system';
 import type { FormIssueItem, SelectOption, TagTone } from '@healthy360/design-system';
 import { IngredientId } from '@healthy360/domain-types';
+import { isCurrencyCode } from '@healthy360/domain-types';
 import type { CurrencyCode } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
-import { MEASURE_UNITS, coreNutrientDefinition, findAmount } from '@healthy360/nutrition';
+import { coreNutrientDefinition, findAmount } from '@healthy360/nutrition';
 import type { MeasureUnit, NutritionFacts } from '@healthy360/nutrition';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -52,6 +54,7 @@ import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     useItemLatestPurchasesQuery,
+    useProcurementReferenceQuery,
     useStockItemsQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import {
@@ -65,20 +68,26 @@ import {
     useIngredientQuery,
     useNextReferenceQuery,
     useSaveRecordPhotoMutation,
+    useSetIngredientAllergensMutation,
     useUpdateIngredientMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
+import { resolveEntityImage } from '../../../media/entity-image.tsx';
 import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { DerivedPanel } from '../catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../catalogue/derived-panel.tsx';
+import { ingredientStockPhotoId } from '../catalogue/ingredient-photo.ts';
 import {
     CATALOGUE_MANAGE_PERMISSION,
     CATALOGUE_VIEW_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
+    INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import {
+    ADMIN_UNITS,
     UNIT_DIMENSIONS,
+    adminUnitsWith,
     amountToInput,
     displayName,
     humaniseCode,
@@ -335,42 +344,33 @@ function detailsFrom(ingredient: IngredientAdmin): DetailsDraft {
 }
 
 /**
- * The design's fields that nothing on the write path accepts yet — drawn, editable, and never sent.
+ * Packaging's three: **pack price, waste, holds** — `purchasePrice`, `wastePercent` and
+ * `capacity` on `IngredientAdmin`.
  *
- * - **Pack price, waste, holds** (packaging). `purchasePrice`, `wastePercent` and `capacity` are on
- *   `IngredientAdmin` — the import writes them and the packaging list reads them — but neither
- *   `CreateIngredientRequest` nor `UpdateIngredientRequest` carries any of the three, and the
- *   server's own request rules refuse them. So they open on the stored figures and a save leaves
- *   those figures as they were.
- *
- * Kept outside {@link DetailsDraft} on purpose. Editing one does not mark the record dirty — there
- * is nothing for the unsaved guard to protect, because nothing would have been saved — and none of
- * them can block the save, which is why the pack price carries no required mark here although the
- * design draws one. A required field whose value is thrown away is a gate with nothing behind it.
- *
- * The photo is not one of them any more: it has an endpoint of its own and is written after the
- * record's save (BUG-14), so it lives beside the details draft as `photo`.
+ * Drawn and editable for a long time while nothing sent them, so a save threw all three away
+ * (HA-30). They are written now, on create and on edit, and only for packaging: food never draws
+ * them, so a food save leaves the columns alone. Editing one marks the record dirty like any field.
  */
-interface UnstoredDraft {
+interface PackagingDraft {
     readonly packPrice: string;
     readonly wastePercent: string;
     readonly capacity: string;
     readonly capacityUnit: MeasureUnit;
 }
 
-const EMPTY_UNSTORED: UnstoredDraft = {
+const EMPTY_PACKAGING: PackagingDraft = {
     packPrice: '',
     wastePercent: '',
     capacity: '',
-    capacityUnit: 'ml',
+    capacityUnit: 'l',
 };
 
-function unstoredFrom(ingredient: IngredientAdmin): UnstoredDraft {
+function packagingFrom(ingredient: IngredientAdmin): PackagingDraft {
     return {
         packPrice: amountToInput(ingredient.purchasePrice),
         wastePercent: ingredient.wastePercent === null ? '' : String(ingredient.wastePercent),
         capacity: ingredient.capacity === null ? '' : String(ingredient.capacity.quantity),
-        capacityUnit: ingredient.capacity?.unit ?? 'ml',
+        capacityUnit: ingredient.capacity?.unit ?? 'l',
     };
 }
 
@@ -486,18 +486,6 @@ export interface IngredientEditFamily {
     readonly food: boolean;
 }
 
-/**
- * What a raw material may be stocked in.
- *
- * Two, and the list is the whole rule: `RecipeNutritionService` weighs a mass line directly and
- * bridges a volume one through `grams_per_unit`, and there is no third branch. Anything else makes
- * a line that cannot be weighed, which withholds the label of every recipe that names it.
- */
-const STOCK_UNITS: readonly MeasureUnit[] = ['kg', 'l'];
-
-/** What a packaging item's capacity is stated in — the design's four, volume first. */
-const CAPACITY_UNITS: readonly MeasureUnit[] = ['ml', 'l', 'g', 'kg'];
-
 export const INGREDIENT_FAMILY: IngredientEditFamily = {
     series: 'ING-',
     listRoute: '/kitchen/ingredients',
@@ -576,20 +564,30 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const update = useUpdateIngredientMutation();
     const fork = useForkIngredientMutation();
     const photoSave = useSaveRecordPhotoMutation();
+    const allergenSave = useSetIngredientAllergensMutation();
+    /*
+     * "This ingredient has no allergens", ticked on the new-ingredient form. The empty set needs the
+     * record's id and version, so it is written right after the record is created — the same write
+     * as the edit page's "Confirm no allergens". A chosen allergen suggestion says otherwise, so
+     * the box goes while one is chosen and counts only without one.
+     */
+    const [noAllergens, setNoAllergens] = useState(false);
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
 
     /** Whether Save has been pressed — what lets an empty required field call itself out. */
     const [attempted, setAttempted] = useState(false);
-    const [unstored, setUnstored] = useState<UnstoredDraft>(EMPTY_UNSTORED);
+    const [packaging, setPackaging] = useState<PackagingDraft>(EMPTY_PACKAGING);
     /*
-     * The photo slot, the link it was last filled from (`undefined` until the record arrives), and
-     * whether it has been changed since. Rehydrated on its own key rather than the lock version: the
-     * photo endpoint moves the link and not the version, and a slot reset by the record's own save
-     * answer would flash the old photo until the re-read arrives.
+     * The photo slot, whether its stock picture is off, the record state they were last filled from
+     * (`undefined` until the record arrives), and whether they have been changed since. Rehydrated
+     * on their own key rather than the lock version: the photo endpoint moves the link and not the
+     * version, and a slot reset by the record's own save answer would flash the old photo until the
+     * re-read arrives.
      */
     const [photo, setPhoto] = useState<string | null>(null);
-    const [photoKey, setPhotoKey] = useState<string | null | undefined>(undefined);
+    const [stockHidden, setStockHidden] = useState(false);
+    const [photoKey, setPhotoKey] = useState<string | undefined>(undefined);
     const [photoDirty, setPhotoDirty] = useState(false);
 
     /*
@@ -605,7 +603,12 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const [details, setDetails] = useState<DetailsDraft>(
         family.categoryCode === ''
             ? EMPTY_DETAILS
-            : { ...EMPTY_DETAILS, categoryCode: family.categoryCode },
+            : {
+                  ...EMPTY_DETAILS,
+                  categoryCode: family.categoryCode,
+                  // Grams is not on the packaging list; a counted item is the common case.
+                  ...(family.food ? {} : { measurementUnit: 'piece' }),
+              },
     );
     const [detailsKey, setDetailsKey] = useState<string | null>(null);
     const [detailsDirty, setDetailsDirty] = useState(false);
@@ -680,12 +683,32 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     if (data !== undefined && serverKey !== detailsKey && !detailsDirty) {
         setDetailsKey(serverKey);
         setDetails(detailsFrom(data));
-        setUnstored(unstoredFrom(data));
+        setPackaging(packagingFrom(data));
     }
-    if (data !== undefined && (data.photoUrl ?? null) !== photoKey && !photoDirty) {
-        setPhotoKey(data.photoUrl ?? null);
+    const savedPhotoKey =
+        data === undefined ? undefined : `${data.photoUrl ?? ''}|${String(data.stockPhotoHidden)}`;
+    if (data !== undefined && savedPhotoKey !== photoKey && !photoDirty) {
+        setPhotoKey(savedPhotoKey);
         setPhoto(data.photoUrl ?? null);
+        setStockHidden(data.stockPhotoHidden ?? false);
     }
+
+    /*
+     * The stock picture the list draws for this row when it has no upload: the slot shows it too,
+     * so the reader sees the picture the row really has — and can replace it or take it off. A copy
+     * of a platform row keeps its parent's slug and so its picture, whatever it is renamed to; this
+     * is how a renamed copy of Peach showed a peach nobody chose. A new record has no slug yet.
+     */
+    const stockPhotoOf = (hidden: boolean) =>
+        data === undefined
+            ? null
+            : resolveEntityImage(
+                  ingredientStockPhotoId({ slug: data.slug, stockPhotoHidden: hidden }),
+                  'card',
+              );
+    const stockPhoto = stockPhotoOf(stockHidden);
+    const hasStockPhoto = stockPhotoOf(false) !== null;
+    const savedStockHidden = data?.stockPhotoHidden ?? false;
 
     const title = isCreating
         ? t(family.createTitleKey)
@@ -707,6 +730,20 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         setDetailsDirty(true);
         guard.markDirty();
     };
+
+    /*
+     * The allergen set has its own Save, and the record's save remounts its editor — so unsaved
+     * allergen choices were dropped by the main Save and by leaving the page (HA-39). They now hold
+     * the unsaved guard, and the main Save sends the reader to "Save allergens" first.
+     */
+    const [allergensDirty, setAllergensDirty] = useState(false);
+    const allergensWereDirty = useRef(false);
+    useEffect(() => {
+        // Clean only on the allergens' own true → false, and only when nothing else is unsaved.
+        if (allergensDirty) guard.markDirty();
+        else if (allergensWereDirty.current && !detailsDirty && !photoDirty) guard.markClean();
+        allergensWereDirty.current = allergensDirty;
+    }, [allergensDirty, detailsDirty, photoDirty, guard]);
 
     const settle = (nextDirty: boolean) => {
         setDetailsDirty(nextDirty);
@@ -747,15 +784,14 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
      * dimension travels in the option description and the list is ordered by it, which reads the
      * same way and needs no new design-system component.
      *
-     * ## Food stocks in kilograms or litres, and the picker says so
+     * ## Kg, L or Pc — the admin's three
      *
-     * The owner's unit table: nutrition is only ever held per 100 g, so a raw material has to be
-     * weighable, and a count has no mass without a per-piece figure nobody records. Offering
-     * `piece` here is offering the state the library was just normalised out of — and it would
-     * come back one ingredient at a time, which is how it arrived in the first place.
-     *
-     * Packaging keeps the full list. A cap is counted, a roll of film is a roll, and none of it
-     * carries nutrition for a gram to matter to.
+     * Food and packaging alike are stocked and bought in kilograms, litres or pieces: the owner's
+     * list, shared by every unit picker in the admin (`ADMIN_UNITS`). A litre or a piece of food is
+     * weighed through "what one unit weighs", which this form asks for whenever the unit is not a
+     * mass, so a recipe naming it can still be labelled. A record saved before, in a pack or a bag,
+     * keeps its own unit on the list (`savedUnitOptions`), so opening it never shows a placeholder
+     * over a value that is set.
      *
      * `slice` and `portion` are gone from both. They have no `measurement_units` row, so
      * `MeasurementUnitLookup` could not resolve either and the write layer dropped the field
@@ -763,23 +799,29 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
      * `MEASURE_UNITS` because they are the *serving* vocabulary the marketplace uses; they were
      * never stock units.
      */
-    const unitOptions: readonly SelectOption[] = useMemo(
-        () =>
-            UNIT_DIMENSIONS.flatMap((dimension) =>
-                MEASURE_UNITS.filter(
-                    (unit) =>
-                        unitDimension(unit) === dimension &&
-                        (family.food
-                            ? STOCK_UNITS.includes(unit)
-                            : unit !== 'slice' && unit !== 'portion'),
-                ).map((unit) => ({
-                    value: unit,
-                    label: t(unitKey(unit)),
-                    description: t(unitDimensionKey(dimension)),
-                })),
-            ),
-        [t, family.food],
-    );
+    const unitOptions: readonly SelectOption[] = useMemo(() => {
+        return UNIT_DIMENSIONS.flatMap((dimension) =>
+            ADMIN_UNITS.filter((unit) => unitDimension(unit) === dimension).map((unit) => ({
+                value: unit,
+                label: t(unitKey(unit)),
+                description: t(unitDimensionKey(dimension)),
+            })),
+        );
+    }, [t]);
+
+    const savedUnitOptions = (saved: MeasureUnit | null | undefined): readonly SelectOption[] =>
+        saved === null ||
+        saved === undefined ||
+        unitOptions.some((option) => option.value === saved)
+            ? unitOptions
+            : [
+                  ...unitOptions,
+                  {
+                      value: saved,
+                      label: t(unitKey(saved)),
+                      description: t(unitDimensionKey(unitDimension(saved))),
+                  },
+              ];
 
     /**
      * The top level of the declared tree.
@@ -876,22 +918,36 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     /**
      * The currency the three prices are quoted in.
      *
-     * Nothing on the session, the organisation or this contract publishes "the currency this kitchen
-     * trades in" — the same gap `kitchen-admin-hooks.ts` records as 17 for delivery zones, and this
-     * resolves it the same way that editor does. The record's own money first, because a priced
-     * ingredient has already answered the question; then whatever the rest of the catalogue is
-     * priced in, by frequency. `null` means the kitchen has priced nothing yet, and the price fields
-     * say so rather than guessing a country's money.
+     * The record's own money first, because a priced ingredient has already answered the question;
+     * then whatever the rest of the catalogue is priced in, by frequency; then the organisation's
+     * default currency from the procurement reference — without it, a kitchen that had priced
+     * nothing yet could never save its first pack price (HA-30). `null` only when none of the
+     * three answers, and the price fields say so rather than guessing a country's money.
      */
+    const canReadReference = useCan(INVENTORY_VIEW_PERMISSION);
+    const procurementReference = useProcurementReferenceQuery(canReadReference);
+    const defaultCurrency = procurementReference.data?.defaultCurrencyCode;
     const currency = useMemo<CurrencyCode | null>(() => {
-        const own = [data?.unitPrice, data?.b2bPrice, data?.b2cPrice, data?.costPer100g];
+        const own = [
+            data?.unitPrice,
+            data?.b2bPrice,
+            data?.b2cPrice,
+            data?.costPer100g,
+            data?.purchasePrice,
+        ];
         for (const cost of own) {
             if (cost !== null && cost !== undefined) return cost.currency;
         }
 
         const counts = new Map<CurrencyCode, number>();
         for (const row of catalogue.data?.items ?? []) {
-            for (const cost of [row.unitPrice, row.b2bPrice, row.b2cPrice, row.costPer100g]) {
+            for (const cost of [
+                row.unitPrice,
+                row.b2bPrice,
+                row.b2cPrice,
+                row.costPer100g,
+                row.purchasePrice,
+            ]) {
                 if (cost === null) continue;
                 counts.set(cost.currency, (counts.get(cost.currency) ?? 0) + 1);
             }
@@ -905,8 +961,8 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 bestCount = count;
             }
         }
-        return best;
-    }, [data, catalogue.data]);
+        return best ?? (isCurrencyCode(defaultCurrency) ? defaultCurrency : null);
+    }, [data, catalogue.data, defaultCurrency]);
 
     /* ── validation ──────────────────────────────────────────────────────────────────────────── */
 
@@ -975,12 +1031,15 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const unitPriceValue = parseAmount(details.unitPrice);
     const b2bPriceValue = parseAmount(details.b2bPrice);
     const b2cPriceValue = parseAmount(details.b2cPrice);
+    const packPriceValue = family.food ? null : parseAmount(packaging.packPrice);
 
     // A price cannot be written without a currency to write it in, so an amount typed with no
     // currency resolved is a blocked save rather than a guess.
     const currencyMissing =
         currency === null &&
-        [unitPriceValue, b2bPriceValue, b2cPriceValue].some((value) => typeof value === 'number');
+        [unitPriceValue, b2bPriceValue, b2cPriceValue, packPriceValue].some(
+            (value) => typeof value === 'number',
+        );
 
     // Only non-derived food can select a reference. Figures and provenance remain server-managed.
     const nutritionDerived = data?.nutritionDerivedFromVersionId ?? null;
@@ -1043,6 +1102,28 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                   },
               ]
             : []),
+        // The allergen set is saved by its own button; the record save would discard it (HA-39).
+        ...(allergensDirty
+            ? [
+                  {
+                      key: 'allergens',
+                      label: t('kitchen:allergens.save'),
+                      fieldId: 'kitchen-ingredient-mapping-grid',
+                      required: false,
+                  },
+              ]
+            : []),
+        // Now that the pack price is saved, a typo in it must stop the save rather than clear it.
+        ...(packPriceValue === undefined
+            ? [
+                  {
+                      key: 'pack-price',
+                      label: t('kitchen:packaging.columnPackPrice'),
+                      fieldId: 'kitchen-ingredient-pack-price',
+                      required: false,
+                  },
+              ]
+            : []),
     ];
 
     /*
@@ -1059,11 +1140,11 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         : {};
 
     /*
-     * Packaging's one caution: a loss above a tenth is unusual enough to say so. Never blocks — and
-     * it could not, because the rate is not saved (see `UnstoredDraft`).
+     * Packaging's one caution: a loss above a tenth is unusual enough to say so. Never blocks: a
+     * film that tears on the sealer really can lose a fifth.
      */
     const wasteHigh =
-        !family.food && (parseQuantity(unstored.wastePercent) ?? 0) > WASTE_WARNING_PERCENT;
+        !family.food && (parseQuantity(packaging.wastePercent) ?? 0) > WASTE_WARNING_PERCENT;
 
     const blockerItems: readonly FormIssueItem[] = shownBlockers.map((entry) => ({
         key: entry.key,
@@ -1101,6 +1182,24 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const costOf = (value: number | null | undefined): CostAmount | null =>
         typeof value === 'number' && currency !== null ? { amount: value, currency } : null;
 
+    /** Packaging's three as a request takes them, `null` clearing one. Food sends none of them. */
+    const packPrice = costOf(packPriceValue);
+    const wastePercent = parseQuantity(packaging.wastePercent);
+    const capacityQuantity = positiveNumberOf(packaging.capacity);
+    const capacity =
+        capacityQuantity === null
+            ? null
+            : { quantity: capacityQuantity, unit: packaging.capacityUnit };
+    const packagingWrite = family.food ? {} : { purchasePrice: packPrice, wastePercent, capacity };
+    /** The same, for a create, which has nothing to clear. */
+    const packagingCreate = family.food
+        ? {}
+        : {
+              ...(packPrice === null ? {} : { purchasePrice: packPrice }),
+              ...(wastePercent === null ? {} : { wastePercent }),
+              ...(capacity === null ? {} : { capacity }),
+          };
+
     /**
      * The photo, written once the record's own save has answered: it needs the record's id, and a
      * refused upload must not undo a record that is already saved. Answers the failure, or null.
@@ -1116,8 +1215,23 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 recordId: String(ingredientId),
                 chosen: photo,
                 saved,
+                clearsStock: hasStockPhoto && stockHidden && !savedStockHidden,
             });
             setPhotoDirty(false);
+            return null;
+        } catch (error) {
+            return error;
+        }
+    };
+
+    /** The ticked "no allergens" box, written against the record just created. Answers the failure, or null. */
+    const confirmNoAllergens = async (created: IngredientAdmin): Promise<unknown> => {
+        if (!noAllergens || allergenReference !== undefined || isPackaging) return null;
+        try {
+            await allergenSave.mutateAsync({
+                ingredientId: created.id,
+                request: { lockVersion: created.meta.lockVersion, mappings: [] },
+            });
             return null;
         } catch (error) {
             return error;
@@ -1163,6 +1277,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         : { unitPrice: costOf(unitPriceValue)! }),
                     ...(costOf(b2bPriceValue) === null ? {} : { b2bPrice: costOf(b2bPriceValue)! }),
                     ...(costOf(b2cPriceValue) === null ? {} : { b2cPrice: costOf(b2cPriceValue)! }),
+                    ...packagingCreate,
                     ...(allergenReference === undefined || isPackaging
                         ? {}
                         : { allergenReference }),
@@ -1171,7 +1286,9 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 },
                 {
                     onSuccess: (created) => {
-                        void writePhoto(created.id, null).then((photoError) => {
+                        void (async () => {
+                            const photoError = await writePhoto(created.id, null);
+                            const allergenError = await confirmNoAllergens(created);
                             settle(false);
                             toast.show({
                                 testID: 'kitchen-ingredient-created-toast',
@@ -1191,8 +1308,16 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 });
                                 photoSave.reset();
                             }
+                            if (allergenError !== null) {
+                                toast.show({
+                                    tone: 'danger',
+                                    message:
+                                        toFailure(allergenError)?.message ??
+                                        t('kitchen:allergens.saveError'),
+                                });
+                            }
                             router.replace(`${family.listRoute}/${String(created.id)}` as never);
-                        });
+                        })();
                     },
                 },
             );
@@ -1232,10 +1357,15 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     measurementUnit: details.measurementUnit,
                     purchaseUnit: details.purchaseUnit === '' ? null : details.purchaseUnit,
                     itemsPerUnit: positiveNumberOf(details.itemsPerUnit),
-                    gramsPerUnit: positiveNumberOf(details.gramsPerUnit),
+                    // Not on a recipe-derived row: the server refuses any mass there, so sending
+                    // it — even null — refused the whole save (HA-38).
+                    ...(nutritionDerived === null
+                        ? { gramsPerUnit: positiveNumberOf(details.gramsPerUnit) }
+                        : {}),
                     unitPrice: costOf(unitPriceValue),
                     b2bPrice: costOf(b2bPriceValue),
                     b2cPrice: costOf(b2cPriceValue),
+                    ...packagingWrite,
                     // Submit the reviewed reference; the server owns figures and provenance.
                     ...(nutritionReference === undefined ? {} : { nutritionReference }),
                     isSellable: details.isSellable,
@@ -1353,6 +1483,18 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
             label: t('kitchen:sale.b2cPrice'),
             fieldId: 'kitchen-ingredient-b2c-price',
         },
+        purchase_price_amount: {
+            label: t('kitchen:packaging.columnPackPrice'),
+            fieldId: 'kitchen-ingredient-pack-price',
+        },
+        waste_percent: {
+            label: t('kitchen:forms.waste'),
+            fieldId: 'kitchen-ingredient-waste',
+        },
+        capacity_quantity: {
+            label: t('kitchen:forms.holds'),
+            fieldId: 'kitchen-ingredient-capacity',
+        },
     });
     const figures = nutrientFigures(data?.per100g ?? null, t, formatter);
 
@@ -1410,9 +1552,10 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         markDetailsDirty();
     };
 
-    /** One of the fields nothing saves yet. No dirty flag: there is nothing for the guard to keep. */
-    const editUnstored = (patch: Partial<UnstoredDraft>) => {
-        setUnstored((current) => ({ ...current, ...patch }));
+    /** One of packaging's three, with the dirty flag like {@link edit}. */
+    const editPackaging = (patch: Partial<PackagingDraft>) => {
+        setPackaging((current) => ({ ...current, ...patch }));
+        markDetailsDirty();
     };
 
     /*
@@ -1420,7 +1563,6 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
      * note against. Empty rather than a zero when either half is missing, for the reason every
      * derived cell on this workspace gives: a `0.0000` would claim the item is free.
      */
-    const packPriceValue = parseAmount(unstored.packPrice);
     const itemsPerPack = positiveNumberOf(details.itemsPerUnit);
     const costPerItem =
         typeof packPriceValue === 'number' && itemsPerPack !== null
@@ -1429,6 +1571,8 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
 
     const nutritionEmpty = nutritionEditable && (data?.per100g ?? null) === null;
     const allergens = data?.allergens ?? [];
+    /** Checked, and carries nothing — the one empty set that is a claim rather than a gap. */
+    const allergenFree = allergens.length === 0 && data?.allergensAssessedClear === true;
 
     const onlyRequired =
         server.items.length === 0 && shownBlockers.every((entry) => entry.required);
@@ -1452,7 +1596,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
             disabled={!editable}
             options={[
                 { value: 'none', label: t('kitchen:fields.purchaseUnitNone') },
-                ...unitOptions,
+                ...savedUnitOptions(data?.purchaseUnit),
             ]}
             value={details.purchaseUnit === '' ? 'none' : details.purchaseUnit}
             onChange={(next) => {
@@ -1470,7 +1614,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
             placeholder={t('kitchen:fields.unitPlaceholder')}
             searchable
             disabled={!editable}
-            options={unitOptions}
+            options={savedUnitOptions(data?.measurementUnit)}
             value={details.measurementUnit}
             onChange={(next) => {
                 /*
@@ -1520,7 +1664,8 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 placeholder={t('kitchen:fields.gramsPerUnitPlaceholder')}
                 unit={t(unitShortKey('g'))}
                 value={details.gramsPerUnit}
-                disabled={!editable}
+                // A recipe-derived row's mass comes from the recipe and is not saved from here.
+                disabled={!editable || nutritionDerived !== null}
                 onChangeText={(next) => {
                     edit({ gramsPerUnit: next });
                 }}
@@ -1751,10 +1896,17 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                             <ImageSlot
                                 testID="kitchen-ingredient-image"
                                 uri={photo}
+                                fallback={stockPhoto}
                                 disabled={!editable}
                                 onChange={(next) => {
+                                    // Clearing takes the stock picture off as well as an upload;
+                                    // an upload puts it back on, server side, when it is saved.
+                                    const hidden = next === null;
                                     setPhoto(next);
-                                    const changed = next !== (photoKey ?? null);
+                                    setStockHidden(hidden);
+                                    const changed =
+                                        next !== (data?.photoUrl ?? null) ||
+                                        (hasStockPhoto && hidden !== savedStockHidden);
                                     setPhotoDirty(changed);
                                     if (changed) guard.markDirty();
                                 }}
@@ -1910,8 +2062,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
 
                         {/*
                          * What one item holds, in two cells: the figure and its unit. Packaging
-                         * only — a cap or a label holds nothing and leaves it blank. Not saved yet:
-                         * see `UnstoredDraft`.
+                         * only — a cap or a label holds nothing and leaves it blank.
                          */}
                         {family.food ? null : (
                             <QuantityInput
@@ -1920,10 +2071,11 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 size="sm"
                                 label={t('kitchen:forms.holds')}
                                 placeholder={t('kitchen:fields.quantityPlaceholder')}
-                                value={unstored.capacity}
+                                value={packaging.capacity}
                                 disabled={!editable}
+                                {...server.flag('capacity_quantity')}
                                 onChangeText={(next) => {
-                                    editUnstored({ capacity: next });
+                                    editPackaging({ capacity: next });
                                 }}
                             />
                         )}
@@ -1934,13 +2086,13 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 label={t('kitchen:forms.holdsUnit')}
                                 placeholder={t('kitchen:fields.unitPlaceholder')}
                                 disabled={!editable}
-                                options={CAPACITY_UNITS.map((unit) => ({
+                                options={adminUnitsWith(packaging.capacityUnit).map((unit) => ({
                                     value: unit,
                                     label: t(unitShortKey(unit)),
                                 }))}
-                                value={unstored.capacityUnit}
+                                value={packaging.capacityUnit}
                                 onChange={(next) => {
-                                    editUnstored({ capacityUnit: next as MeasureUnit });
+                                    editPackaging({ capacityUnit: next as MeasureUnit });
                                 }}
                             />
                         )}
@@ -1964,14 +2116,13 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 size="sm"
                                 label={t('kitchen:packaging.columnPackPrice')}
                                 placeholder={t('kitchen:fields.unitPricePlaceholder')}
-                                value={unstored.packPrice}
+                                value={packaging.packPrice}
                                 disabled={!editable}
                                 {...priceUnit}
-                                {...(packPriceValue === undefined
-                                    ? { error: t('kitchen:sale.priceInvalid') }
-                                    : {})}
+                                {...flag('pack-price', t('kitchen:sale.priceInvalid'))}
+                                {...server.flag('purchase_price_amount')}
                                 onChangeText={(next) => {
-                                    editUnstored({ packPrice: next });
+                                    editPackaging({ packPrice: next });
                                 }}
                             />
                             <QuantityInput
@@ -1981,7 +2132,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 label={t('kitchen:forms.waste')}
                                 placeholder={t('kitchen:fields.percentPlaceholder')}
                                 unit="%"
-                                value={unstored.wastePercent}
+                                value={packaging.wastePercent}
                                 disabled={!editable}
                                 {...(wasteHigh
                                     ? {
@@ -1990,8 +2141,9 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                           }),
                                       }
                                     : {})}
+                                {...server.flag('waste_percent')}
                                 onChangeText={(next) => {
-                                    editUnstored({ wastePercent: next });
+                                    editPackaging({ wastePercent: next });
                                 }}
                             />
                             {/*
@@ -2115,6 +2267,11 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         variant="card"
                         testID="kitchen-ingredient-nutrition"
                         title={t('kitchen:forms.nutritionTitle')}
+                        {...(nutritionDerived === null && editable && !isPackaging
+                            ? {
+                                  description: `${t('kitchen:nutritionLookup.serverManaged')} ${t('kitchen:nutritionLookup.allergensSeparate')}`,
+                              }
+                            : {})}
                         aside={
                             /*
                              * Where the figures stand, as labels on the heading rather than a
@@ -2171,10 +2328,12 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                     emptyValue={t('kitchen:sale.marginUnavailable')}
                                 />
 
-                                <Text tone="secondary" variant="caption">
-                                    {data?.nutritionNote ??
-                                        t('kitchen:nutritionLookup.serverManaged')}
-                                </Text>
+                                {/* Where the saved figures came from: data, so it stays on the page. */}
+                                {data?.nutritionNote == null ? null : (
+                                    <Text tone="secondary" variant="caption">
+                                        {data.nutritionNote}
+                                    </Text>
+                                )}
                                 {editable && !isPackaging ? (
                                     <NutritionReferencePicker
                                         key={`${String(data?.id ?? 'new')}:${details.name.en}`}
@@ -2206,15 +2365,27 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         variant="card"
                         testID="kitchen-ingredient-allergens"
                         title={t('kitchen:forms.allergensTitle')}
+                        {...(editable ? { description: t('kitchen:allergenLookup.guidance') } : {})}
                         aside={
-                            editable ? undefined : (
-                                <Badge
-                                    variant="label"
-                                    testID="kitchen-ingredient-allergens-source"
-                                    tone="info"
-                                    label={t('kitchen:composition.fromDatabase')}
-                                />
-                            )
+                            <Inline space="xs" align="center" wrap>
+                                {editable ? null : (
+                                    <Badge
+                                        variant="label"
+                                        testID="kitchen-ingredient-allergens-source"
+                                        tone="info"
+                                        label={t('kitchen:composition.fromDatabase')}
+                                    />
+                                )}
+                                {/* Checked and empty: said on the heading, where the eye lands. */}
+                                {allergenFree ? (
+                                    <Badge
+                                        variant="label"
+                                        testID="kitchen-ingredient-allergens-none-badge"
+                                        tone="success"
+                                        label={t('kitchen:allergens.noneBadge')}
+                                    />
+                                ) : null}
+                            </Inline>
                         }
                     >
                         {isCreating && classes.data !== undefined ? (
@@ -2228,6 +2399,18 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 }
                             />
                         ) : null}
+                        {isCreating && allergenReference === undefined ? (
+                            <Checkbox
+                                testID="kitchen-ingredient-no-allergens"
+                                label={t('kitchen:allergens.createNone')}
+                                checked={noAllergens}
+                                disabled={!editable}
+                                onChange={(checked) => {
+                                    setNoAllergens(checked);
+                                    guard.markDirty();
+                                }}
+                            />
+                        ) : null}
                         {editable && data !== undefined && classes.data !== undefined ? (
                             <IngredientAllergenEditor
                                 key={`${data.allergenReviewToken ?? ''}-${String(data.meta.lockVersion)}-${allergens
@@ -2235,6 +2418,13 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                     .join(',')}-${String(data.allergensAssessedClear === true)}`}
                                 ingredient={data}
                                 classes={classes.data}
+                                onDirtyChange={setAllergensDirty}
+                            />
+                        ) : isCreating ? null : allergenFree ? (
+                            <Tag
+                                testID="kitchen-ingredient-allergens-none"
+                                tone="success"
+                                label={t('kitchen:allergens.noneBadge')}
                             />
                         ) : allergens.length === 0 ? (
                             // An em dash, not a sentence: "none recorded" and "free of all

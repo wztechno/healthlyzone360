@@ -129,7 +129,7 @@ export function useBasketAdd({
                     toast.show({
                         testID: 'basket-added',
                         tone: 'success',
-                        message: t('catalogue:meal.addedToBasket', { items: cart.itemCount }),
+                        message: t('catalogue:meal.addedToBasket', { count: cart.itemCount }),
                         action: {
                             label: t('common:action.viewBasket'),
                             testID: 'basket-added-view',

@@ -149,6 +149,12 @@
             "cancelReasonLabel": "ما سبب الإلغاء؟",
             "cancelConfirm": "إلغاء هذا الطلب",
             "cancelDismiss": "الإبقاء على الطلب",
+            "markDelivered": "تعليمه مُوصَلاً",
+            "markDeliveredTitle": "تعليم الطلب {{number}} مُوصَلاً؟",
+            "markDeliveredBody": "يُغلق هذا أيضًا مشوار السائق، فلا يمكن لأي سائق أخذه أو استلامه.",
+            "markDeliveredDismiss": "إبقاؤه مفتوحًا",
+            "deliveredToast": "تم تعليم الطلب {{number}} مُوصَلاً.",
+            "notReadyYet": "لم يجهز بعد",
             "reason": {
                 "customerRequested": "طلب العميل الإلغاء",
                 "kitchenUnableToFulfil": "المطبخ غير قادر على التنفيذ",
@@ -180,7 +186,13 @@
             "statAwaitingCaption": "هناك من ينتظر",
             "statConfirmedCaption": "في المطبخ",
             "statFulfilledCaption": "تم التسليم",
-            "metricFulfilled": "منفَّذة"
+            "metricFulfilled": "منفَّذة",
+            "readyAt": "جاهز",
+            "pickedUpAt": "خرج للتوصيل",
+            "deliveredAt": "سُلِّم",
+            "driver": "السائق",
+            "driverNone": "لا أحد بعد",
+            "preparingAt": "بدأ الطهي"
         },
         "quotations": {
             "title": "عروض الأسعار",
@@ -1838,7 +1850,12 @@
         "noBranchTitle": "لم يُحدَّد فرع",
         "noBranchBody": "اختر الفرع الذي تعرضه هذه الشاشة كي تظهر تذاكره.",
         "mayContain": "قد يحتوي على {{allergen}}",
-        "handedOver": "تم التسليم"
+        "handedOver": "تم التسليم",
+        "waitingForDriver": "بانتظار السائق",
+        "withDriver": "مع السائق",
+        "accept": "قبول",
+        "accepted": "تم القبول",
+        "upcoming": "القادمة"
     },
     "driver": {
         "title": "توصيلاتك",
@@ -1874,12 +1891,16 @@
             "cancelled": "أُلغيت"
         },
         "tracking": {
-            "awaiting_assignment": "أُبلغ العميل: بانتظار سائق",
+            "awaiting_assignment": "أُبلغ العميل: لم يخرج بعد",
             "picked_up": "أُبلغ العميل: تم الاستلام",
             "en_route": "أُبلغ العميل: في الطريق",
             "arrived": "أُبلغ العميل: وصل السائق",
             "delivered": "أُبلغ العميل: تم التسليم"
-        }
+        },
+        "pickUp": "تم الاستلام",
+        "pickedUpAt": "استلمته في {{at}}",
+        "deliveredToast": "تم التسليم. أُغلق الطلب {{reference}}.",
+        "waitingForKitchen": "بانتظار المطبخ"
     },
     "desk": {
         "title": "مكتب الطلبات",
@@ -2843,6 +2864,11 @@
         "cup": "أكواب",
         "tbsp": "ملاعق كبيرة",
         "tsp": "ملاعق صغيرة",
+        "pack": "عبوات",
+        "bag": "أكياس",
+        "can": "علب",
+        "bottle": "زجاجات",
+        "gallon": "غالونات",
         "dimensionPackage": "عبوات"
     },
     "unitsShort": {
@@ -2914,7 +2940,9 @@
         "none": "غير موجود",
         "confirmNone": "تأكيد خلوّه من مسببات الحساسية",
         "assessedClear": "تم التحقق: لا يحتوي على مسببات حساسية",
-        "notAssessed": "لم تُسجَّل مسببات الحساسية بعد. لا يمكن نشر الوصفات التي تستخدم هذا المكوّن."
+        "notAssessed": "لم تُسجَّل مسببات الحساسية بعد. لا يمكن نشر الوصفات التي تستخدم هذا المكوّن.",
+        "noneBadge": "لا مسببات حساسية",
+        "createNone": "هذا المكوّن خالٍ من مسببات الحساسية"
     },
     "containment": {
         "contains": "يحتوي",
@@ -4728,7 +4756,8 @@
         "saveMappingsFirst": "احفظ تغييرات التعيين قبل تأكيد التقييم.",
         "confirmReview": "تأكيد تقييم مسببات الحساسية",
         "configuration": "إعداد البحث الغذائي مطلوب",
-        "clearSelection": "إلغاء اختيار المرجع"
+        "clearSelection": "إلغاء اختيار المرجع",
+        "missing": "ينقصه {{list}}"
     },
     "allergenLookup": {
         "title": "البحث عن مسببات الحساسية للمنتج",
@@ -4742,6 +4771,10 @@
         "noDeclarations": "لا توجد تصريحات مطابقة للقائمة. هذا لا يؤكد غياب مسببات الحساسية.",
         "unmapped": "مصطلحات غير معروفة — راجع ملصق المورّد",
         "confirmProduct": "هذا المرجع يطابق المنتج الذي أشتريه. سأراجع تصريحات مسببات الحساسية.",
-        "import": "إضافة الاقتراحات للمراجعة"
+        "import": "إضافة الاقتراحات للمراجعة",
+        "barcodeShort": "الباركود",
+        "barcodeHint": "اختياري. عند إدخاله يُبحث بالباركود بدلاً من الاسم.",
+        "noneListed": "لا توجد مسببات حساسية مذكورة",
+        "unmappedTerms": "غير معروف: {{terms}}"
     }
 }

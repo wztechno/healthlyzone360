@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
+use Healthy360\AccessControl\Models\Permission;
+use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Cart\Services\CartService;
 use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
@@ -175,13 +178,16 @@ it('keeps finished runs off the driver\'s sheet', function (): void {
 });
 
 it('offers the unassigned pending runs as available, and nothing else', function (): void {
-    $order = fn (): Order => Order::factory()->create([
+    $order = fn (bool $ready = true): Order => Order::factory()->confirmed()->create([
         'organisation_id' => $this->world->organisation->getKey(),
         'customer_account_id' => $this->world->customer->account->getKey(),
         'sales_channel_id' => $this->world->channel->getKey(),
+        'ready_at' => $ready ? now() : null,
     ]);
 
     $open = smokeJob($this, $order());
+    // Accepted but not cooked yet — a scheduled order days ahead (HA-28). Not offered.
+    smokeJob($this, $order(ready: false));
     // Somebody already has this one, and this one is over.
     smokeJob($this, $order(), ['driver_user_id' => $this->world->tenant->user->getKey(), 'status' => 'assigned']);
     smokeJob($this, $order(), ['status' => 'cancelled']);
@@ -256,4 +262,132 @@ it('leaves a cancelled order cancelled when its run is still marked delivered', 
     expect($order->refresh()->status)->toBe(OrderStatus::Cancelled)
         ->and(OrderPaymentReceipt::query()->where('order_id', $order->getKey())->count())->toBe(0)
         ->and($job->refresh()->status)->toBe('delivered');
+});
+
+it('lets the driver say they have the food, once, without closing the order (HA-19)', function (): void {
+    $driverId = (string) $this->world->tenant->user->getKey();
+    $order = Order::factory()->confirmed()->create([
+        'organisation_id' => $this->world->organisation->getKey(),
+        'customer_account_id' => $this->world->customer->account->getKey(),
+        'sales_channel_id' => $this->world->channel->getKey(),
+        'ready_at' => now(),
+    ]);
+    $job = smokeJob($this, $order, ['status' => 'assigned', 'driver_user_id' => $driverId, 'assigned_at' => now()]);
+
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/pick-up", [], $this->headers)
+        ->assertOk()
+        ->assertJsonPath('data.job.status', 'in_transit');
+
+    $job->refresh();
+
+    expect($job->tracking_status)->toBe('en_route')
+        ->and($job->picked_up_at)->not->toBeNull()
+        ->and($order->refresh()->status)->toBe(OrderStatus::Confirmed)
+        ->and(AuditLog::query()->where('action', 'delivery.job_picked_up')->where('actor_user_id', $driverId)->count())->toBe(1);
+
+    // Still on the driver's sheet, now saying when it left.
+    expect($this->getJson('/api/v1/driver/jobs', $this->headers)->assertOk()->json('data.jobs.0.picked_up_at'))->toBeString();
+
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/pick-up", [], $this->headers)
+        ->assertStatus(409)
+        ->assertJsonPath('error.code', 'resource.conflict');
+});
+
+it('will not let anybody pick up a run that is not theirs', function (): void {
+    $order = Order::factory()->confirmed()->create([
+        'organisation_id' => $this->world->organisation->getKey(),
+        'customer_account_id' => $this->world->customer->account->getKey(),
+        'sales_channel_id' => $this->world->channel->getKey(),
+        'ready_at' => now(),
+    ]);
+    $job = smokeJob($this, $order);
+
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/pick-up", [], $this->headers)
+        ->assertNotFound();
+
+    expect($job->refresh()->status)->toBe('pending')
+        ->and($job->picked_up_at)->toBeNull();
+});
+
+it('tells the customer and the kitchen each step of the drive (HA-19)', function (): void {
+    $driverId = (string) $this->world->tenant->user->getKey();
+    $order = Order::factory()->confirmed()->create([
+        'organisation_id' => $this->world->organisation->getKey(),
+        'customer_account_id' => $this->world->customer->account->getKey(),
+        'sales_channel_id' => $this->world->channel->getKey(),
+        'ready_at' => now(),
+    ]);
+    $job = smokeJob($this, $order, ['status' => 'assigned', 'driver_user_id' => $driverId, 'assigned_at' => now()]);
+    $shopper = User::query()->whereKey($this->world->customer->account->user_id)->sole();
+    $orderPath = '/api/v1/me/orders/'.$order->getKey();
+
+    // The kitchen's own read of the order, which this world's role is not granted by default.
+    RolePermission::factory()->create([
+        'organisation_id' => $this->world->organisation->getKey(),
+        'role_id' => $this->world->tenant->role->getKey(),
+        'permission_id' => Permission::query()->where('code', 'order.view_organisation')->sole()->getKey(),
+    ]);
+
+    $kitchenRun = $this->getJson('/api/v1/catalogue/orders/'.$order->getKey(), $this->headers)->assertOk()->json('data.order.delivery_run');
+    expect($kitchenRun['status'])->toBe('assigned')
+        ->and($kitchenRun['assigned_at'])->toBeString()
+        ->and($kitchenRun['picked_up_at'])->toBeNull();
+
+    $this->actingAs($shopper);
+    $mine = $this->getJson($orderPath, firstPartyHeaders())->assertOk()->json('data.order');
+    expect($mine['out_for_delivery_at'])->toBeNull()
+        ->and($mine['delivered_at'])->toBeNull()
+        // Who drove it is an employee's name; the customer gets times only.
+        ->and($mine)->not->toHaveKey('delivery_run');
+
+    $this->actingAs($this->world->tenant->user);
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/pick-up", [], $this->headers)->assertOk();
+
+    $this->actingAs($shopper);
+    $mine = $this->getJson($orderPath, firstPartyHeaders())->assertOk()->json('data.order');
+    // On its way and still not delivered: the order stays open until the door.
+    expect($mine['status'])->toBe('confirmed')
+        ->and($mine['out_for_delivery_at'])->toBeString()
+        ->and($mine['delivered_at'])->toBeNull();
+
+    $this->actingAs($this->world->tenant->user);
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/deliver", [], $this->headers)->assertOk();
+
+    $this->actingAs($shopper);
+    $mine = $this->getJson($orderPath, firstPartyHeaders())->assertOk()->json('data.order');
+    expect($mine['status'])->toBe('fulfilled')
+        ->and($mine['delivered_at'])->toBeString();
+    // The list says the same as the page.
+    expect($this->getJson('/api/v1/me/orders', firstPartyHeaders())->assertOk()->json('data.0.delivered_at'))->toBeString();
+
+    $this->actingAs($this->world->tenant->user);
+    $kitchenRun = $this->getJson('/api/v1/catalogue/orders/'.$order->getKey(), $this->headers)->assertOk()->json('data.order.delivery_run');
+    expect($kitchenRun['status'])->toBe('delivered')
+        ->and($kitchenRun['picked_up_at'])->toBeString()
+        ->and($kitchenRun['delivered_at'])->toBeString();
+});
+
+it('will not let a driver pick up food the kitchen has not marked ready (HA-28)', function (): void {
+    $driverId = (string) $this->world->tenant->user->getKey();
+    $order = Order::factory()->confirmed()->create([
+        'organisation_id' => $this->world->organisation->getKey(),
+        'customer_account_id' => $this->world->customer->account->getKey(),
+        'sales_channel_id' => $this->world->channel->getKey(),
+    ]);
+    // Given to the driver ahead of time — a dispatcher can do that for a scheduled order.
+    $job = smokeJob($this, $order, ['status' => 'assigned', 'driver_user_id' => $driverId, 'assigned_at' => now()]);
+
+    // The run is on their sheet, and says it is not ready yet.
+    expect($this->getJson('/api/v1/driver/jobs', $this->headers)->assertOk()->json('data.jobs.0.ready_at'))->toBeNull();
+
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/pick-up", [], $this->headers)
+        ->assertStatus(409)
+        ->assertJsonPath('error.code', 'resource.conflict');
+
+    expect($job->refresh()->status)->toBe('assigned')
+        ->and($job->picked_up_at)->toBeNull();
+
+    $order->forceFill(['ready_at' => now()])->save();
+
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/pick-up", [], $this->headers)->assertOk();
 });

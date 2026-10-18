@@ -7,6 +7,7 @@ namespace Healthy360\Catalogues\Http\Requests;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\ProductionMode;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 
 /**
@@ -81,6 +82,24 @@ class StoreCatalogueItemRequest extends FormRequest
             'is_market_priced' => ['nullable', 'boolean'],
             'is_assorted' => ['nullable', 'boolean'],
             'image_placeholder_id' => ['nullable', 'string', 'max:80'],
+            ...self::mealTypeRules(),
         ];
     }
+
+    /**
+     * When in the day the item is eaten (HA-35): the platform's four codes,
+     * each at most once. The whole list is sent, so `[]` clears it.
+     *
+     * @return array<string, mixed>
+     */
+    public static function mealTypeRules(): array
+    {
+        return [
+            'meal_types' => ['sometimes', 'array', 'max:4'],
+            'meal_types.*' => ['string', 'distinct', Rule::in(self::MEAL_TYPES)],
+        ];
+    }
+
+    /** Mirrors `MEAL_TYPES` in `@healthy360/domain-types`. */
+    public const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'];
 }

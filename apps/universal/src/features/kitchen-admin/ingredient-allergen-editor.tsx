@@ -14,11 +14,10 @@ import {
     Stack,
     Text,
     TextInputField,
-    Checkbox,
     useToast,
 } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { toFailure } from '../../data/hooks.ts';
@@ -37,6 +36,11 @@ type Choice = AllergenContainment | 'none';
 export interface IngredientAllergenEditorProps {
     readonly ingredient: IngredientAdmin;
     readonly classes: readonly AllergenClass[];
+    /**
+     * Told whenever the draft gains or loses unsaved choices. The page's own Save does not write
+     * this set, and its save remounts this editor, so without it a change here was lost (HA-39).
+     */
+    readonly onDirtyChange?: ((dirty: boolean) => void) | undefined;
 }
 
 /**
@@ -50,7 +54,11 @@ export interface IngredientAllergenEditorProps {
  *
  * Mount it keyed by the stored set so a successful save re-reads the server's answer.
  */
-export function IngredientAllergenEditor({ ingredient, classes }: IngredientAllergenEditorProps) {
+export function IngredientAllergenEditor({
+    ingredient,
+    classes,
+    onDirtyChange,
+}: IngredientAllergenEditorProps) {
     const { t } = useTranslation();
     const { locale } = useLocale();
     const toast = useToast();
@@ -60,7 +68,6 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
     const confirm = useConfirmIngredientAllergensMutation();
     const [evidence, setEvidence] = useState('');
     const [supplierEvidence, setSupplierEvidence] = useState('');
-    const [confirmNone, setConfirmNone] = useState(false);
     // The classes the last save sent, in order: `mappings.2.…` in a refusal is the third of these.
     const [sentCodes, setSentCodes] = useState<readonly string[]>([]);
     const needsSupplier = ingredient.allergens.some(
@@ -81,6 +88,12 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
         chosen.length !== stored.size ||
         chosen.some(([code, choice]) => stored.get(code)?.containment !== choice);
     const assessed = ingredient.allergens.length > 0 || ingredient.allergensAssessedClear === true;
+
+    useEffect(() => {
+        onDirtyChange?.(dirty);
+    }, [dirty, onDirtyChange]);
+    // A remount (the record moved on) starts clean; say so as this one goes.
+    useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
     const options = [
         { value: 'none' as const, label: t('kitchen:allergens.none') },
@@ -140,10 +153,6 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
         supplier_evidence: {
             label: t('kitchen:nutritionLookup.supplierEvidence'),
             fieldId: 'allergen-supplier-evidence',
-        },
-        confirm_no_allergens: {
-            label: t('kitchen:nutritionLookup.confirmNone'),
-            fieldId: 'allergen-confirm-none',
         },
     });
     const mappingFlag = (code: string): { readonly error?: string } => {
@@ -212,10 +221,14 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
                     title={t('kitchen:allergens.notAssessed')}
                 />
             )}
+            {/* Checked and empty is a claim, so it is said plainly rather than left as fourteen
+                "Not present" boxes for the reader to add up. */}
             {ingredient.allergens.length === 0 && ingredient.allergensAssessedClear === true ? (
-                <Text testID="kitchen-ingredient-mapping-clear" tone="secondary" variant="caption">
-                    {t('kitchen:allergens.assessedClear')}
-                </Text>
+                <Callout
+                    testID="kitchen-ingredient-mapping-clear"
+                    tone="success"
+                    title={t('kitchen:allergens.assessedClear')}
+                />
             ) : null}
 
             {[
@@ -280,7 +293,12 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
                     onPress={onSave}
                 />
             </Inline>
-            {ingredient.allergenReviewToken == null ? null : (
+            {/*
+             * The review with evidence is for mappings someone has to stand behind. An empty set
+             * has none: "Confirm no allergens" above is its whole confirmation, and a second
+             * checkbox saying the same thing was a second way to answer one question.
+             */}
+            {ingredient.allergenReviewToken == null || ingredient.allergens.length === 0 ? null : (
                 <Stack space="sm" testID="ingredient-allergen-confirmation">
                     {ingredient.allergens.map((mapping) => (
                         <Text
@@ -330,16 +348,6 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
                             {...server.flag('supplier_evidence')}
                         />
                     ) : null}
-                    {ingredient.allergens.length === 0 ? (
-                        <Checkbox
-                            testID="allergen-confirm-none"
-                            id="allergen-confirm-none"
-                            label={t('kitchen:nutritionLookup.confirmNone')}
-                            checked={confirmNone}
-                            onChange={setConfirmNone}
-                            {...server.flag('confirm_no_allergens')}
-                        />
-                    ) : null}
                     {dirty ? (
                         <Text tone="secondary">
                             {t('kitchen:nutritionLookup.saveMappingsFirst')}
@@ -355,8 +363,7 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
                             importReference.isPending ||
                             confirm.isPending ||
                             evidence.trim() === '' ||
-                            (needsSupplier && supplierEvidence.trim() === '') ||
-                            (ingredient.allergens.length === 0 && !confirmNone)
+                            (needsSupplier && supplierEvidence.trim() === '')
                         }
                         onPress={() =>
                             confirm.mutate({
@@ -367,7 +374,7 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
                                     ...(needsSupplier
                                         ? { supplierEvidence: supplierEvidence.trim() }
                                         : {}),
-                                    confirmNoAllergens: confirmNone,
+                                    confirmNoAllergens: false,
                                 },
                             })
                         }

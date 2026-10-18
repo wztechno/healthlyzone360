@@ -7,6 +7,7 @@ namespace Healthy360\Orders\Presenters;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
 use Healthy360\Orders\Models\OrderPaymentReceipt;
+use Healthy360\Orders\Services\OrderWindowNames;
 
 /**
  * The two wire shapes of an order, built separately on purpose.
@@ -84,10 +85,13 @@ use Healthy360\Orders\Models\OrderPaymentReceipt;
  */
 final class OrderPresenter
 {
+    public function __construct(private readonly OrderWindowNames $windows) {}
+
     /**
      * The receipt.
      *
      * @param  iterable<int, OrderLine>  $lines
+     * @param  array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null}|null  $run  the order's delivery run, from `OrderDeliveryRuns`
      * @return array{
      *     id: string,
      *     order_number: string,
@@ -112,12 +116,17 @@ final class OrderPresenter
      *         directions: string|null,
      *         contact_point_id: string|null,
      *         window_code: string|null,
+     *         window_name_en: string|null,
+     *         window_name_ar: string|null,
      *         requested_date: string|null
      *     },
      *     placed_at: string,
      *     confirmed_at: string|null,
+     *     preparing_at: string|null,
      *     ready_at: string|null,
      *     fulfilled_at: string|null,
+     *     out_for_delivery_at: string|null,
+     *     delivered_at: string|null,
      *     cancelled_at: string|null,
      *     cancellation_reason: string|null,
      *     line_count: int,
@@ -138,7 +147,7 @@ final class OrderPresenter
      *     created_at: string|null
      * }
      */
-    public function customer(Order $order, iterable $lines): array
+    public function customer(Order $order, iterable $lines, ?array $run = null): array
     {
         $presented = [];
 
@@ -178,12 +187,22 @@ final class OrderPresenter
                 'directions' => $order->delivery_directions,
                 'contact_point_id' => $order->delivery_contact_point_id,
                 'window_code' => $order->delivery_window_code,
+                // The kitchen's own name for it, as checkout showed it (HA-22).
+                'window_name_en' => $this->windows->for($order->organisation_id, $order->delivery_window_code)['en'] ?? null,
+                'window_name_ar' => $this->windows->for($order->organisation_id, $order->delivery_window_code)['ar'] ?? null,
                 'requested_date' => $order->requested_delivery_date?->toDateString(),
             ],
             'placed_at' => $order->placed_at->toIso8601String(),
             'confirmed_at' => $order->confirmed_at?->toIso8601String(),
+            'preparing_at' => $order->preparing_at?->toIso8601String(),
             'ready_at' => $order->ready_at?->toIso8601String(),
             'fulfilled_at' => $order->fulfilled_at?->toIso8601String(),
+            // The two moments of the drive that are the customer's to know
+            // (HA-19): when the driver collected the food and when they handed
+            // it over. Times only — who drove it is an employee's name, which
+            // this shape never carries (see `placed_on_behalf_by` above).
+            'out_for_delivery_at' => $run['picked_up_at'] ?? null,
+            'delivered_at' => $run['delivered_at'] ?? null,
             'cancelled_at' => $order->cancelled_at?->toIso8601String(),
             'cancellation_reason' => $order->cancellation_reason?->value,
             'line_count' => count($presented),
@@ -205,6 +224,7 @@ final class OrderPresenter
      * one party that needs the data to do the job.
      *
      * @param  iterable<int, OrderLine>  $lines
+     * @param  array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null}|null  $run  the order's delivery run, from `OrderDeliveryRuns`
      * @return array{
      *     id: string,
      *     order_number: string,
@@ -228,20 +248,26 @@ final class OrderPresenter
      *         area_name_ar: string|null,
      *         area_id: string|null,
      *         zone_id: string|null,
+     *         zone_name_en: string|null,
+     *         zone_name_ar: string|null,
      *         building: string|null,
      *         floor: string|null,
      *         apartment: string|null,
      *         directions: string|null,
      *         contact_point_id: string|null,
      *         window_code: string|null,
+     *         window_name_en: string|null,
+     *         window_name_ar: string|null,
      *         requested_date: string|null
      *     },
      *     placed_at: string,
      *     confirmed_at: string|null,
+     *     preparing_at: string|null,
      *     ready_at: string|null,
      *     fulfilled_at: string|null,
      *     cancelled_at: string|null,
      *     cancellation_reason: string|null,
+     *     delivery_run: array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null}|null,
      *     created_by: string|null,
      *     placed_on_behalf_by: string|null,
      *     lock_version: int,
@@ -266,7 +292,7 @@ final class OrderPresenter
      *     updated_at: string|null
      * }
      */
-    public function kitchen(Order $order, iterable $lines): array
+    public function kitchen(Order $order, iterable $lines, ?array $run = null): array
     {
         $presented = [];
 
@@ -302,6 +328,9 @@ final class OrderPresenter
                 'area_name_ar' => $order->delivery_area_name_ar,
                 'area_id' => $order->delivery_area_id,
                 'zone_id' => $order->delivery_zone_id,
+                // Its name, so the kitchen reads "Inner city" rather than a code (HA-21).
+                'zone_name_en' => $order->delivery_zone_id === null ? null : $order->deliveryZone?->name_en,
+                'zone_name_ar' => $order->delivery_zone_id === null ? null : $order->deliveryZone?->name_ar,
                 // The half of the snapshot a courier actually navigates by. The
                 // street gets somebody to the building; the building, the
                 // floor, the flat and the customer's own directions get them to
@@ -313,14 +342,23 @@ final class OrderPresenter
                 'directions' => $order->delivery_directions,
                 'contact_point_id' => $order->delivery_contact_point_id,
                 'window_code' => $order->delivery_window_code,
+                // The kitchen's own name for it, as checkout showed it (HA-22).
+                'window_name_en' => $this->windows->for($order->organisation_id, $order->delivery_window_code)['en'] ?? null,
+                'window_name_ar' => $this->windows->for($order->organisation_id, $order->delivery_window_code)['ar'] ?? null,
                 'requested_date' => $order->requested_delivery_date?->toDateString(),
             ],
             'placed_at' => $order->placed_at->toIso8601String(),
             'confirmed_at' => $order->confirmed_at?->toIso8601String(),
+            'preparing_at' => $order->preparing_at?->toIso8601String(),
             'ready_at' => $order->ready_at?->toIso8601String(),
             'fulfilled_at' => $order->fulfilled_at?->toIso8601String(),
             'cancelled_at' => $order->cancelled_at?->toIso8601String(),
             'cancellation_reason' => $order->cancellation_reason?->value,
+            // The delivery run, when there is one (HA-19): who drove it and when
+            // they were given it, collected it and handed it over. Null for a
+            // pickup or counter order, and for a delivery order not yet
+            // confirmed — a run is projected on confirm.
+            'delivery_run' => $run,
             'created_by' => $order->created_by,
             // Provenance, and the kitchen's own record of its own shift. Null
             // on every self-service order, which is what makes it readable as

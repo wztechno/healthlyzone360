@@ -21,6 +21,7 @@ import {
     IngredientId,
     KitchenId,
     MealId,
+    PriceListId,
     ProductId,
     RoleId,
 } from '@healthy360/domain-types';
@@ -30,6 +31,7 @@ import type { ReactNode } from 'react';
 import { Dimensions } from 'react-native';
 
 import {
+    KITCHEN_MANAGER_PERMISSIONS,
     MEMBER_PERMISSIONS,
     kitchenManagerSession,
     testActiveContext,
@@ -655,7 +657,12 @@ describe('creating and editing a product', () => {
                 kitchenAdmin: {
                     // The category picker's vocabulary is derived from the codes already in use,
                     // so this listing is what makes `store-cupboard` an option at all.
-                    listProducts: productListing(() => [product({ ordinal: 1 })]),
+                    listProducts: productListing(() => [
+                        product({
+                            ordinal: 1,
+                            overrides: { categoryId: 'category-store-cupboard' },
+                        }),
+                    ]),
                     listRecipes: async () => page(NO_RECIPES),
                     createProduct: async () => created,
                 },
@@ -702,7 +709,7 @@ describe('creating and editing a product', () => {
             fireEvent.changeText(screen.getByTestId(`${pack}-code-input`), 'RSL-055');
         });
         await act(async () => {
-            fireEvent.changeText(screen.getByTestId(`${pack}-quantity-input`), '500');
+            fireEvent.changeText(screen.getByTestId(`${pack}-quantity-input`), '0.5');
         });
 
         await act(async () => {
@@ -722,6 +729,8 @@ describe('creating and editing a product', () => {
             name: { en: 'Cold-pressed pomegranate', ar: 'رمّان معصور على البارد' },
             description: { en: '', ar: '' },
             categoryCode: 'store-cupboard',
+            // The id is what the server files the item under; the code alone was dropped (HA-31).
+            categoryId: 'category-store-cupboard',
             itemType: 'product',
             isMarketPriced: false,
             isAssorted: false,
@@ -729,8 +738,8 @@ describe('creating and editing a product', () => {
                 {
                     code: 'RSL-055',
                     label: { en: '', ar: '' },
-                    netQuantity: 500,
-                    netUnit: 'g',
+                    netQuantity: 0.5,
+                    netUnit: 'kg',
                     unitsPerPack: 1,
                 },
             ],
@@ -738,6 +747,97 @@ describe('creating and editing a product', () => {
             // omitted: a row taken off a weighed shelf has to be able to drop it.
             netContentQuantity: null,
             netContentUnitId: null,
+        });
+    });
+
+    it('takes B2B and B2C on a new item, and writes them once the item exists', async () => {
+        const created = product({ ordinal: 9, name: 'Cold-pressed pomegranate' });
+        const getItemChannelPrices = jest.fn(async () => ({
+            lockVersion: 7,
+            b2b: {
+                salesChannelId: 'wholesale',
+                priceListId: PriceListId.unsafe('trade-usd'),
+                currency: 'USD' as const,
+                pack: null,
+                amountMinor: null,
+            },
+            b2c: null,
+        }));
+
+        const { repositories } = await renderStubScreen(<ProductEditScreen product="new" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listProducts: productListing(() => [
+                        product({
+                            ordinal: 1,
+                            overrides: { categoryId: 'category-store-cupboard' },
+                        }),
+                    ]),
+                    listRecipes: async () => page(NO_RECIPES),
+                    createProduct: async () => created,
+                    getItemChannelPrices,
+                    setItemChannelPrices: async () => await getItemChannelPrices(),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-product-name-en-input');
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-product-name-en-input'),
+                'Cold-pressed pomegranate',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-category-trigger'));
+        });
+        await untilVisible('kitchen-product-category-option-store-cupboard');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-category-option-store-cupboard'));
+        });
+        await untilVisible('kitchen-product-packs-add');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-packs-add'));
+        });
+        const pack = 'kitchen-product-pack-editor-row-pack-1';
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${pack}-code-input`), 'RSL-055');
+        });
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${pack}-quantity-input`), '0.5');
+        });
+
+        // The section is on the new form, as a card, with no Save of its own.
+        await untilVisible('kitchen-channel-prices-b2b-weight-input');
+        expect(screen.queryByTestId('kitchen-channel-prices-save')).toBeNull();
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-channel-prices-b2b-weight-input'),
+                '1',
+            );
+        });
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-channel-prices-b2b-price-input'),
+                '12',
+            );
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.setItemChannelPrices).toHaveBeenCalledWith(
+                created.id,
+                { lockVersion: 7, b2b: { quantity: 1, unit: 'kg', amountMinor: 1200 } },
+            );
+        });
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith(
+                `/kitchen/products/${String(created.id)}`,
+            );
         });
     });
 
@@ -937,6 +1037,41 @@ describe('creating and editing a product', () => {
                 }),
             );
         });
+    });
+
+    it('offers only the channels the organisation can sell on (HA-33)', async () => {
+        const stored = product({
+            ordinal: 1,
+            overrides: {
+                channelAvailability: [
+                    {
+                        channel: 'corporate',
+                        isAvailable: true,
+                        availableFrom: null,
+                        availableUntil: null,
+                    },
+                ],
+            },
+        });
+
+        await renderStubScreen(<ProductEditScreen product={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    getProduct: async () => stored,
+                    listProducts: productListing(() => [stored]),
+                    listRecipes: async () => page(NO_RECIPES),
+                    listSellableChannels: async () => ['b2c', 'pos'],
+                },
+            },
+        });
+        await untilVisible('kitchen-product-channel-editor-b2c');
+
+        expect(screen.getByTestId('kitchen-product-channel-editor-pos')).toBeTruthy();
+        // A tick on a channel with no row was thrown away on save, so it is not offered…
+        expect(screen.queryByTestId('kitchen-product-channel-editor-delivery')).toBeNull();
+        // …but one the record is already on stays drawn, so nothing stored is hidden.
+        expect(screen.getByTestId('kitchen-product-channel-editor-corporate')).toBeTruthy();
     });
 
     it('persists a channel toggle through its own contract method', async () => {
@@ -1385,6 +1520,128 @@ describe('creating and editing a product', () => {
         await waitFor(() => {
             expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/products');
         });
+    });
+});
+
+describe('the last purchase on a resale item', () => {
+    /** The shelf that *is* the product — linked by catalogue item, as a resold product's is. */
+    function resaleShelf(productId: ProductId) {
+        return {
+            id: 'stock-item-7' as never,
+            code: 'ITEM-7',
+            nameEn: 'Shelf',
+            unitCode: 'pc',
+            ingredientId: 'ingredient-7' as never,
+            catalogueItemId: String(productId),
+            backing: 'product' as const,
+            isStocked: true,
+            hasHistory: true,
+        };
+    }
+
+    function productReads(stored: ProductAdmin) {
+        return {
+            getProduct: async () => stored,
+            listProducts: productListing(() => [stored]),
+            listRecipes: async () => page(NO_RECIPES),
+        };
+    }
+
+    it('shows what was last paid, per unit, and offers nothing to type into', async () => {
+        const stored = product({ ordinal: 7, name: 'Seven Up' });
+
+        await renderStubScreen(<ProductEditScreen product={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: productReads(stored),
+                kitchenOps: {
+                    listStockItems: async () => [resaleShelf(stored.id)],
+                    listItemLatestPurchases: async (ids) =>
+                        ids.map((stockItemId) => ({
+                            stockItemId,
+                            goodsReceiptId: 'receipt-1' as never,
+                            documentRef: null,
+                            receivedAt: '2026-10-14T09:00:00Z' as never,
+                            quantity: '24',
+                            unitId: null,
+                            unitCode: 'pc',
+                            unitPriceAmount: '0.450000',
+                            costCurrencyCode: 'USD',
+                            supplier: { id: 'supplier-1' as never, code: 'S-1', nameEn: 'Fizz Co' },
+                        })),
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-product-unit-price-input').props.value).toBe('0.45');
+        });
+        expect(screen.getByTestId('kitchen-product-unit-price-input').props.editable).toBe(false);
+        expect(
+            screen.getByTestId('kitchen-product-unit-price-unit', { includeHiddenElements: true }),
+        ).toHaveTextContent('USD / pc');
+    });
+
+    it('says "Never bought" when nothing has been received for it', async () => {
+        const stored = product({ ordinal: 7, name: 'Seven Up' });
+
+        await renderStubScreen(<ProductEditScreen product={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: productReads(stored),
+                kitchenOps: {
+                    listStockItems: async () => [resaleShelf(stored.id)],
+                    listItemLatestPurchases: async () => [],
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-product-unit-price-input').props.placeholder).toBe(
+                'Never bought',
+            );
+        });
+        expect(screen.getByTestId('kitchen-product-unit-price-input').props.value).toBe('');
+    });
+
+    it('is not there for a member who may not see costs', async () => {
+        const stored = product({ ordinal: 7, name: 'Seven Up' });
+        const listStockItems = jest.fn(async () => [resaleShelf(stored.id)]);
+
+        await renderStubScreen(<ProductEditScreen product={String(stored.id)} />, {
+            session: kitchenManagerSession({
+                activeContext: testActiveContext({
+                    permissions: KITCHEN_MANAGER_PERMISSIONS.filter(
+                        (code) => code !== 'inventory.view_costs_organisation',
+                    ),
+                }),
+            }),
+            repositories: {
+                kitchenAdmin: productReads(stored),
+                kitchenOps: { listStockItems },
+            },
+        });
+        await untilVisible('kitchen-product-sale');
+
+        expect(screen.queryByTestId('kitchen-product-unit-price')).toBeNull();
+        expect(listStockItems).not.toHaveBeenCalled();
+    });
+
+    it('is not there on a new item', async () => {
+        const stored = product({ ordinal: 7, name: 'Seven Up' });
+        const listStockItems = jest.fn(async () => [resaleShelf(stored.id)]);
+
+        await renderStubScreen(<ProductEditScreen product="new" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: productReads(stored),
+                kitchenOps: { listStockItems },
+            },
+        });
+        await untilVisible('kitchen-product-sale');
+
+        expect(screen.queryByTestId('kitchen-product-unit-price')).toBeNull();
+        expect(listStockItems).not.toHaveBeenCalled();
     });
 });
 
@@ -2090,7 +2347,7 @@ describe('converting a meal to sell from finished stock', () => {
         expect(screen.getByTestId('kitchen-meal-finished-stock-control')).not.toBeDisabled();
         expect(screen.getByTestId('kitchen-meal-net-content-input').props.value).toBe('0.3000');
         expect(
-            within(screen.getByTestId('kitchen-meal-net-content-unit')).getByText('kg'),
+            within(screen.getByTestId('kitchen-meal-net-content-unit')).getByText('Kg'),
         ).toBeTruthy();
     });
 });

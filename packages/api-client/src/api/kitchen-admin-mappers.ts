@@ -4,6 +4,7 @@ import {
     DeliveryZoneId,
     IngredientId,
     isCurrencyCode,
+    isMealType,
     KitchenBranchId,
     KitchenId,
     MealId,
@@ -17,6 +18,7 @@ import {
     SubscriptionPlanId,
     SALES_CHANNELS,
     type DietClassification,
+    type MealType,
     type SalesChannel,
 } from '@healthy360/domain-types';
 import { isMeasureUnit, type MeasureUnit, type NutritionFacts } from '@healthy360/nutrition';
@@ -244,7 +246,7 @@ function categoryPairFor(
     };
 }
 
-function mapMeasureUnit(code: string | null | undefined): MeasureUnit {
+export function mapMeasureUnit(code: string | null | undefined): MeasureUnit {
     if (code !== null && code !== undefined && isMeasureUnit(code)) {
         return code;
     }
@@ -316,6 +318,7 @@ export function mapIngredientAdmin(
     return {
         id: IngredientId.unsafe(wire.id),
         photoUrl: wire.photo_url ?? null,
+        stockPhotoHidden: wire.stock_photo_hidden ?? false,
         meta: {
             lockVersion: wire.lock_version,
             status: publishableStatus,
@@ -543,6 +546,45 @@ export function mapSalesChannelKind(kind: SalesChannelKind): SalesChannel {
     }
 }
 
+/**
+ * Which of the organisation's channel rows one contract channel names, or
+ * `null` when it names none.
+ *
+ * A `SalesChannel` is the frontend contract's flattening of two server
+ * concepts: `channel_kind` is a closed platform vocabulary, while a *channel*
+ * is a row an organisation owns. An organisation that has never opened a
+ * counter has no `pos` row, and there is nothing for "sold over the counter"
+ * to point at. This used to fall back to `channels[0]`, which did not fail —
+ * it wrote the decision against a different channel entirely, and, when that
+ * channel was already in the submitted set, made the same pair appear twice
+ * and took the whole replacement down with it (`channels.N` "stated twice").
+ *
+ * The read of which channels an organisation can sell on uses this same rule
+ * (HA-33), so the editor offers exactly the channels a save can write.
+ */
+export function salesChannelIdFor(
+    channel: SalesChannel,
+    channels: readonly AdminSalesChannel[],
+): string | null {
+    const match = channels.find((row) => {
+        switch (channel) {
+            case 'b2c':
+                return row.channel_kind === 'b2c_web';
+            case 'b2b':
+                return row.channel_kind === 'b2b';
+            case 'pos':
+                return row.channel_kind === 'pos';
+            case 'marketplace':
+                return row.channel_kind === 'marketplace';
+            case 'corporate':
+                return row.channel_kind === 'corporate';
+            default:
+                return row.code === channel;
+        }
+    });
+    return match?.id ?? null;
+}
+
 export interface SalesChannelLookup {
     readonly idToChannel: ReadonlyMap<string, AdminSalesChannel>;
 }
@@ -578,8 +620,13 @@ export function mapChannelAssignments(
     }));
 }
 
+/**
+ * @param unitsById measurement-unit id → code. The pack carries only `pack_unit_id`, and without
+ *   the lookup every pack read back as grams whatever it was stored in (HA-32).
+ */
 export function mapProductPackVariants(
     variants: readonly AdminCatalogueItemVariant[],
+    unitsById: ReadonlyMap<string, string> = new Map(),
 ): readonly ProductPackVariant[] {
     return variants
         .filter((variant) => variant.pack !== null)
@@ -589,7 +636,7 @@ export function mapProductPackVariants(
                 code: variant.code,
                 label: localised(variant.name_en ?? variant.code, variant.name_ar),
                 netQuantity: parseDecimal(pack.pack_quantity),
-                netUnit: mapMeasureUnit(null),
+                netUnit: mapMeasureUnit(unitsById.get(pack.pack_unit_id)),
                 unitsPerPack: pack.pack_piece_count ?? 1,
             };
         });
@@ -712,7 +759,8 @@ export function mapMealAdminFromItem(
         // the user's own text regardless.
         netContentQuantity: wire.net_content_quantity ?? null,
         netContentUnitId: wire.net_content_unit_id ?? null,
-        mealTypes: [],
+        // Stored on the item since HA-35; an unknown code is dropped rather than trusted.
+        mealTypes: (wire.meal_types ?? []).filter((code): code is MealType => isMealType(code)),
         dietClassifications: options?.dietClassifications ?? [],
         allergens: options?.allergens ?? [],
         channelAvailability: options?.channelAvailability ?? [],

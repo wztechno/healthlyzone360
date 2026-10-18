@@ -15,6 +15,7 @@ import {
     testActiveContext,
 } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { addDays, todayIso } from '../commerce/dates.ts';
 import { KdsTicketsScreen } from './kds-tickets-screen.tsx';
 
 jest.mock('expo-router', () => ({
@@ -152,6 +153,8 @@ function seedOrders(): KitchenOrder[] {
             status: 'confirmed',
             placedAt: minutesAgo(45),
             confirmedAt: minutesAgo(40),
+            // Started: confirming only accepts an order, Start is what puts it in preparation.
+            preparingAt: minutesAgo(38),
             lockVersion: 2,
             lines: [line(3, { nameEn: 'Family mezze platter', nameAr: 'طبق المزة العائلي' })],
         }),
@@ -182,6 +185,7 @@ interface OrderBook {
     readonly find: (id: OrderId) => KitchenOrder | undefined;
     readonly listOrders: () => KitchenOrderPage;
     readonly confirmOrder: (request: KitchenOrderTransitionRequest) => KitchenOrder;
+    readonly startOrder: (request: KitchenOrderTransitionRequest) => KitchenOrder;
     readonly markOrderReady: (request: KitchenOrderTransitionRequest) => KitchenOrder;
     readonly fulfilOrder: (request: KitchenOrderTransitionRequest) => KitchenOrder;
 }
@@ -222,6 +226,16 @@ function createOrderBook(seed: KitchenOrder[] = seedOrders()): OrderBook {
                 status: 'confirmed',
                 confirmedAt: new Date().toISOString(),
             }),
+        // Start confirms a placed order and stamps `preparingAt`; on a confirmed one it only stamps.
+        startOrder: (request) => {
+            const current = find(request.id);
+            const now = new Date().toISOString();
+            return transition(current?.status === 'placed' ? 'placed' : 'confirmed', request, {
+                status: 'confirmed',
+                confirmedAt: current?.confirmedAt ?? now,
+                preparingAt: now,
+            });
+        },
         // Ready is not a transition: the order stays confirmed and only `readyAt` is stamped.
         markOrderReady: (request) =>
             transition('confirmed', request, {
@@ -255,6 +269,7 @@ async function renderBoard(book: OrderBook, options: { readonly canManage?: bool
             kitchenOrders: {
                 listOrders: async () => book.listOrders(),
                 confirmOrder: async (request) => book.confirmOrder(request),
+                startOrder: async (request) => book.startOrder(request),
                 markOrderReady: async (request) => book.markOrderReady(request),
                 fulfilOrder: async (request) => book.fulfilOrder(request),
             },
@@ -325,15 +340,16 @@ describe('kds ticket board', () => {
         // The ticket sends the version it is displaying, and the book enforces the real machine —
         // so this is the transition itself, not a stub agreeing with the button.
         await waitFor(() => {
-            expect(repositories.kitchenOrders.confirmOrder).toHaveBeenCalledWith({
+            expect(repositories.kitchenOrders.startOrder).toHaveBeenCalledWith({
                 id: placed.id,
                 lockVersion: placed.lockVersion,
             });
         });
         await waitFor(() => {
             const after = book.find(placed.id);
+            // One press accepts it and starts it (HA-24).
             expect(after?.status).toBe('confirmed');
-            expect(after?.lockVersion).toBe(placed.lockVersion + 1);
+            expect(after?.preparingAt).toEqual(expect.any(String));
         });
 
         await waitFor(() => {
@@ -345,8 +361,95 @@ describe('kds ticket board', () => {
         expect(screen.queryByTestId(`${ticketId(placed.id)}-start`)).toBeNull();
     });
 
+    it("keeps a later day's order under Upcoming, where it is accepted but not started (HA-26, HA-27)", async () => {
+        const tomorrow = addDays(todayIso(new Date()), 1) ?? '';
+        const scheduled = kitchenOrder({
+            id: orderIdAt(9),
+            orderNumber: 'VK-2026-0153',
+            status: 'placed',
+            delivery: { ...kitchenOrder().delivery, requestedDate: tomorrow },
+        });
+        const today = kitchenOrder({ id: orderIdAt(10), orderNumber: 'VK-2026-0154' });
+        const book = createOrderBook([scheduled, today]);
+        const { repositories } = await renderBoard(book);
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kds-upcoming')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        // Today's board holds today's order only; tomorrow's waits under its own day.
+        expect(screen.getByTestId('kds-column-incoming-count')).toHaveTextContent('1');
+        expect(screen.getByTestId(`kds-upcoming-${tomorrow}-count`)).toHaveTextContent('1');
+
+        // Not cooking tomorrow's food today: Accept, no Start.
+        expect(screen.queryByTestId(`${ticketId(scheduled.id)}-start`)).toBeNull();
+        // Today's new order: Start (which accepts it too), with Accept beside it.
+        expect(screen.getByTestId(`${ticketId(today.id)}-start`)).toBeTruthy();
+        expect(screen.getByTestId(`${ticketId(today.id)}-accept`)).toBeTruthy();
+
+        fireEvent.press(screen.getByTestId(`${ticketId(scheduled.id)}-accept`));
+
+        await waitFor(() => {
+            expect(repositories.kitchenOrders.confirmOrder).toHaveBeenCalledWith({
+                id: scheduled.id,
+                lockVersion: scheduled.lockVersion,
+            });
+        });
+        expect(repositories.kitchenOrders.startOrder).not.toHaveBeenCalled();
+        await waitFor(() => {
+            expect(screen.getByTestId(`${ticketId(scheduled.id)}-accepted`)).toBeTruthy();
+        });
+        // Accepted, still tomorrow's: it stays under Upcoming with nothing left to press today.
+        expect(screen.queryByTestId(`${ticketId(scheduled.id)}-accept`)).toBeNull();
+        expect(screen.queryByTestId(`${ticketId(scheduled.id)}-start`)).toBeNull();
+        expect(screen.getByTestId('kds-column-incoming-count')).toHaveTextContent('1');
+    });
+
+    it('keeps a confirmed order in Incoming until somebody presses Start (HA-24)', async () => {
+        const accepted = kitchenOrder({
+            id: orderIdAt(8),
+            orderNumber: 'VK-2026-0152',
+            status: 'confirmed',
+            confirmedAt: minutesAgo(3),
+            lockVersion: 2,
+        });
+        const book = createOrderBook([accepted]);
+        const { repositories } = await renderBoard(book);
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kds-column-incoming-count')).toHaveTextContent('1');
+            },
+            { timeout: 5000 },
+        );
+        expect(screen.getByTestId('kds-column-preparing-count')).toHaveTextContent('0');
+        // Accepted is not cooking: no Ready yet.
+        expect(screen.queryByTestId(`${ticketId(accepted.id)}-ready`)).toBeNull();
+
+        fireEvent.press(screen.getByTestId(`${ticketId(accepted.id)}-start`));
+
+        await waitFor(() => {
+            expect(repositories.kitchenOrders.startOrder).toHaveBeenCalledWith({
+                id: accepted.id,
+                lockVersion: accepted.lockVersion,
+            });
+        });
+        expect(repositories.kitchenOrders.confirmOrder).not.toHaveBeenCalled();
+        await waitFor(() => {
+            expect(screen.getByTestId('kds-column-preparing-count')).toHaveTextContent('1');
+        });
+        expect(screen.getByTestId(`${ticketId(accepted.id)}-ready`)).toBeTruthy();
+    });
+
     it('marks a ticket ready without handing it over, then hands it over', async () => {
-        const book = createOrderBook();
+        // A collection order: the customer takes it from the counter, so the kitchen hands it over.
+        const book = createOrderBook(
+            seedOrders().map((order) =>
+                order.id === orderIdAt(3) ? { ...order, fulfilmentType: 'pickup' } : order,
+            ),
+        );
         const { repositories } = await renderBoard(book);
 
         await waitFor(
@@ -384,6 +487,50 @@ describe('kds ticket board', () => {
             expect(screen.queryByTestId(`${ticketId(confirmed.id)}-handed-over`)).toBeNull();
         });
         expect(screen.getByTestId(ticketId(confirmed.id))).toBeTruthy();
+    });
+
+    it('leaves a ready delivery to the driver instead of offering Handed over (HA-19)', async () => {
+        const run = {
+            status: 'assigned' as const,
+            trackingStatus: 'awaiting_assignment' as const,
+            driverName: 'Sami Haddad',
+            assignedAt: minutesAgo(5),
+            pickedUpAt: null,
+            deliveredAt: null,
+        };
+        const book = createOrderBook([
+            kitchenOrder({
+                id: orderIdAt(6),
+                orderNumber: 'VK-2026-0150',
+                status: 'confirmed',
+                confirmedAt: minutesAgo(30),
+                readyAt: minutesAgo(10),
+                deliveryRun: run,
+            }),
+            kitchenOrder({
+                id: orderIdAt(7),
+                orderNumber: 'VK-2026-0151',
+                status: 'confirmed',
+                confirmedAt: minutesAgo(30),
+                readyAt: minutesAgo(10),
+                deliveryRun: { ...run, status: 'in_transit', pickedUpAt: minutesAgo(2) },
+            }),
+        ]);
+        await renderBoard(book);
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(`${ticketId(orderIdAt(6))}-driver`)).toHaveTextContent(
+                    'Waiting for the driver',
+                );
+            },
+            { timeout: 5000 },
+        );
+        expect(screen.getByTestId(`${ticketId(orderIdAt(7))}-driver`)).toHaveTextContent(
+            'Out with the driver',
+        );
+        expect(screen.queryByTestId(`${ticketId(orderIdAt(6))}-handed-over`)).toBeNull();
+        expect(screen.queryByTestId(`${ticketId(orderIdAt(7))}-handed-over`)).toBeNull();
     });
 
     it('shows the tickets but no bump buttons to somebody who may not manage orders', async () => {

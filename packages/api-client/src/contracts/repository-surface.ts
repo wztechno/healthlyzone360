@@ -228,6 +228,7 @@ export const REPOSITORY_SURFACE = {
         'listPriceLists',
         'listProducts',
         'listRecipes',
+        'listSellableChannels',
         'listServiceAreas',
         'listZones',
         'nextReference',
@@ -331,6 +332,7 @@ export const REPOSITORY_SURFACE = {
         'listOrders',
         'markOrderReady',
         'recordPayment',
+        'startOrder',
     ],
     orderDesk: [
         'addCustomerAddress',
@@ -350,7 +352,7 @@ export const REPOSITORY_SURFACE = {
         'updateCustomer',
     ],
     kitchenQuotations: ['getQuotation', 'listQuotations', 'quoteQuotation'],
-    driverJobs: ['claimJob', 'deliverJob', 'listJobs'],
+    driverJobs: ['claimJob', 'deliverJob', 'listJobs', 'pickUpJob'],
     platformAdmin: [
         'createKitchen',
         'getKitchen',

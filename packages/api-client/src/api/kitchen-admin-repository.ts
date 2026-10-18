@@ -11,7 +11,7 @@ import type {
     DietClassification,
     RecipeVersionId,
 } from '@healthy360/domain-types';
-import { DeliveryWindowId, isDietClassification } from '@healthy360/domain-types';
+import { DeliveryWindowId, SALES_CHANNELS, isDietClassification } from '@healthy360/domain-types';
 
 import type {
     BranchOperating,
@@ -104,6 +104,7 @@ import {
     planDurationsFromAssignments,
     priceListChannelsFromAssignments,
     mapItemChannelPrices,
+    salesChannelIdFor,
     type CategoryLookup,
     type SalesChannelLookup,
     type WireItemChannelPrices,
@@ -211,6 +212,7 @@ export type ApiKitchenAdminReads = Pick<
     | 'getRecipeTechnicalSheet'
     | 'listProducts'
     | 'getProduct'
+    | 'listSellableChannels'
     | 'getItemChannelPrices'
     | 'listMeals'
     | 'getMeal'
@@ -754,16 +756,25 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         },
 
         async getProduct(productId: ProductId): Promise<ProductAdmin> {
-            const lookup = await loadSalesChannelLookup();
-            const show = await fetchCatalogueItemShow(String(productId));
+            const [lookup, show, unitsById] = await Promise.all([
+                loadSalesChannelLookup(),
+                fetchCatalogueItemShow(String(productId)),
+                loadUnitCodeLookup(),
+            ]);
 
             return mapProductAdminFromItem(show.item, {
-                packVariants: mapProductPackVariants(show.variants),
+                packVariants: mapProductPackVariants(show.variants, unitsById),
                 channelAvailability: mapChannelAssignments(show.channels, lookup),
                 dietClassifications: show.diet_classifications.filter(
                     (code): code is DietClassification => isDietClassification(code),
                 ),
             });
+        },
+
+        async listSellableChannels() {
+            const lookup = await loadSalesChannelLookup();
+            const rows = [...lookup.idToChannel.values()];
+            return SALES_CHANNELS.filter((channel) => salesChannelIdFor(channel, rows) !== null);
         },
 
         async getItemChannelPrices(itemId: ProductId | MealId): Promise<ItemChannelPrices> {

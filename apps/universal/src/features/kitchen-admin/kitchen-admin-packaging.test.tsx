@@ -22,6 +22,7 @@ import {
 } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { PackagingEditScreen } from './screens/packaging-edit-screen.tsx';
 import { PackagingScreen } from './screens/packaging-screen.tsx';
 import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
 
@@ -698,5 +699,117 @@ describe('the packaging list', () => {
 
         await untilVisible('kitchen-packaging-forbidden');
         expect(screen.queryByTestId('kitchen-packaging-table')).toBeNull();
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * The editor's units
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('the packaging editor units (HA-30)', () => {
+    function editorRepositories(row: IngredientAdmin | null) {
+        return {
+            kitchenAdmin: {
+                listAllergenClasses: async () => [],
+                listIngredients: packagingListing(() => (row === null ? [] : [row])),
+                listIngredientCategories: async () => CATEGORIES,
+                ...(row === null ? {} : { getIngredient: async () => row }),
+            },
+        };
+    }
+
+    async function openSelect(testID: string) {
+        await untilVisible(`${testID}-trigger`);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${testID}-trigger`));
+        });
+        await untilVisible(`${testID}-option-kg`);
+    }
+
+    it('offers only kilograms, litres and pieces, and keeps a unit saved before that', async () => {
+        const row = item({ ordinal: 1, overrides: { purchaseUnit: 'pack' } });
+
+        await renderStubScreen(<PackagingEditScreen item={String(row.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: editorRepositories(row),
+        });
+
+        await openSelect('kitchen-ingredient-purchase-unit');
+        for (const unit of ['kg', 'l', 'piece']) {
+            expect(
+                screen.getByTestId(`kitchen-ingredient-purchase-unit-option-${unit}`),
+            ).toBeTruthy();
+        }
+        // The record's own pack stays on its list, with a name rather than a key.
+        expect(
+            screen.getByTestId('kitchen-ingredient-purchase-unit-option-pack'),
+        ).toHaveTextContent(/Packs/);
+        for (const unit of ['g', 'ml', 'cup', 'bag', 'gallon']) {
+            expect(
+                screen.queryByTestId(`kitchen-ingredient-purchase-unit-option-${unit}`),
+            ).toBeNull();
+        }
+
+        await openSelect('kitchen-ingredient-unit');
+        for (const unit of ['kg', 'l', 'piece']) {
+            expect(screen.getByTestId(`kitchen-ingredient-unit-option-${unit}`)).toBeTruthy();
+        }
+        for (const unit of ['g', 'ml', 'pack']) {
+            expect(screen.queryByTestId(`kitchen-ingredient-unit-option-${unit}`)).toBeNull();
+        }
+    });
+
+    it('saves pack price, waste and holds on an edit, which it used to throw away', async () => {
+        const row = item({ ordinal: 1 });
+        const updateIngredient = jest.fn(async () => row);
+
+        await renderStubScreen(<PackagingEditScreen item={String(row.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: { ...editorRepositories(row).kitchenAdmin, updateIngredient },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-pack-price-input');
+        // The stored figures open in the boxes.
+        expect(screen.getByTestId('kitchen-ingredient-pack-price-input').props.value).toBe('12.50');
+        expect(screen.getByTestId('kitchen-ingredient-waste-input').props.value).toBe('2');
+        expect(screen.getByTestId('kitchen-ingredient-capacity-input').props.value).toBe('0.75');
+
+        for (const [field, value] of [
+            ['pack-price', '20'],
+            ['waste', '4'],
+            ['capacity', '1.5'],
+        ] as const) {
+            await act(async () => {
+                fireEvent.changeText(
+                    screen.getByTestId(`kitchen-ingredient-${field}-input`),
+                    value,
+                );
+            });
+        }
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+        });
+
+        await waitFor(() => {
+            expect(updateIngredient).toHaveBeenCalled();
+        });
+        const [, request] = updateIngredient.mock.calls[0] as unknown as [unknown, object];
+        expect(request).toMatchObject({
+            purchasePrice: { amount: 20, currency: 'AED' },
+            wastePercent: 4,
+            capacity: { quantity: 1.5, unit: 'kg' },
+        });
+    });
+
+    it('opens a new item issued in pieces, which is on the list', async () => {
+        await renderStubScreen(<PackagingEditScreen item="new" />, {
+            session: kitchenManagerSession(),
+            repositories: editorRepositories(null),
+        });
+
+        await untilVisible('kitchen-ingredient-unit-trigger');
+        expect(screen.getByTestId('kitchen-ingredient-unit-trigger')).toHaveTextContent(/Pieces/);
     });
 });

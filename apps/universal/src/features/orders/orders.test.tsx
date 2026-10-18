@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 import { testMeResponse } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { currentStepIndex, stepPosition } from './order-progress.ts';
-import { CustomerOrderScreen } from './screens/customer-order-screen.tsx';
+import { CustomerOrderScreen, ORDER_TRACKING_POLL_MS } from './screens/customer-order-screen.tsx';
 
 /**
  * The signed-in order page, over the same tracking body the guest page draws.
@@ -80,7 +80,8 @@ describe('order progress', () => {
     it('places a cancelled order on no step, and finishes a delivered one', () => {
         expect(currentStepIndex('cancelled')).toBeNull();
         expect(currentStepIndex('confirmed')).toBe(1);
-        // "Ready for pickup" is never a state of its own, so the drive is the fifth step.
+        // The kitchen's Ready and the driver's Picked up are steps of their own (HA-19).
+        expect(currentStepIndex('ready_for_pickup')).toBe(3);
         expect(currentStepIndex('out_for_delivery')).toBe(4);
         expect(currentStepIndex('delivered')).toBe(5);
         // The last step of a delivered order is done, not "in progress".
@@ -126,18 +127,125 @@ describe('CustomerOrderScreen', () => {
             /^Cash on delivery · .*60/,
         );
 
-        // The primary action asks the server again; the other two have no endpoint and say so.
+        // The primary action asks the server again; "Get help" has no endpoint and says so.
         await fireEvent.press(screen.getByTestId('customer-order-refresh'));
         await waitFor(() => {
             expect(repositories.commerce.getMyOrder).toHaveBeenCalledTimes(2);
         });
-        await fireEvent.press(screen.getByTestId('customer-order-message'));
+        // Nobody is driving it yet, so there is no courier to message.
+        expect(screen.queryByTestId('customer-order-message')).toBeNull();
+        await fireEvent.press(screen.getByTestId('customer-order-help'));
         expect(await screen.findByTestId('prototype-notice')).toHaveTextContent(/Not built yet/);
 
         // A guest is told to keep the reference; an account holder has the history instead.
         expect(screen.queryByTestId('customer-order-reference-keep')).toBeNull();
         await fireEvent.press(screen.getByTestId('customer-order-history'));
         expect(routerMock.__push).toHaveBeenCalledWith('/customer/account?section=orders');
+    });
+
+    it('walks the steps with the time each was reached, and offers the courier only on the road (HA-19)', async () => {
+        await renderStubScreen(<CustomerOrderScreen orderId={ORDER_ID} />, {
+            session: testMeResponse(),
+            repositories: {
+                commerce: {
+                    getMyOrder: async () =>
+                        placedOrder({
+                            state: 'out_for_delivery',
+                            stepTimes: {
+                                confirmed: '2026-08-03T09:12:00.000Z',
+                                preparing: null,
+                                ready_for_pickup: '2026-08-03T09:40:00.000Z',
+                                out_for_delivery: '2026-08-03T09:45:00.000Z',
+                                delivered: null,
+                            },
+                        }),
+                },
+            },
+        });
+
+        expect(await screen.findByTestId('customer-order-title')).toHaveTextContent(
+            'Out for delivery',
+        );
+        expect(
+            screen.getByTestId('customer-order-timeline-ready_for_pickup').props.accessibilityLabel,
+        ).toMatch(/, done$/);
+        expect(
+            screen.getByTestId('customer-order-timeline-out_for_delivery').props.accessibilityLabel,
+        ).toMatch(/, in progress$/);
+        expect(screen.getByTestId('customer-order-timeline-confirmed-time')).toBeTruthy();
+        expect(screen.getByTestId('customer-order-timeline-out_for_delivery-time')).toBeTruthy();
+        // Nothing stamps cooking, and the door has not been reached: no time is invented for either.
+        expect(screen.queryByTestId('customer-order-timeline-preparing-time')).toBeNull();
+        expect(screen.queryByTestId('customer-order-timeline-delivered-time')).toBeNull();
+        expect(screen.getByTestId('customer-order-message')).toBeTruthy();
+    });
+
+    it('says when it was delivered instead of when it is arriving', async () => {
+        await renderStubScreen(<CustomerOrderScreen orderId={ORDER_ID} />, {
+            session: testMeResponse(),
+            repositories: {
+                commerce: {
+                    getMyOrder: async () =>
+                        placedOrder({
+                            state: 'delivered',
+                            deliveryDate: '2026-08-03',
+                            stepTimes: {
+                                confirmed: '2026-08-03T09:12:00.000Z',
+                                preparing: null,
+                                ready_for_pickup: '2026-08-03T09:40:00.000Z',
+                                out_for_delivery: '2026-08-03T09:45:00.000Z',
+                                delivered: '2026-08-03T10:05:00.000Z',
+                            },
+                        }),
+                },
+            },
+        });
+
+        expect(await screen.findByTestId('customer-order-window')).toHaveTextContent(/^Delivered/);
+        expect(screen.getByTestId('customer-order-timeline-delivered-time')).toBeTruthy();
+        expect(screen.queryByTestId('customer-order-message')).toBeNull();
+    });
+
+    it('keeps itself current while the order is moving, and stops once it is delivered (HA-23)', async () => {
+        // Time still flows, so the screen settles as usual; the jump below is the interval only.
+        jest.useFakeTimers({ advanceTimers: true });
+        try {
+            let state: PlacedOrder['state'] = 'placed';
+            const { repositories } = await renderStubScreen(
+                <CustomerOrderScreen orderId={ORDER_ID} />,
+                {
+                    session: testMeResponse(),
+                    repositories: { commerce: { getMyOrder: async () => placedOrder({ state }) } },
+                },
+            );
+            expect(await screen.findByTestId('customer-order-title')).toHaveTextContent(
+                'Order placed',
+            );
+            const reads = (repositories.commerce.getMyOrder as jest.Mock).mock.calls.length;
+
+            // The kitchen confirms; nobody presses Refresh.
+            state = 'confirmed';
+            await jest.advanceTimersByTimeAsync(ORDER_TRACKING_POLL_MS);
+            await waitFor(() => {
+                expect(screen.getByTestId('customer-order-title')).toHaveTextContent(
+                    'Kitchen confirmed',
+                );
+            });
+
+            state = 'delivered';
+            await jest.advanceTimersByTimeAsync(ORDER_TRACKING_POLL_MS);
+            await waitFor(() => {
+                expect(screen.getByTestId('customer-order-title')).toHaveTextContent('Delivered');
+            });
+            const delivered = (repositories.commerce.getMyOrder as jest.Mock).mock.calls.length;
+            expect(delivered).toBeGreaterThan(reads);
+
+            // Nothing more can happen to a delivered order, so the page stops asking.
+            await jest.advanceTimersByTimeAsync(ORDER_TRACKING_POLL_MS * 3);
+            expect(repositories.commerce.getMyOrder).toHaveBeenCalledTimes(delivered);
+        } finally {
+            jest.useRealTimers();
+        }
     });
 
     it('answers a malformed identifier as not found, without asking the server', async () => {

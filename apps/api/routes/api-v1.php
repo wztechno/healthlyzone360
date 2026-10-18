@@ -162,6 +162,7 @@ use Healthy360\Delivery\Http\Controllers\DeliveryZoneWindowReplaceController;
 use Healthy360\Delivery\Http\Controllers\DriverJobClaimController;
 use Healthy360\Delivery\Http\Controllers\DriverJobDeliverController;
 use Healthy360\Delivery\Http\Controllers\DriverJobIndexController;
+use Healthy360\Delivery\Http\Controllers\DriverJobPickUpController;
 use Healthy360\Delivery\Http\Controllers\PublicDeliveryAreaIndexController;
 use Healthy360\Identity\Http\Controllers\ContextController;
 use Healthy360\Identity\Http\Controllers\DeviceController;
@@ -215,6 +216,7 @@ use Healthy360\Orders\Http\Controllers\KitchenOrderFulfilController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderIndexController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderReadyController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderShowController;
+use Healthy360\Orders\Http\Controllers\KitchenOrderStartController;
 use Healthy360\Orders\Http\Controllers\MyOrderIndexController;
 use Healthy360\Orders\Http\Controllers\MyOrderShowController;
 use Healthy360\Orders\Http\Controllers\OrderPaymentReceiptStoreController;
@@ -719,6 +721,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         */
         Route::middleware('org.context')->group(function (): void {
             Route::get('/driver/jobs', DriverJobIndexController::class)->name('driver.jobs.index');
+            Route::post('/driver/jobs/{job}/pick-up', DriverJobPickUpController::class)->name('driver.jobs.pick-up');
             Route::post('/driver/jobs/{job}/deliver', DriverJobDeliverController::class)->name('driver.jobs.deliver');
             Route::post('/driver/jobs/{job}/claim', DriverJobClaimController::class)->name('driver.jobs.claim');
 
@@ -1974,6 +1977,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/orders/{order}/fulfil', KitchenOrderFulfilController::class)
                     ->middleware('precondition')
                     ->name('catalogue.orders.fulfil');
+
+                // "Start" on the kitchen display: cooking has begun (HA-24).
+                // Stamps `preparing_at`; a placed order is confirmed first.
+                Route::post('/orders/{order}/start', KitchenOrderStartController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.orders.start');
 
                 // "Ready" on the kitchen display: cooked, not yet handed over.
                 // Stamps `ready_at` and leaves the order confirmed.

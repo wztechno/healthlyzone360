@@ -54,6 +54,8 @@ final class IngredientPresenter
      *     is_platform: bool,
      *     is_editable: bool,
      *     slug: string,
+     *     photo_url: string|null,
+     *     stock_photo_hidden: bool,
      *     name_en: string,
      *     name_ar: string,
      *     ingredient_category_id: string|null,
@@ -104,6 +106,8 @@ final class IngredientPresenter
             'slug' => $ingredient->slug,
             // The kitchen's own photo, when it saved one (BUG-14); null shows the stock picture.
             'photo_url' => $this->photos->urlFor(RecordPhotoSubject::Ingredient, (string) $ingredient->getKey()),
+            // The kitchen took the picture off: show no stock picture either, whatever the slug names.
+            'stock_photo_hidden' => $this->photos->hidesStockPicture(RecordPhotoSubject::Ingredient, (string) $ingredient->getKey()),
             'name_en' => $ingredient->name_en,
             'name_ar' => $ingredient->name_ar,
             'ingredient_category_id' => $ingredient->ingredient_category_id,

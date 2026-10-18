@@ -86,7 +86,8 @@
             "preparing": "Cooking now",
             "out_for_delivery": "Out for delivery",
             "delivered": "Delivered",
-            "cancelled": "Order cancelled"
+            "cancelled": "Order cancelled",
+            "ready_for_pickup": "Ready"
         },
         "lead": {
             "placed": "Waiting for the kitchen to accept it.",
@@ -94,7 +95,8 @@
             "preparing": "The kitchen is cooking and packing your order.",
             "out_for_delivery": "It has left the kitchen and is on its way to you.",
             "delivered": "It has been handed over. Enjoy your meal.",
-            "cancelled": "Nothing will be cooked or delivered."
+            "cancelled": "Nothing will be cooked or delivered.",
+            "ready_for_pickup": "It is cooked, packed and ready to leave the kitchen."
         },
         "steps": {
             "placed": {
@@ -133,7 +135,8 @@
             "preparing": "Being prepared",
             "out_for_delivery": "Out for delivery",
             "delivered": "Delivered",
-            "cancelled": "Cancelled"
+            "cancelled": "Cancelled",
+            "ready_for_pickup": "Ready for pickup"
         },
         "number": "Order #",
         "separator": " · ",
@@ -146,7 +149,8 @@
         "courierName": "Your courier",
         "courierDetail": "Courier details are not shared on this page.",
         "droppingAt": "Dropping at {{address}}.",
-        "noteOnFile": "Note on file:"
+        "noteOnFile": "Note on file:",
+        "delivered": "Delivered"
     },
     "convert": {
         "title": "Keep this order in an account?",

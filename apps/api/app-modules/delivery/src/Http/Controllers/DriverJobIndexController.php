@@ -124,6 +124,7 @@ final class DriverJobIndexController
         'orders.delivery_area_name_ar as delivery_area_name_ar',
         'orders.delivery_window_code as delivery_window_code',
         'orders.requested_delivery_date as requested_delivery_date',
+        'orders.ready_at as order_ready_at',
         'cp.value_normalised as delivery_phone',
     ];
 
@@ -136,10 +137,15 @@ final class DriverJobIndexController
                 ->where('delivery_jobs.driver_user_id', $userId)
                 ->whereNotIn('delivery_jobs.status', self::CLOSED_STATUSES)),
             // The unassigned pool: projected runs nobody has been given yet,
-            // which any member here may claim (`DriverJobClaimController`).
+            // which any member here may claim (`DriverJobClaimController`) —
+            // once the kitchen has marked the food ready (HA-28). A run is
+            // projected on confirm, which for a scheduled order is days before
+            // it is cooked; offering it then let a driver claim and "pick up"
+            // food that did not exist yet.
             'available' => $this->sheet(fn (Builder $query) => $query
                 ->whereNull('delivery_jobs.driver_user_id')
-                ->where('delivery_jobs.status', 'pending')),
+                ->where('delivery_jobs.status', 'pending')
+                ->whereNotNull('orders.ready_at')),
         ]);
     }
 
@@ -183,6 +189,8 @@ final class DriverJobIndexController
      *     status: string,
      *     tracking_status: string,
      *     assigned_at: string|null,
+     *     picked_up_at: string|null,
+     *     ready_at: string|null,
      *     delivery: array{
      *         line_one: string|null,
      *         building: string|null,
@@ -206,6 +214,10 @@ final class DriverJobIndexController
             'status' => $job->status,
             'tracking_status' => $job->tracking_status,
             'assigned_at' => $job->assigned_at?->utc()->toIso8601String(),
+            'picked_up_at' => $job->picked_up_at?->utc()->toIso8601String(),
+            // When the kitchen marked the food ready; the driver's Picked up
+            // waits for it (HA-28).
+            'ready_at' => $this->instant($job, 'order_ready_at'),
             'delivery' => [
                 'line_one' => $this->text($job, 'delivery_line_one'),
                 // The half of the snapshot a courier navigates by: the street
@@ -223,6 +235,20 @@ final class DriverJobIndexController
                 'phone' => $this->text($job, 'delivery_phone'),
             ],
         ];
+    }
+
+    /**
+     * A joined timestamp column as ISO 8601 UTC, or null.
+     */
+    private function instant(DeliveryJob $job, string $attribute): ?string
+    {
+        $value = $job->getAttribute($attribute);
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return CarbonImmutable::parse((string) $value)->utc()->toIso8601String();
     }
 
     /**

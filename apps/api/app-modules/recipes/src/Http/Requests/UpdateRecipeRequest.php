@@ -30,7 +30,9 @@ class UpdateRecipeRequest extends FormRequest
     {
         return [
             'name_en' => ['sometimes', 'string', 'max:255'],
-            'name_ar' => ['sometimes', 'string', 'max:255'],
+            // Nullable, as on create: a blank Arabic name arrives as null, and refusing it made a
+            // recipe created without one impossible to edit (HA-37).
+            'name_ar' => ['sometimes', 'nullable', 'string', 'max:255'],
             'branch_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('organisation_branches', 'id')],
             'recipe_category' => ['sometimes', 'nullable', 'string', 'max:40'],
             'source_kind' => ['sometimes', 'nullable', 'string', 'max:40'],

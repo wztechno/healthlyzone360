@@ -8,6 +8,8 @@ import type {
     PriceListId,
 } from '@healthy360/domain-types';
 
+import type { DriverJobStatus, DriverJobTrackingStatus } from './driver-jobs.ts';
+
 /**
  * The kitchen's own view of the orders placed against it — the seller side of the same rows the
  * customer reads through `CommerceRepository`.
@@ -144,6 +146,23 @@ export interface KitchenOrderDelivery {
     readonly requestedDate: string | null;
     /** Seller-only: the delivery zone that set the fee. See the file header. */
     readonly zoneId: DeliveryZoneId | null;
+    /** The kitchen's own name for the window in each language (HA-22); absent on older payloads. */
+    readonly windowNameEn?: string | null;
+    readonly windowNameAr?: string | null;
+    /** The zone's name in each language (HA-21); absent on payloads that predate it. */
+    readonly zoneNameEn?: string | null;
+    readonly zoneNameAr?: string | null;
+}
+
+/** A delivery order's run, as the kitchen sees it (HA-19). */
+export interface KitchenOrderDeliveryRun {
+    readonly status: DriverJobStatus;
+    readonly trackingStatus: DriverJobTrackingStatus;
+    /** The driver's name as their profile spells it; `null` before anybody has the run. */
+    readonly driverName: string | null;
+    readonly assignedAt: IsoDateTime | null;
+    readonly pickedUpAt: IsoDateTime | null;
+    readonly deliveredAt: IsoDateTime | null;
 }
 
 /**
@@ -184,6 +203,11 @@ export interface KitchenOrder {
     readonly placedAt: IsoDateTime;
     readonly confirmedAt: IsoDateTime | null;
     /**
+     * When the kitchen pressed Start — cooking began (HA-24). The order stays `confirmed`. Absent on
+     * payloads that predate it, which reads as "not started".
+     */
+    readonly preparingAt?: IsoDateTime | null;
+    /**
      * When the kitchen marked it ready — cooked, not yet handed over. The order stays `confirmed`
      * until `fulfilledAt`. Absent on payloads that predate it, which reads as "not ready".
      */
@@ -191,6 +215,12 @@ export interface KitchenOrder {
     readonly fulfilledAt: IsoDateTime | null;
     readonly cancelledAt: IsoDateTime | null;
     readonly cancellationReason: KitchenOrderCancellationReason | null;
+    /**
+     * The order's delivery run — who is driving it and when they were given it, collected it and
+     * handed it over. `null` on a pickup or counter order and on a delivery order not yet confirmed
+     * (a run is projected on confirm); absent on payloads that predate it.
+     */
+    readonly deliveryRun?: KitchenOrderDeliveryRun | null;
     /** The `If-Match` validator every lifecycle action must carry. See the file header. */
     readonly lockVersion: number;
     /** The server's own count, so a collapsed list row can say "4 items" without holding the lines. */
@@ -341,6 +371,12 @@ export interface KitchenOrdersRepository {
 
     /** `placed → confirmed`. Answers the fresh record, carrying the next `lockVersion`. */
     confirmOrder(request: KitchenOrderTransitionRequest): Promise<KitchenOrder>;
+
+    /**
+     * Stamps `preparingAt` — "Start" on the kitchen display. A `placed` order is confirmed first, in
+     * the same request; a `confirmed` one only gets the stamp. Not a transition of its own.
+     */
+    startOrder(request: KitchenOrderTransitionRequest): Promise<KitchenOrder>;
 
     /** Stamps `readyAt` on a `confirmed` order — "Ready" on the kitchen display. Not a transition. */
     markOrderReady(request: KitchenOrderTransitionRequest): Promise<KitchenOrder>;

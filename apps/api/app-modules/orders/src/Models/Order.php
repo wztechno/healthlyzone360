@@ -8,6 +8,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Customers\Models\CustomerAccount;
+use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Orders\Database\Factories\OrderFactory;
 use Healthy360\Orders\Enums\CancellationReason;
 use Healthy360\Orders\Enums\FulfilmentType;
@@ -75,6 +76,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property PaymentMethod $payment_method
  * @property CarbonImmutable $placed_at
  * @property CarbonImmutable|null $confirmed_at
+ * @property CarbonImmutable|null $preparing_at the kitchen started cooking it ("Start" on the kitchen display)
  * @property CarbonImmutable|null $ready_at the kitchen finished it; still confirmed until handed over
  * @property CarbonImmutable|null $fulfilled_at
  * @property CarbonImmutable|null $cancelled_at
@@ -132,6 +134,7 @@ class Order extends BaseModel
             'requested_delivery_date' => 'immutable_date',
             'placed_at' => 'immutable_datetime',
             'confirmed_at' => 'immutable_datetime',
+            'preparing_at' => 'immutable_datetime',
             'ready_at' => 'immutable_datetime',
             'fulfilled_at' => 'immutable_datetime',
             'cancelled_at' => 'immutable_datetime',
@@ -180,6 +183,17 @@ class Order extends BaseModel
     public function branch(): BelongsTo
     {
         return $this->belongsTo(OrganisationBranch::class, 'branch_id');
+    }
+
+    /**
+     * The delivery zone the address fell into, for the kitchen's own record page (HA-21) — its name,
+     * where the order only snapshots the identifier.
+     *
+     * @return BelongsTo<DeliveryZone, $this>
+     */
+    public function deliveryZone(): BelongsTo
+    {
+        return $this->belongsTo(DeliveryZone::class, 'delivery_zone_id');
     }
 
     /**

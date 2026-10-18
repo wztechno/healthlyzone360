@@ -26,7 +26,7 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { MenuItem, RecordWindowField, TableColumn } from '@healthy360/design-system';
-import { useFormatter } from '@healthy360/i18n';
+import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -125,6 +125,8 @@ type StatusFilter = KitchenOrderStatus | 'all';
 
 /** The admin's one date style — "Oct 12, 2026", as every other kitchen page reads. */
 const MEDIUM_DATE: Intl.DateTimeFormatOptions = { dateStyle: 'medium' };
+/** A timeline step: the day and the minute, because "when did it leave" is a time question. */
+const STEP_TIME: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
 
 export function OrdersScreen() {
     return (
@@ -596,6 +598,7 @@ function OrderRecord({
     const { t } = useTranslation();
     const windowName = useWindowName();
     const formatter = useFormatter();
+    const { locale } = useLocale();
     const toast = useToast();
     const canManage = useCan(ORDER_MANAGE_PERMISSION);
 
@@ -606,8 +609,13 @@ function OrderRecord({
 
     const [cancelling, setCancelling] = useState(false);
     const [reason, setReason] = useState<KitchenOrderCancellationReason | null>(null);
+    const [delivering, setDelivering] = useState(false);
 
     const order = detail.data ?? null;
+    // A delivery order's normal end is the driver's Mark delivered (HA-19). Closing it here is
+    // the escape hatch, offered once it is ready and behind a confirmation, because it also ends
+    // the driver's run (HA-29).
+    const isDelivery = order?.fulfilmentType === 'delivery';
     const detailFailure = toFailure(detail.error);
     const actionPending = confirmOrder.isPending || fulfilOrder.isPending || cancelOrder.isPending;
     const actionFailure =
@@ -632,13 +640,21 @@ function OrderRecord({
                 message: t(
                     action === 'confirm'
                         ? 'kitchen:ops.orders.confirmedToast'
-                        : 'kitchen:ops.orders.fulfilledToast',
+                        : isDelivery
+                          ? 'kitchen:ops.orders.deliveredToast'
+                          : 'kitchen:ops.orders.fulfilledToast',
                     { number: next.orderNumber },
                 ),
             });
         };
         if (action === 'confirm') confirmOrder.mutate(request, { onSuccess });
-        else fulfilOrder.mutate(request, { onSuccess });
+        else
+            fulfilOrder.mutate(request, {
+                onSuccess,
+                onSettled: () => {
+                    setDelivering(false);
+                },
+            });
     }
 
     function closeCancel() {
@@ -696,6 +712,18 @@ function OrderRecord({
             ) : (
                 <Text testID="kitchen-orders-action-error" tone="danger">
                     {actionFailure.message}
+                </Text>
+            )}
+            {order === null || !isDelivery || !canFulfilKitchenOrder(order.status) ? null : (
+                // Where the run stands, in the kitchen display's words.
+                <Text variant="caption" tone="secondary" testID="kitchen-orders-detail-run-state">
+                    {t(
+                        (order.readyAt ?? null) === null
+                            ? 'kitchen:ops.orders.notReadyYet'
+                            : (order.deliveryRun?.pickedUpAt ?? null) === null
+                              ? 'kitchen:kds.waitingForDriver'
+                              : 'kitchen:kds.withDriver',
+                    )}
                 </Text>
             )}
             {!canManage || order === null ? null : canCancelKitchenOrder(order.status) ? (
@@ -766,11 +794,7 @@ function OrderRecord({
                     <FactRow
                         testID="kitchen-orders-detail-delivery-zone"
                         label={t('kitchen:ops.orders.deliveryZone')}
-                        value={
-                            shown.delivery.zoneId === null
-                                ? t('kitchen:common.notRecorded')
-                                : String(shown.delivery.zoneId)
-                        }
+                        value={zoneName(shown, locale) ?? t('kitchen:common.notRecorded')}
                     />
                     <FactRow
                         testID="kitchen-orders-detail-delivery-address"
@@ -788,7 +812,7 @@ function OrderRecord({
                     <FactRow
                         testID="kitchen-orders-detail-placed-at"
                         label={t('kitchen:ops.orders.placedAt')}
-                        value={formatter.formatDate(shown.placedAt, MEDIUM_DATE)}
+                        value={formatter.formatDate(shown.placedAt, STEP_TIME)}
                     />
                     {/* The design states every step, recorded or not. */}
                     <FactRow
@@ -796,6 +820,42 @@ function OrderRecord({
                         label={t('kitchen:ops.orders.confirmedAt')}
                         value={stamp(shown.confirmedAt, t, formatter)}
                     />
+                    <FactRow
+                        testID="kitchen-orders-detail-preparing-at"
+                        label={t('kitchen:ops.orders.preparingAt')}
+                        value={stamp(shown.preparingAt ?? null, t, formatter)}
+                    />
+                    <FactRow
+                        testID="kitchen-orders-detail-ready-at"
+                        label={t('kitchen:ops.orders.readyAt')}
+                        value={stamp(shown.readyAt ?? null, t, formatter)}
+                    />
+                    {/*
+                     * A delivery's drive (HA-19): who has it, when they collected it and when they
+                     * handed it over. A pickup or counter order has no run and no rows for one.
+                     */}
+                    {shown.fulfilmentType !== 'delivery' ? null : (
+                        <>
+                            <FactRow
+                                testID="kitchen-orders-detail-driver"
+                                label={t('kitchen:ops.orders.driver')}
+                                value={
+                                    shown.deliveryRun?.driverName ??
+                                    t('kitchen:ops.orders.driverNone')
+                                }
+                            />
+                            <FactRow
+                                testID="kitchen-orders-detail-picked-up-at"
+                                label={t('kitchen:ops.orders.pickedUpAt')}
+                                value={stamp(shown.deliveryRun?.pickedUpAt ?? null, t, formatter)}
+                            />
+                            <FactRow
+                                testID="kitchen-orders-detail-delivered-at"
+                                label={t('kitchen:ops.orders.deliveredAt')}
+                                value={stamp(shown.deliveryRun?.deliveredAt ?? null, t, formatter)}
+                            />
+                        </>
+                    )}
                     <FactRow
                         testID="kitchen-orders-detail-fulfilled-at"
                         label={t('kitchen:ops.orders.fulfilledAt')}
@@ -805,7 +865,7 @@ function OrderRecord({
                         <FactRow
                             testID="kitchen-orders-detail-cancelled-at"
                             label={t('kitchen:ops.orders.cancelledAt')}
-                            value={formatter.formatDate(shown.cancelledAt, MEDIUM_DATE)}
+                            value={formatter.formatDate(shown.cancelledAt, STEP_TIME)}
                         />
                     )}
                     {shown.cancellationReason === null ? null : (
@@ -884,18 +944,32 @@ function OrderRecord({
                         transition('confirm');
                     },
                 }
-              : canFulfilKitchenOrder(order.status)
-                ? {
-                      label: t('kitchen:ops.orders.fulfil'),
-                      icon: null,
-                      testID: 'kitchen-orders-fulfil',
-                      loading: fulfilOrder.isPending,
-                      disabled: actionPending,
-                      onPress: () => {
-                          transition('fulfil');
-                      },
-                  }
-                : undefined;
+              : canFulfilKitchenOrder(order.status) && isDelivery
+                ? (order.readyAt ?? null) === null
+                    ? undefined
+                    : {
+                          label: t('kitchen:ops.orders.markDelivered'),
+                          icon: null,
+                          testID: 'kitchen-orders-mark-delivered',
+                          loading: fulfilOrder.isPending,
+                          disabled: actionPending,
+                          onPress: () => {
+                              clearActionState();
+                              setDelivering(true);
+                          },
+                      }
+                : canFulfilKitchenOrder(order.status)
+                  ? {
+                        label: t('kitchen:ops.orders.fulfil'),
+                        icon: null,
+                        testID: 'kitchen-orders-fulfil',
+                        loading: fulfilOrder.isPending,
+                        disabled: actionPending,
+                        onPress: () => {
+                            transition('fulfil');
+                        },
+                    }
+                  : undefined;
 
     return (
         <>
@@ -922,6 +996,37 @@ function OrderRecord({
                 statusContent={actionContent}
                 footNote={t('kitchen:ops.orders.cancelFinal')}
                 primaryAction={forward}
+            />
+
+            <Dialog
+                testID="kitchen-orders-mark-delivered-dialog"
+                open={delivering && order !== null}
+                onClose={() => {
+                    setDelivering(false);
+                }}
+                title={t('kitchen:ops.orders.markDeliveredTitle', { number })}
+                description={t('kitchen:ops.orders.markDeliveredBody')}
+                actions={
+                    <>
+                        <Button
+                            testID="kitchen-orders-mark-delivered-dismiss"
+                            variant="quiet"
+                            label={t('kitchen:ops.orders.markDeliveredDismiss')}
+                            onPress={() => {
+                                setDelivering(false);
+                            }}
+                        />
+                        <Button
+                            testID="kitchen-orders-mark-delivered-confirm"
+                            label={t('kitchen:ops.orders.markDelivered')}
+                            loading={fulfilOrder.isPending}
+                            disabled={actionPending}
+                            onPress={() => {
+                                transition('fulfil');
+                            }}
+                        />
+                    </>
+                }
             />
 
             <Dialog
@@ -1031,10 +1136,21 @@ function money(
     return formatMoney(formatter, { amount, currency });
 }
 
+/**
+ * The zone the order fell into, by name in the reader's language or the other one (HA-21). Never
+ * the identifier: a kitchen reads "Inner city", and a code on the page reads as a fault.
+ */
+function zoneName(order: KitchenOrder, locale: string): string | null {
+    const arabic = locale.toLowerCase().startsWith('ar');
+    const preferred = arabic ? order.delivery.zoneNameAr : order.delivery.zoneNameEn;
+    const other = arabic ? order.delivery.zoneNameEn : order.delivery.zoneNameAr;
+    return preferred ?? other ?? null;
+}
+
 function stamp(value: string | null, t: TFunction, formatter: Formatter): string {
     return value === null
         ? t('kitchen:common.notRecorded')
-        : formatter.formatDate(value, MEDIUM_DATE);
+        : formatter.formatDate(value, STEP_TIME);
 }
 
 /** "Delivery · 2026-09-14" — how it leaves and the day asked for. */

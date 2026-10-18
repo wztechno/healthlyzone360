@@ -378,11 +378,24 @@ function AppShellLayout({
     /** The admin variants' area switcher — nothing when the caller passes none. */
     const bottomBar = bottomNavigation.length === 0 ? null : renderTabBar(bottomNavigation);
 
+    /*
+     * The kiosk and driver variants draw no chrome around the page, but the page still scrolls
+     * (HA-25). The web document never scrolls — `body` is `overflow: hidden` and every variant's
+     * own scroll port does it — so a board with more tickets than the wall, or a run sheet with
+     * more runs than the phone, was cut off under the bottom bar with no way to reach the rest.
+     * `flex-grow` keeps a short page filling the screen, as the plain `View` did.
+     */
     if (variant === 'kiosk') {
         return (
             <View testID={testID} className="flex-1 bg-surface-base">
                 {banner}
-                <View className={cx('flex-1', contentClassName)}>{children}</View>
+                <ScrollView
+                    testID={testID === undefined ? undefined : `${testID}-content`}
+                    className="flex-1"
+                    contentContainerClassName={cx('flex-grow', contentClassName)}
+                >
+                    {children}
+                </ScrollView>
                 {bottomBar}
             </View>
         );
@@ -432,9 +445,14 @@ function AppShellLayout({
         return (
             <View testID={testID} className="flex-1 bg-surface-base">
                 {banner}
-                <View role="main" className={cx('flex-1', contentClassName)}>
+                <ScrollView
+                    testID={testID === undefined ? undefined : `${testID}-content`}
+                    role="main"
+                    className="flex-1"
+                    contentContainerClassName={cx('flex-grow', contentClassName)}
+                >
                     {children}
-                </View>
+                </ScrollView>
                 {tabBar}
             </View>
         );

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
 
 import { ORDER_PROGRESS_STEPS, stepPosition } from './order-progress.ts';
-import type { OrderStepPosition } from './order-progress.ts';
+import type { OrderProgressStep, OrderStepPosition } from './order-progress.ts';
 
 /**
  * The order's progress as a vertical timeline — the HealthZone `track` card's dot-and-rail list.
@@ -15,16 +15,17 @@ import type { OrderStepPosition } from './order-progress.ts';
  * colour with disabled ink. Colour is never the only signal: each row's accessible label names its
  * position ("done", "in progress", "still to come").
  *
- * Only the first step carries a time. The contract publishes when an order was placed and nothing
- * about when it moved on, so every other row reads "—" — the design's own mark for a step without
- * one — rather than a time it was never told.
+ * A step carries a time when the order says when it got there (`times`); any other row reads "—" —
+ * the design's own mark for a step without one — rather than a time it was never told.
  */
 
 export interface OrderTimelineProps {
     /** Index into {@link ORDER_PROGRESS_STEPS} of the step the order is on. */
     readonly current: number;
-    /** Already formatted by the caller — the one time the contract gives us. */
+    /** Already formatted by the caller — when it was placed. */
     readonly placedAt: string;
+    /** When it reached each later step, already formatted. A step left out shows "—". */
+    readonly times?: Readonly<Partial<Record<OrderProgressStep, string>>> | undefined;
     /** The first step's detail line — the payment and the total, composed by the caller. */
     readonly placedDetail: string;
     readonly testID: string;
@@ -38,7 +39,13 @@ const DOT: Readonly<Record<OrderStepPosition, string>> = {
     upcoming: 'border-surface-raised bg-stroke',
 };
 
-export function OrderTimeline({ current, placedAt, placedDetail, testID }: OrderTimelineProps) {
+export function OrderTimeline({
+    current,
+    placedAt,
+    placedDetail,
+    times,
+    testID,
+}: OrderTimelineProps) {
     const { t } = useTranslation();
     const last = ORDER_PROGRESS_STEPS.length - 1;
 
@@ -52,6 +59,7 @@ export function OrderTimeline({ current, placedAt, placedDetail, testID }: Order
             {ORDER_PROGRESS_STEPS.map((step, index) => {
                 const position = stepPosition(index, current);
                 const title = t(`guest:order.steps.${step}.title`);
+                const time = index === 0 ? placedAt : times?.[step];
                 return (
                     <View
                         key={step}
@@ -109,12 +117,14 @@ export function OrderTimeline({ current, placedAt, placedDetail, testID }: Order
                         </View>
 
                         <View className="min-w-[56px] items-end pt-1">
-                            {index === 0 ? (
+                            {time !== undefined ? (
                                 <RNText
-                                    testID={`${testID}-time`}
+                                    testID={
+                                        index === 0 ? `${testID}-time` : `${testID}-${step}-time`
+                                    }
                                     className="text-xs font-medium tabular-nums text-content-secondary text-end"
                                 >
-                                    {placedAt}
+                                    {time}
                                 </RNText>
                             ) : (
                                 <RNText

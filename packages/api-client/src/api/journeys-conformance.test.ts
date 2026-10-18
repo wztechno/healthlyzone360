@@ -711,6 +711,46 @@ describe('the customer’s own orders', () => {
         expect(order.lines).toHaveLength(2);
         expect(order.priceLines.map((line) => line.code)).toEqual(['subtotal', 'delivery']);
     });
+
+    it('reads the step a confirmed order is on from the stamps beside it (HA-19, HA-24)', async () => {
+        const read = async (stamps: Record<string, string | null>) =>
+            createApiMyOrderReads(
+                transportReturning(
+                    {
+                        data: {
+                            order: {
+                                ...RECORDED_CUSTOMER_ORDER,
+                                status: 'confirmed',
+                                confirmed_at: '2026-08-03T09:12:00+00:00',
+                                ...stamps,
+                            },
+                        },
+                        meta: {},
+                    },
+                    [],
+                ),
+            ).getMyOrder(OrderId.unsafe(RECORDED_CUSTOMER_ORDER.id));
+
+        expect((await read({})).state).toBe('confirmed');
+
+        const cooking = await read({ preparing_at: '2026-08-03T09:15:00+00:00' });
+        expect(cooking.state).toBe('preparing');
+        expect(cooking.stepTimes?.preparing).toBe('2026-08-03T09:15:00+00:00');
+
+        const ready = await read({
+            preparing_at: '2026-08-03T09:15:00+00:00',
+            ready_at: '2026-08-03T09:40:00+00:00',
+        });
+        expect(ready.state).toBe('ready_for_pickup');
+
+        const onTheRoad = await read({
+            preparing_at: '2026-08-03T09:15:00+00:00',
+            ready_at: '2026-08-03T09:40:00+00:00',
+            out_for_delivery_at: '2026-08-03T09:45:00+00:00',
+        });
+        expect(onTheRoad.state).toBe('out_for_delivery');
+        expect(onTheRoad.stepTimes?.out_for_delivery).toBe('2026-08-03T09:45:00+00:00');
+    });
 });
 
 describe('the fifteen journey wire codes', () => {

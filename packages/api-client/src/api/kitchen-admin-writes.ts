@@ -93,7 +93,9 @@ import {
     mapPlanMenu,
     mapRecipeRollupPreview,
     mapItemChannelPrices,
+    mapMeasureUnit,
     pickCurrentRecipeVersion,
+    salesChannelIdFor,
     type CategoryLookup,
     type WireItemChannelPrices,
 } from './kitchen-admin-mappers.ts';
@@ -162,13 +164,32 @@ function ifMatch(lockVersion: number): Readonly<Record<string, string>> {
     return { 'If-Match': `"${lockVersion}"` };
 }
 
+/**
+ * The item's category, as the id the server files it under (HA-31). A code that happens to be a
+ * UUID is still honoured, which is all the write used to accept — and why a picked category, a
+ * code like `beverage`, never reached the server.
+ */
+function productCategoryWire(
+    categoryId: string | null | undefined,
+    categoryCode: string | undefined,
+): { readonly product_category_id?: string | null } {
+    if (categoryId !== undefined) return { product_category_id: categoryId };
+    return categoryCode !== undefined && isUuid(categoryCode)
+        ? { product_category_id: categoryCode }
+        : {};
+}
+
+/**
+ * Both halves of a description. An emptied Arabic text is sent as `null`, which clears it: left
+ * out, the server kept the old text and it came back on reopen (HA-34).
+ */
 function descriptionWire(text: { readonly en: string; readonly ar?: string | undefined }): {
     readonly description_en?: string;
-    readonly description_ar?: string;
+    readonly description_ar?: string | null;
 } {
     return {
         description_en: text.en,
-        ...(text.ar === undefined || text.ar === '' ? {} : { description_ar: text.ar }),
+        ...(text.ar === undefined ? {} : { description_ar: text.ar === '' ? null : text.ar }),
     };
 }
 
@@ -305,6 +326,15 @@ class MeasurementUnitLookup {
         return this.#codeToId.get(unit) ?? null;
     }
 
+    /** The code a stored unit id names, from the same lookup; `null` when it names none. */
+    async codeOf(transport: Transport, unitId: string): Promise<string | null> {
+        if (!this.#loaded) await this.resolve(transport, 'g');
+        for (const [code, id] of this.#codeToId) {
+            if (id === unitId) return code;
+        }
+        return null;
+    }
+
     /**
      * The same lookup, for a caller that cannot carry on without an answer.
      *
@@ -365,42 +395,6 @@ function wireIngredientAllergens(mappings: readonly IngredientAllergenMapping[])
             ...(mapping.sourceNote === undefined ? {} : { evidence: mapping.sourceNote }),
         };
     });
-}
-
-/**
- * Which of the organisation's channel rows one contract channel names, or
- * `null` when it names none.
- *
- * A `SalesChannel` is the frontend contract's flattening of two server
- * concepts: `channel_kind` is a closed platform vocabulary, while a *channel*
- * is a row an organisation owns. An organisation that has never opened a
- * counter has no `pos` row, and there is nothing for "sold over the counter"
- * to point at. This used to fall back to `channels[0]`, which did not fail —
- * it wrote the decision against a different channel entirely, and, when that
- * channel was already in the submitted set, made the same pair appear twice
- * and took the whole replacement down with it (`channels.N` "stated twice").
- */
-function salesChannelIdFor(
-    channel: SetChannelAvailabilityRequest['availability'][number]['channel'],
-    channels: readonly AdminSalesChannel[],
-): string | null {
-    const match = channels.find((row) => {
-        switch (channel) {
-            case 'b2c':
-                return row.channel_kind === 'b2c_web';
-            case 'b2b':
-                return row.channel_kind === 'b2b';
-            case 'pos':
-                return row.channel_kind === 'pos';
-            case 'marketplace':
-                return row.channel_kind === 'marketplace';
-            case 'corporate':
-                return row.channel_kind === 'corporate';
-            default:
-                return row.code === channel;
-        }
-    });
-    return match?.id ?? null;
 }
 
 /** Where each kind of record keeps its photo (BUG-14). */
@@ -513,12 +507,12 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
      * `pack_unit_id` is required — a pack quantity with no unit is not a size —
      * and it is *not* derivable from `ProductPackVariant.netUnit` for a pack
      * that already exists. `netUnit` is a `MeasureUnit`, the ten-value nutrition
-     * vocabulary, and the platform's `measurement_units` table is wider than it:
-     * the demo catalogue alone quotes packs in `gallon`, `bag`, `can` and
-     * `bunch`, none of which that union can name. So the unit a stored pack
-     * already carries is echoed back by code, and only a pack the submission
-     * *adds* has its `netUnit` resolved — which keeps a rename-free save from
-     * silently restating a kilogram pack in grams.
+     * vocabulary, and the platform's `measurement_units` table is wider than it
+     * (`bunch`, for one). So a stored pack keeps its unit unless the reader
+     * changed it: the stored unit is compared with what the read showed for it
+     * (`mapMeasureUnit`), and only a different pick is resolved and sent. That
+     * keeps a save from restating a `bunch` pack in grams, and — the half that
+     * used to be missing (HA-32) — lets a real change of unit through.
      *
      * @param existing the item's stored variants, keyed by code — empty when the
      *   item is being created and there is nothing to preserve.
@@ -544,7 +538,11 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
 
         for (const pack of packs) {
             const stored = existing.get(pack.code)?.pack?.pack_unit_id;
-            const unitId = stored ?? (await units.resolve(transport, pack.netUnit));
+            const unchanged =
+                stored !== undefined &&
+                mapMeasureUnit(await units.codeOf(transport, stored)) === pack.netUnit;
+            const picked = unchanged ? null : await units.resolve(transport, pack.netUnit);
+            const unitId = unchanged ? stored : (picked ?? stored ?? null);
 
             wired.push({
                 code: pack.code,
@@ -673,6 +671,36 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
         };
     }
 
+    /**
+     * Packaging's pack price, waste and capacity (HA-30) — drawn on the form and, until this,
+     * never sent, so a save threw all three away. `undefined` leaves a field alone and `null`
+     * clears it. The capacity's unit is `resolve`d, not `require`d: an unknown code drops the
+     * pair whole, which the server's both-or-neither rule needs.
+     */
+    async function packagingFields(
+        purchasePrice: CostAmount | null | undefined,
+        wastePercent: number | null | undefined,
+        capacity: { readonly quantity: number; readonly unit: MeasureUnit } | null | undefined,
+    ): Promise<Record<string, unknown>> {
+        const body: Record<string, unknown> = {};
+        if (purchasePrice !== undefined) {
+            body.purchase_price_amount = purchasePrice === null ? null : purchasePrice.amount;
+            if (purchasePrice !== null) body.purchase_price_currency = purchasePrice.currency;
+        }
+        if (wastePercent !== undefined) body.waste_percent = wastePercent;
+        if (capacity === null) {
+            body.capacity_quantity = null;
+            body.capacity_unit_id = null;
+        } else if (capacity !== undefined) {
+            const unitId = await units.resolve(transport, capacity.unit);
+            if (unitId !== null) {
+                body.capacity_quantity = capacity.quantity;
+                body.capacity_unit_id = unitId;
+            }
+        }
+        return body;
+    }
+
     return {
         async searchAllergenReferences(request) {
             const params = new URLSearchParams();
@@ -728,7 +756,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
         },
 
         async removeRecordPhoto(subject: RecordPhotoSubject, recordId: string): Promise<void> {
-            await transport.request<void>({
+            await transport.requestVoid({
                 method: 'DELETE',
                 path: `${PHOTO_PATHS[subject]}/${encodeURIComponent(recordId)}/photo`,
             });
@@ -745,6 +773,12 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             // whether every recipe line naming the row can be weighed, and dropping it quietly is
             // how a row ends up in a unit nobody chose.
             const unitId = await units.require(transport, request.measurementUnit);
+            // `purchase_unit_id` was on the contract and never sent (HA-5): a pack chosen on
+            // create came back "Not recorded". `resolve`, as on update — the pack is optional.
+            const purchaseUnitId =
+                request.purchaseUnit === undefined
+                    ? null
+                    : await units.resolve(transport, request.purchaseUnit);
 
             const envelope = await transport.requestEnvelope<{
                 readonly ingredient: AdminIngredient;
@@ -759,6 +793,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                         ? {}
                         : { ingredient_subcategory_id: subcategoryId }),
                     default_unit_id: unitId,
+                    ...(purchaseUnitId === null ? {} : { purchase_unit_id: purchaseUnitId }),
                     // `items_per_unit` was on the contract and never sent — a gap, not a decision:
                     // a create that stated the pack size silently dropped it and the first save
                     // after had to state it again.
@@ -780,6 +815,11 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                           }),
                     ...referenceFields(request.nutritionReference),
                     ...priceFields(request.b2bPrice, request.b2cPrice, request.unitPrice),
+                    ...(await packagingFields(
+                        request.purchasePrice,
+                        request.wastePercent,
+                        request.capacity,
+                    )),
                     ...(request.isSellable === undefined
                         ? {}
                         : { is_sellable: request.isSellable }),
@@ -844,6 +884,14 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             if (request.itemsPerUnit !== undefined) body.items_per_unit = request.itemsPerUnit;
             if (request.gramsPerUnit !== undefined) body.grams_per_unit = request.gramsPerUnit;
             Object.assign(body, priceFields(request.b2bPrice, request.b2cPrice, request.unitPrice));
+            Object.assign(
+                body,
+                await packagingFields(
+                    request.purchasePrice,
+                    request.wastePercent,
+                    request.capacity,
+                ),
+            );
             if (request.isSellable !== undefined) body.is_sellable = request.isSellable;
             Object.assign(body, referenceFields(request.nutritionReference));
             if (request.notes !== undefined) body.notes = request.notes;
@@ -1201,9 +1249,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                         name_en: request.name.en,
                         ...(request.name.ar === undefined ? {} : { name_ar: request.name.ar }),
                         ...descriptionWire(request.description),
-                        ...(isUuid(request.categoryCode)
-                            ? { product_category_id: request.categoryCode }
-                            : {}),
+                        ...productCategoryWire(request.categoryId, request.categoryCode),
                         ...(request.recipeId === undefined
                             ? {}
                             : { recipe_id: String(request.recipeId) }),
@@ -1249,9 +1295,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             }
             if (request.description !== undefined)
                 Object.assign(body, descriptionWire(request.description));
-            if (request.categoryCode !== undefined && isUuid(request.categoryCode)) {
-                body.product_category_id = request.categoryCode;
-            }
+            Object.assign(body, productCategoryWire(request.categoryId, request.categoryCode));
             if (request.recipeId !== undefined) {
                 body.recipe_id = request.recipeId === null ? null : String(request.recipeId);
             }
@@ -1413,6 +1457,10 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                         ...(request.portionFactor === undefined
                             ? {}
                             : { portion_factor: request.portionFactor }),
+                        // Breakfast, lunch… — stored on the item now (HA-35).
+                        ...(request.mealTypes === undefined
+                            ? {}
+                            : { meal_types: [...request.mealTypes] }),
                         ...finishedStockWire(request),
                     },
                 },
@@ -1445,6 +1493,8 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 body.recipe_id = request.recipeId === null ? null : String(request.recipeId);
             }
             if (request.portionFactor !== undefined) body.portion_factor = request.portionFactor;
+            // The whole list, so `[]` clears it (HA-35).
+            if (request.mealTypes !== undefined) body.meal_types = [...request.mealTypes];
             Object.assign(body, finishedStockWire(request));
 
             // The same chain `updateProduct` carries: an accepted `PATCH` bumps the item, so the

@@ -369,6 +369,7 @@ export const queryKeys = {
         product: (productId: ProductId) => ['kitchenAdmin', 'product', productId] as const,
         itemChannelPrices: (itemId: string) =>
             ['kitchenAdmin', 'itemChannelPrices', itemId] as const,
+        sellableChannels: () => ['kitchenAdmin', 'sellableChannels'] as const,
 
         priceLists: (filter?: QueryScope) =>
             ['kitchenAdmin', 'price-lists', scope(filter)] as const,

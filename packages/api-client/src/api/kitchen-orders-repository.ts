@@ -114,6 +114,10 @@ function mapDelivery(wire: WireKitchenOrderDelivery): KitchenOrderDelivery {
         windowCode: wire.window_code,
         requestedDate: wire.requested_date,
         zoneId: wire.zone_id === null ? null : DeliveryZoneId.unsafe(wire.zone_id),
+        zoneNameEn: wire.zone_name_en ?? null,
+        windowNameEn: wire.window_name_en ?? null,
+        windowNameAr: wire.window_name_ar ?? null,
+        zoneNameAr: wire.zone_name_ar ?? null,
     };
 }
 
@@ -135,10 +139,22 @@ export function mapKitchenOrder(wire: WireKitchenOrder): KitchenOrder {
         delivery: mapDelivery(wire.delivery),
         placedAt: wire.placed_at,
         confirmedAt: wire.confirmed_at,
+        preparingAt: wire.preparing_at ?? null,
         readyAt: wire.ready_at ?? null,
         fulfilledAt: wire.fulfilled_at,
         cancelledAt: wire.cancelled_at,
         cancellationReason: wire.cancellation_reason,
+        deliveryRun:
+            wire.delivery_run === null || wire.delivery_run === undefined
+                ? null
+                : {
+                      status: wire.delivery_run.status,
+                      trackingStatus: wire.delivery_run.tracking_status,
+                      driverName: wire.delivery_run.driver_name,
+                      assignedAt: wire.delivery_run.assigned_at,
+                      pickedUpAt: wire.delivery_run.picked_up_at,
+                      deliveredAt: wire.delivery_run.delivered_at,
+                  },
         lockVersion: wire.lock_version,
         lineCount: wire.line_count,
         lines: wire.lines.map(mapLine),
@@ -210,7 +226,7 @@ export function createApiKitchenOrdersRepository(transport: Transport): KitchenO
     async function transition(
         orderId: OrderId,
         lockVersion: number,
-        action: 'confirm' | 'ready' | 'fulfil' | 'cancel',
+        action: 'confirm' | 'start' | 'ready' | 'fulfil' | 'cancel',
         body?: Record<string, unknown>,
     ): Promise<KitchenOrder> {
         const payload = await transport.request<{ readonly order: WireKitchenOrder }>({
@@ -247,6 +263,10 @@ export function createApiKitchenOrdersRepository(transport: Transport): KitchenO
 
         async confirmOrder(request: KitchenOrderTransitionRequest): Promise<KitchenOrder> {
             return transition(request.id, request.lockVersion, 'confirm');
+        },
+
+        async startOrder(request: KitchenOrderTransitionRequest): Promise<KitchenOrder> {
+            return transition(request.id, request.lockVersion, 'start');
         },
 
         async markOrderReady(request: KitchenOrderTransitionRequest): Promise<KitchenOrder> {

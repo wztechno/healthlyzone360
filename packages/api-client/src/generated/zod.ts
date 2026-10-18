@@ -427,6 +427,7 @@ export const zAdminIngredient = z.object({
     is_platform: z.boolean(),
     is_editable: z.boolean(),
     photo_url: z.url().nullish(),
+    stock_photo_hidden: z.boolean().optional(),
     slug: z.string().max(120),
     name_en: z.string(),
     name_ar: z.string(),
@@ -540,6 +541,11 @@ export const zCreateIngredientRequest = z.object({
     b2c_price_amount: z.number().gte(0).nullish(),
     unit_price_amount: z.number().gte(0).nullish(),
     price_currency_code: z.string().length(3).nullish(),
+    purchase_price_amount: z.number().gte(0).lte(1000000000000).nullish(),
+    purchase_price_currency: z.string().length(3).nullish(),
+    waste_percent: z.number().gte(0).lt(100).nullish(),
+    capacity_quantity: z.number().gte(0.0001).lte(99999999.9999).nullish(),
+    capacity_unit_id: zUuid.nullish(),
     is_sellable: z.boolean().optional(),
     yield_factor: z.number().gt(0).lte(99.9999).optional(),
     availability_tier: zAvailabilityTier.optional(),
@@ -569,6 +575,11 @@ export const zUpdateIngredientRequest = z.object({
     b2c_price_amount: z.number().gte(0).nullish(),
     unit_price_amount: z.number().gte(0).nullish(),
     price_currency_code: z.string().length(3).nullish(),
+    purchase_price_amount: z.number().gte(0).lte(1000000000000).nullish(),
+    purchase_price_currency: z.string().length(3).nullish(),
+    waste_percent: z.number().gte(0).lt(100).nullish(),
+    capacity_quantity: z.number().gte(0.0001).lte(99999999.9999).nullish(),
+    capacity_unit_id: zUuid.nullish(),
     is_sellable: z.boolean().optional(),
     yield_factor: z.number().gt(0).lte(99.9999).optional(),
     availability_tier: zAvailabilityTier.optional(),
@@ -1393,6 +1404,16 @@ export const zUpdateSalesChannelRequest = z.object({
 });
 
 /**
+ * When in the day a meal is eaten.
+ */
+export const zMealTypeCode = z.enum([
+    'breakfast',
+    'lunch',
+    'dinner',
+    'snack'
+]);
+
+/**
  * The administrative shape of a sellable item. Carries **both** names and
  * ignores `Accept-Language` for them: a bilingual editor has to see what
  * it is editing.
@@ -1436,6 +1457,7 @@ export const zAdminCatalogueItem = z.object({
     usage_unit_id: zUuid.nullish(),
     is_market_priced: z.boolean(),
     is_assorted: z.boolean(),
+    meal_types: z.array(zMealTypeCode).optional(),
     status: zCatalogueItemStatus,
     review_reason: z.string().max(200).nullish(),
     image_placeholder_id: z.string().max(80).nullish(),
@@ -1586,6 +1608,7 @@ export const zCreateCatalogueItemRequest = z.object({
     usage_unit_id: zUuid.nullish(),
     is_market_priced: z.boolean().optional(),
     is_assorted: z.boolean().optional(),
+    meal_types: z.array(zMealTypeCode).max(4).optional(),
     image_placeholder_id: z.string().max(80).nullish()
 });
 
@@ -1617,6 +1640,7 @@ export const zUpdateCatalogueItemRequest = z.object({
     usage_unit_id: zUuid.nullish(),
     is_market_priced: z.boolean().optional(),
     is_assorted: z.boolean().optional(),
+    meal_types: z.array(zMealTypeCode).max(4).optional(),
     image_placeholder_id: z.string().max(80).nullish()
 });
 
@@ -2739,7 +2763,7 @@ export const zMarketplaceMeal = z.object({
     photo_url: z.url().nullish(),
     slug: z.string(),
     description: z.string(),
-    meal_types: z.array(z.string()),
+    meal_types: z.array(zMealTypeCode),
     diet_classifications: z.array(z.string()),
     cuisines: z.array(z.string()),
     allergens: z.array(zAllergenCode),
@@ -3371,11 +3395,15 @@ export const zCustomerOrderDelivery = z.object({
     directions: z.string().nullable(),
     contact_point_id: z.uuid().nullable(),
     window_code: z.string().nullable(),
+    window_name_en: z.string().nullish(),
+    window_name_ar: z.string().nullish(),
     requested_date: z.iso.date().nullable()
 });
 
 export const zKitchenOrderDelivery = zCustomerOrderDelivery.and(z.object({
-    zone_id: z.uuid().nullable()
+    zone_id: z.uuid().nullable(),
+    zone_name_en: z.string().nullish(),
+    zone_name_ar: z.string().nullish()
 }));
 
 /**
@@ -5412,8 +5440,11 @@ export const zCustomerOrder = z.object({
     delivery: zCustomerOrderDelivery,
     placed_at: z.iso.datetime({ offset: true }),
     confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    preparing_at: z.iso.datetime({ offset: true }).nullish(),
     ready_at: z.iso.datetime({ offset: true }).nullish(),
     fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
+    out_for_delivery_at: z.iso.datetime({ offset: true }).nullish(),
+    delivered_at: z.iso.datetime({ offset: true }).nullish(),
     cancelled_at: z.iso.datetime({ offset: true }).nullable(),
     cancellation_reason: zCancellationReason.nullable(),
     line_count: z.int().gte(0),
@@ -5421,63 +5452,9 @@ export const zCustomerOrder = z.object({
     created_at: z.iso.datetime({ offset: true }).nullable()
 });
 
-/**
- * The seller's view of the same row. Built independently of the customer
- * shape rather than as a superset of it: a wide shape and a narrow one
- * derived from it by subtraction is how a column added next year quietly
- * reaches a receipt.
- *
- * `lock_version` is here because this is the audience that **writes** — a
- * screen that could not read the validator could not send the `If-Match`
- * the three lifecycle actions demand.
- *
- * **`customer_account_id` is nullable and `fulfilment_type` says when.**
- * A counter sale may be a stranger buying a sandwich, and there is nobody
- * to name; a delivery and a pickup always have somebody. The pair has to
- * be read together — a null customer is a fact about a walk-in, never a
- * row that failed to load.
- *
- */
-export const zKitchenOrder = z.object({
-    id: zUuid,
-    order_number: z.string(),
-    organisation_id: zUuid,
-    customer_account_id: z.uuid().nullable(),
-    sales_channel_id: zUuid,
-    branch_id: z.uuid().nullable(),
-    status: zOrderStatus,
-    currency_code: z.string().length(3),
-    subtotal_minor: z.int(),
-    delivery_fee_minor: z.int().nullable(),
-    total_minor: z.int(),
-    payment_method: zPaymentMethod,
-    fulfilment_type: zFulfilmentType,
-    delivery: zKitchenOrderDelivery,
-    placed_at: z.iso.datetime({ offset: true }),
-    confirmed_at: z.iso.datetime({ offset: true }).nullable(),
-    ready_at: z.iso.datetime({ offset: true }).nullish(),
-    fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
-    cancelled_at: z.iso.datetime({ offset: true }).nullable(),
-    cancellation_reason: zCancellationReason.nullable(),
-    created_by: z.uuid().nullable(),
-    placed_on_behalf_by: z.uuid().nullable(),
-    lock_version: z.int().gte(0),
-    line_count: z.int().gte(0),
-    lines: z.array(zKitchenOrderLine),
-    created_at: z.iso.datetime({ offset: true }).nullable(),
-    updated_at: z.iso.datetime({ offset: true }).nullable()
-});
-
 export const zCustomerOrderEnvelope = z.object({
     data: z.object({
         order: zCustomerOrder
-    }),
-    meta: zMeta
-});
-
-export const zKitchenOrderEnvelope = z.object({
-    data: z.object({
-        order: zKitchenOrder
     }),
     meta: zMeta
 });
@@ -7406,6 +7383,71 @@ export const zDeliveryJobTrackingStatus = z.enum([
     'delivered'
 ]);
 
+export const zKitchenOrderDeliveryRun = z.object({
+    status: zDeliveryJobStatus,
+    tracking_status: zDeliveryJobTrackingStatus,
+    driver_name: z.string().nullable(),
+    assigned_at: z.iso.datetime({ offset: true }).nullable(),
+    picked_up_at: z.iso.datetime({ offset: true }).nullable(),
+    delivered_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+/**
+ * The seller's view of the same row. Built independently of the customer
+ * shape rather than as a superset of it: a wide shape and a narrow one
+ * derived from it by subtraction is how a column added next year quietly
+ * reaches a receipt.
+ *
+ * `lock_version` is here because this is the audience that **writes** — a
+ * screen that could not read the validator could not send the `If-Match`
+ * the three lifecycle actions demand.
+ *
+ * **`customer_account_id` is nullable and `fulfilment_type` says when.**
+ * A counter sale may be a stranger buying a sandwich, and there is nobody
+ * to name; a delivery and a pickup always have somebody. The pair has to
+ * be read together — a null customer is a fact about a walk-in, never a
+ * row that failed to load.
+ *
+ */
+export const zKitchenOrder = z.object({
+    id: zUuid,
+    order_number: z.string(),
+    organisation_id: zUuid,
+    customer_account_id: z.uuid().nullable(),
+    sales_channel_id: zUuid,
+    branch_id: z.uuid().nullable(),
+    status: zOrderStatus,
+    currency_code: z.string().length(3),
+    subtotal_minor: z.int(),
+    delivery_fee_minor: z.int().nullable(),
+    total_minor: z.int(),
+    payment_method: zPaymentMethod,
+    fulfilment_type: zFulfilmentType,
+    delivery: zKitchenOrderDelivery,
+    placed_at: z.iso.datetime({ offset: true }),
+    confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    preparing_at: z.iso.datetime({ offset: true }).nullish(),
+    ready_at: z.iso.datetime({ offset: true }).nullish(),
+    fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
+    cancelled_at: z.iso.datetime({ offset: true }).nullable(),
+    cancellation_reason: zCancellationReason.nullable(),
+    delivery_run: zKitchenOrderDeliveryRun.nullish(),
+    created_by: z.uuid().nullable(),
+    placed_on_behalf_by: z.uuid().nullable(),
+    lock_version: z.int().gte(0),
+    line_count: z.int().gte(0),
+    lines: z.array(zKitchenOrderLine),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zKitchenOrderEnvelope = z.object({
+    data: z.object({
+        order: zKitchenOrder
+    }),
+    meta: zMeta
+});
+
 /**
  * The run this order became: which driver has it, what state it is in, and
  * when it was assigned.
@@ -7517,6 +7559,8 @@ export const zDriverJob = z.object({
     status: zDeliveryJobStatus,
     tracking_status: zDeliveryJobTrackingStatus,
     assigned_at: z.iso.datetime({ offset: true }).nullable(),
+    picked_up_at: z.iso.datetime({ offset: true }).nullable(),
+    ready_at: z.iso.datetime({ offset: true }).nullable(),
     delivery: zDriverJobDelivery
 });
 
@@ -13414,6 +13458,21 @@ export const zFulfilKitchenOrderPath = z.object({
  */
 export const zFulfilKitchenOrderResponse = zKitchenOrderEnvelope;
 
+export const zStartKitchenOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zStartKitchenOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order, confirmed, with `preparing_at` and its new validator.
+ */
+export const zStartKitchenOrderResponse = zKitchenOrderEnvelope;
+
 export const zMarkKitchenOrderReadyHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'If-Match': z.string(),
@@ -14212,6 +14271,28 @@ export const zClaimDriverJobPath = z.object({
  * The job, now the caller's.
  */
 export const zClaimDriverJobResponse = z.object({
+    data: z.object({
+        job: z.object({
+            id: zUuid,
+            status: zDeliveryJobStatus
+        })
+    }),
+    meta: zMeta
+});
+
+export const zPickUpDriverJobHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zPickUpDriverJobPath = z.object({
+    job: zUuid
+});
+
+/**
+ * The job, now on its way.
+ */
+export const zPickUpDriverJobResponse = z.object({
     data: z.object({
         job: z.object({
             id: zUuid,

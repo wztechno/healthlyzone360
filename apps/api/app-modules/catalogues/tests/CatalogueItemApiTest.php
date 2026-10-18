@@ -191,6 +191,39 @@ it('records a half portion of the same recipe and refuses one that is not a port
     expect(CatalogueItem::withoutTenancy()->whereKey($item->getKey())->value('portion_factor'))->toBe('0.500');
 });
 
+it('stores a meal’s meal types, clears them, and refuses a code that is not one (HA-35)', function (): void {
+    $this->actingAs($this->a->user);
+
+    $created = $this->postJson('/api/v1/catalogue/items', [
+        'item_type' => 'meal',
+        'name_en' => 'Shakshuka',
+        'meal_types' => ['lunch', 'breakfast'],
+    ], CatalogueWorld::headers($this->a))
+        ->assertCreated()
+        // The platform's own order, whatever order they were ticked in.
+        ->assertJsonPath('data.item.meal_types', ['breakfast', 'lunch']);
+
+    $url = '/api/v1/catalogue/items/'.$created->json('data.item.id');
+
+    $this->patchJson($url, ['meal_types' => ['dinner']], CatalogueWorld::headers($this->a) + ['If-Match' => '"0"'])
+        ->assertOk()
+        ->assertJsonPath('data.item.meal_types', ['dinner']);
+
+    $this->getJson($url, CatalogueWorld::headers($this->a))
+        ->assertOk()
+        ->assertJsonPath('data.item.meal_types', ['dinner']);
+
+    $this->patchJson($url, ['meal_types' => []], CatalogueWorld::headers($this->a) + ['If-Match' => '"1"'])
+        ->assertOk()
+        ->assertJsonPath('data.item.meal_types', []);
+
+    foreach ([['brunch'], ['lunch', 'lunch']] as $invalid) {
+        $this->patchJson($url, ['meal_types' => $invalid], CatalogueWorld::headers($this->a) + ['If-Match' => '"2"'])
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'validation.failed');
+    }
+});
+
 it('creates a default catalogue on demand when the caller names none', function (): void {
     // A kitchen with one range should not have to know the concept exists to
     // add a product to it.

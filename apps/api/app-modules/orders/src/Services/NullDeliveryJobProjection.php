@@ -20,4 +20,6 @@ use Healthy360\Orders\Models\Order;
 final class NullDeliveryJobProjection implements DeliveryJobProjection
 {
     public function project(Order $order): void {}
+
+    public function close(Order $order): void {}
 }

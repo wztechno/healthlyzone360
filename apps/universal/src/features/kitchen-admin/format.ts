@@ -22,7 +22,7 @@ import type {
     SalesChannel,
 } from '@healthy360/domain-types';
 import type { Formatter } from '@healthy360/i18n';
-import { MEASURE_UNITS } from '@healthy360/nutrition';
+import { MEASURE_UNITS, isMeasureUnit } from '@healthy360/nutrition';
 import type { MeasureUnit } from '@healthy360/nutrition';
 
 /**
@@ -233,6 +233,44 @@ export function unitKey(unit: MeasureUnit): string {
  */
 export function unitShortKey(unit: MeasureUnit): string {
     return `kitchen:unitsShort.${unit}`;
+}
+
+/**
+ * The units the kitchen admin offers: Kg, L and Pc — the owner's three, on every unit picker in the
+ * admin (stock, purchase, capacity, pack, net content and channel-price units alike).
+ *
+ * All three are weighable: a mass converts outright, and a litre or a piece goes through the
+ * ingredient's grams-per-unit, which the editor asks for whenever the unit is not a mass.
+ */
+export const ADMIN_UNITS: readonly MeasureUnit[] = ['kg', 'l', 'piece'];
+
+/**
+ * {@link ADMIN_UNITS}, plus a value already set that is not one of them — a record saved in grams
+ * before the list was narrowed. Kept on the picker so the field never shows a placeholder over a
+ * value that is really there, and an untouched save never rewrites it.
+ */
+export function adminUnitsWith(current: MeasureUnit | null | undefined): readonly MeasureUnit[] {
+    return current === null || current === undefined || ADMIN_UNITS.includes(current)
+        ? ADMIN_UNITS
+        : [...ADMIN_UNITS, current];
+}
+
+/**
+ * The server's unit rows narrowed to {@link ADMIN_UNITS}, in that order, plus the row already chosen
+ * (by id) when it is something else — for the pickers that store a unit's id rather than its code.
+ */
+export function adminReferenceUnits<Unit extends { readonly id: string; readonly code: string }>(
+    units: readonly Unit[],
+    currentId: string | null | undefined,
+): readonly Unit[] {
+    const admin = ADMIN_UNITS.flatMap((code) => units.filter((unit) => unit.code === code));
+    const current = units.find((unit) => unit.id === currentId);
+    return current === undefined || admin.includes(current) ? admin : [...admin, current];
+}
+
+/** A server unit code as the admin writes it — `Kg`, `L`, `Pc` — or the code itself when unknown. */
+export function unitCodeLabel(code: string, t: (key: string) => string): string {
+    return isMeasureUnit(code) ? t(unitShortKey(code)) : code;
 }
 
 /* ── category codes ──────────────────────────────────────────────────────────────────────────── */

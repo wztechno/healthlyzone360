@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Orders\Http\Controllers;
 
 use Healthy360\Orders\Presenters\OrderPresenter;
+use Healthy360\Orders\Services\OrderDeliveryRuns;
 use Healthy360\Orders\Services\OrderLocator;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -36,6 +37,7 @@ final class KitchenOrderShowController
     public function __construct(
         private readonly OrderLocator $locator,
         private readonly OrderPresenter $presenter,
+        private readonly OrderDeliveryRuns $runs,
     ) {}
 
     /**
@@ -46,7 +48,7 @@ final class KitchenOrderShowController
         $record = $this->locator->sellerOrder($order);
         $lines = $record->lines()->orderBy('created_at')->orderBy('id')->get();
 
-        return ApiResponse::data(['order' => $this->presenter->kitchen($record, $lines)])
+        return ApiResponse::data(['order' => $this->presenter->kitchen($record, $lines, $this->runs->forOrder((string) $record->getKey()))])
             ->withHeaders(['ETag' => '"'.$record->lock_version.'"']);
     }
 }

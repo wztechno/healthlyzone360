@@ -378,6 +378,11 @@ export interface IngredientAdmin {
      * `/api/v1/media/photos/{id}`; `null` (or absent) shows the stock picture.
      */
     readonly photoUrl?: string | null | undefined;
+    /**
+     * The kitchen took this record's picture off: it shows no stock picture either, even when its
+     * slug names one. Absent reads as `false`.
+     */
+    readonly stockPhotoHidden?: boolean | undefined;
     readonly meta: AdminEntityMeta;
     readonly name: LocalisedText;
     /**
@@ -693,6 +698,10 @@ export interface CreateIngredientRequest {
     readonly b2bPrice?: CostAmount | undefined;
     readonly b2cPrice?: CostAmount | undefined;
     readonly unitPrice?: CostAmount | undefined;
+    /** Packaging's pack price, per purchase pack — see {@link IngredientAdmin.purchasePrice}. */
+    readonly purchasePrice?: CostAmount | undefined;
+    readonly wastePercent?: number | undefined;
+    readonly capacity?: { readonly quantity: number; readonly unit: MeasureUnit } | undefined;
     readonly isSellable?: boolean | undefined;
     readonly reference?: string | undefined;
     readonly costPer100g?: CostAmount | undefined;
@@ -722,6 +731,11 @@ export interface UpdateIngredientRequest extends LockedRequest {
     readonly b2cPrice?: CostAmount | null | undefined;
     /** `null` clears it. Shares the same currency as the two list prices. */
     readonly unitPrice?: CostAmount | null | undefined;
+    /** `null` clears these three. Packaging's — see {@link IngredientAdmin.purchasePrice}. */
+    readonly purchasePrice?: CostAmount | null | undefined;
+    readonly wastePercent?: number | null | undefined;
+    readonly capacity?:
+        { readonly quantity: number; readonly unit: MeasureUnit } | null | undefined;
     /** No null state: the column defaults to false, so omit the field to leave it alone. */
     readonly isSellable?: boolean | undefined;
     readonly reference?: string | null | undefined;
@@ -1562,6 +1576,12 @@ export interface CreateProductRequest {
     readonly name: LocalisedText;
     readonly description: LocalisedText;
     readonly categoryCode: string;
+    /**
+     * The category's id, which is what the server files an item under (HA-31). The code alone
+     * named nothing the write could send, so a picked category was dropped. `null` is
+     * "uncategorized".
+     */
+    readonly categoryId?: string | null | undefined;
     readonly recipeId?: RecipeId | undefined;
     readonly isMarketPriced?: boolean | undefined;
     readonly isAssorted?: boolean | undefined;
@@ -1575,6 +1595,8 @@ export interface UpdateProductRequest extends LockedRequest {
     readonly name?: LocalisedText | undefined;
     readonly description?: LocalisedText | undefined;
     readonly categoryCode?: string | undefined;
+    /** As on {@link CreateProductRequest.categoryId}; omit to leave the category alone. */
+    readonly categoryId?: string | null | undefined;
     readonly recipeId?: RecipeId | null | undefined;
     readonly isMarketPriced?: boolean | undefined;
     readonly isAssorted?: boolean | undefined;
@@ -2330,6 +2352,12 @@ export interface KitchenAdminRepository {
 
     listProducts(filter?: ProductAdminFilter): Promise<CursorPage<ProductAdmin>>;
     getProduct(productId: ProductId): Promise<ProductAdmin>;
+    /**
+     * The routes to market this organisation can sell on — the `SalesChannel`s that name one of
+     * its own channel rows. A tick on any other was thrown away on save (HA-33), so the editor
+     * offers only these.
+     */
+    listSellableChannels(): Promise<readonly SalesChannel[]>;
     createProduct(request: CreateProductRequest): Promise<ProductAdmin>;
     updateProduct(productId: ProductId, request: UpdateProductRequest): Promise<ProductAdmin>;
     /**

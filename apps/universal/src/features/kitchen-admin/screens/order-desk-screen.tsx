@@ -1393,7 +1393,10 @@ function OrderDeskQueueList() {
                 ? undefined
                 : canConfirmKitchenOrder(order.status)
                   ? ('confirm' as const)
-                  : canFulfilKitchenOrder(order.status)
+                  : // A delivery order is closed by hand only once it is cooked; the server
+                    // refuses it before then and ends the driver's run after (HA-29).
+                    canFulfilKitchenOrder(order.status) &&
+                      (order.fulfilmentType !== 'delivery' || (order.readyAt ?? null) !== null)
                     ? ('fulfil' as const)
                     : undefined;
 

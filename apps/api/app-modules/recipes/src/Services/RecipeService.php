@@ -169,6 +169,11 @@ final readonly class RecipeService
                 $value = null;
             }
 
+            // The column is not nullable; a blank Arabic name is stored as `create()` stores it.
+            if ($field === 'name_ar' && $value === null) {
+                $value = '';
+            }
+
             $changes[$field] = $value;
         }
 

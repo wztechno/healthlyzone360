@@ -12,6 +12,7 @@ import {
 } from '../format.ts';
 import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
+import { ingredientStockPhotoId } from './ingredient-photo.ts';
 
 /**
  * Ingredients, as an array — the eight tracks `Catalogue.dc.html` draws.
@@ -213,7 +214,7 @@ export function ingredientColumns({
             sortable: true,
             sortType: 'text',
             value: (row) => displayName(row.name, locale).value,
-            thumbnail: (row) => `ingredient-${row.slug}`,
+            thumbnail: ingredientStockPhotoId,
             thumbnailUrl: (row) => row.photoUrl,
             render: (row) => {
                 const name = displayName(row.name, locale);

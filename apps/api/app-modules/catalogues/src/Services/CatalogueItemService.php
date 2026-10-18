@@ -9,6 +9,7 @@ use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\CatalogueStatus;
 use Healthy360\Catalogues\Enums\ProductionMode;
+use Healthy360\Catalogues\Http\Requests\StoreCatalogueItemRequest;
 use Healthy360\Catalogues\Models\Catalogue;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemDietClassification;
@@ -110,6 +111,7 @@ final readonly class CatalogueItemService
      *     usage_unit_id?: string|null,
      *     is_market_priced?: bool|null,
      *     is_assorted?: bool|null,
+     *     meal_types?: list<string>,
      *     image_placeholder_id?: string|null
      * }  $attributes
      *
@@ -154,6 +156,7 @@ final readonly class CatalogueItemService
             $item->usage_unit_id = $links['usage_unit_id'];
             $item->is_market_priced = (bool) ($attributes['is_market_priced'] ?? false);
             $item->is_assorted = (bool) ($attributes['is_assorted'] ?? false);
+            $item->meal_types = $this->mealTypes($attributes['meal_types'] ?? []);
             // One sold unit is one yield piece unless the kitchen says
             // otherwise.
             $item->portion_factor = $this->portionFactor($attributes['portion_factor'] ?? '1');
@@ -285,6 +288,12 @@ final readonly class CatalogueItemService
             if (array_key_exists($field, $attributes)) {
                 $changes[$field] = (bool) $attributes[$field];
             }
+        }
+
+        // Encoded here: the compare-and-swap is a query-builder update, which
+        // does not apply the model's array cast.
+        if (array_key_exists('meal_types', $attributes)) {
+            $changes['meal_types'] = json_encode($this->mealTypes($attributes['meal_types']), JSON_THROW_ON_ERROR);
         }
 
         // `array_key_exists` rather than `??`, and no null coalesce: the column
@@ -494,6 +503,18 @@ final readonly class CatalogueItemService
                 ['status' => $item->status->value, 'current_lock_version' => $item->lock_version],
             );
         }
+    }
+
+    /**
+     * The validated meal-type codes in the platform's own order, each once.
+     *
+     * @return list<string>
+     */
+    private function mealTypes(mixed $codes): array
+    {
+        $given = is_array($codes) ? array_map(strval(...), $codes) : [];
+
+        return array_values(array_intersect(StoreCatalogueItemRequest::MEAL_TYPES, $given));
     }
 
     /**
