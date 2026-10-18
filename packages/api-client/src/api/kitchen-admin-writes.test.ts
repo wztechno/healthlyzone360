@@ -365,6 +365,64 @@ describe('delivery windows', () => {
     });
 });
 
+describe('createIngredient', () => {
+    const KG_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e6001';
+    const LITRE_UUID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e6002';
+
+    function lookups() {
+        return [
+            { status: 200, body: { data: [] } },
+            {
+                status: 200,
+                body: {
+                    data: {
+                        measurement_units: [
+                            { id: KG_UUID, code: 'kg' },
+                            { id: LITRE_UUID, code: 'l' },
+                        ],
+                    },
+                },
+            },
+            { status: 201, body: { data: { ingredient: { id: 'ingredient-1' } } } },
+        ];
+    }
+
+    it('sends the purchase unit chosen on create (HA-5)', async () => {
+        const { writes, calls } = harness(lookups());
+
+        // The read-back afterwards is not this test's concern; its first request finds no answer.
+        await writes
+            .createIngredient({
+                name: { en: 'Olive oil', ar: '' },
+                categoryCode: 'oils',
+                measurementUnit: 'kg',
+                purchaseUnit: 'l',
+            })
+            .catch(() => undefined);
+
+        expect(calls[2]).toMatchObject({
+            method: 'POST',
+            path: '/catalogue/ingredients',
+            body: { default_unit_id: KG_UUID, purchase_unit_id: LITRE_UUID },
+        });
+    });
+
+    it('leaves the purchase unit off when none was chosen', async () => {
+        const { writes, calls } = harness(lookups());
+
+        await writes
+            .createIngredient({
+                name: { en: 'Olive oil', ar: '' },
+                categoryCode: 'oils',
+                measurementUnit: 'kg',
+            })
+            .catch(() => undefined);
+
+        expect(calls[2]?.method).toBe('POST');
+        expect(calls[2]?.body).not.toHaveProperty('purchase_unit_id');
+    });
+});
+
 it('looks up allergens by barcode without sending ingredient nutrition or client mappings', async () => {
     const { writes, calls } = harness([
         {

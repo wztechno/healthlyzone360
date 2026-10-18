@@ -745,6 +745,12 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             // whether every recipe line naming the row can be weighed, and dropping it quietly is
             // how a row ends up in a unit nobody chose.
             const unitId = await units.require(transport, request.measurementUnit);
+            // `purchase_unit_id` was on the contract and never sent (HA-5): a pack chosen on
+            // create came back "Not recorded". `resolve`, as on update — the pack is optional.
+            const purchaseUnitId =
+                request.purchaseUnit === undefined
+                    ? null
+                    : await units.resolve(transport, request.purchaseUnit);
 
             const envelope = await transport.requestEnvelope<{
                 readonly ingredient: AdminIngredient;
@@ -759,6 +765,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                         ? {}
                         : { ingredient_subcategory_id: subcategoryId }),
                     default_unit_id: unitId,
+                    ...(purchaseUnitId === null ? {} : { purchase_unit_id: purchaseUnitId }),
                     // `items_per_unit` was on the contract and never sent — a gap, not a decision:
                     // a create that stated the pack size silently dropped it and the first save
                     // after had to state it again.
