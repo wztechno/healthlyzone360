@@ -2645,7 +2645,9 @@ function RecipeEditor({
                                 warnZeroQuantity
                                 costs={computed?.packaging ?? null}
                                 fieldError={lineFieldError('packaging', packaging)}
-                                canManage={canManage}
+                                // `editable`, as the lines table: a published version refuses
+                                // packaging writes, and rows typed here vanished on save (HA-36).
+                                canManage={editable}
                                 nextKey={nextKey}
                                 pickerPlaceholder={t('kitchen:recipes.packagingPlaceholder')}
                                 onChange={(next) => {

@@ -655,7 +655,9 @@ describe('creating and editing a product', () => {
                 kitchenAdmin: {
                     // The category picker's vocabulary is derived from the codes already in use,
                     // so this listing is what makes `store-cupboard` an option at all.
-                    listProducts: productListing(() => [product({ ordinal: 1 })]),
+                    listProducts: productListing(() => [
+                        product({ ordinal: 1, overrides: { categoryId: 'category-store-cupboard' } }),
+                    ]),
                     listRecipes: async () => page(NO_RECIPES),
                     createProduct: async () => created,
                 },
@@ -722,6 +724,8 @@ describe('creating and editing a product', () => {
             name: { en: 'Cold-pressed pomegranate', ar: 'رمّان معصور على البارد' },
             description: { en: '', ar: '' },
             categoryCode: 'store-cupboard',
+            // The id is what the server files the item under; the code alone was dropped (HA-31).
+            categoryId: 'category-store-cupboard',
             itemType: 'product',
             isMarketPriced: false,
             isAssorted: false,
@@ -937,6 +941,41 @@ describe('creating and editing a product', () => {
                 }),
             );
         });
+    });
+
+    it('offers only the channels the organisation can sell on (HA-33)', async () => {
+        const stored = product({
+            ordinal: 1,
+            overrides: {
+                channelAvailability: [
+                    {
+                        channel: 'corporate',
+                        isAvailable: true,
+                        availableFrom: null,
+                        availableUntil: null,
+                    },
+                ],
+            },
+        });
+
+        await renderStubScreen(<ProductEditScreen product={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    getProduct: async () => stored,
+                    listProducts: productListing(() => [stored]),
+                    listRecipes: async () => page(NO_RECIPES),
+                    listSellableChannels: async () => ['b2c', 'pos'],
+                },
+            },
+        });
+        await untilVisible('kitchen-product-channel-editor-b2c');
+
+        expect(screen.getByTestId('kitchen-product-channel-editor-pos')).toBeTruthy();
+        // A tick on a channel with no row was thrown away on save, so it is not offered…
+        expect(screen.queryByTestId('kitchen-product-channel-editor-delivery')).toBeNull();
+        // …but one the record is already on stays drawn, so nothing stored is hidden.
+        expect(screen.getByTestId('kitchen-product-channel-editor-corporate')).toBeTruthy();
     });
 
     it('persists a channel toggle through its own contract method', async () => {

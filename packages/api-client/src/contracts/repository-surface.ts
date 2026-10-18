@@ -228,6 +228,7 @@ export const REPOSITORY_SURFACE = {
         'listPriceLists',
         'listProducts',
         'listRecipes',
+        'listSellableChannels',
         'listServiceAreas',
         'listZones',
         'nextReference',

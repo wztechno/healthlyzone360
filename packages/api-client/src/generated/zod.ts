@@ -1403,6 +1403,16 @@ export const zUpdateSalesChannelRequest = z.object({
 });
 
 /**
+ * When in the day a meal is eaten.
+ */
+export const zMealTypeCode = z.enum([
+    'breakfast',
+    'lunch',
+    'dinner',
+    'snack'
+]);
+
+/**
  * The administrative shape of a sellable item. Carries **both** names and
  * ignores `Accept-Language` for them: a bilingual editor has to see what
  * it is editing.
@@ -1446,6 +1456,7 @@ export const zAdminCatalogueItem = z.object({
     usage_unit_id: zUuid.nullish(),
     is_market_priced: z.boolean(),
     is_assorted: z.boolean(),
+    meal_types: z.array(zMealTypeCode).optional(),
     status: zCatalogueItemStatus,
     review_reason: z.string().max(200).nullish(),
     image_placeholder_id: z.string().max(80).nullish(),
@@ -1596,6 +1607,7 @@ export const zCreateCatalogueItemRequest = z.object({
     usage_unit_id: zUuid.nullish(),
     is_market_priced: z.boolean().optional(),
     is_assorted: z.boolean().optional(),
+    meal_types: z.array(zMealTypeCode).max(4).optional(),
     image_placeholder_id: z.string().max(80).nullish()
 });
 
@@ -1627,6 +1639,7 @@ export const zUpdateCatalogueItemRequest = z.object({
     usage_unit_id: zUuid.nullish(),
     is_market_priced: z.boolean().optional(),
     is_assorted: z.boolean().optional(),
+    meal_types: z.array(zMealTypeCode).max(4).optional(),
     image_placeholder_id: z.string().max(80).nullish()
 });
 
@@ -2749,7 +2762,7 @@ export const zMarketplaceMeal = z.object({
     photo_url: z.url().nullish(),
     slug: z.string(),
     description: z.string(),
-    meal_types: z.array(z.string()),
+    meal_types: z.array(zMealTypeCode),
     diet_classifications: z.array(z.string()),
     cuisines: z.array(z.string()),
     allergens: z.array(zAllergenCode),

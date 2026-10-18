@@ -27083,6 +27083,11 @@ components:
           $ref: '#/components/schemas/SalesChannelStatus'
       additionalProperties: false
 
+    MealTypeCode:
+      type: string
+      enum: [breakfast, lunch, dinner, snack]
+      description: When in the day a meal is eaten.
+
     AdminCatalogueItem:
       type: object
       required:
@@ -27248,6 +27253,11 @@ components:
         is_assorted:
           type: boolean
           description: True for a row that stands for a mixed selection rather than one article.
+        meal_types:
+          type: array
+          description: When in the day the item is eaten. Empty when none is stated.
+          items:
+            $ref: '#/components/schemas/MealTypeCode'
         status:
           $ref: '#/components/schemas/CatalogueItemStatus'
         review_reason:
@@ -27651,6 +27661,13 @@ components:
           type: boolean
         is_assorted:
           type: boolean
+        meal_types:
+          type: array
+          maxItems: 4
+          uniqueItems: true
+          description: The whole list; `[]` clears it.
+          items:
+            $ref: '#/components/schemas/MealTypeCode'
         image_placeholder_id:
           type: ['string', 'null']
           maxLength: 80
@@ -27748,6 +27765,13 @@ components:
           type: boolean
         is_assorted:
           type: boolean
+        meal_types:
+          type: array
+          maxItems: 4
+          uniqueItems: true
+          description: The whole list; `[]` clears it.
+          items:
+            $ref: '#/components/schemas/MealTypeCode'
         image_placeholder_id:
           type: ['string', 'null']
           maxLength: 80
@@ -29872,12 +29896,9 @@ components:
           type: string
         meal_types:
           type: array
-          description: |
-            Always empty. Nothing on a catalogue item records whether a dish is a
-            breakfast or a dinner; a kitchen selling a lunch box and a breakfast
-            box sells two items.
+          description: When in the day the meal is eaten, as the kitchen ticked it on the item.
           items:
-            type: string
+            $ref: '#/components/schemas/MealTypeCode'
         diet_classifications:
           type: array
           items:

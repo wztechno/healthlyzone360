@@ -1494,6 +1494,49 @@ describe('the ingredient editor', () => {
         expect(request.gramsPerUnit).toBeNull();
         expect(request.measurementUnit).toBe('kg');
     });
+
+    it('saves a recipe-derived ingredient without a mass the server would refuse (HA-38)', async () => {
+        const derived = ingredient(14, {
+            measurementUnit: 'l',
+            gramsPerUnit: 1080,
+            nutritionDerivedFromVersionId: RecipeVersionId.unsafe(
+                '01935f6d-0000-7000-8000-00000000f014',
+            ),
+        });
+
+        const { repositories } = await renderStubScreen(
+            <IngredientEditScreen ingredient={String(derived.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [derived]),
+                        getIngredient: async () => derived,
+                        updateIngredient: async (_id, request) => ({
+                            ...derived,
+                            meta: { ...derived.meta, lockVersion: request.lockVersion + 1 },
+                        }),
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-ingredient-name-ar-input');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-ingredient-name-ar-input'), 'صلصة');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateIngredient).toHaveBeenCalled();
+        });
+        const [, request] = (repositories.kitchenAdmin.updateIngredient as jest.Mock).mock
+            .calls[0] as [IngredientId, Record<string, unknown>];
+        expect(request).not.toHaveProperty('gramsPerUnit');
+        expect(request.name).toEqual({ en: derived.name.en, ar: 'صلصة' });
+    });
 });
 
 /* ------------------------------------------------------------------------------------------------
@@ -1797,6 +1840,41 @@ describe('composition and allergens', () => {
         await waitFor(() => {
             expect(writes).toEqual([[]]);
         });
+    });
+
+    it('stops the record Save from discarding unsaved allergen choices (HA-39)', async () => {
+        const record = ingredient(10, { allergens: [] });
+        const updateIngredient = jest.fn(async () => record);
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => [record]),
+                    getIngredient: async () => record,
+                    updateIngredient,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-mapping-milk-trigger');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-milk-trigger'));
+        });
+        await untilVisible('kitchen-ingredient-mapping-milk-option-contains');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-milk-option-contains'));
+        });
+
+        // The page counts it as unsaved…
+        await untilVisible('kitchen-ingredient-editor-screen-dirty');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+        });
+
+        // …and the record Save, which would remount the allergen editor, does not run.
+        await untilVisible('kitchen-ingredient-issues');
+        expect(updateIngredient).not.toHaveBeenCalled();
     });
 
     it('renders the quarantine a write elsewhere put the record into', async () => {

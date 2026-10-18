@@ -132,10 +132,9 @@ final class MarketplaceProjector
             $this->meals->nutritionOf($meal),
             $this->meals->dietClassificationCodesOf($meal),
 
-            // Nothing on the item records a meal's time of day; see the
-            // presenter for why that stays empty rather than being guessed
-            // from the name.
-            [],
+            // What the kitchen ticked on the item (HA-35); never guessed from
+            // the name.
+            array_values($meal->meal_types ?? []),
             $context['channels'],
             $context['availability'],
         );

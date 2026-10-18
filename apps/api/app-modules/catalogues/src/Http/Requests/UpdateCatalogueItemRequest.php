@@ -68,6 +68,7 @@ class UpdateCatalogueItemRequest extends FormRequest
             'is_market_priced' => ['sometimes', 'boolean'],
             'is_assorted' => ['sometimes', 'boolean'],
             'image_placeholder_id' => ['sometimes', 'nullable', 'string', 'max:80'],
+            ...StoreCatalogueItemRequest::mealTypeRules(),
         ];
     }
 

@@ -18,7 +18,7 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { toFailure } from '../../data/hooks.ts';
@@ -37,6 +37,11 @@ type Choice = AllergenContainment | 'none';
 export interface IngredientAllergenEditorProps {
     readonly ingredient: IngredientAdmin;
     readonly classes: readonly AllergenClass[];
+    /**
+     * Told whenever the draft gains or loses unsaved choices. The page's own Save does not write
+     * this set, and its save remounts this editor, so without it a change here was lost (HA-39).
+     */
+    readonly onDirtyChange?: ((dirty: boolean) => void) | undefined;
 }
 
 /**
@@ -50,7 +55,11 @@ export interface IngredientAllergenEditorProps {
  *
  * Mount it keyed by the stored set so a successful save re-reads the server's answer.
  */
-export function IngredientAllergenEditor({ ingredient, classes }: IngredientAllergenEditorProps) {
+export function IngredientAllergenEditor({
+    ingredient,
+    classes,
+    onDirtyChange,
+}: IngredientAllergenEditorProps) {
     const { t } = useTranslation();
     const { locale } = useLocale();
     const toast = useToast();
@@ -81,6 +90,12 @@ export function IngredientAllergenEditor({ ingredient, classes }: IngredientAlle
         chosen.length !== stored.size ||
         chosen.some(([code, choice]) => stored.get(code)?.containment !== choice);
     const assessed = ingredient.allergens.length > 0 || ingredient.allergensAssessedClear === true;
+
+    useEffect(() => {
+        onDirtyChange?.(dirty);
+    }, [dirty, onDirtyChange]);
+    // A remount (the record moved on) starts clean; say so as this one goes.
+    useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
     const options = [
         { value: 'none' as const, label: t('kitchen:allergens.none') },

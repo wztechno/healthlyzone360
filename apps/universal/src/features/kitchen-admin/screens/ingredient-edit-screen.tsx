@@ -710,6 +710,20 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         guard.markDirty();
     };
 
+    /*
+     * The allergen set has its own Save, and the record's save remounts its editor — so unsaved
+     * allergen choices were dropped by the main Save and by leaving the page (HA-39). They now hold
+     * the unsaved guard, and the main Save sends the reader to "Save allergens" first.
+     */
+    const [allergensDirty, setAllergensDirty] = useState(false);
+    const allergensWereDirty = useRef(false);
+    useEffect(() => {
+        // Clean only on the allergens' own true → false, and only when nothing else is unsaved.
+        if (allergensDirty) guard.markDirty();
+        else if (allergensWereDirty.current && !detailsDirty && !photoDirty) guard.markClean();
+        allergensWereDirty.current = allergensDirty;
+    }, [allergensDirty, detailsDirty, photoDirty, guard]);
+
     const settle = (nextDirty: boolean) => {
         setDetailsDirty(nextDirty);
         if (!nextDirty) {
@@ -1070,6 +1084,17 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                   },
               ]
             : []),
+        // The allergen set is saved by its own button; the record save would discard it (HA-39).
+        ...(allergensDirty
+            ? [
+                  {
+                      key: 'allergens',
+                      label: t('kitchen:allergens.save'),
+                      fieldId: 'kitchen-ingredient-mapping-grid',
+                      required: false,
+                  },
+              ]
+            : []),
         // Now that the pack price is saved, a typo in it must stop the save rather than clear it.
         ...(packPriceValue === undefined
             ? [
@@ -1291,7 +1316,11 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     measurementUnit: details.measurementUnit,
                     purchaseUnit: details.purchaseUnit === '' ? null : details.purchaseUnit,
                     itemsPerUnit: positiveNumberOf(details.itemsPerUnit),
-                    gramsPerUnit: positiveNumberOf(details.gramsPerUnit),
+                    // Not on a recipe-derived row: the server refuses any mass there, so sending
+                    // it — even null — refused the whole save (HA-38).
+                    ...(nutritionDerived === null
+                        ? { gramsPerUnit: positiveNumberOf(details.gramsPerUnit) }
+                        : {}),
                     unitPrice: costOf(unitPriceValue),
                     b2bPrice: costOf(b2bPriceValue),
                     b2cPrice: costOf(b2cPriceValue),
@@ -1592,7 +1621,8 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 placeholder={t('kitchen:fields.gramsPerUnitPlaceholder')}
                 unit={t(unitShortKey('g'))}
                 value={details.gramsPerUnit}
-                disabled={!editable}
+                // A recipe-derived row's mass comes from the recipe and is not saved from here.
+                disabled={!editable || nutritionDerived !== null}
                 onChangeText={(next) => {
                     edit({ gramsPerUnit: next });
                 }}
@@ -2307,6 +2337,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                     .join(',')}-${String(data.allergensAssessedClear === true)}`}
                                 ingredient={data}
                                 classes={classes.data}
+                                onDirtyChange={setAllergensDirty}
                             />
                         ) : allergens.length === 0 ? (
                             // An em dash, not a sentence: "none recorded" and "free of all

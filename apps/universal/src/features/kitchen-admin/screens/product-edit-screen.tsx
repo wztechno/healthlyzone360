@@ -46,6 +46,7 @@ import {
     usePublishProductMutation,
     useAllRecipesQuery,
     useSaveRecordPhotoMutation,
+    useSellableChannelsQuery,
     useSetProductChannelAvailabilityMutation,
     useUpdateProductMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
@@ -352,6 +353,7 @@ function ProductEditor({
 
     const record = useProductQuery(parsed);
     const categories = useProductCategoriesQuery();
+    const sellableChannels = useSellableChannelsQuery();
     const recipes = useAllRecipesQuery();
 
     const create = useCreateProductMutation();
@@ -476,6 +478,16 @@ function ProductEditor({
         }
         return [...known.values()].sort((left, right) => left.label.localeCompare(right.label));
     }, [categories.data, details.categoryCode]);
+
+    /**
+     * The picked category's id — what the write files the item under (HA-31). `undefined` when the
+     * vocabulary does not know the code, so a save never clears a category it could not resolve.
+     */
+    const pickedCategory = (categories.data ?? []).find(
+        (entry) => entry.code === details.categoryCode,
+    );
+    const categoryIdRequest =
+        pickedCategory === undefined ? {} : { categoryId: pickedCategory.id };
 
     /** `NO_RECIPE` is the "bought in rather than cooked" answer, and never a real identifier. */
     const recipeRows = recipesFromPages(recipes.data?.pages);
@@ -785,6 +797,7 @@ function ProductEditor({
                     name: details.name,
                     description: details.description,
                     categoryCode: details.categoryCode,
+                    ...categoryIdRequest,
                     itemType,
                     isMarketPriced: details.isMarketPriced,
                     isAssorted: details.isAssorted,
@@ -869,6 +882,9 @@ function ProductEditor({
                     name: details.name,
                     description: details.description,
                     categoryCode: details.categoryCode,
+                    // Only a category the reader moved: re-sending the one the record opened on
+                    // would be a write about nothing.
+                    ...(details.categoryCode === data.categoryCode ? {} : categoryIdRequest),
                     recipeId: details.recipeId,
                     isMarketPriced: details.isMarketPriced,
                     isAssorted: details.isAssorted,
@@ -1610,6 +1626,7 @@ function ProductEditor({
                     <ChannelAvailabilityEditor
                         testID="kitchen-product-channel-editor"
                         rows={channels}
+                        offered={sellableChannels.data}
                         canManage={canManage}
                         onChange={(next) => {
                             setChannelRows(next);

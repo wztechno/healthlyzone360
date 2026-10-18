@@ -444,17 +444,25 @@ export interface ChannelEditorProps {
     readonly onChange: (rows: readonly ChannelDraft[]) => void;
     readonly canManage: boolean;
     readonly testID: string;
+    /**
+     * The channels this organisation can sell on. Omitted (or still loading) draws all eight.
+     * A tick on a channel the organisation has no row for was thrown away on save (HA-33).
+     */
+    readonly offered?: readonly SalesChannel[] | undefined;
 }
 
 /**
  * Which routes to market a product is sold through, and between which dates.
  *
- * ## Every channel is a row, including the ones that are off
+ * ## Every offered channel is a row, including the ones that are off
  *
- * The vocabulary is `SALES_CHANNELS` — the platform's own enum, eight values, closed — and the
- * editor renders all eight rather than only the ones a record already carries. "Not sold over the
- * counter" and "nobody has decided about the counter" look identical in a list that hides the
- * unticked ones, and the first is a decision while the second is an omission.
+ * The vocabulary is `SALES_CHANNELS` — the platform's own enum, eight values, closed — narrowed to
+ * the channels the organisation actually has (`offered`), since a tick anywhere else has nothing to
+ * be written against. Within that, every channel is drawn rather than only the ones a record already
+ * carries: "not sold over the counter" and "nobody has decided about the counter" look identical in
+ * a list that hides the unticked ones, and the first is a decision while the second is an omission.
+ * A channel the record is already on stays drawn even if it is not offered, so nothing on the
+ * record is hidden.
  *
  * ## The dates are optional and mean what the contract says
  *
@@ -467,10 +475,18 @@ export function ChannelAvailabilityEditor({
     onChange,
     canManage,
     testID,
+    offered,
 }: ChannelEditorProps) {
     const { t } = useTranslation();
 
     const byChannel = new Map(rows.map((row) => [row.channel, row]));
+    const shown =
+        offered === undefined
+            ? SALES_CHANNELS
+            : SALES_CHANNELS.filter(
+                  (channel) =>
+                      offered.includes(channel) || (byChannel.get(channel)?.isAvailable ?? false),
+              );
 
     /*
      * A grid of equal cells, four to a row at most — two rows of four on a desk screen, fewer
@@ -481,7 +497,7 @@ export function ChannelAvailabilityEditor({
      */
     return (
         <View testID={testID} className="max-w-[904px] flex-row flex-wrap gap-tight">
-            {SALES_CHANNELS.map((channel) => {
+            {shown.map((channel) => {
                 const row = byChannel.get(channel) ?? {
                     channel,
                     isAvailable: false,

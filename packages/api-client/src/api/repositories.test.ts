@@ -2877,6 +2877,8 @@ describe('reading a meal back after a write', () => {
             description_ar: 'مدخّن، مع طحينة.',
             recipe_id: null,
             portion_factor: '0.500',
+            // `brunch` is no platform code, so the read drops it rather than trusting it.
+            meal_types: ['lunch', 'brunch'],
             status: 'draft',
             data_quality_flags: [],
             lock_version: 0,
@@ -2952,6 +2954,8 @@ describe('reading a meal back after a write', () => {
             description_en: 'Smoked, with tahini.',
             description_ar: 'مدخّن، مع طحينة.',
             portion_factor: 1,
+            // Stored on the item now, so sent with it (HA-35).
+            meal_types: ['lunch'],
         });
         // No diet classifications were asked for, so no second write is invented for them.
         expect(calls[3]?.url).toBe(
@@ -2974,6 +2978,8 @@ describe('reading a meal back after a write', () => {
         const meal = await repositories.kitchenAdmin.getMeal(MealId.unsafe(MEAL_ID));
 
         expect(meal.allergens.map(String)).toEqual(['sesame']);
+        // What the kitchen ticked, read back (HA-35).
+        expect(meal.mealTypes).toEqual(['lunch']);
         expect(meal.channelAvailability).toEqual([
             { channel: 'b2c', isAvailable: true, availableFrom: null, availableUntil: null },
         ]);
@@ -3002,10 +3008,12 @@ describe('reading a meal back after a write', () => {
         await repositories.kitchenAdmin.updateMeal(MealId.unsafe(MEAL_ID), {
             lockVersion: 3,
             name: { en: 'Charred aubergine bowl', ar: 'وعاء الباذنجان المشوي' },
+            mealTypes: ['breakfast', 'dinner'],
             dietClassifications: ['vegan'],
         });
 
         expect(calls[0]?.method).toBe('PATCH');
+        expect(calls[0]?.body).toMatchObject({ meal_types: ['breakfast', 'dinner'] });
         expect(calls[0]?.headers['If-Match']).toBe('"3"');
         expect(calls[1]?.url).toBe(
             `https://api.example/api/v1/catalogue/items/${MEAL_ID}/diet-classifications`,
@@ -3127,10 +3135,9 @@ describe('the product editor writes', () => {
 
     /**
      * A pack quantity with no unit is not a size, and the API says so — the whole save came back
-     * `422 variants.0.pack.pack_unit_id`. The unit cannot come from `netUnit` for a pack that
-     * already exists either: `MeasureUnit` cannot name `gallon`, `bag`, `can` or `bunch`, all of
-     * which the seeded catalogue quotes packs in, so a stored pack's own unit is echoed back and
-     * only the pack this submission *adds* has its chosen unit resolved.
+     * `422 variants.0.pack.pack_unit_id`. A stored pack keeps its own unit while the reader leaves
+     * it as it was read, and only a pack this submission *adds* — or one whose unit the reader
+     * changed (HA-32) — has its chosen unit resolved.
      */
     it('sends every pack with a unit, echoing the one a stored pack already carries', async () => {
         const { repositories, calls } = harness([
@@ -3146,14 +3153,12 @@ describe('the product editor writes', () => {
             lockVersion: 0,
             name: { en: 'Marinated Chicken Breast', ar: 'Marinated Chicken Breast' },
             packVariants: [
-                // `netUnit` reads back as the fallback `g` — the read cannot name kilograms
-                // through `pack_unit_id` alone — so honouring it here would restate a kilogram
-                // pack in grams on a save that touched nothing but the name.
+                // As the read now shows it: kilograms, untouched by a save about the name.
                 {
                     code: '1-kg',
                     label: { en: '1 Kg', ar: '1 Kg' },
                     netQuantity: 1,
-                    netUnit: 'g',
+                    netUnit: 'kg',
                     unitsPerPack: 1,
                 },
                 {
@@ -3200,6 +3205,7 @@ describe('the product editor writes', () => {
         const { repositories, calls } = harness([
             itemWrite(1),
             itemShow(1, [STORED_PACK]),
+            UNITS_OK,
             itemWrite(2),
             channelIndex(),
             itemShow(2, [STORED_PACK]),
@@ -3213,7 +3219,7 @@ describe('the product editor writes', () => {
                     code: '1-kg',
                     label: { en: '1 Kg', ar: '1 Kg' },
                     netQuantity: 1,
-                    netUnit: 'g',
+                    netUnit: 'kg',
                     unitsPerPack: 1,
                 },
             ],
@@ -3221,9 +3227,111 @@ describe('the product editor writes', () => {
 
         expect(calls[0]?.method).toBe('PATCH');
         expect(calls[0]?.headers['If-Match']).toBe('"0"');
-        // No unit read at all: every submitted code is one the item already has.
-        expect(calls[2]?.method).toBe('PUT');
-        expect(calls[2]?.headers['If-Match']).toBe('"1"');
+        expect(calls[3]?.method).toBe('PUT');
+        expect(calls[3]?.headers['If-Match']).toBe('"1"');
+    });
+
+    it('sends the unit a reader picked for a stored pack (HA-32)', async () => {
+        const { repositories, calls } = harness([
+            itemWrite(1),
+            itemShow(1, [STORED_PACK]),
+            UNITS_OK,
+            itemWrite(2),
+            channelIndex(),
+            itemShow(2, [STORED_PACK]),
+        ]);
+
+        await repositories.kitchenAdmin.updateProduct(ProductId.unsafe(PRODUCT_ID), {
+            lockVersion: 0,
+            name: { en: 'Marinated Chicken Breast', ar: 'Marinated Chicken Breast' },
+            packVariants: [
+                {
+                    code: '1-kg',
+                    label: { en: '1 Kg', ar: '1 Kg' },
+                    netQuantity: 1000,
+                    netUnit: 'g',
+                    unitsPerPack: 1,
+                },
+            ],
+        });
+
+        expect(calls[3]?.body).toEqual({
+            variants: [
+                {
+                    code: '1-kg',
+                    name_en: '1 Kg',
+                    name_ar: '1 Kg',
+                    pack: { pack_quantity: 1000, pack_unit_id: GRAM, pack_piece_count: 1 },
+                },
+            ],
+        });
+    });
+
+    it('files a new item under the picked category id (HA-31)', async () => {
+        const CATEGORY_ID = '01a0c27d-3bdb-708a-9533-d4ff91682dad';
+        const { repositories, calls } = harness([
+            { ...itemWrite(0), status: 201 },
+            channelIndex(),
+            itemShow(0, []),
+            UNITS_OK,
+        ]);
+
+        await repositories.kitchenAdmin.createProduct({
+            name: { en: 'Sparkling water', ar: '' },
+            description: { en: '', ar: '' },
+            categoryCode: 'beverage',
+            categoryId: CATEGORY_ID,
+        });
+
+        expect(calls[0]?.method).toBe('POST');
+        expect(calls[0]?.body).toMatchObject({ product_category_id: CATEGORY_ID });
+    });
+
+    it('offers only the channels the organisation has a row for (HA-33)', async () => {
+        const row = (id: string, code: string, kind: string) => ({
+            id,
+            organisation_id: 'org-1',
+            code,
+            channel_kind: kind,
+            name_en: code,
+            name_ar: code,
+            order_source: 'web',
+            status: 'active',
+            lock_version: 0,
+        });
+        const { repositories } = harness([
+            channelIndex(row('c1', 'web-shop', 'b2c_web'), row('c2', 'desk', 'pos')),
+        ]);
+
+        expect(await repositories.kitchenAdmin.listSellableChannels()).toEqual(['b2c', 'pos']);
+    });
+
+    it('clears an emptied Arabic description rather than leaving it out (HA-34)', async () => {
+        const { repositories, calls } = harness([
+            itemWrite(1),
+            channelIndex(),
+            itemShow(1, []),
+            UNITS_OK,
+        ]);
+
+        await repositories.kitchenAdmin.updateProduct(ProductId.unsafe(PRODUCT_ID), {
+            lockVersion: 0,
+            description: { en: 'Smoked, with tahini.', ar: '' },
+        });
+
+        expect(calls[0]?.method).toBe('PATCH');
+        expect(calls[0]?.body).toMatchObject({
+            description_en: 'Smoked, with tahini.',
+            description_ar: null,
+        });
+    });
+
+    it('reads a pack back in the unit it is stored in (HA-32)', async () => {
+        const { repositories } = harness([channelIndex(), itemShow(1, [STORED_PACK]), UNITS_OK]);
+
+        const product = await repositories.kitchenAdmin.getProduct(ProductId.unsafe(PRODUCT_ID));
+
+        expect(product.packVariants[0]?.netUnit).toBe('kg');
     });
 
     /**

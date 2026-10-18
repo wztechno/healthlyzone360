@@ -61,6 +61,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string|null $usage_unit_id
  * @property bool $is_market_priced
  * @property bool $is_assorted
+ * @property list<string> $meal_types breakfast, lunch, dinner, snack — when in the day it is eaten
  * @property CatalogueItemStatus $status
  * @property string|null $review_reason
  * @property string|null $image_placeholder_id
@@ -105,6 +106,8 @@ class CatalogueItem extends BaseModel implements OrganisationScoped
      */
     protected $attributes = [
         'portion_factor' => '1',
+        // The column's `[]` default, for the same reason.
+        'meal_types' => '[]',
     ];
 
     /**
@@ -123,6 +126,7 @@ class CatalogueItem extends BaseModel implements OrganisationScoped
             'portion_factor' => 'decimal:3',
             'nutrition_facts' => 'array',
             'data_quality_flags' => 'array',
+            'meal_types' => 'array',
             'seeded_at' => 'immutable_datetime',
             'lock_version' => 'integer',
         ];

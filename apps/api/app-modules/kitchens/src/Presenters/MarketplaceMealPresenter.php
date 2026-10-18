@@ -87,10 +87,7 @@ final class MarketplaceMealPresenter
             'slug' => $meal->slug,
             'description' => MarketplaceLocale::pick($locale, $meal->description_en, $meal->description_ar),
 
-            // Empty, and empty for a reason worth stating: nothing on
-            // `catalogue_items` records whether a dish is a breakfast or a
-            // dinner. A kitchen that sells a lunch box and a breakfast box
-            // sells two items, and the difference lives in their names.
+            // As the kitchen ticked them on the item (HA-35).
             'meal_types' => $mealTypes,
             'diet_classifications' => $dietClassifications,
             'cuisines' => [],

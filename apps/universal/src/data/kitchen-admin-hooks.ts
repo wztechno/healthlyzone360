@@ -73,6 +73,7 @@ import type {
     PriceListId,
     ProductId,
     RecipeId,
+    SalesChannel,
     SubscriptionPlanId,
     RecipeVersionId,
 } from '@healthy360/domain-types';
@@ -1553,6 +1554,20 @@ export function useSetProductChannelAvailabilityMutation(): UseMutationResult<
 }
 
 /* ── B2B / B2C weight and price ──────────────────────────────────────────────────────────────── */
+
+/** The routes to market this organisation can sell on — the only ones a save can write (HA-33). */
+export function useSellableChannelsQuery(): UseQueryResult<readonly SalesChannel[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.sellableChannels(),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenAdmin.listSellableChannels();
+        },
+    });
+}
 
 /** An article's B2B and B2C weight and price — a product, a sauce or a meal. */
 export function useItemChannelPricesQuery(

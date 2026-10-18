@@ -2220,6 +2220,11 @@ export type UpdateSalesChannelRequest = {
 };
 
 /**
+ * When in the day a meal is eaten.
+ */
+export type MealTypeCode = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+/**
  * The administrative shape of a sellable item. Carries **both** names and
  * ignores `Accept-Language` for them: a bilingual editor has to see what
  * it is editing.
@@ -2353,6 +2358,10 @@ export type AdminCatalogueItem = {
      * True for a row that stands for a mixed selection rather than one article.
      */
     is_assorted: boolean;
+    /**
+     * When in the day the item is eaten. Empty when none is stated.
+     */
+    meal_types?: Array<MealTypeCode>;
     status: CatalogueItemStatus;
     /**
      * Why the item is quarantined.
@@ -2632,6 +2641,10 @@ export type CreateCatalogueItemRequest = {
     usage_unit_id?: Uuid | null;
     is_market_priced?: boolean;
     is_assorted?: boolean;
+    /**
+     * The whole list; `[]` clears it.
+     */
+    meal_types?: Array<MealTypeCode>;
     image_placeholder_id?: string | null;
 };
 
@@ -2689,6 +2702,10 @@ export type UpdateCatalogueItemRequest = {
     usage_unit_id?: Uuid | null;
     is_market_priced?: boolean;
     is_assorted?: boolean;
+    /**
+     * The whole list; `[]` clears it.
+     */
+    meal_types?: Array<MealTypeCode>;
     image_placeholder_id?: string | null;
 };
 
@@ -4118,12 +4135,9 @@ export type MarketplaceMeal = {
     slug: string;
     description: string;
     /**
-     * Always empty. Nothing on a catalogue item records whether a dish is a
-     * breakfast or a dinner; a kitchen selling a lunch box and a breakfast
-     * box sells two items.
-     *
+     * When in the day the meal is eaten, as the kitchen ticked it on the item.
      */
-    meal_types: Array<string>;
+    meal_types: Array<MealTypeCode>;
     diet_classifications: Array<string>;
     cuisines: Array<string>;
     /**
