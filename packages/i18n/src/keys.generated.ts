@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8293 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8289 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3011,8 +3011,6 @@ export interface NamespaceKeys {
     | 'calendar.basis.scheduled'
     | 'calendar.dayCount'
     | 'calendar.dayTotal'
-    | 'calendar.emptyBody'
-    | 'calendar.emptyTitle'
     | 'calendar.gridLabel'
     | 'calendar.loadErrorTitle'
     | 'calendar.nextWeek'
@@ -3331,8 +3329,6 @@ export interface NamespaceKeys {
     | 'desk.sale.kindTitle'
     | 'desk.sale.lineOneLabel'
     | 'desk.sale.lineOnePlaceholder'
-    | 'desk.sale.lineTwoLabel'
-    | 'desk.sale.lineTwoPlaceholder'
     | 'desk.sale.method.cashAtCounter'
     | 'desk.sale.method.cashOnDelivery'
     | 'desk.sale.method.wish'
@@ -11322,8 +11318,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:calendar.basis.scheduled',
   'kitchen:calendar.dayCount',
   'kitchen:calendar.dayTotal',
-  'kitchen:calendar.emptyBody',
-  'kitchen:calendar.emptyTitle',
   'kitchen:calendar.gridLabel',
   'kitchen:calendar.loadErrorTitle',
   'kitchen:calendar.nextWeek',
@@ -11642,8 +11636,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.kindTitle',
   'kitchen:desk.sale.lineOneLabel',
   'kitchen:desk.sale.lineOnePlaceholder',
-  'kitchen:desk.sale.lineTwoLabel',
-  'kitchen:desk.sale.lineTwoPlaceholder',
   'kitchen:desk.sale.method.cashAtCounter',
   'kitchen:desk.sale.method.cashOnDelivery',
   'kitchen:desk.sale.method.wish',

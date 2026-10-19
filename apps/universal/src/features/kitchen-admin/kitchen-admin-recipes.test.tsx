@@ -66,6 +66,7 @@ import {
     parseQuantity,
     rollupWarningKey,
     unitsInDimension,
+    withoutMinus,
 } from './format.ts';
 import { RecipeEditScreen } from './screens/recipe-edit-screen.tsx';
 import { RecipesScreen } from './screens/recipes-screen.tsx';
@@ -884,6 +885,14 @@ describe('recipe display helpers', () => {
         expect(parseQuantity('-3')).toBeNull();
         expect(parseQuantity('12a')).toBeNull();
         expect(parseQuantity('١٢')).toBeNull();
+    });
+
+    it('never takes a minus into a waste or stock figure, and strips nothing else', () => {
+        expect(withoutMinus('-5')).toBe('5');
+        expect(withoutMinus('−2.5')).toBe('2.5');
+        expect(withoutMinus('1-0')).toBe('10');
+        expect(withoutMinus('12a')).toBe('12a');
+        expect(withoutMinus('')).toBe('');
     });
 
     it('offers only units in the ingredient’s own dimension', () => {

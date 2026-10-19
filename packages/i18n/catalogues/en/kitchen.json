@@ -1856,8 +1856,6 @@
             "areaPlaceholderNone": "This kitchen does not deliver anywhere yet",
             "lineOneLabel": "Address",
             "lineOnePlaceholder": "For example Bliss Street, Hamra",
-            "lineTwoLabel": "Second line",
-            "lineTwoPlaceholder": "For example Apartment 7",
             "buildingLabel": "Building",
             "buildingPlaceholder": "For example Building 12, 3rd floor",
             "directionsLabel": "Directions for the driver",
@@ -2016,8 +2014,6 @@
             "snack": "Snack"
         },
         "loadErrorTitle": "The calendar could not be loaded",
-        "emptyTitle": "Nothing this week",
-        "emptyBody": "No orders, no scheduled deliveries and nothing forecast between these dates. Look at another week, or take a sale at the desk.",
         "a11y": {
             "showing": "Showing {{from}} to {{to}}.",
             "projected": "Forecast: {{count}}. Worked out from subscription patterns, not a booking.",

@@ -145,13 +145,12 @@ export interface CalendarSlotDescriptor {
  * `2`. The unslotted bucket is **last and only when some day has one**: a permanent empty row on a
  * kitchen that names every slot would be a row of zeroes about a bucket it does not use.
  *
- * No days at all is no answer, and gets no rows.
+ * The sittings are drawn even for no days at all: a week with nothing booked is still the
+ * calendar's shape, in zeroes (QA: the desk wanted the whole week, never an empty page).
  */
 export function calendarSlots(
     days: readonly OrderDeskCalendarDay[],
 ): readonly CalendarSlotDescriptor[] {
-    if (days.length === 0) return [];
-
     const others = new Set<string>();
     let unslotted = false;
 
@@ -171,6 +170,25 @@ export function calendarSlots(
 
     if (unslotted) rows.push({ key: UNSLOTTED_SLOT_KEY, meal: null, codes: [null] });
     return rows;
+}
+
+/**
+ * The days an answer is drawn from.
+ *
+ * An answer that carries no days at all is the wire's "nothing this week", so it is drawn as the
+ * week in zeroes — every square, every book `0`. An answer that carries some days is drawn as
+ * sent, and a date it skipped stays unknown (an em dash), per the module note.
+ */
+export function answeredDays(
+    dates: readonly string[],
+    days: readonly OrderDeskCalendarDay[],
+): readonly OrderDeskCalendarDay[] {
+    if (days.length > 0) return days;
+    return dates.map((date) => ({
+        date,
+        counts: { order: 0, scheduled: 0, projected: 0 },
+        windows: [],
+    }));
 }
 
 /* ── the squares ─────────────────────────────────────────────────────────────────────────────── */

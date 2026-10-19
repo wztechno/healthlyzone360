@@ -611,7 +611,6 @@ export function AddressSection({
 
     const [areaId, setAreaId] = useState<string | null>(null);
     const [lineOne, setLineOne] = useState('');
-    const [lineTwo, setLineTwo] = useState('');
     const [building, setBuilding] = useState('');
     const [directions, setDirections] = useState('');
     const [changing, setChanging] = useState(false);
@@ -625,10 +624,6 @@ export function AddressSection({
         line_one: {
             label: t('kitchen:desk.sale.lineOneLabel'),
             fieldId: 'kitchen-order-desk-sale-address-line-one',
-        },
-        line_two: {
-            label: t('kitchen:desk.sale.lineTwoLabel'),
-            fieldId: 'kitchen-order-desk-sale-address-line-two',
         },
         building: {
             label: t('kitchen:desk.sale.buildingLabel'),
@@ -680,9 +675,7 @@ export function AddressSection({
             {folded && saved !== null ? (
                 <View className="flex-col gap-tight">
                     <Text variant="label" testID="kitchen-order-desk-sale-address-saved">
-                        {[saved.lineOne, saved.lineTwo]
-                            .filter((part) => part !== null && part !== '')
-                            .join(' · ')}
+                        {saved.lineOne}
                     </Text>
                     {saved.isDeliverable ? null : (
                         // A warning rather than a block: the address is real and saved, and whether
@@ -727,16 +720,6 @@ export function AddressSection({
                             required
                             value={lineOne}
                             onChangeText={setLineOne}
-                        />
-                        <TextInputField
-                            testID="kitchen-order-desk-sale-address-line-two"
-                            id="kitchen-order-desk-sale-address-line-two"
-                            {...server.flag('line_two')}
-                            label={t('kitchen:desk.sale.lineTwoLabel')}
-                            placeholder={t('kitchen:desk.sale.lineTwoPlaceholder')}
-                            size="sm"
-                            value={lineTwo}
-                            onChangeText={setLineTwo}
                         />
                         <TextInputField
                             testID="kitchen-order-desk-sale-address-building"
@@ -787,9 +770,6 @@ export function AddressSection({
                                         customerAccountId,
                                         deliveryAreaId: areaId,
                                         lineOne: lineOne.trim(),
-                                        ...(lineTwo.trim() === ''
-                                            ? {}
-                                            : { lineTwo: lineTwo.trim() }),
                                         ...(building.trim() === ''
                                             ? {}
                                             : { building: building.trim() }),

@@ -98,6 +98,7 @@ import {
     statusShortKey,
     statusTone,
     unitShortKey,
+    withoutMinus,
 } from '../format.ts';
 import { ImageSlot } from '../image-slot.tsx';
 import { EDITOR_FORM_MIN } from '../desk-layout.ts';
@@ -2542,7 +2543,7 @@ function RecipeEditor({
                                 disabled={!editable}
                                 {...server.flag('waste_coefficient_percent')}
                                 onChangeText={(next) => {
-                                    setDetails({ ...details, wastePercent: next });
+                                    setDetails({ ...details, wastePercent: withoutMinus(next) });
                                     markDirty('details');
                                 }}
                             />
@@ -2617,7 +2618,10 @@ function RecipeEditor({
                                 disabled={!editable}
                                 {...server.flag('packaging_waste_percent')}
                                 onChangeText={(next) => {
-                                    setDetails({ ...details, packagingWastePercent: next });
+                                    setDetails({
+                                        ...details,
+                                        packagingWastePercent: withoutMinus(next),
+                                    });
                                     markDirty('details');
                                 }}
                             />

@@ -82,6 +82,13 @@ export function SignInScreen() {
         [describeFailure, form, login, router, setFormError, translate],
     );
 
+    // One path for the button and for Enter in either field, so the keyboard signs in exactly as
+    // the button does. A second Enter while the first request is out does not send another.
+    const submit = () => {
+        if (login.isPending) return;
+        void form.handleSubmit(onSubmit)();
+    };
+
     if (challengeId !== null) {
         return (
             <TwoFactorChallenge
@@ -118,6 +125,7 @@ export function SignInScreen() {
                         value={field.value}
                         onChange={field.onChange}
                         onBlur={field.onBlur}
+                        onSubmit={submit}
                         error={fieldState.error?.message}
                     />
                 )}
@@ -135,9 +143,11 @@ export function SignInScreen() {
                         autoComplete="current-password"
                         textContentType="password"
                         required
+                        returnKeyType="go"
                         value={field.value}
                         onChangeText={field.onChange}
                         onBlur={field.onBlur}
+                        onSubmitEditing={submit}
                         error={fieldState.error?.message}
                     />
                 )}
@@ -162,9 +172,7 @@ export function SignInScreen() {
                 block
                 label={t('auth:login.submit')}
                 loading={login.isPending}
-                onPress={() => {
-                    void form.handleSubmit(onSubmit)();
-                }}
+                onPress={submit}
             />
 
             {/* The marketplace browses without an account (4a): the way out of this form is a
@@ -224,6 +232,8 @@ interface SignInIdentityFieldProps {
     readonly value: string;
     readonly onChange: (value: string) => void;
     readonly onBlur: () => void;
+    /** Enter in the field — signs in, like the button. */
+    readonly onSubmit: () => void;
     readonly error?: string | undefined;
 }
 
@@ -247,7 +257,13 @@ interface SignInIdentityFieldProps {
  * The composed address is always shown. Whatever the mode, the reader can see the exact string
  * that will be submitted before they submit it.
  */
-function SignInIdentityField({ value, onChange, onBlur, error }: SignInIdentityFieldProps) {
+function SignInIdentityField({
+    value,
+    onChange,
+    onBlur,
+    onSubmit,
+    error,
+}: SignInIdentityFieldProps) {
     const { t } = useTranslation();
     const domainsQuery = useStaffSignInDomainsQuery();
     const domains = domainsQuery.data ?? [];
@@ -288,9 +304,11 @@ function SignInIdentityField({ value, onChange, onBlur, error }: SignInIdentityF
                     autoComplete="email"
                     textContentType="emailAddress"
                     required
+                    returnKeyType="go"
                     value={typed}
                     onChangeText={setTyped}
                     onBlur={onBlur}
+                    onSubmitEditing={onSubmit}
                     {...(error === undefined ? {} : { error })}
                 />
                 {domains.length === 0 ? null : (
@@ -322,9 +340,11 @@ function SignInIdentityField({ value, onChange, onBlur, error }: SignInIdentityF
                     autoCapitalize="none"
                     autoComplete="username"
                     required
+                    returnKeyType="go"
                     value={typed}
                     onChangeText={setTyped}
                     onBlur={onBlur}
+                    onSubmitEditing={onSubmit}
                     {...(error === undefined ? {} : { error })}
                 />
 
@@ -414,6 +434,7 @@ function TwoFactorChallenge({ challengeId, onCancel }: TwoFactorChallengeProps) 
     const [error, setError] = useState<string | null>(null);
 
     const submit = () => {
+        if (challenge.isPending) return;
         setError(null);
         challenge.mutate(
             { challengeId, code, recovery },
@@ -464,8 +485,10 @@ function TwoFactorChallenge({ challengeId, onCancel }: TwoFactorChallengeProps) 
                 autoCapitalize="characters"
                 autoComplete="one-time-code"
                 required
+                returnKeyType="go"
                 value={code}
                 onChangeText={setCode}
+                onSubmitEditing={submit}
                 {...(error === null ? {} : { error })}
             />
 

@@ -266,6 +266,37 @@ describe('SignInScreen', () => {
         expect(screen.queryByTestId('sign-in-error')).toBeNull();
     });
 
+    it.each(['sign-in-email-input', 'sign-in-password-input'])(
+        'signs in on Enter in %s, as the button does',
+        async (field) => {
+            const { repositories } = await renderStubScreen(<SignInScreen />, {
+                repositories: {
+                    auth: {
+                        login: async (): Promise<LoginResult> => ({
+                            status: 'two_factor_required',
+                            challengeId: 'test-challenge-0001',
+                            recoveryCodesAvailable: true,
+                        }),
+                    },
+                },
+            });
+
+            await fireEvent.changeText(screen.getByTestId('sign-in-email-input'), DIETITIAN_EMAIL);
+            await fireEvent.changeText(screen.getByTestId('sign-in-password-input'), 'password');
+            expect(screen.getByTestId(field)).toHaveProp('returnKeyType', 'go');
+            await fireEvent(screen.getByTestId(field), 'submitEditing');
+
+            await waitFor(() => {
+                expect(screen.getByTestId('two-factor-screen')).toBeTruthy();
+            });
+            expect(repositories.auth.login).toHaveBeenCalledWith({
+                email: DIETITIAN_EMAIL,
+                password: 'password',
+                remember: false,
+            });
+        },
+    );
+
     it('rejects a wrong authenticator code inline on the code field', async () => {
         const { repositories } = await renderStubScreen(<SignInScreen />, {
             repositories: {

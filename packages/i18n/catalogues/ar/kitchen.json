@@ -2079,8 +2079,6 @@
             "areaPlaceholderNone": "لا يوصل هذا المطبخ إلى أي منطقة بعد",
             "lineOneLabel": "العنوان",
             "lineOnePlaceholder": "مثال: شارع بلس، الحمرا",
-            "lineTwoLabel": "السطر الثاني",
-            "lineTwoPlaceholder": "مثال: شقة 7",
             "buildingLabel": "المبنى",
             "buildingPlaceholder": "مثال: مبنى 12، الطابق الثالث",
             "directionsLabel": "إرشادات للسائق",
@@ -2271,8 +2269,6 @@
             "snack": "وجبة خفيفة"
         },
         "loadErrorTitle": "تعذّر تحميل التقويم",
-        "emptyTitle": "لا شيء هذا الأسبوع",
-        "emptyBody": "لا طلبات ولا تسليمات محجوزة ولا شيء متوقّع بين هذين التاريخين. انظر أسبوعاً آخر، أو سجّل بيعاً من المكتب.",
         "a11y": {
             "showing": "يُعرَض من {{from}} إلى {{to}}.",
             "projected": "توقّع: {{count}}. محسوب من أنماط الاشتراكات، وليس حجزاً.",

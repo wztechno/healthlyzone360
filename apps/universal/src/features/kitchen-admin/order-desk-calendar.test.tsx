@@ -282,8 +282,8 @@ describe('order desk calendar — the slot rows', () => {
         ]);
         expect(named.map((slot) => slot.key)).toEqual(MEAL_ROWS);
 
-        // No days at all is no answer, and draws no rows.
-        expect(calendarSlots([])).toEqual([]);
+        // No days at all still draws the four sittings — the week's shape, in zeroes.
+        expect(calendarSlots([]).map((slot) => slot.key)).toEqual(MEAL_ROWS);
     });
 });
 
@@ -386,16 +386,23 @@ describe('order desk calendar — the ladder', () => {
         expect(screen.queryByTestId('kitchen-order-desk-calendar-grid')).toBeNull();
     });
 
-    it('says a week the server answered and found nothing in, rather than drawing zeroes', async () => {
-        await renderCalendar(async () => calendar(week()));
+    it.each([
+        ['a week of empty days', () => calendar(week())],
+        ['an answer with no days at all', () => calendar([])],
+    ])('draws the whole week in zeroes for %s, never an empty page', async (_, answer) => {
+        await renderCalendar(async () => answer());
+        await settled();
 
-        await waitFor(
-            () => {
-                expect(screen.getByTestId('kitchen-order-desk-calendar-empty')).toBeTruthy();
-            },
-            { timeout: 5000 },
-        );
-        expect(screen.queryByTestId('kitchen-order-desk-calendar-grid')).toBeNull();
+        expect(screen.queryByTestId('kitchen-order-desk-calendar-empty')).toBeNull();
+        for (const date of DATES) {
+            for (const slot of ['slot-breakfast', 'slot-lunch', 'slot-snack', 'slot-dinner']) {
+                const square = `kitchen-order-desk-calendar-${date}-${slot}`;
+                expect(screen.queryByTestId(`${square}-unknown`)).toBeNull();
+                for (const basis of ['order', 'scheduled', 'projected']) {
+                    expect(screen.getByTestId(`${square}-${basis}`)).toHaveTextContent('0');
+                }
+            }
+        }
     });
 });
 

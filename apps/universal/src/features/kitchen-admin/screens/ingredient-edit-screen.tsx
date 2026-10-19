@@ -100,6 +100,7 @@ import {
     unitDimensionKey,
     unitKey,
     unitShortKey,
+    withoutMinus,
 } from '../format.ts';
 import { ImageSlot } from '../image-slot.tsx';
 import { AllergenReferencePicker } from '../allergen-reference-picker.tsx';
@@ -2135,7 +2136,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                     : {})}
                                 {...server.flag('waste_percent')}
                                 onChangeText={(next) => {
-                                    editPackaging({ wastePercent: next });
+                                    editPackaging({ wastePercent: withoutMinus(next) });
                                 }}
                             />
                             {/*

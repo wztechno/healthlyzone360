@@ -708,6 +708,9 @@ describe('sale — collections and deliveries', () => {
             );
         });
         expect(screen.getByTestId(SUBMIT)).toBeDisabled();
+        // One street line only — the second line was dropped from the desk's address card.
+        expect(screen.getByTestId('kitchen-order-desk-sale-address-line-one')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-order-desk-sale-address-line-two')).toBeNull();
     });
 
     it('offers only the areas this kitchen delivers to, never the whole gazetteer', async () => {

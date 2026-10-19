@@ -322,8 +322,15 @@ describe('ops panels', () => {
         expect(screen.getByTestId('kitchen-stock-threshold-value-input').props.value).toBe('1.5');
         expect(screen.getByTestId('kitchen-stock-threshold-par-input').props.value).toBe('5');
 
-        // Wasting more than the four kilograms on the shelf is refused before it is posted.
+        // Waste never goes below zero: a minus sign is not taken in at all.
         await choose('waste');
+        await type('kitchen-stock-movement-quantity-input', '-2');
+        expect(screen.getByTestId('kitchen-stock-movement-quantity-input').props.value).toBe('2');
+        expect(screen.getByTestId('kitchen-stock-editor-summary-movement')).toHaveTextContent(
+            /−2 kg|-2 kg/,
+        );
+
+        // Wasting more than the four kilograms on the shelf is refused before it is posted.
         await type('kitchen-stock-movement-quantity-input', '5');
         expect(screen.getByTestId('kitchen-stock-movement-quantity-error')).toHaveTextContent(
             /Only 4 kg is on the shelf/,

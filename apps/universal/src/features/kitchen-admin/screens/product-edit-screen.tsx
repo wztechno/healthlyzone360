@@ -68,9 +68,15 @@ import {
     PackVariantEditor,
     channelRequest,
     emptyPack,
+    firstPackErrorColumn,
     packErrors,
 } from '../catalogue-row-editors.tsx';
-import type { ChannelDraft, PackColumn, PackDraft } from '../catalogue-row-editors.tsx';
+import type {
+    ChannelDraft,
+    PackColumn,
+    PackDraft,
+    PackRowErrors,
+} from '../catalogue-row-editors.tsx';
 import {
     CATALOGUE_MANAGE_PERMISSION,
     CATALOGUE_VIEW_PERMISSION,
@@ -621,6 +627,13 @@ function ProductEditor({
         details.packs.filter((row) => row.code.trim() === '').map((row) => row.key),
     );
     const firstPackError = details.packs.find((row) => packRowErrors.has(row.key));
+    // The field the banner's chip focuses: the first wrong column of that row, not always its code.
+    const firstPackErrorField =
+        firstPackError === undefined
+            ? undefined
+            : `${PACK_EDITOR_TEST_ID}-row-${firstPackError.key}-${
+                  firstPackErrorColumn(packRowErrors.get(firstPackError.key) ?? {}) ?? 'code'
+              }`;
 
     /*
      * Net content is all-or-nothing, and that is all this screen can check.
@@ -673,13 +686,13 @@ function ProductEditor({
                       required: true,
                   },
               ]
-            : firstPackError === undefined
+            : firstPackErrorField === undefined
               ? []
               : [
                     {
                         key: 'packs',
                         label: t('kitchen:products.sectionPacks'),
-                        fieldId: `${PACK_EDITOR_TEST_ID}-row-${firstPackError.key}-code`,
+                        fieldId: firstPackErrorField,
                         // Only a row still waiting on its code is a blank; anything else was typed.
                         required: [...packRowErrors.keys()].every((key) => blankPackKeys.has(key)),
                     },
@@ -717,7 +730,7 @@ function ProductEditor({
      * The pack table's own messages, on the same schedule: a blank row's `code required` waits for
      * Save, a duplicate does not.
      */
-    const shownPackErrors: ReadonlyMap<string, string> = attempted
+    const shownPackErrors: ReadonlyMap<string, PackRowErrors> = attempted
         ? packRowErrors
         : new Map([...packRowErrors].filter(([key]) => !blankPackKeys.has(key)));
 
