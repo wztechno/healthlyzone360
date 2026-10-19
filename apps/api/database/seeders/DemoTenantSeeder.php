@@ -993,6 +993,7 @@ class DemoTenantSeeder extends Seeder
                 'description_en' => 'Grilled chicken breast, cracked freekeh and a lemon dressing.',
                 'description_ar' => 'صدر دجاج مشوي مع الفريكة المجروشة وصلصة الليمون.',
                 'ingredients' => [$chicken, $freekeh],
+                'recipe_lines' => [[$chicken, 140], [$freekeh, 50]],
                 'amount_minor' => 4200,
                 'diets' => ['high_protein'],
                 'nutrition_facts' => $this->previewNutritionFacts(
@@ -1020,6 +1021,7 @@ class DemoTenantSeeder extends Seeder
                 'description_en' => 'Hummus, muhammara and a tahini dressing with warm bread.',
                 'description_ar' => 'حمص ومحمرة وصلصة الطحينة مع الخبز الدافئ.',
                 'ingredients' => [$tahini],
+                'recipe_lines' => [[$tahini, 40]],
                 'amount_minor' => 3800,
                 'diets' => ['vegetarian'],
                 'nutrition_facts' => $this->previewNutritionFacts(
@@ -1047,6 +1049,7 @@ class DemoTenantSeeder extends Seeder
                 'description_en' => 'Red lentils simmered with cumin and finished with lemon.',
                 'description_ar' => 'عدس أحمر مطهو مع الكمون ويقدّم مع الليمون.',
                 'ingredients' => [$lentils],
+                'recipe_lines' => [[$lentils, 80]],
                 'amount_minor' => 2600,
                 'diets' => ['vegan', 'vegetarian'],
                 'nutrition_facts' => $this->previewNutritionFacts(
@@ -1096,6 +1099,7 @@ class DemoTenantSeeder extends Seeder
                 // without claiming a temporary preview is an ingredient-level
                 // recipe declaration.
                 'ingredients' => [$previewComposition],
+                'recipe_lines' => [[$previewComposition, $prototypeMeal['grams'] ?? 300]],
                 'amount_minor' => $prototypeMeal['amount_minor'],
                 'diets' => $prototypeMeal['diets'],
                 'nutrition_facts' => $this->mockPreviewNutritionFacts($prototypeMeal),
@@ -1103,6 +1107,7 @@ class DemoTenantSeeder extends Seeder
         }
 
         $readiness = App::make(CatalogueItemReadiness::class);
+        $recipes = App::make(DemoMealRecipeWriter::class);
 
         foreach ($menuItems as $definition) {
             $meal = $this->catalogueItem(
@@ -1162,6 +1167,8 @@ class DemoTenantSeeder extends Seeder
                     'created_by' => $creator->getKey(),
                 ],
             );
+
+            $recipes->link($verdant, $meal, $definition['recipe_lines']);
 
             // Re-read: the readiness evaluator queries by identifier, and the
             // in-memory model is stale about the rows just written beneath it.
