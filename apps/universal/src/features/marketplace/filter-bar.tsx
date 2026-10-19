@@ -8,7 +8,7 @@ import {
     TextInputField,
 } from '@healthy360/design-system';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 /**
@@ -124,6 +124,57 @@ export function useMarketplaceFilters(groupKeys: readonly string[]): Marketplace
     const isFiltered = query !== '' || groupKeys.some((key) => (selected[key] ?? []).length > 0);
 
     return { query, selected, setQuery, toggle, select, clear, isFiltered };
+}
+
+/** How long a typed term waits before it becomes the URL's `?q=` and a request. */
+export const SEARCH_DEBOUNCE_MS = 300;
+
+export interface SearchDraft {
+    /** What the field shows. */
+    readonly draft: string;
+    readonly setDraft: (value: string) => void;
+    /** Return pressed: the term now, without waiting out the pause. */
+    readonly submit: () => void;
+}
+
+/**
+ * A search field over a listing's `?q=`: the field holds a draft and the URL holds the term.
+ *
+ * Each keystroke is not a request — the draft settles for a moment first. A term changed from
+ * elsewhere (a removed chip, "Clear all", the header's search, a shared link) is copied back into
+ * the field, so the two never disagree. The same arrangement the kitchen directory's search has
+ * (`screens/kitchens-screen.tsx`).
+ *
+ * The doc comment at the top of this file argues against a client-side debounce for the chip
+ * filters, and that still holds for them: a chip is one deliberate press. A text field is a burst
+ * of them, and one request per letter of "chicken" is seven requests for one question.
+ */
+export function useSearchDraft(state: MarketplaceFilterState): SearchDraft {
+    const { query: term, setQuery } = state;
+    const [draft, setDraft] = useState(term);
+    // Adjusted during render rather than in an effect, so the field never paints a stale term.
+    const [syncedTerm, setSyncedTerm] = useState(term);
+    if (syncedTerm !== term) {
+        setSyncedTerm(term);
+        setDraft(term);
+    }
+    useEffect(() => {
+        const next = draft.trim();
+        if (next === term) return undefined;
+        const timer = setTimeout(() => {
+            setQuery(next);
+        }, SEARCH_DEBOUNCE_MS);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, [draft, term, setQuery]);
+
+    const submit = useCallback(() => {
+        const next = draft.trim();
+        if (next !== term) setQuery(next);
+    }, [draft, term, setQuery]);
+
+    return { draft, setDraft, submit };
 }
 
 export interface FilterBarProps {

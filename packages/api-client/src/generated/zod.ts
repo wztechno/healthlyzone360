@@ -3188,7 +3188,8 @@ export const zFulfilmentType = z.enum([
 ]);
 
 export const zOpenCartRequest = z.object({
-    channel_code: z.string().max(40)
+    channel_code: z.string().max(40),
+    kitchen_id: zUuid.nullish()
 });
 
 export const zAddCartItemRequest = z.object({

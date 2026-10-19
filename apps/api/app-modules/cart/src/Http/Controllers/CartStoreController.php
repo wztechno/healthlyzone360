@@ -25,6 +25,12 @@ use Illuminate\Http\JsonResponse;
  * "idempotent command", and it is what the one-open-cart-per-channel partial
  * unique index makes true rather than merely intended.
  *
+ * **Which basket.** `kitchen_id`, when sent, opens the basket on that kitchen's
+ * channel — what adding a meal sends, so the meal is never refused for being
+ * from a kitchen other than the one the code happened to resolve to. Without
+ * it, the shopper's own open basket on the code is returned; see
+ * `CartLocator::channelForShopper`.
+ *
  * The response carries the lines, because "open my basket" and "what is in it"
  * are one interaction. On a freshly opened cart the list is empty, which is a
  * fact rather than an omission.
@@ -52,7 +58,7 @@ final class CartStoreController
         $payload = $request->payload();
 
         $account = $this->locator->shopper();
-        $channel = $this->locator->channelForShopper($payload['channel_code'], $account);
+        $channel = $this->locator->channelForShopper($payload['channel_code'], $account, $payload['kitchen_id']);
 
         $cart = $this->carts->getOrCreate($account, $channel);
         $lines = $cart->items()->orderBy('created_at')->orderBy('id')->get();

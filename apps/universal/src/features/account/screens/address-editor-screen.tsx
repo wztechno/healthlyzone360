@@ -11,9 +11,9 @@ import {
     Stack,
     Text,
     TextInputField,
+    useToast,
 } from '@healthy360/design-system';
 import type { ServiceAreaId } from '@healthy360/domain-types';
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -24,6 +24,10 @@ import {
     useServiceAreasQuery,
     useUpdateAddressMutation,
 } from '../../../data/account-hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { useUnsavedGuard } from '../../../navigation/use-unsaved-guard.ts';
+import { SubpageTrail } from '../../../ui/subpage-trail.tsx';
+import { UnsavedChangesDialog } from '../../../ui/unsaved-changes-dialog.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 
 /**
@@ -55,6 +59,13 @@ import { QueryStates } from '../../marketplace/query-states.tsx';
  * `SaveAddressRequest` requires a label, an area and a first line. Building, floor and the driver's
  * directions are optional in the contract and are optional here — a form that demanded a floor
  * number from somebody in a villa would be inventing a requirement to look thorough.
+ *
+ * ## Saving goes back to whoever sent the person here
+ *
+ * The checkout and the plan setup open this screen with `?returnTo=` and get the person back the
+ * moment the address is saved, with the new address chosen (`?address=`) — they came here to finish
+ * an order, not to manage an address book. Opened from the account, it returns to the account's
+ * address list. Either way it is a `dismissTo`, so Back afterwards never reopens the submitted form.
  */
 
 const TEST_ID = 'address-editor';
@@ -62,9 +73,14 @@ const TEST_ID = 'address-editor';
 /** The literal that means "this is a new address" in the route parameter. */
 export const NEW_ADDRESS_PARAM = 'new';
 
+/** Where the editor returns when nothing sent it: the account's address list. */
+export const ADDRESSES_HOME = '/customer/account?section=addresses';
+
 export interface AddressEditorScreenProps {
     /** The route's `{address}` — an identifier, or `new`. */
     readonly addressId?: string | undefined;
+    /** The route's `?returnTo=` — the page to go back to once the address is saved. */
+    readonly returnTo?: string | undefined;
 }
 
 interface Draft {
@@ -118,9 +134,11 @@ function toRequest(draft: Draft): SaveAddressRequest | null {
     };
 }
 
-export function AddressEditorScreen({ addressId }: AddressEditorScreenProps) {
+export function AddressEditorScreen({ addressId, returnTo }: AddressEditorScreenProps) {
     const { t } = useTranslation();
-    const router = useRouter();
+    const toast = useToast();
+    const back = useReturnTo(returnTo, ADDRESSES_HOME);
+    const guard = useUnsavedGuard({ message: t('common:unsaved.browserPrompt') });
 
     const creating = addressId === undefined || addressId === NEW_ADDRESS_PARAM;
 
@@ -154,6 +172,7 @@ export function AddressEditorScreen({ addressId }: AddressEditorScreenProps) {
     const [submitted, setSubmitted] = useState(false);
 
     const set = (patch: Partial<Draft>) => {
+        guard.markDirty();
         setEdited({ draft: { ...draft, ...patch }, from: seededFrom });
     };
 
@@ -176,8 +195,14 @@ export function AddressEditorScreen({ addressId }: AddressEditorScreenProps) {
         const request = toRequest(draft);
         if (invalid || request === null) return;
 
-        const onSuccess = () => {
-            router.push('/customer/account/addresses' as never);
+        const onSuccess = (saved: CustomerAddress) => {
+            guard.markClean();
+            toast.show({
+                testID: `${TEST_ID}-saved`,
+                tone: 'success',
+                message: t('account:addresses.savedToast'),
+            });
+            back.finish({ address: saved.id });
         };
 
         if (creating) {
@@ -197,11 +222,19 @@ export function AddressEditorScreen({ addressId }: AddressEditorScreenProps) {
      */
     const missingAddress = !creating && !addresses.isPending && existing === undefined;
 
+    const title = creating ? t('account:addresses.add') : t('account:addresses.edit');
+
     return (
         <Stack space="lg" testID={TEST_ID}>
+            <SubpageTrail
+                testID={`${TEST_ID}-trail`}
+                back={{ ...back, up: () => guard.intercept(back.up) }}
+                current={title}
+                parentLabel={t('account:nav.addresses')}
+            />
             <Stack space="xs">
                 <Heading level={1} testID={`${TEST_ID}-title`}>
-                    {creating ? t('account:addresses.add') : t('account:addresses.edit')}
+                    {title}
                 </Heading>
                 <Text tone="secondary">{t('account:addresses.subtitle')}</Text>
             </Stack>
@@ -214,10 +247,12 @@ export function AddressEditorScreen({ addressId }: AddressEditorScreenProps) {
                     actions={
                         <Button
                             testID={`${TEST_ID}-missing-back`}
-                            label={t('account:addresses.backToList')}
-                            onPress={() => {
-                                router.push('/customer/account/addresses' as never);
-                            }}
+                            label={
+                                back.returnTo === null
+                                    ? t('account:addresses.backToList')
+                                    : t(`common:returnTo.${back.destination}`)
+                            }
+                            onPress={back.up}
                         />
                     }
                 />
@@ -366,7 +401,7 @@ export function AddressEditorScreen({ addressId }: AddressEditorScreenProps) {
                                     variant="quiet"
                                     label={t('common:action.cancel')}
                                     onPress={() => {
-                                        router.push('/customer/account/addresses' as never);
+                                        guard.intercept(back.leave);
                                     }}
                                 />
                             </Inline>
@@ -374,6 +409,7 @@ export function AddressEditorScreen({ addressId }: AddressEditorScreenProps) {
                     </Card>
                 </QueryStates>
             )}
+            <UnsavedChangesDialog guard={guard} testID={`${TEST_ID}-unsaved`} />
         </Stack>
     );
 }

@@ -20,7 +20,7 @@ import type {
     VerifyClosureRequest,
 } from '@healthy360/api-client/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
+import type { QueryClient, UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
 import { queryKeys } from './query-keys.ts';
 import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
@@ -134,9 +134,32 @@ export function useAddAddressMutation(): UseMutationResult<
 
     return useMutation({
         mutationFn: (request: SaveAddressRequest) => repositories.account.addAddress(request),
-        onSuccess: async () => {
+        onSuccess: async (saved) => {
+            upsertAddress(queryClient, saved);
             await queryClient.invalidateQueries({ queryKey: queryKeys.account.all() });
         },
+    });
+}
+
+/**
+ * Writes a saved address into the cached book before the refetch.
+ *
+ * The page that sent somebody to add an address — the checkout, the plan setup — is not mounted
+ * while they do it, so its list is inactive and the invalidation below refetches it only once it is
+ * back on screen. Until then it would show the old book, and the new address it was handed in the
+ * URL would not be in it. The refetch still follows and settles anything the server added.
+ */
+function upsertAddress(queryClient: QueryClient, saved: CustomerAddress): void {
+    queryClient.setQueryData<readonly CustomerAddress[]>(queryKeys.account.addresses(), (book) => {
+        if (book === undefined) return book;
+        const others = book
+            .filter((entry) => entry.id !== saved.id)
+            .map((entry) =>
+                saved.isDefault && entry.isDefault ? { ...entry, isDefault: false } : entry,
+            );
+        const index = book.findIndex((entry) => entry.id === saved.id);
+        if (index === -1) return [...others, saved];
+        return [...others.slice(0, index), saved, ...others.slice(index)];
     });
 }
 
@@ -156,7 +179,8 @@ export function useUpdateAddressMutation(): UseMutationResult<
     return useMutation({
         mutationFn: ({ addressId, request }: UpdateAddressVariables) =>
             repositories.account.updateAddress({ ...request, addressId }),
-        onSuccess: async () => {
+        onSuccess: async (saved) => {
+            upsertAddress(queryClient, saved);
             await queryClient.invalidateQueries({ queryKey: queryKeys.account.all() });
         },
     });
@@ -362,9 +386,18 @@ export function useVerifyEmailPasscodeMutation(): UseMutationResult<
     { readonly code: string }
 > {
     const repositories = useRepositories();
+    const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (request: { readonly code: string }) =>
             repositories.verification.verifyEmailPasscode(request),
+        // A verified address changes the session (the gates read it from `me`) and ticks a
+        // checklist step; both were left stale until something else happened to refetch them.
+        onSuccess: async () => {
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: queryKeys.me() }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.account.all() }),
+            ]);
+        },
     });
 }
 

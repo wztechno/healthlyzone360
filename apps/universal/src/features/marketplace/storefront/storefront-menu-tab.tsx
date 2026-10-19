@@ -1,6 +1,7 @@
+import { Button, Icon } from '@healthy360/design-system';
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -42,16 +43,36 @@ export interface StorefrontMenuTabProps {
     readonly meals: readonly MarketplaceMeal[];
     /** Today's same-day cut-off, `HH:mm`, or `null` when the kitchen publishes none. */
     readonly cutOff: string | null;
+    /**
+     * The chosen shelf — `null` for all of them. The screen holds it in `?shelf=` (browse-07): this
+     * panel unmounts on every tab switch and with the page on the way to a dish, so a shelf held
+     * here was forgotten each time. A shelf this menu does not stock reads as "All".
+     */
+    readonly shelf: string | null;
+    readonly onShelfChange: (shelf: string | null) => void;
     readonly onOpen: (meal: MarketplaceMeal) => void;
     readonly onAdd: (meal: MarketplaceMeal) => void;
+    /** Opens the kitchen's searchable menu, which carries the search box this tab does not. */
+    readonly onSearch: () => void;
 }
 
-export function StorefrontMenuTab({ meals, cutOff, onOpen, onAdd }: StorefrontMenuTabProps) {
+export function StorefrontMenuTab({
+    meals,
+    cutOff,
+    shelf: requestedShelf,
+    onShelfChange,
+    onOpen,
+    onAdd,
+    onSearch,
+}: StorefrontMenuTabProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
-    const [shelf, setShelf] = useState<string>(ALL);
 
     const shelves = useMemo(() => menuShelves(meals), [meals]);
+    const shelf =
+        requestedShelf !== null && shelves.some((entry) => entry.key === requestedShelf)
+            ? requestedShelf
+            : ALL;
     const visible = useMemo(
         () => (shelf === ALL ? meals : meals.filter((meal) => isOnShelf(meal, shelf))),
         [meals, shelf],
@@ -69,7 +90,7 @@ export function StorefrontMenuTab({ meals, cutOff, onOpen, onAdd }: StorefrontMe
             })}
             selected={shelf === key}
             onPress={() => {
-                setShelf(key);
+                onShelfChange(key === ALL ? null : key);
             }}
         />
     );
@@ -97,18 +118,32 @@ export function StorefrontMenuTab({ meals, cutOff, onOpen, onAdd }: StorefrontMe
                     )}
                 </View>
 
-                <Eyebrow testID="kitchen-menu-count" className="tabular-nums">
-                    {cutOff === null
-                        ? t('marketplace:storefront.menu.count', {
-                              count: visible.length,
-                              formattedCount: count,
-                          })
-                        : t('marketplace:storefront.menu.countCutOff', {
-                              count: visible.length,
-                              formattedCount: count,
-                              time: cutOff,
-                          })}
-                </Eyebrow>
+                <View className="flex-row flex-wrap items-center gap-3">
+                    <Eyebrow testID="kitchen-menu-count" className="tabular-nums">
+                        {cutOff === null
+                            ? t('marketplace:storefront.menu.count', {
+                                  count: visible.length,
+                                  formattedCount: count,
+                              })
+                            : t('marketplace:storefront.menu.countCutOff', {
+                                  count: visible.length,
+                                  formattedCount: count,
+                                  time: cutOff,
+                              })}
+                    </Eyebrow>
+                    {/*
+                     * The way into the searchable menu, named for what it is (browse-12). "Start an
+                     * order" used to open it, and found a second copy of these same dishes.
+                     */}
+                    <Button
+                        testID="kitchen-menu-search"
+                        size="sm"
+                        variant="quiet"
+                        iconStart={<Icon name="search" size="sm" />}
+                        label={t('marketplace:menu.searchLabel')}
+                        onPress={onSearch}
+                    />
+                </View>
             </View>
 
             <View testID="kitchen-menu-rows" className="flex-row flex-wrap gap-3">

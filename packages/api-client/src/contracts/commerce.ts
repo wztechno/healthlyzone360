@@ -32,6 +32,8 @@ export interface CartItem {
     readonly id: string;
     readonly mealId: MealId;
     readonly kitchenId: KitchenId;
+    /** The kitchen's display name, when the line was hydrated from a marketplace meal. */
+    readonly kitchenName?: string | undefined;
     readonly name: string;
     readonly quantity: number;
     readonly unitPrice: Money;
@@ -43,6 +45,14 @@ export interface CartItem {
 
 export interface Cart {
     readonly id: CartId;
+    /**
+     * The kitchen whose channel this basket is open on. A basket is single-kitchen by construction
+     * (its channel belongs to one kitchen), so this is known even while it is empty — which is what
+     * lets an add tell "an empty basket at another kitchen" (open the right one) from "a basket of
+     * another kitchen's meals" (ask first). Optional: a world that does not model channels leaves it
+     * out, and the lines' own `kitchenId` is the answer then.
+     */
+    readonly kitchenId?: KitchenId | undefined;
     readonly items: readonly CartItem[];
     readonly subtotal: Money;
     readonly itemCount: number;
@@ -437,6 +447,16 @@ export interface SubscriptionQuote {
 /** Which sales channel to open the basket on. Omitted means the storefront default (`web-shop`). */
 export interface GetCartOptions {
     readonly channelCode?: string | undefined;
+    /**
+     * The kitchen whose channel to open — a meal's `kitchenId`.
+     *
+     * Every kitchen trades through its own `web-shop`, so the code alone names a kind of channel,
+     * not one. Adding a meal names its kitchen, and the basket opens on that kitchen's channel
+     * instead of refusing the meal for belonging to another (browse-03). Omitted, the server
+     * returns the basket the person already has open, preferring one with something in it — the
+     * header count, the basket page and checkout all mean that one.
+     */
+    readonly kitchenId?: KitchenId | undefined;
 }
 
 export interface CommerceRepository {

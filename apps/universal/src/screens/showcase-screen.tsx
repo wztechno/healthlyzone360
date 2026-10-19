@@ -113,10 +113,11 @@ import type {
 } from '@healthy360/design-system';
 import { palette, typefaces } from '@healthy360/design-tokens';
 import { useLocale } from '@healthy360/i18n';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useColorScheme } from 'nativewind';
 import { Text as RNText, View } from 'react-native';
+import type { ScrollView } from 'react-native';
 
 import { EntityImage, MediaChip } from '../media/entity-image.tsx';
 import type {
@@ -770,6 +771,76 @@ const SHOWCASE_PICKABLE_COLUMNS = [
     { key: 'updated', label: 'Last changed' },
     { key: 'status', label: 'Status' },
 ] as const;
+
+/**
+ * The marketplace shell's content port, handed to its caller (browse-04, CHROME-15).
+ *
+ * Framed shorter than its page so the port scrolls. What to check: the destinations switch the
+ * framed "page" and tell the shell its `pathname`, and each new page opens at its top because the
+ * story holds the port's ref and resets it — the product's chrome does the same through
+ * `shell/use-scroll-place.ts`, and restores a page returned to. Below `md` the destinations are a
+ * menu drawer, and a change of `pathname` closes it, as browser Back now does in the product.
+ */
+const SHELL_STORY_PAGES = ['Menu', 'Kitchens', 'Plans'] as const;
+
+function MarketplaceShellStory() {
+    const [page, setPage] = useState<(typeof SHELL_STORY_PAGES)[number]>('Menu');
+    const port = useRef<ScrollView>(null);
+    const [offset, setOffset] = useState(0);
+
+    const open = (next: (typeof SHELL_STORY_PAGES)[number]) => {
+        setPage(next);
+        port.current?.scrollTo({ y: 0, animated: false });
+    };
+
+    return (
+        <Stack space="xs">
+            <Text variant="section" tone="secondary">
+                Marketplace shell — content port
+            </Text>
+            <View
+                className="overflow-hidden rounded border border-stroke-subtle"
+                style={{ height: 360 }}
+            >
+                <AppShell
+                    testID="showcase-marketplace-shell"
+                    variant="marketplace"
+                    pathname={`/${page.toLowerCase()}`}
+                    contentRef={port}
+                    onContentScroll={(event) => {
+                        setOffset(Math.round(event.nativeEvent.contentOffset.y));
+                    }}
+                    topbarStart={<Text variant="bodyStrong">Healthy360</Text>}
+                    navigation={SHELL_STORY_PAGES.map((name) => ({
+                        key: name,
+                        label: name,
+                        active: name === page,
+                        onPress: () => {
+                            open(name);
+                        },
+                    }))}
+                >
+                    <Text testID="showcase-marketplace-shell-offset" tone="secondary">
+                        {`${page} — offset ${String(offset)}px`}
+                    </Text>
+                    {[1, 2, 3, 4, 5, 6].map((row) => (
+                        <Card key={row} padding="md">
+                            <Text variant="bodyStrong">{`${page} row ${String(row)}`}</Text>
+                        </Card>
+                    ))}
+                    <Button
+                        testID="showcase-marketplace-shell-top"
+                        variant="secondary"
+                        label="Back to top"
+                        onPress={() => {
+                            port.current?.scrollTo({ y: 0, animated: false });
+                        }}
+                    />
+                </AppShell>
+            </View>
+        </Stack>
+    );
+}
 
 function ColumnPickerStory({ prefix }: { readonly prefix: string }) {
     const { picker } = useColumnVisibility(`${prefix}-picker`, SHOWCASE_PICKABLE_COLUMNS, {
@@ -3793,6 +3864,7 @@ export function ShowcaseScreen() {
                         total={22}
                         stepLabel={t('designSystem:showcase.stepperStep')}
                     />
+                    <MarketplaceShellStory />
                 </Section>
 
                 <Section id="filters" title={t('designSystem:showcase.sections.filters')}>

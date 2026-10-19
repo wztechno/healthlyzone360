@@ -152,6 +152,7 @@ async function mapCartLine(
         id: line.id,
         mealId: MealId.unsafe(line.catalogue_item_id),
         kitchenId: meal.kitchenId,
+        kitchenName: meal.kitchenName,
         name: meal.name,
         quantity,
         unitPrice,
@@ -193,6 +194,9 @@ async function mapCart(transport: Transport, wire: WireCart, channelCode: string
 
     return {
         id: CartId.unsafe(wire.id),
+        // The seller: a marketplace kitchen is its organisation (`kitchen_id` on a meal is the
+        // same value), so this is the basket's kitchen even before it holds a line.
+        kitchenId: KitchenId.unsafe(wire.organisation_id),
         items,
         subtotal: money(subtotalAmount, currency),
         itemCount,
@@ -243,21 +247,33 @@ function mapCheckoutPreview(
 export function createApiCartSurface(transport: Transport): ApiCartSurface {
     let sessionChannelCode = DEFAULT_CART_CHANNEL_CODE;
 
-    async function openCart(channelCode?: string): Promise<Cart> {
+    /*
+     * The kitchen is sent when the caller names one and is *not* remembered like the code is. Naming
+     * it is a decision about one add ("put this meal in its kitchen's basket"); every later read —
+     * the count after a removal, the basket page — means "the basket I have", which the server
+     * answers from the person's own open basket when no kitchen is named.
+     */
+    async function openCart(channelCode?: string, kitchenId?: string): Promise<Cart> {
         const code = channelCode ?? sessionChannelCode;
         sessionChannelCode = code;
 
         const payload = await transport.request<{ cart: WireCart }>({
             method: 'POST',
             path: '/carts',
-            body: { channel_code: code },
+            body: {
+                channel_code: code,
+                ...(kitchenId === undefined ? {} : { kitchen_id: kitchenId }),
+            },
         });
         return mapCart(transport, payload.cart, code);
     }
 
     return {
         async getCart(options?: GetCartOptions): Promise<Cart> {
-            return openCart(options?.channelCode);
+            return openCart(
+                options?.channelCode,
+                options?.kitchenId === undefined ? undefined : String(options.kitchenId),
+            );
         },
 
         async addCartItem(cartId, request: AddCartItemRequest): Promise<Cart> {

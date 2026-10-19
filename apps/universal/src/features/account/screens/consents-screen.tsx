@@ -15,6 +15,8 @@ import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
 import { toFailure, useConsentsQuery, useSetConsentMutation } from '../../../data/account-hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { SubpageTrail } from '../../../ui/subpage-trail.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import {
     AGE_CONFIRMATION_KEY,
@@ -49,9 +51,22 @@ import { useConsentLabel } from '../consent-labels.ts';
  *
  * See `../consents.ts`. "Not agreed" covers never-agreed, withdrawn-by-you and agreed-to-an-older-
  * version, and telling somebody the wrong one is worse than saying nothing.
+ *
+ * ## Done is a press, not a save
+ *
+ * Each consent is stored the moment it is pressed, so there is nothing to submit — but a person
+ * sent here by the checkout or the plan setup (`?returnTo=`) needs a way back once everything
+ * required is agreed. The button at the foot says where it goes ("Back to checkout"), and is
+ * enabled once the age and every required consent are granted. Opened from the account it reads
+ * Done and returns there.
  */
 
 const TEST_ID = 'consents-screen';
+
+export interface ConsentsScreenProps {
+    /** The route's `?returnTo=` — the page to go back to once everything required is agreed. */
+    readonly returnTo?: string | undefined;
+}
 
 const STATUS_TONE = {
     granted: 'success',
@@ -60,10 +75,11 @@ const STATUS_TONE = {
     never: 'neutral',
 } as const;
 
-export function ConsentsScreen() {
+export function ConsentsScreen({ returnTo }: ConsentsScreenProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const label = useConsentLabel();
+    const back = useReturnTo(returnTo, '/customer/account?section=notifications');
 
     const consents = useConsentsQuery();
     const setConsent = useSetConsentMutation();
@@ -75,6 +91,8 @@ export function ConsentsScreen() {
 
     const failure = toFailure(setConsent.error);
     const busy = setConsent.isPending;
+    const requiredAgreed =
+        confirmed && all.every((consent) => !consent.definition.required || consent.granted);
     // The one being saved spins; the rest only wait, so a press never looks like every row moved.
     const savingKey = busy ? setConsent.variables?.key : undefined;
 
@@ -176,6 +194,11 @@ export function ConsentsScreen() {
 
     return (
         <Stack space="lg" testID={TEST_ID}>
+            <SubpageTrail
+                testID={`${TEST_ID}-trail`}
+                back={back}
+                current={t('account:consents.title')}
+            />
             <Heading level={1} testID={`${TEST_ID}-title`}>
                 {t('account:consents.title')}
             </Heading>
@@ -232,6 +255,21 @@ export function ConsentsScreen() {
                         t('account:consents.offersTitle'),
                         listed.filter((consent) => !consent.definition.required),
                     )}
+
+                    <Inline space="sm">
+                        <Button
+                            testID={`${TEST_ID}-done`}
+                            label={
+                                back.returnTo === null
+                                    ? t('common:action.done')
+                                    : t(`common:returnTo.${back.destination}`)
+                            }
+                            disabled={busy || (back.returnTo !== null && !requiredAgreed)}
+                            onPress={() => {
+                                back.finish();
+                            }}
+                        />
+                    </Inline>
                 </Stack>
             </QueryStates>
         </Stack>

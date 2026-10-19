@@ -1,11 +1,47 @@
 import { ErrorState, Heading, Stack } from '@healthy360/design-system';
 import { apiFailure } from '@healthy360/api-client';
+import { isRouteArea } from '@healthy360/domain-types';
+import type { RouteArea } from '@healthy360/domain-types';
+import { evaluateGates, requirementForArea } from '@healthy360/permissions';
+import type { AccessState } from '@healthy360/permissions';
 import { Redirect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { resolveAppLandingRoute } from '../navigation/landing.ts';
+import { ReturnRedirect } from '../navigation/return-redirect.tsx';
+import { isPublicHref, pathnameOf, safeReturnTo, withReturnTo } from '../navigation/return-to.ts';
 import { SproutMark } from '../ui/sprout-mark.tsx';
 import { useAccessState, useSession } from '../session/session-provider.tsx';
+
+/**
+ * The route area that gates an href, or `null` for a gated path that is not an area. `/apply` is the
+ * `(business)` group, which gates as `customer` (D-027); the workspace group (`/workspace`,
+ * `/profile`, `/devices`) asks for a verified session and nothing more, which a `workspace` landing
+ * already is.
+ */
+function gatingAreaOf(href: string): RouteArea | null {
+    const pathname = pathnameOf(href);
+    if (pathname === '/apply' || pathname.startsWith('/apply/')) return 'customer';
+    const first = pathname.split('/')[1] ?? '';
+    return isRouteArea(first) ? first : null;
+}
+
+/**
+ * Whether a session that has landed may be sent on to `href`: the same kernel the destination's own
+ * `<Gate>` will run, asked first, so a return into an area this person cannot open lands them on
+ * their home instead of on a forbidden page.
+ */
+function mayReturnTo(state: AccessState, href: string): boolean {
+    if (isPublicHref(href)) return true;
+    const area = gatingAreaOf(href);
+    if (area === null) return true;
+    return evaluateGates(state, requirementForArea(area)).status === 'allow';
+}
+
+export interface LandingScreenProps {
+    /** Where a finished sign-in asked to go (`/?returnTo=`). Validated again here. */
+    readonly returnTo?: string | null | undefined;
+}
 
 /**
  * The `/` route: session restoration, then a redirect.
@@ -28,8 +64,25 @@ import { useAccessState, useSession } from '../session/session-provider.tsx';
  * mean "the visitor is anonymous" matched the restoring splash first — a signed-in user, one frame
  * after `router.replace('/')`, with `me()` still in flight. Two different screens answering to one
  * name is a question no caller can ask correctly, so they answer to three.
+ *
+ * ## Finishing at the return (AUTH-02)
+ *
+ * Every authentication finishes by replacing itself with `/?returnTo=…` (`useCompleteAuth`), and
+ * this is where the return is honoured — after the resolver, never instead of it, because the
+ * resolver is what knows the session still owes something:
+ *
+ * | landing reason                                  | with a return                              |
+ * | ----------------------------------------------- | ------------------------------------------ |
+ * | `workspace`, and the return's gate would allow  | on to the return (`dismissTo`)             |
+ * | `email_unverified`, `password_change_required`  | to that step, carrying the return          |
+ * | anything else — the organisation/branch pickers | the resolver's page; the return is dropped |
+ *
+ * `dismissTo` rather than a replace, so a sign-in that was pushed from a marketplace page pops back
+ * to that page instead of stacking a second copy of it. The pickers drop the return on purpose:
+ * they choose where a member of staff works, and the page they asked for may not exist in the
+ * context they pick (the shared kitchen-admin flow behaves exactly as before).
  */
-export function LandingScreen() {
+export function LandingScreen({ returnTo: rawReturnTo = null }: LandingScreenProps = {}) {
     const { t } = useTranslation();
     const accessState = useAccessState();
     const { repositoryError } = useSession();
@@ -68,6 +121,19 @@ export function LandingScreen() {
                 <SproutMark testID="session-restoring" label={t('common:state.restoringSession')} />
             </Stack>
         );
+    }
+
+    const returnTo = safeReturnTo(rawReturnTo);
+    if (returnTo !== null) {
+        if (landing.reason === 'workspace' && mayReturnTo(accessState, returnTo)) {
+            return <ReturnRedirect href={returnTo} />;
+        }
+        if (
+            landing.reason === 'email_unverified' ||
+            landing.reason === 'password_change_required'
+        ) {
+            return <Redirect href={withReturnTo(landing.href, returnTo) as never} />;
+        }
     }
 
     return <Redirect href={landing.href as never} />;

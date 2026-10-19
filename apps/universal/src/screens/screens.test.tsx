@@ -14,7 +14,12 @@ import type {
     RoleId,
 } from '@healthy360/domain-types';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { Text } from 'react-native';
 
+import { queryKeys } from '../data/query-keys.ts';
+import { RedirectIfSignedIn } from '../navigation/redirect-if-signed-in.tsx';
+import { withReturnTo } from '../navigation/return-to.ts';
+import type { ExpoRouterMock } from '../testing/expo-router-mock.ts';
 import {
     TEST_USER_ID,
     testActiveContext,
@@ -27,9 +32,12 @@ import { sequence } from '../testing/stub-repositories.ts';
 import { renderStubScreen } from '../testing/stub-screen.tsx';
 import { DevicesScreen } from './devices-screen.tsx';
 import { ForbiddenScreen } from './forbidden-screen.tsx';
+import { NotFoundScreen } from './not-found-screen.tsx';
+import { LandingScreen } from './landing-screen.tsx';
 import { OrganisationPickerScreen } from './organisation-picker-screen.tsx';
 import { ProfileScreen } from './profile-screen.tsx';
 import { ChangePasswordScreen } from './change-password-screen.tsx';
+import { RegisterScreen } from './register-screen.tsx';
 import { SignInScreen } from './sign-in-screen.tsx';
 import { VerifyEmailScreen } from './verify-email-screen.tsx';
 import { WorkspaceSelectorScreen } from './workspace-selector-screen.tsx';
@@ -149,31 +157,18 @@ const LAPTOP = device('laptop', 'Chrome on Windows', 'web', { isCurrent: true })
 const PHONE = device('phone', 'iPhone 16', 'ios');
 const TABLET = device('tablet', 'Galaxy Tab S10', 'android');
 
-jest.mock('expo-router', () => {
-    const replace = jest.fn();
-    const push = jest.fn();
-    return {
-        __esModule: true,
-        useRouter: () => ({ replace, push, back: jest.fn() }),
-        usePathname: () => '/workspace',
-        useLocalSearchParams: () => ({}),
-        Redirect: () => null,
-        Link: ({ children }: { children: React.ReactNode }) => children,
-        Slot: () => null,
-        Stack: () => null,
-        __replace: replace,
-        __push: push,
-    };
-});
+jest.mock('expo-router', () =>
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../testing/expo-router-mock.ts').createExpoRouterMock({ pathname: '/workspace' }),
+);
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const routerMock = require('expo-router') as { __replace: jest.Mock; __push: jest.Mock };
+const routerMock = require('expo-router') as ExpoRouterMock;
 
 beforeEach(() => {
     // The router mock is module scoped, so navigation from one case would otherwise still be
     // recorded when the next one asserts on it.
-    routerMock.__replace.mockClear();
-    routerMock.__push.mockClear();
+    routerMock.__reset();
 });
 
 describe('SignInScreen', () => {
@@ -983,9 +978,354 @@ describe('ForbiddenScreen', () => {
     });
 
     it('offers a way out rather than a dead end', async () => {
-        await renderStubScreen(<ForbiddenScreen reason="entitlement_missing" />);
+        await renderStubScreen(<ForbiddenScreen reason="entitlement_missing" />, {
+            session: testMeResponse({
+                memberships: [testMembership()],
+                activeContext: testActiveContext(),
+            }),
+        });
 
-        expect(screen.getByTestId('forbidden-workspace')).toBeTruthy();
+        expect(await screen.findByTestId('forbidden-workspace')).toBeTruthy();
         expect(screen.getByTestId('forbidden-switch-organisation')).toBeTruthy();
+    });
+
+    /*
+     * A shopper was offered the staff exits too: "Go to your workspace" opened the staff workspace
+     * selector, and the organisation picker spun and then sent them to the shop (AUTH-18).
+     */
+    it('offers a shopper Back and the marketplace home instead of staff exits', async () => {
+        await renderStubScreen(<ForbiddenScreen reason="entitlement_missing" />, {
+            session: testMeResponse(),
+        });
+
+        await fireEvent.press(await screen.findByTestId('forbidden-home'));
+        expect(screen.getByTestId('forbidden-home')).toHaveTextContent('Go to Discover');
+        expect(routerMock.__replace).toHaveBeenCalledWith('/discover');
+        expect(screen.queryByTestId('forbidden-workspace')).toBeNull();
+        expect(screen.queryByTestId('forbidden-switch-organisation')).toBeNull();
+
+        // No history after a deep link or a refresh, so Back lands on the shop rather than nowhere.
+        await fireEvent.press(screen.getByTestId('forbidden-back'));
+        expect(routerMock.__replace).toHaveBeenLastCalledWith('/discover');
+    });
+});
+
+describe('NotFoundScreen', () => {
+    it('wears the shop’s header and offers Back and the marketplace home (AUTH-18)', async () => {
+        routerMock.__set({ canGoBack: true });
+        await renderStubScreen(<NotFoundScreen />);
+
+        expect(screen.getByTestId('marketplace-shell')).toBeTruthy();
+        expect(screen.getByTestId('not-found-title')).toHaveTextContent('Page not found');
+
+        await fireEvent.press(screen.getByTestId('not-found-back'));
+        expect(routerMock.__router.back).toHaveBeenCalledTimes(1);
+
+        await fireEvent.press(screen.getByTestId('not-found-home'));
+        expect(routerMock.__replace).toHaveBeenCalledWith('/discover');
+        // Never the launch resolver, which sends an unconfirmed account to verification.
+        expect(routerMock.__push).not.toHaveBeenCalledWith('/');
+    });
+});
+
+/* ── the sign-in round trip (AUTH-02, 05, 07; ACCOUNT-10) ───────────────────────────────────── */
+
+/**
+ * Every authentication ends by replacing itself with `/?returnTo=…`, and the landing decides
+ * whether the session may go there yet. These cases pin both halves: what each auth screen hands
+ * the landing, and what the landing does with it.
+ */
+const CHECKOUT = '/customer/checkout?channel=web-shop';
+
+const SESSION = { token: 'test-token-0001', userId: TEST_USER_ID, expiresAt: null } as const;
+const SIGNED_IN: LoginResult = { status: 'authenticated', session: SESSION };
+
+async function signIn(returnTo?: string) {
+    const harness = await renderStubScreen(<SignInScreen returnTo={returnTo} />, {
+        repositories: { auth: { login: async () => SIGNED_IN } },
+    });
+    await fireEvent.changeText(screen.getByTestId('sign-in-email-input'), DIETITIAN_EMAIL);
+    await fireEvent.changeText(screen.getByTestId('sign-in-password-input'), 'password');
+    await fireEvent.press(screen.getByTestId('sign-in-submit'));
+    return harness;
+}
+
+describe('SignInScreen — where it finishes', () => {
+    it('finishes through the landing, carrying the page that sent the person here', async () => {
+        await signIn(CHECKOUT);
+
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith(withReturnTo('/', CHECKOUT));
+        });
+    });
+
+    it('still finishes at `/` when nothing sent the person here', async () => {
+        await signIn();
+
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith('/');
+        });
+    });
+
+    it('ignores a return that would leave the application', async () => {
+        await signIn('//evil.example/phish');
+
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith('/');
+        });
+    });
+
+    it('finishes the second factor the same way', async () => {
+        await renderStubScreen(<SignInScreen returnTo={CHECKOUT} />, {
+            repositories: {
+                auth: {
+                    login: async (): Promise<LoginResult> => ({
+                        status: 'two_factor_required',
+                        challengeId: 'test-challenge-0001',
+                        recoveryCodesAvailable: true,
+                    }),
+                    challengeTwoFactor: async () => SESSION,
+                },
+            },
+        });
+
+        await fireEvent.changeText(screen.getByTestId('sign-in-email-input'), DIETITIAN_EMAIL);
+        await fireEvent.changeText(screen.getByTestId('sign-in-password-input'), 'password');
+        await fireEvent.press(screen.getByTestId('sign-in-submit'));
+        await waitFor(() => screen.getByTestId('two-factor-code-input'));
+        await fireEvent.changeText(screen.getByTestId('two-factor-code-input'), '123456');
+        await fireEvent.press(screen.getByTestId('two-factor-submit'));
+
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith(withReturnTo('/', CHECKOUT));
+        });
+    });
+
+    it('keeps browsing back to a public page by popping to it', async () => {
+        await renderStubScreen(<SignInScreen returnTo="/meals?diet=vegan" />);
+
+        await fireEvent.press(screen.getByTestId('sign-in-keep-browsing'));
+        expect(routerMock.__router.dismissTo).toHaveBeenCalledWith('/meals?diet=vegan');
+        expect(routerMock.__replace).not.toHaveBeenCalled();
+    });
+
+    it('keeps browsing away from a gated page: Back, or the home after a cold start', async () => {
+        await renderStubScreen(<SignInScreen returnTo={CHECKOUT} />);
+
+        await fireEvent.press(screen.getByTestId('sign-in-keep-browsing'));
+        expect(routerMock.__replace).toHaveBeenCalledWith('/discover');
+        expect(routerMock.__router.dismissTo).not.toHaveBeenCalled();
+
+        routerMock.__set({ canGoBack: true });
+        await fireEvent.press(screen.getByTestId('sign-in-keep-browsing'));
+        expect(routerMock.__router.back).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('RegisterScreen — where it finishes', () => {
+    it('hands the return on to email confirmation', async () => {
+        await renderStubScreen(<RegisterScreen returnTo={CHECKOUT} />, {
+            repositories: {
+                auth: {
+                    register: async () => ({ session: SESSION, emailVerified: false }),
+                },
+            },
+        });
+
+        await fireEvent.changeText(screen.getByTestId('register-name-input'), 'Rana Saleh');
+        await fireEvent.changeText(screen.getByTestId('register-email-input'), DIETITIAN_EMAIL);
+        await fireEvent.changeText(
+            screen.getByTestId('register-password-input'),
+            'a-much-better-secret-9',
+        );
+        await fireEvent.changeText(
+            screen.getByTestId('register-password-confirmation-input'),
+            'a-much-better-secret-9',
+        );
+        await fireEvent.press(screen.getByTestId('register-accept-terms-control'));
+        await fireEvent.press(screen.getByTestId('register-accept-privacy-control'));
+        await fireEvent.press(screen.getByTestId('register-submit'));
+
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith(
+                withReturnTo('/verify-email', CHECKOUT),
+            );
+        });
+    });
+
+    it('offers the same way back to the shop as sign-in', async () => {
+        await renderStubScreen(<RegisterScreen returnTo="/kitchens" />);
+
+        await fireEvent.press(screen.getByTestId('register-keep-browsing'));
+        expect(routerMock.__router.dismissTo).toHaveBeenCalledWith('/kitchens');
+    });
+});
+
+describe('VerifyEmailScreen — where it finishes', () => {
+    it('continues to the page the person was on their way to', async () => {
+        await renderStubScreen(<VerifyEmailScreen returnTo={CHECKOUT} />, {
+            session: testMeResponse(),
+        });
+
+        await fireEvent.press(await screen.findByTestId('verify-email-continue'));
+        expect(routerMock.__replace).toHaveBeenCalledWith(withReturnTo('/', CHECKOUT));
+    });
+
+    it('lets an unconfirmed person keep browsing without signing out', async () => {
+        await renderStubScreen(<VerifyEmailScreen returnTo="/meals" />, {
+            session: testMeResponse({ user: { emailVerifiedAt: null } }),
+        });
+
+        await fireEvent.press(await screen.findByTestId('verify-email-keep-browsing'));
+        expect(routerMock.__router.dismissTo).toHaveBeenCalledWith('/meals');
+    });
+});
+
+describe('RedirectIfSignedIn', () => {
+    const form = (
+        <RedirectIfSignedIn returnTo="/meals">
+            <Text testID="auth-form">form</Text>
+        </RedirectIfSignedIn>
+    );
+
+    it('sends a visitor who is already signed in on, with their return', async () => {
+        await renderStubScreen(form, { session: testMeResponse() });
+
+        await waitFor(() => {
+            expect(routerMock.__redirect).toHaveBeenCalledWith(withReturnTo('/', '/meals'));
+        });
+    });
+
+    it('shows the form to somebody signed out', async () => {
+        await renderStubScreen(form);
+
+        expect(await screen.findByTestId('auth-form')).toBeTruthy();
+        expect(routerMock.__redirect).not.toHaveBeenCalled();
+    });
+});
+
+describe('ChangePasswordScreen — the two ways out', () => {
+    async function change(session: MeResponse, returnTo?: string) {
+        const { queryClient } = await renderStubScreen(
+            <ChangePasswordScreen returnTo={returnTo} />,
+            {
+                session,
+                repositories: { auth: { updatePassword: jest.fn().mockResolvedValue(undefined) } },
+            },
+        );
+        // Forced or by choice is read from `/me`, and fixed at submit: wait for it to answer.
+        await waitFor(() => {
+            expect(queryClient.getQueryData(queryKeys.me())).toBeDefined();
+        });
+        await waitFor(() => screen.getByTestId('change-password-current-input'));
+        await fireEvent.changeText(screen.getByTestId('change-password-current-input'), 'old-one');
+        await fireEvent.changeText(
+            screen.getByTestId('change-password-new-input'),
+            'a-much-better-secret-9',
+        );
+        await fireEvent.changeText(
+            screen.getByTestId('change-password-confirmation-input'),
+            'a-much-better-secret-9',
+        );
+        await fireEvent.press(screen.getByTestId('change-password-submit'));
+        await fireEvent.press(await screen.findByTestId('change-password-continue'));
+    }
+
+    it('returns a voluntary change to the page that opened it', async () => {
+        await change(testMeResponse(), '/customer/account?section=profile');
+
+        expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(
+            '/customer/account?section=profile',
+        );
+        expect(routerMock.__replace).not.toHaveBeenCalledWith('/');
+    });
+
+    it('cancels a voluntary change back where it came from', async () => {
+        await renderStubScreen(
+            <ChangePasswordScreen returnTo="/customer/account?section=profile" />,
+            {
+                session: testMeResponse(),
+            },
+        );
+
+        await fireEvent.press(await screen.findByTestId('change-password-cancel'));
+        expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(
+            '/customer/account?section=profile',
+        );
+    });
+
+    it('keeps the forced change as it was: no Cancel, and on through the landing', async () => {
+        await renderStubScreen(<ChangePasswordScreen />, {
+            session: testMeResponse({ user: { mustChangePassword: true } }),
+        });
+        // Rendered bare, the screen reads the flag a tick after `/me` answers.
+        await waitFor(() => {
+            expect(screen.getByTestId('change-password-subtitle')).toHaveTextContent(
+                /somebody else knows/,
+            );
+        });
+        expect(screen.queryByTestId('change-password-cancel')).toBeNull();
+    });
+
+    it('finishes a forced change through the landing, carrying its return', async () => {
+        await change(testMeResponse({ user: { mustChangePassword: true } }), CHECKOUT);
+
+        expect(routerMock.__replace).toHaveBeenCalledWith(withReturnTo('/', CHECKOUT));
+    });
+});
+
+describe('LandingScreen — the return', () => {
+    it('goes on to the return once the session may be there, popping rather than stacking', async () => {
+        await renderStubScreen(<LandingScreen returnTo={CHECKOUT} />, {
+            session: testMeResponse(),
+        });
+
+        await waitFor(() => {
+            expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(CHECKOUT);
+        });
+        expect(routerMock.__redirect).not.toHaveBeenCalled();
+    });
+
+    it('confirms the email address first, carrying the return through it', async () => {
+        await renderStubScreen(<LandingScreen returnTo={CHECKOUT} />, {
+            session: testMeResponse({ user: { emailVerifiedAt: null } }),
+        });
+
+        await waitFor(() => {
+            expect(routerMock.__redirect).toHaveBeenCalledWith(
+                withReturnTo('/verify-email', CHECKOUT),
+            );
+        });
+    });
+
+    it('changes a forced password first, carrying the return through it', async () => {
+        await renderStubScreen(<LandingScreen returnTo={CHECKOUT} />, {
+            session: testMeResponse({ user: { mustChangePassword: true } }),
+        });
+
+        await waitFor(() => {
+            expect(routerMock.__redirect).toHaveBeenCalledWith(
+                withReturnTo('/change-password', CHECKOUT),
+            );
+        });
+    });
+
+    it('lands on the home instead of a return into an area the session cannot open', async () => {
+        await renderStubScreen(<LandingScreen returnTo="/kitchen/orders" />, {
+            session: testMeResponse(),
+        });
+
+        await waitFor(() => {
+            expect(routerMock.__redirect).toHaveBeenCalledWith('/discover');
+        });
+        expect(routerMock.__router.dismissTo).not.toHaveBeenCalled();
+    });
+
+    it('lands as it always did with no return', async () => {
+        await renderStubScreen(<LandingScreen />, { session: testMeResponse() });
+
+        await waitFor(() => {
+            expect(routerMock.__redirect).toHaveBeenCalledWith('/discover');
+        });
     });
 });

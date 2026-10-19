@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
+import { withReturnTo } from '../../navigation/return-to.ts';
+
 /**
  * The account-setup steps a person still has to do, each as a row that says what it needs and goes
  * straight to the screen that does it.
@@ -25,13 +27,20 @@ import { Pressable, Text as RNText, View } from 'react-native';
  * do this"), and a 44px card is a far easier thing to hit on a phone than a `sm` button. The action
  * label and a chevron sit at the end so the card still reads as something that goes somewhere. A
  * step the server says cannot be done yet is drawn inert, with the reason in place of its body.
+ *
+ * ## Each step comes back
+ *
+ * A row opens its screen with the page that listed it as `?returnTo=` — the checkout with its
+ * address, date and window, the plan setup on its step, the account on its section — and that screen
+ * returns there once the step is done. A step is a detour, never a destination.
  */
 
 /** The screen that completes each step. */
 export const ACCOUNT_STEP_ROUTES: Readonly<Record<AccountChecklistStep, string>> = {
     verify_email: '/verify-email',
     verify_phone: '/customer/account/phone',
-    add_address: '/customer/account/addresses',
+    // Straight to the form: a person with no address has nothing to pick from a list.
+    add_address: '/customer/account/addresses/new',
     dietary_profile: '/customer/account/allergies',
     consents: '/customer/account/consents',
 };
@@ -66,10 +75,12 @@ export interface AccountSetupStep {
 
 export interface AccountSetupStepsProps {
     readonly steps: readonly AccountSetupStep[];
+    /** The page listing the steps, which each step's screen returns to once it is done. */
+    readonly returnTo?: string | undefined;
     readonly testID: string;
 }
 
-export function AccountSetupSteps({ steps, testID }: AccountSetupStepsProps) {
+export function AccountSetupSteps({ steps, returnTo, testID }: AccountSetupStepsProps) {
     const { t } = useTranslation();
     const router = useRouter();
     // The action's words from `md`; below it the chevron alone, so the title keeps the width.
@@ -96,7 +107,9 @@ export function AccountSetupSteps({ steps, testID }: AccountSetupStepsProps) {
                             aria-disabled={blocked}
                             disabled={blocked}
                             onPress={() => {
-                                router.push(ACCOUNT_STEP_ROUTES[step] as never);
+                                router.push(
+                                    withReturnTo(ACCOUNT_STEP_ROUTES[step], returnTo) as never,
+                                );
                             }}
                             className={cx(
                                 'min-h-touch flex-row items-center gap-4 rounded-lg border bg-surface-raised px-4 py-3',
@@ -166,6 +179,8 @@ export interface AccountSetupPanelProps {
     readonly title: string;
     readonly body: string;
     readonly steps: readonly AccountSetupStep[];
+    /** Where each step returns once it is done — the page drawing the panel. */
+    readonly returnTo?: string | undefined;
     /** `alert` where a refusal just happened (checkout); `status` where it is standing news. */
     readonly role?: 'alert' | 'status' | undefined;
     readonly testID: string;
@@ -182,6 +197,7 @@ export function AccountSetupPanel({
     title,
     body,
     steps,
+    returnTo,
     role = 'status',
     testID,
     stepsTestID,
@@ -207,7 +223,7 @@ export function AccountSetupPanel({
                     {body}
                 </RNText>
             </View>
-            <AccountSetupSteps steps={steps} testID={stepsTestID} />
+            <AccountSetupSteps steps={steps} returnTo={returnTo} testID={stepsTestID} />
         </View>
     );
 }

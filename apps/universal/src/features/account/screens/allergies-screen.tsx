@@ -8,6 +8,7 @@ import {
     SegmentedControl,
     Stack,
     Text,
+    useToast,
 } from '@healthy360/design-system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,7 +18,11 @@ import {
     useDietaryProfileQuery,
     useSaveDietaryProfileMutation,
 } from '../../../data/account-hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { useUnsavedGuard } from '../../../navigation/use-unsaved-guard.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
+import { SubpageTrail } from '../../../ui/subpage-trail.tsx';
+import { UnsavedChangesDialog } from '../../../ui/unsaved-changes-dialog.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { AllergyPicker } from '../allergy-picker.tsx';
 import { DietaryTagsPicker } from '../dietary-tags-picker.tsx';
@@ -74,8 +79,19 @@ function seed(profile: DietaryProfile): Edit {
     };
 }
 
-export function AllergiesScreen() {
+export interface AllergiesScreenProps {
+    /**
+     * The route's `?returnTo=` — the checkout or plan setup that asked for the declaration, which
+     * saving goes straight back to. Opened from the account, saving stays here and says so.
+     */
+    readonly returnTo?: string | undefined;
+}
+
+export function AllergiesScreen({ returnTo }: AllergiesScreenProps) {
     const { t } = useTranslation();
+    const toast = useToast();
+    const back = useReturnTo(returnTo, '/customer/account?section=profile');
+    const guard = useUnsavedGuard({ message: t('common:unsaved.browserPrompt') });
 
     const profile = useDietaryProfileQuery();
     const save = useSaveDietaryProfileMutation();
@@ -95,14 +111,19 @@ export function AllergiesScreen() {
               : seed(loaded);
 
     const set = (patch: Partial<Edit>) => {
+        guard.markDirty();
         setEdit({ ...current, ...patch, from: loaded?.updatedAt ?? null });
     };
 
     const saveFailure = toFailure(save.error);
-    const saved = save.isSuccess && edit === null;
 
     return (
         <Stack space="lg" testID={TEST_ID}>
+            <SubpageTrail
+                testID={`${TEST_ID}-trail`}
+                back={{ ...back, up: () => guard.intercept(back.up) }}
+                current={t('account:dietary.title')}
+            />
             <Stack space="xs">
                 <Heading level={1} testID={`${TEST_ID}-title`}>
                     {t('account:dietary.title')}
@@ -131,15 +152,6 @@ export function AllergiesScreen() {
                             title={saveFailure.message}
                         />
                     )}
-
-                    {saved ? (
-                        <Callout
-                            testID={`${TEST_ID}-saved`}
-                            role="status"
-                            tone="success"
-                            title={t('account:dietary.saved')}
-                        />
-                    ) : null}
 
                     <Card padding="md">
                         <Stack space="sm">
@@ -217,8 +229,19 @@ export function AllergiesScreen() {
                                     {
                                         onSuccess: () => {
                                             // Drop the local edit so the saved profile becomes the
-                                            // seed again — the "saved" notice is derived from that.
+                                            // seed again.
                                             setEdit(null);
+                                            guard.markClean();
+                                            // A toast, not a notice in the page: the page's top —
+                                            // where a notice would sit — is a long scroll above
+                                            // the Save that was just pressed.
+                                            toast.show({
+                                                testID: `${TEST_ID}-saved-toast`,
+                                                tone: 'success',
+                                                message: t('account:dietary.savedToast'),
+                                            });
+                                            // Sent here by a step: back to it at once.
+                                            if (back.returnTo !== null) back.finish();
                                         },
                                     },
                                 );
@@ -227,6 +250,7 @@ export function AllergiesScreen() {
                     </Inline>
                 </Stack>
             </QueryStates>
+            <UnsavedChangesDialog guard={guard} testID={`${TEST_ID}-unsaved`} />
         </Stack>
     );
 }

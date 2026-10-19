@@ -82,7 +82,8 @@
             "price": "السعر",
             "preparationMinutes": "وقت التحضير"
         },
-        "rangeChip": "{{label}}: {{readout}}"
+        "rangeChip": "{{label}}: {{readout}}",
+        "searchChip": "بحث: {{term}}"
     },
     "meal": {
         "loading": "جارٍ تحميل الوجبة",

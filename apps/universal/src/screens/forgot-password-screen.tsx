@@ -15,7 +15,13 @@ import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import { toFailure, useForgotPasswordMutation } from '../data/hooks.ts';
+import { safeReturnTo, withReturnTo } from '../navigation/return-to.ts';
 import { applyServerFailure, useValidationTranslate } from './form-helpers.ts';
+
+export interface ForgotPasswordScreenProps {
+    /** The route's raw `?returnTo=`, passed back to sign-in untouched. */
+    readonly returnTo?: string | undefined;
+}
 
 /**
  * Forgotten password.
@@ -23,12 +29,17 @@ import { applyServerFailure, useValidationTranslate } from './form-helpers.ts';
  * The confirmation is deliberately **neutral**: "if an account exists for this address, a link is
  * on its way". Telling the user whether the address is registered would turn this form into an
  * account-enumeration oracle, and it is the single most commonly leaked signal in an auth flow.
+ *
+ * "Back to sign in" **replaces** this entry rather than pushing a second `/sign-in` on top of the
+ * first, and hands back the `?returnTo=` the sign-in page was carrying — so the detour through
+ * here neither loses where the person started nor leaves Back cycling between two forms (AUTH-05).
  */
-export function ForgotPasswordScreen() {
+export function ForgotPasswordScreen({ returnTo: rawReturnTo }: ForgotPasswordScreenProps = {}) {
     const { t } = useTranslation();
     const request = useForgotPasswordMutation();
     const translate = useValidationTranslate();
     const [sentTo, setSentTo] = useState<string | null>(null);
+    const signInHref = withReturnTo('/sign-in', safeReturnTo(rawReturnTo));
 
     const form = useForm<{ email: string }, unknown, ForgotPasswordValues>({
         resolver: toFormResolver(makeForgotPasswordSchema(translate)),
@@ -64,7 +75,7 @@ export function ForgotPasswordScreen() {
                         {t('auth:forgotPassword.sentBody', { email: sentTo })}
                     </Text>
                 </Card>
-                <Link testID="forgot-password-back" href="/sign-in" asChild>
+                <Link testID="forgot-password-back" href={signInHref as never} replace asChild>
                     <Text tone="info" accessibilityRole="link">
                         {t('auth:forgotPassword.backToSignIn')}
                     </Text>
@@ -114,7 +125,7 @@ export function ForgotPasswordScreen() {
             />
 
             <Inline space="xs">
-                <Link testID="forgot-password-sign-in" href="/sign-in" asChild>
+                <Link testID="forgot-password-sign-in" href={signInHref as never} replace asChild>
                     <Text tone="info" accessibilityRole="link">
                         {t('auth:forgotPassword.backToSignIn')}
                     </Text>

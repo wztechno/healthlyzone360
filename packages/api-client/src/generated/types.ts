@@ -4777,6 +4777,15 @@ export type OpenCartRequest = {
      *
      */
     channel_code: string;
+    /**
+     * The kitchen whose channel to open — a marketplace meal's
+     * `kitchen_id`. Codes are unique per kitchen, so this picks the one
+     * row the code names; a kitchen without an active channel by that
+     * code is `404`. Omitted, the shopper's open basket on the code is
+     * returned, preferring one with lines.
+     *
+     */
+    kitchen_id?: Uuid | null;
 };
 
 export type AddCartItemRequest = {

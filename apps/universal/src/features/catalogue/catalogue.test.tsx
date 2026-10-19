@@ -2,6 +2,7 @@ import { ApiError, apiFailure } from '@healthy360/api-client';
 import type {
     AddCartItemRequest,
     Cart,
+    CartItem,
     Kitchen,
     KitchenSalesChannels,
     MarketplaceMeal,
@@ -22,10 +23,14 @@ import type {
     SubscriptionPlanId,
 } from '@healthy360/domain-types';
 import type { NutritionFacts } from '@healthy360/nutrition';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
+import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { clearPendingAdd, readPendingAdd } from '../commerce/pending-add.ts';
+import { forgetQueries, lastQuery, rememberQuery } from '../../navigation/last-query.ts';
+import { withReturnTo } from '../../navigation/return-to.ts';
 import { useCartQuery } from '../../data/marketplace-hooks.ts';
 import { testMeResponse } from '../../testing/session-fixtures.ts';
 import {
@@ -40,6 +45,7 @@ import { MACRO_DISTRIBUTION_RANGES, macroDistributionLevel } from './macro-rings
 import { toTargetRequest, DEFAULT_CALCULATOR_INPUTS } from './calculator-fields.tsx';
 import { toMealFilter } from './meal-filters.tsx';
 import { refineMeals } from './meal-readings.ts';
+import { requestMenuSearchFocus, takeMenuSearchFocus } from './menu-search-focus.ts';
 import { NutritionFactsPanel } from './nutrition-facts-panel.tsx';
 import {
     cheapestVariant,
@@ -62,25 +68,10 @@ import type * as ShownShelves from './shown-shelves.ts';
  * the same reason. `params` is mutable so a test can put a filter or an identifier in front of a
  * screen exactly the way a shared link would.
  */
-const routerState: { params: Record<string, string> } = { params: {} };
-
-jest.mock('expo-router', () => {
-    const push = jest.fn();
-    const replace = jest.fn();
-    const setParams = jest.fn();
-    return {
-        __esModule: true,
-        useRouter: () => ({ push, replace, setParams, back: jest.fn() }),
-        usePathname: () => '/meals',
-        useLocalSearchParams: () => routerState.params,
-        Redirect: () => null,
-        Link: ({ children }: { children: React.ReactNode }) => children,
-        Slot: () => null,
-        Stack: () => null,
-        __push: push,
-        __setParams: setParams,
-    };
-});
+jest.mock('expo-router', () =>
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../../testing/expo-router-mock.ts').createExpoRouterMock({ pathname: '/meals' }),
+);
 
 /**
  * The menu un-narrowed. Discover and `/meals` show only the shown shelves
@@ -93,12 +84,18 @@ jest.mock('./shown-shelves.ts', () => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const routerMock = require('expo-router') as { __push: jest.Mock; __setParams: jest.Mock };
+const routerMock = require('expo-router') as ExpoRouterMock;
+
+/** `routerState.params = …` puts a query in front of the screen, as a shared link would. */
+const routerState = {
+    set params(params: Record<string, string>) {
+        routerMock.__set({ params });
+    },
+};
 
 beforeEach(() => {
-    routerState.params = {};
-    routerMock.__push.mockClear();
-    routerMock.__setParams.mockClear();
+    routerMock.__reset();
+    clearPendingAdd();
     // `catalogue` is on the persistence allow-list (`data/query-keys.ts`), and `AppProviders`
     // restores that snapshot on mount. In a browser that is the feature; inside one Jest file it
     // would hand each test the previous test's results, so every test starts from a cold cache.
@@ -951,7 +948,7 @@ describe('MealsScreen', () => {
             screen.getByTestId('meals-filter-exclude-milk').props.accessibilityState,
         ).toMatchObject({ selected: true });
         await fireEvent.press(screen.getByTestId('meals-filter-exclude-sesame'));
-        expect(routerMock.__setParams).toHaveBeenLastCalledWith({ exclude: 'milk,sesame' });
+        expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ exclude: 'milk,sesame' });
     });
 
     it('offers every diet in one menu', async () => {
@@ -964,7 +961,7 @@ describe('MealsScreen', () => {
             expect(screen.getByTestId(`meals-filter-diet-${diet}`)).toBeTruthy();
         }
         await fireEvent.press(screen.getByTestId('meals-filter-diet-vegan'));
-        expect(routerMock.__setParams).toHaveBeenLastCalledWith({ diet: 'vegan' });
+        expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ diet: 'vegan' });
     });
 
     it('counts each shelf tab over the whole menu', async () => {
@@ -1004,10 +1001,10 @@ describe('MealsScreen', () => {
         await waitFor(() => screen.getByTestId('meals-filter-category-bowls'));
 
         await fireEvent.press(screen.getByTestId('meals-filter-category-bowls'));
-        expect(routerMock.__setParams).toHaveBeenLastCalledWith({ category: 'bowls' });
+        expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ category: 'bowls' });
 
         await fireEvent.press(screen.getByTestId('meals-filter-category-all'));
-        expect(routerMock.__setParams).toHaveBeenLastCalledWith({ category: '' });
+        expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ category: '' });
     });
 
     it('shows a filtered arrival as chips, lights its tab, and clears everything at once', async () => {
@@ -1030,10 +1027,10 @@ describe('MealsScreen', () => {
         );
 
         await fireEvent.press(screen.getByTestId('meals-toolbar-chip-diet-vegan'));
-        expect(routerMock.__setParams).toHaveBeenLastCalledWith({ diet: '' });
+        expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ diet: '' });
 
         await fireEvent.press(screen.getByTestId('meals-toolbar-clear'));
-        expect(routerMock.__setParams).toHaveBeenCalledWith(
+        expect(routerMock.__router.setParams).toHaveBeenCalledWith(
             expect.objectContaining({ category: '', diet: '' }),
         );
     });
@@ -1099,6 +1096,84 @@ describe('MealsScreen', () => {
         expect(screen.getByTestId('meals-count')).toHaveTextContent(
             new RegExp(`${String(CATALOGUE_SIZE)} meals available`),
         );
+    });
+
+    /*
+     * The search field was the chrome's alone, from `xl`: a tablet's search button opened this
+     * page with nothing to type in, a phone had no search, and an applied `?q=` showed no chip
+     * (browse-06).
+     */
+    describe('its own search field', () => {
+        it('writes the term to the address once typing settles, keeping the other filters', async () => {
+            routerState.params = { diet: 'vegan' };
+            await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
+
+            const input = await screen.findByTestId('meals-search-input');
+            await fireEvent.changeText(input, 'g');
+            await fireEvent.changeText(input, 'grain');
+            // One request for the settled term, not one per letter …
+            await waitFor(() => {
+                expect(routerMock.__router.setParams).toHaveBeenCalledWith({ q: 'grain' });
+            });
+            expect(routerMock.__router.setParams).not.toHaveBeenCalledWith({ q: 'g' });
+            // … and only the term: the diet is not touched.
+            expect(routerMock.__router.setParams).toHaveBeenCalledTimes(1);
+        });
+
+        it('searches at once on Return', async () => {
+            await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
+
+            const input = await screen.findByTestId('meals-search-input');
+            await fireEvent.changeText(input, ' salad ');
+            await fireEvent(input, 'submitEditing');
+            expect(routerMock.__router.setParams).toHaveBeenCalledWith({ q: 'salad' });
+        });
+
+        it('shows an applied term in the field and as a chip that lifts it', async () => {
+            routerState.params = { q: 'bowl' };
+            await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
+
+            const input = await screen.findByTestId('meals-search-input');
+            expect(input.props.value).toBe('bowl');
+            expect(screen.getByTestId('meals-toolbar-chip-q')).toHaveTextContent(/Search: bowl/);
+
+            await fireEvent.press(screen.getByTestId('meals-toolbar-chip-q'));
+            expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ q: '' });
+
+            // Lifted from anywhere — the chip, "Clear all", the header — the field follows.
+            await act(async () => {
+                routerMock.__set({ params: {} });
+            });
+            expect(screen.getByTestId('meals-search-input').props.value).toBe('');
+            expect(screen.queryByTestId('meals-toolbar-chip-q')).toBeNull();
+        });
+
+        it('takes the cursor the header’s search button asked for', async () => {
+            requestMenuSearchFocus();
+            await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
+
+            await screen.findByTestId('meals-search-input');
+            // Consumed on mount: the next visit to the menu does not steal focus again.
+            expect(takeMenuSearchFocus()).toBe(false);
+        });
+    });
+
+    it('takes Home to the marketplace home, not the launch resolver (browse-10)', async () => {
+        await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
+
+        await fireEvent.press(await screen.findByTestId('meals-crumb-home'));
+        expect(routerMock.__router.navigate).toHaveBeenCalledWith('/discover');
+        expect(routerMock.__push).not.toHaveBeenCalledWith('/');
+    });
+
+    it('remembers the query it is shown with, for a meal’s way back up', async () => {
+        forgetQueries();
+        routerState.params = { diet: 'vegan', energyMax: '500' };
+        await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
+
+        await waitFor(() => {
+            expect(lastQuery('/meals')).toBe('diet=vegan&energyMax=500');
+        });
     });
 });
 
@@ -1203,7 +1278,8 @@ describe('MealDetailScreen', () => {
         expect(screen.getByTestId('meal-detail-options-none')).toBeTruthy();
         expect(screen.getByTestId('meal-detail-instructions-input')).toBeTruthy();
         expect(screen.getByTestId('meal-detail-quantity')).toBeTruthy();
-        expect(screen.getByTestId('meal-detail-add-to-basket')).toHaveTextContent(/Add to cart/);
+        // One noun for the one place (browse-14): the toast, the header and the page say basket.
+        expect(screen.getByTestId('meal-detail-add-to-basket')).toHaveTextContent(/Add to basket/);
     });
 
     it('fills the three frames with real images only, the third opening the kitchen', async () => {
@@ -1289,10 +1365,10 @@ describe('MealDetailScreen', () => {
         expect(screen.queryByText(/business/i)).toBeNull();
     });
 
-    // G1 changed this deliberately: an anonymous visitor at the moment of highest intent is offered
-    // a guest checkout *and* sign-in, rather than being redirected to a wall. Signing in is still
-    // one press away and still records the page, which the second assertion pins.
-    it('offers an anonymous visitor a guest checkout, with sign-in still one press away', async () => {
+    // An anonymous visitor at the moment of highest intent is asked after the press, not walled off
+    // before it — and the only two answers are ones that work. "Continue as a guest" is gone: a
+    // basket needs a session, so it could only ever fail (AUTH-06).
+    it('asks an anonymous visitor to sign in or create an account, and offers nothing else', async () => {
         await renderStubScreen(<MealDetailScreen mealId={String(DETAIL_MEAL.id)} />, {
             repositories: CATALOGUE_REPOSITORIES,
         });
@@ -1300,11 +1376,69 @@ describe('MealDetailScreen', () => {
         await waitFor(() => screen.getByTestId('meal-detail-add-to-basket'));
         await fireEvent.press(screen.getByTestId('meal-detail-add-to-basket'));
 
-        await waitFor(() => screen.getByTestId('meal-detail-guest-continue'));
-        expect(routerMock.__push).not.toHaveBeenCalledWith('/sign-in');
+        await waitFor(() => screen.getByTestId('meal-detail-guest-sign-in'));
+        expect(screen.getByTestId('meal-detail-guest-register')).toBeTruthy();
+        expect(screen.queryByTestId('meal-detail-guest-continue')).toBeNull();
+        expect(routerMock.__push).not.toHaveBeenCalled();
+        // Nothing is kept until the person picks a way in.
+        expect(readPendingAdd()).toBeNull();
+    });
 
-        await fireEvent.press(screen.getByTestId('meal-detail-guest-sign-in'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/sign-in');
+    it('keeps the meal and the quantity, and signs in with this page as the return', async () => {
+        routerMock.__set({ pathname: `/meals/${String(DETAIL_MEAL.id)}` });
+        await renderStubScreen(<MealDetailScreen mealId={String(DETAIL_MEAL.id)} />, {
+            repositories: CATALOGUE_REPOSITORIES,
+        });
+
+        await waitFor(() => screen.getByTestId('meal-detail-quantity-increment'));
+        await fireEvent.press(screen.getByTestId('meal-detail-quantity-increment'));
+        await fireEvent.press(screen.getByTestId('meal-detail-add-to-basket'));
+        await fireEvent.press(await screen.findByTestId('meal-detail-guest-sign-in'));
+
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            withReturnTo('/sign-in', `/meals/${String(DETAIL_MEAL.id)}`),
+        );
+        expect(readPendingAdd()).toMatchObject({
+            mealId: DETAIL_MEAL.id,
+            quantity: 2,
+            kitchenId: DETAIL_MEAL.kitchenId,
+        });
+    });
+
+    it('sends "Create account" to registration with the same return and the same kept add', async () => {
+        await renderStubScreen(<MealDetailScreen mealId={String(DETAIL_MEAL.id)} />, {
+            repositories: CATALOGUE_REPOSITORIES,
+        });
+
+        await waitFor(() => screen.getByTestId('meal-detail-add-to-basket'));
+        await fireEvent.press(screen.getByTestId('meal-detail-add-to-basket'));
+        await fireEvent.press(await screen.findByTestId('meal-detail-guest-register'));
+
+        expect(routerMock.__push).toHaveBeenCalledWith(withReturnTo('/register', '/meals'));
+        expect(readPendingAdd()).toMatchObject({ mealId: DETAIL_MEAL.id, quantity: 1 });
+    });
+
+    it('sends an unconfirmed account to confirm its address, keeping the add', async () => {
+        const { repositories } = await renderStubScreen(
+            <MealDetailScreen mealId={String(DETAIL_MEAL.id)} />,
+            {
+                session: testMeResponse({ user: { emailVerifiedAt: null } }),
+                repositories: CATALOGUE_REPOSITORIES,
+            },
+        );
+
+        // The session has to have restored as signed in before the press means anything.
+        await waitFor(() => {
+            expect(screen.getByTestId('meal-detail-add-to-basket')).not.toBeDisabled();
+        });
+        await fireEvent.press(screen.getByTestId('meal-detail-add-to-basket'));
+
+        await waitFor(() => {
+            expect(routerMock.__push).toHaveBeenCalledWith(withReturnTo('/verify-email', '/meals'));
+        });
+        expect(readPendingAdd()).toMatchObject({ mealId: DETAIL_MEAL.id, quantity: 1 });
+        expect(screen.queryByTestId('meal-detail-guest-entry-dialog')).toBeNull();
+        expect(repositories.commerce.addCartItem).not.toHaveBeenCalled();
     });
 
     it('adds to the basket for real when somebody is signed in', async () => {
@@ -1479,43 +1613,104 @@ describe('MealDetailScreen', () => {
         });
     });
 
-    it('carries the chosen quantity into a guest checkout', async () => {
-        const cartId = uuid(9, 4) as CartId;
-        const cart = (): Cart => ({
-            id: cartId,
-            items: [],
-            subtotal: { amount: 0, currency: 'AED' },
-            itemCount: 0,
-            updatedAt: '2026-08-11T09:00:00.000Z',
-        });
+    /*
+     * A basket holds one kitchen's meals (browse-03). Adding another kitchen's meal used to be
+     * refused by the server with a message blaming the basket; now the person is asked, and
+     * "Start a new basket" empties the old one and opens the meal's kitchen's.
+     */
+    describe('a basket that holds another kitchen’s meals', () => {
+        const OTHER_KITCHEN = uuid(1, 77) as KitchenId;
+        const oldCartId = uuid(9, 4) as CartId;
+        const newCartId = uuid(9, 5) as CartId;
+        const oldLine: CartItem = {
+            id: 'line-other-kitchen',
+            mealId: uuid(5, 77) as MealId,
+            kitchenId: OTHER_KITCHEN,
+            kitchenName: 'Olive Branch',
+            name: 'Fattoush',
+            quantity: 1,
+            unitPrice: { amount: 3000, currency: 'AED' },
+            lineTotal: { amount: 3000, currency: 'AED' },
+            allergens: [],
+            deliveryDate: null,
+        };
 
-        const { repositories } = await renderStubScreen(
-            <MealDetailScreen mealId={String(DETAIL_MEAL.id)} />,
-            {
-                repositories: {
-                    ...CATALOGUE_REPOSITORIES,
-                    commerce: {
-                        getCart: async () => cart(),
-                        addCartItem: async () => cart(),
-                    },
-                },
-            },
-        );
-
-        await waitFor(() => screen.getByTestId('meal-detail-quantity-increment'));
-        await fireEvent.press(screen.getByTestId('meal-detail-quantity-increment'));
-        await fireEvent.press(screen.getByTestId('meal-detail-add-to-basket'));
-        await waitFor(() => screen.getByTestId('meal-detail-guest-continue'));
-        await fireEvent.press(screen.getByTestId('meal-detail-guest-continue'));
-
-        await waitFor(() => {
-            expect(repositories.commerce.addCartItem).toHaveBeenCalledWith(cartId, {
-                mealId: DETAIL_MEAL.id,
-                quantity: 2,
+        function world() {
+            let lines: CartItem[] = [oldLine];
+            const basket = (id: CartId, kitchenId: KitchenId): Cart => ({
+                id,
+                kitchenId,
+                items: lines,
+                subtotal: { amount: 0, currency: 'AED' },
+                itemCount: lines.length,
+                updatedAt: '2026-08-11T09:00:00.000Z',
             });
+            return {
+                getCart: jest.fn(
+                    async (options?: { readonly kitchenId?: KitchenId | undefined }) =>
+                        options?.kitchenId === undefined
+                            ? basket(oldCartId, OTHER_KITCHEN)
+                            : basket(newCartId, options.kitchenId),
+                ),
+                removeCartItem: jest.fn(async (_cartId: CartId, itemId: string) => {
+                    lines = lines.filter((line) => line.id !== itemId);
+                    return basket(oldCartId, OTHER_KITCHEN);
+                }),
+                addCartItem: jest.fn(async (cartId: CartId, request: AddCartItemRequest) => {
+                    lines = [{ ...oldLine, id: 'line-new', mealId: request.mealId }];
+                    return basket(cartId, DETAIL_MEAL.kitchenId);
+                }),
+            };
+        }
+
+        async function pressAdd(commerce: ReturnType<typeof world>) {
+            await renderStubScreen(
+                <>
+                    <MealDetailScreen mealId={String(DETAIL_MEAL.id)} />
+                    <CartProbe />
+                </>,
+                {
+                    session: CONSUMER_SESSION,
+                    repositories: { ...CATALOGUE_REPOSITORIES, commerce },
+                },
+            );
+            await waitFor(() => {
+                expect(commerce.getCart).toHaveBeenCalledTimes(1);
+            });
+            await waitFor(() => {
+                expect(screen.getByTestId('meal-detail-add-to-basket')).not.toBeDisabled();
+            });
+            await fireEvent.press(screen.getByTestId('meal-detail-add-to-basket'));
+            await waitFor(() => screen.getByTestId('meal-detail-basket-conflict'));
+        }
+
+        it('asks first, naming the kitchen the basket holds, and keeps it on request', async () => {
+            const commerce = world();
+            await pressAdd(commerce);
+
+            expect(screen.getByTestId('meal-detail-basket-conflict')).toHaveTextContent(
+                /Olive Branch/,
+            );
+            await fireEvent.press(screen.getByTestId('meal-detail-basket-conflict-keep'));
+
+            expect(commerce.addCartItem).not.toHaveBeenCalled();
+            expect(commerce.removeCartItem).not.toHaveBeenCalled();
         });
-        await waitFor(() => {
-            expect(routerMock.__push).toHaveBeenCalledWith('/guest-checkout');
+
+        it('starts a new basket at the meal’s kitchen: the old lines out, then the meal in', async () => {
+            const commerce = world();
+            await pressAdd(commerce);
+
+            await fireEvent.press(screen.getByTestId('meal-detail-basket-conflict-replace'));
+
+            await waitFor(() => {
+                expect(commerce.addCartItem).toHaveBeenCalledWith(newCartId, {
+                    mealId: DETAIL_MEAL.id,
+                    quantity: 1,
+                });
+            });
+            expect(commerce.removeCartItem).toHaveBeenCalledWith(oldCartId, oldLine.id);
+            expect(commerce.getCart).toHaveBeenLastCalledWith({ kitchenId: DETAIL_MEAL.kitchenId });
         });
     });
 
@@ -1592,6 +1787,84 @@ describe('MealDetailScreen', () => {
 
         expect(screen.getByTestId('meal-detail-empty')).toBeTruthy();
         expect(screen.getByTestId('meal-detail-browse')).toBeTruthy();
+    });
+
+    /*
+     * Every crumb used to push a bare path: "Today's menu" dropped the diet the person had picked,
+     * a meal opened from a storefront offered a way "back" to a menu they had never seen, and Home
+     * went to `/`, the launch resolver (browse-05, browse-10).
+     */
+    describe('its trail', () => {
+        const MEAL_PATH = `/meals/${String(DETAIL_MEAL.id)}`;
+        const mealRoute = { name: 'meals/[meal]', params: { meal: String(DETAIL_MEAL.id) } };
+        const render = async () =>
+            renderStubScreen(<MealDetailScreen mealId={String(DETAIL_MEAL.id)} />, {
+                repositories: CATALOGUE_REPOSITORIES,
+            });
+
+        it('takes Home to the marketplace home', async () => {
+            await render();
+
+            await fireEvent.press(await screen.findByTestId('meal-detail-crumb-home'));
+            expect(routerMock.__router.navigate).toHaveBeenCalledWith('/discover');
+            expect(routerMock.__push).not.toHaveBeenCalledWith('/');
+        });
+
+        it('goes Back to the menu it was opened from, filters and all', async () => {
+            routerMock.__set({
+                pathname: MEAL_PATH,
+                navState: {
+                    index: 1,
+                    routes: [{ name: 'meals/index', params: { diet: 'vegan' } }, mealRoute],
+                },
+            });
+            await render();
+
+            await fireEvent.press(await screen.findByTestId('meal-detail-crumb-meals'));
+            expect(routerMock.__router.back).toHaveBeenCalledTimes(1);
+            expect(routerMock.__push).not.toHaveBeenCalled();
+        });
+
+        it('opens the menu as it was last shown when the menu is not the entry below', async () => {
+            forgetQueries();
+            rememberQuery('/meals', 'diet=vegan&q=bowl');
+            routerMock.__set({ pathname: MEAL_PATH });
+            await render();
+
+            await fireEvent.press(await screen.findByTestId('meal-detail-crumb-meals'));
+            expect(routerMock.__push).toHaveBeenCalledWith('/meals?diet=vegan&q=bowl');
+            expect(routerMock.__router.back).not.toHaveBeenCalled();
+        });
+
+        it('is the kitchen’s trail when the meal was opened from its storefront', async () => {
+            const storefront = `/kitchens/${String(VERDANT.id)}`;
+            routerMock.__set({
+                pathname: MEAL_PATH,
+                navState: {
+                    index: 1,
+                    routes: [
+                        {
+                            name: 'kitchens/[kitchen]/index',
+                            params: { kitchen: String(VERDANT.id), tab: 'menu' },
+                        },
+                        mealRoute,
+                    ],
+                },
+            });
+            await render();
+
+            await waitFor(() => {
+                expect(screen.getByTestId('meal-detail-crumb-kitchen')).toHaveTextContent(
+                    'Verdant Kitchen',
+                );
+            });
+            expect(screen.getByTestId('meal-detail-crumb-kitchens')).toBeTruthy();
+            expect(screen.queryByTestId('meal-detail-crumb-meals')).toBeNull();
+
+            await fireEvent.press(screen.getByTestId('meal-detail-crumb-kitchen'));
+            expect(routerMock.__router.back).toHaveBeenCalledTimes(1);
+            expect(routerMock.__push).not.toHaveBeenCalledWith(storefront);
+        });
     });
 });
 

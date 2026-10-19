@@ -114,5 +114,8 @@
         "weekdays_empty": "Choose at least one delivery day.",
         "weekdays_invalid": "One of the delivery days you chose is not offered.",
         "guest_may_not_subscribe": "Sign in to start a subscription."
+    },
+    "cart": {
+        "otherKitchen": "This meal is from a different kitchen than the meals in your basket."
     }
 }

@@ -25,9 +25,19 @@ import { Platform } from 'react-native';
  * put a browsing trail on disk for no benefit. `sessionStorage` dies with the tab, which is exactly
  * the lifetime the fact has. On native there is no equivalent and the in-memory copy is the whole
  * store — correct there too, since the application is not reloaded mid-flow.
+ *
+ * ## Now a fallback behind `?returnTo=`
+ *
+ * The gap recorded above has since been closed: every way into authentication carries the page in
+ * `?returnTo=` and finishing goes straight back there (`navigation/use-return-to.ts`), which clears
+ * this intent on the way. What is left for it is the trip `returnTo` cannot make — an
+ * authentication that finished somewhere else in the tab, so the person reaches `/discover` with
+ * the page still unvisited. For that it holds the **full** href (query included, so filters come
+ * back), expires after {@link RESUME_INTENT_MAX_AGE_MS}, is cleared on sign-out (it belonged to the
+ * person who was signed in) and is never offered for the page the person is already on (AUTH-13).
  */
 export interface ResumeIntent {
-    /** Where to go back to. Always an in-application path. */
+    /** Where to go back to — pathname and query. Always an in-application path. */
     readonly href: string;
     /** i18n key naming the *kind* of destination, e.g. `marketplace:nav.kitchens`. */
     readonly labelKey: string;
@@ -38,8 +48,31 @@ export interface ResumeIntent {
 
 const STORAGE_KEY = 'healthy360.resume-intent';
 
+/** Two hours: a browsing intention older than an afternoon is not one the person still holds. */
+export const RESUME_INTENT_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+
 let current: ResumeIntent | null = null;
 const listeners = new Set<() => void>();
+
+/** `recordedAt` used to be written and never read. An unreadable timestamp counts as stale. */
+function isStale(intent: ResumeIntent): boolean {
+    const recorded = Date.parse(intent.recordedAt);
+    return Number.isNaN(recorded) || Date.now() - recorded > RESUME_INTENT_MAX_AGE_MS;
+}
+
+/**
+ * Forgets a stale intent *without* notifying: this runs inside a `useSyncExternalStore` snapshot,
+ * and the snapshot is already `null` from here on, so there is no change for a subscriber to see.
+ */
+function discardQuietly(): null {
+    current = null;
+    try {
+        webStorage()?.removeItem(STORAGE_KEY);
+    } catch {
+        /* Nothing to undo. */
+    }
+    return null;
+}
 
 function webStorage(): Storage | null {
     if (Platform.OS !== 'web') return null;
@@ -53,7 +86,7 @@ function webStorage(): Storage | null {
 }
 
 function read(): ResumeIntent | null {
-    if (current !== null) return current;
+    if (current !== null) return isStale(current) ? discardQuietly() : current;
 
     const storage = webStorage();
     if (storage === null) return null;
@@ -66,8 +99,10 @@ function read(): ResumeIntent | null {
             typeof parsed === 'object' &&
             parsed !== null &&
             typeof (parsed as ResumeIntent).href === 'string' &&
-            typeof (parsed as ResumeIntent).labelKey === 'string'
+            typeof (parsed as ResumeIntent).labelKey === 'string' &&
+            typeof (parsed as ResumeIntent).recordedAt === 'string'
         ) {
+            if (isStale(parsed as ResumeIntent)) return discardQuietly();
             current = parsed as ResumeIntent;
             return current;
         }

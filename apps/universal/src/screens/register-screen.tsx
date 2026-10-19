@@ -17,6 +17,8 @@ import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import { toFailure, useRegisterMutation } from '../data/hooks.ts';
+import { safeReturnTo, withReturnTo } from '../navigation/return-to.ts';
+import { useKeepBrowsing } from '../navigation/use-keep-browsing.ts';
 import {
     applyServerFailure,
     useFailureMessage,
@@ -34,6 +36,11 @@ const KNOWN_FIELDS = [
     'accept_privacy',
 ] as const;
 
+export interface RegisterScreenProps {
+    /** The route's raw `?returnTo=`. Validated here; an unsafe value is ignored. */
+    readonly returnTo?: string | undefined;
+}
+
 /**
  * Registration.
  *
@@ -41,14 +48,23 @@ const KNOWN_FIELDS = [
  * server's password policy without keeping a second copy of it. The two consents are booleans
  * refined to `true`: an unticked box fails validation rather than quietly submitting `false`, and
  * unlike a `z.literal(true)` the unchecked initial state is still expressible.
+ *
+ * ## The return rides on to verification
+ *
+ * A new account is not finished until its email address is confirmed, so success replaces this
+ * entry with `/verify-email` carrying `?returnTo=`, and *that* screen's Continue finishes the trip.
+ * "Sign in" replaces rather than pushes, with the same return, and "Keep browsing" leaves the way
+ * the sign-in screen's does.
  */
-export function RegisterScreen() {
+export function RegisterScreen({ returnTo: rawReturnTo }: RegisterScreenProps = {}) {
     const { t } = useTranslation();
     const router = useRouter();
     const register = useRegisterMutation();
     const { formError, setFormError } = useFieldErrors();
     const translate = useValidationTranslate();
     const describeFailure = useFailureMessage();
+    const returnTo = safeReturnTo(rawReturnTo);
+    const keepBrowsing = useKeepBrowsing(returnTo);
 
     const form = useForm<RegisterInput, unknown, RegisterValues>({
         resolver: toFormResolver(makeRegisterSchema(translate)),
@@ -77,7 +93,7 @@ export function RegisterScreen() {
                 },
                 {
                     onSuccess: () => {
-                        router.replace('/verify-email');
+                        router.replace(withReturnTo('/verify-email', returnTo) as never);
                     },
                     onError: (error: unknown) => {
                         const failure = toFailure(error);
@@ -89,7 +105,7 @@ export function RegisterScreen() {
                 },
             );
         },
-        [describeFailure, form, register, router, setFormError],
+        [describeFailure, form, register, returnTo, router, setFormError],
     );
 
     return (
@@ -234,9 +250,22 @@ export function RegisterScreen() {
                 }}
             />
 
+            <Button
+                testID="register-keep-browsing"
+                block
+                variant="secondary"
+                label={t('common:action.keepBrowsing')}
+                onPress={keepBrowsing}
+            />
+
             <Inline space="xs">
                 <Text tone="secondary">{t('auth:register.loginPrompt')}</Text>
-                <Link testID="register-sign-in" href="/sign-in" asChild>
+                <Link
+                    testID="register-sign-in"
+                    href={withReturnTo('/sign-in', returnTo) as never}
+                    replace
+                    asChild
+                >
                     <Text tone="info" accessibilityRole="link">
                         {t('auth:register.loginLink')}
                     </Text>

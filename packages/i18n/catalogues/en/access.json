@@ -35,12 +35,14 @@
         "backToWorkspace": "Go to your workspace",
         "signInAgain": "Sign in with a different account",
         "switchOrganisation": "Choose a different organisation",
-        "missingLabel": "Missing"
+        "missingLabel": "Missing",
+        "toDiscover": "Go to Discover"
     },
     "notFound": {
         "title": "Page not found",
         "body": "The page you asked for does not exist, or it has moved.",
-        "home": "Go to the start"
+        "home": "Go to the start",
+        "toDiscover": "Go to Discover"
     },
     "pending": {
         "title": "One moment",

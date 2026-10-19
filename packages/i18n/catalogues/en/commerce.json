@@ -1,5 +1,5 @@
 {
-    "title": "Cart and subscriptions",
+    "title": "Basket and subscriptions",
     "common": {
         "listSeparator": ", ",
         "cancel": "Cancel",
@@ -65,9 +65,9 @@
         "instructionsPlaceholder": "e.g. Call when you arrive"
     },
     "cart": {
-        "title": "Your cart",
+        "title": "Your basket",
         "browse": "Browse meals",
-        "emptyTitle": "Your cart is empty",
+        "emptyTitle": "Your basket is empty",
         "emptyBody": "Add a meal from the menu and it appears here with its price.",
         "subtotal": "Subtotal",
         "delivery": "Delivery",
@@ -153,9 +153,13 @@
         "confirmedBody": "{{kitchen}} has your order. Arriving {{arriving}}. Pay the driver in cash.",
         "theKitchen": "The kitchen",
         "setupTitle": "Finish setting up your account to order",
-        "setupBody_one": "{{count}} step is left. Do it below, then place your order again.",
-        "setupBody_other": "{{count}} steps are left. Do them below, then place your order again.",
-        "noSlotsOffered": "The delivery zone for this address offers no delivery slot. Choose another address, or contact the kitchen."
+        "setupBody_one": "{{count}} step is left before you can order.",
+        "setupBody_other": "{{count}} steps are left before you can order.",
+        "noSlotsOffered": "The delivery zone for this address offers no delivery slot. Choose another address, or contact the kitchen.",
+        "addAddressAction": "Add address",
+        "addAnotherAddress": "Add another address",
+        "editAddress": "Edit this address",
+        "placeOrderBlockedHint": "Finish the steps above to place your order."
     },
     "configurator": {
         "title": "Set up your subscription",
@@ -185,7 +189,7 @@
             "noDeliveryDays": "Choose at least one delivery day.",
             "deliveryDayUnavailable": "One of the days you chose is not a delivery day for this plan.",
             "slot": "Choose a delivery window.",
-            "address": "Complete the delivery address.",
+            "address": "Choose a delivery address.",
             "areaUnserved": "This kitchen does not deliver to that area, so this subscription cannot go ahead.",
             "checks": "Confirm you want to continue without leaving it out.",
             "terms": "Tick the box below to subscribe."
@@ -219,7 +223,8 @@
             "weekdaysLimited": "This plan delivers on {{days}} only.",
             "slotTitle": "Delivery window",
             "addressTitle": "Delivery address",
-            "addressPlaceholder": "Choose an address"
+            "addressPlaceholder": "Choose an address",
+            "addAddress": "Add a delivery address"
         },
         "checks": {
             "noAllergens": "Nothing left out",
@@ -255,15 +260,18 @@
         },
         "successTitle": "Your subscription is set up",
         "successBody": "{{plan}} is now on your account.",
-        "successOpen": "Open the subscription",
-        "successList": "See all subscriptions",
         "titleFor": "Set up {{plan}}",
         "edit": "Edit",
         "review": {
             "planTitle": "Your plan",
             "deliveryTitle": "Delivery",
             "priceTitle": "Price"
-        }
+        },
+        "startOver": "Start over",
+        "setupTitle": "Finish setting up your account to subscribe",
+        "setupBody_one": "{{count}} step is left before you can subscribe.",
+        "setupBody_other": "{{count}} steps are left before you can subscribe.",
+        "subscribeBlockedHint": "Finish the steps above to subscribe."
     },
     "subscriptions": {
         "title": "Subscriptions",
@@ -285,8 +293,7 @@
         "weeklyPrice": "{{price}} a week",
         "nextDelivery": "Next delivery {{date}}",
         "noNextDelivery": "No delivery scheduled",
-        "rowSummary": "{{price}} a week, delivered on {{days}}",
-        "newHint": "New subscriptions start from a meal plan: open a plan and choose Configure subscription."
+        "rowSummary": "{{price}} a week, delivered on {{days}}"
     },
     "subscription": {
         "notFoundTitle": "We could not find that subscription",
@@ -310,8 +317,8 @@
             "active": "This subscription is delivering.",
             "paused": "This subscription is paused.",
             "skipped_today": "Today's delivery has been skipped.",
-            "cancelled": "It was cancelled, so nothing can be changed. Start a new subscription from any meal plan.",
-            "expired": "It has run its full length, so nothing can be changed. Start a new subscription from any meal plan."
+            "cancelled": "It was cancelled, so nothing can be changed.",
+            "expired": "It has run its full length, so nothing can be changed."
         },
         "pause": "Pause",
         "resume": "Resume",
@@ -349,7 +356,9 @@
         "planTitle": "Your plan",
         "manageTitle": "Manage",
         "crumbAccount": "Account",
-        "crumbSubscriptions": "Subscriptions"
+        "crumbSubscriptions": "Subscriptions",
+        "addAddress": "Add a new address",
+        "choosePlanAgain": "Choose this plan again"
     },
     "balance": {
         "remaining_one": "1 delivery day left",
@@ -427,5 +436,11 @@
             "kitchen_default": "The kitchen will cook {{meal}} unless you choose something else.",
             "substituted": "{{meal}} was substituted, within your allergen declarations."
         }
+    },
+    "basketConflict": {
+        "title": "Start a new basket?",
+        "body": "Your basket has meals from {{kitchen}}. A basket holds one kitchen's meals.",
+        "keep": "Keep my basket",
+        "replace": "Start a new basket"
     }
 }

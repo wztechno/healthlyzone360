@@ -1,12 +1,13 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { Platform, useWindowDimensions } from 'react-native';
+import { createRef } from 'react';
+import { Platform, type ScrollView, useWindowDimensions } from 'react-native';
 
 import { FormNavigation } from '../forms/form-navigation.tsx';
 import { useContentWidth } from '../hooks/use-content-width.tsx';
 import { Text } from '../primitives/text.tsx';
 import { OfflineIndicator } from '../status/offline-indicator.tsx';
 import { assertSubtreeIsLogical, renderWithI18n, withI18n } from '../testing/render.tsx';
-import { APP_SHELL_VARIANTS, AppShell } from './app-shell.tsx';
+import { APP_SHELL_VARIANTS, AppShell, CONTENT_SCROLL_THROTTLE_MS } from './app-shell.tsx';
 import type { NavigationItem } from './app-shell.tsx';
 
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions');
@@ -927,6 +928,104 @@ describe('AppShell — marketplace', () => {
         );
         expect(screen.queryByTestId('shell-footer')).toBeNull();
     });
+
+    /*
+     * Browser Back with the menu open used to navigate underneath it: the drawer is the shell's
+     * own state and the shell outlives the page, so nothing closed it (CHROME-15).
+     */
+    it('closes an open drawer when the path changes underneath it', async () => {
+        setViewport(390);
+        const shell = (pathname: string) =>
+            withI18n(
+                <AppShell
+                    testID="shell"
+                    variant="marketplace"
+                    navigation={navigation}
+                    pathname={pathname}
+                >
+                    <Text>Body</Text>
+                </AppShell>,
+            );
+        const view = await renderWithI18n(
+            <AppShell testID="shell" variant="marketplace" navigation={navigation} pathname="/a">
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        await fireEvent.press(screen.getByTestId('shell-menu'));
+        expect(screen.getByTestId('nav-overview')).toBeTruthy();
+
+        // The same path again — a re-render, a query change — leaves the person's menu open.
+        await view.rerender(shell('/a'));
+        expect(screen.getByTestId('nav-overview')).toBeTruthy();
+
+        await view.rerender(shell('/b'));
+        expect(screen.queryByTestId('nav-overview')).toBeNull();
+    });
+
+    /*
+     * The marketplace chrome keeps each page's place (browse-04), and the content port is the only
+     * thing that scrolls on the web, so the shell hands it over: the ref to move it and the events
+     * that say where the reader is.
+     */
+    it('forwards the content scroll port: its ref, its scroll, size and layout events', async () => {
+        setViewport(1024);
+        const ref = createRef<ScrollView>();
+        const onScroll = jest.fn();
+        const onSize = jest.fn();
+        const onLayout = jest.fn();
+        await renderWithI18n(
+            <AppShell
+                testID="shell"
+                variant="marketplace"
+                contentRef={ref}
+                onContentScroll={onScroll}
+                onContentSizeChange={onSize}
+                onContentLayout={onLayout}
+            >
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        const port = screen.getByTestId('shell-content');
+        expect(ref.current).not.toBeNull();
+        expect(typeof ref.current?.scrollTo).toBe('function');
+        // Throttled, not per frame: a remembered place needs a tenth of a second, not sixty.
+        expect(port.props.scrollEventThrottle).toBe(CONTENT_SCROLL_THROTTLE_MS);
+
+        await fireEvent.scroll(port, { nativeEvent: { contentOffset: { x: 0, y: 420 } } });
+        expect(onScroll).toHaveBeenCalledTimes(1);
+        await fireEvent(port, 'contentSizeChange', 1024, 3000);
+        expect(onSize).toHaveBeenCalledWith(1024, 3000);
+        await fireEvent(port, 'layout', { nativeEvent: { layout: { height: 800 } } });
+        expect(onLayout).toHaveBeenCalledTimes(1);
+    });
+
+    it('asks for no scroll events when nobody listens for them', async () => {
+        setViewport(1024);
+        await renderWithI18n(
+            <AppShell testID="shell" variant="marketplace">
+                <Text>Body</Text>
+            </AppShell>,
+        );
+        expect(screen.getByTestId('shell-content').props.scrollEventThrottle).toBeUndefined();
+    });
+});
+
+describe('AppShell — every content port is forwarded', () => {
+    it.each(['workspace', 'consumer', 'kiosk', 'driver', 'public'] as const)(
+        'hands the %s variant’s port to the caller',
+        async (variant) => {
+            const ref = createRef<ScrollView>();
+            await renderWithI18n(
+                <AppShell testID="shell" variant={variant} navigation={navigation} contentRef={ref}>
+                    <Text>Body</Text>
+                </AppShell>,
+            );
+            expect(screen.getByTestId('shell-content')).toBeTruthy();
+            expect(ref.current).not.toBeNull();
+        },
+    );
 });
 
 describe('AppShell — auth aside', () => {

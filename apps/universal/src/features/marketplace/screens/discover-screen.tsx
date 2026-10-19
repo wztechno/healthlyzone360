@@ -1,10 +1,11 @@
 import { Button, Callout, Inline } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { useSubscriptionsQuery } from '../../../data/marketplace-hooks.ts';
+import { pathnameOf } from '../../../navigation/return-to.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { useSession } from '../../../session/session-provider.tsx';
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
@@ -51,12 +52,20 @@ import { clearResumeIntent, useResumeIntent } from '../resume-intent.ts';
  *
  * ## Add is on every card, for everybody
  *
- * `commerce/use-basket-add.tsx` asks an anonymous visitor the same question the meal page asks:
- * carry on as a guest, or sign in.
+ * `commerce/use-basket-add.tsx` asks an anonymous visitor the same question the meal page asks —
+ * sign in or create an account — and the meal is added once they have.
+ *
+ * ## The resume notice is a fallback
+ *
+ * Signing in now finishes on the page it was started from (`?returnTo=`), and that clears the
+ * intent, so the notice is left for the trip a return cannot make. It is never offered for the page
+ * the person is already on — "pick up where you left off" pointing at this very page is a button
+ * that does nothing (AUTH-13).
  */
 export function DiscoverScreen() {
     const { t } = useTranslation();
     const router = useRouter();
+    const pathname = usePathname();
     const formatter = useFormatter();
     const { me } = useSession();
     const signedIn = me !== null;
@@ -65,7 +74,8 @@ export function DiscoverScreen() {
     // Only the shown shelves — see `catalogue/shown-shelves.ts`.
     const meals = useHomeMeals({ shownShelvesOnly: true });
     const subscriptions = useSubscriptionsQuery(signedIn);
-    const resume = useResumeIntent();
+    const recorded = useResumeIntent();
+    const resume = recorded !== null && pathnameOf(recorded.href) !== pathname ? recorded : null;
 
     const activeSubscription = signedIn
         ? (subscriptions.data?.items ?? []).find(

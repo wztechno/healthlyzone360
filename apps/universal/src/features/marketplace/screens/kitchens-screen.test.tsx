@@ -15,10 +15,13 @@ import type {
     SalesChannel,
 } from '@healthy360/domain-types';
 import type { NutritionFacts } from '@healthy360/nutrition';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import type { CustomerAddress, DietaryProfile } from '@healthy360/api-client/contracts';
 
+import { forgetQueries, lastQuery } from '../../../navigation/last-query.ts';
+import { withReturnTo } from '../../../navigation/return-to.ts';
+import type { ExpoRouterMock } from '../../../testing/expo-router-mock.ts';
 import { testMeResponse } from '../../../testing/session-fixtures.ts';
 import { page } from '../../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../../testing/stub-screen.tsx';
@@ -36,30 +39,23 @@ import { KitchensScreen } from './kitchens-screen.tsx';
  * `/kitchens` — the finder. The router is mocked so a test can put a filter in the URL the way a
  * shared link would, and read back what the screen pushed or wrote.
  */
-const routerState: { params: Record<string, string> } = { params: {} };
-
-jest.mock('expo-router', () => {
-    const push = jest.fn();
-    const setParams = jest.fn();
-    return {
-        __esModule: true,
-        useRouter: () => ({ push, replace: jest.fn(), setParams, back: jest.fn() }),
-        usePathname: () => '/kitchens',
-        useLocalSearchParams: () => routerState.params,
-        Redirect: () => null,
-        Link: ({ children }: { children: React.ReactNode }) => children,
-        __push: push,
-        __setParams: setParams,
-    };
-});
+jest.mock('expo-router', () =>
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../../../testing/expo-router-mock.ts').createExpoRouterMock({ pathname: '/kitchens' }),
+);
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const routerMock = require('expo-router') as { __push: jest.Mock; __setParams: jest.Mock };
+const routerMock = require('expo-router') as ExpoRouterMock;
+
+/** `routerState.params = …` puts a filter in the URL, as a shared link would. */
+const routerState = {
+    set params(params: Record<string, string>) {
+        routerMock.__set({ params });
+    },
+};
 
 beforeEach(() => {
-    routerState.params = {};
-    routerMock.__push.mockClear();
-    routerMock.__setParams.mockClear();
+    routerMock.__reset();
 });
 
 /* ── the world these tests author ────────────────────────────────────────────────────────────── */
@@ -320,10 +316,11 @@ describe('KitchensScreen — the finder', () => {
         expect(cardOrder()).toEqual(['bravo', 'alpha', 'charlie']);
         expect(screen.getByTestId('kitchens-sort')).toBeTruthy();
 
-        // A visitor is offered an address rather than shown one.
+        // A visitor is offered an address rather than shown one — through signing in, which comes
+        // back here (AUTH-14).
         expect(screen.getByTestId('kitchens-address-value')).toHaveTextContent('Add address');
         await fireEvent.press(screen.getByTestId('kitchens-address'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/sign-in');
+        expect(routerMock.__push).toHaveBeenCalledWith(withReturnTo('/sign-in', '/kitchens'));
 
         // The whole card is the link to the storefront.
         await fireEvent.press(screen.getByTestId('kitchen-card-alpha'));
@@ -374,7 +371,9 @@ describe('KitchensScreen — the finder', () => {
             expect(screen.getByTestId('kitchens-empty')).toBeTruthy();
         });
         await fireEvent.press(screen.getByTestId('kitchens-empty-clear'));
-        expect(routerMock.__setParams).toHaveBeenCalledWith(expect.objectContaining({ q: '' }));
+        expect(routerMock.__router.setParams).toHaveBeenCalledWith(
+            expect.objectContaining({ q: '' }),
+        );
     });
 
     it('states today’s published hours, and nothing for a kitchen that publishes none', async () => {
@@ -415,19 +414,19 @@ describe('KitchensScreen — the finder', () => {
         const input = screen.getByTestId('kitchens-search-input');
         await fireEvent.changeText(input, 'alp');
         await fireEvent(input, 'submitEditing');
-        expect(routerMock.__setParams).toHaveBeenCalledWith({ q: 'alp' });
+        expect(routerMock.__router.setParams).toHaveBeenCalledWith({ q: 'alp' });
 
         await fireEvent.press(screen.getByTestId('kitchens-filter-open-today'));
-        expect(routerMock.__setParams).toHaveBeenCalledWith({ open: 'today' });
+        expect(routerMock.__router.setParams).toHaveBeenCalledWith({ open: 'today' });
 
         await fireEvent.press(screen.getByTestId('kitchens-filter-channel-subscription'));
-        expect(routerMock.__setParams).toHaveBeenCalledWith({ channel: 'subscription' });
+        expect(routerMock.__router.setParams).toHaveBeenCalledWith({ channel: 'subscription' });
 
         await fireEvent.press(screen.getByTestId('kitchens-filter-fast'));
-        expect(routerMock.__setParams).toHaveBeenCalledWith({ fast: '30' });
+        expect(routerMock.__router.setParams).toHaveBeenCalledWith({ fast: '30' });
 
         await fireEvent.press(screen.getByTestId('kitchens-filter-channel-pickup'));
-        expect(routerMock.__setParams).toHaveBeenCalledWith({ channel: 'pickup' });
+        expect(routerMock.__router.setParams).toHaveBeenCalledWith({ channel: 'pickup' });
     });
 
     it('narrows to kitchens delivering within half an hour from ?fast=30', async () => {
@@ -502,7 +501,60 @@ describe('KitchensScreen — the finder', () => {
             );
         });
         await fireEvent.press(screen.getByTestId('kitchens-address'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/addresses');
+        // A change, made in the account's address section.
+        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account?section=addresses');
+    });
+
+    it('opens the address form for a signed-in shopper with none, coming back here', async () => {
+        const { repositories } = await renderStubScreen(<KitchensScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                ...REPOSITORIES,
+                account: {
+                    getDietaryProfile: async (): Promise<DietaryProfile> => ({
+                        dietCategoryCode: null,
+                        allergens: [],
+                        excludedIngredientIds: [],
+                        updatedAt: '2026-09-01T09:00:00.000Z',
+                    }),
+                    listAddresses: async () => [],
+                },
+            },
+        });
+
+        // "Add address" reads the same signed out, so wait for the empty address book itself: the
+        // control is busy from the moment it is asked for until it answers.
+        await waitFor(() => {
+            expect(repositories.account.listAddresses).toHaveBeenCalled();
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchens-address')).not.toBeDisabled();
+        });
+        expect(screen.getByTestId('kitchens-address-value')).toHaveTextContent('Add address');
+        await fireEvent.press(screen.getByTestId('kitchens-address'));
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            withReturnTo('/customer/account/addresses/new', '/kitchens'),
+        );
+    });
+
+    /*
+     * A storefront's "Kitchens" crumb pushed the bare `/kitchens`, so the search and chips the
+     * person had narrowed the directory with were gone on the way back up (browse-05).
+     */
+    it('remembers the search, chips and sort it is shown with, for a storefront’s way back up', async () => {
+        forgetQueries();
+        routerState.params = { q: 'thai', diet: 'vegan', sort: 'rating' };
+        await renderStubScreen(<KitchensScreen />, { repositories: REPOSITORIES });
+
+        await waitFor(() => {
+            expect(lastQuery('/kitchens')).toBe('q=thai&diet=vegan&sort=rating');
+        });
+
+        // Cleared, it is forgotten: the way back up is then the plain directory.
+        await act(async () => {
+            routerMock.__set({ params: {} });
+        });
+        expect(lastQuery('/kitchens')).toBe('');
     });
 });
 

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, Pressable, ScrollView, Text as RNText, View } from 'react-native';
+import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 import { IconButton } from '../actions/button.tsx';
 import { showFloatingLabel } from '../actions/floating-label.ts';
@@ -115,8 +116,44 @@ export interface AppShellProps {
      */
     readonly authAside?: ReactNode | undefined;
     readonly contentClassName?: string | undefined;
+    /**
+     * Where the application is — the route's pathname. The shell does not route, so it cannot see
+     * a navigation on its own; told the path, it closes an open navigation drawer when the path
+     * changes. Without it, browser Back on a phone navigated *underneath* the open drawer, and the
+     * person found the menu still covering a page they had not chosen (CHROME-15).
+     */
+    readonly pathname?: string | undefined;
+    /**
+     * The content scroll port — the one `ScrollView` every page under this shell scrolls in. The
+     * web document never scrolls (`body` is `overflow: hidden`), so this is the only handle there
+     * is on where a reader is. A chrome that keeps each page's place across navigation — the
+     * marketplace's, which puts a new page at the top and a page returned to where it was left —
+     * holds the ref to move it and reads the three events below to know where it stands.
+     *
+     * Every variant with a content port forwards it; `auth` does not, because its card is not a
+     * page anybody returns to part-way down.
+     */
+    readonly contentRef?: Ref<ScrollView> | undefined;
+    /**
+     * Scroll events from the content port, throttled to one per `CONTENT_SCROLL_THROTTLE_MS` while
+     * the reader scrolls, plus one when they stop.
+     */
+    readonly onContentScroll?:
+        | ((event: NativeSyntheticEvent<NativeScrollEvent>) => void)
+        | undefined;
+    /** The content port's content height changed — the page underneath grew or shrank. */
+    readonly onContentSizeChange?: ((width: number, height: number) => void) | undefined;
+    /** The content port itself was laid out — its own height is the reader's viewport. */
+    readonly onContentLayout?: ((event: LayoutChangeEvent) => void) | undefined;
     readonly testID?: string | undefined;
 }
+
+/**
+ * How often the content port reports a scroll while the reader is scrolling. Remembering a position
+ * needs nothing finer than a tenth of a second, and on the web React Native Web reports the resting
+ * position once more when scrolling stops, so the last place is never lost to the throttle.
+ */
+export const CONTENT_SCROLL_THROTTLE_MS = 100;
 
 /**
  * Application shell.
@@ -182,11 +219,38 @@ function AppShellLayout({
     sidebarEndCollapsed,
     authAside,
     contentClassName,
+    pathname,
+    contentRef,
+    onContentScroll,
+    onContentSizeChange,
+    onContentLayout,
     testID,
 }: AppShellProps & { readonly dock: ReactNode }) {
     const { t } = useTranslation();
     const { atLeast, width: windowWidth } = useBreakpoint();
     const [drawerOpen, setDrawerOpen] = useState(false);
+    /*
+     * A change of path closes the drawer (CHROME-15). Adjusted during render rather than in an
+     * effect, so the new page never paints one frame with the old menu still over it. A press on a
+     * destination already closed it; this catches what no press inside the shell sees — browser
+     * Back and Forward, a link inside the page, a redirect.
+     */
+    const [drawerPathname, setDrawerPathname] = useState(pathname);
+    if (drawerPathname !== pathname) {
+        setDrawerPathname(pathname);
+        setDrawerOpen(false);
+    }
+    /**
+     * Spread onto every variant's content port: one place decides what a caller is handed, so the
+     * marketplace's and a workspace's ports can never differ in what they report.
+     */
+    const contentPort = {
+        ref: contentRef,
+        onScroll: onContentScroll,
+        scrollEventThrottle: onContentScroll === undefined ? undefined : CONTENT_SCROLL_THROTTLE_MS,
+        onContentSizeChange,
+        onLayout: onContentLayout,
+    };
     /**
      * Whether the window has room for the page panel *as well as* a page. Below this the panel
      * starts shut — see `PANEL_OPEN_MIN_WIDTH`.
@@ -390,6 +454,7 @@ function AppShellLayout({
             <View testID={testID} className="flex-1 bg-surface-base">
                 {banner}
                 <ScrollView
+                    {...contentPort}
                     testID={testID === undefined ? undefined : `${testID}-content`}
                     className="flex-1"
                     contentContainerClassName={cx('flex-grow', contentClassName)}
@@ -446,6 +511,7 @@ function AppShellLayout({
             <View testID={testID} className="flex-1 bg-surface-base">
                 {banner}
                 <ScrollView
+                    {...contentPort}
                     testID={testID === undefined ? undefined : `${testID}-content`}
                     role="main"
                     className="flex-1"
@@ -1014,6 +1080,7 @@ function AppShellLayout({
                 </View>
 
                 <ScrollView
+                    {...contentPort}
                     testID={testID === undefined ? undefined : `${testID}-content`}
                     role="main"
                     className="flex-1"
@@ -1078,6 +1145,7 @@ function AppShellLayout({
                     {showSidebar ? sidebar : null}
 
                     <ScrollView
+                        {...contentPort}
                         testID={testID === undefined ? undefined : `${testID}-content`}
                         role="main"
                         className="flex-1"
@@ -1186,6 +1254,7 @@ function AppShellLayout({
                     {banner}
                     {topBar}
                     <ScrollView
+                        {...contentPort}
                         testID={testID === undefined ? undefined : `${testID}-content`}
                         role="main"
                         className="flex-1"
@@ -1215,6 +1284,7 @@ function AppShellLayout({
                 {sidebarVisible ? sidebar : null}
 
                 <ScrollView
+                    {...contentPort}
                     testID={testID === undefined ? undefined : `${testID}-content`}
                     role="main"
                     className="flex-1"

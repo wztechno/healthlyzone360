@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8283 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8323 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -43,9 +43,11 @@ export interface NamespaceKeys {
     | 'forbidden.signInAgain'
     | 'forbidden.switchOrganisation'
     | 'forbidden.title'
+    | 'forbidden.toDiscover'
     | 'notFound.body'
     | 'notFound.home'
     | 'notFound.title'
+    | 'notFound.toDiscover'
     | 'pending.body'
     | 'pending.title'
     | 'workspaceSelector.current'
@@ -347,6 +349,7 @@ export interface NamespaceKeys {
     | 'addresses.removeTitle'
     | 'addresses.requiredField'
     | 'addresses.save'
+    | 'addresses.savedToast'
     | 'addresses.subtitle'
     | 'addresses.title'
     | 'checklist.blocked'
@@ -509,6 +512,7 @@ export interface NamespaceKeys {
     | 'dietary.notePlaceholder'
     | 'dietary.save'
     | 'dietary.saved'
+    | 'dietary.savedToast'
     | 'dietary.severity.allergy'
     | 'dietary.severity.avoidance'
     | 'dietary.severity.intolerance'
@@ -579,6 +583,7 @@ export interface NamespaceKeys {
     | 'phone.title'
     | 'phone.verifiedBody'
     | 'phone.verifiedTitle'
+    | 'phone.verifiedToast'
     | 'privacy.closeAccount'
     | 'privacy.reviewConsents'
     | 'privacy.title'
@@ -665,7 +670,6 @@ export interface NamespaceKeys {
     | 'login.emailPlaceholder'
     | 'login.failed'
     | 'login.forgotLink'
-    | 'login.guest'
     | 'login.passwordLabel'
     | 'login.passwordPlaceholder'
     | 'login.rateLimited'
@@ -1486,6 +1490,7 @@ export interface NamespaceKeys {
     | 'filters.rangeChip'
     | 'filters.rangesHint'
     | 'filters.removeFilter'
+    | 'filters.searchChip'
     | 'filters.short.carbohydrate'
     | 'filters.short.fat'
     | 'filters.short.preparationMinutes'
@@ -1919,6 +1924,10 @@ export interface NamespaceKeys {
     | 'balance.remaining'
     | 'balance.skipped'
     | 'balance.used'
+    | 'basketConflict.body'
+    | 'basketConflict.keep'
+    | 'basketConflict.replace'
+    | 'basketConflict.title'
     | 'cancel.body'
     | 'cancel.confirm'
     | 'cancel.consequenceBody'
@@ -1964,6 +1973,8 @@ export interface NamespaceKeys {
     | 'cart.updateFailedTitle'
     | 'cart.viewMeal'
     | 'checkout.addAddress'
+    | 'checkout.addAddressAction'
+    | 'checkout.addAnotherAddress'
     | 'checkout.addressPlaceholder'
     | 'checkout.addressTitle'
     | 'checkout.areaLabel'
@@ -1976,6 +1987,7 @@ export interface NamespaceKeys {
     | 'checkout.deliveringTo'
     | 'checkout.deliveryBody'
     | 'checkout.deliveryTitle'
+    | 'checkout.editAddress'
     | 'checkout.emptyBody'
     | 'checkout.emptyTitle'
     | 'checkout.finishSetup'
@@ -1998,6 +2010,7 @@ export interface NamespaceKeys {
     | 'checkout.paymentTitle'
     | 'checkout.placeFailedTitle'
     | 'checkout.placeOrder'
+    | 'checkout.placeOrderBlockedHint'
     | 'checkout.placeOrderHint'
     | 'checkout.placeOrderTotal'
     | 'checkout.progressLabel'
@@ -2047,6 +2060,7 @@ export interface NamespaceKeys {
     | 'configurator.confirm.total'
     | 'configurator.create'
     | 'configurator.createFailedTitle'
+    | 'configurator.delivery.addAddress'
     | 'configurator.delivery.addressPlaceholder'
     | 'configurator.delivery.addressTitle'
     | 'configurator.delivery.slotTitle'
@@ -2089,12 +2103,14 @@ export interface NamespaceKeys {
     | 'configurator.review.deliveryTitle'
     | 'configurator.review.planTitle'
     | 'configurator.review.priceTitle'
+    | 'configurator.setupBody'
+    | 'configurator.setupTitle'
+    | 'configurator.startOver'
     | 'configurator.steps.delivery'
     | 'configurator.steps.plan'
     | 'configurator.steps.review'
+    | 'configurator.subscribeBlockedHint'
     | 'configurator.successBody'
-    | 'configurator.successList'
-    | 'configurator.successOpen'
     | 'configurator.successTitle'
     | 'configurator.summary.address'
     | 'configurator.summary.allergens'
@@ -2142,6 +2158,7 @@ export interface NamespaceKeys {
     | 'states.paused'
     | 'states.skipped_today'
     | 'subscription.actionFailedTitle'
+    | 'subscription.addAddress'
     | 'subscription.addressConfirm'
     | 'subscription.addressDialogBody'
     | 'subscription.addressDialogTitle'
@@ -2149,6 +2166,7 @@ export interface NamespaceKeys {
     | 'subscription.change'
     | 'subscription.changeAddress'
     | 'subscription.changeSlot'
+    | 'subscription.choosePlanAgain'
     | 'subscription.crumbAccount'
     | 'subscription.crumbSubscriptions'
     | 'subscription.manageTitle'
@@ -2210,7 +2228,6 @@ export interface NamespaceKeys {
     | 'subscriptions.filters.ended'
     | 'subscriptions.filters.live'
     | 'subscriptions.filters.paused'
-    | 'subscriptions.newHint'
     | 'subscriptions.nextDelivery'
     | 'subscriptions.noNextDelivery'
     | 'subscriptions.open'
@@ -2249,6 +2266,7 @@ export interface NamespaceKeys {
     | 'action.dismiss'
     | 'action.done'
     | 'action.goBack'
+    | 'action.keepBrowsing'
     | 'action.refresh'
     | 'action.resend'
     | 'action.retry'
@@ -2261,6 +2279,14 @@ export interface NamespaceKeys {
     | 'action.viewBasket'
     | 'app.name'
     | 'app.tagline'
+    | 'destination.account'
+    | 'destination.basket'
+    | 'destination.checkout'
+    | 'destination.closure'
+    | 'destination.order'
+    | 'destination.planSetup'
+    | 'destination.previous'
+    | 'destination.subscription'
     | 'direction.ltr'
     | 'direction.rtl'
     | 'locale.arabic'
@@ -2295,6 +2321,14 @@ export interface NamespaceKeys {
     | 'photoCredit.provider.unsplash'
     | 'photoCredit.provider.wikimedia'
     | 'photoCredit.via'
+    | 'returnTo.account'
+    | 'returnTo.basket'
+    | 'returnTo.checkout'
+    | 'returnTo.closure'
+    | 'returnTo.order'
+    | 'returnTo.planSetup'
+    | 'returnTo.previous'
+    | 'returnTo.subscription'
     | 'state.empty'
     | 'state.loading'
     | 'state.restoringSession'
@@ -2304,7 +2338,12 @@ export interface NamespaceKeys {
     | 'theme.light'
     | 'theme.switchToDark'
     | 'theme.switchToLight'
-    | 'theme.system';
+    | 'theme.system'
+    | 'unsaved.body'
+    | 'unsaved.browserPrompt'
+    | 'unsaved.discard'
+    | 'unsaved.keepEditing'
+    | 'unsaved.title';
   readonly "designSystem":
     | 'breadcrumbs.label'
     | 'chip.remove'
@@ -2473,6 +2512,7 @@ export interface NamespaceKeys {
     | 'timeField.open'
     | 'timeField.placeholder';
   readonly "errors":
+    | 'cart.otherKitchen'
     | 'failure.access_self_lockout'
     | 'failure.account_customer_missing'
     | 'failure.account_verification_required'
@@ -2648,8 +2688,7 @@ export interface NamespaceKeys {
     | 'deletion.subtitle'
     | 'deletion.suppressionNote'
     | 'deletion.title'
-    | 'entry.body'
-    | 'entry.continueAsGuest'
+    | 'entry.register'
     | 'entry.signIn'
     | 'entry.title'
     | 'eyebrow'
@@ -6583,6 +6622,7 @@ export interface NamespaceKeys {
     | 'forBusiness.termsBody'
     | 'forBusiness.termsTitle'
     | 'forBusiness.title'
+    | 'howItWorks.browsePlans'
     | 'howItWorks.meetDietitians'
     | 'howItWorks.nextBody'
     | 'howItWorks.nextTitle'
@@ -8357,9 +8397,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'access:forbidden.signInAgain',
   'access:forbidden.switchOrganisation',
   'access:forbidden.title',
+  'access:forbidden.toDiscover',
   'access:notFound.body',
   'access:notFound.home',
   'access:notFound.title',
+  'access:notFound.toDiscover',
   'access:pending.body',
   'access:pending.title',
   'access:workspaceSelector.current',
@@ -8659,6 +8701,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:addresses.removeTitle',
   'account:addresses.requiredField',
   'account:addresses.save',
+  'account:addresses.savedToast',
   'account:addresses.subtitle',
   'account:addresses.title',
   'account:checklist.blocked',
@@ -8821,6 +8864,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:dietary.notePlaceholder',
   'account:dietary.save',
   'account:dietary.saved',
+  'account:dietary.savedToast',
   'account:dietary.severity.allergy',
   'account:dietary.severity.avoidance',
   'account:dietary.severity.intolerance',
@@ -8891,6 +8935,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:phone.title',
   'account:phone.verifiedBody',
   'account:phone.verifiedTitle',
+  'account:phone.verifiedToast',
   'account:privacy.closeAccount',
   'account:privacy.reviewConsents',
   'account:privacy.title',
@@ -8976,7 +9021,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:login.emailPlaceholder',
   'auth:login.failed',
   'auth:login.forgotLink',
-  'auth:login.guest',
   'auth:login.passwordLabel',
   'auth:login.passwordPlaceholder',
   'auth:login.rateLimited',
@@ -9794,6 +9838,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:filters.rangeChip',
   'catalogue:filters.rangesHint',
   'catalogue:filters.removeFilter',
+  'catalogue:filters.searchChip',
   'catalogue:filters.short.carbohydrate',
   'catalogue:filters.short.fat',
   'catalogue:filters.short.preparationMinutes',
@@ -10226,6 +10271,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:balance.remaining',
   'commerce:balance.skipped',
   'commerce:balance.used',
+  'commerce:basketConflict.body',
+  'commerce:basketConflict.keep',
+  'commerce:basketConflict.replace',
+  'commerce:basketConflict.title',
   'commerce:cancel.body',
   'commerce:cancel.confirm',
   'commerce:cancel.consequenceBody',
@@ -10271,6 +10320,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:cart.updateFailedTitle',
   'commerce:cart.viewMeal',
   'commerce:checkout.addAddress',
+  'commerce:checkout.addAddressAction',
+  'commerce:checkout.addAnotherAddress',
   'commerce:checkout.addressPlaceholder',
   'commerce:checkout.addressTitle',
   'commerce:checkout.areaLabel',
@@ -10283,6 +10334,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.deliveringTo',
   'commerce:checkout.deliveryBody',
   'commerce:checkout.deliveryTitle',
+  'commerce:checkout.editAddress',
   'commerce:checkout.emptyBody',
   'commerce:checkout.emptyTitle',
   'commerce:checkout.finishSetup',
@@ -10305,6 +10357,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.paymentTitle',
   'commerce:checkout.placeFailedTitle',
   'commerce:checkout.placeOrder',
+  'commerce:checkout.placeOrderBlockedHint',
   'commerce:checkout.placeOrderHint',
   'commerce:checkout.placeOrderTotal',
   'commerce:checkout.progressLabel',
@@ -10354,6 +10407,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.confirm.total',
   'commerce:configurator.create',
   'commerce:configurator.createFailedTitle',
+  'commerce:configurator.delivery.addAddress',
   'commerce:configurator.delivery.addressPlaceholder',
   'commerce:configurator.delivery.addressTitle',
   'commerce:configurator.delivery.slotTitle',
@@ -10396,12 +10450,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.review.deliveryTitle',
   'commerce:configurator.review.planTitle',
   'commerce:configurator.review.priceTitle',
+  'commerce:configurator.setupBody',
+  'commerce:configurator.setupTitle',
+  'commerce:configurator.startOver',
   'commerce:configurator.steps.delivery',
   'commerce:configurator.steps.plan',
   'commerce:configurator.steps.review',
+  'commerce:configurator.subscribeBlockedHint',
   'commerce:configurator.successBody',
-  'commerce:configurator.successList',
-  'commerce:configurator.successOpen',
   'commerce:configurator.successTitle',
   'commerce:configurator.summary.address',
   'commerce:configurator.summary.allergens',
@@ -10449,6 +10505,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:states.paused',
   'commerce:states.skipped_today',
   'commerce:subscription.actionFailedTitle',
+  'commerce:subscription.addAddress',
   'commerce:subscription.addressConfirm',
   'commerce:subscription.addressDialogBody',
   'commerce:subscription.addressDialogTitle',
@@ -10456,6 +10513,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:subscription.change',
   'commerce:subscription.changeAddress',
   'commerce:subscription.changeSlot',
+  'commerce:subscription.choosePlanAgain',
   'commerce:subscription.crumbAccount',
   'commerce:subscription.crumbSubscriptions',
   'commerce:subscription.manageTitle',
@@ -10517,7 +10575,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:subscriptions.filters.ended',
   'commerce:subscriptions.filters.live',
   'commerce:subscriptions.filters.paused',
-  'commerce:subscriptions.newHint',
   'commerce:subscriptions.nextDelivery',
   'commerce:subscriptions.noNextDelivery',
   'commerce:subscriptions.open',
@@ -10555,6 +10612,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:action.dismiss',
   'common:action.done',
   'common:action.goBack',
+  'common:action.keepBrowsing',
   'common:action.refresh',
   'common:action.resend',
   'common:action.retry',
@@ -10567,6 +10625,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:action.viewBasket',
   'common:app.name',
   'common:app.tagline',
+  'common:destination.account',
+  'common:destination.basket',
+  'common:destination.checkout',
+  'common:destination.closure',
+  'common:destination.order',
+  'common:destination.planSetup',
+  'common:destination.previous',
+  'common:destination.subscription',
   'common:direction.ltr',
   'common:direction.rtl',
   'common:locale.arabic',
@@ -10601,6 +10667,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:photoCredit.provider.unsplash',
   'common:photoCredit.provider.wikimedia',
   'common:photoCredit.via',
+  'common:returnTo.account',
+  'common:returnTo.basket',
+  'common:returnTo.checkout',
+  'common:returnTo.closure',
+  'common:returnTo.order',
+  'common:returnTo.planSetup',
+  'common:returnTo.previous',
+  'common:returnTo.subscription',
   'common:state.empty',
   'common:state.loading',
   'common:state.restoringSession',
@@ -10611,6 +10685,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:theme.switchToDark',
   'common:theme.switchToLight',
   'common:theme.system',
+  'common:unsaved.body',
+  'common:unsaved.browserPrompt',
+  'common:unsaved.discard',
+  'common:unsaved.keepEditing',
+  'common:unsaved.title',
   'designSystem:breadcrumbs.label',
   'designSystem:chip.remove',
   'designSystem:controls.currentDirection',
@@ -10777,6 +10856,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:timeField.minute',
   'designSystem:timeField.open',
   'designSystem:timeField.placeholder',
+  'errors:cart.otherKitchen',
   'errors:failure.access_self_lockout',
   'errors:failure.account_customer_missing',
   'errors:failure.account_verification_required',
@@ -10951,8 +11031,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:deletion.subtitle',
   'guest:deletion.suppressionNote',
   'guest:deletion.title',
-  'guest:entry.body',
-  'guest:entry.continueAsGuest',
+  'guest:entry.register',
   'guest:entry.signIn',
   'guest:entry.title',
   'guest:eyebrow',
@@ -14883,6 +14962,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:forBusiness.termsBody',
   'marketplace:forBusiness.termsTitle',
   'marketplace:forBusiness.title',
+  'marketplace:howItWorks.browsePlans',
   'marketplace:howItWorks.meetDietitians',
   'marketplace:howItWorks.nextBody',
   'marketplace:howItWorks.nextTitle',

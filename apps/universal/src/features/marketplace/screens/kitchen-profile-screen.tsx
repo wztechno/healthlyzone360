@@ -3,13 +3,14 @@ import type { Kitchen, MarketplaceMeal, SubscriptionPlan } from '@healthy360/api
 import { KitchenId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { mealsFromPages, useMealsQuery, usePlansQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
+import { useNavigateUp, useRememberQuery } from '../../../navigation/use-return-to.ts';
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { QueryStates } from '../query-states.tsx';
 import { isoWeekdayToday } from '../storefront-facts.ts';
@@ -47,6 +48,9 @@ import { kitchenTimeZone, useKitchenClock } from '../storefront/storefront-today
  * The tabs are in-page rather than routes — they are views of one kitchen, and switching them must
  * not cost a navigation — but the open one is mirrored to `?tab=` so a link can open the storefront
  * on its plans (the kitchen directory's "Plans" control does exactly that) and a reload keeps it.
+ * The Menu tab's shelf is mirrored the same way, to `?shelf=` (browse-07): Back from a dish, a
+ * reload or a trip to another tab used to drop the person on "All" again, because the shelf was
+ * the tab panel's own state and both the page and the panel unmount on the way.
  *
  * ## The menu is read whole
  *
@@ -56,12 +60,16 @@ import { kitchenTimeZone, useKitchenClock } from '../storefront/storefront-today
  * wrong. So the storefront asks for the largest page the API serves and keeps fetching until there
  * is no next one, and neither tab renders until it has the lot.
  *
- * ## `/kitchens/{id}/menu` still exists
+ * ## "Start an order" opens the Menu tab
  *
- * It is the searchable view — the search box and the item-type and meal-type filters the Menu tab
- * does not carry. HealthZone draws no search on the storefront, so "Start an order" is the way in:
- * it is the one control the design gives for beginning to order, and the searchable menu is where
- * ordering from this kitchen starts.
+ * It used to push `/kitchens/{id}/menu`, a second listing of the very dishes the Menu tab already
+ * shows, whose kitchen crumb then pushed the storefront again so Back alternated between the two
+ * (browse-12). Dishes are added from the Menu tab, so that is where the order starts: the tab
+ * opens (`?tab=menu`, no new history entry) and the page brings it into view.
+ *
+ * `/kitchens/{id}/menu` still exists as the searchable view — the search box and the item-type and
+ * meal-type filters the Menu tab does not carry — and the Menu tab links to it by name, "Search
+ * this menu", so the control says what it opens.
  *
  * ## The order panel's place on a phone
  *
@@ -76,7 +84,9 @@ export interface KitchenProfileScreenProps {
 
 export function KitchenProfileScreen({ kitchenId }: KitchenProfileScreenProps) {
     const { t } = useTranslation();
-    const router = useRouter();
+    const navigateUp = useNavigateUp();
+    // The open tab and shelf, for a meal's "{Kitchen}" crumb to come back to (browse-05).
+    useRememberQuery();
 
     const parsed = kitchenId === undefined ? null : KitchenId.safeParse(kitchenId);
     const query = useKitchenQuery(parsed);
@@ -90,8 +100,11 @@ export function KitchenProfileScreen({ kitchenId }: KitchenProfileScreenProps) {
                     {
                         key: 'kitchens',
                         label: t('marketplace:nav.kitchens'),
+                        testID: 'kitchen-crumb-kitchens',
+                        // Up to the directory as it was left — its search and chips — rather than
+                        // a fresh copy pushed on top of the storefront.
                         onPress: () => {
-                            router.push('/kitchens');
+                            navigateUp('/kitchens');
                         },
                     },
                     { key: 'kitchen', label: kitchen?.name ?? t('marketplace:kitchen.loading') },
@@ -128,7 +141,7 @@ function Storefront({ kitchen }: { readonly kitchen: Kitchen }) {
     const formatter = useFormatter();
     const { atLeast } = useBreakpoint();
     const wide = atLeast('lg');
-    const params = useLocalSearchParams<{ tab?: string }>();
+    const params = useLocalSearchParams<{ tab?: string; shelf?: string }>();
     const basket = useBasketAdd({ labelKey: 'marketplace:nav.kitchens', testID: 'kitchen' });
 
     // An unknown `?tab=` opens the menu.
@@ -145,6 +158,41 @@ function Storefront({ kitchen }: { readonly kitchen: Kitchen }) {
     const openTab = (next: StorefrontTab) => {
         setTab(next);
         router.setParams({ tab: next });
+    };
+
+    /*
+     * The Menu tab's shelf, the same way: the URL holds it and the page follows it (browse-07).
+     * Held here, not in the tab, because the tab panel unmounts on every switch. "All" is the
+     * param's absence, so the plain storefront link and a cleared shelf are one address.
+     */
+    const requestedShelf =
+        typeof params.shelf === 'string' && params.shelf !== '' ? params.shelf : null;
+    const [shelf, setShelf] = useState<string | null>(requestedShelf);
+    const [followedShelf, setFollowedShelf] = useState<string | null>(requestedShelf);
+    if (followedShelf !== requestedShelf) {
+        setFollowedShelf(requestedShelf);
+        setShelf(requestedShelf);
+    }
+    const openShelf = (next: string | null) => {
+        setShelf(next);
+        router.setParams({ shelf: next ?? undefined } as never);
+    };
+
+    /*
+     * Where "Start an order" brings the person: the tab row, so the open Menu is right under it. On
+     * a phone the order panel sits above the tabs and the menu starts below the fold; on a wide
+     * window the tabs may have scrolled away. Web only — the anchor is a DOM node there, and the
+     * shell's port is what scrolls to it. A zero-height marker above the sticky row rather than the
+     * row itself: a stuck element is already "in view", so asking it to scroll does nothing.
+     */
+    const tabsAnchor = useRef<View>(null);
+    const startOrder = () => {
+        openTab('menu');
+        if (Platform.OS !== 'web') return;
+        const node = tabsAnchor.current as unknown as {
+            readonly scrollIntoView?: (options: object) => void;
+        } | null;
+        node?.scrollIntoView?.({ block: 'start' });
     };
 
     // The kitchen's own clock and day: what "today", the cut-off and the countdown are read in.
@@ -188,7 +236,7 @@ function Storefront({ kitchen }: { readonly kitchen: Kitchen }) {
     const openMeal = (meal: MarketplaceMeal) => {
         router.push(`/meals/${String(meal.id)}` as never);
     };
-    const openFullMenu = () => {
+    const openSearchableMenu = () => {
         router.push(`/kitchens/${String(kitchen.id)}/menu` as never);
     };
 
@@ -197,7 +245,7 @@ function Storefront({ kitchen }: { readonly kitchen: Kitchen }) {
             kitchen={kitchen}
             cutOff={cutOff}
             clock={clock}
-            onStartOrder={openFullMenu}
+            onStartOrder={startOrder}
             onSeePlans={() => {
                 openTab('plans');
             }}
@@ -216,8 +264,11 @@ function Storefront({ kitchen }: { readonly kitchen: Kitchen }) {
                 <StorefrontMenuTab
                     meals={meals}
                     cutOff={cutOff}
+                    shelf={shelf}
+                    onShelfChange={openShelf}
                     onOpen={openMeal}
                     onAdd={basket.add}
+                    onSearch={openSearchableMenu}
                 />
             </QueryStates>
         ),
@@ -252,6 +303,8 @@ function Storefront({ kitchen }: { readonly kitchen: Kitchen }) {
             <StorefrontCanopy kitchen={kitchen} />
 
             {wide ? null : <View className="mt-5">{orderPanel}</View>}
+
+            <View ref={tabsAnchor} testID="kitchen-tabs-anchor" aria-hidden className="h-0" />
 
             {/*
              * Sticky on the web, under the shell's top bar: `top-0` resolves against the shell's

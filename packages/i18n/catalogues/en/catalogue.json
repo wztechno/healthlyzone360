@@ -74,7 +74,8 @@
             "price": "Price",
             "preparationMinutes": "Prep time"
         },
-        "rangeChip": "{{label}}: {{readout}}"
+        "rangeChip": "{{label}}: {{readout}}",
+        "searchChip": "Search: {{term}}"
     },
     "meal": {
         "loading": "Loading the meal",
@@ -133,8 +134,8 @@
         "instructionsLabel": "Special instructions",
         "instructionsPlaceholder": "Special instructions for the kitchen (e.g. no cilantro)",
         "instructionsNotSent": "Special instructions can't be sent to the kitchen yet — your meal was added without them.",
-        "addToCart": "Add to cart",
-        "addToCartLabel": "Add to cart, {{total}}",
+        "addToCart": "Add to basket",
+        "addToCartLabel": "Add to basket, {{total}}",
         "thumbEmpty": "No further photographs of this dish yet",
         "thumbKitchen": "{{kitchen}}, where this dish is cooked — open the kitchen",
         "factsTitle": "Nutrition facts",

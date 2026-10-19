@@ -18,7 +18,15 @@ import {
     useVerifyEmailPasscodeMutation,
 } from '../data/account-hooks.ts';
 import { toFailure, useLogoutMutation, useRecheckVerificationMutation } from '../data/hooks.ts';
+import { safeReturnTo } from '../navigation/return-to.ts';
+import { useKeepBrowsing } from '../navigation/use-keep-browsing.ts';
+import { useCompleteAuth } from '../navigation/use-return-to.ts';
 import { useSession } from '../session/session-provider.tsx';
+
+export interface VerifyEmailScreenProps {
+    /** The route's raw `?returnTo=`. Validated here; an unsafe value is ignored. */
+    readonly returnTo?: string | undefined;
+}
 
 /**
  * Email verification status.
@@ -39,12 +47,24 @@ import { useSession } from '../session/session-provider.tsx';
  * authoritative and refuses an early resend, but a button that can be hammered and only then
  * reports "too many attempts" trains people to hammer it. The countdown is seeded from whichever
  * the server said — the challenge's own cooldown, or the wait a rate limit came back with.
+ *
+ * ## Where Continue goes
+ *
+ * `?returnTo=` is what the person was doing when the account asked for a confirmed address — the
+ * page a gate refused, the basket an Add was heading for, the page registration started from.
+ * Continue finishes there through `useCompleteAuth` (the launch resolver decides whether the
+ * session may be there now); with no return it is `/`, as before. "Keep browsing" lets somebody
+ * confirm later without signing out, which used to be the only other way off this card (AUTH-07).
+ * "Wrong person" signs out and drops the return: it belonged to the session being ended.
  */
-export function VerifyEmailScreen() {
+export function VerifyEmailScreen({ returnTo: rawReturnTo }: VerifyEmailScreenProps = {}) {
     const { t } = useTranslation();
     const router = useRouter();
     const { verified: verifiedFromLink } = useLocalSearchParams<{ verified?: string }>();
     const { me, refetch } = useSession();
+    const returnTo = safeReturnTo(rawReturnTo);
+    const completeAuth = useCompleteAuth();
+    const keepBrowsing = useKeepBrowsing(returnTo);
 
     const sendCode = useSendEmailPasscodeMutation();
     const verifyCode = useVerifyEmailPasscodeMutation();
@@ -152,7 +172,7 @@ export function VerifyEmailScreen() {
                     block
                     label={t('auth:verifyEmail.continue')}
                     onPress={() => {
-                        router.replace('/');
+                        completeAuth(returnTo);
                     }}
                 />
             </Stack>
@@ -233,6 +253,14 @@ export function VerifyEmailScreen() {
                     {t('auth:otp.resendIn', { count: cooldown })}
                 </Text>
             ) : null}
+
+            <Button
+                testID="verify-email-keep-browsing"
+                block
+                variant="secondary"
+                label={t('common:action.keepBrowsing')}
+                onPress={keepBrowsing}
+            />
 
             <Button
                 testID="verify-email-sign-out"

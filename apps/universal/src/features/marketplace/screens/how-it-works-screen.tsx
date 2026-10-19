@@ -5,7 +5,9 @@ import { useTranslation } from 'react-i18next';
 
 import { isFeatureAvailable } from '../../availability.ts';
 import { EntityImage, resolveMarketingImage } from '../../../media/entity-image.tsx';
+import { useGoToAuth } from '../../../navigation/use-return-to.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
+import { useSession } from '../../../session/session-provider.tsx';
 import { SectionHeader } from '../section-header.tsx';
 
 /**
@@ -32,10 +34,19 @@ const STEPS: readonly { readonly key: string; readonly icon: IconName }[] = [
  * The medical disclaimer belongs here even though the page shows no figures. It describes a product
  * that calculates a nutrition target, and the place to say "this is an estimate, not medical
  * advice" is where the promise is made, not only where the number appears.
+ *
+ * ## The last button is the reader's next step
+ *
+ * A visitor is offered an account, and the trip to registration carries this page back. Somebody
+ * already signed in was offered "Create account" too (browse-15); their next step is the one the
+ * fourth card describes — a plan for the week — so that is what they get instead.
  */
 export function HowItWorksScreen() {
     const { t } = useTranslation();
     const router = useRouter();
+    const goToAuth = useGoToAuth();
+    const { phase } = useSession();
+    const signedIn = phase !== 'anonymous' && phase !== 'restoring';
 
     return (
         <Stack space="xl" testID="how-it-works-screen">
@@ -117,14 +128,25 @@ export function HowItWorksScreen() {
                             }}
                         />
                     ) : null}
-                    <Button
-                        testID="how-it-works-register"
-                        variant="ghost"
-                        label={t('marketplace:nav.register')}
-                        onPress={() => {
-                            router.push('/register');
-                        }}
-                    />
+                    {signedIn ? (
+                        <Button
+                            testID="how-it-works-plans"
+                            variant="ghost"
+                            label={t('marketplace:howItWorks.browsePlans')}
+                            onPress={() => {
+                                router.push('/plans');
+                            }}
+                        />
+                    ) : (
+                        <Button
+                            testID="how-it-works-register"
+                            variant="ghost"
+                            label={t('marketplace:nav.register')}
+                            onPress={() => {
+                                goToAuth('/register');
+                            }}
+                        />
+                    )}
                 </Inline>
             </Stack>
 

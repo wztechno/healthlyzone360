@@ -7,10 +7,13 @@ import {
     Inline,
     Stack,
     Text,
+    useToast,
 } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 
 import {
     toFailure,
@@ -48,17 +51,45 @@ const TEST_ID = 'verify-phone-screen';
 export interface VerifyPhoneScreenProps {
     /** `?challenge=` — a live challenge to resume. Absent when the page was opened cold. */
     readonly challengeId?: string | undefined;
+    /** `?returnTo=` — where to go once the number is confirmed. */
+    readonly returnTo?: string | undefined;
 }
 
-export function VerifyPhoneScreen({ challengeId }: VerifyPhoneScreenProps) {
+export function VerifyPhoneScreen({ challengeId, returnTo }: VerifyPhoneScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
+    const toast = useToast();
+    const back = useReturnTo(returnTo, '/customer/account?section=profile');
 
     const contacts = useContactPointsQuery();
     const issue = useIssueChallengeMutation();
 
     const [issued, setIssued] = useState<string | null>(null);
     const [verified, setVerified] = useState(false);
+
+    // Sent somewhere by a step, go straight back there; otherwise say so here, with a way on.
+    const onVerified = () => {
+        if (back.returnTo === null) {
+            setVerified(true);
+            return;
+        }
+        toast.show({
+            testID: `${TEST_ID}-verified-toast`,
+            tone: 'success',
+            message: t('account:phone.verifiedToast'),
+        });
+        back.finish();
+    };
+
+    /*
+     * A challenge issued here goes into the URL as well, the same `?challenge=` a link arrives
+     * with — so a refresh resumes this code, cooldown and all, rather than offering to send
+     * another and spending the resend allowance.
+     */
+    const startChallenge = (id: string) => {
+        setIssued(id);
+        router.setParams({ challenge: id } as never);
+    };
 
     const live = challengeId ?? issued;
     const phone = (contacts.data ?? []).find(
@@ -79,9 +110,9 @@ export function VerifyPhoneScreen({ challengeId }: VerifyPhoneScreenProps) {
                     actions={
                         <Button
                             testID={`${TEST_ID}-continue`}
-                            label={t('account:phone.backToAccount')}
+                            label={t(`common:returnTo.${back.destination}`)}
                             onPress={() => {
-                                router.push('/customer/account' as never);
+                                back.finish();
                             }}
                         />
                     }
@@ -104,9 +135,7 @@ export function VerifyPhoneScreen({ challengeId }: VerifyPhoneScreenProps) {
                     <PhoneChallenge
                         testID={`${TEST_ID}-challenge`}
                         challengeId={live}
-                        onVerified={() => {
-                            setVerified(true);
-                        }}
+                        onVerified={onVerified}
                     />
                 </Card>
             ) : (
@@ -120,7 +149,7 @@ export function VerifyPhoneScreen({ challengeId }: VerifyPhoneScreenProps) {
                             testID={`${TEST_ID}-add`}
                             label={t('account:phone.addNumber')}
                             onPress={() => {
-                                router.push('/customer/account/phone' as never);
+                                router.push(back.carry('/customer/account/phone') as never);
                             }}
                         />
                     }
@@ -162,7 +191,7 @@ export function VerifyPhoneScreen({ challengeId }: VerifyPhoneScreenProps) {
                                             },
                                             {
                                                 onSuccess: (challenge) => {
-                                                    setIssued(challenge.id);
+                                                    startChallenge(challenge.id);
                                                 },
                                             },
                                         );
