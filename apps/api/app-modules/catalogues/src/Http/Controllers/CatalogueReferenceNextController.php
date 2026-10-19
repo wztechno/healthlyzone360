@@ -49,6 +49,12 @@ final class CatalogueReferenceNextController
     /** The series the sellable catalogue owns, and how wide each one's number is. */
     private const array ITEM_SERIES = ['SAC-', 'DRS-'];
 
+    /** The series counted among the ingredients: food, and the packaging filed beside it. */
+    private const array INGREDIENT_SERIES = [
+        IngredientCatalogueService::REFERENCE_PREFIX,
+        IngredientCatalogueService::PACKAGING_REFERENCE_PREFIX,
+    ];
+
     public function __construct(
         private readonly TenantContext $context,
         private readonly IngredientCatalogueService $ingredients,
@@ -88,12 +94,12 @@ final class CatalogueReferenceNextController
         // sauce's series off the recipes table would hand out `SAC-001` to a
         // kitchen that has had one since the import.
         $reference = match (true) {
-            $prefix === 'ING-' => $this->ingredients->nextReferenceFor($organisationId, $prefix),
+            in_array($prefix, self::INGREDIENT_SERIES, true) => $this->ingredients->nextReferenceFor($organisationId, $prefix),
             in_array($prefix, self::ITEM_SERIES, true) => $this->items->nextReferenceFor($organisationId, $prefix),
             in_array($prefix, RecipeService::REFERENCE_PREFIXES, true) => $this->recipes->nextReferenceFor($organisationId, $prefix),
             default => throw new ApiException(
                 ErrorCode::RequestInvalid,
-                'The prefix must be one of: ING-, '.implode(', ', [...self::ITEM_SERIES, ...RecipeService::REFERENCE_PREFIXES]).'.',
+                'The prefix must be one of: '.implode(', ', [...self::INGREDIENT_SERIES, ...self::ITEM_SERIES, ...RecipeService::REFERENCE_PREFIXES]).'.',
                 ['parameter' => 'prefix'],
             ),
         };

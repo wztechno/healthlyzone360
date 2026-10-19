@@ -19409,12 +19409,12 @@ export type NextCatalogueReferenceData = {
     query: {
         /**
          * Which series to read, and each is counted in the table its existing
-         * handles are in: `ING-` among the ingredients, `RC-` among the
+         * handles are in: `ING-` and `PKG-` among the ingredients, `RC-` among the
          * recipes, and `SAC-` and `DRS-` among the catalogue items — where the
          * import wrote forty-three sauces and nineteen dressings.
          *
          */
-        prefix: 'ING-' | 'RC-' | 'SAC-' | 'DRS-';
+        prefix: 'ING-' | 'PKG-' | 'RC-' | 'SAC-' | 'DRS-';
     };
     url: '/catalogue/references/next';
 };

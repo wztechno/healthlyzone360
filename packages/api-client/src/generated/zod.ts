@@ -11266,6 +11266,7 @@ export const zNextCatalogueReferenceHeaders = z.object({
 export const zNextCatalogueReferenceQuery = z.object({
     prefix: z.enum([
         'ING-',
+        'PKG-',
         'RC-',
         'SAC-',
         'DRS-'

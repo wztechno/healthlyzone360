@@ -49,16 +49,16 @@ use Illuminate\Support\Str;
  */
 final readonly class IngredientCatalogueService
 {
+    /** The ingredient library's own series. */
+    public const string REFERENCE_PREFIX = 'ING-';
+
     /**
-     * The ingredient library's own series.
-     *
-     * `PKG-` exists in the same column — the import numbered the thirty-one packaging rows that way
-     * — and is deliberately *not* generated here. Packaging and food share this table and this
-     * endpoint now, so a create cannot tell which it is being asked for without reading the
-     * taxonomy, and a boxed lid filed as `ING-307` is a worse answer than a considered one. When
-     * the packaging form grows a create, it names its series the way the sauce routes name theirs.
+     * The packaging series, in the same column — the import numbered the thirty-one packaging rows
+     * `PKG-001..031`. Packaging and food share this table and this endpoint, so the series is read
+     * off the taxonomy: a row filed under {@see PackagingBranch} continues `PKG-`, anything else
+     * continues `ING-`. See {@see referencePrefixFor()}.
      */
-    private const string REFERENCE_PREFIX = 'ING-';
+    public const string PACKAGING_REFERENCE_PREFIX = 'PKG-';
 
     public function __construct(
         private TenantContext $context,
@@ -302,7 +302,7 @@ final readonly class IngredientCatalogueService
         // which is what a column of references a cook reads down is for. `source_system` stays null,
         // so nothing here can be mistaken for an imported row: the import matches on the pair.
         $ingredient->source_ref = $this->trimmedOrNull($attributes['source_ref'] ?? null)
-            ?? $this->nextReferenceFor($organisationId, self::REFERENCE_PREFIX);
+            ?? $this->nextReferenceFor($organisationId, $this->referencePrefixFor($ingredient->ingredient_category_id));
         $ingredient->save();
 
         $this->audit->record(
@@ -349,7 +349,7 @@ final readonly class IngredientCatalogueService
      * search. `source_system` is dropped — it says "this row came from the v6
      * workbook", which stops being true the moment a kitchen owns a copy — and
      * `source_ref` is replaced rather than cleared: the fork takes the next
-     * `ING-` handle, because a copy with no handle is invisible to a list that
+     * `ING-` (or, for packaging, `PKG-`) handle, because a copy with no handle is invisible to a list that
      * shows the series, and a fork exists to be edited.
      *
      * @throws ApiException
@@ -420,7 +420,7 @@ final readonly class IngredientCatalogueService
             // kitchen owns a copy — but leaving it empty is what made a fork invisible to a list
             // that shows the `ING-` series, and a fork exists precisely to be edited. So the copy
             // joins the sequence at the next number, the same way a typed-in row does.
-            $fork->source_ref = $this->nextReferenceFor($organisationId, self::REFERENCE_PREFIX);
+            $fork->source_ref = $this->nextReferenceFor($organisationId, $this->referencePrefixFor($fork->ingredient_category_id));
             $fork->lock_version = 0;
             $fork->created_by = $this->context->userId();
             $fork->updated_by = $this->context->userId();
@@ -1106,6 +1106,17 @@ final readonly class IngredientCatalogueService
         }
 
         return $prefix.str_pad((string) ($highest + 1), 3, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * The series a new row joins: `PKG-` for one filed under the packaging branch, at its root or
+     * a leaf, and `ING-` for everything else — food, and a row with no category at all.
+     */
+    private function referencePrefixFor(?string $categoryId): string
+    {
+        return $categoryId !== null && in_array($categoryId, $this->packaging->categoryIds(), true)
+            ? self::PACKAGING_REFERENCE_PREFIX
+            : self::REFERENCE_PREFIX;
     }
 
     /**

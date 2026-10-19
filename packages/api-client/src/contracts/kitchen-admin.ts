@@ -1290,12 +1290,12 @@ export interface TechnicalSheetAdmin {
 /**
  * The reference series a record is numbered in.
  *
- * `ING-` is the ingredient library's. The others are the recipe table's: the library, sauces,
- * dressings and frozen meals are all recipes, read off different sheets and quoted by different
- * handles, so they number separately. A client names the series; the number in it is always the
- * server's.
+ * `ING-` is the ingredient library's and `PKG-` the packaging filed in the same table. The others
+ * are the recipe table's: the library, sauces, dressings and frozen meals are all recipes, read off
+ * different sheets and quoted by different handles, so they number separately. A client names the
+ * series; the number in it is always the server's.
  */
-export type ReferenceSeries = 'ING-' | 'RC-' | 'SAC-' | 'DRS-' | 'FRZ-';
+export type ReferenceSeries = 'ING-' | 'PKG-' | 'RC-' | 'SAC-' | 'DRS-' | 'FRZ-';
 
 /*
  * Where each series is counted, which is the table its existing handles are in: `ING-` among the
