@@ -7,7 +7,13 @@ import { CorporateProgrammeId, QuotationId } from '@healthy360/domain-types';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Pressable, Text as RNText } from 'react-native';
 
-import { TEST_ORGANISATION_ID, testMeResponse } from '../../testing/session-fixtures.ts';
+import {
+    ORGANISATION_OWNER_PERMISSIONS,
+    TEST_ORGANISATION_ID,
+    testActiveContext,
+    testMeResponse,
+    testMembership,
+} from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import type { RepositoryOverrides } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
@@ -68,6 +74,14 @@ function quotation(ordinal: number, state: QuotationState): Quotation {
         respondedAt: null,
         expiresAt: null,
     };
+}
+
+/** A buyer signed into their organisation: every `/b2b/*` read waits until one is known. */
+function buyerSession() {
+    return testMeResponse({
+        memberships: [testMembership()],
+        activeContext: testActiveContext({ permissions: ORGANISATION_OWNER_PERMISSIONS }),
+    });
 }
 
 const overrides: RepositoryOverrides = {
@@ -173,7 +187,7 @@ describe('useCorporateNavigation', () => {
     it('draws one catalogue per programme, under Purchasing, and lights the open one', async () => {
         mockPathname = `/corporate/catalogue/${String(WHOLESALE_ID)}`;
         await renderStubScreen(<RailProbe />, {
-            session: testMeResponse(),
+            session: buyerSession(),
             repositories: overrides,
         });
 
@@ -193,7 +207,7 @@ describe('useCorporateNavigation', () => {
 
     it('badges Quotations with the count waiting on the buyer, and only that', async () => {
         await renderStubScreen(<RailProbe />, {
-            session: testMeResponse(),
+            session: buyerSession(),
             repositories: overrides,
         });
 
@@ -208,7 +222,7 @@ describe('useCorporateNavigation', () => {
 describe('useCorporateTrail', () => {
     it('draws nothing on the overview, where a trail would only name the page', async () => {
         await renderStubScreen(<TrailProbe />, {
-            session: testMeResponse(),
+            session: buyerSession(),
             repositories: overrides,
         });
 
@@ -218,7 +232,7 @@ describe('useCorporateTrail', () => {
     it('names a catalogue by its programme', async () => {
         mockPathname = `/corporate/catalogue/${String(STAFF_ID)}`;
         await renderStubScreen(<TrailProbe />, {
-            session: testMeResponse(),
+            session: buyerSession(),
             repositories: overrides,
         });
 
@@ -233,7 +247,7 @@ describe('useCorporateTrail', () => {
         mockPathname = '/corporate/quotations';
         const onBack = jest.fn();
         await renderStubScreen(<TrailProbe leaf="H360-Q-2" onBack={onBack} />, {
-            session: testMeResponse(),
+            session: buyerSession(),
             repositories: overrides,
         });
 
