@@ -2707,6 +2707,19 @@
         "mappingAdded": "An allergen mapping row was added.",
         "mappingRemoved": "An allergen mapping row was removed."
     },
+    "stockBlockers": {
+        "gateCheck": "Lowers stock when sold",
+        "rowLabel": "Selling this doesn't lower stock: {{reasons}}",
+        "publishBlocked": "Selling this wouldn't lower stock: {{reasons}}",
+        "stock_no_recipe": "no recipe",
+        "stock_recipe_not_published": "recipe not published",
+        "stock_no_pieces_produced": "recipe has no pieces produced",
+        "stock_no_shelf": "no produced item",
+        "stock_no_amount_per_sale": "no pack weight or amount per sale",
+        "unformulatedTitle": "On the menu without a recipe",
+        "unformulatedCount_one": "{{count}} item",
+        "unformulatedCount_other": "{{count}} items"
+    },
     "recipes": {
         "title": "Recipes",
         "subtitle": "The formulations this kitchen cooks from. Every change opens a version; only a published one reaches a plate.",

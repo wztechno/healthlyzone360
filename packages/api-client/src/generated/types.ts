@@ -1176,6 +1176,15 @@ export type AdminRecipeSoldAs = {
      */
     channel_codes: Array<string>;
     /**
+     * Why selling this item cannot lower stock (HA-45), empty when a sale
+     * can: `stock_no_recipe`, `stock_recipe_not_published`,
+     * `stock_no_pieces_produced` (a meal cooked when ordered),
+     * `stock_no_shelf`, `stock_no_amount_per_sale` (sold from finished
+     * stock). The publish gate refuses on the same codes.
+     *
+     */
+    stock_blockers: Array<string>;
+    /**
      * How many packs the item is sold in, archived ones excluded. Zero on
      * a meal, which is sold as itself, and on a packaged item nobody has
      * given a pack yet.
@@ -2387,6 +2396,15 @@ export type AdminCatalogueItem = {
      * Unresolved import findings, e.g. `dual_pack_single_price`.
      */
     data_quality_flags: Array<string>;
+    /**
+     * Why selling this item cannot lower stock (HA-45), empty when a sale
+     * can: `stock_no_recipe`, `stock_recipe_not_published`,
+     * `stock_no_pieces_produced` (a meal cooked when ordered),
+     * `stock_no_shelf`, `stock_no_amount_per_sale` (sold from finished
+     * stock). The publish gate refuses on the same codes.
+     *
+     */
+    stock_blockers: Array<string>;
     source_system?: string | null;
     source_ref?: string | null;
     /**
@@ -19540,6 +19558,13 @@ export type ListCatalogueItemsData = {
          */
         status?: CatalogueItemStatus;
         item_type?: CatalogueItemType;
+        /**
+         * `false` keeps only items no recipe sells — the imported meals and
+         * frozen meals the recipe book has no row for (HA-44); `true` only
+         * the ones a recipe sells.
+         *
+         */
+        has_recipe?: 'true' | 'false';
         /**
          * Exact match on the merchandising category.
          */

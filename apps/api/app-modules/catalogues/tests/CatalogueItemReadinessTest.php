@@ -130,7 +130,8 @@ it('reports and refuses a meal that cannot say what is in it identically', funct
 
     $reasons = assertReadinessMatchesPublish($item, $this->headers, 0);
 
-    expect(collect($reasons)->pluck('code')->all())->toBe(['no_allergen_basis']);
+    // With no recipe, a sale would take nothing off a shelf either (HA-45).
+    expect(collect($reasons)->pluck('code')->all())->toBe(['no_allergen_basis', 'stock_no_recipe']);
 });
 
 it('reports and refuses a quarantined listing identically, carrying its reason', function (): void {
@@ -185,7 +186,8 @@ it('reports and refuses a listing whose recipe is under review identically', fun
 
     $reasons = assertReadinessMatchesPublish($item, $this->headers, 0);
 
-    expect(collect($reasons)->pluck('code')->all())->toBe(['linked_recipe_quarantined'])
+    // The only version is under review, so none is published to take ingredients from (HA-45).
+    expect(collect($reasons)->pluck('code')->all())->toBe(['linked_recipe_quarantined', 'stock_recipe_not_published'])
         ->and($reasons[0]['context']['recipe_id'])->toBe((string) $recipe->getKey())
         ->and($reasons[0]['context']['recipe_version_ids'])->toBe([(string) $version->getKey()]);
 });

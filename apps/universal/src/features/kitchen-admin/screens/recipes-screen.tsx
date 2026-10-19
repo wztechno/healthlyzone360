@@ -72,6 +72,7 @@ import {
 } from '../catalogue/recipe-columns.tsx';
 import type { RecipeListState, RecipeSortKey } from '../catalogue/use-recipe-list.ts';
 import { useRecipeList } from '../catalogue/use-recipe-list.ts';
+import { UnformulatedItems } from '../catalogue/unformulated-items.tsx';
 import {
     RECIPE_STATUS_FILTERS,
     channelKey,
@@ -434,6 +435,10 @@ function RecipesList() {
                     />
                 ) : null}
             </Stack>
+
+            {list.sells ? (
+                <UnformulatedItems testID="kitchen-recipes-unformulated" kind={list.kind} />
+            ) : null}
 
             <CatalogueListBody
                 testID="kitchen-recipes"

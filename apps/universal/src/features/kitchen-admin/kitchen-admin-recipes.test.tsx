@@ -1964,6 +1964,80 @@ describe('the recipe list at desk width', () => {
         expect(screen.getByTestId(`${stub}-not-formulated`)).toHaveAccessibleName(/Not formulated/);
     });
 
+    it('marks a row whose sale lowers no stock, and lists the items no recipe sells (HA-44/45)', async () => {
+        rememberColumnChoice('kitchen-recipes.v2', ['reference', 'name', 'kind', 'status']);
+        const sauce = recipe({
+            ordinal: 1,
+            name: 'Garlic mayo',
+            overrides: {
+                kinds: ['sauce'],
+                soldAs: [seller({ stockBlockers: ['stock_no_amount_per_sale'] })],
+            },
+        });
+        const tiramisu: MealAdmin = {
+            id: MEAL_ID,
+            meta: {
+                status: 'published',
+                lockVersion: 1,
+                updatedAt: '2026-08-01T09:00:00.000Z',
+                updatedByName: 'Seed',
+            },
+            name: { en: 'Tiramisu', ar: 'تيراميسو' },
+            description: { en: '', ar: '' },
+            kitchenCategory: null,
+            kitchenSubcategory: null,
+            composition: null,
+            kitchenId: TEST_KITCHEN_ID,
+            recipeId: null,
+            recipeVersionId: null,
+            productionMode: null,
+            ingredientId: null,
+            sellsFromFinishedStock: false,
+            netContentQuantity: null,
+            netContentUnitId: null,
+            portionFactor: 1,
+            mealTypes: [],
+            dietClassifications: [],
+            allergens: [],
+            channelAvailability: [],
+            availability: [],
+            imagePlaceholderId: 'meal-tiramisu',
+            stockBlockers: ['stock_no_recipe'],
+            marginPercent: null,
+        };
+        const asked: { withoutRecipe?: boolean | undefined }[] = [];
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => [sauce]),
+                    listMeals: async (filter) => {
+                        asked.push({ withoutRecipe: filter?.withoutRecipe });
+                        return page(filter?.withoutRecipe === true ? [tiramisu] : []);
+                    },
+                    listProducts: async () => page([]),
+                },
+            },
+        });
+
+        const row = recipeRow(sauce);
+        await untilVisible(`${row}-name`);
+
+        expect(screen.getByTestId(`${row}-stock-blocked`)).toHaveAccessibleName(
+            /doesn't lower stock: no pack weight or amount per sale/,
+        );
+
+        await untilVisible(`kitchen-recipes-unformulated-${String(MEAL_ID)}`);
+        expect(asked).toContainEqual({ withoutRecipe: true });
+        expect(screen.getByTestId('kitchen-recipes-unformulated')).toHaveTextContent(
+            /On the menu without a recipe · 1 item/,
+        );
+        expect(
+            screen.getByTestId(`kitchen-recipes-unformulated-${String(MEAL_ID)}`),
+        ).toHaveTextContent('Tiramisu');
+    });
+
     it('narrows the book by its own filing word, through the request', async () => {
         rememberColumnChoice('kitchen-recipes.v2', [
             'reference',

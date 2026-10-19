@@ -63,6 +63,7 @@ import {
 } from '../../../data/kitchen-ops-hooks.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
+import { stockBlockersSentence } from '../catalogue/recipe-columns.tsx';
 import {
     ChannelAvailabilityEditor,
     PackVariantEditor,
@@ -1169,7 +1170,18 @@ function ProductEditor({
      * holds, not what is on screen. `CatalogueItemReadiness` on the server is still the authority
      * and refuses more than this; these are only the ones a person can see and fix from this form.
      */
+    /*
+     * A sale of this item would take nothing off a shelf (HA-45) — a weighed shelf with no pack
+     * weight or net content. Not a save blocker: the fix is made on this form and saved first. The
+     * server refuses the publication on the same codes; this says why before anyone presses it.
+     */
+    const stockBlockers = data?.stockBlockers ?? [];
+    const stockBlockedHint =
+        stockBlockers.length === 0
+            ? undefined
+            : stockBlockersSentence(stockBlockers, 'publishBlocked', t);
     const publishBlocked =
+        stockBlockers.length > 0 ||
         blockers.length > 0 ||
         noChannel ||
         detailsDirty ||
@@ -1267,6 +1279,7 @@ function ProductEditor({
                     // Visibly disabled while anything this screen can check fails; the dialog's
                     // confirm keeps the same guard, and the server keeps the real one.
                     disabled={publishBlocked}
+                    hint={stockBlockedHint}
                     onPress={() => {
                         setShowPublish(true);
                     }}

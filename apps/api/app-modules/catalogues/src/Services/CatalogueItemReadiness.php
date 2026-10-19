@@ -58,6 +58,10 @@ use Healthy360\Recipes\Models\RecipeVersionOutput;
  *   ticked the box and the day the listing goes on sale — and publishing is the
  *   last moment before a customer can order the thing. Resold goods are not
  *   asked: their shelf is derived from the item, not produced by a recipe.
+ * - **A sale that lowers stock** (HA-45): {@see StockDeductionReadiness} — a
+ *   cooked meal needs a published recipe with a piece count, and a finished-stock
+ *   item on a weighed shelf needs to say how much one sale takes. Without them
+ *   every sale goes through and nothing leaves the shelf.
  *
  * Each reason is `{code, detail, context}`: a stable machine key, a sentence a
  * human can act on, and whatever identifies the offending rows. The context is
@@ -69,6 +73,7 @@ final readonly class CatalogueItemReadiness
     public function __construct(
         private DerivedAllergenService $allergens,
         private ConfirmedPriceRegistry $prices,
+        private StockDeductionReadiness $stock,
     ) {}
 
     /**
@@ -167,7 +172,7 @@ final readonly class CatalogueItemReadiness
             $reasons = [...$reasons, ...$this->planReasons($item)];
         }
 
-        return $reasons;
+        return [...$reasons, ...$this->stock->reasons($item)];
     }
 
     /**

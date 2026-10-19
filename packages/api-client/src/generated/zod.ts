@@ -1228,6 +1228,7 @@ export const zAdminRecipeSoldAs = z.object({
     portion_factor: z.string(),
     composition: z.string().nullable(),
     channel_codes: z.array(z.string()),
+    stock_blockers: z.array(z.string()),
     pack_count: z.int().gte(0),
     default_pack: z.object({
         label_en: z.string(),
@@ -1463,6 +1464,7 @@ export const zAdminCatalogueItem = z.object({
     review_reason: z.string().max(200).nullish(),
     image_placeholder_id: z.string().max(80).nullish(),
     data_quality_flags: z.array(z.string()),
+    stock_blockers: z.array(z.string()),
     source_system: z.string().nullish(),
     source_ref: z.string().nullish(),
     lock_version: z.int().gte(0),
@@ -11298,6 +11300,7 @@ export const zListCatalogueItemsQuery = z.object({
     query: z.string().max(160).optional(),
     status: zCatalogueItemStatus.optional(),
     item_type: zCatalogueItemType.optional(),
+    has_recipe: z.enum(['true', 'false']).optional(),
     product_category_id: zUuid.optional(),
     allergen: z.string().max(20).optional()
 });

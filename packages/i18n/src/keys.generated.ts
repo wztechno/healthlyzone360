@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8323 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8333 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -6253,6 +6253,16 @@ export interface NamespaceKeys {
     | 'statusShort.published'
     | 'statusShort.retired'
     | 'statusShort.reviewRequired'
+    | 'stockBlockers.gateCheck'
+    | 'stockBlockers.publishBlocked'
+    | 'stockBlockers.rowLabel'
+    | 'stockBlockers.stock_no_amount_per_sale'
+    | 'stockBlockers.stock_no_pieces_produced'
+    | 'stockBlockers.stock_no_recipe'
+    | 'stockBlockers.stock_no_shelf'
+    | 'stockBlockers.stock_recipe_not_published'
+    | 'stockBlockers.unformulatedCount'
+    | 'stockBlockers.unformulatedTitle'
     | 'time.formatHint'
     | 'time.placeholder'
     | 'title'
@@ -14594,6 +14604,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:statusShort.published',
   'kitchen:statusShort.retired',
   'kitchen:statusShort.reviewRequired',
+  'kitchen:stockBlockers.gateCheck',
+  'kitchen:stockBlockers.publishBlocked',
+  'kitchen:stockBlockers.rowLabel',
+  'kitchen:stockBlockers.stock_no_amount_per_sale',
+  'kitchen:stockBlockers.stock_no_pieces_produced',
+  'kitchen:stockBlockers.stock_no_recipe',
+  'kitchen:stockBlockers.stock_no_shelf',
+  'kitchen:stockBlockers.stock_recipe_not_published',
+  'kitchen:stockBlockers.unformulatedCount',
+  'kitchen:stockBlockers.unformulatedTitle',
   'kitchen:time.formatHint',
   'kitchen:time.placeholder',
   'kitchen:title',

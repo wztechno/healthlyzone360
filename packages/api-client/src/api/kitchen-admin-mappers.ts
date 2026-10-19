@@ -55,6 +55,7 @@ import type {
     RecipeAdminSummary,
     RecipeKind,
     RecipeSoldAs,
+    StockBlocker,
     RecipeCostFigures,
     RecipeComputedCost,
     RecipeAllergenDeclaration,
@@ -69,7 +70,7 @@ import type {
     RecipeWeeklyCost,
     TechnicalSheetAdmin,
 } from '../contracts/kitchen-admin.ts';
-import { ALLERGEN_CONTAINMENTS, isRecipeKind } from '../contracts/kitchen-admin.ts';
+import { ALLERGEN_CONTAINMENTS, isRecipeKind, STOCK_BLOCKERS } from '../contracts/kitchen-admin.ts';
 import { UNKNOWN_ISO_DATE_TIME } from './mappers.ts';
 import { mapNutritionFacts, mapPackSize } from './marketplace-mappers.ts';
 import type {
@@ -706,6 +707,7 @@ export function mapProductAdminFromItem(
         dietClassifications: options?.dietClassifications ?? [],
         dataQualityFlags: wire.data_quality_flags,
         imagePlaceholderId: catalogueImageId(wire),
+        stockBlockers: mapStockBlockers(wire.stock_blockers),
     };
 }
 
@@ -768,8 +770,16 @@ export function mapMealAdminFromItem(
         channelAvailability: options?.channelAvailability ?? [],
         availability: options?.availability ?? availabilityFromWire ?? [],
         imagePlaceholderId: catalogueImageId(wire),
+        stockBlockers: mapStockBlockers(wire.stock_blockers),
         marginPercent: null,
     };
+}
+
+/** The server's `stock_blockers`, keeping the codes this client can name (HA-45). */
+export function mapStockBlockers(codes: readonly string[] | undefined): readonly StockBlocker[] {
+    return (codes ?? []).filter((code): code is StockBlocker =>
+        (STOCK_BLOCKERS as readonly string[]).includes(code),
+    );
 }
 
 export function mapMealAvailabilityDays(
@@ -901,6 +911,7 @@ function mapRecipeSeller(wire: AdminRecipeSoldAs): RecipeSoldAs {
                       netQuantity: parseDecimal(wire.default_pack.net_quantity, 0),
                       netUnit: mapMeasureUnit(wire.default_pack.net_unit_code),
                   },
+        stockBlockers: mapStockBlockers(wire.stock_blockers),
     };
 }
 

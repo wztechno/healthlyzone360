@@ -47,6 +47,7 @@ use Healthy360\Recipes\Services\RecipeSummaries;
  *     channel_codes: list<string>,
  *     pack_count: int,
  *     default_pack: array{label_en: string, label_ar: string|null, net_quantity: string, net_unit_code: string|null}|null,
+ *     stock_blockers: list<string>,
  * }
  * @phpstan-type AdminRecipeRow array{
  *     id: string,

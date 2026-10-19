@@ -4731,6 +4731,18 @@ paths:
           required: false
           schema:
             $ref: '#/components/schemas/CatalogueItemType'
+        - name: has_recipe
+          in: query
+          required: false
+          description: |
+            `false` keeps only items no recipe sells — the imported meals and
+            frozen meals the recipe book has no row for (HA-44); `true` only
+            the ones a recipe sells.
+          schema:
+            type: string
+            enum:
+              - 'true'
+              - 'false'
         - name: product_category_id
           in: query
           required: false
@@ -26290,6 +26302,7 @@ components:
         - channel_codes
         - pack_count
         - default_pack
+        - stock_blockers
       description: |
         One catalogue item selling a recipe, as the recipe book draws it beside
         the row: the item's own columns, plus two facts read for the whole
@@ -26369,6 +26382,16 @@ components:
             `corporate`. That is the vocabulary the admin's channel chips use,
             not the kitchen's own channel codes; an insurer's channel has no
             word in it and is not listed.
+        stock_blockers:
+          type: array
+          description: |
+            Why selling this item cannot lower stock (HA-45), empty when a sale
+            can: `stock_no_recipe`, `stock_recipe_not_published`,
+            `stock_no_pieces_produced` (a meal cooked when ordered),
+            `stock_no_shelf`, `stock_no_amount_per_sale` (sold from finished
+            stock). The publish gate refuses on the same codes.
+          items:
+            type: string
         pack_count:
           type: integer
           minimum: 0
@@ -28245,6 +28268,7 @@ components:
         - sells_from_finished_stock
         - status
         - data_quality_flags
+        - stock_blockers
         - lock_version
       description: |
         The administrative shape of a sellable item. Carries **both** names and
@@ -28440,6 +28464,16 @@ components:
         data_quality_flags:
           type: array
           description: Unresolved import findings, e.g. `dual_pack_single_price`.
+          items:
+            type: string
+        stock_blockers:
+          type: array
+          description: |
+            Why selling this item cannot lower stock (HA-45), empty when a sale
+            can: `stock_no_recipe`, `stock_recipe_not_published`,
+            `stock_no_pieces_produced` (a meal cooked when ordered),
+            `stock_no_shelf`, `stock_no_amount_per_sale` (sold from finished
+            stock). The publish gate refuses on the same codes.
           items:
             type: string
         source_system:
