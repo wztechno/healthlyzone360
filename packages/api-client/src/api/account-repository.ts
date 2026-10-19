@@ -67,9 +67,8 @@ import { PASSCODE_LENGTH } from './verification-repository.ts';
  * translation. `canActivate` comes from `is_ready` and is never recomputed from the items — which
  * is the rule the contract exists to encode: the server owns the activation evaluator.
  *
- * `blockedReason` reads the account's `outstanding` list, which carries the same codes with a
- * context object. When a step is outstanding *and* not merely incomplete, the server's own code is
- * shown; otherwise the reason is `null`, because "you have not done this yet" is not a blockage.
+ * `blockedReason` is always `null`. The account's `outstanding` list carries the same codes as the
+ * undone required steps, not steps that *cannot* be done, so nothing on the wire is a blockage.
  *
  * ## 2. An address has an area identifier and no area name
  *
@@ -148,22 +147,19 @@ export function mapCustomerAccount(wire: WireAccount, loginEmail: string): Custo
 }
 
 export function mapChecklist(wire: WireAccount): AccountSetupChecklist {
-    const outstanding = new Map(wire.outstanding.map((reason) => [reason.code, reason]));
-
-    const items: AccountChecklistItem[] = wire.checklist.map((item): AccountChecklistItem => {
-        const blocked = !item.satisfied && item.required && outstanding.has(item.code);
-        return {
-            step: CHECKLIST_STEPS[item.code],
-            complete: item.satisfied,
-            // The one field that stops the client owning the activation rules. Whether phone
-            // verification counts at all is configuration (gate A-011), and this is where the
-            // server says so.
-            required: item.required,
-            // The server's own reason code, not a sentence: the client owns the copy. `null` when
-            // the step is merely undone, because an invitation is not a blockage.
-            blockedReason: blocked ? item.code : null,
-        };
-    });
+    const items: AccountChecklistItem[] = wire.checklist.map((item): AccountChecklistItem => ({
+        step: CHECKLIST_STEPS[item.code],
+        complete: item.satisfied,
+        // The one field that stops the client owning the activation rules. Whether phone
+        // verification counts at all is configuration (gate A-011), and this is where the
+        // server says so.
+        required: item.required,
+        // Always `null`: the server has no notion of a step that cannot be done yet. Its
+        // `outstanding` list is the undone required steps under their reason codes — every
+        // unsatisfied required item is on it — so reading membership there as a blockage
+        // disabled the button on every step a new customer had left to do.
+        blockedReason: null,
+    }));
 
     return {
         lifecycle: mapLifecycle(wire.status),

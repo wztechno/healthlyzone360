@@ -28,10 +28,11 @@ import {
     SummaryTotal,
 } from '../checkout-frame.tsx';
 import { earliestStartDate } from '../dates.ts';
+import { basketKitchenOf } from '../use-basket-add.tsx';
 import { ALLERGEN_CONFLICT_WARNING } from '../warnings.ts';
 
 /**
- * `/customer/cart` — the basket, in HealthZone's `cart` composition: "Your cart" over a line saying
+ * `/customer/cart` — the basket, in HealthZone's `cart` composition: "Your basket" over a line saying
  * where and from when it would be delivered, the lines card with its "add another?" band, and the
  * order summary as a sticky rail beside it from `lg` and after it below.
  *
@@ -109,8 +110,15 @@ export function CartScreen() {
     const busy = setQuantity.isPending || removeItem.isPending;
     const isEmpty = basket !== undefined && basket.items.length === 0;
 
+    /*
+     * "Add more" from a basket that holds something goes to that basket's kitchen: a basket holds
+     * one kitchen's meals, and the all-kitchens menu invited adds that would only ask to start a new
+     * basket (browse-03). An empty basket has no kitchen yet, so it browses the whole menu.
+     */
     const goBrowse = () => {
-        router.push('/meals');
+        const kitchen =
+            basket === undefined || basket.items.length === 0 ? null : basketKitchenOf(basket);
+        router.push((kitchen === null ? '/meals' : `/kitchens/${String(kitchen)}`) as never);
     };
 
     const earliest = formatter.formatDate(earliestStartDate(), { dateStyle: 'medium' });
@@ -260,27 +268,35 @@ export function CartScreen() {
                                     />
                                 </View>
                             ) : null}
-
-                            <View className="mt-4">
-                                <Button
-                                    testID="cart-checkout"
-                                    block
-                                    size="lg"
-                                    label={t('commerce:cart.checkout')}
-                                    onPress={() => {
-                                        router.push('/customer/checkout' as never);
-                                    }}
-                                />
-                            </View>
-                            <RNText
-                                testID="cart-fine-print"
-                                className="mt-3 text-xs text-content-secondary text-start"
-                            >
-                                {t('commerce:cart.finePrint')}
-                            </RNText>
                         </View>
                     )}
                 </QueryStates>
+
+                {/*
+                 * Outside the price's `QueryStates`, so it never disappears (browse-13). Inside,
+                 * a failed or refused preview left only the error and Retry — no way onward, and
+                 * nothing to show the basket was still there to be ordered. It waits, disabled,
+                 * while the price is being worked out or could not be, because checkout would
+                 * only meet the same refusal; the error above it says why and offers Retry.
+                 */}
+                <View className="mt-4">
+                    <Button
+                        testID="cart-checkout"
+                        block
+                        size="lg"
+                        label={t('commerce:cart.checkout')}
+                        disabled={preview.isPending || preview.error !== null}
+                        onPress={() => {
+                            router.push('/customer/checkout' as never);
+                        }}
+                    />
+                </View>
+                <RNText
+                    testID="cart-fine-print"
+                    className="mt-3 text-xs text-content-secondary text-start"
+                >
+                    {t('commerce:cart.finePrint')}
+                </RNText>
             </View>
         </CheckoutCard>
     );

@@ -14,6 +14,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
 import { useAddCartItemMutation } from './catalogue-hooks.ts';
+import { useMeQuery } from './hooks.ts';
 import { queryKeys } from './query-keys.ts';
 import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
 
@@ -55,6 +56,18 @@ export { toFailure } from './hooks.ts';
 export const B2B_CART_CHANNEL_CODE = 'wholesale';
 
 /**
+ * Whether the buyer's organisation is known yet.
+ *
+ * Every `/b2b/*` read needs `X-Organisation-Id`, and the transport only learns it when `me()`
+ * answers. A query that fires before that — a reload restores the screen first — earns a
+ * `context.organisation_required` that is not retryable, and the query stays failed: the quotation
+ * counters read 0 beside a list that showed the quotation. So every read below waits for it.
+ */
+function useOrganisationKnown(): boolean {
+    return (useMeQuery().data?.activeContext?.organisationId ?? null) !== null;
+}
+
+/**
  * Adds a negotiated catalogue line to the corporate buyer's wholesale basket.
  *
  * Uses the same `CommerceRepository` surface as the consumer storefront, but opens the cart on the
@@ -90,10 +103,11 @@ export function useCorporateProgrammeQuery(
     programmeId: CorporateProgrammeId | null,
 ): UseQueryResult<CorporateProgramme> {
     const { repositories } = useRepositoryContext();
+    const organisationKnown = useOrganisationKnown();
 
     return useQuery({
         queryKey: queryKeys.business.programme(programmeId ?? ('' as CorporateProgrammeId)),
-        enabled: repositories !== null && programmeId !== null,
+        enabled: repositories !== null && organisationKnown && programmeId !== null,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (programmeId === null) throw new Error('No programme identifier.');
@@ -110,10 +124,11 @@ export function useCorporateProgrammeQuery(
  */
 export function useCorporateProgrammesQuery(): UseQueryResult<readonly CorporateProgramme[]> {
     const { repositories } = useRepositoryContext();
+    const organisationKnown = useOrganisationKnown();
 
     return useQuery({
         queryKey: queryKeys.business.programmes(),
-        enabled: repositories !== null,
+        enabled: repositories !== null && organisationKnown,
         queryFn: async (): Promise<readonly CorporateProgramme[]> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.business.listCorporateProgrammes();
@@ -133,10 +148,11 @@ export function useCorporateCatalogueQuery(
     filter: CatalogueFilter | null,
 ): UseQueryResult<CursorPage<CatalogueItem>> {
     const { repositories } = useRepositoryContext();
+    const organisationKnown = useOrganisationKnown();
 
     return useQuery({
         queryKey: queryKeys.business.catalogue(filter ?? {}),
-        enabled: repositories !== null && filter !== null,
+        enabled: repositories !== null && organisationKnown && filter !== null,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (filter === null) throw new Error('No programme to list a catalogue for.');
@@ -147,10 +163,11 @@ export function useCorporateCatalogueQuery(
 
 export function useCatalogueItemQuery(itemId: string | null): UseQueryResult<CatalogueItem> {
     const { repositories } = useRepositoryContext();
+    const organisationKnown = useOrganisationKnown();
 
     return useQuery({
         queryKey: queryKeys.business.catalogueItem(itemId ?? ''),
-        enabled: repositories !== null && itemId !== null && itemId !== '',
+        enabled: repositories !== null && organisationKnown && itemId !== null && itemId !== '',
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (itemId === null) throw new Error('No catalogue item identifier.');
@@ -192,10 +209,11 @@ export interface SupplyCommitment {
  */
 export function useSupplyCommitmentsQuery(): UseQueryResult<readonly SupplyCommitment[]> {
     const { repositories } = useRepositoryContext();
+    const organisationKnown = useOrganisationKnown();
 
     return useQuery({
         queryKey: queryKeys.business.quotations({ derive: 'commitments' }),
-        enabled: repositories !== null,
+        enabled: repositories !== null && organisationKnown,
         queryFn: async (): Promise<readonly SupplyCommitment[]> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
 
@@ -236,10 +254,11 @@ export function useQuotationsQuery(
     filter?: QuotationFilter,
 ): UseQueryResult<CursorPage<Quotation>> {
     const { repositories } = useRepositoryContext();
+    const organisationKnown = useOrganisationKnown();
 
     return useQuery({
         queryKey: queryKeys.business.quotations(filter),
-        enabled: repositories !== null,
+        enabled: repositories !== null && organisationKnown,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.business.listQuotations(filter);

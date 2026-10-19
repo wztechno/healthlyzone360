@@ -663,6 +663,7 @@ class MarketplaceKitchensSeeder extends Seeder
 
         $composition = $this->previewComposition($kitchen, $owner);
         $readiness = App::make(CatalogueItemReadiness::class);
+        $recipes = App::make(DemoMealRecipeWriter::class);
 
         // The twelve platform classifications, read once: twenty-six meals
         // carrying eight diets each would otherwise be two hundred identical
@@ -761,6 +762,8 @@ class MarketplaceKitchensSeeder extends Seeder
                     ],
                 );
             }
+
+            $recipes->link($kitchen, $meal, [[$composition, $fixture['grams'] ?? 300]]);
 
             // Re-read: the readiness evaluator queries by identifier, and the
             // in-memory model is stale about the rows just written beneath it.

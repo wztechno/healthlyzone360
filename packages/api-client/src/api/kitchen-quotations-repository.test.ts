@@ -53,6 +53,8 @@ function wireLine(overrides: Record<string, unknown> = {}) {
         id: LINE_UUID,
         line_number: 1,
         catalogue_item_id: ITEM_UUID,
+        item_name_en: 'Grilled chicken bowl',
+        item_name_ar: 'وعاء الدجاج المشوي',
         catalogue_item_variant_id: null,
         quantity: '12.0000',
         unit_amount_minor: null,
@@ -67,6 +69,8 @@ function wireQuotation(overrides: Record<string, unknown> = {}) {
         id: QUOTATION_UUID,
         organisation_id: BUYER_UUID,
         corporate_programme_id: PROGRAMME_UUID,
+        programme_name_en: 'Pilot floor lunches',
+        programme_name_ar: 'غداء الطابق التجريبي',
         reference: 'QT-2026-0007',
         status: 'submitted',
         currency_code: 'USD',
@@ -151,6 +155,16 @@ describe('createApiKitchenQuotationsRepository — getQuotation', () => {
         expect(quotation.lines[0]?.id).toBe(LINE_UUID);
         expect(quotation.lines[0]?.lineNumber).toBe(1);
         expect(quotation.lines[0]?.catalogueItemId).toBe(ITEM_UUID);
+
+        // Both names, so the screen names the article instead of printing its identifier.
+        expect(quotation.lines[0]?.itemName).toEqual({
+            en: 'Grilled chicken bowl',
+            ar: 'وعاء الدجاج المشوي',
+        });
+        expect(quotation.programmeName).toEqual({
+            en: 'Pilot floor lunches',
+            ar: 'غداء الطابق التجريبي',
+        });
 
         // The decimal string, never a float — the quantity an invoice is reconciled against.
         expect(quotation.lines[0]?.quantity).toBe('12.0000');

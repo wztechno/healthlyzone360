@@ -7,9 +7,11 @@ import {
     Stack,
     Text,
 } from '@healthy360/design-system';
+import { ROUTE_PATHS } from '@healthy360/permissions';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
+import { useNavigateUp } from '../../../navigation/use-return-to.ts';
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import {
     mealsFromPages,
@@ -56,6 +58,7 @@ export function DietCategoryScreen({ slug }: DietCategoryScreenProps) {
     const { t } = useTranslation();
     const basket = useBasketAdd({ labelKey: 'catalogue:nav.meals', testID: 'diet-category' });
     const router = useRouter();
+    const navigateUp = useNavigateUp();
     const formatter = useFormatter();
 
     const resolved = slug === undefined || slug === '' ? null : slug;
@@ -77,21 +80,28 @@ export function DietCategoryScreen({ slug }: DietCategoryScreenProps) {
 
     return (
         <Stack space="lg" testID="diet-category-screen">
+            {/*
+             * Home is the marketplace home, not the launch resolver at `/` (browse-10); the menu
+             * crumb goes up to the menu as it was left — Back when it is the entry below, else the
+             * menu with its last query (browse-05).
+             */}
             <Breadcrumbs
                 testID="diet-category-breadcrumbs"
                 items={[
                     {
                         key: 'home',
                         label: t('catalogue:nav.home'),
+                        testID: 'diet-category-crumb-home',
                         onPress: () => {
-                            router.push('/');
+                            router.navigate(ROUTE_PATHS.customerHome as never);
                         },
                     },
                     {
                         key: 'meals',
                         label: t('catalogue:nav.meals'),
+                        testID: 'diet-category-crumb-meals',
                         onPress: () => {
-                            router.push('/meals');
+                            navigateUp('/meals');
                         },
                     },
                     { key: 'diet', label: item?.name ?? t('catalogue:diet.loading') },

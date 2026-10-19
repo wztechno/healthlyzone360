@@ -139,9 +139,15 @@ function manifestKey(placeholderId: string, variant: EntityImageVariant): string
         // assigned were never actually shown. The block is gone, and both prefixes now resolve to
         // a catalogue item's own photograph. A frozen meal (`frozen_meal-<slug>`) is one of
         // those dishes moved to the freezer, and keeps the photograph it had as a meal.
+        //
+        // A sauce or a dressing is a catalogue item like any other, keyed `sauce-<slug>` /
+        // `dressing-<slug>`, and its photograph is filed under `meals/` by the same slug. Without
+        // those two the sale screen's Sauces and Dressings tabs drew the pattern for every tile.
         case 'meal':
         case 'frozen_meal':
-        case 'product': {
+        case 'product':
+        case 'sauce':
+        case 'dressing': {
             // The prototype's forty meals are portions of twenty recipes, so they alias onto the
             // dish photograph of the recipe that makes them — the one reuse that is honest.
             // Everything else owns its picture.

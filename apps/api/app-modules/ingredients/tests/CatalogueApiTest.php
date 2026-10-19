@@ -176,6 +176,63 @@ it('exempts packaging but requires nutrition when it becomes food', function ():
     $this->patchJson($url, ['ingredient_category_id' => null] + NutritionReferenceFixture::selection(), $headers + ['If-Match' => '"0"'])->assertOk();
 });
 
+it('numbers new packaging in the PKG- series and new food in the ING- series', function (): void {
+    $this->actingAs($this->a->user);
+    $headers = catalogueHeaders($this->a);
+    $root = IngredientCategory::withoutTenancy()->where('code', 'packaging-disposables')->sole()->getKey();
+    $leaf = IngredientCategory::withoutTenancy()->where('code', 'like', 'packaging-disposables-%')->firstOrFail()->getKey();
+    $next = fn (string $prefix): string => $this->getJson('/api/v1/catalogue/references/next?prefix='.$prefix, $headers)
+        ->assertOk()->json('data.reference');
+
+    // Filed at the root or at a leaf of the branch, packaging continues `PKG-` — and takes the
+    // number the create form previewed.
+    foreach ([$root, $leaf] as $category) {
+        $preview = $next('PKG-');
+        expect($preview)->toMatch('/^PKG-\d{3,}$/');
+
+        $this->postJson('/api/v1/catalogue/ingredients', ['name_en' => 'Box '.$preview, 'default_unit_id' => gramsId(), 'ingredient_category_id' => $category], $headers)
+            ->assertCreated()->assertJsonPath('data.ingredient.source_ref', $preview);
+    }
+
+    $preview = $next('ING-');
+    expect($preview)->toMatch('/^ING-\d{3,}$/');
+    $this->postJson('/api/v1/catalogue/ingredients', NutritionReferenceFixture::foodPayload(['name_en' => 'Sumac', 'default_unit_id' => gramsId()]), $headers)
+        ->assertCreated()->assertJsonPath('data.ingredient.source_ref', $preview);
+});
+
+it('renumbers packaging a kitchen saved under ING- into its own PKG- series', function (): void {
+    $packagingId = IngredientCategory::withoutTenancy()->where('code', 'packaging-disposables')->sole()->getKey();
+    $row = fn (object $tenant, string $ref, ?string $category, string $at): Ingredient => Ingredient::factory()->create([
+        'organisation_id' => $tenant->organisation->getKey(),
+        'default_unit_id' => gramsId(),
+        'ingredient_category_id' => $category,
+        'source_ref' => $ref,
+        'created_at' => $at,
+    ]);
+    $platformHighest = Ingredient::withoutTenancy()->whereNull('organisation_id')->where('source_ref', 'like', 'PKG-%')
+        ->pluck('source_ref')->map(fn (string $ref): int => (int) substr($ref, 4))->max() ?? 0;
+    $pkg = fn (int $n): string => 'PKG-'.str_pad((string) $n, 3, '0', STR_PAD_LEFT);
+
+    $later = $row($this->a, 'ING-901', $packagingId, '2026-10-02 00:00:00');
+    $earlier = $row($this->a, 'ING-900', $packagingId, '2026-10-01 00:00:00');
+    $food = $row($this->a, 'ING-902', null, '2026-10-01 00:00:00');
+    $alreadyRight = $row($this->a, $pkg($platformHighest + 1), $packagingId, '2026-09-01 00:00:00');
+    $otherKitchen = $row($this->b, 'ING-903', $packagingId, '2026-10-01 00:00:00');
+
+    $migration = require dirname(__DIR__).'/database/migrations/2026_10_19_000001_renumber_packaging_from_ing_to_pkg.php';
+    $migration->up();
+    $migration->up();
+
+    $ref = fn (Ingredient $ingredient): ?string => Ingredient::withoutTenancy()->whereKey($ingredient->getKey())->value('source_ref');
+
+    // Oldest first, after the kitchen's own highest PKG-; each kitchen counts its own series.
+    expect($ref($earlier))->toBe($pkg($platformHighest + 2))
+        ->and($ref($later))->toBe($pkg($platformHighest + 3))
+        ->and($ref($alreadyRight))->toBe($pkg($platformHighest + 1))
+        ->and($ref($otherKitchen))->toBe($pkg($platformHighest + 1))
+        ->and($ref($food))->toBe('ING-902');
+});
+
 it('stores packaging pack price, waste and capacity on create and edit', function (): void {
     $this->actingAs($this->a->user);
     $headers = catalogueHeaders($this->a);

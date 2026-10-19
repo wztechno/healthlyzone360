@@ -14,6 +14,7 @@ import type {
     CustomerAddress,
     MarketplaceMeal,
     Subscription,
+    SubscriptionRefusal,
 } from '@healthy360/api-client/contracts';
 import { SubscriptionPlanId } from '@healthy360/domain-types';
 import type { AllergenCode, PlanVariantId } from '@healthy360/domain-types';
@@ -33,6 +34,8 @@ import {
 import { useAddressesQuery } from '../../../data/account-hooks.ts';
 import { useCurrentTargetsQuery, useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { useValidationTranslate } from '../../../screens/form-helpers.ts';
+import { AccountSetupSteps, stepForRequirement } from '../../account/account-setup-steps.tsx';
+import type { AccountSetupStep } from '../../account/account-setup-steps.tsx';
 import { ListingHeader } from '../../../ui/listing-header.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
@@ -531,6 +534,11 @@ export function SubscriptionConfiguratorScreen({
                                     <SetupNotice
                                         issues={showIssues ? issues : []}
                                         failure={createFailure?.message ?? null}
+                                        reasons={
+                                            createFailure?.code === 'subscription.refused'
+                                                ? createFailure.reasons
+                                                : []
+                                        }
                                     />
                                 }
                                 {...(step === 'review'
@@ -553,27 +561,74 @@ export function SubscriptionConfiguratorScreen({
  * What still stands between the person and the action, drawn beside the action itself: each
  * unanswered question as one line, and a refusal from the server under its title. Nothing at all
  * when there is nothing to say.
+ *
+ * A refusal names **every** reason, and each is said: "cannot be started as it stands" alone sends
+ * somebody back through three steps with nothing to change. Account setup the server is waiting on
+ * becomes the checkout's rows — what is missing and a button to the screen that does it — and a
+ * reason this build has no sentence for still appears, as the server's code.
  */
 function SetupNotice({
     issues,
     failure,
+    reasons,
 }: {
     readonly issues: readonly string[];
     readonly failure: string | null;
+    readonly reasons: readonly SubscriptionRefusal[];
 }) {
     const { t } = useTranslation();
     if (issues.length === 0 && failure === null) return null;
 
+    const setupSteps: AccountSetupStep[] = [];
+    for (const entry of reasons) {
+        if (entry.reason !== 'account_not_ready') continue;
+        const step = stepForRequirement(entry.context['outstanding']);
+        if (step === null || setupSteps.some((existing) => existing.step === step)) continue;
+        setupSteps.push({ step, hasAddress: entry.context['has_address'] === true });
+    }
+    const otherReasons = reasons.filter(
+        (entry) =>
+            entry.reason !== 'account_not_ready' ||
+            stepForRequirement(entry.context['outstanding']) === null,
+    );
+
     return (
         <View testID="configurator-issues" role="alert" className="flex-col gap-1.5">
             {failure === null ? null : (
-                <View testID="configurator-create-error" className="flex-col gap-0.5">
+                <View testID="configurator-create-error" className="flex-col gap-1">
                     <RNText className="self-start text-sm font-semibold text-danger-on-subtle text-start">
                         {t('commerce:configurator.createFailedTitle')}
                     </RNText>
-                    <RNText className="self-start text-sm text-danger-on-subtle text-start">
-                        {failure}
-                    </RNText>
+                    {reasons.length === 0 ? (
+                        <RNText className="self-start text-sm text-danger-on-subtle text-start">
+                            {failure}
+                        </RNText>
+                    ) : null}
+                    {otherReasons.map((entry) => (
+                        <View
+                            key={entry.reason}
+                            testID={`configurator-create-reason-${entry.reason}`}
+                            className="flex-row items-start gap-2"
+                        >
+                            <Icon
+                                name="warning"
+                                size="sm"
+                                className="mt-0.5 text-danger-on-subtle"
+                            />
+                            <RNText className="min-w-0 shrink self-start text-sm text-danger-on-subtle text-start">
+                                {t(
+                                    [
+                                        `errors:subscriptionRefusal.${entry.reason}`,
+                                        `errors:orderRefusal.${entry.reason}`,
+                                    ],
+                                    { defaultValue: entry.reason },
+                                )}
+                            </RNText>
+                        </View>
+                    ))}
+                    {setupSteps.length === 0 ? null : (
+                        <AccountSetupSteps steps={setupSteps} testID="configurator-setup-step" />
+                    )}
                 </View>
             )}
             {issues.map((key) => (

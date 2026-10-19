@@ -434,6 +434,16 @@ export function parseQuantity(value: string): number | null {
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
+/**
+ * What a field that can never hold a negative keeps of what was typed: the text without its minus
+ * signs (the ASCII hyphen and the typographic U+2212). A waste or a stock movement cannot go below
+ * zero, so the sign is never taken in. Nothing else is stripped — a stray letter stays on screen and
+ * is refused by {@link parseQuantity}, rather than silently changing the figure.
+ */
+export function withoutMinus(text: string): string {
+    return text.replace(/[-\u2212]/gu, '');
+}
+
 /* ── list prices ─────────────────────────────────────────────────────────────────────────────── */
 
 /**

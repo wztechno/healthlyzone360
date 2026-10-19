@@ -1649,6 +1649,7 @@
         "claimTaken": "Someone else took that run first.",
         "noAddress": "No address was recorded on this order. Ring the kitchen before you set off.",
         "directions": "Directions: {{directions}}",
+        "customer": "Customer: {{name}}",
         "phone": "Ring {{phone}}",
         "assignedAt": "Given to you at {{at}}",
         "deliver": "Mark delivered",
@@ -1855,8 +1856,6 @@
             "areaPlaceholderNone": "This kitchen does not deliver anywhere yet",
             "lineOneLabel": "Address",
             "lineOnePlaceholder": "For example Bliss Street, Hamra",
-            "lineTwoLabel": "Second line",
-            "lineTwoPlaceholder": "For example Apartment 7",
             "buildingLabel": "Building",
             "buildingPlaceholder": "For example Building 12, 3rd floor",
             "directionsLabel": "Directions for the driver",
@@ -2015,8 +2014,6 @@
             "snack": "Snack"
         },
         "loadErrorTitle": "The calendar could not be loaded",
-        "emptyTitle": "Nothing this week",
-        "emptyBody": "No orders, no scheduled deliveries and nothing forecast between these dates. Look at another week, or take a sale at the desk.",
         "a11y": {
             "showing": "Showing {{from}} to {{to}}.",
             "projected": "Forecast: {{count}}. Worked out from subscription patterns, not a booking.",
@@ -2710,6 +2707,19 @@
         "mappingAdded": "An allergen mapping row was added.",
         "mappingRemoved": "An allergen mapping row was removed."
     },
+    "stockBlockers": {
+        "gateCheck": "Lowers stock when sold",
+        "rowLabel": "Selling this doesn't lower stock: {{reasons}}",
+        "publishBlocked": "Selling this wouldn't lower stock: {{reasons}}",
+        "stock_no_recipe": "no recipe",
+        "stock_recipe_not_published": "recipe not published",
+        "stock_no_pieces_produced": "recipe has no pieces produced",
+        "stock_no_shelf": "no produced item",
+        "stock_no_amount_per_sale": "no pack weight or amount per sale",
+        "unformulatedTitle": "On the menu without a recipe",
+        "unformulatedCount_one": "{{count}} item",
+        "unformulatedCount_other": "{{count}} items"
+    },
     "recipes": {
         "title": "Recipes",
         "subtitle": "The formulations this kitchen cooks from. Every change opens a version; only a published one reaches a plate.",
@@ -2885,11 +2895,8 @@
         "costPerPieceWithWaste": "Per piece + {{percent}}% waste",
         "productionWastePercent": "Production waste (%)",
         "packagingWastePercent": "Packaging waste (%)",
-        "b2bPricePerUnit": "B2B price / {{unit}}",
         "b2bPriceHint": "To a kitchen or corporate buyer, excl. VAT",
-        "b2cPricePerUnit": "B2C price / {{unit}}",
         "b2cPriceHint": "To a diner, incl. VAT",
-        "grossMargin": "Gross margin",
         "marginNoBasis": "Needs a B2B price and a costed formulation",
         "compositionHint": "Computed from the ingredient database — not editable here",
         "sectionAllergenClasses": "Allergen classes",
@@ -4074,10 +4081,7 @@
         "expiryPeriod": "Expiry period",
         "shelfLifeInvalid": "Enter a whole number of days between 0 and 3650.",
         "days": "days",
-        "yieldAndWaste": "Yield & waste",
-        "price": "Price",
-        "marginLow": "Below {{percent}}%",
-        "marginBelowCost": "Below cost"
+        "yieldAndWaste": "Yield & waste"
     },
     "deliveryWindows": {
         "title": "Delivery windows",

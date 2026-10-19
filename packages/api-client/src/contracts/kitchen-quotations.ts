@@ -6,6 +6,8 @@ import type {
     QuotationId,
 } from '@healthy360/domain-types';
 
+import type { LocalisedText } from './kitchen-admin.ts';
+
 /**
  * The kitchen's own view of the quotations submitted against it — the seller side of the same rows
  * the buyer reads through `BusinessRepository`.
@@ -82,8 +84,10 @@ export interface KitchenQuotationLine {
     readonly id: string;
     /** Position in the set, renumbered from 1 whenever the buyer replaced their lines. */
     readonly lineNumber: number;
-    /** The article, which is one this kitchen sells. The wire carries no name for it. */
+    /** The article, which is one this kitchen sells. */
     readonly catalogueItemId: string;
+    /** The article's name in both languages. `null` only when the article no longer exists. */
+    readonly itemName: LocalisedText | null;
     readonly catalogueItemVariantId: string | null;
     /** A decimal string at four places — `"12.0000"`. Never a float: an invoice is reconciled against it. */
     readonly quantity: string;
@@ -100,6 +104,8 @@ export interface KitchenQuotation {
     /** The **buyer** organisation. The row's tenant, which is why this surface is reached sideways. */
     readonly buyerOrganisationId: OrganisationId;
     readonly programmeId: CorporateProgrammeId;
+    /** The programme's name in both languages. `null` only when the programme no longer exists. */
+    readonly programmeName: LocalisedText | null;
     /** What a person reads over the phone. The only identifier on this screen worth showing. */
     readonly reference: string;
     readonly status: KitchenQuotationStatus;

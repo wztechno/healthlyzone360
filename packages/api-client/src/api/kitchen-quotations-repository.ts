@@ -13,6 +13,7 @@ import type {
     KitchenQuotationStatus,
     QuoteKitchenQuotationRequest,
 } from '../contracts/kitchen-quotations.ts';
+import type { LocalisedText } from '../contracts/kitchen-admin.ts';
 import type {
     Quotation as WireQuotation,
     QuotationLine as WireQuotationLine,
@@ -66,11 +67,17 @@ function mapStatus(status: string): KitchenQuotationStatus {
     }
 }
 
+/** Both names, or `null` when the wire has neither — a record that no longer exists. */
+function localised(en: string | null, ar: string | null): LocalisedText | null {
+    return en === null && ar === null ? null : { en: en ?? '', ar: ar ?? '' };
+}
+
 function mapLine(wire: WireQuotationLine): KitchenQuotationLine {
     return {
         id: wire.id,
         lineNumber: wire.line_number,
         catalogueItemId: wire.catalogue_item_id,
+        itemName: localised(wire.item_name_en, wire.item_name_ar),
         catalogueItemVariantId: wire.catalogue_item_variant_id,
         quantity: wire.quantity,
         unitAmountMinor: wire.unit_amount_minor,
@@ -84,6 +91,7 @@ export function mapKitchenQuotation(wire: WireQuotation): KitchenQuotation {
         id: QuotationId.unsafe(wire.id),
         buyerOrganisationId: OrganisationId.unsafe(wire.organisation_id),
         programmeId: CorporateProgrammeId.unsafe(wire.corporate_programme_id),
+        programmeName: localised(wire.programme_name_en, wire.programme_name_ar),
         reference: wire.reference,
         status: mapStatus(wire.status),
         currencyCode: currencyOf(wire.currency_code),

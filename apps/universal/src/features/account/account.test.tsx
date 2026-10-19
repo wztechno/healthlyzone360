@@ -16,15 +16,17 @@ import type { CursorPage, PlacedOrder } from '@healthy360/api-client/contracts';
 import { OrderId } from '@healthy360/domain-types';
 import type { ServiceAreaId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
 
+import { pathnameOf, queryOf, withReturnTo } from '../../navigation/return-to.ts';
+import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
 import { testMeResponse } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { ACCOUNT_STEP_ROUTES, AccountSetupSteps } from './account-setup-steps.tsx';
 import { consentStatus } from './consents.ts';
 import { initialAllergyAnswer } from './dietary.ts';
 import { toE164, validatePhone } from './phone.ts';
 import { AccountScreen } from './screens/account-screen.tsx';
-import { AddressEditorScreen } from './screens/address-editor-screen.tsx';
+import { ADDRESSES_HOME, AddressEditorScreen } from './screens/address-editor-screen.tsx';
 import { AllergiesScreen } from './screens/allergies-screen.tsx';
 import { ConsentsScreen } from './screens/consents-screen.tsx';
 import { PhoneScreen } from './screens/phone-screen.tsx';
@@ -49,31 +51,26 @@ import { PhoneScreen } from './screens/phone-screen.tsx';
  * can only assert what the screen does with the answers — which is what the phone cases below do.
  */
 
-jest.mock('expo-router', () => {
-    const push = jest.fn();
-    const replace = jest.fn();
-    return {
-        __esModule: true,
-        useRouter: () => ({ push, replace, setParams: jest.fn(), back: jest.fn() }),
-        usePathname: () => '/customer/account',
-        useLocalSearchParams: () => ({}),
-        Redirect: () => null,
-        Link: ({ children }: { children: ReactNode }) => children,
-        Slot: () => null,
-        Stack: () => null,
-        __push: push,
-        __replace: replace,
-    };
-});
+jest.mock('expo-router', () =>
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../../testing/expo-router-mock.ts').createExpoRouterMock({
+        pathname: '/customer/account',
+    }),
+);
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const routerMock = require('expo-router') as { __push: jest.Mock; __replace: jest.Mock };
+const routerMock = require('expo-router') as ExpoRouterMock;
 
 beforeEach(() => {
-    routerMock.__push.mockClear();
-    routerMock.__replace.mockClear();
+    routerMock.__reset();
     globalThis.localStorage?.clear();
 });
+
+/**
+ * The checkout as a setup step sees it: the page to come back to, with every choice in its query.
+ * Handed to the screens as their `returnTo` prop — already decoded, as the route files pass it.
+ */
+const CHECKOUT_RETURN = '/customer/checkout?channel=web-shop&date=2026-11-02&slot=midday';
 
 /* ══ authored entities ═════════════════════════════════════════════════════════════════════════ */
 
@@ -432,8 +429,11 @@ describe('AccountScreen', () => {
             /Waiting for the new terms/,
         );
 
+        // Straight to the form, not to a list of none. (Whether the account page also names
+        // itself as the return is the account page's business — asserted on the steps below.)
         await fireEvent.press(screen.getByTestId('account-step-add_address-open'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/addresses');
+        const opened = routerMock.__push.mock.calls.at(-1)?.[0] as string;
+        expect(pathnameOf(opened)).toBe('/customer/account/addresses/new');
 
         // The notice stays above whichever section is open.
         await fireEvent.press(screen.getByTestId('account-tab-payments'));
@@ -794,6 +794,72 @@ describe('AccountScreen — profile', () => {
     });
 });
 
+/* ══ the setup steps ═══════════════════════════════════════════════════════════════════════════ */
+
+describe('AccountSetupSteps', () => {
+    /*
+     * A step is a detour: each row opens its screen carrying the page that listed it, so finishing
+     * the step comes straight back — the checkout with its address, date and window intact.
+     */
+    it('opens each step’s own screen carrying the page that listed it', async () => {
+        await renderStubScreen(
+            <AccountSetupSteps
+                testID="steps"
+                returnTo={CHECKOUT_RETURN}
+                steps={[
+                    { step: 'verify_phone' },
+                    { step: 'add_address', hasAddress: false },
+                    { step: 'dietary_profile' },
+                    { step: 'consents' },
+                ]}
+            />,
+            { session: testMeResponse() },
+        );
+
+        for (const step of [
+            'verify_phone',
+            'add_address',
+            'dietary_profile',
+            'consents',
+        ] as const) {
+            await fireEvent.press(screen.getByTestId(`steps-${step}-open`));
+            expect(routerMock.__push).toHaveBeenLastCalledWith(
+                withReturnTo(ACCOUNT_STEP_ROUTES[step], CHECKOUT_RETURN),
+            );
+        }
+        // The address step is the form itself, never the list.
+        expect(ACCOUNT_STEP_ROUTES.add_address).toBe('/customer/account/addresses/new');
+        // The return rides in the query, encoded for the router's two decodes.
+        const last = routerMock.__push.mock.calls.at(-1)?.[0] as string;
+        expect(decodeURIComponent(queryOf(last)['returnTo'] ?? '')).toBe(CHECKOUT_RETURN);
+    });
+
+    it('opens a step bare when nothing listed it', async () => {
+        await renderStubScreen(
+            <AccountSetupSteps testID="steps" steps={[{ step: 'add_address' }]} />,
+            { session: testMeResponse() },
+        );
+        await fireEvent.press(screen.getByTestId('steps-add_address-open'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/addresses/new');
+    });
+
+    it('will not open a step the server says cannot be done yet', async () => {
+        await renderStubScreen(
+            <AccountSetupSteps
+                testID="steps"
+                returnTo={CHECKOUT_RETURN}
+                steps={[{ step: 'consents', blockedReason: 'Waiting for the new terms' }]}
+            />,
+            { session: testMeResponse() },
+        );
+        expect(screen.getByTestId('steps-consents-open').props.accessibilityState.disabled).toBe(
+            true,
+        );
+        await fireEvent.press(screen.getByTestId('steps-consents-open'));
+        expect(routerMock.__push).not.toHaveBeenCalled();
+    });
+});
+
 /* ══ phone and the one-time code ═══════════════════════════════════════════════════════════════ */
 
 describe('PhoneScreen', () => {
@@ -847,6 +913,87 @@ describe('PhoneScreen', () => {
             challengeId: challenge.id,
             code: TEST_CODE,
         });
+
+        // The challenge in flight went into the URL, so a refresh resumes it rather than sending
+        // another — and came out again once spent.
+        expect(routerMock.__router.setParams).toHaveBeenCalledWith({ challenge: challenge.id });
+        expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ challenge: undefined });
+
+        // Opened from the account, it stays to say so, and the way on names where it goes.
+        expect(screen.getByTestId('phone-screen-back')).toHaveTextContent('Back to your account');
+        await fireEvent.press(screen.getByTestId('phone-screen-back'));
+        expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(
+            '/customer/account?section=profile',
+        );
+        expect(routerMock.__push).not.toHaveBeenCalled();
+    });
+
+    /** Sent by the checkout: confirmed means straight back there, with a word on the way. */
+    it('goes straight back to the step that sent it once the number is confirmed', async () => {
+        const challenge = otpChallenge();
+        const contact = phoneContact();
+
+        await renderStubScreen(<PhoneScreen returnTo={CHECKOUT_RETURN} />, {
+            session: testMeResponse(),
+            repositories: {
+                verification: {
+                    listContactPoints: async () => [contact],
+                    issueChallenge: async () => challenge,
+                    getChallenge: async () => challenge,
+                    verifyChallenge: async ({ challengeId }): Promise<OtpVerificationResult> => ({
+                        challengeId,
+                        purpose: 'contact_verification',
+                        verifiedAt: NOW,
+                        contactPointId: contact.id,
+                        stepUpUntil: null,
+                    }),
+                },
+            },
+        });
+
+        // The trail names the checkout, not the account.
+        expect(await screen.findByTestId('phone-screen-trail-up')).toHaveTextContent('Checkout');
+
+        await fireEvent.press(await screen.findByTestId('phone-screen-send'));
+        await fireEvent.changeText(
+            await screen.findByTestId('phone-screen-challenge-code-input'),
+            TEST_CODE,
+        );
+        await fireEvent.press(screen.getByTestId('phone-screen-challenge-submit'));
+
+        await waitFor(() => {
+            expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(CHECKOUT_RETURN);
+        });
+        expect(await screen.findByTestId('phone-screen-verified-toast')).toHaveTextContent(
+            /Mobile number confirmed\./,
+        );
+        // Never a push after the work is done: Back from the checkout is not the code form.
+        expect(routerMock.__push).not.toHaveBeenCalled();
+    });
+
+    /** `?challenge=` is a code already sent: the screen resumes it instead of offering another. */
+    it('resumes the challenge in its URL instead of offering to send a new code', async () => {
+        const challenge = otpChallenge({ id: 'challenge-resumed' });
+
+        const { repositories } = await renderStubScreen(
+            <PhoneScreen challengeId="challenge-resumed" />,
+            {
+                session: testMeResponse(),
+                repositories: {
+                    verification: {
+                        listContactPoints: async () => [phoneContact()],
+                        getChallenge: async () => challenge,
+                    },
+                },
+            },
+        );
+
+        expect(await screen.findByTestId('phone-screen-challenge-code-input')).toBeTruthy();
+        expect(repositories.verification.getChallenge).toHaveBeenCalledWith({
+            challengeId: 'challenge-resumed',
+        });
+        expect(screen.queryByTestId('phone-screen-send')).toBeNull();
+        expect(repositories.verification.issueChallenge).not.toHaveBeenCalled();
     });
 
     it('says a number is already on the account rather than showing a stale-write conflict', async () => {
@@ -936,10 +1083,198 @@ describe('AddressEditorScreen', () => {
                 makeDefault: false,
             });
         });
-        // A saved address returns to the list rather than sitting on a filled-in form.
+        // Opened from the account, a saved address goes back to the account's address list — by
+        // name, so Back afterwards is never the submitted form — and says it was saved.
         await waitFor(() => {
-            expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/addresses');
+            expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(ADDRESSES_HOME);
         });
+        expect(ADDRESSES_HOME).toBe('/customer/account?section=addresses');
+        expect(await screen.findByTestId('address-editor-saved')).toHaveTextContent(
+            /Address saved\./,
+        );
+        expect(routerMock.__push).not.toHaveBeenCalled();
+    });
+});
+
+describe('AddressEditorScreen — as a detour', () => {
+    const AREA = serviceArea(1, 'Jumeirah');
+
+    function savedAddress(id: string, overrides: Partial<CustomerAddress> = {}): CustomerAddress {
+        return {
+            id,
+            label: 'Home',
+            areaId: AREA.id,
+            areaName: AREA.name,
+            isDeliverable: true,
+            line1: '12 Sunset Street',
+            line2: null,
+            building: null,
+            floor: null,
+            notes: null,
+            isDefault: false,
+            ...overrides,
+        };
+    }
+
+    async function fillNewAddress(): Promise<void> {
+        await fireEvent.changeText(await screen.findByTestId('address-editor-label'), 'Office');
+        await fireEvent.press(screen.getByTestId('address-editor-area-trigger'));
+        await fireEvent.press(await screen.findByTestId(`address-editor-area-option-${AREA.id}`));
+        await fireEvent.changeText(screen.getByTestId('address-editor-line1'), '1 Tower Road');
+    }
+
+    it('saves straight back to the checkout, with the new address chosen there', async () => {
+        await renderStubScreen(<AddressEditorScreen addressId="new" returnTo={CHECKOUT_RETURN} />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    listServiceAreas: async () => [AREA],
+                    addAddress: async (request) =>
+                        savedAddress('address-new', { label: request.label }),
+                },
+            },
+        });
+
+        // The way back names where it goes.
+        expect(await screen.findByTestId('address-editor-trail-up')).toHaveTextContent('Checkout');
+
+        await fillNewAddress();
+        await fireEvent.press(screen.getByTestId('address-editor-save'));
+
+        // The checkout exactly as it was left, plus the address just saved.
+        await waitFor(() => {
+            expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(
+                `${CHECKOUT_RETURN}&address=address-new`,
+            );
+        });
+        expect(await screen.findByTestId('address-editor-saved')).toHaveTextContent(
+            /Address saved\./,
+        );
+        expect(routerMock.__push).not.toHaveBeenCalled();
+        expect(routerMock.__replace).not.toHaveBeenCalled();
+    });
+
+    it('saves an edit back to the checkout with the same address still chosen', async () => {
+        const address = savedAddress('address-home', { isDefault: true });
+        const { repositories } = await renderStubScreen(
+            <AddressEditorScreen addressId="address-home" returnTo={CHECKOUT_RETURN} />,
+            {
+                session: testMeResponse(),
+                repositories: {
+                    account: {
+                        listAddresses: async () => [address],
+                        listServiceAreas: async () => [AREA],
+                        updateAddress: async (request) =>
+                            savedAddress('address-home', {
+                                label: request.label,
+                                isDefault: true,
+                            }),
+                    },
+                },
+            },
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('address-editor-line1-input').props.value).toBe(
+                '12 Sunset Street',
+            );
+        });
+        await fireEvent.changeText(screen.getByTestId('address-editor-line1'), '14 Sunset Street');
+        await fireEvent.press(screen.getByTestId('address-editor-save'));
+
+        await waitFor(() => {
+            expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(
+                `${CHECKOUT_RETURN}&address=address-home`,
+            );
+        });
+        expect(repositories.account.updateAddress).toHaveBeenCalledWith(
+            expect.objectContaining({ addressId: 'address-home', line1: '14 Sunset Street' }),
+        );
+    });
+
+    it('cancels back to the checkout as it was, without the address', async () => {
+        await renderStubScreen(<AddressEditorScreen addressId="new" returnTo={CHECKOUT_RETURN} />, {
+            session: testMeResponse(),
+            repositories: { account: { listServiceAreas: async () => [AREA] } },
+        });
+
+        await fireEvent.press(await screen.findByTestId('address-editor-cancel'));
+        expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(CHECKOUT_RETURN);
+    });
+
+    it('cancels to the previous page when opened directly, or to the list after a refresh', async () => {
+        await renderStubScreen(<AddressEditorScreen addressId="new" />, {
+            session: testMeResponse(),
+            repositories: { account: { listServiceAreas: async () => [AREA] } },
+        });
+        // The trail names the parent itself when nothing sent the person here.
+        expect(await screen.findByTestId('address-editor-trail-up')).toHaveTextContent('Addresses');
+
+        // Cold: nothing to go back to, so the list replaces the form.
+        await fireEvent.press(await screen.findByTestId('address-editor-cancel'));
+        expect(routerMock.__replace).toHaveBeenCalledWith(ADDRESSES_HOME);
+        expect(routerMock.__router.back).not.toHaveBeenCalled();
+
+        // Warm: the page underneath is wherever the person came from.
+        await act(async () => {
+            routerMock.__set({ canGoBack: true });
+        });
+        await fireEvent.press(screen.getByTestId('address-editor-cancel'));
+        expect(routerMock.__router.back).toHaveBeenCalledTimes(1);
+    });
+
+    it('asks before throwing away what was typed', async () => {
+        await renderStubScreen(<AddressEditorScreen addressId="new" returnTo={CHECKOUT_RETURN} />, {
+            session: testMeResponse(),
+            repositories: { account: { listServiceAreas: async () => [AREA] } },
+        });
+        await fireEvent.changeText(await screen.findByTestId('address-editor-label'), 'Office');
+
+        // Cancel and the trail both ask first.
+        await fireEvent.press(screen.getByTestId('address-editor-cancel'));
+        expect(await screen.findByTestId('address-editor-unsaved-keep')).toBeTruthy();
+        expect(routerMock.__router.dismissTo).not.toHaveBeenCalled();
+
+        await fireEvent.press(screen.getByTestId('address-editor-unsaved-keep'));
+        await waitFor(() => {
+            expect(screen.queryByTestId('address-editor-unsaved-keep')).toBeNull();
+        });
+        expect(screen.getByTestId('address-editor-label-input').props.value).toBe('Office');
+
+        await fireEvent.press(screen.getByTestId('address-editor-trail-up'));
+        await fireEvent.press(await screen.findByTestId('address-editor-unsaved-discard'));
+        expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(CHECKOUT_RETURN);
+    });
+
+    it('says when the address to edit is gone, with the way back to the checkout', async () => {
+        await renderStubScreen(
+            <AddressEditorScreen addressId="address-gone" returnTo={CHECKOUT_RETURN} />,
+            {
+                session: testMeResponse(),
+                repositories: {
+                    account: {
+                        listAddresses: async () => [],
+                        listServiceAreas: async () => [AREA],
+                    },
+                },
+            },
+        );
+
+        const back = await screen.findByTestId('address-editor-missing-back');
+        expect(back).toHaveTextContent('Back to checkout');
+        await fireEvent.press(back);
+        expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(CHECKOUT_RETURN);
+    });
+
+    it('ignores a return that is not a page of this application', async () => {
+        await renderStubScreen(<AddressEditorScreen addressId="new" returnTo="//evil.com" />, {
+            session: testMeResponse(),
+            repositories: { account: { listServiceAreas: async () => [AREA] } },
+        });
+
+        await fireEvent.press(await screen.findByTestId('address-editor-cancel'));
+        expect(routerMock.__replace).toHaveBeenCalledWith(ADDRESSES_HOME);
+        expect(routerMock.__router.dismissTo).not.toHaveBeenCalled();
     });
 });
 
@@ -986,11 +1321,15 @@ describe('AllergiesScreen', () => {
 
         // "None" is a real answer, not silence: the saved profile carries a timestamp, so the
         // re-seeded screen reads "no" rather than falling back to the unanswered state.
-        expect(await screen.findByTestId('allergies-screen-saved')).toBeTruthy();
+        expect(await screen.findByTestId('allergies-screen-saved-toast')).toHaveTextContent(
+            /Allergies and diet saved\./,
+        );
         await waitFor(() => {
             expect(screen.getByTestId('allergies-screen-none')).toBeTruthy();
         });
         expect(screen.queryByTestId('allergies-screen-unanswered')).toBeNull();
+        // Opened from the account, saving stays on the page.
+        expect(routerMock.__router.dismissTo).not.toHaveBeenCalled();
     });
 
     it('declares a ticked allergen at the strictest severity', async () => {
@@ -1024,10 +1363,53 @@ describe('AllergiesScreen', () => {
 
         // The saved profile becomes the seed again, so the declaration survives the refetch the
         // save triggers rather than reverting to the unanswered state.
-        expect(await screen.findByTestId('allergies-screen-saved')).toBeTruthy();
+        expect(await screen.findByTestId('allergies-screen-saved-toast')).toBeTruthy();
         await waitFor(() => {
             expect(screen.getByTestId('allergies-screen-allergens-row-peanut')).toBeTruthy();
         });
+    });
+
+    it('goes straight back to the step that asked, once the answer is saved', async () => {
+        let profile = dietaryProfile();
+        await renderStubScreen(<AllergiesScreen returnTo={CHECKOUT_RETURN} />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getDietaryProfile: async () => profile,
+                    saveDietaryProfile: async (request) => {
+                        profile = { ...request, updatedAt: NOW };
+                        return profile;
+                    },
+                },
+            },
+        });
+
+        expect(await screen.findByTestId('allergies-screen-trail-up')).toHaveTextContent(
+            'Checkout',
+        );
+        await fireEvent.press(await screen.findByTestId('allergies-screen-answer-no'));
+        await fireEvent.press(screen.getByTestId('allergies-screen-save'));
+
+        await waitFor(() => {
+            expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(CHECKOUT_RETURN);
+        });
+        expect(await screen.findByTestId('allergies-screen-saved-toast')).toBeTruthy();
+        expect(routerMock.__push).not.toHaveBeenCalled();
+    });
+
+    it('asks before leaving an unsaved answer behind', async () => {
+        await renderStubScreen(<AllergiesScreen returnTo={CHECKOUT_RETURN} />, {
+            session: testMeResponse(),
+            repositories: { account: { getDietaryProfile: async () => dietaryProfile() } },
+        });
+
+        await fireEvent.press(await screen.findByTestId('allergies-screen-answer-yes'));
+        await fireEvent.press(screen.getByTestId('allergies-screen-trail-up'));
+        expect(await screen.findByTestId('allergies-screen-unsaved-discard')).toBeTruthy();
+        expect(routerMock.__router.dismissTo).not.toHaveBeenCalled();
+
+        await fireEvent.press(screen.getByTestId('allergies-screen-unsaved-discard'));
+        expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(CHECKOUT_RETURN);
     });
 });
 
@@ -1155,5 +1537,90 @@ describe('ConsentsScreen', () => {
         );
         expect(screen.queryByTestId('consents-screen-required')).toBeNull();
         expect(screen.queryByTestId('consents-screen-age-blocking')).toBeNull();
+    });
+
+    /*
+     * Every consent saves the moment it is pressed, so there is nothing to submit — but somebody the
+     * checkout sent here needs a way back once everything it needs is agreed, and only then.
+     */
+    it('offers the way back to the checkout once the age and every required consent are agreed', async () => {
+        let consents: readonly ConsentState[] = [
+            consent('consent.age_confirmation', { required: true }),
+            consent('terms_of_service', { required: true }),
+            consent('privacy_notice', { required: true }),
+            consent('consent.marketing_email'),
+        ];
+        await renderStubScreen(<ConsentsScreen returnTo={CHECKOUT_RETURN} />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    listConsents: async () => consents,
+                    setConsent: async ({ key, granted }) => {
+                        consents = applyConsent(consents, key, granted);
+                        const written = consents.find((entry) => entry.definition.key === key);
+                        if (written === undefined) throw new Error(`No consent ${key}.`);
+                        return written;
+                    },
+                },
+            },
+        });
+
+        const done = () => screen.getByTestId('consents-screen-done');
+        expect(await screen.findByTestId('consents-screen-done')).toHaveTextContent(
+            'Back to checkout',
+        );
+        expect(screen.getByTestId('consents-screen-trail-up')).toHaveTextContent('Checkout');
+        expect(done().props.accessibilityState.disabled).toBe(true);
+
+        await fireEvent.press(screen.getByTestId('consents-screen-age-checkbox-control'));
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('consent-terms_of_service-grant').props.accessibilityState
+                    .disabled,
+            ).toBe(false);
+        });
+        // The age alone is not enough: two required agreements are still outstanding.
+        expect(done().props.accessibilityState.disabled).toBe(true);
+
+        await fireEvent.press(screen.getByTestId('consent-terms_of_service-grant'));
+        await waitFor(() => {
+            expect(screen.getByTestId('consent-terms_of_service-status')).toHaveTextContent(
+                /Agreed/,
+            );
+        });
+        expect(done().props.accessibilityState.disabled).toBe(true);
+
+        await fireEvent.press(screen.getByTestId('consent-privacy_notice-grant'));
+        // The optional one stays unagreed, and does not hold the way back.
+        await waitFor(() => {
+            expect(done().props.accessibilityState.disabled).toBe(false);
+        });
+
+        await fireEvent.press(done());
+        expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(CHECKOUT_RETURN);
+        expect(routerMock.__push).not.toHaveBeenCalled();
+    });
+
+    it('reads Done, and leaves for the account, when nothing sent the person here', async () => {
+        await renderStubScreen(<ConsentsScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    // Nothing agreed: from the account, leaving is the person's own choice.
+                    listConsents: async () => [
+                        consent('consent.age_confirmation', { required: true }),
+                        consent('terms_of_service', { required: true }),
+                    ],
+                },
+            },
+        });
+
+        const done = await screen.findByTestId('consents-screen-done');
+        expect(done).toHaveTextContent('Done');
+        expect(done.props.accessibilityState.disabled).toBe(false);
+        await fireEvent.press(done);
+        expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(
+            '/customer/account?section=notifications',
+        );
     });
 });

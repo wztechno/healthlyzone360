@@ -10,6 +10,7 @@ import {
     Stack,
     Text,
     TextInputField,
+    useToast,
 } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -21,6 +22,8 @@ import {
     useContactPointsQuery,
     useIssueChallengeMutation,
 } from '../../../data/account-hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { SubpageTrail } from '../../../ui/subpage-trail.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { PhoneChallenge } from '../phone-challenge.tsx';
 import { DEFAULT_DIALING_CODE, DIALING_CODES, toE164, validatePhone } from '../phone.ts';
@@ -53,9 +56,23 @@ import { DEFAULT_DIALING_CODE, DIALING_CODES, toE164, validatePhone } from '../p
  * conflict copy ("somebody else changed this while you were editing it") is *wrong* here — nobody
  * changed anything — so the screen says what actually happened and points at the thing they already
  * have. That is the difference between an error message and an answer.
+ *
+ * ## Confirming goes back to whoever sent the person here
+ *
+ * Opened from the checkout or the plan setup (`?returnTo=`), a confirmed number returns there at
+ * once with a short toast — the person came to finish an order. Opened from the account, the
+ * confirmation stays on screen with a way back. The challenge in flight is `?challenge=`, so a
+ * refresh resumes the code that was sent instead of sending another.
  */
 
 const TEST_ID = 'phone-screen';
+
+export interface PhoneScreenProps {
+    /** The route's `?returnTo=` — the page to go back to once the number is confirmed. */
+    readonly returnTo?: string | undefined;
+    /** The route's `?challenge=` — a code challenge already in flight. */
+    readonly challengeId?: string | undefined;
+}
 
 /** The phone contact a person is working with: the confirmed one, else the most recent unconfirmed. */
 function currentPhone(contacts: readonly ContactPoint[]): ContactPoint | null {
@@ -63,9 +80,11 @@ function currentPhone(contacts: readonly ContactPoint[]): ContactPoint | null {
     return phones.find((contact) => contact.verified) ?? phones[phones.length - 1] ?? null;
 }
 
-export function PhoneScreen() {
+export function PhoneScreen({ returnTo, challengeId: challengeParam }: PhoneScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
+    const toast = useToast();
+    const back = useReturnTo(returnTo, '/customer/account?section=profile');
 
     const contacts = useContactPointsQuery();
     const addContact = useAddContactPointMutation();
@@ -74,9 +93,39 @@ export function PhoneScreen() {
     const [dial, setDial] = useState<string>(DEFAULT_DIALING_CODE.dial);
     const [national, setNational] = useState('');
     const [submitted, setSubmitted] = useState(false);
-    /** The challenge this screen is currently driving. `null` until one is issued or resumed. */
-    const [challengeId, setChallengeId] = useState<string | null>(null);
+    /**
+     * The challenge this screen is currently driving. Mirrored into the URL so a refresh resumes
+     * it; held here as well so the panel appears on the same render the challenge is issued.
+     */
+    const [issuedChallenge, setIssuedChallenge] = useState<string | null>(null);
+    const challengeId =
+        issuedChallenge ??
+        (challengeParam === undefined || challengeParam === '' ? null : challengeParam);
+    const setChallengeId = (id: string) => {
+        setIssuedChallenge(id);
+        router.setParams({ challenge: id } as never);
+    };
     const [verified, setVerified] = useState(false);
+
+    const onVerified = () => {
+        if (back.returnTo === null) {
+            setVerified(true);
+            // The challenge is spent. Left in the URL, a refresh would reopen a code entry for it
+            // instead of showing the confirmed number.
+            router.setParams({ challenge: undefined } as never);
+            return;
+        }
+        toast.show({
+            testID: `${TEST_ID}-verified-toast`,
+            tone: 'success',
+            message: t('account:phone.verifiedToast'),
+        });
+        back.finish();
+    };
+
+    const trail = (
+        <SubpageTrail testID={`${TEST_ID}-trail`} back={back} current={t('account:phone.title')} />
+    );
 
     const phone = currentPhone(contacts.data ?? []);
     const errorKey = validatePhone(dial, national);
@@ -118,6 +167,7 @@ export function PhoneScreen() {
     if (verified) {
         return (
             <Stack space="lg" testID={`${TEST_ID}-verified`}>
+                {trail}
                 <Heading level={1}>{t('account:phone.title')}</Heading>
                 <Callout
                     testID={`${TEST_ID}-verified-callout`}
@@ -128,9 +178,9 @@ export function PhoneScreen() {
                     actions={
                         <Button
                             testID={`${TEST_ID}-back`}
-                            label={t('account:phone.backToAccount')}
+                            label={t(`common:returnTo.${back.destination}`)}
                             onPress={() => {
-                                router.push('/customer/account' as never);
+                                back.finish();
                             }}
                         />
                     }
@@ -141,6 +191,7 @@ export function PhoneScreen() {
 
     return (
         <Stack space="lg" testID={TEST_ID}>
+            {trail}
             <Stack space="xs">
                 <Heading level={1} testID={`${TEST_ID}-title`}>
                     {t('account:phone.title')}
@@ -270,9 +321,7 @@ export function PhoneScreen() {
                             <PhoneChallenge
                                 testID={`${TEST_ID}-challenge`}
                                 challengeId={challengeId}
-                                onVerified={() => {
-                                    setVerified(true);
-                                }}
+                                onVerified={onVerified}
                             />
                         </Card>
                     )}

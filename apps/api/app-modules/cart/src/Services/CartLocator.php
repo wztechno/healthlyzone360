@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Cart\Services;
 
+use Healthy360\Cart\Enums\CartStatus;
 use Healthy360\Cart\Models\Cart;
 use Healthy360\Cart\Models\CartItem;
 use Healthy360\Catalogues\Enums\SalesChannelStatus;
@@ -134,28 +135,42 @@ final class CartLocator
     }
 
     /**
-     * The trading channel a basket is opened against, by its code.
+     * The trading channel a basket is opened against, by its code — and, when
+     * one is named, the kitchen that runs it.
      *
      * **Read without tenancy, deliberately.** `SalesChannel` is
      * organisation-scoped and fails closed, and a customer has selected no
      * organisation — the scope would throw before it could return anything.
-     * The bypass is what makes a code resolvable across kitchens, which is the
-     * whole point: a shopper names the channel they are buying through, and
-     * which kitchen owns it is the *answer*, not an input.
+     * The bypass is what lets a shopper reach a kitchen's channel at all.
+     *
+     * **A code alone is not one channel.** Codes are unique per organisation
+     * (`sales_channels` carries `unique(organisation_id, code)`), so every
+     * marketplace kitchen has its own `web-shop`, and the bypass above turns a
+     * bare code into a list. Taking that list's `first()` with no order is how
+     * a consumer's basket came to belong to whichever kitchen the planner
+     * returned first, refusing every other kitchen's meal (browse-03). So the
+     * organisation narrows the code to exactly one row; without one, the
+     * oldest active channel is taken, which at least answers the same way
+     * twice — `channelForShopper` prefers the shopper's own basket before it
+     * ever falls back to this.
      *
      * An inactive channel is `resource.not_found` rather than a 422. A kitchen
      * that has stopped trading through a route to market has stopped offering
      * it, and telling an anonymous-ish caller that a code exists but is
      * switched off leaks a kitchen's commercial state to anybody who can guess
-     * a string.
+     * a string. A kitchen that never ran the code answers the same, for the
+     * same reason.
      *
      * @throws ApiException
      */
-    public function channel(string $code): SalesChannel
+    public function channel(string $code, ?string $organisationId = null): SalesChannel
     {
         $channel = SalesChannel::withoutTenancy()
             ->where('code', $code)
             ->where('status', SalesChannelStatus::Active->value)
+            ->when($organisationId !== null, fn ($query) => $query->where('organisation_id', $organisationId))
+            ->orderBy('created_at')
+            ->orderBy('id')
             ->first();
 
         if (! $channel instanceof SalesChannel) {
@@ -168,13 +183,59 @@ final class CartLocator
     /**
      * Resolve a trading channel and confirm the shopper may use it.
      *
+     * Three answers, most specific first:
+     *
+     * 1. **A named kitchen** — that kitchen's channel with this code. It is
+     *    what "add this meal" sends, so the basket opens on the meal's own
+     *    kitchen instead of refusing it.
+     * 2. **The shopper's open basket on this code** — what "show me my basket"
+     *    means when nothing is named (the header's count, the basket page,
+     *    checkout). One with lines beats an empty one, then the most recently
+     *    touched: a shopper who started a new basket at another kitchen
+     *    emptied the old one on the way, and the basket they are filling is
+     *    the one they mean.
+     * 3. **The oldest active channel with the code** — a shopper with no basket
+     *    yet. Which kitchen it belongs to does not matter while it is empty:
+     *    the first add names its kitchen and lands in (1).
+     *
      * @throws ApiException
      */
-    public function channelForShopper(string $code, CustomerAccount $shopper): SalesChannel
+    public function channelForShopper(string $code, CustomerAccount $shopper, ?string $kitchenId = null): SalesChannel
     {
-        $channel = $this->channel($code);
+        $channel = $kitchenId !== null
+            ? $this->channel($code, $kitchenId)
+            : ($this->channelOfOpenCart($code, $shopper) ?? $this->channel($code));
+
         $this->assertShopperMayUseChannel($shopper, $channel);
 
         return $channel;
+    }
+
+    /**
+     * The active channel with this code that the shopper already has an open
+     * basket on, or `null`. See `channelForShopper` for the order.
+     */
+    private function channelOfOpenCart(string $code, CustomerAccount $shopper): ?SalesChannel
+    {
+        $channelIds = SalesChannel::withoutTenancy()
+            ->select('id')
+            ->where('code', $code)
+            ->where('status', SalesChannelStatus::Active->value);
+
+        $cart = Cart::query()
+            ->where('customer_account_id', $shopper->getKey())
+            ->where('status', CartStatus::Open)
+            ->whereIn('sales_channel_id', $channelIds)
+            ->withExists('items')
+            ->orderByDesc('items_exists')
+            ->orderByDesc('updated_at')
+            ->orderBy('id')
+            ->first();
+
+        if (! $cart instanceof Cart) {
+            return null;
+        }
+
+        return SalesChannel::withoutTenancy()->whereKey($cart->sales_channel_id)->first();
     }
 }

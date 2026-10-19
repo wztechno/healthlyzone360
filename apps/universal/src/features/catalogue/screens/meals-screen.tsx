@@ -1,22 +1,28 @@
-import { Button, Stack } from '@healthy360/design-system';
+import { Button, SearchInput, Stack } from '@healthy360/design-system';
 import type {
     AllergenCode,
     CurrencyCode,
     DietClassification,
     KitchenId,
 } from '@healthy360/domain-types';
+import { ROUTE_PATHS } from '@healthy360/permissions';
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { mealsFromPages, totalFromPages, useMealsQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
+import { useRememberQuery } from '../../../navigation/use-return-to.ts';
 import { ListingHeader } from '../../../ui/listing-header.tsx';
-import { useMarketplaceFilters } from '../../marketplace/filter-bar.tsx';
+import {
+    QUERY_PARAM,
+    useMarketplaceFilters,
+    useSearchDraft,
+} from '../../marketplace/filter-bar.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { ToolbarRow } from '../../marketplace/toolbar-row.tsx';
 import { CategoryTabs, MealFilterBar, rangeChips } from '../meal-filter-bar.tsx';
@@ -24,6 +30,7 @@ import { MEAL_RANGE_KEYS, toMealFilter, useMealRanges } from '../meal-filters.ts
 import { isMenuSort, refineMeals } from '../meal-readings.ts';
 import { MenuGrid } from '../menu-grid.tsx';
 import { MenuMealCard } from '../menu-meal-card.tsx';
+import { useMenuSearchFocus } from '../menu-search-focus.ts';
 import { shownCategory, shownItemTypes } from '../shown-shelves.ts';
 import { useMealShelves } from '../use-meal-shelves.ts';
 
@@ -41,8 +48,18 @@ import { useMealShelves } from '../use-meal-shelves.ts';
  * ## Every control writes to the URL
  *
  * Text, chips and ranges all land in the address bar, which is what makes a filtered catalogue a
- * *place*: linkable, reloadable and reachable with the back button. The search field is the
- * chrome's (`shell/marketplace-shell.tsx`), and writes the same `?q=`.
+ * *place*: linkable, reloadable and reachable with the back button. The page's query is also
+ * remembered for this visit (`useRememberQuery`), so a meal's "Today's menu" crumb comes back to the
+ * menu as it was left even when it cannot simply go Back.
+ *
+ * ## The search field is the page's own
+ *
+ * It used to be the chrome's alone, drawn only from `xl`: a tablet's search button opened this
+ * page with nothing to type in, a phone had no search at all, and an applied `?q=` showed no chip
+ * and no way to lift it (browse-06). Now the field opens the filter bar at every width, settles for
+ * a moment before it becomes `?q=` (`useSearchDraft`), and the term is a removable chip like every
+ * other filter. The header's field (from `xl`) writes the same `?q=` in place, so the two never
+ * disagree and a search from the header narrows the filters already applied.
  *
  * ## What the server filters, and what the page does
  *
@@ -66,6 +83,9 @@ const GROUP_KEYS = [...CHIP_GROUP_KEYS, 'sort'] as const;
 /** Meals fetched per page. Twenty fills two screens on a desktop grid and one on a phone. */
 const PAGE_SIZE = 20;
 
+/** The page's search field; its input is `${SEARCH_TEST_ID}-input`. */
+const SEARCH_TEST_ID = 'meals-search';
+
 /**
  * The currency the price filter is typed in.
  *
@@ -83,6 +103,17 @@ export function MealsScreen() {
     const ranges = useMealRanges();
     const shelves = useMealShelves();
     const formatter = useFormatter();
+    const search = useSearchDraft(filters);
+    useRememberQuery();
+
+    // The header's search button asks for the cursor here. The field is a DOM input on the web;
+    // on a phone the field is the first thing on the page, so there is nothing to find.
+    const focusSearch = useCallback(() => {
+        if (Platform.OS !== 'web') return;
+        const field = globalThis.document.querySelector(`[data-testid="${SEARCH_TEST_ID}-input"]`);
+        if (field instanceof globalThis.HTMLElement) field.focus();
+    }, []);
+    useMenuSearchFocus(focusSearch);
 
     const kitchens = useKitchensQuery({ channels: ['marketplace'], limit: 20 });
     const kitchenItems = useMemo(() => kitchens.data?.items ?? [], [kitchens.data]);
@@ -190,8 +221,28 @@ export function MealsScreen() {
                     },
                 })),
         );
-        return [...groups, ...rangeChips(ranges, PRICE_CURRENCY, t, formatter.formatNumber)];
-    }, [selected, kitchenItems, shelves.shelves, filters, ranges, formatter, t]);
+        // The term leads: it is what the person typed, and the narrowing they are most likely to
+        // want to take back first.
+        const searchLabel = t('catalogue:filters.searchChip', { term: searchTerm });
+        const term =
+            searchTerm === ''
+                ? []
+                : [
+                      {
+                          key: QUERY_PARAM,
+                          label: searchLabel,
+                          removeLabel: t('catalogue:filters.removeFilter', { filter: searchLabel }),
+                          onRemove: () => {
+                              filters.setQuery('');
+                          },
+                      },
+                  ];
+        return [
+            ...term,
+            ...groups,
+            ...rangeChips(ranges, PRICE_CURRENCY, t, formatter.formatNumber),
+        ];
+    }, [searchTerm, selected, kitchenItems, shelves.shelves, filters, ranges, formatter, t]);
 
     return (
         <Stack space="lg" testID="meals-screen">
@@ -201,8 +252,11 @@ export function MealsScreen() {
                     {
                         key: 'home',
                         label: t('catalogue:nav.home'),
+                        testID: 'meals-crumb-home',
+                        // The marketplace home, not `/`: `/` is the launch resolver, which drew a
+                        // blank frame and sent an unconfirmed account to verification (browse-10).
                         onPress: () => {
-                            router.push('/');
+                            router.navigate(ROUTE_PATHS.customerHome as never);
                         },
                     },
                     { key: 'meals', label: t('catalogue:meals.title') },
@@ -229,6 +283,19 @@ export function MealsScreen() {
                     onSort={(next) => {
                         filters.select('sort', next === 'relevance' ? null : next);
                     }}
+                    search={
+                        <SearchInput
+                            testID={SEARCH_TEST_ID}
+                            label={t('marketplace:nav.searchLabel')}
+                            placeholder={t('marketplace:nav.searchPlaceholder')}
+                            value={search.draft}
+                            onChangeText={search.setDraft}
+                            onSubmitEditing={search.submit}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            size="md"
+                        />
+                    }
                 />
                 {activeChips.length === 0 ? null : (
                     <ToolbarRow

@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { mealsFromPages, useMealsQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
+import { useNavigateUp, useRememberQuery } from '../../../navigation/use-return-to.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { ListingHeader } from '../../../ui/listing-header.tsx';
 import { FilterBar, useMarketplaceFilters } from '../filter-bar.tsx';
@@ -49,7 +50,13 @@ export interface KitchenMenuScreenProps {
  *
  * The searchable view of what the storefront's Menu tab lists by shelf (`kitchen-profile-screen.tsx`).
  * HealthZone draws no page of its own for it; the tab carries no search box and no item-type or
- * meal-type filter, so this is where the storefront's "Start an order" lands.
+ * meal-type filter, so the tab links here as "Search this menu". (The storefront's "Start an order"
+ * used to land here, on a second copy of the dishes the tab already shows; it opens the tab now.)
+ *
+ * The trail goes *up*, not forward (browse-05, browse-12): "{Kitchen}" is Back when the storefront
+ * is the entry below — its tab and shelf as they were — and otherwise the storefront with the query
+ * it was last shown with. Pushing it, as this did, stacked storefront › menu › storefront, so Back
+ * from the kitchen bounced between the two pages.
  *
  * Pressing a listing navigates to `/meals/{id}` (the marketplace show endpoint
  * accepts both published meals and products). Filter chips narrow by catalogue
@@ -63,7 +70,9 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
     const { t } = useTranslation();
     const basket = useBasketAdd({ labelKey: 'marketplace:nav.kitchens', testID: 'kitchen-menu' });
     const router = useRouter();
+    const navigateUp = useNavigateUp();
     const filters = useMarketplaceFilters(GROUP_KEYS);
+    useRememberQuery();
 
     const parsed = kitchenId === undefined ? null : KitchenId.safeParse(kitchenId);
     const kitchen = useKitchenQuery(parsed);
@@ -103,16 +112,18 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
                     {
                         key: 'kitchens',
                         label: t('marketplace:nav.kitchens'),
+                        testID: 'kitchen-menu-crumb-kitchens',
                         onPress: () => {
-                            router.push('/kitchens');
+                            navigateUp('/kitchens');
                         },
                     },
                     {
                         key: 'kitchen',
                         label: kitchen.data?.name ?? t('marketplace:kitchen.loading'),
+                        testID: 'kitchen-menu-crumb-kitchen',
                         onPress: () => {
                             if (parsed !== null) {
-                                router.push(`/kitchens/${String(parsed)}` as never);
+                                navigateUp(`/kitchens/${String(parsed)}`);
                             }
                         },
                     },

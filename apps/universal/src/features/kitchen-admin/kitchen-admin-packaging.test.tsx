@@ -713,6 +713,8 @@ describe('the packaging editor units (HA-30)', () => {
                 listAllergenClasses: async () => [],
                 listIngredients: packagingListing(() => (row === null ? [] : [row])),
                 listIngredientCategories: async () => CATEGORIES,
+                // A new item previews its handle in the packaging series; a saved one never asks.
+                nextReference: async () => 'PKG-032',
                 ...(row === null ? {} : { getIngredient: async () => row }),
             },
         };
@@ -811,5 +813,23 @@ describe('the packaging editor units (HA-30)', () => {
 
         await untilVisible('kitchen-ingredient-unit-trigger');
         expect(screen.getByTestId('kitchen-ingredient-unit-trigger')).toHaveTextContent(/Pieces/);
+    });
+
+    it('previews the next handle in the packaging series, not the ingredient one', async () => {
+        const nextReference = jest.fn(async (prefix: string) => `${prefix}032`);
+
+        await renderStubScreen(<PackagingEditScreen item="new" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: { ...editorRepositories(null).kitchenAdmin, nextReference },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-editor-screen-identity');
+        expect(nextReference).toHaveBeenCalledWith('PKG-');
+        expect(nextReference).not.toHaveBeenCalledWith('ING-');
+        expect(screen.getByTestId('kitchen-ingredient-editor-screen-identity')).toHaveTextContent(
+            'PKG-032',
+        );
     });
 });

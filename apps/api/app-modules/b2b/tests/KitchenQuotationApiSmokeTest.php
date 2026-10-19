@@ -129,6 +129,43 @@ it('serves the kitchen every line of a submitted quotation, not the buyer-scoped
 });
 
 /**
+ * Each line and the programme arrive named. Both live in a tenant foreign to
+ * one of the two sides — the articles are the kitchen's, the programme the
+ * buyer's — so without the names a screen could only print identifiers, which
+ * is what it did. The builder sends no line note, so the note is no stand-in.
+ */
+it('names every line and the programme, from both sides of the relationship', function (): void {
+    $quotation = kitchenQuotationSmokeSubmitted($this);
+
+    $names = CatalogueItem::withoutTenancy()
+        ->where('organisation_id', $this->kitchen->getKey())
+        ->where('item_type', CatalogueItemType::Meal->value)
+        ->orderBy('created_at')
+        ->take($quotation['lineCount'])
+        ->pluck('name_en')
+        ->all();
+
+    kitchenQuotationSmokeActAs($this->kitchenUser);
+
+    $kitchenSide = $this->getJson("/api/v1/b2b/kitchen/quotations/{$quotation['id']}", $this->kitchenHeaders)
+        ->assertOk()
+        ->json('data.quotation');
+
+    kitchenQuotationSmokeActAs($this->buyerUser);
+
+    $buyerSide = $this->getJson("/api/v1/b2b/quotations/{$quotation['id']}", $this->buyerHeaders)
+        ->assertOk()
+        ->json('data.quotation');
+
+    foreach ([$kitchenSide, $buyerSide] as $payload) {
+        expect(array_column($payload['lines'], 'item_name_en'))->toBe($names)
+            ->and(array_filter(array_column($payload['lines'], 'item_name_ar')))->toHaveCount($quotation['lineCount'])
+            ->and($payload['programme_name_en'])->toBe($this->programme->name_en)
+            ->and($payload['programme_name_ar'])->toBe($this->programme->name_ar);
+    }
+});
+
+/**
  * The list stays empty-lined on purpose — it is a navigation aid, and the wire
  * documents `lines: []` there. Pinned so a fix to the single read never
  * "helpfully" hydrates the index too.

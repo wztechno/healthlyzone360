@@ -13,6 +13,7 @@ use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Services\RecordPhotoService;
+use Healthy360\Catalogues\Services\StockDeductionReadiness;
 use Healthy360\Kitchens\Presenters\BranchOperatingPresenter;
 
 /**
@@ -39,7 +40,10 @@ use Healthy360\Kitchens\Presenters\BranchOperatingPresenter;
  */
 final class CatalogueItemAdminPresenter
 {
-    public function __construct(private readonly RecordPhotoService $photos) {}
+    public function __construct(
+        private readonly RecordPhotoService $photos,
+        private readonly StockDeductionReadiness $stock,
+    ) {}
 
     /**
      * @return array{
@@ -73,6 +77,7 @@ final class CatalogueItemAdminPresenter
      *     review_reason: string|null,
      *     image_placeholder_id: string|null,
      *     data_quality_flags: list<string>,
+     *     stock_blockers: list<string>,
      *     source_system: string|null,
      *     source_ref: string|null,
      *     lock_version: int,
@@ -128,7 +133,14 @@ final class CatalogueItemAdminPresenter
             'image_placeholder_id' => $item->image_placeholder_id,
             // The kitchen's own photo of this item, when it saved one (BUG-14).
             'photo_url' => $this->photos->urlFor(RecordPhotoSubject::CatalogueItem, (string) $item->getKey()),
+            // Its recipe's photo, apart from its own: a menu tile falls back to it, as the
+            // marketplace does, while the item's editor still shows only the item's.
+            'recipe_photo_url' => $this->photos->urlFor(RecordPhotoSubject::Recipe, $item->recipe_id),
             'data_quality_flags' => $flags,
+            // Why selling it cannot lower stock (HA-45) — empty when a sale can. The
+            // same facts the publish gate refuses on, carried so a listing already on
+            // sale says what to fix instead of failing silently at every order.
+            'stock_blockers' => $this->stock->codes($item),
             'source_system' => $item->source_system,
             'source_ref' => $item->source_ref,
             'lock_version' => $item->lock_version,

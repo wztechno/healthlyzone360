@@ -62,13 +62,21 @@ export function windowToSlotOption(window: KitchenDeliveryWindow): DeliverySlotO
     };
 }
 
-/** Slots for a kitchen: published windows when present, otherwise the fallback set. */
+/**
+ * Slots for a kitchen: published windows when present, otherwise the fallback set.
+ *
+ * In the order of the day — Breakfast, Lunch, Snack, Dinner — by start time. The kitchen's own
+ * window order is only the order the windows were created in: a Snack added after Dinner sat after
+ * it.
+ */
 export function deliverySlotsForKitchen(
     kitchen: Kitchen | undefined | null,
 ): readonly DeliverySlotOption[] {
     const windows = kitchen?.deliveryWindows ?? [];
     if (windows.length === 0) return FALLBACK_DELIVERY_SLOTS;
-    return windows.map(windowToSlotOption);
+    return windows
+        .map(windowToSlotOption)
+        .sort((a, b) => (a.startsAt === b.startsAt ? 0 : a.startsAt < b.startsAt ? -1 : 1));
 }
 
 /** The house default when the list offers it, otherwise the first slot; `null` for an empty list. */

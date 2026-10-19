@@ -32,8 +32,9 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  *  * `unpriced`, `currency_mismatch` — there is no confirmed price for the
  *    configuration, or it is quoted in another currency. A subscription with no
  *    captured price would have nothing to grandfather.
- *  * `channel_unavailable`, `channel_not_trading` — the plan is not offered
- *    through the channel being bought on.
+ *  * `channel_not_trading` — the channel being bought on is not trading. A
+ *    plan is never refused `channel_unavailable`: plans carry no channel
+ *    availability rows (see `SubscriptionService::createNow`).
  *  * `address_not_owned`, `address_not_deliverable`, `area_not_served`,
  *    `zone_suspended` — where the food would go.
  *  * `weekdays_empty`, `weekdays_invalid` — the delivery weekday set.

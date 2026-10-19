@@ -1,22 +1,26 @@
-import { lazyScreen } from '../../src/shell/lazy-screen.tsx';
+import { Redirect } from 'expo-router';
+
+import { withReturnTo } from '../../src/navigation/return-to.ts';
+import { useSession } from '../../src/session/session-provider.tsx';
 
 /**
- * `/guest-checkout` — ordering without an account.
+ * `/guest-checkout` — retired; kept as an address that still leads somewhere (AUTH-17).
  *
- * In the **public** marketplace group on purpose. A guest checkout behind a session gate would be a
- * contradiction, and putting it under `/customer` would make its first navigation a redirect to
- * sign-in — which is the wall this journey exists to remove.
+ * It was ordering without an account. A basket needs a verified session (BUG-19, a guest's
+ * `POST /carts` is a 401 by design), so the screen behind this route could never price anything:
+ * signed out its basket skeleton spun forever, and signed in it asked for contact details the
+ * account already has. Nothing in the application links here any more — "Continue as a guest" was
+ * removed from the Add dialog — but an old link or a bookmark still can.
  *
- * It is a new route rather than a mode of `/customer/checkout`. The two screens answer different
- * questions: `CheckoutScreen` prices a basket for somebody the system already knows, and this one
- * establishes who the person is as its first step. Folding them together would put four steps and
- * a passcode inside a screen whose whole shape assumes an identity already exists.
+ * So the address forwards to the one checkout that works: the basket, for somebody signed in, and
+ * sign-in with the basket as its return for somebody who is not. Both are `<Redirect>`s, so this
+ * entry is replaced rather than left behind Back. While the session restores nothing is decided.
  */
-const GuestCheckoutScreen = lazyScreen(
-    'guest-checkout-loading',
-    async () => (await import('../../src/features/guest/screens/index.ts')).GuestCheckoutScreen,
-);
-
 export default function GuestCheckout() {
-    return <GuestCheckoutScreen />;
+    const { phase } = useSession();
+    if (phase === 'restoring') return null;
+    if (phase === 'anonymous') {
+        return <Redirect href={withReturnTo('/sign-in', '/customer/cart') as never} />;
+    }
+    return <Redirect href="/customer/cart" />;
 }

@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { addDays } from '../../commerce/dates.ts';
+import { withoutMinus } from '../format.ts';
 import { BATCH_QUANTITY_FORMAT } from '../operations/batch-sheet.tsx';
 import { ledgerQuantity } from '../ops-format.ts';
 import type { CompletionDraft, LineField } from './completion-model.ts';
@@ -140,7 +141,8 @@ export function BatchSettlementDialog({
             : addDays(draft.productionDate, shelfLifeDays);
 
     const setLine = (field: LineField, stockItemId: string, value: string) => {
-        onChange(withLineQuantity(draft, field, stockItemId, value));
+        // What was used and what was wasted are both amounts, never below zero.
+        onChange(withLineQuantity(draft, field, stockItemId, withoutMinus(value)));
     };
 
     const claimed = (line: ProductionOrderLine): string =>

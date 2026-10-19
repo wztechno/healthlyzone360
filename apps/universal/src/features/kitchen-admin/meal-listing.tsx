@@ -73,6 +73,7 @@ import {
     unitDimension,
     unitKey,
 } from './format.ts';
+import { stockBlockersSentence } from './catalogue/recipe-columns.tsx';
 import { serverFieldErrors } from './server-field-errors.ts';
 import { useOptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from './use-unsaved-guard.ts';
@@ -490,6 +491,9 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
         // still the authority on everything it refuses.
         if (data.availability.length === 0) reasons.push(t('kitchen:meals.blockServiceDays'));
         if (detailsDirty || daysDirty) reasons.push(t('kitchen:meals.blockUnsaved'));
+        // A sale that would take nothing off a shelf (HA-45) — the server refuses it too.
+        const stock = data.stockBlockers ?? [];
+        if (stock.length > 0) reasons.push(stockBlockersSentence(stock, 'publishBlocked', t));
         return reasons;
     }, [data, detailsDirty, daysDirty, t]);
 
@@ -517,6 +521,12 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                 label: t('kitchen:meals.gateCheckServiceDays'),
                 passed: (data?.availability.length ?? days.length) > 0,
                 note: t('kitchen:meals.blockServiceDays'),
+            },
+            {
+                key: 'stock',
+                label: t('kitchen:stockBlockers.gateCheck'),
+                passed: (data?.stockBlockers ?? []).length === 0,
+                note: stockBlockersSentence(data?.stockBlockers ?? [], 'publishBlocked', t),
             },
         ],
         [data, details.name, days.length, detailsDirty, daysDirty, t],

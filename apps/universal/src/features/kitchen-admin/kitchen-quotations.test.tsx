@@ -55,6 +55,7 @@ function quotationLine(
         id: `test-quotation-line-${String(ordinal)}`,
         lineNumber: ordinal,
         catalogueItemId: `test-catalogue-item-${String(ordinal)}`,
+        itemName: { en: `Test meal ${String(ordinal)}`, ar: `وجبة ${String(ordinal)}` },
         catalogueItemVariantId: null,
         quantity: '12.0000',
         unitAmountMinor: null,
@@ -69,6 +70,7 @@ function quotation(overrides: Partial<KitchenQuotation> = {}): KitchenQuotation 
         id: quotationIdAt(1),
         buyerOrganisationId: 'test-0000-buyer-0001' as KitchenQuotation['buyerOrganisationId'],
         programmeId: 'test-0000-programme-0001' as KitchenQuotation['programmeId'],
+        programmeName: { en: 'Test programme', ar: 'برنامج تجريبي' },
         reference: 'QT-2026-0007',
         status: 'submitted',
         currencyCode: 'USD',
@@ -298,12 +300,15 @@ describe('kitchen quotations', () => {
         expect(repositories.kitchenQuotations.getQuotation).toHaveBeenCalledWith(quotationIdAt(1));
 
         // Both authored lines, unpriced, with a total that refuses to be a number yet.
+        // Named by the article, never by its identifier.
         expect(
             screen.getByTestId('kitchen-quotation-line-test-quotation-line-1-name'),
-        ).toBeTruthy();
+        ).toHaveTextContent('Test meal 1');
         expect(
             screen.getByTestId('kitchen-quotation-line-test-quotation-line-2-name'),
-        ).toBeTruthy();
+        ).toHaveTextContent('Test meal 2');
+        expect(screen.queryByText('test-catalogue-item-1')).toBeNull();
+        expect(screen.getByText('Test programme')).toBeTruthy();
         expect(screen.getByTestId('kitchen-quotations-detail-total')).toHaveTextContent(
             'Not priced yet',
         );

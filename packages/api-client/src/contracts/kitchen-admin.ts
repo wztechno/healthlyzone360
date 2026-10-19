@@ -941,6 +941,27 @@ export function isRecipeKind(value: unknown): value is RecipeKind {
 }
 
 /** The pack a packaged seller is sold in by default — enough to say "500 g tub" on a row. */
+/**
+ * Why selling a catalogue item cannot lower stock (HA-45) — the server's `stock_blockers`.
+ *
+ * - `stock_no_recipe`, `stock_recipe_not_published`, `stock_no_pieces_produced`: a meal cooked
+ *   when ordered takes its recipe's ingredients, so it needs a published recipe that says how many
+ *   pieces a batch makes.
+ * - `stock_no_shelf`, `stock_no_amount_per_sale`: an item sold from finished stock needs a produced
+ *   item to draw, and — on a shelf counted by weight — a pack weight or net content per sale.
+ *
+ * The publish gate refuses on the same codes; a listing already on sale carries them so its row can
+ * say what to fix. Absent means the read predates the field, and is treated as none.
+ */
+export const STOCK_BLOCKERS = [
+    'stock_no_recipe',
+    'stock_recipe_not_published',
+    'stock_no_pieces_produced',
+    'stock_no_shelf',
+    'stock_no_amount_per_sale',
+] as const;
+export type StockBlocker = (typeof STOCK_BLOCKERS)[number];
+
 export interface RecipeSoldAsPack {
     readonly label: LocalisedText;
     readonly netQuantity: number;
@@ -980,6 +1001,8 @@ export interface RecipeSoldAs {
     readonly channels: readonly SalesChannel[];
     readonly packCount: number;
     readonly defaultPack: RecipeSoldAsPack | null;
+    /** Why selling it cannot lower stock (HA-45); empty when a sale can. */
+    readonly stockBlockers?: readonly StockBlocker[] | undefined;
 }
 
 export interface RecipeAdminSummary {
@@ -1290,12 +1313,12 @@ export interface TechnicalSheetAdmin {
 /**
  * The reference series a record is numbered in.
  *
- * `ING-` is the ingredient library's. The others are the recipe table's: the library, sauces,
- * dressings and frozen meals are all recipes, read off different sheets and quoted by different
- * handles, so they number separately. A client names the series; the number in it is always the
- * server's.
+ * `ING-` is the ingredient library's and `PKG-` the packaging filed in the same table. The others
+ * are the recipe table's: the library, sauces, dressings and frozen meals are all recipes, read off
+ * different sheets and quoted by different handles, so they number separately. A client names the
+ * series; the number in it is always the server's.
  */
-export type ReferenceSeries = 'ING-' | 'RC-' | 'SAC-' | 'DRS-' | 'FRZ-';
+export type ReferenceSeries = 'ING-' | 'PKG-' | 'RC-' | 'SAC-' | 'DRS-' | 'FRZ-';
 
 /*
  * Where each series is counted, which is the table its existing handles are in: `ING-` among the
@@ -1487,6 +1510,8 @@ export interface ProductAdmin {
      * `/api/v1/media/photos/{id}`; `null` (or absent) shows the stock picture.
      */
     readonly photoUrl?: string | null | undefined;
+    /** The photo of the recipe it is made from — what a menu tile shows when `photoUrl` is null. */
+    readonly recipePhotoUrl?: string | null | undefined;
     readonly meta: AdminEntityMeta;
     /**
      * Which packaged kind this row is. Sauces and dressings share the product
@@ -1542,6 +1567,8 @@ export interface ProductAdmin {
     readonly dietClassifications: readonly DietClassification[];
     /** Import findings the operator has not resolved, e.g. `dual_pack_single_price`. */
     readonly dataQualityFlags: readonly string[];
+    /** Why selling it cannot lower stock (HA-45); empty when a sale can. */
+    readonly stockBlockers?: readonly StockBlocker[] | undefined;
     /**
      * The photograph id, resolved by `EntityImage` — the stored one when a kitchen set it,
      * otherwise `<item_type>-<slug>`, the same id the storefront derives. Most products have no
@@ -1568,6 +1595,11 @@ export interface ProductAdminFilter extends CursorPageRequest, OffsetPageRequest
     readonly channels?: readonly SalesChannel[] | undefined;
     /** Which packaged kind to list. Defaults to `product`. */
     readonly itemType?: 'product' | 'sauce' | 'dressing' | 'frozen_meal' | undefined;
+    /**
+     * `true` lists only the items no recipe sells (HA-44) — the imported listings the recipe book
+     * has no row for, so they can be found and given a formulation.
+     */
+    readonly withoutRecipe?: boolean | undefined;
 }
 
 export interface CreateProductRequest {
@@ -1756,6 +1788,8 @@ export interface MealAdmin {
      * `/api/v1/media/photos/{id}`; `null` (or absent) shows the stock picture.
      */
     readonly photoUrl?: string | null | undefined;
+    /** The photo of the recipe it is made from — what a menu tile shows when `photoUrl` is null. */
+    readonly recipePhotoUrl?: string | null | undefined;
     readonly meta: AdminEntityMeta;
     readonly name: LocalisedText;
     readonly description: LocalisedText;
@@ -1807,6 +1841,8 @@ export interface MealAdmin {
     readonly channelAvailability: readonly ChannelAvailability[];
     readonly availability: readonly MealAvailabilityDay[];
     readonly imagePlaceholderId: string;
+    /** Why selling it cannot lower stock (HA-45); empty when a sale can. */
+    readonly stockBlockers?: readonly StockBlocker[] | undefined;
     /**
      * CONFIDENTIAL — gross margin against the recipe's cost per serving at the current confirmed
      * price, whole percent. `null` when either side of that sum is missing, which is honest: a
@@ -1832,6 +1868,11 @@ export interface MealAdminFilter extends CursorPageRequest, OffsetPageRequest {
     readonly allergenCodes?: readonly AllergenCode[] | undefined;
     /** See `ProductAdminFilter.categoryId` — meals are catalogue items and take the same param. */
     readonly categoryId?: string | undefined;
+    /**
+     * `true` lists only the items no recipe sells (HA-44) — the imported listings the recipe book
+     * has no row for, so they can be found and given a formulation.
+     */
+    readonly withoutRecipe?: boolean | undefined;
 }
 
 export interface CreateMealRequest {

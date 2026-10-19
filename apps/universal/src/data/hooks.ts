@@ -19,6 +19,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 import { useSyncExternalStore } from 'react';
 
+import { clearResumeIntent } from '../features/marketplace/resume-intent.ts';
+import { clearAllSessionDrafts } from '../navigation/session-draft.ts';
 import { appGuestTokenStore } from '../session/guest-storage.ts';
 import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
 import { queryKeys } from './query-keys.ts';
@@ -164,6 +166,13 @@ export function useLogoutMutation(): UseMutationResult<void, unknown, void> {
         onSuccess: () => {
             // Everything in the cache belonged to the session that has just ended.
             queryClient.clear();
+            // So did everything the tab was holding for them: a half-set-up plan, a closure note, a
+            // basket add waiting on a sign-in, the page to come back to. Left behind, the next
+            // person to sign in on this tab would be offered the previous one's (AUTH-13, AUTH-15).
+            // Here rather than at each sign-out button, so every way of signing out — the account
+            // page, the workspace chrome, "wrong person" on the verification card — does it.
+            clearAllSessionDrafts();
+            clearResumeIntent();
         },
     });
 }

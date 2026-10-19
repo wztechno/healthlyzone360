@@ -100,6 +100,7 @@ import {
     unitDimensionKey,
     unitKey,
     unitShortKey,
+    withoutMinus,
 } from '../format.ts';
 import { ImageSlot } from '../image-slot.tsx';
 import { AllergenReferencePicker } from '../allergen-reference-picker.tsx';
@@ -449,16 +450,9 @@ export interface IngredientEditFamily {
     /**
      * The series the server issues a next number in, or `null` where nothing issues one.
      *
-     * `ReferenceSeries` is `ING-` | `RC-` | `SAC-` | `DRS-` — and **`PKG-` is not in it**. That is
-     * not an oversight in this file, it is the contract: `IngredientReferenceSeries` (`ING-` |
-     * `PKG-`) says which rows a *list* may ask for, and it is a different question from which
-     * series a *counter* can advance. Packaging rows carry `PKG-001` handles — the import wrote
-     * them — but no endpoint hands out the next one.
-     *
-     * So packaging passes `null`, the preview query is not run, and the Id field opens blank behind
-     * its "Assigned on save" placeholder. The resale editor reaches the same conclusion from the
-     * same contract for `RSL-`. Adding either series is a server change; inventing the number here
-     * would offer a handle nothing stands behind.
+     * Drives the Id preview only. The number the record actually takes is the server's, which picks
+     * the series from the category — a row filed under packaging joins `PKG-`, anything else `ING-`
+     * — so this has to name the same series for the preview to match the saved handle.
      */
     readonly series: ReferenceSeries | null;
     /** Where Back and a successful create land. */
@@ -495,8 +489,7 @@ export const INGREDIENT_FAMILY: IngredientEditFamily = {
 };
 
 export const PACKAGING_FAMILY: IngredientEditFamily = {
-    // No counter for `PKG-` — see `series` on the interface.
-    series: null,
+    series: 'PKG-',
     listRoute: '/kitchen/packaging',
     categoryCode: PACKAGING_CATEGORY_CODE,
     createTitleKey: 'kitchen:packaging.createTitle',
@@ -2143,7 +2136,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                     : {})}
                                 {...server.flag('waste_percent')}
                                 onChangeText={(next) => {
-                                    editPackaging({ wastePercent: next });
+                                    editPackaging({ wastePercent: withoutMinus(next) });
                                 }}
                             />
                             {/*

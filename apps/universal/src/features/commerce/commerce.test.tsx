@@ -5,6 +5,7 @@ import {
     validationFailure,
 } from '@healthy360/api-client/contracts';
 import type {
+    AccountSetupChecklist,
     AddCartItemRequest,
     Cart,
     CartItem,
@@ -52,8 +53,10 @@ import type {
 } from '@healthy360/domain-types';
 import type { NutritionConstraint } from '@healthy360/nutrition';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
 
+import { pathnameOf, queryOf, withReturnTo } from '../../navigation/return-to.ts';
+import { clearAllSessionDrafts } from '../../navigation/session-draft.ts';
+import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
 import { testMeResponse } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import type { RepositoryOverrides } from '../../testing/stub-repositories.ts';
@@ -66,6 +69,7 @@ import {
     toDeliveryAddress,
     validateAddress,
 } from './address.ts';
+import { LATEST_PLACED, placedOrders } from './checkout-draft.ts';
 import {
     CONFIGURATOR_STEPS,
     combinationKey,
@@ -153,31 +157,22 @@ import {
 
 /**
  * Route parameters are the one thing these screens cannot reach through a repository, so the router
- * is mocked rather than rendered — the same seam the marketplace and catalogue suites use.
+ * is mocked rather than rendered — the shared mock every customer suite uses
+ * (`testing/expo-router-mock.ts`). What the router really does with a call is pinned once, against
+ * the real thing, in `navigation/use-return-to.test.tsx`.
  */
-jest.mock('expo-router', () => {
-    const push = jest.fn();
-    const replace = jest.fn();
-    return {
-        __esModule: true,
-        useRouter: () => ({ push, replace, setParams: jest.fn(), back: jest.fn() }),
-        usePathname: () => '/customer/cart',
-        useLocalSearchParams: () => ({}),
-        Redirect: () => null,
-        Link: ({ children }: { children: ReactNode }) => children,
-        Slot: () => null,
-        Stack: () => null,
-        __push: push,
-        __replace: replace,
-    };
-});
+jest.mock('expo-router', () =>
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../../testing/expo-router-mock.ts').createExpoRouterMock({
+        pathname: '/customer/cart',
+    }),
+);
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const routerMock = require('expo-router') as { __push: jest.Mock; __replace: jest.Mock };
+const routerMock = require('expo-router') as ExpoRouterMock;
 
 beforeEach(() => {
-    routerMock.__push.mockClear();
-    routerMock.__replace.mockClear();
+    routerMock.__reset();
     globalThis.localStorage?.clear();
 });
 
@@ -1503,7 +1498,8 @@ describe('CartScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('cart-lines')).toBeTruthy();
         });
-        expect(screen.getByTestId('cart-title')).toHaveTextContent('Your cart');
+        // One noun for the one place (browse-14): the toast and the header say basket too.
+        expect(screen.getByTestId('cart-title')).toHaveTextContent('Your basket');
         // Two of a 45.00 meal: the line total is the repository's, and so is the priced total.
         expect(screen.getByTestId(`cart-line-${BASKET_LINE_ID}-total`)).toHaveTextContent(
             'AED 90.00',
@@ -1630,8 +1626,43 @@ describe('CartScreen', () => {
 
     it('sends a full basket onward to checkout', async () => {
         await renderCart(basketOf(1));
+        // Waiting on its price: there until the preview answers, but not yet pressable.
         await waitFor(() => {
-            expect(screen.getByTestId('cart-checkout')).toBeTruthy();
+            expect(screen.getByTestId('cart-checkout')).not.toBeDisabled();
+        });
+        await fireEvent.press(screen.getByTestId('cart-checkout'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/customer/checkout');
+    });
+
+    /*
+     * Checkout sat inside the price's `QueryStates`, so a failed or refused preview left only the
+     * error and Retry: no way onward, and no sign the basket could still be ordered (browse-13).
+     */
+    it('keeps Checkout on the page when the price cannot be worked out, waiting on it', async () => {
+        const basket = basketOf(1);
+        const previewCheckout = jest
+            .fn<Promise<CheckoutPreview>, [PreviewCheckoutRequest]>()
+            .mockRejectedValueOnce(new ApiError(apiFailure('network')))
+            .mockImplementation(async (request) => checkoutPreview(basket.cart, request));
+        await renderStubScreen(<CartScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                commerce: { ...basketRepository(basket), previewCheckout },
+                marketplace: { getMeal: async (mealId: MealId) => mealById(mealId) },
+                account: { listAddresses: async () => [] },
+            },
+        });
+
+        await waitFor(() => screen.getByTestId('cart-preview-error'));
+        expect(screen.getByTestId('cart-checkout')).toBeDisabled();
+        expect(screen.getByTestId('cart-fine-print')).toBeTruthy();
+        await fireEvent.press(screen.getByTestId('cart-checkout'));
+        expect(routerMock.__push).not.toHaveBeenCalled();
+
+        // Retry prices it, and the same button goes on to checkout.
+        await fireEvent.press(screen.getByTestId('cart-preview-error-retry'));
+        await waitFor(() => {
+            expect(screen.getByTestId('cart-checkout')).not.toBeDisabled();
         });
         await fireEvent.press(screen.getByTestId('cart-checkout'));
         expect(routerMock.__push).toHaveBeenCalledWith('/customer/checkout');
@@ -1670,7 +1701,8 @@ describe('CartScreen', () => {
             expect(screen.getByTestId('cart-add-more')).toBeTruthy();
         });
         await fireEvent.press(screen.getByTestId('cart-add-more'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/meals');
+        // To the basket's own kitchen: a basket holds one kitchen's meals (browse-03).
+        expect(routerMock.__push).toHaveBeenCalledWith(`/kitchens/${String(KITCHEN_ID)}`);
         // The summary rail is a sibling of the lines, not nested inside them, so it can sit beside
         // them on a desk and after them on a phone.
         expect(screen.getByTestId('cart-layout-main')).toContainElement(
@@ -1690,7 +1722,17 @@ describe('CartScreen', () => {
 interface CheckoutOptions {
     readonly addresses?: readonly CustomerAddress[] | undefined;
     readonly commerce?: Partial<CommerceRepository> | undefined;
+    /** The account's setup checklist. Defaults to one with nothing left to do. */
+    readonly checklist?: AccountSetupChecklist | undefined;
+    /** The checkout's URL query — its address, date, window and step live there. */
+    readonly params?: Readonly<Record<string, string>> | undefined;
 }
+
+const READY_CHECKLIST: AccountSetupChecklist = {
+    lifecycle: 'active',
+    items: [],
+    canActivate: true,
+};
 
 /**
  * Settles once the checkout's kitchen query has been answered. Review records the kitchen's name
@@ -1699,16 +1741,53 @@ interface CheckoutOptions {
  */
 let kitchenServed: Promise<void> = Promise.resolve();
 
+/**
+ * The checkout keeps every choice in its URL, so its cases run with the router mock *following*
+ * navigation: choosing a window is a `setParams` the screen then reads back, "Continue to payment"
+ * a push of `?step=payment`, and placing the order a replace onto `?placed=`. The spies still record
+ * each call, which is what most cases assert.
+ */
 function renderCheckout(basket: Basket, options: CheckoutOptions = {}) {
     let served = () => {};
     kitchenServed = new Promise((resolve) => {
         served = resolve;
     });
+    routerMock.__set({
+        pathname: '/customer/checkout',
+        params: options.params ?? {},
+        follow: true,
+    });
+    // The confirmation reads the placed order back by its identifier: the one this case placed,
+    // or — for a confirmation opened straight from its URL — one the server already holds.
+    let placed: PlacedOrder | null = null;
+    const placeOrder = options.commerce?.placeOrder;
     return renderStubScreen(<CheckoutScreen />, {
         session: testMeResponse(),
         repositories: {
-            commerce: { ...basketRepository(basket), ...options.commerce },
-            account: { listAddresses: async () => options.addresses ?? [] },
+            commerce: {
+                ...basketRepository(basket),
+                getMyOrder: async (orderId: OrderId): Promise<PlacedOrder> => {
+                    if (placed?.id === orderId) return placed;
+                    if (orderId !== ORDER_ID) throw new ApiError(apiFailure('resource.not_found'));
+                    return placedOrderFrom(cartOf([cartLine(BASKET_MEAL, 1)]), {
+                        cartId: CART_ID,
+                        addressId: HOME_ADDRESS.id,
+                    });
+                },
+                ...options.commerce,
+                ...(placeOrder === undefined
+                    ? {}
+                    : {
+                          placeOrder: async (request: PlaceOrderRequest) => {
+                              placed = await placeOrder(request);
+                              return placed;
+                          },
+                      }),
+            },
+            account: {
+                listAddresses: async () => options.addresses ?? [],
+                getChecklist: async () => options.checklist ?? READY_CHECKLIST,
+            },
             marketplace: {
                 getKitchen: async () => {
                     served();
@@ -1716,6 +1795,21 @@ function renderCheckout(basket: Basket, options: CheckoutOptions = {}) {
                 },
             },
         },
+    });
+}
+
+/** The checkout's href for these choices, as the screen writes it. */
+function checkoutAt(query: Readonly<Record<string, string>>): string {
+    return `/customer/checkout?${new URLSearchParams(query).toString()}`;
+}
+
+/** The payment step `reviewCheckout` lands on: the home address, the earliest day, midday. */
+function paymentStepHref(): string {
+    return checkoutAt({
+        address: HOME_ADDRESS.id,
+        date: earliestStartDate(),
+        slot: DEFAULT_SLOT_CODE,
+        step: 'payment',
     });
 }
 
@@ -1742,25 +1836,54 @@ async function reviewCheckout(addressId: string): Promise<void> {
 }
 
 describe('CheckoutScreen', () => {
+    // The confirmation's kitchen name is a note the placement leaves in the tab; no case may
+    // inherit one from the case before it.
+    beforeEach(() => {
+        clearAllSessionDrafts();
+    });
+
     it('says there is nothing to check out when the basket is empty', async () => {
         await renderCheckout(basketOf(0));
         await waitFor(() => {
             expect(screen.getByTestId('checkout-empty')).toBeTruthy();
         });
         expect(screen.getByTestId('checkout-browse')).toBeTruthy();
+        // No order was placed in this tab, so there is nothing to track from here.
+        expect(screen.queryByTestId('checkout-track-latest')).toBeNull();
     });
 
     /**
      * The placement takes an address *identifier*, so a person with nothing saved cannot be given a
-     * form to type into — they are sent to the address book, which is the only place that produces
-     * one.
+     * form to type into — they are sent to the address form, which is the only place that produces
+     * one, carrying the checkout as it stands so saving comes straight back.
      */
-    it('sends somebody with no saved address to the address book', async () => {
+    it('sends somebody with no saved address to the address form, and back', async () => {
         await renderCheckout(basketOf(1), { addresses: [] });
         await waitFor(() => {
             expect(screen.getByTestId('checkout-addresses-empty')).toBeTruthy();
         });
-        expect(screen.getByTestId('checkout-add-address')).toBeTruthy();
+        // Nothing to continue with: Continue is off, and says why to a screen reader.
+        expect(screen.getByTestId('checkout-review').props.accessibilityState).toMatchObject({
+            disabled: true,
+        });
+        expect(screen.getByTestId('checkout-review').props.accessibilityHint).toBe(
+            'Add a delivery address first',
+        );
+
+        await act(async () => {
+            await kitchenServed;
+        });
+        await fireEvent.press(screen.getByTestId('checkout-add-address'));
+
+        const opened = routerMock.__push.mock.calls.at(-1)?.[0] as string;
+        expect(pathnameOf(opened)).toBe('/customer/account/addresses/new');
+        // The return is this checkout with the choices it derived written out.
+        expect(opened).toBe(
+            withReturnTo(
+                '/customer/account/addresses/new',
+                checkoutAt({ date: earliestStartDate(), slot: DEFAULT_SLOT_CODE }),
+            ),
+        );
     });
 
     it('picks a saved address and a kitchen window, and never a payment instrument', async () => {
@@ -1875,19 +1998,22 @@ describe('CheckoutScreen', () => {
             fireEvent.press(screen.getByTestId('checkout-place-order'));
         });
 
+        // The confirmation is a URL of its own, put in place of the payment step: a refresh shows
+        // it again, and Back from it is not a second chance to place the same order.
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith(
+                `/customer/checkout?placed=${String(ORDER_ID)}`,
+            );
+        });
         await waitFor(() => {
             expect(screen.getByTestId('checkout-success-screen')).toBeTruthy();
         });
-        expect(screen.getByTestId('checkout-success-title')).toHaveTextContent(
+        expect(await screen.findByTestId('checkout-success-title')).toHaveTextContent(
             'Order H360-4821 confirmed',
         );
         // Cash on delivery, said out loud rather than implied by the absence of a receipt.
         expect(screen.getByTestId('checkout-success-body')).toHaveTextContent(/in cash/);
         expect(screen.getByTestId('checkout-success-body')).toHaveTextContent(/Verdant Kitchen/);
-
-        // Tracking opens the signed-in order page by the order's identifier, never its reference.
-        fireEvent.press(screen.getByTestId('checkout-success-track'));
-        expect(routerMock.__push).toHaveBeenCalledWith(`/customer/orders/${String(ORDER_ID)}`);
 
         // The confirmation prices itself from the placed order — the preview query dies with the
         // emptied basket, and a price block fed from there rendered nothing.
@@ -1907,6 +2033,11 @@ describe('CheckoutScreen', () => {
         // The basket became the order. Leaving the lines behind would let one screen place the
         // same basket twice.
         expect(basket.cart.items).toHaveLength(0);
+
+        // Tracking opens the signed-in order page by the order's identifier, never its reference.
+        // (Last: the mock follows the push, and this screen is not the order page.)
+        await fireEvent.press(screen.getByTestId('checkout-success-track'));
+        expect(routerMock.__push).toHaveBeenCalledWith(`/customer/orders/${String(ORDER_ID)}`);
     });
 
     /**
@@ -2040,7 +2171,10 @@ describe('CheckoutScreen', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('checkout-finish-setup'));
         });
-        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account');
+        // The account page, carrying this payment step to come back to.
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            withReturnTo('/customer/account', paymentStepHref()),
+        );
     });
 
     /**
@@ -2092,7 +2226,335 @@ describe('CheckoutScreen', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('checkout-setup-step-dietary_profile-open'));
         });
-        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/allergies');
+        // Straight to the step's own screen, carrying the payment step it came from.
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            withReturnTo('/customer/account/allergies', paymentStepHref()),
+        );
+        expect(routerMock.__push).not.toHaveBeenCalledWith('/customer/account/allergies');
+    });
+});
+
+/*
+ * The checkout's choices live in its URL (`checkout-draft.ts`): a detour to add an address unmounts
+ * the screen — every customer page is a sibling in one `<Slot/>` — and a refresh starts it from
+ * nothing, so whatever was not in the query was lost. These cases hold the screen to that: it opens
+ * from a URL, writes each choice back into it, walks Delivery → Payment as two entries, and sends
+ * every detour off carrying the page as it stands.
+ */
+describe('CheckoutScreen — its choices live in the URL', () => {
+    beforeEach(() => {
+        clearAllSessionDrafts();
+    });
+
+    const OFFICE = testAddress({
+        id: 'address-office',
+        label: 'Office',
+        line1: '1 Tower Road',
+        isDefault: false,
+    });
+    const LATER = (): string => addDays(earliestStartDate(), 3) ?? earliestStartDate();
+
+    it('opens on the payment step a URL names, and places exactly those choices', async () => {
+        const basket = basketOf(1);
+        const harness = await renderCheckout(basket, {
+            addresses: [HOME_ADDRESS, OFFICE],
+            params: { address: OFFICE.id, date: LATER(), slot: 'evening', step: 'payment' },
+            commerce: {
+                placeOrder: async (request: PlaceOrderRequest): Promise<PlacedOrder> =>
+                    placedOrderFrom(basket.cart, request),
+            },
+        });
+
+        expect(await screen.findByTestId('checkout-payment-step')).toBeTruthy();
+        expect(screen.getByTestId('checkout-committed-address')).toHaveTextContent(/1 Tower Road/);
+        expect(screen.getByTestId('checkout-committed-slot')).toHaveTextContent(/Evening/);
+        expect(screen.getByTestId('checkout-stepper-payment').props['aria-current']).toBe('step');
+
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('checkout-place-order').props.accessibilityState,
+            ).toMatchObject({ disabled: false });
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-place-order'));
+        });
+        // Not the default address, not the earliest day, not the house window: the URL's.
+        await waitFor(() => {
+            expect(harness.repositories.commerce.placeOrder).toHaveBeenCalledWith({
+                cartId: CART_ID,
+                addressId: OFFICE.id,
+                slotCode: 'evening',
+                deliveryDate: LATER(),
+            });
+        });
+        // Nothing the URL said was thrown away on the way.
+        expect(routerMock.__router.setParams).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        ['an address no longer in the book', { address: 'address-gone' }],
+        ['a window the kitchen does not offer', { slot: 'late_night' }],
+        ['a day that has already gone', { date: '2020-01-01' }],
+    ] as const)(
+        'puts a payment step back on delivery rather than paying for %s',
+        async (_label, broken) => {
+            await renderCheckout(basketOf(1), {
+                addresses: [HOME_ADDRESS],
+                params: {
+                    address: HOME_ADDRESS.id,
+                    date: LATER(),
+                    slot: DEFAULT_SLOT_CODE,
+                    step: 'payment',
+                    ...broken,
+                },
+            });
+
+            // Once the data has settled, the step is taken off this entry — and the screen never
+            // offered to place an order with a substitute it had quietly picked.
+            await waitFor(() => {
+                expect(routerMock.__router.setParams).toHaveBeenCalledWith({ step: undefined });
+            });
+            expect(await screen.findByTestId('checkout-delivery-step')).toBeTruthy();
+            expect(screen.queryByTestId('checkout-place-order')).toBeNull();
+        },
+    );
+
+    it('fills the delivery step with its own choices where the URL’s are unusable', async () => {
+        await renderCheckout(basketOf(1), {
+            addresses: [HOME_ADDRESS],
+            params: { address: 'address-gone', date: 'next tuesday', slot: 'late_night' },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('checkout-street-input').props.value).toBe(
+                '12 Sunset Street',
+            );
+        });
+        expect(
+            screen.getByTestId(`checkout-slot-${DEFAULT_SLOT_CODE}`).props.accessibilityState,
+        ).toMatchObject({ checked: true });
+        // On the delivery step there is nothing to take back, so the URL is left alone until the
+        // person chooses something.
+        expect(routerMock.__router.setParams).not.toHaveBeenCalled();
+    });
+
+    it('writes each choice into its URL, and makes the payment step an entry of its own', async () => {
+        await renderCheckout(basketOf(1), {
+            // Neither is the default, so nothing is chosen until the person chooses.
+            addresses: [{ ...HOME_ADDRESS, isDefault: false }, OFFICE],
+        });
+        await act(async () => {
+            await kitchenServed;
+        });
+
+        await fireEvent.press(await screen.findByTestId('checkout-address-picker-trigger'));
+        await fireEvent.press(
+            await screen.findByTestId(`checkout-address-picker-option-${OFFICE.id}`),
+        );
+        expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ address: OFFICE.id });
+        await waitFor(() => {
+            expect(screen.getByTestId('checkout-street-input').props.value).toBe('1 Tower Road');
+        });
+
+        await fireEvent.press(await screen.findByTestId('checkout-slot-evening'));
+        expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ slot: 'evening' });
+
+        // The date: the same day next year, by its year select.
+        const earliest = earliestStartDate();
+        const nextYear = String(Number(earliest.slice(0, 4)) + 1);
+        await fireEvent.press(screen.getByTestId('checkout-date-field-year-trigger'));
+        await fireEvent.press(
+            await screen.findByTestId(`checkout-date-field-year-option-${nextYear}`),
+        );
+        const chosenDate = earliest.endsWith('-02-29')
+            ? undefined
+            : `${nextYear}${earliest.slice(4)}`;
+        expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ date: chosenDate });
+
+        // A choice is a replace of this entry, never a push: Back does not walk through windows.
+        expect(routerMock.__push).not.toHaveBeenCalled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-review'));
+        });
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            checkoutAt({
+                address: OFFICE.id,
+                date: chosenDate ?? earliest,
+                slot: 'evening',
+                step: 'payment',
+            }),
+        );
+        expect(await screen.findByTestId('checkout-payment-step')).toBeTruthy();
+        expect(screen.getByTestId('checkout-committed-slot')).toHaveTextContent(/Evening/);
+    });
+
+    it('goes Back to the delivery entry when it is the one underneath', async () => {
+        const delivery = { address: HOME_ADDRESS.id, date: LATER(), slot: DEFAULT_SLOT_CODE };
+        routerMock.__set({
+            navState: {
+                index: 2,
+                routes: [
+                    { name: 'cart' },
+                    { name: 'checkout', params: delivery },
+                    { name: 'checkout', params: { ...delivery, step: 'payment' } },
+                ],
+            },
+        });
+        await renderCheckout(basketOf(1), {
+            addresses: [HOME_ADDRESS],
+            params: { ...delivery, step: 'payment' },
+        });
+
+        await fireEvent.press(await screen.findByTestId('checkout-edit'));
+
+        expect(routerMock.__router.back).toHaveBeenCalledTimes(1);
+        expect(routerMock.__router.setParams).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        ['after a refresh', undefined],
+        [
+            'when the page underneath is the basket',
+            { index: 1, routes: [{ name: 'cart' }, { name: 'checkout' }] },
+        ],
+    ] as const)(
+        'takes the step off this entry %s, never leaving the checkout',
+        async (_label, navState) => {
+            routerMock.__set({ navState });
+            await renderCheckout(basketOf(1), {
+                addresses: [HOME_ADDRESS],
+                params: {
+                    address: HOME_ADDRESS.id,
+                    date: LATER(),
+                    slot: DEFAULT_SLOT_CODE,
+                    step: 'payment',
+                },
+            });
+
+            await fireEvent.press(await screen.findByTestId('checkout-edit'));
+
+            expect(routerMock.__router.setParams).toHaveBeenCalledWith({ step: undefined });
+            expect(routerMock.__router.back).not.toHaveBeenCalled();
+            expect(await screen.findByTestId('checkout-delivery-step')).toBeTruthy();
+        },
+    );
+
+    it('lists the setup steps up front, sends each off with a way back, and holds Place order', async () => {
+        await renderCheckout(basketOf(1), {
+            addresses: [HOME_ADDRESS],
+            checklist: {
+                lifecycle: 'provisional',
+                canActivate: false,
+                items: [
+                    { step: 'verify_email', complete: true, required: true, blockedReason: null },
+                    // Optional here: not something to stop an order for.
+                    { step: 'verify_phone', complete: false, required: false, blockedReason: null },
+                    {
+                        step: 'dietary_profile',
+                        complete: false,
+                        required: true,
+                        blockedReason: null,
+                    },
+                    { step: 'consents', complete: false, required: true, blockedReason: null },
+                ],
+            },
+        });
+
+        // On the delivery step, before anything is committed — not after a refused order.
+        const panel = await screen.findByTestId('checkout-setup-required');
+        expect(screen.getByTestId('checkout-delivery-step')).toBeTruthy();
+        expect(panel.props.role).toBe('status');
+        expect(panel).toHaveTextContent(/2 steps are left before you can order/);
+        expect(screen.getByTestId('checkout-setup-step-dietary_profile')).toBeTruthy();
+        expect(screen.getByTestId('checkout-setup-step-consents')).toBeTruthy();
+        expect(screen.queryByTestId('checkout-setup-step-verify_phone')).toBeNull();
+        expect(screen.queryByTestId('checkout-setup-step-verify_email')).toBeNull();
+
+        // Each step carries the checkout as it stands, so finishing it comes straight back here.
+        await act(async () => {
+            await kitchenServed;
+        });
+        await fireEvent.press(screen.getByTestId('checkout-setup-step-dietary_profile-open'));
+        const here = checkoutAt({
+            address: HOME_ADDRESS.id,
+            date: earliestStartDate(),
+            slot: DEFAULT_SLOT_CODE,
+        });
+        expect(routerMock.__push).toHaveBeenLastCalledWith(
+            withReturnTo('/customer/account/allergies', here),
+        );
+
+        // The delivery details can still be committed; the order cannot be placed.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-review'));
+        });
+        expect(await screen.findByTestId('checkout-payment-step')).toBeTruthy();
+        expect(screen.getByTestId('checkout-setup-required')).toBeTruthy();
+        await waitFor(() => {
+            expect(screen.getByTestId('checkout-place-order')).toHaveTextContent(/AED/);
+        });
+        const place = screen.getByTestId('checkout-place-order');
+        expect(place.props.accessibilityState).toMatchObject({ disabled: true });
+        expect(place.props.accessibilityHint).toBe('Finish the steps above to place your order.');
+    });
+
+    it('opens the address form for another address, or for the one chosen, with a way back', async () => {
+        await renderCheckout(basketOf(1), { addresses: [HOME_ADDRESS] });
+        await waitFor(() => {
+            expect(screen.getByTestId('checkout-street-input').props.value).not.toBe('');
+        });
+        await act(async () => {
+            await kitchenServed;
+        });
+        const here = checkoutAt({
+            address: HOME_ADDRESS.id,
+            date: earliestStartDate(),
+            slot: DEFAULT_SLOT_CODE,
+        });
+
+        await fireEvent.press(screen.getByTestId('checkout-edit-address'));
+        expect(routerMock.__push).toHaveBeenLastCalledWith(
+            withReturnTo(`/customer/account/addresses/${HOME_ADDRESS.id}`, here),
+        );
+
+        await fireEvent.press(screen.getByTestId('checkout-manage-addresses'));
+        expect(routerMock.__push).toHaveBeenLastCalledWith(
+            withReturnTo('/customer/account/addresses/new', here),
+        );
+        // The return the form receives is this checkout, exactly, once its query is read back.
+        const opened = routerMock.__push.mock.calls.at(-1)?.[0] as string;
+        expect(decodeURIComponent(queryOf(opened)['returnTo'] ?? '')).toBe(here);
+    });
+
+    it('shows the confirmation from its URL alone, as after a refresh', async () => {
+        await renderCheckout(basketOf(0), { params: { placed: String(ORDER_ID) } });
+
+        expect(await screen.findByTestId('checkout-success-title')).toHaveTextContent(
+            'Order H360-4821 confirmed',
+        );
+        // The kitchen's name was a note in the tab that placed it; without it, the words still read.
+        expect(screen.getByTestId('checkout-success-body')).toHaveTextContent(/The kitchen/);
+        expect(screen.getByTestId('checkout-stepper-placed').props['aria-current']).toBe('step');
+        // Not the empty basket the placement left behind.
+        expect(screen.queryByTestId('checkout-empty')).toBeNull();
+    });
+
+    it('says so when the confirmation’s order cannot be found', async () => {
+        await renderCheckout(basketOf(0), { params: { placed: uuid(9, 99) } });
+        expect(await screen.findByText('We could not find that order')).toBeTruthy();
+    });
+
+    it('offers the order just placed when Back lands on the emptied checkout', async () => {
+        placedOrders.write(LATEST_PLACED, {
+            orderId: String(ORDER_ID),
+            kitchenName: KITCHEN.name,
+            slotLabel: 'Midday',
+        });
+        await renderCheckout(basketOf(0));
+
+        await fireEvent.press(await screen.findByTestId('checkout-track-latest'));
+        expect(routerMock.__push).toHaveBeenCalledWith(`/customer/orders/${String(ORDER_ID)}`);
     });
 });
 
@@ -2342,7 +2804,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
         });
-        expect(screen.getByTestId('configurator-variant-detail')).toBeTruthy();
+        expect(screen.getByTestId('configurator-variant')).toBeTruthy();
         expect(screen.getByTestId('configurator-combination')).toBeTruthy();
         expect(screen.getByTestId('configurator-duration')).toBeTruthy();
         expect(screen.getByTestId('configurator-stepper')).toBeTruthy();
@@ -2364,16 +2826,13 @@ describe('SubscriptionConfiguratorScreen', () => {
         await renderConfigurator({ planId: String(PLAN.id), variantId: String(light.id) });
 
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-variant-detail')).toBeTruthy();
+            expect(screen.getByTestId(`configurator-variant-${String(light.id)}`)).toBeTruthy();
         });
-        expect(
-            screen.getByTestId(`configurator-variant-${String(light.id)}`).props.accessibilityState
-                ?.checked,
-        ).toBe(true);
-        // The band on screen is the supplied variant's, not the plan's own default one.
-        expect(screen.getByTestId('configurator-variant-detail')).toHaveTextContent(
-            /1,400 to 1,600/,
-        );
+        const chosen = screen.getByTestId(`configurator-variant-${String(light.id)}`);
+        // The chosen card is the supplied variant's, not the plan's own default one, and it
+        // carries its own kcal range.
+        expect(chosen.props.accessibilityState?.checked).toBe(true);
+        expect(chosen).toHaveTextContent(/1,400 to 1,600/);
     });
 
     it('states a choice with one option as its answer, not as a lone chip', async () => {
@@ -2396,7 +2855,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('configurator-duration-4w')).toBeTruthy();
         });
-        expect(screen.getByTestId('configurator-duration-4w')).toHaveTextContent(/−10%/);
+        expect(screen.getByTestId('configurator-duration-4w')).toHaveTextContent(/10% off/);
     });
 
     it('pre-fills the allergies already on the profile, and gates removing one', async () => {

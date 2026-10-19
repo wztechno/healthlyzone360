@@ -1,24 +1,19 @@
-import { Link, Stack } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Text, View } from 'react-native';
 
-export default function NotFoundScreen() {
+import { NotFoundScreen } from '../src/screens/not-found-screen.tsx';
+
+/**
+ * An address no route matches. The page itself — in the shop's chrome, with Back and the
+ * marketplace home — is `NotFoundScreen` (AUTH-18).
+ */
+export default function NotFound() {
     const { t } = useTranslation();
 
     return (
         <>
             <Stack.Screen options={{ title: t('access:notFound.title') }} />
-            <View className="flex-1 items-center justify-center gap-4 bg-surface-base p-6">
-                <Text className="text-2xl font-semibold text-content-primary text-start">
-                    {t('access:notFound.title')}
-                </Text>
-                <Text className="max-w-md text-base text-content-secondary text-start">
-                    {t('access:notFound.body')}
-                </Text>
-                <Link href="/" className="text-base font-medium text-surface-brand underline">
-                    {t('access:notFound.home')}
-                </Link>
-            </View>
+            <NotFoundScreen />
         </>
     );
 }

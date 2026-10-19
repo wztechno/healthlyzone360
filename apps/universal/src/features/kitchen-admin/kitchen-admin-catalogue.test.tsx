@@ -41,7 +41,7 @@ import {
 } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
-import { availabilityErrors, packErrors } from './catalogue-row-editors.tsx';
+import { availabilityErrors, firstPackErrorColumn, packErrors } from './catalogue-row-editors.tsx';
 import type { AvailabilityDraft, PackDraft } from './catalogue-row-editors.tsx';
 import {
     availableChannels,
@@ -379,21 +379,29 @@ describe('catalogue display helpers', () => {
     });
 
     it('refuses a pack with no code, a duplicate code or an impossible measure', () => {
-        expect(packErrors([pack({ code: '  ' })], PACK_MESSAGES).get('a')).toBe('code required');
+        // Each refusal names the column that has to change, so it is drawn under that field.
+        expect(packErrors([pack({ code: '  ' })], PACK_MESSAGES).get('a')).toEqual({
+            code: 'code required',
+        });
 
         const duplicates = packErrors(
             [pack({ key: 'a', code: 'TRAY' }), pack({ key: 'b', code: 'tray' })],
             PACK_MESSAGES,
         );
         expect(duplicates.get('a')).toBeUndefined();
-        expect(duplicates.get('b')).toBe('code duplicate');
+        expect(duplicates.get('b')).toEqual({ code: 'code duplicate' });
 
-        expect(packErrors([pack({ netQuantity: '0' })], PACK_MESSAGES).get('a')).toBe(
-            'quantity invalid',
-        );
-        expect(packErrors([pack({ unitsPerPack: '0' })], PACK_MESSAGES).get('a')).toBe(
-            'units invalid',
-        );
+        expect(packErrors([pack({ netQuantity: '0' })], PACK_MESSAGES).get('a')).toEqual({
+            quantity: 'quantity invalid',
+        });
+        expect(packErrors([pack({ unitsPerPack: '0' })], PACK_MESSAGES).get('a')).toEqual({
+            'units-per-pack': 'units invalid',
+        });
+        // A row wrong in two places says both, each on its own column; the first is the code.
+        const twice = packErrors([pack({ code: '', netQuantity: '-1' })], PACK_MESSAGES).get('a');
+        expect(twice).toEqual({ code: 'code required', quantity: 'quantity invalid' });
+        expect(firstPackErrorColumn(twice ?? {})).toBe('code');
+        expect(firstPackErrorColumn({ 'units-per-pack': 'x', quantity: 'y' })).toBe('quantity');
         expect(packErrors([pack({})], PACK_MESSAGES).size).toBe(0);
     });
 
@@ -1037,6 +1045,53 @@ describe('creating and editing a product', () => {
                 }),
             );
         });
+    });
+
+    it('flags a wrong pack quantity on the quantity cell, never on the code', async () => {
+        const stored = product({ ordinal: 1 });
+
+        const { repositories } = await renderStubScreen(
+            <ProductEditScreen product={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        getProduct: async () => stored,
+                        listProducts: productListing(() => [stored]),
+                        listRecipes: async () => page(NO_RECIPES),
+                        updateProduct: async () => stored,
+                    },
+                },
+            },
+        );
+        await untilVisible('kitchen-product-packs-add');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-packs-add'));
+        });
+        const added = 'kitchen-product-pack-editor-row-pack-1';
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${added}-code-input`), 'CASE24');
+        });
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${added}-quantity-input`), '0');
+        });
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${added}-units-per-pack-input`), '0');
+        });
+
+        expect(screen.getByTestId(`${added}-quantity-error`)).toHaveTextContent(
+            'Net quantity must be a number greater than zero.',
+        );
+        expect(screen.getByTestId(`${added}-units-per-pack-error`)).toHaveTextContent(
+            'Units per pack must be a whole number of at least one.',
+        );
+        expect(screen.queryByTestId(`${added}-code-error`)).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
+        });
+        expect(repositories.kitchenAdmin.updateProduct).not.toHaveBeenCalled();
     });
 
     it('offers only the channels the organisation can sell on (HA-33)', async () => {

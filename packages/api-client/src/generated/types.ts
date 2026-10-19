@@ -1176,6 +1176,15 @@ export type AdminRecipeSoldAs = {
      */
     channel_codes: Array<string>;
     /**
+     * Why selling this item cannot lower stock (HA-45), empty when a sale
+     * can: `stock_no_recipe`, `stock_recipe_not_published`,
+     * `stock_no_pieces_produced` (a meal cooked when ordered),
+     * `stock_no_shelf`, `stock_no_amount_per_sale` (sold from finished
+     * stock). The publish gate refuses on the same codes.
+     *
+     */
+    stock_blockers: Array<string>;
+    /**
      * How many packs the item is sold in, archived ones excluded. Zero on
      * a meal, which is sold as itself, and on a packaged item nobody has
      * given a pack yet.
@@ -2260,6 +2269,14 @@ export type AdminCatalogueItem = {
      */
     photo_url?: string | null;
     /**
+     * The photo of the recipe this item is made from, or null when it has no
+     * recipe or the recipe has no photo. Kept apart from `photo_url` so an
+     * editor never shows the recipe's picture as the item's own; a menu
+     * tile shows `photo_url`, else this, as the marketplace does.
+     *
+     */
+    recipe_photo_url?: string | null;
+    /**
      * Immutable after creation. A rename changes the names and nothing
      * else: a slug is what a link, a marketplace listing and a partner's
      * integration hold.
@@ -2379,6 +2396,15 @@ export type AdminCatalogueItem = {
      * Unresolved import findings, e.g. `dual_pack_single_price`.
      */
     data_quality_flags: Array<string>;
+    /**
+     * Why selling this item cannot lower stock (HA-45), empty when a sale
+     * can: `stock_no_recipe`, `stock_recipe_not_published`,
+     * `stock_no_pieces_produced` (a meal cooked when ordered),
+     * `stock_no_shelf`, `stock_no_amount_per_sale` (sold from finished
+     * stock). The publish gate refuses on the same codes.
+     *
+     */
+    stock_blockers: Array<string>;
     source_system?: string | null;
     source_ref?: string | null;
     /**
@@ -4769,6 +4795,15 @@ export type OpenCartRequest = {
      *
      */
     channel_code: string;
+    /**
+     * The kitchen whose channel to open — a marketplace meal's
+     * `kitchen_id`. Codes are unique per kitchen, so this picks the one
+     * row the code names; a kitchen without an active channel by that
+     * code is `404`. Omitted, the shopper's open basket on the code is
+     * returned, preferring one with lines.
+     *
+     */
+    kitchen_id?: Uuid | null;
 };
 
 export type AddCartItemRequest = {
@@ -11151,13 +11186,16 @@ export type DriverJobDelivery = {
     window_code: string | null;
     requested_date: string | null;
     /**
-     * E.164, and it is **the number the order was given** — resolved from
-     * the contact point the snapshot names, not the customer's best current
-     * number. `null` when the order named none, with no fallback: a
-     * substitution would answer a different question while looking like the
-     * same field, and this route carries no permission code to hold a
-     * customer-contact lookup behind. The desk has
-     * `order.view_customer_contact_organisation` for that.
+     * Who to ask for at the door — the customer account's display name.
+     * `null` for a guest or an anonymised account.
+     *
+     */
+    customer_name: string | null;
+    /**
+     * E.164. The number the order was given (the contact point the snapshot
+     * names), else the customer's best live phone in the order desk's
+     * ordering — so the desk and the driver name one number. `null` only
+     * when the customer has no phone at all.
      *
      */
     phone: string | null;
@@ -11415,6 +11453,14 @@ export type QuotationLine = {
      */
     catalogue_item_id: Uuid;
     /**
+     * The article's English name, so neither side renders a bare identifier. `null` only if the article no longer exists.
+     */
+    item_name_en: string | null;
+    /**
+     * The article's Arabic name. `null` only if the article no longer exists.
+     */
+    item_name_ar: string | null;
+    /**
      * A variant of that article, when the line names one.
      */
     catalogue_item_variant_id: Uuid | null;
@@ -11453,6 +11499,14 @@ export type Quotation = {
      */
     organisation_id: Uuid;
     corporate_programme_id: Uuid;
+    /**
+     * The programme's English name, readable from the kitchen's side too. `null` only if the programme no longer exists.
+     */
+    programme_name_en: string | null;
+    /**
+     * The programme's Arabic name. `null` only if the programme no longer exists.
+     */
+    programme_name_ar: string | null;
     /**
      * A reference a person can read over the phone.
      */
@@ -19409,12 +19463,12 @@ export type NextCatalogueReferenceData = {
     query: {
         /**
          * Which series to read, and each is counted in the table its existing
-         * handles are in: `ING-` among the ingredients, `RC-` among the
+         * handles are in: `ING-` and `PKG-` among the ingredients, `RC-` among the
          * recipes, and `SAC-` and `DRS-` among the catalogue items — where the
          * import wrote forty-three sauces and nineteen dressings.
          *
          */
-        prefix: 'ING-' | 'RC-' | 'SAC-' | 'DRS-';
+        prefix: 'ING-' | 'PKG-' | 'RC-' | 'SAC-' | 'DRS-';
     };
     url: '/catalogue/references/next';
 };
@@ -19520,6 +19574,13 @@ export type ListCatalogueItemsData = {
          */
         status?: CatalogueItemStatus;
         item_type?: CatalogueItemType;
+        /**
+         * `false` keeps only items no recipe sells — the imported meals and
+         * frozen meals the recipe book has no row for (HA-44); `true` only
+         * the ones a recipe sells.
+         *
+         */
+        has_recipe?: 'true' | 'false';
         /**
          * Exact match on the merchandising category.
          */

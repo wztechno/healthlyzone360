@@ -4,6 +4,7 @@ import type {
     RecipeKind,
     RecipeSoldAs,
     RecipeSoldAsPack,
+    StockBlocker,
 } from '@healthy360/api-client/contracts';
 import { Badge, Icon, IconButton, Inline, Text } from '@healthy360/design-system';
 import { SALES_CHANNELS } from '@healthy360/domain-types';
@@ -253,6 +254,27 @@ export function missingPack(seller: RecipeSoldAs): boolean {
     return seller.itemType !== 'meal' && seller.packCount === 0;
 }
 
+/**
+ * Why selling a row's items cannot lower stock (HA-45), as one sentence — every seller's codes,
+ * once each — or `null` when every sale does. The same codes the publish gate refuses on, so a
+ * listing that went on sale before the gate existed still says what to fix.
+ */
+export function stockBlockedLabel(sellers: readonly RecipeSoldAs[], t: TFunction): string | null {
+    const codes = [...new Set(sellers.flatMap((seller) => seller.stockBlockers ?? []))];
+    return codes.length === 0 ? null : stockBlockersSentence(codes, 'rowLabel', t);
+}
+
+/** "Selling this doesn't lower stock: recipe has no pieces produced" — the codes, named. */
+export function stockBlockersSentence(
+    codes: readonly StockBlocker[],
+    key: 'rowLabel' | 'publishBlocked',
+    t: TFunction,
+): string {
+    return t(`kitchen:stockBlockers.${key}`, {
+        reasons: codes.map((code) => t(`kitchen:stockBlockers.${code}`)).join(', '),
+    });
+}
+
 /** The kitchen's own filing pair on the item — "Sauces / Cold sauce / dip" — or `null`. */
 export function kitchenCategoryPair(seller: RecipeSoldAs | undefined): string | null {
     if (seller === undefined || seller.kitchenCategory === null) return null;
@@ -315,6 +337,9 @@ export function recipeColumns({
         if (lead !== null) return packSummary(lead, t, locale, formatter);
         return (row.soldAs ?? []).some(missingPack) ? t('kitchen:products.noPacks') : dash;
     };
+
+    const stockBlocked = (row: RecipeAdminSummary): string | null =>
+        stockBlockedLabel(row.soldAs ?? [], t);
 
     const flagNotes = (seller: RecipeSoldAs | undefined): readonly string[] =>
         seller === undefined
@@ -397,6 +422,23 @@ export function recipeColumns({
                      * way every icon button in the workspace draws it, and pressing the mark opens
                      * the recipe — which is where the formulation gets written.
                      */}
+                    {/*
+                     * Selling this takes nothing off a shelf (HA-45) — the setup a sale needs is
+                     * missing. A glyph for the reason the not-formulated mark is one; its label
+                     * names what is missing, and pressing it opens the recipe where it is fixed.
+                     */}
+                    {stockBlocked(row) === null ? null : (
+                        <IconButton
+                            testID={`${rowID(row)}-stock-blocked`}
+                            variant="ghost"
+                            size="sm"
+                            label={stockBlocked(row) ?? ''}
+                            icon={<Icon name="warning" size="sm" className="text-danger-strong" />}
+                            onPress={() => {
+                                onOpen?.(row);
+                            }}
+                        />
+                    )}
                     {row.lineCount === 0 ? (
                         <IconButton
                             testID={`${rowID(row)}-not-formulated`}

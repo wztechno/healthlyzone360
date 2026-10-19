@@ -2,7 +2,7 @@ import { CorporateProgrammeId } from '@healthy360/domain-types';
 import { describe, expect, it } from 'vitest';
 
 import { createMemoryTokenStore } from '../contracts/session.ts';
-import { createApiBusinessReads } from './business-repository.ts';
+import { createApiBusinessReads, createApiBusinessRepository } from './business-repository.ts';
 import { createTransport } from './transport.ts';
 
 function harness(responses: readonly { status: number; body: unknown }[], token = 'token') {
@@ -29,7 +29,11 @@ function harness(responses: readonly { status: number; body: unknown }[], token 
         },
     });
 
-    return { reads: createApiBusinessReads(transport), calls };
+    return {
+        reads: createApiBusinessReads(transport),
+        repository: createApiBusinessRepository(transport),
+        calls,
+    };
 }
 
 describe('createApiBusinessReads', () => {
@@ -137,5 +141,62 @@ describe('createApiBusinessReads', () => {
 
         expect(page.items).toHaveLength(1);
         expect(page.items[0]?.kind).toBe('bulk_package');
+    });
+});
+
+describe('createApiBusinessRepository quotations', () => {
+    it('names a quotation line by its article, not by its identifier', async () => {
+        const programmeId = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2a01';
+        const itemId = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2b01';
+
+        const { repository } = harness([
+            {
+                status: 200,
+                body: {
+                    data: [
+                        {
+                            id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2c01',
+                            organisation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2d01',
+                            corporate_programme_id: programmeId,
+                            programme_name_en: 'Pilot floor lunches',
+                            programme_name_ar: 'غداء الطابق التجريبي',
+                            reference: 'QUO-2026-0001',
+                            status: 'quoted',
+                            currency_code: 'USD',
+                            notes: null,
+                            decline_reason: null,
+                            submitted_at: '2026-08-10T09:00:00Z',
+                            quoted_at: '2026-08-11T09:00:00Z',
+                            expires_at: '2026-08-18T09:00:00Z',
+                            decided_at: null,
+                            lock_version: 3,
+                            lines: [
+                                {
+                                    id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2e01',
+                                    line_number: 1,
+                                    catalogue_item_id: itemId,
+                                    item_name_en: 'Aioli Sauce',
+                                    item_name_ar: 'صلصة الأيولي',
+                                    catalogue_item_variant_id: null,
+                                    quantity: '10.0000',
+                                    unit_amount_minor: 250,
+                                    line_total_minor: 2500,
+                                    note: null,
+                                },
+                            ],
+                            created_at: '2026-08-10T08:00:00Z',
+                            updated_at: '2026-08-11T09:00:00Z',
+                        },
+                    ],
+                    meta: {},
+                },
+            },
+        ]);
+
+        const page = await repository.listQuotations({
+            programmeId: CorporateProgrammeId.unsafe(programmeId),
+        });
+
+        expect(page.items[0]?.lines[0]?.name).toBe('Aioli Sauce');
     });
 });

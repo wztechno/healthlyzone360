@@ -51,6 +51,7 @@ final readonly class CatalogueRecipeUsageRegistry implements RecipeUsageRegistry
     public function __construct(
         private TenantContext $context,
         private AuditRecorder $audit,
+        private StockDeductionReadiness $stock,
     ) {}
 
     /**
@@ -166,6 +167,8 @@ final readonly class CatalogueRecipeUsageRegistry implements RecipeUsageRegistry
                 'id', 'recipe_id', 'item_type', 'status', 'lock_version', 'source_ref', 'slug', 'name_en', 'name_ar',
                 'image_placeholder_id', 'kitchen_category', 'kitchen_subcategory', 'is_market_priced', 'is_assorted',
                 'data_quality_flags', 'portion_factor', 'composition',
+                // What {@see StockDeductionReadiness} reads to say whether a sale lowers stock.
+                'organisation_id', 'ingredient_id', 'sells_from_finished_stock', 'net_content_quantity', 'net_content_unit_id',
             ]);
 
         if ($items->isEmpty()) {
@@ -210,6 +213,7 @@ final readonly class CatalogueRecipeUsageRegistry implements RecipeUsageRegistry
                 'channel_codes' => $channels[$id] ?? [],
                 'pack_count' => $packs[$id]['count'] ?? 0,
                 'default_pack' => $packs[$id]['default'] ?? null,
+                'stock_blockers' => $this->stock->codes($item),
             ];
         }
 

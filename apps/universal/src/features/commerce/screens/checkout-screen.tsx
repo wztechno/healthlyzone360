@@ -4,6 +4,7 @@ import {
     DateField,
     FAILURE_MESSAGE_KEYS,
     Icon,
+    Inline,
     Select,
     Text,
     TextInputField,
@@ -14,27 +15,41 @@ import type {
     CustomerAddress,
     PlacedOrder,
 } from '@healthy360/api-client/contracts';
-import { useFormatter } from '@healthy360/i18n';
+import { OrderId } from '@healthy360/domain-types';
+import { useFormatter, useLocale } from '@healthy360/i18n';
+import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
 
-import { useAddressesQuery } from '../../../data/account-hooks.ts';
+import { useAccountChecklistQuery, useAddressesQuery } from '../../../data/account-hooks.ts';
 import {
     toFailure,
     useCartQuery,
     useCheckoutPreviewQuery,
+    useMyOrderQuery,
     usePlaceOrderMutation,
 } from '../../../data/commerce-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
+import { queryKeys } from '../../../data/query-keys.ts';
+import { withReturnTo } from '../../../navigation/return-to.ts';
+import { usePreviousEntry } from '../../../navigation/use-return-to.ts';
 import { usePrototypeAction } from '../../../prototype/index.ts';
 import { Eyebrow } from '../../../ui/eyebrow.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
-import { AccountSetupSteps, stepForRequirement } from '../../account/account-setup-steps.tsx';
+import { AccountSetupPanel, stepForRequirement } from '../../account/account-setup-steps.tsx';
 import type { AccountSetupStep } from '../../account/account-setup-steps.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
+import {
+    CHECKOUT_PATH,
+    checkoutHref,
+    isIsoDate,
+    LATEST_PLACED,
+    placedOrders,
+    readCheckoutDraft,
+} from '../checkout-draft.ts';
 import {
     CheckoutCard,
     CheckoutColumns,
@@ -75,7 +90,7 @@ import { displayableWarnings, isCriticalWarning, warningMessageKey } from '../wa
  * saved address *identifier*, a window and a date, and nothing else. So the grid keeps its shape
  * with the one real control on top — the saved-address select — and the address's own street,
  * area and driver note shown beneath it in disabled fields: what the kitchen will receive, edited
- * in the address book ("Manage addresses"), not here. The date sits where the design's ZIP does;
+ * in the address book ("Edit this address"), not here. The date sits where the design's ZIP does;
  * the kitchen's own windows are the design's slot chips. Name and phone are not drawn: the order
  * carries neither, and the account's own contact is what the kitchen reaches.
  *
@@ -93,23 +108,13 @@ import { displayableWarnings, isCriticalWarning, warningMessageKey } from '../wa
  * it, chosen. A second, prototype "card" row was considered and rejected: it would put a dead end
  * directly above the button that places the order, and drawing an instrument nobody saved is the
  * fabrication the rest of the screen is built to avoid.
+ *
+ * ## Nothing here lives in component memory
+ *
+ * Address, date, window, step and the placed order are all in the URL (`../checkout-draft.ts`).
+ * The customer area is one `<Slot/>`, so a detour to add an address unmounts this screen; with the
+ * choices in the query, it comes back exactly as it was left, and so does a refresh.
  */
-
-type Phase = 'collecting' | 'placed';
-
-interface CommittedDelivery {
-    readonly addressId: string;
-    readonly addressLabel: string;
-    readonly slotCode: string;
-    /**
-     * The window's and the kitchen's names as they read when the details were committed. Placement
-     * empties the basket, which disables the kitchen query the live names come from — the
-     * confirmation would otherwise forget which kitchen has the order.
-     */
-    readonly slotLabel: string;
-    readonly kitchenName: string | null;
-    readonly deliveryDate: string;
-}
 
 function formatSavedAddress(address: CustomerAddress): string {
     const parts = [address.label, address.line1, address.areaName].filter(
@@ -129,56 +134,60 @@ function streetOf(address: CustomerAddress | null, separator: string): string {
 export function CheckoutScreen() {
     const { t } = useTranslation();
     const router = useRouter();
+    const queryClient = useQueryClient();
     const formatter = useFormatter();
+    const { locale } = useLocale();
     const runPrototype = usePrototypeAction();
-    const params = useLocalSearchParams<{ channel?: string }>();
-    const channelCode =
-        typeof params.channel === 'string' && params.channel !== '' ? params.channel : undefined;
+    const draft = readCheckoutDraft(useLocalSearchParams());
+    const previous = usePreviousEntry();
+    const channelCode = draft.channel;
 
     const cart = useCartQuery(true, channelCode);
     const basket: Cart | undefined = cart.data;
     const addresses = useAddressesQuery();
+    const checklist = useAccountChecklistQuery();
     const placeOrder = usePlaceOrderMutation(channelCode);
+    const latestPlaced = placedOrders.useDraft(LATEST_PLACED);
+
+    const placedId = draft.placed === undefined ? null : OrderId.safeParse(draft.placed);
+    const placedOrder = useMyOrderQuery(placedId);
 
     const kitchenId = basket?.items[0]?.kitchenId ?? null;
     const kitchen = useKitchenQuery(kitchenId);
     const deliverySlots = deliverySlotsForKitchen(kitchen.data);
     const kitchenOffersPickup = kitchen.data?.channels.pickup === true;
 
-    const [chosenAddressId, setAddressId] = useState<string | null>(null);
-    const [chosenSlotCode, setSlotCode] = useState<string | null>(null);
-    const [deliveryDate, setDeliveryDate] = useState<string | null>(() => earliestStartDate());
     const [showErrors, setShowErrors] = useState(false);
-    const [committed, setCommitted] = useState<CommittedDelivery | null>(null);
-    const [phase, setPhase] = useState<Phase>('collecting');
-    const [placed, setPlaced] = useState<PlacedOrder | null>(null);
 
-    /*
-     * The slot is *derived* while nobody has chosen one, rather than seeded by an effect: the very
-     * first render already shows the kitchen's default, and an explicit choice the kitchen turns
-     * out not to offer — the basket changed kitchen under the person — falls back to the default
-     * rather than sticking.
-     */
     const addressList = addresses.data ?? [];
     /*
-     * The address, like the slot, is derived while nobody has chosen one (HA-22): the default
-     * address, or the only one there is. Somebody with one address was made to open a list of one
-     * to pick it, and the summary could not price delivery until they did.
+     * Every choice comes from the URL (`../checkout-draft.ts`) and is checked against live data
+     * before it is believed; anything missing or no longer valid falls back to what the screen
+     * would have picked on its own. So the address is the one in the URL when it is still in the
+     * book, else the default address, else the only one there is (HA-22) — somebody with one
+     * address is never made to open a list of one to pick it.
      */
     const addressId =
-        chosenAddressId ??
+        (draft.address !== undefined && addressList.some((entry) => entry.id === draft.address)
+            ? draft.address
+            : null) ??
         addressList.find((entry) => entry.isDefault)?.id ??
         (addressList.length === 1 ? (addressList[0]?.id ?? null) : null);
     const selectedAddress = addressList.find((entry) => entry.id === addressId) ?? null;
 
-    const previewRequest = useMemo(() => {
-        if (basket === undefined || basket.items.length === 0) return null;
-        return {
-            cartId: basket.id,
-            ...(addressId === null ? {} : { addressId }),
-            ...(deliveryDate === null ? {} : { deliveryDate }),
-        };
-    }, [addressId, basket, deliveryDate]);
+    const earliestDate = earliestStartDate();
+    const deliveryDate =
+        isIsoDate(draft.date) && draft.date >= earliestDate ? draft.date : earliestDate;
+
+    // A plain object: the query hashes its key, so a new one each render asks for nothing new.
+    const previewRequest =
+        basket === undefined || basket.items.length === 0
+            ? null
+            : {
+                  cartId: basket.id,
+                  ...(addressId === null ? {} : { addressId }),
+                  deliveryDate,
+              };
 
     const preview = useCheckoutPreviewQuery(previewRequest);
     const quotation: CheckoutPreview | undefined = preview.data;
@@ -189,10 +198,39 @@ export function CheckoutScreen() {
      * offer falls back to the default over what it does, and a zone offering none says so.
      */
     const slotOptions = offeredSlots(deliverySlots, quotation?.offeredWindowCodes ?? null);
-    const chosenSlotIsOffered =
-        chosenSlotCode !== null && slotOptions.some((slot) => slot.code === chosenSlotCode);
-    const slotCode = chosenSlotIsOffered ? chosenSlotCode : defaultSlotCode(slotOptions);
+    const slotCode =
+        draft.slot !== undefined && slotOptions.some((slot) => slot.code === draft.slot)
+            ? draft.slot
+            : defaultSlotCode(slotOptions);
     const placeFailure = toFailure(placeOrder.error);
+
+    /*
+     * The payment step is `?step=payment`, honoured only while the delivery details it commits to
+     * are exactly the ones in its URL and all still valid. The delivery step may fill a gap with a
+     * default; the payment step may not — it is the page that says "delivering to … on …" above
+     * Place order, so a Back (or a link) that lands on it after the address was removed, the window
+     * withdrawn or the date overtaken must not quietly swap in a different one and offer to place
+     * that. Such an entry is put back on the delivery step, with the problem marked.
+     *
+     * Only once the data has *settled*, and the address book counts as settled only when it is not
+     * fetching at all: coming back from adding an address, the book is refetched on remount, and
+     * judging `?address=` against the copy from before the detour would throw the person off the
+     * step they were on.
+     */
+    const committedToUrl =
+        selectedAddress !== null &&
+        slotCode !== null &&
+        draft.address === addressId &&
+        draft.date === deliveryDate &&
+        draft.slot === slotCode;
+    const onPayment = draft.step === 'payment' && committedToUrl;
+    const settled =
+        basket !== undefined && !addresses.isFetching && !kitchen.isLoading && !preview.isFetching;
+    const strandedOnPayment = draft.step === 'payment' && !committedToUrl && settled;
+    useEffect(() => {
+        if (!strandedOnPayment) return;
+        router.setParams({ step: undefined } as never);
+    }, [router, strandedOnPayment]);
 
     /*
      * A refusal names *every* reason it was refused for, and the checkout lists them — one sentence
@@ -203,17 +241,32 @@ export function CheckoutScreen() {
         placeFailure?.code === 'order.placement_refused' ? placeFailure.reasons : [];
 
     /*
-     * Account setup is not something the basket can fix, but it is never "go to the account page
-     * and guess". The server sends one `account_not_ready` per outstanding requirement, naming it in
-     * `outstanding` (and, for an address, whether one exists outside the served areas), so each
-     * becomes a row saying what is missing with a button to the screen that fixes it. Every other
-     * reason is about the order itself and stays in the refusal's list.
+     * Account setup is never "go to the account page and guess", and it is no longer a surprise at
+     * the end. The account checklist is read up front, so the steps a new account still has to do
+     * are listed on the first step, each a row that opens the screen that does it and comes back
+     * here (`returnTo`) with every choice intact. Place order waits until the list is empty.
+     *
+     * The server's refusal stays as the backstop for a race — a step that became outstanding after
+     * the checklist was read: one `account_not_ready` per requirement, naming it in `outstanding`
+     * (and, for an address, whether one exists outside the served areas). Every other reason is
+     * about the order itself and stays in the refusal's list.
      */
     const setupSteps: AccountSetupStep[] = [];
+    for (const item of checklist.data?.items ?? []) {
+        if (!item.required || item.complete) continue;
+        setupSteps.push({
+            step: item.step,
+            blockedReason: item.blockedReason,
+            ...(item.step === 'add_address' ? { hasAddress: addressList.length > 0 } : {}),
+        });
+    }
+    let refusedForSetup = false;
     for (const entry of refusalReasons) {
         if (entry.reason !== 'account_not_ready') continue;
         const step = stepForRequirement(entry.context['outstanding']);
-        if (step === null || setupSteps.some((existing) => existing.step === step)) continue;
+        if (step === null) continue;
+        refusedForSetup = true;
+        if (setupSteps.some((existing) => existing.step === step)) continue;
         setupSteps.push({ step, hasAddress: entry.context['has_address'] === true });
     }
     // An `account_not_ready` this build cannot name a step for stays in the list, so it is never lost.
@@ -231,6 +284,21 @@ export function CheckoutScreen() {
         (entry) => entry.reason === 'account_not_active' || entry.reason === 'account_not_ready',
     );
 
+    /*
+     * Where a detour comes back to: this page as it stands, with the defaults the screen derived
+     * written out, so returning restores exactly what was on screen.
+     */
+    const here = checkoutHref({
+        channel: channelCode,
+        address: addressId ?? undefined,
+        date: deliveryDate,
+        slot: slotCode ?? undefined,
+        step: onPayment ? 'payment' : undefined,
+    });
+    const openDetour = (href: string) => {
+        router.push(withReturnTo(href, here) as never);
+    };
+
     const steps = [
         { key: 'delivery', label: t('commerce:checkout.steps.delivery') },
         { key: 'payment', label: t('commerce:checkout.steps.payment') },
@@ -243,13 +311,28 @@ export function CheckoutScreen() {
         // itself reads better than `commerce:slots.late_evening`.
         t(`commerce:slots.${code}`, { defaultValue: code });
 
-    const slotSentence = (delivery: CommittedDelivery) =>
+    const slotSentence = (slotLabel: string, date: string) =>
         t('commerce:checkout.committedSlot', {
-            slot: delivery.slotLabel,
-            date: formatter.formatDate(delivery.deliveryDate, { dateStyle: 'medium' }),
+            slot: slotLabel,
+            date: formatter.formatDate(date, { dateStyle: 'medium' }),
         });
 
-    if (phase === 'placed' && placed !== null && committed !== null) {
+    /*
+     * The confirmation is `?placed={order}`, read back from the order itself, so a refresh, or Back
+     * from "Track this order", shows it again rather than an empty checkout.
+     */
+    if (placedId !== null) {
+        const order = placedOrder.data;
+        const note = latestPlaced?.orderId === placedId ? latestPlaced : null;
+        const orderSlot =
+            order === undefined
+                ? ''
+                : (note?.slotLabel ??
+                  (locale.toLowerCase().startsWith('ar')
+                      ? order.slotNames?.ar
+                      : order.slotNames?.en) ??
+                  order.slotNames?.en ??
+                  slotName(order.slotCode));
         return (
             <CheckoutPage testID="checkout-success-screen">
                 <CheckoutTitle testID="checkout-title">
@@ -261,30 +344,70 @@ export function CheckoutScreen() {
                     steps={steps}
                     current={3}
                 />
-                <OrderPlaced
-                    order={placed}
-                    kitchenName={committed.kitchenName}
-                    arriving={slotSentence(committed)}
-                    onTrack={() => {
-                        router.push(`/customer/orders/${placed.id}` as never);
-                    }}
-                />
+                <QueryStates
+                    query={placedOrder}
+                    isEmpty={false}
+                    treatFailuresAsEmpty={['resource.not_found']}
+                    emptyTitle={t('account:orders.notFoundTitle')}
+                    emptyBody={t('account:orders.notFoundBody')}
+                    skeletonCount={2}
+                    testID="checkout-placed"
+                >
+                    {order === undefined ? null : (
+                        <OrderPlaced
+                            order={order}
+                            kitchenName={note?.kitchenName ?? null}
+                            arriving={slotSentence(orderSlot, order.deliveryDate)}
+                            onTrack={() => {
+                                router.push(`/customer/orders/${order.id}` as never);
+                            }}
+                        />
+                    )}
+                </QueryStates>
             </CheckoutPage>
         );
     }
 
     const onReview = () => {
         setShowErrors(true);
-        if (selectedAddress === null || deliveryDate === null || slotCode === null) return;
-        setCommitted({
-            addressId: selectedAddress.id,
-            addressLabel: formatSavedAddress(selectedAddress),
-            slotCode,
-            slotLabel: slotName(slotCode),
-            kitchenName: kitchen.data?.name ?? null,
-            deliveryDate,
-        });
+        if (selectedAddress === null || slotCode === null) return;
+        // A step of its own in history, so Back from Payment returns to Delivery.
+        router.push(
+            checkoutHref({
+                channel: channelCode,
+                address: selectedAddress.id,
+                date: deliveryDate,
+                slot: slotCode,
+                step: 'payment',
+            }) as never,
+        );
     };
+
+    const onBackToDelivery = () => {
+        // Back when the delivery step is the entry underneath; otherwise (a refresh, a link) the
+        // step is taken off this entry, so the in-card Back never leaves the checkout.
+        if (
+            previous !== null &&
+            previous.pathname === CHECKOUT_PATH &&
+            previous.params['step'] !== 'payment'
+        ) {
+            router.back();
+        } else {
+            router.setParams({ step: undefined } as never);
+        }
+    };
+
+    const committed =
+        onPayment && selectedAddress !== null && slotCode !== null
+            ? {
+                  addressId: selectedAddress.id,
+                  addressLabel: formatSavedAddress(selectedAddress),
+                  slotCode,
+                  slotLabel: slotName(slotCode),
+                  kitchenName: kitchen.data?.name ?? null,
+                  deliveryDate,
+              }
+            : null;
 
     const onPlace = () => {
         if (basket === undefined || committed === null) return;
@@ -297,8 +420,22 @@ export function CheckoutScreen() {
             },
             {
                 onSuccess: (order) => {
-                    setPlaced(order);
-                    setPhase('placed');
+                    placedOrders.write(LATEST_PLACED, {
+                        orderId: order.id,
+                        kitchenName: committed.kitchenName,
+                        slotLabel: committed.slotLabel,
+                    });
+                    // Replaces the payment step: Back from the confirmation is not a second chance
+                    // to place the same order.
+                    router.replace(
+                        checkoutHref({ channel: channelCode, placed: order.id }) as never,
+                    );
+                },
+                onError: () => {
+                    // A setup refusal means the checklist read earlier is out of date.
+                    void queryClient.invalidateQueries({
+                        queryKey: queryKeys.account.checklist(),
+                    });
                 },
             },
         );
@@ -359,9 +496,9 @@ export function CheckoutScreen() {
                     emptyActions={
                         <Button
                             testID="checkout-add-address"
-                            label={t('commerce:checkout.addAddress')}
+                            label={t('commerce:checkout.addAddressAction')}
                             onPress={() => {
-                                router.push('/customer/account/addresses' as never);
+                                openDetour('/customer/account/addresses/new');
                             }}
                         />
                     }
@@ -376,8 +513,7 @@ export function CheckoutScreen() {
                                     label={t('commerce:checkout.addressTitle')}
                                     value={addressId}
                                     onChange={(next) => {
-                                        setAddressId(next);
-                                        setCommitted(null);
+                                        router.setParams({ address: next ?? undefined } as never);
                                     }}
                                     options={addressList.map((entry) => ({
                                         value: entry.id,
@@ -424,12 +560,8 @@ export function CheckoutScreen() {
                                         min={earliestStartDate()}
                                         required
                                         onChange={(next) => {
-                                            setDeliveryDate(next);
-                                            setCommitted(null);
+                                            router.setParams({ date: next ?? undefined } as never);
                                         }}
-                                        {...(showErrors && deliveryDate === null
-                                            ? { error: t('commerce:validation.required') }
-                                            : {})}
                                     />
                                 </View>
                             </FieldCell>
@@ -449,12 +581,23 @@ export function CheckoutScreen() {
                                 />
                             </FieldCell>
                         </FieldRow>
-                        <View className="flex-row">
+                        <View className="flex-row flex-wrap gap-x-5 gap-y-2">
+                            {selectedAddress === null ? null : (
+                                <TextLink
+                                    testID="checkout-edit-address"
+                                    label={t('commerce:checkout.editAddress')}
+                                    onPress={() => {
+                                        openDetour(
+                                            `/customer/account/addresses/${selectedAddress.id}`,
+                                        );
+                                    }}
+                                />
+                            )}
                             <TextLink
                                 testID="checkout-manage-addresses"
-                                label={t('commerce:checkout.addAddress')}
+                                label={t('commerce:checkout.addAnotherAddress')}
                                 onPress={() => {
-                                    router.push('/customer/account/addresses' as never);
+                                    openDetour('/customer/account/addresses/new');
                                 }}
                             />
                         </View>
@@ -478,8 +621,7 @@ export function CheckoutScreen() {
                         label={t('commerce:checkout.slotTitle')}
                         value={slotCode}
                         onChange={(next) => {
-                            setSlotCode(next);
-                            setCommitted(null);
+                            router.setParams({ slot: next } as never);
                         }}
                         options={slotOptions.map((slot) => ({
                             value: slot.code,
@@ -499,6 +641,12 @@ export function CheckoutScreen() {
                     testID="checkout-review"
                     size="lg"
                     label={t('commerce:checkout.review')}
+                    // No saved address, nothing to continue with — the empty state above says what
+                    // to do, and the disabled button says it again to somebody who cannot see it.
+                    disabled={addresses.isSuccess && addressList.length === 0}
+                    {...(addresses.isSuccess && addressList.length === 0
+                        ? { accessibilityHint: t('commerce:checkout.noAddressTitle') }
+                        : {})}
                     onPress={onReview}
                 />
             </View>
@@ -525,7 +673,9 @@ export function CheckoutScreen() {
                         {t('commerce:checkout.deliveringTo', { address: committed.addressLabel })}
                     </RNText>
                     {t('commerce:checkout.committedSeparator')}
-                    <RNText testID="checkout-committed-slot">{slotSentence(committed)}</RNText>
+                    <RNText testID="checkout-committed-slot">
+                        {slotSentence(committed.slotLabel, committed.deliveryDate)}
+                    </RNText>
                 </RNText>
 
                 <View
@@ -543,21 +693,6 @@ export function CheckoutScreen() {
                         chosen
                     />
                 </View>
-
-                {setupSteps.length === 0 ? null : (
-                    <View className="mt-5">
-                        <Callout
-                            testID="checkout-setup-required"
-                            role="alert"
-                            tone="warning"
-                            icon="warning"
-                            title={t('commerce:checkout.setupTitle')}
-                            body={t('commerce:checkout.setupBody', { count: setupSteps.length })}
-                        >
-                            <AccountSetupSteps steps={setupSteps} testID="checkout-setup-step" />
-                        </Callout>
-                    </View>
-                )}
 
                 {placeFailure === null ||
                 (setupSteps.length > 0 && orderReasons.length === 0) ? null : (
@@ -580,7 +715,7 @@ export function CheckoutScreen() {
                                         testID="checkout-finish-setup"
                                         label={t('commerce:checkout.finishSetup')}
                                         onPress={() => {
-                                            router.push('/customer/account' as never);
+                                            openDetour('/customer/account');
                                         }}
                                     />
                                 ) : undefined
@@ -614,9 +749,7 @@ export function CheckoutScreen() {
                         variant="secondary"
                         size="lg"
                         label={t('commerce:checkout.back')}
-                        onPress={() => {
-                            setCommitted(null);
-                        }}
+                        onPress={onBackToDelivery}
                     />
                     <View className="min-w-0 flex-1">
                         <Button
@@ -630,10 +763,14 @@ export function CheckoutScreen() {
                                           total: formatMoney(formatter, quotation.total),
                                       })
                             }
-                            accessibilityHint={t('commerce:checkout.placeOrderHint')}
+                            accessibilityHint={
+                                setupSteps.length > 0
+                                    ? t('commerce:checkout.placeOrderBlockedHint')
+                                    : t('commerce:checkout.placeOrderHint')
+                            }
                             loading={placeOrder.isPending}
-                            // No confirmed total, no placement.
-                            disabled={quotation === undefined}
+                            // No confirmed total, no placement; nor while account steps are left.
+                            disabled={quotation === undefined || setupSteps.length > 0}
                             onPress={onPlace}
                         />
                     </View>
@@ -727,13 +864,29 @@ export function CheckoutScreen() {
                 emptyTitle={t('commerce:checkout.emptyTitle')}
                 emptyBody={t('commerce:checkout.emptyBody')}
                 emptyActions={
-                    <Button
-                        testID="checkout-browse"
-                        label={t('commerce:cart.browse')}
-                        onPress={() => {
-                            router.push('/meals');
-                        }}
-                    />
+                    <Inline space="sm">
+                        {/* Back from a confirmation lands here, on the now-empty basket's
+                            checkout: the order that emptied it is one press away. */}
+                        {latestPlaced === null ? null : (
+                            <Button
+                                testID="checkout-track-latest"
+                                label={t('commerce:checkout.successTrack')}
+                                onPress={() => {
+                                    router.push(
+                                        `/customer/orders/${latestPlaced.orderId}` as never,
+                                    );
+                                }}
+                            />
+                        )}
+                        <Button
+                            testID="checkout-browse"
+                            variant={latestPlaced === null ? 'primary' : 'secondary'}
+                            label={t('commerce:cart.browse')}
+                            onPress={() => {
+                                router.push('/meals');
+                            }}
+                        />
+                    </Inline>
                 }
                 skeletonCount={2}
                 testID="checkout"
@@ -743,6 +896,21 @@ export function CheckoutScreen() {
                     asideWidth="md"
                     main={
                         <CheckoutCard padding="lg" testID="checkout-step-card">
+                            {setupSteps.length === 0 ? null : (
+                                <View className="mb-6">
+                                    <AccountSetupPanel
+                                        testID="checkout-setup-required"
+                                        role={refusedForSetup ? 'alert' : 'status'}
+                                        title={t('commerce:checkout.setupTitle')}
+                                        body={t('commerce:checkout.setupBody', {
+                                            count: setupSteps.length,
+                                        })}
+                                        steps={setupSteps}
+                                        stepsTestID="checkout-setup-step"
+                                        returnTo={here}
+                                    />
+                                </View>
+                            )}
                             {committed === null ? deliveryStep : paymentStep}
                         </CheckoutCard>
                     }

@@ -45,6 +45,7 @@ final class CatalogueItemIndexController
         $this->applyCategory($request, $query);
         $this->applySearch($request, $query);
         $this->applyAllergen($request, $query);
+        $this->applyRecipeLink($request, $query);
 
         $requestedPage = OffsetPage::page($request);
 
@@ -124,6 +125,34 @@ final class CatalogueItemIndexController
         }
 
         $query->where('item_type', $type);
+    }
+
+    /**
+     * `has_recipe=false` lists the items no recipe sells (HA-44): the recipe book is a list
+     * of recipes, so an imported meal or frozen meal with no formulation has no row there
+     * and can only be found through this filter.
+     *
+     * @param  Builder<CatalogueItem>  $query
+     *
+     * @throws ApiException
+     */
+    private function applyRecipeLink(Request $request, Builder $query): void
+    {
+        $value = $request->query('has_recipe');
+
+        if ($value === null || $value === '') {
+            return;
+        }
+
+        if ($value !== 'true' && $value !== 'false') {
+            throw new ApiException(
+                ErrorCode::RequestInvalid,
+                'The has_recipe filter must be true or false.',
+                ['parameter' => 'has_recipe'],
+            );
+        }
+
+        $value === 'true' ? $query->whereNotNull('recipe_id') : $query->whereNull('recipe_id');
     }
 
     /**

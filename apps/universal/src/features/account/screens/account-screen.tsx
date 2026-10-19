@@ -27,7 +27,7 @@ import { useLogoutMutation } from '../../../data/hooks.ts';
 import { Eyebrow } from '../../../ui/eyebrow.tsx';
 import { SubscriptionsScreen } from '../../commerce/screens/subscriptions-screen.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
-import { AccountSetupSteps } from '../account-setup-steps.tsx';
+import { AccountSetupPanel } from '../account-setup-steps.tsx';
 import { ACCOUNT_CARD, PanelTitle } from '../account-card.tsx';
 import { AccountOrdersPanel } from '../account-orders-panel.tsx';
 import { AccountProfilePanel } from '../account-profile-panel.tsx';
@@ -224,22 +224,18 @@ function SetupNotice({
     if (canActivate && outstanding.length === 0) return null;
 
     return (
-        <Callout
+        // Each step says what it needs and opens the screen that does it.
+        <AccountSetupPanel
             testID="account-activation"
             role="status"
-            tone="warning"
             title={t('account:checklist.cannotActivate')}
             body={t('account:checklist.outstanding', { count: outstanding.length })}
-        >
-            {/* Each step says what it needs and opens the screen that does it. */}
-            <AccountSetupSteps
-                testID="account-step"
-                steps={outstanding.map((item) => ({
-                    step: item.step,
-                    blockedReason: item.blockedReason,
-                }))}
-            />
-        </Callout>
+            steps={outstanding.map((item) => ({
+                step: item.step,
+                blockedReason: item.blockedReason,
+            }))}
+            stepsTestID="account-step"
+        />
     );
 }
 

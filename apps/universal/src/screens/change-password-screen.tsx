@@ -5,12 +5,13 @@ import {
     toFormResolver,
 } from '@healthy360/validation';
 import type { UpdatePasswordValues } from '@healthy360/validation';
-import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import { toFailure, useUpdatePasswordMutation } from '../data/hooks.ts';
+import { availableWorkspaceAreas } from '../navigation/items.ts';
+import { useCompleteAuth, useReturnTo } from '../navigation/use-return-to.ts';
 import { useAccessState } from '../session/session-provider.tsx';
 import {
     applyServerFailure,
@@ -20,6 +21,15 @@ import {
 } from './form-helpers.ts';
 
 const KNOWN_FIELDS = ['current_password', 'password', 'password_confirmation'] as const;
+
+/** Where a voluntary change returns when it was opened without a `?returnTo=`. */
+const CUSTOMER_FALLBACK = '/customer/account?section=profile';
+const STAFF_FALLBACK = '/profile';
+
+export interface ChangePasswordScreenProps {
+    /** The route's raw `?returnTo=`. Validated by `useReturnTo`. */
+    readonly returnTo?: string | undefined;
+}
 
 /**
  * Change password, from inside a live session.
@@ -31,20 +41,37 @@ const KNOWN_FIELDS = ['current_password', 'password', 'password_confirmation'] a
  * what stops the forced case reading like an error the person caused.
  *
  * Unlike a reset, the session survives, so success continues into the application rather than
- * bouncing back to the sign-in form. The route out is `/`, which re-runs the landing resolver on a
- * `/me` the mutation has already invalidated: the flag is now false, and the same resolver that
- * sent them here sends them on to their workspace.
+ * bouncing back to the sign-in form.
+ *
+ * ## Two ways out, because two ways in
+ *
+ * - **Forced.** The route out is the launch resolver (`useCompleteAuth`), on a `/me` the mutation
+ *   has already invalidated: the flag is now false, and the same resolver that sent them here
+ *   sends them on — to the `?returnTo=` the landing carried, when there was one, else to their
+ *   workspace. There is no Cancel: the change is the obligation.
+ * - **By choice** (ACCOUNT-10). Opened from a settings page, so it behaves like any other detour:
+ *   Cancel goes back where it came from, and Continue after success returns there too — by
+ *   `dismissTo`, so the finished form is not what Back shows next. Opened bare, the fallback is the
+ *   page that links here: a member of staff's profile, or a customer's account.
+ *
+ * Which of the two it was is fixed at submit time. The success refetches `/me`, and reading the
+ * flag again on the confirmation would always say "by choice".
  */
-export function ChangePasswordScreen() {
+export function ChangePasswordScreen({ returnTo }: ChangePasswordScreenProps = {}) {
     const { t } = useTranslation();
-    const router = useRouter();
     const update = useUpdatePasswordMutation();
     const translate = useValidationTranslate();
     const describeFailure = useFailureMessage();
     const { formError, setFormError } = useFieldErrors();
-    const [done, setDone] = useState(false);
+    const [done, setDone] = useState<'forced' | 'voluntary' | null>(null);
 
-    const forced = useAccessState().mustChangePassword === true;
+    const accessState = useAccessState();
+    const forced = accessState.mustChangePassword === true;
+    const isStaff = availableWorkspaceAreas(accessState).some(
+        (option) => option.area !== 'customer' && option.available,
+    );
+    const back = useReturnTo(returnTo, isStaff ? STAFF_FALLBACK : CUSTOMER_FALLBACK);
+    const completeAuth = useCompleteAuth();
 
     const form = useForm<
         { current_password: string; password: string; password_confirmation: string },
@@ -67,7 +94,7 @@ export function ChangePasswordScreen() {
                 },
                 {
                     onSuccess: () => {
-                        setDone(true);
+                        setDone(forced ? 'forced' : 'voluntary');
                     },
                     onError: (error: unknown) => {
                         const failure = toFailure(error);
@@ -79,10 +106,10 @@ export function ChangePasswordScreen() {
                 },
             );
         },
-        [describeFailure, form, setFormError, update],
+        [describeFailure, forced, form, setFormError, update],
     );
 
-    if (done) {
+    if (done !== null) {
         return (
             <Stack testID="change-password-screen" space="lg">
                 <Heading level={1} testID="change-password-success-title">
@@ -98,7 +125,8 @@ export function ChangePasswordScreen() {
                     block
                     label={t('auth:changePassword.continueLabel')}
                     onPress={() => {
-                        router.replace('/');
+                        if (done === 'forced') completeAuth(back.returnTo);
+                        else back.finish();
                     }}
                 />
             </Stack>
@@ -201,6 +229,16 @@ export function ChangePasswordScreen() {
                     void form.handleSubmit(onSubmit)();
                 }}
             />
+
+            {forced ? null : (
+                <Button
+                    testID="change-password-cancel"
+                    block
+                    variant="secondary"
+                    label={t('common:action.cancel')}
+                    onPress={back.leave}
+                />
+            )}
         </Stack>
     );
 }

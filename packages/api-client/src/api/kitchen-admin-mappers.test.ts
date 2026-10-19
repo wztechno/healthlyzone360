@@ -161,6 +161,7 @@ describe('mapMealAdminFromItem — the finished-stock chain', () => {
         sells_from_finished_stock: false,
         status: 'draft',
         data_quality_flags: [],
+        stock_blockers: [],
         lock_version: 0,
         ...overrides,
     });
@@ -222,6 +223,7 @@ describe('the admin image id for a catalogue item', () => {
         sells_from_finished_stock: false,
         status: 'draft',
         data_quality_flags: [],
+        stock_blockers: [],
         lock_version: 0,
         ...overrides,
     });

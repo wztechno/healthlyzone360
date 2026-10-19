@@ -389,6 +389,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         status?: string | undefined,
         categoryId?: string | undefined,
         allergen?: string | undefined,
+        withoutRecipe?: boolean | undefined,
     ): Promise<CursorPage<AdminCatalogueItem>> {
         const envelope = await transport.requestEnvelope<AdminCatalogueItem[]>({
             method: 'GET',
@@ -402,6 +403,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 status,
                 product_category_id: categoryId,
                 allergen,
+                has_recipe: withoutRecipe === true ? 'false' : undefined,
             })}`,
         });
 
@@ -748,6 +750,8 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 pickCursorFilter(filter),
                 status,
                 filter?.categoryId,
+                undefined,
+                filter?.withoutRecipe,
             );
             return {
                 ...page,
@@ -797,6 +801,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 status,
                 filter?.categoryId,
                 soleAllergen(filter?.allergenCodes),
+                filter?.withoutRecipe,
             );
             return {
                 ...page,

@@ -66,6 +66,7 @@ import {
     parseQuantity,
     rollupWarningKey,
     unitsInDimension,
+    withoutMinus,
 } from './format.ts';
 import { RecipeEditScreen } from './screens/recipe-edit-screen.tsx';
 import { RecipesScreen } from './screens/recipes-screen.tsx';
@@ -884,6 +885,14 @@ describe('recipe display helpers', () => {
         expect(parseQuantity('-3')).toBeNull();
         expect(parseQuantity('12a')).toBeNull();
         expect(parseQuantity('١٢')).toBeNull();
+    });
+
+    it('never takes a minus into a waste or stock figure, and strips nothing else', () => {
+        expect(withoutMinus('-5')).toBe('5');
+        expect(withoutMinus('−2.5')).toBe('2.5');
+        expect(withoutMinus('1-0')).toBe('10');
+        expect(withoutMinus('12a')).toBe('12a');
+        expect(withoutMinus('')).toBe('');
     });
 
     it('offers only units in the ingredient’s own dimension', () => {
@@ -1955,6 +1964,80 @@ describe('the recipe list at desk width', () => {
         expect(screen.getByTestId(`${stub}-not-formulated`)).toHaveAccessibleName(/Not formulated/);
     });
 
+    it('marks a row whose sale lowers no stock, and lists the items no recipe sells (HA-44/45)', async () => {
+        rememberColumnChoice('kitchen-recipes.v2', ['reference', 'name', 'kind', 'status']);
+        const sauce = recipe({
+            ordinal: 1,
+            name: 'Garlic mayo',
+            overrides: {
+                kinds: ['sauce'],
+                soldAs: [seller({ stockBlockers: ['stock_no_amount_per_sale'] })],
+            },
+        });
+        const tiramisu: MealAdmin = {
+            id: MEAL_ID,
+            meta: {
+                status: 'published',
+                lockVersion: 1,
+                updatedAt: '2026-08-01T09:00:00.000Z',
+                updatedByName: 'Seed',
+            },
+            name: { en: 'Tiramisu', ar: 'تيراميسو' },
+            description: { en: '', ar: '' },
+            kitchenCategory: null,
+            kitchenSubcategory: null,
+            composition: null,
+            kitchenId: TEST_KITCHEN_ID,
+            recipeId: null,
+            recipeVersionId: null,
+            productionMode: null,
+            ingredientId: null,
+            sellsFromFinishedStock: false,
+            netContentQuantity: null,
+            netContentUnitId: null,
+            portionFactor: 1,
+            mealTypes: [],
+            dietClassifications: [],
+            allergens: [],
+            channelAvailability: [],
+            availability: [],
+            imagePlaceholderId: 'meal-tiramisu',
+            stockBlockers: ['stock_no_recipe'],
+            marginPercent: null,
+        };
+        const asked: { withoutRecipe?: boolean | undefined }[] = [];
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => [sauce]),
+                    listMeals: async (filter) => {
+                        asked.push({ withoutRecipe: filter?.withoutRecipe });
+                        return page(filter?.withoutRecipe === true ? [tiramisu] : []);
+                    },
+                    listProducts: async () => page([]),
+                },
+            },
+        });
+
+        const row = recipeRow(sauce);
+        await untilVisible(`${row}-name`);
+
+        expect(screen.getByTestId(`${row}-stock-blocked`)).toHaveAccessibleName(
+            /doesn't lower stock: no pack weight or amount per sale/,
+        );
+
+        await untilVisible(`kitchen-recipes-unformulated-${String(MEAL_ID)}`);
+        expect(asked).toContainEqual({ withoutRecipe: true });
+        expect(screen.getByTestId('kitchen-recipes-unformulated')).toHaveTextContent(
+            /On the menu without a recipe · 1 item/,
+        );
+        expect(
+            screen.getByTestId(`kitchen-recipes-unformulated-${String(MEAL_ID)}`),
+        ).toHaveTextContent('Tiramisu');
+    });
+
     it('narrows the book by its own filing word, through the request', async () => {
         rememberColumnChoice('kitchen-recipes.v2', [
             'reference',
@@ -2687,18 +2770,18 @@ describe('the steps', () => {
         expect(screen.queryByTestId('kitchen-recipe-tab-steps')).toBeNull();
         expect(screen.queryByTestId('kitchen-recipe-tab-issues')).toBeNull();
 
-        // A price that does not parse is flagged as it is typed, and the tab it is on says so —
-        // spoken as well as drawn, because a pill a screen reader cannot hear is not a signal.
-        await openTab('costing');
-        await untilVisible('kitchen-recipe-b2b-price-input');
+        // A shelf life that does not parse is flagged as it is typed, and the tab it is on says
+        // so — spoken as well as drawn, because a pill a screen reader cannot hear is not a signal.
+        await openTab('packaging');
+        await untilVisible('kitchen-recipe-expiry-input');
         await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-recipe-b2b-price-input'), 'abc');
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), 'abc');
         });
         await waitFor(
             () => {
                 expect(
-                    screen.getByTestId('kitchen-recipe-tab-costing').props.accessibilityLabel,
-                ).toBe('Costing, 1 to fix');
+                    screen.getByTestId('kitchen-recipe-tab-packaging').props.accessibilityLabel,
+                ).toBe('Packaging, 1 to fix');
             },
             { timeout: 10_000 },
         );
@@ -2707,9 +2790,27 @@ describe('the steps', () => {
         // The banner's chip takes the reader back to it from anywhere.
         await openTab('sheet');
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-issues-errors-b2b-price'));
+            fireEvent.press(screen.getByTestId('kitchen-recipe-issues-errors-shelf-life'));
         });
-        await untilVisible('kitchen-recipe-b2b-price-input');
+        await untilVisible('kitchen-recipe-expiry-input');
+    });
+
+    it('asks no price on Costing — the Selling tab is where a recipe is priced', async () => {
+        const stored = recipe({ ordinal: 5, name: 'Mujaddara' });
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => stored) },
+        });
+
+        await untilVisible('kitchen-recipe-tabs');
+        await openTab('costing');
+        await untilVisible('kitchen-recipe-package-costs');
+        expect(screen.queryByTestId('kitchen-recipe-coefficients')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-b2b-price-input')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-b2c-price-input')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-margin-input')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-issues-margin')).toBeNull();
     });
 
     it('puts each waste rate on the tab whose lines it applies to', async () => {
@@ -3204,7 +3305,7 @@ describe('the shelf life', () => {
         });
     });
 
-    it('writes it alone on a published recipe, and keeps the version’s prices closed', async () => {
+    it('writes it alone on a published recipe, and keeps the version fields closed', async () => {
         const publishedVersion = recipeVersion({
             recipeOrdinal: 3,
             overrides: { status: 'published', publishedAt: '2026-08-02T09:00:00.000Z' },
@@ -3235,12 +3336,12 @@ describe('the shelf life', () => {
         await openTab('sheet');
         expect(save().props.accessibilityState.disabled).toBe(true);
 
-        await openTab('costing');
-        await untilVisible('kitchen-recipe-b2b-price-input');
-        expect(screen.getByTestId('kitchen-recipe-b2b-price-input').props.editable).toBe(false);
-        expect(screen.getByTestId('kitchen-recipe-b2c-price-input').props.editable).toBe(false);
-
         await openTab('packaging');
+        await untilVisible('kitchen-recipe-packaging-waste-input');
+        expect(screen.getByTestId('kitchen-recipe-packaging-waste-input').props.editable).toBe(
+            false,
+        );
+
         await untilVisible('kitchen-recipe-expiry-input');
         expect(screen.getByTestId('kitchen-recipe-expiry-input').props.editable).toBe(true);
 

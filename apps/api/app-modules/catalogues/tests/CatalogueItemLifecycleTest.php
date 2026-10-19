@@ -100,7 +100,8 @@ it('refuses to publish a meal with no allergen basis at all', function (): void 
         ->assertStatus(409)
         ->json('error.details.reasons');
 
-    expect(collect($reasons)->pluck('reason')->all())->toBe(['no_allergen_basis']);
+    // No recipe either, so a sale would take nothing off a shelf (HA-45).
+    expect(collect($reasons)->pluck('reason')->all())->toBe(['no_allergen_basis', 'stock_no_recipe']);
 });
 
 it('accepts an ingredient list as a meals allergen basis', function (): void {
@@ -119,11 +120,18 @@ it('accepts an ingredient list as a meals allergen basis', function (): void {
         'ingredients' => [['ingredient_id' => (string) $tahini->getKey(), 'is_representative' => true]],
     ], $headers + ['If-Match' => '"0"'])->assertOk();
 
-    $this->postJson('/api/v1/catalogue/items/'.$item->getKey().'/publish', [], $headers + ['If-Match' => '"1"'])
+    // The list answers "what is in this", so the allergen gate is satisfied. What still blocks
+    // the publication is stock (HA-45): with no recipe, a sale would take nothing off a shelf.
+    $reasons = $this->getJson('/api/v1/catalogue/items/'.$item->getKey().'/readiness', $headers)
         ->assertOk()
-        ->assertJsonPath('data.item.status', 'published')
-        ->assertJsonPath('data.allergens.basis', 'item_ingredients')
-        ->assertJsonPath('data.allergens.allergens.0.allergen_code', 'sesame');
+        ->json('data.reasons');
+
+    expect(collect($reasons)->pluck('code')->all())->toBe(['stock_no_recipe']);
+
+    $this->getJson('/api/v1/catalogue/items/'.$item->getKey().'/allergens', $headers)
+        ->assertOk()
+        ->assertJsonPath('meta.basis', 'item_ingredients')
+        ->assertJsonPath('data.allergens.0.allergen_code', 'sesame');
 });
 
 it('refuses to publish a quarantined item structurally', function (): void {

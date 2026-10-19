@@ -63,14 +63,21 @@ import {
 } from '../../../data/kitchen-ops-hooks.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
+import { stockBlockersSentence } from '../catalogue/recipe-columns.tsx';
 import {
     ChannelAvailabilityEditor,
     PackVariantEditor,
     channelRequest,
     emptyPack,
+    firstPackErrorColumn,
     packErrors,
 } from '../catalogue-row-editors.tsx';
-import type { ChannelDraft, PackColumn, PackDraft } from '../catalogue-row-editors.tsx';
+import type {
+    ChannelDraft,
+    PackColumn,
+    PackDraft,
+    PackRowErrors,
+} from '../catalogue-row-editors.tsx';
 import {
     CATALOGUE_MANAGE_PERMISSION,
     CATALOGUE_VIEW_PERMISSION,
@@ -621,6 +628,13 @@ function ProductEditor({
         details.packs.filter((row) => row.code.trim() === '').map((row) => row.key),
     );
     const firstPackError = details.packs.find((row) => packRowErrors.has(row.key));
+    // The field the banner's chip focuses: the first wrong column of that row, not always its code.
+    const firstPackErrorField =
+        firstPackError === undefined
+            ? undefined
+            : `${PACK_EDITOR_TEST_ID}-row-${firstPackError.key}-${
+                  firstPackErrorColumn(packRowErrors.get(firstPackError.key) ?? {}) ?? 'code'
+              }`;
 
     /*
      * Net content is all-or-nothing, and that is all this screen can check.
@@ -673,13 +687,13 @@ function ProductEditor({
                       required: true,
                   },
               ]
-            : firstPackError === undefined
+            : firstPackErrorField === undefined
               ? []
               : [
                     {
                         key: 'packs',
                         label: t('kitchen:products.sectionPacks'),
-                        fieldId: `${PACK_EDITOR_TEST_ID}-row-${firstPackError.key}-code`,
+                        fieldId: firstPackErrorField,
                         // Only a row still waiting on its code is a blank; anything else was typed.
                         required: [...packRowErrors.keys()].every((key) => blankPackKeys.has(key)),
                     },
@@ -717,7 +731,7 @@ function ProductEditor({
      * The pack table's own messages, on the same schedule: a blank row's `code required` waits for
      * Save, a duplicate does not.
      */
-    const shownPackErrors: ReadonlyMap<string, string> = attempted
+    const shownPackErrors: ReadonlyMap<string, PackRowErrors> = attempted
         ? packRowErrors
         : new Map([...packRowErrors].filter(([key]) => !blankPackKeys.has(key)));
 
@@ -1156,7 +1170,18 @@ function ProductEditor({
      * holds, not what is on screen. `CatalogueItemReadiness` on the server is still the authority
      * and refuses more than this; these are only the ones a person can see and fix from this form.
      */
+    /*
+     * A sale of this item would take nothing off a shelf (HA-45) — a weighed shelf with no pack
+     * weight or net content. Not a save blocker: the fix is made on this form and saved first. The
+     * server refuses the publication on the same codes; this says why before anyone presses it.
+     */
+    const stockBlockers = data?.stockBlockers ?? [];
+    const stockBlockedHint =
+        stockBlockers.length === 0
+            ? undefined
+            : stockBlockersSentence(stockBlockers, 'publishBlocked', t);
     const publishBlocked =
+        stockBlockers.length > 0 ||
         blockers.length > 0 ||
         noChannel ||
         detailsDirty ||
@@ -1254,6 +1279,7 @@ function ProductEditor({
                     // Visibly disabled while anything this screen can check fails; the dialog's
                     // confirm keeps the same guard, and the server keeps the real one.
                     disabled={publishBlocked}
+                    hint={stockBlockedHint}
                     onPress={() => {
                         setShowPublish(true);
                     }}

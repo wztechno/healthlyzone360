@@ -56,7 +56,7 @@ import {
     INVENTORY_VIEW_COSTS_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
-import { parseQuantity } from '../format.ts';
+import { parseQuantity, withoutMinus } from '../format.ts';
 import { isOutOfStock, stockItemRowTestId } from '../ops-format.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
@@ -1244,7 +1244,10 @@ function StockMovementEditor({
                                           : undefined
                                 }
                                 value={quantity}
-                                onChangeText={edit(setQuantity)}
+                                // Waste, a decrease and a count are all magnitudes — never a minus.
+                                onChangeText={(next) => {
+                                    edit(setQuantity)(withoutMinus(next));
+                                }}
                                 keyboardType="decimal-pad"
                                 size="sm"
                             />

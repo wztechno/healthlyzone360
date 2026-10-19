@@ -266,7 +266,8 @@
         },
         "nextTitle": "Have a look around",
         "nextBody": "Nothing on the marketplace needs an account.",
-        "meetDietitians": "Meet the dietitians"
+        "meetDietitians": "Meet the dietitians",
+        "browsePlans": "Browse plans"
     },
     "forBusiness": {
         "title": "Healthy360 for business",
@@ -315,7 +316,7 @@
             "nutrition": "Nutrition",
             "virtualDietitian": "Virtual Dietitian",
             "subscriptions": "Subscriptions",
-            "cart": "Cart",
+            "cart": "Basket",
             "cartWithCount": "{{label}} ({{items}})",
             "account": "Account",
             "profile": "Profile"

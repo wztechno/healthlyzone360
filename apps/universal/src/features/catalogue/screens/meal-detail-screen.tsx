@@ -7,10 +7,12 @@ import {
     IconButton,
     TextInputField,
 } from '@healthy360/design-system';
+import type { BreadcrumbItem } from '@healthy360/design-system';
 import type { ApiFailure, MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { MealId } from '@healthy360/domain-types';
 import type { KitchenId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
+import { ROUTE_PATHS } from '@healthy360/permissions';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +22,7 @@ import { mealsFromPages, useMealQuery, useMealsQuery } from '../../../data/catal
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { EntityImage } from '../../../media/entity-image.tsx';
 import { PhotoCredit } from '../../../media/photo-credit.tsx';
+import { useNavigateUp, usePreviousEntry } from '../../../navigation/use-return-to.ts';
 import { usePrototypeAction } from '../../../prototype/index.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { useFailureMessage } from '../../../screens/form-helpers.ts';
@@ -40,7 +43,7 @@ import { NutritionFactsPanel } from '../nutrition-facts-panel.tsx';
  * A trail. Then the 1.1 : 1 split: on the left a 460px photograph over a row of three 110px
  * frames; on the right the tag and rating, the 42px name, the description, the four-cell nutrition
  * strip, `INGREDIENTS` with the warning-toned allergen bar under it, a rule, `MAKE IT YOURS` with
- * the special-instructions box, and the quantity stepper beside a full-width "Add to cart" carrying
+ * the special-instructions box, and the quantity stepper beside a full-width "Add to basket" carrying
  * the total — pinned to the foot of the scroll port while the column runs past it. Then, full
  * width, the four smaller cards.
  *
@@ -79,9 +82,104 @@ const MAX_QUANTITY = 99;
 /** The other meals from the kitchen, fetched one past what is shown so this meal can drop out. */
 const RELATED_COUNT = 4;
 
+/** The catalogue a meal belongs to when nothing says otherwise. */
+const MENU_PATH = '/meals';
+
+/** A storefront (`/kitchens/{id}`) or its searchable menu (`/kitchens/{id}/menu`). */
+const KITCHEN_PAGE = /^\/kitchens\/([^/]+)(\/menu)?$/;
+
+/**
+ * The trail above the meal, built from where the person came from (browse-05).
+ *
+ * It was always "Home › Today's menu › meal", and "Today's menu" pushed the bare `/meals`: a meal
+ * opened from a kitchen's storefront offered a way "back" to a page the person had never seen, and
+ * one opened from `/meals?diet=vegan` came back to the menu without its diet. Now:
+ *
+ * - opened from a kitchen's storefront or its menu — the entry right below this one — the trail is
+ *   that kitchen's, "Home › Kitchens › Verdant › meal", and each crumb goes *up* to its page;
+ * - otherwise it is the menu's, as before.
+ *
+ * Every parent crumb goes through `useNavigateUp`: Back when the parent is the entry right below —
+ * the listing exactly as it was, filters, shelf and scroll — and otherwise a push of the parent with
+ * the query it was last shown with. "Home" is the marketplace home itself (`router.navigate`), never
+ * `/`, which is the launch resolver (browse-10).
+ *
+ * After a refresh there is no entry below to read, and the trail falls back to the menu's — the
+ * one page every meal is on.
+ */
+function useMealTrail(item: MarketplaceMeal | undefined): readonly BreadcrumbItem[] {
+    const { t } = useTranslation();
+    const router = useRouter();
+    const navigateUp = useNavigateUp();
+    const previous = usePreviousEntry();
+
+    const home: BreadcrumbItem = {
+        key: 'home',
+        label: t('catalogue:nav.home'),
+        testID: 'meal-detail-crumb-home',
+        onPress: () => {
+            router.navigate(ROUTE_PATHS.customerHome as never);
+        },
+    };
+    const meal: BreadcrumbItem = { key: 'meal', label: item?.name ?? t('catalogue:meal.loading') };
+
+    const fromKitchen = previous === null ? null : KITCHEN_PAGE.exec(previous.pathname);
+    const kitchenId = fromKitchen?.[1];
+    if (previous !== null && kitchenId !== undefined) {
+        const storefront = `/kitchens/${kitchenId}`;
+        const kitchenName = item?.kitchenName ?? t('marketplace:kitchen.loading');
+        return [
+            home,
+            {
+                key: 'kitchens',
+                label: t('marketplace:nav.kitchens'),
+                testID: 'meal-detail-crumb-kitchens',
+                onPress: () => {
+                    navigateUp('/kitchens');
+                },
+            },
+            {
+                key: 'kitchen',
+                label: kitchenName,
+                testID: 'meal-detail-crumb-kitchen',
+                onPress: () => {
+                    navigateUp(storefront);
+                },
+            },
+            ...(fromKitchen?.[2] === undefined
+                ? []
+                : [
+                      {
+                          key: 'kitchen-menu',
+                          label: t('marketplace:menu.title'),
+                          testID: 'meal-detail-crumb-kitchen-menu',
+                          onPress: () => {
+                              navigateUp(previous.pathname);
+                          },
+                      },
+                  ]),
+            meal,
+        ];
+    }
+
+    return [
+        home,
+        {
+            key: 'meals',
+            label: t('catalogue:meals.title'),
+            testID: 'meal-detail-crumb-meals',
+            onPress: () => {
+                navigateUp(MENU_PATH);
+            },
+        },
+        meal,
+    ];
+}
+
 export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
+    const navigateUp = useNavigateUp();
     const runPrototype = usePrototypeAction();
 
     const parsed = mealId === undefined ? null : MealId.safeParse(mealId);
@@ -123,33 +221,16 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
             variant="secondary"
             label={t('catalogue:meal.browseAll')}
             onPress={() => {
-                router.push('/meals');
+                navigateUp(MENU_PATH);
             }}
         />
     );
 
+    const trail = useMealTrail(item);
+
     return (
         <View testID="meal-detail-screen" className="flex-col gap-4">
-            <Breadcrumbs
-                testID="meal-detail-breadcrumbs"
-                items={[
-                    {
-                        key: 'home',
-                        label: t('catalogue:nav.home'),
-                        onPress: () => {
-                            router.push('/');
-                        },
-                    },
-                    {
-                        key: 'meals',
-                        label: t('catalogue:meals.title'),
-                        onPress: () => {
-                            router.push('/meals');
-                        },
-                    },
-                    { key: 'meal', label: item?.name ?? t('catalogue:meal.loading') },
-                ]}
-            />
+            <Breadcrumbs testID="meal-detail-breadcrumbs" items={trail} />
 
             {/* A link carrying something that is not an identifier at all leaves the query
                 disabled, and a disabled query never settles — so the not-found answer is rendered
@@ -232,9 +313,9 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
             )}
 
             {/*
-             * The guest entry point. A real dialog rather than a redirect: "continue as a guest"
-             * puts the meal in the basket and opens `/guest-checkout`, "sign in instead" records the
-             * page so somebody who signs in lands back on it.
+             * The signed-out entry point. A real dialog rather than a redirect: Sign in and Create
+             * account each keep the meal and its quantity and carry this page as the return, so
+             * the add is made once the person is back here (`commerce/use-basket-add.tsx`).
              */}
             {basket.dialog}
         </View>

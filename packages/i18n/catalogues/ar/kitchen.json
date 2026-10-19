@@ -1872,6 +1872,7 @@
         "claimTaken": "سبقك أحد إلى هذه الرحلة.",
         "noAddress": "لم يُسجَّل عنوان على هذا الطلب. اتصل بالمطبخ قبل الانطلاق.",
         "directions": "إرشادات: {{directions}}",
+        "customer": "العميل: {{name}}",
         "phone": "اتصل بـ {{phone}}",
         "assignedAt": "أُسندت إليك في {{at}}",
         "deliver": "تأكيد التسليم",
@@ -2078,8 +2079,6 @@
             "areaPlaceholderNone": "لا يوصل هذا المطبخ إلى أي منطقة بعد",
             "lineOneLabel": "العنوان",
             "lineOnePlaceholder": "مثال: شارع بلس، الحمرا",
-            "lineTwoLabel": "السطر الثاني",
-            "lineTwoPlaceholder": "مثال: شقة 7",
             "buildingLabel": "المبنى",
             "buildingPlaceholder": "مثال: مبنى 12، الطابق الثالث",
             "directionsLabel": "إرشادات للسائق",
@@ -2270,8 +2269,6 @@
             "snack": "وجبة خفيفة"
         },
         "loadErrorTitle": "تعذّر تحميل التقويم",
-        "emptyTitle": "لا شيء هذا الأسبوع",
-        "emptyBody": "لا طلبات ولا تسليمات محجوزة ولا شيء متوقّع بين هذين التاريخين. انظر أسبوعاً آخر، أو سجّل بيعاً من المكتب.",
         "a11y": {
             "showing": "يُعرَض من {{from}} إلى {{to}}.",
             "projected": "توقّع: {{count}}. محسوب من أنماط الاشتراكات، وليس حجزاً.",
@@ -3009,6 +3006,23 @@
         "mappingAdded": "أُضيف صف ربط مسبّب حساسية.",
         "mappingRemoved": "أُزيل صف ربط مسبّب حساسية."
     },
+    "stockBlockers": {
+        "gateCheck": "يُنقص المخزون عند البيع",
+        "rowLabel": "بيع هذا لا يُنقص المخزون: {{reasons}}",
+        "publishBlocked": "بيع هذا لن يُنقص المخزون: {{reasons}}",
+        "stock_no_recipe": "لا وصفة",
+        "stock_recipe_not_published": "الوصفة غير منشورة",
+        "stock_no_pieces_produced": "الوصفة بلا عدد قطع منتجة",
+        "stock_no_shelf": "لا صنف منتَج",
+        "stock_no_amount_per_sale": "لا وزن عبوة أو كمية لكل بيع",
+        "unformulatedTitle": "في القائمة بلا وصفة",
+        "unformulatedCount_zero": "{{count}} صنف",
+        "unformulatedCount_one": "صنف واحد",
+        "unformulatedCount_two": "صنفان",
+        "unformulatedCount_few": "{{count}} أصناف",
+        "unformulatedCount_many": "{{count}} صنفًا",
+        "unformulatedCount_other": "{{count}} صنف"
+    },
     "recipes": {
         "title": "الوصفات",
         "subtitle": "الصيغ التي يطبخ منها هذا المطبخ. كل تغيير يفتح نسخة، ولا يصل إلى الطبق إلا ما نُشر منها.",
@@ -3216,11 +3230,8 @@
         "costPerPieceWithWaste": "للقطعة + {{percent}}% هدر",
         "productionWastePercent": "هدر الإنتاج (%)",
         "packagingWastePercent": "هدر التعبئة (%)",
-        "b2bPricePerUnit": "سعر الشركات / {{unit}}",
         "b2bPriceHint": "للمطابخ والمشترين المؤسسيين، غير شامل ضريبة القيمة المضافة",
-        "b2cPricePerUnit": "سعر الأفراد / {{unit}}",
         "b2cPriceHint": "للمستهلك، شامل ضريبة القيمة المضافة",
-        "grossMargin": "هامش الربح الإجمالي",
         "marginNoBasis": "يتطلّب سعر شركات وتركيبة مُكلَّفة",
         "compositionHint": "محسوب من قاعدة بيانات المكوّنات — غير قابل للتعديل هنا",
         "sectionAllergenClasses": "فئات مسبّبات الحساسية",
@@ -4697,10 +4708,7 @@
         "expiryPeriod": "مدة الصلاحية",
         "shelfLifeInvalid": "أدخل عددًا صحيحًا من الأيام بين 0 و3650.",
         "days": "أيام",
-        "yieldAndWaste": "المردود والهدر",
-        "price": "السعر",
-        "marginLow": "أقل من {{percent}}٪",
-        "marginBelowCost": "أقل من التكلفة"
+        "yieldAndWaste": "المردود والهدر"
     },
     "deliveryWindows": {
         "title": "نوافذ التوصيل",

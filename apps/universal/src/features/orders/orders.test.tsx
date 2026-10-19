@@ -2,12 +2,16 @@ import { ApiError, apiFailure } from '@healthy360/api-client';
 import type { PlacedOrder } from '@healthy360/api-client/contracts';
 import { OrderId } from '@healthy360/domain-types';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
 
+import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
 import { testMeResponse } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { currentStepIndex, stepPosition } from './order-progress.ts';
-import { CustomerOrderScreen, ORDER_TRACKING_POLL_MS } from './screens/customer-order-screen.tsx';
+import {
+    CustomerOrderScreen,
+    ORDER_HISTORY_HREF,
+    ORDER_TRACKING_POLL_MS,
+} from './screens/customer-order-screen.tsx';
 
 /**
  * The signed-in order page, over the same tracking body the guest page draws.
@@ -18,26 +22,18 @@ import { CustomerOrderScreen, ORDER_TRACKING_POLL_MS } from './screens/customer-
  * order history.
  */
 
-jest.mock('expo-router', () => {
-    const push = jest.fn();
-    return {
-        __esModule: true,
-        useRouter: () => ({ push, replace: jest.fn(), setParams: jest.fn(), back: jest.fn() }),
-        usePathname: () => '/customer/orders/x',
-        useLocalSearchParams: () => ({}),
-        Redirect: () => null,
-        Link: ({ children }: { children: ReactNode }) => children,
-        Slot: () => null,
-        Stack: () => null,
-        __push: push,
-    };
-});
+jest.mock('expo-router', () =>
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../../testing/expo-router-mock.ts').createExpoRouterMock({
+        pathname: '/customer/orders/x',
+    }),
+);
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const routerMock = require('expo-router') as { __push: jest.Mock };
+const routerMock = require('expo-router') as ExpoRouterMock;
 
 beforeEach(() => {
-    routerMock.__push.mockClear();
+    routerMock.__reset();
 });
 
 const ORDER_ID = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e8aa1';
@@ -137,10 +133,16 @@ describe('CustomerOrderScreen', () => {
         await fireEvent.press(screen.getByTestId('customer-order-help'));
         expect(await screen.findByTestId('prototype-notice')).toHaveTextContent(/Not built yet/);
 
-        // A guest is told to keep the reference; an account holder has the history instead.
+        // A guest is told to keep the reference; an account holder has the history instead —
+        // at the top of the page, under its own name, with the order as the current crumb.
         expect(screen.queryByTestId('customer-order-reference-keep')).toBeNull();
-        await fireEvent.press(screen.getByTestId('customer-order-history'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account?section=orders');
+        expect(screen.getByTestId('customer-order-trail-up')).toHaveTextContent('Order history');
+        expect(screen.getByTestId('customer-order-trail')).toHaveTextContent(/H360-1042/);
+        await fireEvent.press(screen.getByTestId('customer-order-trail-up'));
+        // Up to the history by name: popped to when it is underneath, never pushed on top.
+        expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(ORDER_HISTORY_HREF);
+        expect(ORDER_HISTORY_HREF).toBe('/customer/account?section=orders');
+        expect(routerMock.__push).not.toHaveBeenCalled();
     });
 
     it('walks the steps with the time each was reached, and offers the courier only on the road (HA-19)', async () => {
@@ -256,6 +258,10 @@ describe('CustomerOrderScreen', () => {
 
         expect(await screen.findByTestId('customer-order-states-empty')).toBeTruthy();
         expect(repositories.commerce.getMyOrder).not.toHaveBeenCalled();
+
+        // Nothing to show, so the one action is the history — by name, as from the trail.
+        await fireEvent.press(screen.getByTestId('customer-order-history'));
+        expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(ORDER_HISTORY_HREF);
     });
 
     it('answers another account’s order the way it answers a missing one', async () => {

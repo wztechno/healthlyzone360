@@ -162,6 +162,16 @@ final readonly class SubscriptionService
             );
 
             foreach ($probe->refusals as $refusal) {
+                // A plan is not offered through channel availability rows: the
+                // admin has no writer for them, and the marketplace lists a plan
+                // on publication alone (`MarketplacePlans`, "What makes a plan
+                // public"). The meal rule would refuse every plan a kitchen built
+                // itself, so it is not asked here; trading, publication and the
+                // configuration's price still are.
+                if (($refusal['reason'] ?? null) === 'channel_unavailable') {
+                    continue;
+                }
+
                 $reasons[] = $refusal;
             }
         }

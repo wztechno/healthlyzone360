@@ -23,7 +23,8 @@
         "goBack": "Go back",
         "done": "Done",
         "search": "Search",
-        "clear": "Clear"
+        "clear": "Clear",
+        "keepBrowsing": "Keep browsing"
     },
     "state": {
         "loading": "Loading…",
@@ -87,5 +88,32 @@
             "unsplash": "Unsplash",
             "other": "the original publisher"
         }
+    },
+    "returnTo": {
+        "checkout": "Back to checkout",
+        "planSetup": "Back to plan setup",
+        "subscription": "Back to your subscription",
+        "account": "Back to your account",
+        "basket": "Back to your basket",
+        "order": "Back to your order",
+        "closure": "Back to closing your account",
+        "previous": "Back"
+    },
+    "destination": {
+        "checkout": "Checkout",
+        "planSetup": "Plan setup",
+        "subscription": "Subscription",
+        "account": "Your account",
+        "basket": "Your basket",
+        "order": "Your order",
+        "closure": "Close account",
+        "previous": "Back"
+    },
+    "unsaved": {
+        "title": "Leave without saving?",
+        "body": "Your changes have not been saved. Leaving now discards them.",
+        "discard": "Discard my changes",
+        "keepEditing": "Keep editing",
+        "browserPrompt": "You have unsaved changes."
     }
 }

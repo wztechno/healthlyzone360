@@ -9,7 +9,7 @@ import { formatMoney } from '../../marketplace/format.ts';
 import { compareNumber, compareText } from '../catalogue/use-column-controls.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
-import { parseMinorAmount } from '../format.ts';
+import { displayName, parseMinorAmount } from '../format.ts';
 
 /**
  * One quotation line — line · quantity · unit price · derived total (Commercial handoff §2.2
@@ -28,8 +28,8 @@ import { parseMinorAmount } from '../format.ts';
  * ## Every header sorts, and the money sorts by what is on record
  *
  * The lines are the whole quotation — the detail read answers every one — so sorting them in memory
- * is the complete answer. Line sorts by the buyer's note, the only readable thing on a line;
- * Quantity by its number.
+ * is the complete answer. Line sorts by the article's name in the reader's language, the buyer's
+ * note standing in when the article is gone; Quantity by its number.
  *
  * Unit price and Line total sort by the **recorded** figures, not by what is being typed. A sort that
  * followed the inputs would move a row out from under the cursor on every keystroke; while a
@@ -49,6 +49,7 @@ function compareAmount(
 export interface QuotationLineColumnDeps {
     readonly t: TFunction;
     readonly formatter: Formatter;
+    readonly locale: string;
     readonly currency: CurrencyCode;
     /** Draft prices by line id, as typed. `undefined` when the quotation is read-only. */
     readonly prices: Readonly<Record<string, string>> | undefined;
@@ -58,6 +59,7 @@ export interface QuotationLineColumnDeps {
 export function quotationLineColumns({
     t,
     formatter,
+    locale,
     currency,
     prices,
     onPrice,
@@ -66,6 +68,9 @@ export function quotationLineColumns({
     CatalogueColumn<KitchenQuotationLine>
 >[] {
     const editing = prices !== undefined;
+
+    const lineName = (line: KitchenQuotationLine): string | null =>
+        line.itemName === null ? line.note : displayName(line.itemName, locale).value;
 
     const typedMinor = (line: KitchenQuotationLine): number | null => {
         const raw = prices?.[line.id] ?? '';
@@ -79,7 +84,8 @@ export function quotationLineColumns({
             label: t('kitchen:ops.quotations.lineColumn'),
             width: 220,
             priority: 100,
-            sort: (left, right, direction) => compareText(left.note, right.note, direction),
+            sort: (left, right, direction) =>
+                compareText(lineName(left), lineName(right), direction),
             render: (line) => (
                 <View className="min-w-0 flex-col py-1">
                     <Text
@@ -87,11 +93,13 @@ export function quotationLineColumns({
                         numberOfLines={1}
                         testID={`kitchen-quotation-line-${line.id}-name`}
                     >
-                        {line.note ?? t('kitchen:ops.quotations.lineUnnamed')}
+                        {lineName(line) ?? t('kitchen:ops.quotations.lineUnnamed')}
                     </Text>
-                    <Text variant="mono" tone="secondary" numberOfLines={1}>
-                        {line.catalogueItemId}
-                    </Text>
+                    {line.itemName !== null && line.note !== null ? (
+                        <Text tone="secondary" numberOfLines={1}>
+                            {line.note}
+                        </Text>
+                    ) : null}
                 </View>
             ),
         },
@@ -142,6 +150,10 @@ export function quotationLineColumns({
                             line: line.lineNumber,
                         })}
                         labelHidden
+                        // The cell is a row, and the field's own control is `flex-1 min-w-0` with
+                        // no intrinsic width: without growing into the cell it collapsed to 0px
+                        // and could be neither seen nor clicked.
+                        className="flex-1"
                         size="sm"
                         placeholder={t('kitchen:fields.unitPricePlaceholder')}
                         value={raw}

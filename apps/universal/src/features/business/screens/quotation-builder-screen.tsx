@@ -34,6 +34,7 @@ import { earliestStartDate } from '../../commerce/dates.ts';
 import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
 import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
+import { focusField } from '../../kitchen-admin/field-focus.ts';
 import { serverFieldErrors } from '../../kitchen-admin/server-field-errors.ts';
 import type { ServerFieldTarget } from '../../kitchen-admin/server-field-errors.ts';
 import { formatMoney } from '../../marketplace/format.ts';
@@ -356,6 +357,16 @@ export function QuotationBuilderScreen({
     const submit = () => {
         if (Object.keys(errors).length > 0) {
             setShowErrors(true);
+            // The contact fields sit below a long list of lines, so their errors render out of
+            // sight and the button looked like it did nothing. Take the reader to the first one;
+            // a lines error is the callout at the top, already in view.
+            if (errors.lines === undefined) {
+                focusField(
+                    errors.name === undefined
+                        ? 'quotation-builder-contact-email'
+                        : 'quotation-builder-contact-name',
+                );
+            }
             return;
         }
         setSentItemIds(lines.map((line) => line.catalogueItemId));

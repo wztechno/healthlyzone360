@@ -16,9 +16,12 @@ import type {
     OtpChallenge,
 } from '@healthy360/api-client/contracts';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
 
+import GuestCheckoutRoute from '../../../app/(marketplace)/guest-checkout.tsx';
+import { withReturnTo } from '../../navigation/return-to.ts';
 import { appGuestTokenStore } from '../../session/guest-storage.ts';
+import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
+import { testMeResponse } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { zoneWindowCodes } from '../commerce/delivery.ts';
 import { validateGuestContact } from './contact.ts';
@@ -50,26 +53,18 @@ import { GuestOrderScreen } from './screens/guest-order-screen.tsx';
  * its submit at six, and whether the code is right is whatever the stubbed `confirmContact` says.
  */
 
-jest.mock('expo-router', () => {
-    const push = jest.fn();
-    return {
-        __esModule: true,
-        useRouter: () => ({ push, replace: jest.fn(), setParams: jest.fn(), back: jest.fn() }),
-        usePathname: () => '/guest-checkout',
-        useLocalSearchParams: () => ({}),
-        Redirect: () => null,
-        Link: ({ children }: { children: ReactNode }) => children,
-        Slot: () => null,
-        Stack: () => null,
-        __push: push,
-    };
-});
+jest.mock('expo-router', () =>
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../../testing/expo-router-mock.ts').createExpoRouterMock({
+        pathname: '/guest-checkout',
+    }),
+);
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const routerMock = require('expo-router') as { __push: jest.Mock };
+const routerMock = require('expo-router') as ExpoRouterMock;
 
 beforeEach(() => {
-    routerMock.__push.mockClear();
+    routerMock.__reset();
     globalThis.localStorage?.clear();
     globalThis.sessionStorage?.clear();
     // The guest store caches its token in memory so that a blocked `sessionStorage` degrades to a
@@ -1068,5 +1063,32 @@ describe('the public deletion page', () => {
         expect(screen.getByTestId('guest-deletion-suppression-note')).toBeTruthy();
         // And the interface keeps no copy of what was just erased.
         expect(appGuestTokenStore.get()).toBeNull();
+    });
+});
+
+/* ══ the retired route (AUTH-17) ════════════════════════════════════════════════════════════════ */
+
+/**
+ * `/guest-checkout` can no longer take an order — a basket needs a session — so an old link to it
+ * forwards to the checkout that works rather than spinning on a basket that never loads.
+ */
+describe('/guest-checkout', () => {
+    it('sends somebody signed out to sign in, with their basket as the return', async () => {
+        await renderStubScreen(<GuestCheckoutRoute />);
+
+        await waitFor(() => {
+            expect(routerMock.__redirect).toHaveBeenCalledWith(
+                withReturnTo('/sign-in', '/customer/cart'),
+            );
+        });
+    });
+
+    it('sends somebody signed in straight to their basket', async () => {
+        await renderStubScreen(<GuestCheckoutRoute />, { session: testMeResponse() });
+
+        await waitFor(() => {
+            expect(routerMock.__redirect).toHaveBeenCalledWith('/customer/cart');
+        });
+        expect(routerMock.__redirect).not.toHaveBeenCalledWith(expect.stringContaining('/sign-in'));
     });
 });

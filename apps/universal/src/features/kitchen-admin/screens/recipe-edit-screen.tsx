@@ -41,7 +41,6 @@ import {
 import type { CardTone, FormIssueItem, SelectOption, TagTone } from '@healthy360/design-system';
 import { RecipeId } from '@healthy360/domain-types';
 import { IngredientId } from '@healthy360/domain-types';
-import type { CurrencyCode } from '@healthy360/domain-types';
 import type { RecipeVersionId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -85,19 +84,16 @@ import {
 } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import {
-    amountToInput,
-    currencySymbol,
     displayName,
     formatMoney,
     isTranslationIncomplete,
-    marginPercent,
-    parseAmount,
     parseQuantity,
     rollupWarningKey,
     statusKey,
     statusShortKey,
     statusTone,
     unitShortKey,
+    withoutMinus,
 } from '../format.ts';
 import { ImageSlot } from '../image-slot.tsx';
 import { EDITOR_FORM_MIN } from '../desk-layout.ts';
@@ -177,8 +173,16 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * **Everything on Packaging and Costing persists.** `setRecipePackaging` is a real endpoint
  * (`PUT …/versions/{version}/packaging`) and the save below calls it on create and on update alike;
- * the two list prices and the packaging waste rate are version fields, so they live in `DetailsDraft`
- * with everything else `updateRecipe` writes. The waste rate used to be session-only, defaulting to
+ * the packaging waste rate is a version field, so it lives in `DetailsDraft` with everything else
+ * `updateRecipe` writes.
+ *
+ * ## No prices on Costing
+ *
+ * Costing used to carry a B2B and a B2C price per yield unit, and a gross margin read off them. They
+ * were a copy of the catalogue's prices that `kitchen:price-recipes-from-catalogue` wrote back onto
+ * the version, so the kitchen kept the same price in two places and only the Selling tab's was ever
+ * charged. The card is gone at the kitchen's request; the version columns are left as they are, and
+ * a save no longer sends them, so nothing already stored is cleared. The waste rate used to be session-only, defaulting to
  * `5` while the column defaulted to `0.00` — so this screen priced packaging about five per cent
  * above the saved technical sheet for the same lines. It reads the stored rate now.
  *
@@ -261,17 +265,6 @@ interface DetailsDraft {
     /** Packaging loss, a separate rate from `wastePercent`. Edited on the Packaging tab. */
     readonly packagingWastePercent: string;
     /**
-     * The two list prices the version is sold at, per unit of yield — trade and consumer.
-     *
-     * They replace the single "selling price" this tab used to collect, and the replacement is the
-     * point rather than a rename: one figure was right for one channel and wrong for the other, so
-     * the margin it fed was wrong for the other too. They live in `DetailsDraft` — not beside the
-     * session-only packaging fields below — because the contract now has a home for them on the
-     * version, which is what makes them saveable at all.
-     */
-    readonly b2bPrice: string;
-    readonly b2cPrice: string;
-    /**
      * The kitchen's own filing word for this formulation — `cooking_sauce`, `marinade_prep`.
      *
      * Edited only where the host supplies the vocabulary for it: a meal, a preparation or a plain
@@ -299,8 +292,6 @@ const EMPTY_DETAILS: DetailsDraft = {
     // The column's own default. The editor used to start at `5`, but that figure was never saved, so
     // `0` is what every version written so far actually carries.
     packagingWastePercent: '0',
-    b2bPrice: '',
-    b2cPrice: '',
     recipeCategory: '',
     shelfLifeDays: '',
 };
@@ -315,8 +306,6 @@ function detailsFrom(recipe: RecipeAdmin): DetailsDraft {
         yieldPieces: version.yieldPieces === null ? '' : String(version.yieldPieces),
         wastePercent: String(version.wastePercent),
         packagingWastePercent: String(version.packagingWastePercent),
-        b2bPrice: amountToInput(version.b2bPrice),
-        b2cPrice: amountToInput(version.b2cPrice),
         recipeCategory: recipe.recipeCategory ?? '',
         shelfLifeDays: recipe.shelfLifeDays === null ? '' : String(recipe.shelfLifeDays),
     };
@@ -973,46 +962,6 @@ function RecipeEditor({
         warning.ingredientIds.map(String),
     );
 
-    /* ── the two list prices, and the margin they make against the cascade ───────────────────── */
-
-    /**
-     * The currency the two prices are quoted in.
-     *
-     * Nothing on the session, the organisation or this contract publishes "the currency this
-     * kitchen trades in" — the gap `kitchen-admin-hooks.ts` records as 17 — so this resolves it the
-     * way the ingredient editor does. The version's own money first, because a priced version has
-     * already answered the question; then the money the cascade is already adding up, by frequency,
-     * because a price stated in a different currency from the cost beneath it is not comparable to
-     * it. `null` means nothing on this screen carries a currency yet, and the fields say so rather
-     * than guessing a country's money.
-     */
-    const currency = useMemo<CurrencyCode | null>(() => {
-        const own = [data?.currentVersion.b2bPrice, data?.currentVersion.b2cPrice];
-        for (const price of own) {
-            if (price !== null && price !== undefined) return price.currency;
-        }
-
-        const counts = new Map<CurrencyCode, number>();
-        for (const entry of [...libraryEntries, ...packagingLibrary]) {
-            if (entry.unitPrice === null) continue;
-            counts.set(entry.unitPrice.currency, (counts.get(entry.unitPrice.currency) ?? 0) + 1);
-        }
-
-        let best: CurrencyCode | null = null;
-        let bestCount = 0;
-        for (const [code, count] of counts) {
-            if (count > bestCount) {
-                best = code;
-                bestCount = count;
-            }
-        }
-        return best;
-    }, [data, libraryEntries, packagingLibrary]);
-
-    const b2bPriceValue = parseAmount(details.b2bPrice);
-    const b2cPriceValue = parseAmount(details.b2cPrice);
-    const pricesInvalid = b2bPriceValue === undefined || b2cPriceValue === undefined;
-
     const shelfLife = parseShelfLife(details.shelfLifeDays);
     const shelfLifeInvalid = shelfLife === undefined;
     /*
@@ -1021,35 +970,6 @@ function RecipeEditor({
      */
     const shelfLifeChanged =
         data !== undefined && shelfLife !== undefined && shelfLife !== data.shelfLifeDays;
-
-    // A price cannot be written without a currency to write it in, so an amount typed with no
-    // currency resolved is a blocked save rather than a guess.
-    const currencyMissing =
-        currency === null &&
-        [b2bPriceValue, b2cPriceValue].some((value) => typeof value === 'number');
-
-    /*
-     * The margin is read against the server's total per yield unit — the cost of one yield unit
-     * *after* both waste coefficients — and not against the raw line sum. That is the figure the
-     * cascade's tinted card states directly above these fields, so the two answer the same question;
-     * a margin against the batch total would be a percentage of a different denominator sitting
-     * inches from the one it looks like it used.
-     *
-     * No margin across two currencies, and none on an incomplete formulation: the server withholds
-     * the total for one, and a percentage of a cost missing a line is a flattering fiction.
-     *
-     * The trade price is the numerator, matching the ingredient editor: the B2C margin is a
-     * different conversation (it carries delivery, packaging on the plate, and a channel fee this
-     * screen knows nothing about), and stating it here as though it were the same sum would be the
-     * confident kind of wrong.
-     */
-    const totalPerUnit = computed?.totalCostPerYieldUnit ?? null;
-    const margin = marginPercent(
-        b2bPriceValue,
-        totalPerUnit !== null && (currency === null || totalPerUnit.currency === currency)
-            ? totalPerUnit.amount
-            : null,
-    );
 
     /* ── readiness ───────────────────────────────────────────────────────────────────────────── */
 
@@ -1060,13 +980,7 @@ function RecipeEditor({
     const yieldInvalid = parseQuantity(details.yieldQuantity) === null || servings <= 0;
 
     const saveBlocked =
-        !canManage ||
-        nameMissing ||
-        yieldInvalid ||
-        pricesInvalid ||
-        shelfLifeInvalid ||
-        currencyMissing ||
-        incompleteLines.length > 0;
+        !canManage || nameMissing || yieldInvalid || shelfLifeInvalid || incompleteLines.length > 0;
 
     /*
      * Everything that stops the save, in tab order, each naming the tab it lives on and the field
@@ -1132,49 +1046,17 @@ function RecipeEditor({
                   },
               ]
             : []),
-        ...(b2bPriceValue === undefined
-            ? [
-                  {
-                      key: 'b2b-price',
-                      label: t('kitchen:recipes.b2bPricePerUnit', {
-                          unit: t(unitShortKey(details.yieldUnit)),
-                      }),
-                      tab: 'costing' as const,
-                      fieldId: 'kitchen-recipe-b2b-price',
-                      required: false,
-                  },
-              ]
-            : []),
-        ...(b2cPriceValue === undefined
-            ? [
-                  {
-                      key: 'b2c-price',
-                      label: t('kitchen:recipes.b2cPricePerUnit', {
-                          unit: t(unitShortKey(details.yieldUnit)),
-                      }),
-                      tab: 'costing' as const,
-                      fieldId: 'kitchen-recipe-b2c-price',
-                      required: false,
-                  },
-              ]
-            : []),
     ];
 
     const shownBlockers = attempted ? blockers : blockers.filter((entry) => !entry.required);
     const shows = (key: string) => shownBlockers.some((entry) => entry.key === key);
 
     /*
-     * The two cautions the design draws. Neither blocks: a label at zero and a thin margin are both
-     * legal, and both are almost always a mistake somebody wants pointed out.
-     *
-     * A packaging line at zero ships nothing and costs nothing — a sleeve label the count was never
-     * typed for. A margin under the floor is priced below what the kitchen treats as viable, and one
-     * under zero is priced below cost, which is the one this screen raises as an error rather than a
-     * warning even though it still saves: it is a loss on every unit sold.
+     * The caution the design draws. It does not block: a packaging line at zero ships nothing and
+     * costs nothing — a sleeve label the count was never typed for — which is legal and almost always
+     * a mistake somebody wants pointed out.
      */
     const zeroPackaging = packaging.filter((row) => parseQuantity(row.quantity) === 0);
-    const marginLow = margin !== null && margin < MARGIN_WARNING_PERCENT;
-    const marginNegative = margin !== null && margin < 0;
 
     const goTo = (target: RecipeTab, fieldId: string | null) => {
         setTab(target);
@@ -1273,20 +1155,6 @@ function RecipeEditor({
         'packaging.*.basis': packagingTarget,
         'packaging.*.quantity': packagingTarget,
         'packaging.*.comment': packagingTarget,
-        b2b_price_amount: {
-            label: t('kitchen:recipes.b2bPricePerUnit', {
-                unit: t(unitShortKey(details.yieldUnit)),
-            }),
-            fieldId: 'kitchen-recipe-b2b-price',
-            tab: 'costing',
-        },
-        b2c_price_amount: {
-            label: t('kitchen:recipes.b2cPricePerUnit', {
-                unit: t(unitShortKey(details.yieldUnit)),
-            }),
-            fieldId: 'kitchen-recipe-b2c-price',
-            tab: 'costing',
-        },
     };
     const server = serverFieldErrors(saveFailure, serverTargets);
     // The helper's chip only focuses; these also switch tab. It keys each chip `server-<pattern>`.
@@ -1360,17 +1228,11 @@ function RecipeEditor({
                 label: t('kitchen:forms.toFixCount', { count: errors }),
             };
         }
-        const cautions =
-            target === 'packaging'
-                ? zeroPackaging.length
-                : target === 'costing' && marginLow
-                  ? 1
-                  : 0;
+        const cautions = target === 'packaging' ? zeroPackaging.length : 0;
         if (cautions === 0) return undefined;
         return {
             count: cautions,
-            tone:
-                target === 'costing' && marginNegative ? ('danger' as const) : ('warning' as const),
+            tone: 'warning' as const,
             label: t('kitchen:forms.warningCount', { count: cautions }),
         };
     };
@@ -1481,10 +1343,6 @@ function RecipeEditor({
         if (saveBlocked) return;
         setSaveError(null);
 
-        /** A typed amount as the contract's `CostAmount`, or the null that clears it. */
-        const costOf = (value: number | null | undefined): CostAmount | null =>
-            typeof value === 'number' && currency !== null ? { amount: value, currency } : null;
-
         if (isCreating) {
             if (creatingRef.current === recipe) return;
             creatingRef.current = recipe;
@@ -1499,9 +1357,6 @@ function RecipeEditor({
              * then silently lost on the first save, which is worse than not offering it.
              */
             const createAll = async () => {
-                const b2b = costOf(b2bPriceValue);
-                const b2c = costOf(b2cPriceValue);
-
                 const created = await create.mutateAsync({
                     name: details.name,
                     description: details.description,
@@ -1512,11 +1367,6 @@ function RecipeEditor({
                         : { yieldPieces: parseQuantity(details.yieldPieces)! }),
                     wastePercent,
                     packagingWastePercent,
-                    // Omitted rather than sent as null on a create: there is nothing to clear on a
-                    // recipe that does not exist yet, and `CreateRecipeRequest` says so by taking
-                    // no null.
-                    ...(b2b === null ? {} : { b2bPrice: b2b }),
-                    ...(b2c === null ? {} : { b2cPrice: b2c }),
                     ...(details.recipeCategory === ''
                         ? {}
                         : { recipeCategory: details.recipeCategory }),
@@ -1620,10 +1470,6 @@ function RecipeEditor({
                         yieldPieces: parseQuantity(details.yieldPieces),
                         wastePercent,
                         packagingWastePercent,
-                        // `null` here is a clear, not an omission — an emptied price box removes
-                        // the price rather than leaving the stored one in place.
-                        b2bPrice: costOf(b2bPriceValue),
-                        b2cPrice: costOf(b2cPriceValue),
                         // Only where the form offered it. A route that draws no picker must not
                         // clear a word it never showed the reader.
                         ...(classification === undefined
@@ -2070,7 +1916,7 @@ function RecipeEditor({
                     }
                 />
 
-                {dangerItems.length === 0 && zeroItems.length === 0 && !marginLow ? null : (
+                {dangerItems.length === 0 && zeroItems.length === 0 ? null : (
                     <Inline space="xs" wrap testID="kitchen-recipe-issues">
                         {dangerItems.length === 0 ? null : (
                             <FormIssueBanner
@@ -2094,27 +1940,6 @@ function RecipeEditor({
                                     count: zeroItems.length,
                                 })}
                                 items={zeroItems}
-                            />
-                        )}
-                        {!marginLow ? null : (
-                            <FormIssueBanner
-                                testID="kitchen-recipe-issues-margin"
-                                tone={marginNegative ? 'danger' : 'warning'}
-                                summary={t(
-                                    marginNegative
-                                        ? 'kitchen:forms.marginBelowCost'
-                                        : 'kitchen:forms.marginLow',
-                                    { percent: MARGIN_WARNING_PERCENT },
-                                )}
-                                items={[
-                                    {
-                                        key: 'margin',
-                                        label: t('kitchen:recipes.grossMargin'),
-                                        onPress: () => {
-                                            goTo('costing', 'kitchen-recipe-margin');
-                                        },
-                                    },
-                                ]}
                             />
                         )}
                     </Inline>
@@ -2542,7 +2367,7 @@ function RecipeEditor({
                                 disabled={!editable}
                                 {...server.flag('waste_coefficient_percent')}
                                 onChangeText={(next) => {
-                                    setDetails({ ...details, wastePercent: next });
+                                    setDetails({ ...details, wastePercent: withoutMinus(next) });
                                     markDirty('details');
                                 }}
                             />
@@ -2617,7 +2442,10 @@ function RecipeEditor({
                                 disabled={!editable}
                                 {...server.flag('packaging_waste_percent')}
                                 onChangeText={(next) => {
-                                    setDetails({ ...details, packagingWastePercent: next });
+                                    setDetails({
+                                        ...details,
+                                        packagingWastePercent: withoutMinus(next),
+                                    });
                                     markDirty('details');
                                 }}
                             />
@@ -2748,135 +2576,6 @@ function RecipeEditor({
                             />
                         </FormSection>
                     )}
-
-                    {/*
-                     * Two list prices and the margin between the trade one and the cascade above,
-                     * on the same three-column 280px track the cost cards use, so the price a
-                     * person types lands under the cost it has to beat.
-                     *
-                     * The currency rides in the unit slot as a static suffix rather than in the
-                     * value — a price carrying its own currency is a string, and the save has to
-                     * send an amount. The same reasoning is written out on the ingredient editor's
-                     * price fields, which these deliberately mirror: an operator who prices a raw
-                     * material and a recipe in one sitting meets one control twice, not two.
-                     *
-                     * Locked with the version, like every other version field: the prices live on
-                     * the version, so on a published one they cannot be written, and a box that
-                     * took a figure the save then dropped would be worse than a closed one.
-                     */}
-                    <FormSection
-                        variant="card"
-                        testID="kitchen-recipe-coefficients"
-                        title={t('kitchen:forms.price')}
-                    >
-                        <Stack space="sm">
-                            {currencyMissing ? (
-                                <Callout
-                                    testID="kitchen-recipe-currency-missing"
-                                    role="alert"
-                                    tone="warning"
-                                    title={t('kitchen:sale.currencyUnknown')}
-                                />
-                            ) : null}
-
-                            <FormGrid track="half" testID="kitchen-recipe-coefficients-grid">
-                                <QuantityInput
-                                    testID="kitchen-recipe-b2b-price"
-                                    id="kitchen-recipe-b2b-price"
-                                    size="sm"
-                                    label={t('kitchen:recipes.b2bPricePerUnit', {
-                                        unit: t(unitShortKey(details.yieldUnit)),
-                                    })}
-                                    placeholder={t('kitchen:fields.unitPricePlaceholder')}
-                                    value={details.b2bPrice}
-                                    disabled={!editable}
-                                    {...(currency === null
-                                        ? {}
-                                        : {
-                                              // The mark, not the code: `$` is what a price field
-                                              // wears, and `Intl` is what knows which mark this
-                                              // locale writes for this code.
-                                              unit: currencySymbol(
-                                                  formatter.resolvedLocale,
-                                                  currency,
-                                              ),
-                                          })}
-                                    {...(shows('b2b-price')
-                                        ? { error: t('kitchen:sale.priceInvalid') }
-                                        : {})}
-                                    {...server.flag('b2b_price_amount')}
-                                    onChangeText={(next) => {
-                                        setDetails({ ...details, b2bPrice: next });
-                                        markDirty('details');
-                                    }}
-                                />
-
-                                <QuantityInput
-                                    testID="kitchen-recipe-b2c-price"
-                                    id="kitchen-recipe-b2c-price"
-                                    size="sm"
-                                    label={t('kitchen:recipes.b2cPricePerUnit', {
-                                        unit: t(unitShortKey(details.yieldUnit)),
-                                    })}
-                                    placeholder={t('kitchen:fields.unitPricePlaceholder')}
-                                    value={details.b2cPrice}
-                                    disabled={!editable}
-                                    {...(currency === null
-                                        ? {}
-                                        : {
-                                              unit: currencySymbol(
-                                                  formatter.resolvedLocale,
-                                                  currency,
-                                              ),
-                                          })}
-                                    {...(shows('b2c-price')
-                                        ? { error: t('kitchen:sale.priceInvalid') }
-                                        : {})}
-                                    {...server.flag('b2c_price_amount')}
-                                    onChangeText={(next) => {
-                                        setDetails({ ...details, b2cPrice: next });
-                                        markDirty('details');
-                                    }}
-                                />
-
-                                {/*
-                                 * The derived third cell, in the `readOnly` variant the cost cascade's
-                                 * own totals use — a figure on the sunken fill, in a field's shape,
-                                 * that nobody types into. Empty rather than a stand-in when the sum
-                                 * cannot be stated: the placeholder's em dash says "not calculable",
-                                 * where a `0.0` would claim the margin is nil.
-                                 */}
-                                <QuantityInput
-                                    testID="kitchen-recipe-margin"
-                                    id="kitchen-recipe-margin"
-                                    size="sm"
-                                    readOnly
-                                    label={t('kitchen:recipes.grossMargin')}
-                                    unit="%"
-                                    placeholder={t('kitchen:sale.marginUnavailable')}
-                                    {...(marginNegative
-                                        ? { error: t('kitchen:forms.marginBelowCost') }
-                                        : marginLow
-                                          ? {
-                                                warning: t('kitchen:forms.marginLow', {
-                                                    percent: MARGIN_WARNING_PERCENT,
-                                                }),
-                                            }
-                                          : {})}
-                                    value={
-                                        margin === null
-                                            ? ''
-                                            : formatter.formatNumber(margin, {
-                                                  minimumFractionDigits: 1,
-                                                  maximumFractionDigits: 1,
-                                                  signDisplay: 'exceptZero',
-                                              })
-                                    }
-                                    onChangeText={() => undefined}
-                                />
-                            </FormGrid>
-                        </Stack>
-                    </FormSection>
                 </View>
             )}
 
@@ -3482,14 +3181,6 @@ function RecipeEditor({
 /* ------------------------------------------------------------------------------------------------
  * The cost cascade
  * ---------------------------------------------------------------------------------------------- */
-
-/**
- * Below this gross margin a price is flagged — the design's amber field. A warning and not a
- * refusal: a loss-leader is a decision a kitchen is allowed to make, and the flag is there so it is
- * made on purpose. Below zero the same field turns to an error, because that price loses money on
- * every unit sold — it still saves, for the same reason.
- */
-const MARGIN_WARNING_PERCENT = 30;
 
 const YIELD_DIGITS: Intl.NumberFormatOptions = {
     minimumFractionDigits: 0,

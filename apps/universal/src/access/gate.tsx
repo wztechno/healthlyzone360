@@ -1,12 +1,14 @@
 import type { RouteArea } from '@healthy360/domain-types';
 import { can, evaluateGates, mergeRequirements, requirementForArea } from '@healthy360/permissions';
 import type { DenialReason, GateResult, RouteRequirement } from '@healthy360/permissions';
-import { Redirect } from 'expo-router';
+import { Redirect, useGlobalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { RETURN_TO_PARAM, safeReturnTo, withReturnTo } from '../navigation/return-to.ts';
+import { useCurrentHref } from '../navigation/use-return-to.ts';
 import { useAccessState, useSession } from '../session/session-provider.tsx';
 import { SproutMark } from '../ui/sprout-mark.tsx';
 import { useSettledCondition } from './use-settled-condition.ts';
@@ -94,7 +96,7 @@ export function Gate({ children, area, requirement, fallback, pending, testID }:
                 </View>
             );
         }
-        return <Redirect href={result.href as never} />;
+        return <GateRedirect result={result} />;
     }
 
     return (
@@ -106,6 +108,52 @@ export function Gate({ children, area, requirement, fallback, pending, testID }:
             />
         )
     );
+}
+
+type GateRedirectResult = Extract<GateResult, { status: 'redirect' }>;
+
+/**
+ * The gates whose way out comes back. Signing in and confirming an email address are things a
+ * person does *on the way to* the page they asked for, so the redirect carries that page and the
+ * sign-in or verification screen finishes there (AUTH-03). The organisation and branch pickers are
+ * not: they choose *where* a member of staff works, the place they asked for may not exist in the
+ * context they pick, and their screens have no return to honour — so those redirects stay bare.
+ */
+const RETURNING_GATES: ReadonlySet<GateRedirectResult['gate']> = new Set([
+    'authentication',
+    'email_verification',
+]);
+
+function GateRedirect({ result }: { readonly result: GateRedirectResult }) {
+    if (!RETURNING_GATES.has(result.gate)) return <Redirect href={result.href as never} />;
+    return <ReturningRedirect href={result.href} />;
+}
+
+/**
+ * The redirect, with `?returnTo=` naming the page that was refused.
+ *
+ * ## Why here and not in `evaluateGates`
+ *
+ * `@healthy360/permissions` answers "may this person be here?" from an `AccessState`, and it has no
+ * URL — giving it one would mix "where am I" into that question, and its tests (`evaluate.test.ts`)
+ * pin the bare `ROUTE_PATHS` it returns. The current address is a router fact, so it is read here,
+ * in a component of its own: the router hooks it needs run only when a redirect that carries a
+ * return actually renders, and every other gate — a kitchen's organisation picker, a branch picker —
+ * renders exactly what it did.
+ *
+ * ## A way in passes its own return on
+ *
+ * When the refused page is itself one of the ways in — `/verify-email?returnTo=…` reached signed
+ * out, say — it is not somewhere to come back to (`safeReturnTo` refuses it), but the return it was
+ * carrying still is. So that one is handed on, and the chain survives a session that ended half way.
+ */
+function ReturningRedirect({ href }: { readonly href: string }) {
+    const here = useCurrentHref();
+    const params = useGlobalSearchParams();
+    const carried = params[RETURN_TO_PARAM];
+    const returnTo =
+        safeReturnTo(here) ?? safeReturnTo(Array.isArray(carried) ? carried[0] : carried);
+    return <Redirect href={withReturnTo(href, returnTo) as never} />;
 }
 
 export interface CanProps {

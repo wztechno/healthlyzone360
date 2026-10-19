@@ -86,7 +86,8 @@ export interface PackDraft {
 export interface PackEditorProps {
     readonly rows: readonly PackDraft[];
     readonly onChange: (rows: readonly PackDraft[]) => void;
-    readonly errors: ReadonlyMap<string, string>;
+    /** What {@link packErrors} found, by row and then by the column that has to change. */
+    readonly errors: ReadonlyMap<string, PackRowErrors>;
     /** A server refusal of one column of one row — under that column, not the row's code. */
     readonly fieldError?: ((row: PackDraft, column: PackColumn) => string | undefined) | undefined;
     readonly canManage: boolean;
@@ -95,6 +96,23 @@ export interface PackEditorProps {
 
 /** The pack table's editable columns, by their column key. */
 export type PackColumn = 'code' | 'label' | 'quantity' | 'unit' | 'units-per-pack';
+
+/** The columns in the order a row is read — the first one wrong is the one a banner points at. */
+export const PACK_COLUMNS: readonly PackColumn[] = [
+    'code',
+    'label',
+    'quantity',
+    'unit',
+    'units-per-pack',
+];
+
+/** One row's refusals, each on the column it is about. */
+export type PackRowErrors = Readonly<Partial<Record<PackColumn, string>>>;
+
+/** The first column of a row that is wrong, in reading order. */
+export function firstPackErrorColumn(errors: PackRowErrors): PackColumn | undefined {
+    return PACK_COLUMNS.find((column) => errors[column] !== undefined);
+}
 
 /**
  * The admin's units (Kg, L, Pc), annotated by the dimension they belong to — plus the row's own unit
@@ -157,8 +175,10 @@ export function PackVariantEditor({
     const unitOptions = useUnitOptions();
     const [removed, setRemoved] = useState<{ row: PackDraft; index: number } | null>(null);
 
+    // The editor's own check first, then the server's — each under the column it is about, so a
+    // wrong quantity is flagged on the quantity and not on the row's code.
     const flagOf = (row: PackDraft, column: PackColumn): { readonly error?: string } => {
-        const error = fieldError?.(row, column);
+        const error = errors.get(row.key)?.[column] ?? fieldError?.(row, column);
         return error === undefined ? {} : { error };
     };
 
@@ -196,29 +216,26 @@ export function PackVariantEditor({
             label: t('kitchen:products.packCodeHeader'),
             width: 128,
             priority: UNDROPPABLE_PRIORITY,
-            render: (row) => {
-                const error = errors.get(row.key) ?? fieldError?.(row, 'code');
-                return (
-                    <View className="z-auto w-full py-tight">
-                        <TextInputField
-                            testID={`${rowId(row)}-code`}
-                            id={`${rowId(row)}-code`}
-                            label={t('kitchen:products.packCodeLabel')}
-                            labelHidden
-                            placeholder={t('kitchen:products.packCodePlaceholder')}
-                            value={row.code}
-                            autoCapitalize="characters"
-                            autoCorrect={false}
-                            disabled={!canManage}
-                            required
-                            {...(error === undefined ? {} : { error })}
-                            onChangeText={(next) => {
-                                patch(row, { code: next });
-                            }}
-                        />
-                    </View>
-                );
-            },
+            render: (row) => (
+                <View className="z-auto w-full py-tight">
+                    <TextInputField
+                        testID={`${rowId(row)}-code`}
+                        id={`${rowId(row)}-code`}
+                        label={t('kitchen:products.packCodeLabel')}
+                        labelHidden
+                        placeholder={t('kitchen:products.packCodePlaceholder')}
+                        value={row.code}
+                        autoCapitalize="characters"
+                        autoCorrect={false}
+                        disabled={!canManage}
+                        required
+                        {...flagOf(row, 'code')}
+                        onChangeText={(next) => {
+                            patch(row, { code: next });
+                        }}
+                    />
+                </View>
+            ),
         },
         /*
          * The English label only. The Arabic half is not dropped — it is simply not a column: a
@@ -392,11 +409,12 @@ export function emptyPack(key: string): PackDraft {
 }
 
 /**
- * What is wrong with each pack row, keyed by row.
+ * What is wrong with each pack row, keyed by row and then by the column that has to change.
  *
  * Codes must exist and be unique within the product — see the note on the editor. Quantities must be
  * a positive number and `unitsPerPack` a whole one, because a fraction of a bottle in a tray is a
- * typo rather than a smaller tray. Pure, so a test can assert the rules without a render.
+ * typo rather than a smaller tray. Every column is checked, so a row wrong in two places says both,
+ * each under its own field. Pure, so a test can assert the rules without a render.
  */
 export function packErrors(
     rows: readonly PackDraft[],
@@ -406,30 +424,25 @@ export function packErrors(
         readonly quantityInvalid: string;
         readonly unitsInvalid: string;
     },
-): ReadonlyMap<string, string> {
-    const errors = new Map<string, string>();
+): ReadonlyMap<string, PackRowErrors> {
+    const errors = new Map<string, PackRowErrors>();
     const seen = new Set<string>();
 
     for (const row of rows) {
+        const issues: Partial<Record<PackColumn, string>> = {};
+
         const code = row.code.trim().toUpperCase();
-        if (code === '') {
-            errors.set(row.key, messages.codeRequired);
-            continue;
-        }
-        if (seen.has(code)) {
-            errors.set(row.key, messages.codeDuplicate);
-            continue;
-        }
-        seen.add(code);
+        if (code === '') issues.code = messages.codeRequired;
+        else if (seen.has(code)) issues.code = messages.codeDuplicate;
+        else seen.add(code);
 
         const quantity = parseQuantity(row.netQuantity);
-        if (quantity === null || quantity <= 0) {
-            errors.set(row.key, messages.quantityInvalid);
-            continue;
-        }
+        if (quantity === null || quantity <= 0) issues.quantity = messages.quantityInvalid;
 
         const units = parseWholeNumber(row.unitsPerPack);
-        if (units === null || units < 1) errors.set(row.key, messages.unitsInvalid);
+        if (units === null || units < 1) issues['units-per-pack'] = messages.unitsInvalid;
+
+        if (firstPackErrorColumn(issues) !== undefined) errors.set(row.key, issues);
     }
 
     return errors;

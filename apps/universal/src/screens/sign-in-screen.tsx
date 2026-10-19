@@ -15,19 +15,27 @@ import {
 } from '@healthy360/design-system';
 import { makeLoginSchema, toFormResolver } from '@healthy360/validation';
 import type { LoginInput, LoginValues } from '@healthy360/validation';
-import { Link, useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import { useStaffSignInDomainsQuery } from '../data/access-admin-hooks.ts';
 import { toFailure, useLoginMutation, useTwoFactorChallengeMutation } from '../data/hooks.ts';
+import { safeReturnTo, withReturnTo } from '../navigation/return-to.ts';
+import { useKeepBrowsing } from '../navigation/use-keep-browsing.ts';
+import { useCompleteAuth } from '../navigation/use-return-to.ts';
 import {
     applyServerFailure,
     useFailureMessage,
     useFieldErrors,
     useValidationTranslate,
 } from './form-helpers.ts';
+
+export interface SignInScreenProps {
+    /** The route's raw `?returnTo=`. Validated here; an unsafe value is ignored. */
+    readonly returnTo?: string | undefined;
+}
 
 /**
  * Sign in.
@@ -38,13 +46,27 @@ import {
  * * `validation.failed` → mapped onto the offending field, inline.
  * * `rate_limit.exceeded` → a message that says *how long*, not just "too many attempts".
  * * `two_factor_required` → not an error at all; the form advances to the challenge step.
+ *
+ * ## Where it finishes
+ *
+ * `?returnTo=` is the page that sent the person here — a gate that refused `/customer/checkout`, the
+ * header on a kitchen's page, an Add to basket. Both ways of finishing (the password, and the
+ * second factor after it) go through `useCompleteAuth`, which replaces this entry with the launch
+ * resolver carrying that return: the resolver alone knows whether the session may be there yet or
+ * still owes an email confirmation first. With no return it is `replace('/')`, exactly as before.
+ *
+ * The cross-links to registration and the reset form **replace** rather than push and carry the
+ * return, so a finished sign-in leaves no trail of auth forms behind Back (AUTH-05).
  */
-export function SignInScreen() {
+export function SignInScreen({ returnTo: rawReturnTo }: SignInScreenProps = {}) {
     const { t } = useTranslation();
-    const router = useRouter();
     const login = useLoginMutation();
     const translate = useValidationTranslate();
     const describeFailure = useFailureMessage();
+    const completeAuth = useCompleteAuth();
+    const returnTo = safeReturnTo(rawReturnTo);
+    // The way out without signing in — see `navigation/use-keep-browsing.ts`.
+    const keepBrowsing = useKeepBrowsing(returnTo);
 
     const [challengeId, setChallengeId] = useState<string | null>(null);
 
@@ -67,7 +89,7 @@ export function SignInScreen() {
                             setChallengeId(result.challengeId);
                             return;
                         }
-                        router.replace('/');
+                        completeAuth(returnTo);
                     },
                     onError: (error: unknown) => {
                         const failure = toFailure(error);
@@ -79,13 +101,23 @@ export function SignInScreen() {
                 },
             );
         },
-        [describeFailure, form, login, router, setFormError, translate],
+        [completeAuth, describeFailure, form, login, returnTo, setFormError, translate],
     );
+
+    // One path for the button and for Enter in either field, so the keyboard signs in exactly as
+    // the button does. A second Enter while the first request is out does not send another.
+    const submit = () => {
+        if (login.isPending) return;
+        void form.handleSubmit(onSubmit)();
+    };
 
     if (challengeId !== null) {
         return (
             <TwoFactorChallenge
                 challengeId={challengeId}
+                onSignedIn={() => {
+                    completeAuth(returnTo);
+                }}
                 onCancel={() => {
                     setChallengeId(null);
                 }}
@@ -118,6 +150,7 @@ export function SignInScreen() {
                         value={field.value}
                         onChange={field.onChange}
                         onBlur={field.onBlur}
+                        onSubmit={submit}
                         error={fieldState.error?.message}
                     />
                 )}
@@ -135,9 +168,11 @@ export function SignInScreen() {
                         autoComplete="current-password"
                         textContentType="password"
                         required
+                        returnKeyType="go"
                         value={field.value}
                         onChangeText={field.onChange}
                         onBlur={field.onBlur}
+                        onSubmitEditing={submit}
                         error={fieldState.error?.message}
                     />
                 )}
@@ -162,25 +197,26 @@ export function SignInScreen() {
                 block
                 label={t('auth:login.submit')}
                 loading={login.isPending}
-                onPress={() => {
-                    void form.handleSubmit(onSubmit)();
-                }}
+                onPress={submit}
             />
 
             {/* The marketplace browses without an account (4a): the way out of this form is a
                 visible choice, not a back button. */}
             <Button
-                testID="sign-in-guest"
+                testID="sign-in-keep-browsing"
                 block
                 variant="secondary"
-                label={t('auth:login.guest')}
-                onPress={() => {
-                    router.replace('/' as never);
-                }}
+                label={t('common:action.keepBrowsing')}
+                onPress={keepBrowsing}
             />
 
             <Inline space="xs">
-                <Link testID="sign-in-forgot" href="/forgot-password" asChild>
+                <Link
+                    testID="sign-in-forgot"
+                    href={withReturnTo('/forgot-password', returnTo) as never}
+                    replace
+                    asChild
+                >
                     <Text tone="info" accessibilityRole="link">
                         {t('auth:login.forgotLink')}
                     </Text>
@@ -189,7 +225,12 @@ export function SignInScreen() {
 
             <Inline space="xs">
                 <Text tone="secondary">{t('auth:login.registerPrompt')}</Text>
-                <Link testID="sign-in-register" href="/register" asChild>
+                <Link
+                    testID="sign-in-register"
+                    href={withReturnTo('/register', returnTo) as never}
+                    replace
+                    asChild
+                >
                     <Text tone="info" accessibilityRole="link">
                         {t('auth:login.registerLink')}
                     </Text>
@@ -224,6 +265,8 @@ interface SignInIdentityFieldProps {
     readonly value: string;
     readonly onChange: (value: string) => void;
     readonly onBlur: () => void;
+    /** Enter in the field — signs in, like the button. */
+    readonly onSubmit: () => void;
     readonly error?: string | undefined;
 }
 
@@ -247,7 +290,13 @@ interface SignInIdentityFieldProps {
  * The composed address is always shown. Whatever the mode, the reader can see the exact string
  * that will be submitted before they submit it.
  */
-function SignInIdentityField({ value, onChange, onBlur, error }: SignInIdentityFieldProps) {
+function SignInIdentityField({
+    value,
+    onChange,
+    onBlur,
+    onSubmit,
+    error,
+}: SignInIdentityFieldProps) {
     const { t } = useTranslation();
     const domainsQuery = useStaffSignInDomainsQuery();
     const domains = domainsQuery.data ?? [];
@@ -288,9 +337,11 @@ function SignInIdentityField({ value, onChange, onBlur, error }: SignInIdentityF
                     autoComplete="email"
                     textContentType="emailAddress"
                     required
+                    returnKeyType="go"
                     value={typed}
                     onChangeText={setTyped}
                     onBlur={onBlur}
+                    onSubmitEditing={onSubmit}
                     {...(error === undefined ? {} : { error })}
                 />
                 {domains.length === 0 ? null : (
@@ -322,9 +373,11 @@ function SignInIdentityField({ value, onChange, onBlur, error }: SignInIdentityF
                     autoCapitalize="none"
                     autoComplete="username"
                     required
+                    returnKeyType="go"
                     value={typed}
                     onChangeText={setTyped}
                     onBlur={onBlur}
+                    onSubmitEditing={onSubmit}
                     {...(error === undefined ? {} : { error })}
                 />
 
@@ -394,6 +447,8 @@ function signInFailureMessage(
 
 interface TwoFactorChallengeProps {
     readonly challengeId: string;
+    /** The session exists now; the sign-in screen finishes it the way a password-only one does. */
+    readonly onSignedIn: () => void;
     readonly onCancel: () => void;
 }
 
@@ -403,9 +458,8 @@ interface TwoFactorChallengeProps {
  * Recovery codes are offered as a *mode switch* rather than a second always-visible field: two
  * inputs where only one applies is the classic way people lock themselves out of their own account.
  */
-function TwoFactorChallenge({ challengeId, onCancel }: TwoFactorChallengeProps) {
+function TwoFactorChallenge({ challengeId, onSignedIn, onCancel }: TwoFactorChallengeProps) {
     const { t } = useTranslation();
-    const router = useRouter();
     const challenge = useTwoFactorChallengeMutation();
     const describeFailure = useFailureMessage();
 
@@ -414,13 +468,12 @@ function TwoFactorChallenge({ challengeId, onCancel }: TwoFactorChallengeProps) 
     const [error, setError] = useState<string | null>(null);
 
     const submit = () => {
+        if (challenge.isPending) return;
         setError(null);
         challenge.mutate(
             { challengeId, code, recovery },
             {
-                onSuccess: () => {
-                    router.replace('/');
-                },
+                onSuccess: onSignedIn,
                 onError: (caught: unknown) => {
                     const failure = toFailure(caught);
                     if (failure !== null && isValidationFailure(failure)) {
@@ -464,8 +517,10 @@ function TwoFactorChallenge({ challengeId, onCancel }: TwoFactorChallengeProps) 
                 autoCapitalize="characters"
                 autoComplete="one-time-code"
                 required
+                returnKeyType="go"
                 value={code}
                 onChangeText={setCode}
+                onSubmitEditing={submit}
                 {...(error === null ? {} : { error })}
             />
 

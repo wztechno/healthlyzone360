@@ -21,6 +21,20 @@ use Illuminate\Foundation\Http\FormRequest;
  * two answers to one question — the second of which a client could get wrong
  * and open a basket owned by a kitchen that does not run the channel.
  *
+ * **`kitchen_id` is accepted, and it is not that second answer.** A channel code
+ * is unique per organisation, not per platform: every kitchen on the marketplace
+ * trades through its own `web-shop`. A bare code therefore names a *kind* of
+ * channel, and resolving it "across organisations" picked whichever kitchen's
+ * row the database returned first — so a shopper's basket belonged to one
+ * arbitrary kitchen and every other kitchen's meal was refused (browse-03). The
+ * kitchen narrows the code to one row; it does not assert a seller the channel
+ * disagrees with, because the locator only ever returns a channel that kitchen
+ * owns, and a kitchen without one is the same 404 an unknown code is. A
+ * marketplace kitchen *is* its organisation (`MarketplaceMealPresenter`
+ * publishes `organisation_id` as `kitchen_id`), so the field names what the
+ * client already holds. Omitted, the code resolves to the basket the shopper
+ * already has open on it — see `CartLocator::channelForShopper`.
+ *
  * `branch_id` is not accepted either, though `CartService::getOrCreate` takes
  * one. Choosing where the food is produced is a decision made later, on a
  * screen that can show cut-offs and delivery terms, and accepting it at
@@ -49,17 +63,25 @@ class StoreCartRequest extends FormRequest
             // would happily accept a switched-off one. The locator answers
             // 404 for both, so the two cases stay indistinguishable.
             'channel_code' => ['required', 'string', 'max:40'],
+            // No `exists:` rule for the same reason: a kitchen that does not
+            // exist and one that does not trade through this code are both
+            // the locator's 404. `uuid` stays, because a malformed value would
+            // otherwise reach a uuid column and fail as a server error.
+            'kitchen_id' => ['sometimes', 'nullable', 'uuid'],
         ];
     }
 
     /**
-     * @return array{channel_code: string}
+     * @return array{channel_code: string, kitchen_id: string|null}
      */
     public function payload(): array
     {
-        /** @var array{channel_code: string} $validated */
+        /** @var array{channel_code: string, kitchen_id?: string|null} $validated */
         $validated = $this->validated();
 
-        return $validated;
+        return [
+            'channel_code' => $validated['channel_code'],
+            'kitchen_id' => $validated['kitchen_id'] ?? null,
+        ];
     }
 }

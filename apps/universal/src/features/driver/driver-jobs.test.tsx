@@ -54,6 +54,7 @@ function driverDelivery(overrides: Partial<DriverJob['delivery']> = {}): DriverJ
         areaNameAr: 'القوز ١',
         windowCode: 'morning',
         requestedDate: '2026-08-16',
+        customerName: 'Layla Haddad',
         phone: '+971500000001',
         ...overrides,
     };
@@ -310,8 +311,9 @@ describe('what a run-sheet card says about the delivery', () => {
             'Directions: Gate on the north side',
         );
 
-        // The number **the order was given**, so a driver who cannot find the building rings the
-        // person expecting them.
+        // Who to ask for and the number to ring, so a driver who cannot find the building reaches
+        // the person expecting them.
+        expect(screen.getByTestId(`${card}-customer`)).toHaveTextContent('Customer: Layla Haddad');
         expect(screen.getByTestId(`${card}-phone`)).toHaveTextContent('Ring +971500000001');
         expect(screen.getByTestId(`${card}-assigned-at`)).toBeTruthy();
         expect(screen.queryByTestId(`${card}-no-address`)).toBeNull();
@@ -326,6 +328,7 @@ describe('what a run-sheet card says about the delivery', () => {
                     floor: null,
                     apartment: null,
                     directions: null,
+                    customerName: null,
                     phone: null,
                 }),
             }),
@@ -343,7 +346,7 @@ describe('what a run-sheet card says about the delivery', () => {
         // A labelled empty line for a floor nobody wrote down is noise in a stairwell.
         expect(screen.queryByTestId(`${card}-address-unit`)).toBeNull();
         expect(screen.queryByTestId(`${card}-directions`)).toBeNull();
-        expect(screen.queryByTestId(`${card}-phone`)).toBeNull();
+        expect(screen.queryByTestId(`${card}-contact`)).toBeNull();
         expect(screen.queryByTestId(`${card}-assigned-at`)).toBeNull();
         // What *was* recorded is still drawn.
         expect(screen.getByTestId(`${card}-address-line-one`)).toHaveTextContent(

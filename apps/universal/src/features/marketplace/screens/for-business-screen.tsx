@@ -16,6 +16,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { EntityImage, resolveMarketingImage } from '../../../media/entity-image.tsx';
+import { useGoToAuth } from '../../../navigation/use-return-to.ts';
+import { useSession } from '../../../session/session-provider.tsx';
 import { CardGrid, CardGridItem, SectionHeader } from '../section-header.tsx';
 
 /**
@@ -41,6 +43,9 @@ const CAPABILITIES: readonly string[] = [
     'recurringOrders',
     'eligibility',
 ];
+
+/** The business application — where a quotation request actually starts (`(business)/apply`). */
+const APPLY_HREF = '/apply';
 
 /**
  * For business.
@@ -69,10 +74,20 @@ const CAPABILITIES: readonly string[] = [
  * Neither was describing a missing capability: quotations are built, they simply live behind a
  * business account, and the dialog's own copy has always said exactly that. A "Prototype" badge on
  * top of it told a visitor the feature does not exist, which is not true.
+ *
+ * ## Both routes end at the business application (gap-01)
+ *
+ * The dialog promises that an account is the first step and "we will take it from there", which
+ * was only true if the person found `/apply` by themselves: sign-in and registration ended on the
+ * marketplace home, and nothing links to the application. So both carry `/apply` as their return,
+ * and a visitor who is already signed in is not asked at all — the button opens the application.
  */
 export function ForBusinessScreen() {
     const { t } = useTranslation();
     const router = useRouter();
+    const goToAuth = useGoToAuth();
+    const { phase } = useSession();
+    const signedIn = phase !== 'anonymous' && phase !== 'restoring';
     const [enquiryOpen, setEnquiryOpen] = useState(false);
 
     return (
@@ -97,7 +112,8 @@ export function ForBusinessScreen() {
                         testID="for-business-request-quotation"
                         label={t('marketplace:forBusiness.requestQuotation')}
                         onPress={() => {
-                            setEnquiryOpen(true);
+                            if (signedIn) router.push(APPLY_HREF as never);
+                            else setEnquiryOpen(true);
                         }}
                     />
                 </Inline>
@@ -195,7 +211,7 @@ export function ForBusinessScreen() {
                             label={t('marketplace:nav.register')}
                             onPress={() => {
                                 setEnquiryOpen(false);
-                                router.push('/register');
+                                goToAuth('/register', APPLY_HREF);
                             }}
                         />
                         <Button
@@ -203,7 +219,7 @@ export function ForBusinessScreen() {
                             label={t('marketplace:nav.signIn')}
                             onPress={() => {
                                 setEnquiryOpen(false);
-                                router.push('/sign-in');
+                                goToAuth('/sign-in', APPLY_HREF);
                             }}
                         />
                     </>

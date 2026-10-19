@@ -314,6 +314,13 @@ export interface MealFilterBarProps {
     readonly currency: CurrencyCode;
     readonly sort: MenuSort;
     readonly onSort: (sort: MenuSort) => void;
+    /**
+     * The catalogue's search field, drawn first on the bar (browse-06). The screen owns it — it
+     * holds the draft and the debounce — and the bar only gives it its place: the start of the row
+     * from `lg`, a full-width line above the scrolling menus below it, where a field squeezed
+     * between buttons would be too narrow to read what was typed.
+     */
+    readonly search?: ReactNode | undefined;
 }
 
 export function MealFilterBar({
@@ -323,6 +330,7 @@ export function MealFilterBar({
     currency,
     sort,
     onSort,
+    search,
 }: MealFilterBarProps) {
     const { t } = useTranslation();
     const wide = useBreakpoint().atLeast('lg');
@@ -479,6 +487,14 @@ export function MealFilterBar({
             aria-label={t('catalogue:filters.barLabel')}
             className="z-auto flex-row flex-wrap items-center gap-2"
         >
+            {search === undefined ? null : (
+                <View
+                    testID="meals-filter-search"
+                    className={wide ? 'w-[260px] min-w-0 shrink' : 'w-full'}
+                >
+                    {search}
+                </View>
+            )}
             {wide ? (
                 <View className="z-auto min-w-0 flex-1 flex-row flex-wrap items-center gap-2">
                     {menus}

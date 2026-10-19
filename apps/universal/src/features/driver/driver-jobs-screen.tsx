@@ -46,8 +46,8 @@ import { useOnlineStatus } from '../../online/online-status.tsx';
  * ## What a row says
  *
  * The number printed on the bag, both status axes, where the food is going in enough detail to find
- * a door, when the run was handed over, and the number to ring when the building still cannot be
- * found. That is what somebody standing next to a van needs and it is the whole of what the wire
+ * a door, when the run was handed over, and who to ask for and the number to ring when the building
+ * still cannot be found. That is what somebody standing next to a van needs and it is the whole of what the wire
  * carries — no money (a driver collecting cash belongs to the receipts ledger, not to a run sheet)
  * and no `driverUserId` (it would say "you" on every row).
  *
@@ -509,15 +509,25 @@ function JobCard({ job, locale, disabled, action, onAction }: JobCardProps) {
                 )}
 
                 {/*
-                 * The number **the order was given**, not the customer's best current one — so a
-                 * driver who cannot find the building rings the person who is expecting them. Text
-                 * rather than a dialling link: a tappable number inside a card that also holds the
-                 * delivery button is a second target for a thumb that is already in a hurry.
+                 * Who to ask for and the number to ring — the order's own contact, else the
+                 * customer's best phone — so a driver who cannot find the building reaches the
+                 * person expecting them. Text rather than a dialling link: a tappable number inside
+                 * a card that also holds the delivery button is a second target for a thumb that is
+                 * already in a hurry.
                  */}
-                {delivery.phone === null ? null : (
-                    <Text testID={`${testID}-phone`}>
-                        {t('kitchen:driver.phone', { phone: delivery.phone })}
-                    </Text>
+                {delivery.customerName === null && delivery.phone === null ? null : (
+                    <Stack space="none" testID={`${testID}-contact`}>
+                        {delivery.customerName === null ? null : (
+                            <Text variant="bodyStrong" testID={`${testID}-customer`}>
+                                {t('kitchen:driver.customer', { name: delivery.customerName })}
+                            </Text>
+                        )}
+                        {delivery.phone === null ? null : (
+                            <Text testID={`${testID}-phone`}>
+                                {t('kitchen:driver.phone', { phone: delivery.phone })}
+                            </Text>
+                        )}
+                    </Stack>
                 )}
 
                 {job.assignedAt === null ? null : (

@@ -534,6 +534,8 @@ function quotationLine(
         id: `test-quotation-line-${String(ordinal)}`,
         lineNumber: ordinal,
         catalogueItemId: `test-catalogue-item-${String(ordinal)}`,
+        // No article name, so the Line column falls back to the note this file sorts by.
+        itemName: null,
         catalogueItemVariantId: null,
         quantity: '12.0000',
         unitAmountMinor: null,
@@ -548,6 +550,7 @@ function quotation(overrides: Partial<KitchenQuotation> = {}): KitchenQuotation 
         id: quotationIdAt(1),
         buyerOrganisationId: 'test-0000-buyer-0001' as KitchenQuotation['buyerOrganisationId'],
         programmeId: 'test-0000-programme-0001' as KitchenQuotation['programmeId'],
+        programmeName: null,
         reference: 'QT-2026-0007',
         status: 'submitted',
         currencyCode: 'USD',

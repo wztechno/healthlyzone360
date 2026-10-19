@@ -1,11 +1,12 @@
-import { Button, EmptyState, Inline } from '@healthy360/design-system';
+import { Button, EmptyState } from '@healthy360/design-system';
 import { OrderId } from '@healthy360/domain-types';
-import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { useMyOrderQuery } from '../../../data/commerce-hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useOnlineStatus } from '../../../online/online-status.tsx';
+import { SubpageTrail } from '../../../ui/subpage-trail.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { OrderTracking } from '../order-tracking.tsx';
 
@@ -14,8 +15,14 @@ import { OrderTracking } from '../order-tracking.tsx';
  *
  * The same HealthZone `track` body the guest page draws (`../order-tracking.tsx`), over
  * `GET /me/orders/{order}`. Two differences, both because the person is signed in: there is no
- * "keep this reference" reminder — the order lives in their account history, which is where the
- * "back to your orders" control under the cards goes — and no conversion prompt.
+ * "keep this reference" reminder — the order lives in their account history, which the trail above
+ * the tracking leads back to — and no conversion prompt.
+ *
+ * **The way back is at the top.** The customer area is a `<Slot/>` with no header of its own, and
+ * on iOS there is no swipe back inside it, so the history used to be reachable only from a button
+ * under every tracking card. The trail ("Order history › H360-1042") is where every other sub-page
+ * keeps its way up, and it goes there by name (`dismissTo`) — never a second copy of the account
+ * stacked on top of the order.
  *
  * **It keeps itself current (HA-23).** While the order is still on its way the page re-reads it
  * every {@link ORDER_TRACKING_POLL_MS}, so a kitchen's confirm or a driver's pick-up shows up without
@@ -33,26 +40,29 @@ const TEST_ID = 'customer-order';
 /** The kitchen display's and the driver sheet's fifteen seconds, for the same reasons. */
 export const ORDER_TRACKING_POLL_MS = 15_000;
 
+/** The account's order history — where this page goes up to. */
+export const ORDER_HISTORY_HREF = '/customer/account?section=orders';
+
 export interface CustomerOrderScreenProps {
     readonly orderId: string | undefined;
 }
 
 export function CustomerOrderScreen({ orderId }: CustomerOrderScreenProps) {
     const { t } = useTranslation();
-    const router = useRouter();
+    // Never a detour, so never a return of its own: up is always the history.
+    const history = useReturnTo(undefined, ORDER_HISTORY_HREF);
 
     const parsed = orderId === undefined ? null : OrderId.safeParse(orderId);
     const { online } = useOnlineStatus();
     const order = useMyOrderQuery(parsed, { pollMs: online ? ORDER_TRACKING_POLL_MS : false });
 
+    // The empty states' one action: there is no order to show, and the history is where they are.
     const backToOrders = (
         <Button
             testID={`${TEST_ID}-history`}
             variant="secondary"
             label={t('account:orders.backToHistory')}
-            onPress={() => {
-                router.push('/customer/account?section=orders' as never);
-            }}
+            onPress={history.up}
         />
     );
 
@@ -79,6 +89,16 @@ export function CustomerOrderScreen({ orderId }: CustomerOrderScreenProps) {
                 >
                     {order.data === undefined ? null : (
                         <View className="flex-col gap-6">
+                            {/*
+                             * Not in the design, which has no history to go back to. The order
+                             * lives in the account's history, and this is the way up to it.
+                             */}
+                            <SubpageTrail
+                                testID={`${TEST_ID}-trail`}
+                                back={history}
+                                parentLabel={t('account:orders.title')}
+                                current={order.data.reference}
+                            />
                             <OrderTracking
                                 testID={TEST_ID}
                                 order={order.data}
@@ -88,11 +108,6 @@ export function CustomerOrderScreen({ orderId }: CustomerOrderScreenProps) {
                                 }}
                                 refreshing={order.isRefetching}
                             />
-                            {/*
-                             * Not in the design, which has no history to go back to. The order
-                             * lives in the account's history, and this is the way back to it.
-                             */}
-                            <Inline space="sm">{backToOrders}</Inline>
                         </View>
                     )}
                 </QueryStates>

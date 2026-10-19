@@ -4461,12 +4461,12 @@ paths:
           required: true
           description: |
             Which series to read, and each is counted in the table its existing
-            handles are in: `ING-` among the ingredients, `RC-` among the
+            handles are in: `ING-` and `PKG-` among the ingredients, `RC-` among the
             recipes, and `SAC-` and `DRS-` among the catalogue items — where the
             import wrote forty-three sauces and nineteen dressings.
           schema:
             type: string
-            enum: [ING-, RC-, SAC-, DRS-]
+            enum: [ING-, PKG-, RC-, SAC-, DRS-]
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
@@ -4542,6 +4542,16 @@ paths:
           required: false
           schema:
             $ref: '#/components/schemas/CatalogueItemType'
+        - name: has_recipe
+          in: query
+          required: false
+          description: |
+            `false` keeps only items no recipe sells — the imported meals and
+            frozen meals the recipe book has no row for (HA-44); `true` only
+            the ones a recipe sells.
+          schema:
+            type: string
+            enum: ['true', 'false']
         - name: product_category_id
           in: query
           required: false
@@ -25482,6 +25492,7 @@ components:
           channel_codes,
           pack_count,
           default_pack,
+          stock_blockers,
         ]
       description: |
         One catalogue item selling a recipe, as the recipe book draws it beside
@@ -25547,6 +25558,16 @@ components:
             `corporate`. That is the vocabulary the admin's channel chips use,
             not the kitchen's own channel codes; an insurer's channel has no
             word in it and is not listed.
+        stock_blockers:
+          type: array
+          description: |
+            Why selling this item cannot lower stock (HA-45), empty when a sale
+            can: `stock_no_recipe`, `stock_recipe_not_published`,
+            `stock_no_pieces_produced` (a meal cooked when ordered),
+            `stock_no_shelf`, `stock_no_amount_per_sale` (sold from finished
+            stock). The publish gate refuses on the same codes.
+          items:
+            type: string
         pack_count:
           type: integer
           minimum: 0
@@ -27117,6 +27138,7 @@ components:
           sells_from_finished_stock,
           status,
           data_quality_flags,
+          stock_blockers,
           lock_version,
         ]
       description: |
@@ -27149,6 +27171,14 @@ components:
           description: |
             The kitchen's own photo of this record (`GET /media/photos/{photo}`), or
             null to show the stock picture.
+        recipe_photo_url:
+          type: [string, "null"]
+          format: uri
+          description: |
+            The photo of the recipe this item is made from, or null when it has no
+            recipe or the recipe has no photo. Kept apart from `photo_url` so an
+            editor never shows the recipe's picture as the item's own; a menu
+            tile shows `photo_url`, else this, as the marketplace does.
         slug:
           type: string
           maxLength: 140
@@ -27282,6 +27312,16 @@ components:
         data_quality_flags:
           type: array
           description: Unresolved import findings, e.g. `dual_pack_single_price`.
+          items:
+            type: string
+        stock_blockers:
+          type: array
+          description: |
+            Why selling this item cannot lower stock (HA-45), empty when a sale
+            can: `stock_no_recipe`, `stock_recipe_not_published`,
+            `stock_no_pieces_produced` (a meal cooked when ordered),
+            `stock_no_shelf`, `stock_no_amount_per_sale` (sold from finished
+            stock). The publish gate refuses on the same codes.
           items:
             type: string
         source_system:
@@ -30824,6 +30864,16 @@ components:
             kitchen owns it is the server's answer, not the client's assertion —
             which is why there is no `organisation_id` here.
           examples: [b2c_web]
+        kitchen_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            The kitchen whose channel to open — a marketplace meal's
+            `kitchen_id`. Codes are unique per kitchen, so this picks the one
+            row the code names; a kitchen without an active channel by that
+            code is `404`. Omitted, the shopper's open basket on the code is
+            returned, preferring one with lines.
       additionalProperties: false
 
     AddCartItemRequest:
@@ -39683,7 +39733,7 @@ components:
 
     DriverJobDelivery:
       type: object
-      required: [line_one, building, floor, apartment, directions, area_name_en, area_name_ar, window_code, requested_date, phone]
+      required: [line_one, building, floor, apartment, directions, area_name_en, area_name_ar, window_code, requested_date, customer_name, phone]
       description: |
         Where this run is going, **as the order recorded it at placement** — never
         as the customer's address book stands now. A customer who edits their
@@ -39717,16 +39767,18 @@ components:
         requested_date:
           type: ['string', 'null']
           format: date
+        customer_name:
+          type: ['string', 'null']
+          description: |
+            Who to ask for at the door — the customer account's display name.
+            `null` for a guest or an anonymised account.
         phone:
           type: ['string', 'null']
           description: |
-            E.164, and it is **the number the order was given** — resolved from
-            the contact point the snapshot names, not the customer's best current
-            number. `null` when the order named none, with no fallback: a
-            substitution would answer a different question while looking like the
-            same field, and this route carries no permission code to hold a
-            customer-contact lookup behind. The desk has
-            `order.view_customer_contact_organisation` for that.
+            E.164. The number the order was given (the contact point the snapshot
+            names), else the customer's best live phone in the order desk's
+            ordering — so the desk and the driver name one number. `null` only
+            when the customer has no phone at all.
       additionalProperties: false
 
     DriverJob:
@@ -40060,6 +40112,8 @@ components:
         - id
         - line_number
         - catalogue_item_id
+        - item_name_en
+        - item_name_ar
         - catalogue_item_variant_id
         - quantity
         - unit_amount_minor
@@ -40078,6 +40132,12 @@ components:
           allOf:
             - $ref: '#/components/schemas/Uuid'
           description: The article, which must be one the programme's kitchen sells.
+        item_name_en:
+          type: [string, 'null']
+          description: The article's English name, so neither side renders a bare identifier. `null` only if the article no longer exists.
+        item_name_ar:
+          type: [string, 'null']
+          description: The article's Arabic name. `null` only if the article no longer exists.
         catalogue_item_variant_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
@@ -40116,6 +40176,8 @@ components:
         - id
         - organisation_id
         - corporate_programme_id
+        - programme_name_en
+        - programme_name_ar
         - reference
         - status
         - currency_code
@@ -40138,6 +40200,12 @@ components:
           description: The **buyer** organisation. This is the row's tenant, which is why the kitchen's side of this surface reaches it through the programme instead.
         corporate_programme_id:
           $ref: '#/components/schemas/Uuid'
+        programme_name_en:
+          type: [string, 'null']
+          description: The programme's English name, readable from the kitchen's side too. `null` only if the programme no longer exists.
+        programme_name_ar:
+          type: [string, 'null']
+          description: The programme's Arabic name. `null` only if the programme no longer exists.
         reference:
           type: string
           description: A reference a person can read over the phone.

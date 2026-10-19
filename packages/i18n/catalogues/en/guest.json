@@ -1,10 +1,9 @@
 {
     "title": "Checkout as guest",
     "entry": {
-        "title": "How would you like to continue?",
-        "body": "You can order without an account. If you already have one, signing in keeps your addresses and past orders together.",
-        "continueAsGuest": "Continue as a guest",
-        "signIn": "Sign in instead"
+        "title": "Sign in to add this to your basket",
+        "signIn": "Sign in",
+        "register": "Create account"
     },
     "contact": {
         "title": "Who is this for",

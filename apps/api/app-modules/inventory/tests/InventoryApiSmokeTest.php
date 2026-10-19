@@ -103,6 +103,24 @@ it('refuses waste or a decrease that would take the shelf below zero, and posts 
     expect(StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->value('quantity'))->toBe('0.0000');
 });
 
+it('refuses a negative or zero waste on the quantity field, and posts nothing', function (mixed $quantity): void {
+    $item = StockItem::query()->create([
+        'organisation_id' => $this->tenant->organisation->getKey(),
+        'code' => 'flour-01',
+        'name_en' => 'Flour',
+    ]);
+    $shelf = ['branch_id' => (string) $this->branch->getKey(), 'stock_item_id' => (string) $item->getKey()];
+
+    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => 5], $this->headers)->assertCreated();
+
+    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => $quantity], $this->headers)
+        ->assertUnprocessable()
+        ->assertJsonPath('error.code', 'validation.failed')
+        ->assertJsonStructure(['error' => ['details' => ['fields' => ['quantity']]]]);
+
+    expect(StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->value('quantity'))->toBe('5.0000');
+})->with([-2, '-0.5', 0]);
+
 it('records a count as the difference from the ledger, in either direction and at zero', function (): void {
     $item = StockItem::query()->create([
         'organisation_id' => $this->tenant->organisation->getKey(),

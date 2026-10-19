@@ -4,6 +4,11 @@ import { resolveAppLandingRoute } from '../../../navigation/landing.ts';
 import { LandingScreen } from '../../../screens/landing-screen.tsx';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
 
+export interface HomeRouterProps {
+    /** A validated return (`safeReturnTo`), or `null`. */
+    readonly returnTo?: string | null | undefined;
+}
+
 /**
  * `/` — one decision, three outcomes.
  *
@@ -33,8 +38,15 @@ import { useAccessState, useSession } from '../../../session/session-provider.ts
  * `/`, `/customer` and `/discover` each used to draw the design's home from the same sections, so
  * the site carried three near-identical pages that only differed in one button. There is one home
  * now, `/discover`, and both of the others send the person there.
+ *
+ * ## `returnTo` goes to the foundation screen, untouched
+ *
+ * The return a sign-in finished with is honoured by `LandingScreen`, which already owns the
+ * resolver — see there. An anonymous visitor still lands on `/discover`: a return is only ever
+ * produced by finishing an authentication, so an anonymous `/` with one is a session that ended in
+ * between, and the marketplace home is the right answer to it.
  */
-export function HomeRouter() {
+export function HomeRouter({ returnTo = null }: HomeRouterProps = {}) {
     const accessState = useAccessState();
     const { repositoryError } = useSession();
 
@@ -44,5 +56,5 @@ export function HomeRouter() {
 
     if (landing.reason === 'unauthenticated') return <Redirect href="/discover" />;
 
-    return <LandingScreen />;
+    return <LandingScreen returnTo={returnTo} />;
 }

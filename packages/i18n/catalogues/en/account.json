@@ -146,7 +146,8 @@
         "noNumberTitle": "No number to confirm",
         "noNumberBody": "There is no mobile number on your account yet.",
         "addNumber": "Add a number",
-        "otpFallback": "That did not work. Check your connection and try again."
+        "otpFallback": "That did not work. Check your connection and try again.",
+        "verifiedToast": "Mobile number confirmed."
     },
     "addresses": {
         "title": "Delivery addresses",
@@ -185,7 +186,8 @@
         "emptyBody": "Add one so we know where to deliver.",
         "missingTitle": "That address is no longer here",
         "missingBody": "It may have been removed, or the link may be out of date.",
-        "backToList": "Back to your addresses"
+        "backToList": "Back to your addresses",
+        "savedToast": "Address saved."
     },
     "dietary": {
         "title": "Allergies and diet",
@@ -219,7 +221,8 @@
         "exclusionsTitle": "Ingredients to leave out",
         "exclusionsSubtitle": "Things you simply do not want, for reasons that are not an allergy.",
         "save": "Save",
-        "saved": "Saved."
+        "saved": "Saved.",
+        "savedToast": "Allergies and diet saved."
     },
     "consents": {
         "title": "Permissions",

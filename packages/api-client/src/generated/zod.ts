@@ -1228,6 +1228,7 @@ export const zAdminRecipeSoldAs = z.object({
     portion_factor: z.string(),
     composition: z.string().nullable(),
     channel_codes: z.array(z.string()),
+    stock_blockers: z.array(z.string()),
     pack_count: z.int().gte(0),
     default_pack: z.object({
         label_en: z.string(),
@@ -1436,6 +1437,7 @@ export const zAdminCatalogueItem = z.object({
     catalogue_id: zUuid,
     item_type: zCatalogueItemType,
     photo_url: z.url().nullish(),
+    recipe_photo_url: z.url().nullish(),
     slug: z.string().max(140),
     name_en: z.string(),
     name_ar: z.string(),
@@ -1462,6 +1464,7 @@ export const zAdminCatalogueItem = z.object({
     review_reason: z.string().max(200).nullish(),
     image_placeholder_id: z.string().max(80).nullish(),
     data_quality_flags: z.array(z.string()),
+    stock_blockers: z.array(z.string()),
     source_system: z.string().nullish(),
     source_ref: z.string().nullish(),
     lock_version: z.int().gte(0),
@@ -3187,7 +3190,8 @@ export const zFulfilmentType = z.enum([
 ]);
 
 export const zOpenCartRequest = z.object({
-    channel_code: z.string().max(40)
+    channel_code: z.string().max(40),
+    kitchen_id: zUuid.nullish()
 });
 
 export const zAddCartItemRequest = z.object({
@@ -7534,6 +7538,7 @@ export const zDriverJobDelivery = z.object({
     area_name_ar: z.string().nullable(),
     window_code: z.string().nullable(),
     requested_date: z.iso.date().nullable(),
+    customer_name: z.string().nullable(),
     phone: z.string().nullable()
 });
 
@@ -7714,6 +7719,8 @@ export const zQuotationLine = z.object({
     id: zUuid,
     line_number: z.int().gte(1),
     catalogue_item_id: zUuid,
+    item_name_en: z.string().nullable(),
+    item_name_ar: z.string().nullable(),
     catalogue_item_variant_id: zUuid.nullable(),
     quantity: z.string(),
     unit_amount_minor: z.int().gte(0).nullable(),
@@ -7728,6 +7735,8 @@ export const zQuotation = z.object({
     id: zUuid,
     organisation_id: zUuid,
     corporate_programme_id: zUuid,
+    programme_name_en: z.string().nullable(),
+    programme_name_ar: z.string().nullable(),
     reference: z.string(),
     status: zQuotationStatus,
     currency_code: zCurrencyCode,
@@ -11266,6 +11275,7 @@ export const zNextCatalogueReferenceHeaders = z.object({
 export const zNextCatalogueReferenceQuery = z.object({
     prefix: z.enum([
         'ING-',
+        'PKG-',
         'RC-',
         'SAC-',
         'DRS-'
@@ -11294,6 +11304,7 @@ export const zListCatalogueItemsQuery = z.object({
     query: z.string().max(160).optional(),
     status: zCatalogueItemStatus.optional(),
     item_type: zCatalogueItemType.optional(),
+    has_recipe: z.enum(['true', 'false']).optional(),
     product_category_id: zUuid.optional(),
     allergen: z.string().max(20).optional()
 });

@@ -26,6 +26,12 @@ import { useAddressesQuery, useDietaryProfileQuery } from '../../../data/account
 import { totalFromPages, useMealsQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
 import { EntityImage, resolveMarketingImage } from '../../../media/entity-image.tsx';
+import { withReturnTo } from '../../../navigation/return-to.ts';
+import {
+    useCurrentHref,
+    useGoToAuth,
+    useRememberQuery,
+} from '../../../navigation/use-return-to.ts';
 import { useSession } from '../../../session/session-provider.tsx';
 import { Eyebrow } from '../../../ui/eyebrow.tsx';
 import { ListingHeader } from '../../../ui/listing-header.tsx';
@@ -172,11 +178,16 @@ function deliveryAddress(
 export function KitchensScreen() {
     const { t } = useTranslation();
     const router = useRouter();
+    const here = useCurrentHref();
+    const goToAuth = useGoToAuth();
     const { atLeast } = useBreakpoint();
     const { me } = useSession();
     const signedIn = me !== null;
     const filters = useMarketplaceFilters(GROUP_KEYS);
     const sorting = useMarketplaceFilters(SORT_KEYS);
+    // The search, chips and sort, so a storefront's "Kitchens" crumb comes back to the directory
+    // as it was left rather than to the bare list (browse-05).
+    useRememberQuery();
 
     // The account answers only for a signed-in shopper; a visitor's page never asks.
     const profile = useDietaryProfileQuery(signedIn);
@@ -312,11 +323,21 @@ export function KitchensScreen() {
                             }
                             address={deliveryAddress(addresses.data)}
                             onPress={() => {
-                                router.push(
-                                    (signedIn
-                                        ? '/customer/account/addresses'
-                                        : '/sign-in') as never,
-                                );
+                                // Signed out, "Add address" starts with signing in, and comes back
+                                // here (AUTH-14). Signed in with none, it opens the form and comes
+                                // back here; with one, it is a change, made on the account page.
+                                if (!signedIn) {
+                                    goToAuth('/sign-in');
+                                } else if (deliveryAddress(addresses.data) === null) {
+                                    router.push(
+                                        withReturnTo(
+                                            '/customer/account/addresses/new',
+                                            here,
+                                        ) as never,
+                                    );
+                                } else {
+                                    router.push('/customer/account?section=addresses' as never);
+                                }
                             }}
                         />
                         <Select<KitchenSort>

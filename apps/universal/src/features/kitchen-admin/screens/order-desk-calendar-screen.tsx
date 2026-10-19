@@ -2,7 +2,6 @@ import type { CalendarBasis, OrderDeskCalendarFilters } from '@healthy360/api-cl
 import {
     Button,
     CalendarGrid,
-    EmptyState,
     ErrorState,
     Icon,
     IconButton,
@@ -28,12 +27,11 @@ import type {
     CalendarSlotDescriptor,
 } from '../order-desk-calendar.ts';
 import {
+    answeredDays,
     CALENDAR_WEEK_DAYS,
     calendarDayFor,
     calendarSlots,
     calendarWeek,
-    dayReadings,
-    isEmpty,
     isUnknown,
     slotReadings,
 } from '../order-desk-calendar.ts';
@@ -331,13 +329,14 @@ function OrderDeskCalendarWeek() {
     const ceiling = calendar.data?.meta.maxWindowDays ?? null;
     const range = useMemo(() => calendarWeek(anchor, ceiling), [anchor, ceiling]);
 
-    const days = useMemo(() => calendar.data?.days ?? [], [calendar.data]);
+    // An answer with nothing in it is still the whole week, drawn in zeroes — never an empty page.
+    const days = useMemo(
+        () => (calendar.data === undefined ? [] : answeredDays(range.dates, calendar.data.days)),
+        [calendar.data, range.dates],
+    );
     const meta = calendar.data?.meta ?? null;
     const failure = toFailure(calendar.error);
     const slots = useMemo<readonly CalendarSlotDescriptor[]>(() => calendarSlots(days), [days]);
-
-    /** A week the server answered and found nothing in — not the same as one it has not answered. */
-    const quiet = days.length > 0 && days.every((day) => isEmpty(dayReadings(day)));
 
     const today = todayIso();
 
@@ -522,12 +521,6 @@ function OrderDeskCalendarWeek() {
                         void calendar.refetch();
                     }}
                     retrying={calendar.isFetching}
-                />
-            ) : quiet ? (
-                <EmptyState
-                    testID="kitchen-order-desk-calendar-empty"
-                    title={t('kitchen:calendar.emptyTitle')}
-                    body={t('kitchen:calendar.emptyBody')}
                 />
             ) : (
                 <View className="flex-col gap-snug">
