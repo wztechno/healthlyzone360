@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8289 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8283 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3622,12 +3622,9 @@ export interface NamespaceKeys {
     | 'forms.issueUnit'
     | 'forms.itemsPerPack'
     | 'forms.itemsPerUnit'
-    | 'forms.marginBelowCost'
-    | 'forms.marginLow'
     | 'forms.noFigures'
     | 'forms.nutritionTitle'
     | 'forms.pack'
-    | 'forms.price'
     | 'forms.required'
     | 'forms.requiredCount'
     | 'forms.shelfLifeInvalid'
@@ -5838,9 +5835,7 @@ export interface NamespaceKeys {
     | 'recipes.archiveTitle'
     | 'recipes.archivedToast'
     | 'recipes.b2bPriceHint'
-    | 'recipes.b2bPricePerUnit'
     | 'recipes.b2cPriceHint'
-    | 'recipes.b2cPricePerUnit'
     | 'recipes.backToCurrentVersion'
     | 'recipes.backToList'
     | 'recipes.caption'
@@ -5899,7 +5894,6 @@ export interface NamespaceKeys {
     | 'recipes.filteredEmptyBody'
     | 'recipes.filteredEmptyTitle'
     | 'recipes.formSubtitle'
-    | 'recipes.grossMargin'
     | 'recipes.identityDescription'
     | 'recipes.imageLabel'
     | 'recipes.immutableBody'
@@ -11929,12 +11923,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:forms.issueUnit',
   'kitchen:forms.itemsPerPack',
   'kitchen:forms.itemsPerUnit',
-  'kitchen:forms.marginBelowCost',
-  'kitchen:forms.marginLow',
   'kitchen:forms.noFigures',
   'kitchen:forms.nutritionTitle',
   'kitchen:forms.pack',
-  'kitchen:forms.price',
   'kitchen:forms.required',
   'kitchen:forms.requiredCount',
   'kitchen:forms.shelfLifeInvalid',
@@ -14145,9 +14136,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.archiveTitle',
   'kitchen:recipes.archivedToast',
   'kitchen:recipes.b2bPriceHint',
-  'kitchen:recipes.b2bPricePerUnit',
   'kitchen:recipes.b2cPriceHint',
-  'kitchen:recipes.b2cPricePerUnit',
   'kitchen:recipes.backToCurrentVersion',
   'kitchen:recipes.backToList',
   'kitchen:recipes.caption',
@@ -14206,7 +14195,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.filteredEmptyBody',
   'kitchen:recipes.filteredEmptyTitle',
   'kitchen:recipes.formSubtitle',
-  'kitchen:recipes.grossMargin',
   'kitchen:recipes.identityDescription',
   'kitchen:recipes.imageLabel',
   'kitchen:recipes.immutableBody',

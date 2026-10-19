@@ -3213,11 +3213,8 @@
         "costPerPieceWithWaste": "للقطعة + {{percent}}% هدر",
         "productionWastePercent": "هدر الإنتاج (%)",
         "packagingWastePercent": "هدر التعبئة (%)",
-        "b2bPricePerUnit": "سعر الشركات / {{unit}}",
         "b2bPriceHint": "للمطابخ والمشترين المؤسسيين، غير شامل ضريبة القيمة المضافة",
-        "b2cPricePerUnit": "سعر الأفراد / {{unit}}",
         "b2cPriceHint": "للمستهلك، شامل ضريبة القيمة المضافة",
-        "grossMargin": "هامش الربح الإجمالي",
         "marginNoBasis": "يتطلّب سعر شركات وتركيبة مُكلَّفة",
         "compositionHint": "محسوب من قاعدة بيانات المكوّنات — غير قابل للتعديل هنا",
         "sectionAllergenClasses": "فئات مسبّبات الحساسية",
@@ -4694,10 +4691,7 @@
         "expiryPeriod": "مدة الصلاحية",
         "shelfLifeInvalid": "أدخل عددًا صحيحًا من الأيام بين 0 و3650.",
         "days": "أيام",
-        "yieldAndWaste": "المردود والهدر",
-        "price": "السعر",
-        "marginLow": "أقل من {{percent}}٪",
-        "marginBelowCost": "أقل من التكلفة"
+        "yieldAndWaste": "المردود والهدر"
     },
     "deliveryWindows": {
         "title": "نوافذ التوصيل",

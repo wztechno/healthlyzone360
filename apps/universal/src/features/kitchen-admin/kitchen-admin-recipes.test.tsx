@@ -2696,18 +2696,18 @@ describe('the steps', () => {
         expect(screen.queryByTestId('kitchen-recipe-tab-steps')).toBeNull();
         expect(screen.queryByTestId('kitchen-recipe-tab-issues')).toBeNull();
 
-        // A price that does not parse is flagged as it is typed, and the tab it is on says so —
-        // spoken as well as drawn, because a pill a screen reader cannot hear is not a signal.
-        await openTab('costing');
-        await untilVisible('kitchen-recipe-b2b-price-input');
+        // A shelf life that does not parse is flagged as it is typed, and the tab it is on says
+        // so — spoken as well as drawn, because a pill a screen reader cannot hear is not a signal.
+        await openTab('packaging');
+        await untilVisible('kitchen-recipe-expiry-input');
         await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-recipe-b2b-price-input'), 'abc');
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), 'abc');
         });
         await waitFor(
             () => {
                 expect(
-                    screen.getByTestId('kitchen-recipe-tab-costing').props.accessibilityLabel,
-                ).toBe('Costing, 1 to fix');
+                    screen.getByTestId('kitchen-recipe-tab-packaging').props.accessibilityLabel,
+                ).toBe('Packaging, 1 to fix');
             },
             { timeout: 10_000 },
         );
@@ -2716,9 +2716,27 @@ describe('the steps', () => {
         // The banner's chip takes the reader back to it from anywhere.
         await openTab('sheet');
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-issues-errors-b2b-price'));
+            fireEvent.press(screen.getByTestId('kitchen-recipe-issues-errors-shelf-life'));
         });
-        await untilVisible('kitchen-recipe-b2b-price-input');
+        await untilVisible('kitchen-recipe-expiry-input');
+    });
+
+    it('asks no price on Costing — the Selling tab is where a recipe is priced', async () => {
+        const stored = recipe({ ordinal: 5, name: 'Mujaddara' });
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => stored) },
+        });
+
+        await untilVisible('kitchen-recipe-tabs');
+        await openTab('costing');
+        await untilVisible('kitchen-recipe-package-costs');
+        expect(screen.queryByTestId('kitchen-recipe-coefficients')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-b2b-price-input')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-b2c-price-input')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-margin-input')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-issues-margin')).toBeNull();
     });
 
     it('puts each waste rate on the tab whose lines it applies to', async () => {
@@ -3213,7 +3231,7 @@ describe('the shelf life', () => {
         });
     });
 
-    it('writes it alone on a published recipe, and keeps the version’s prices closed', async () => {
+    it('writes it alone on a published recipe, and keeps the version fields closed', async () => {
         const publishedVersion = recipeVersion({
             recipeOrdinal: 3,
             overrides: { status: 'published', publishedAt: '2026-08-02T09:00:00.000Z' },
@@ -3244,12 +3262,12 @@ describe('the shelf life', () => {
         await openTab('sheet');
         expect(save().props.accessibilityState.disabled).toBe(true);
 
-        await openTab('costing');
-        await untilVisible('kitchen-recipe-b2b-price-input');
-        expect(screen.getByTestId('kitchen-recipe-b2b-price-input').props.editable).toBe(false);
-        expect(screen.getByTestId('kitchen-recipe-b2c-price-input').props.editable).toBe(false);
-
         await openTab('packaging');
+        await untilVisible('kitchen-recipe-packaging-waste-input');
+        expect(screen.getByTestId('kitchen-recipe-packaging-waste-input').props.editable).toBe(
+            false,
+        );
+
         await untilVisible('kitchen-recipe-expiry-input');
         expect(screen.getByTestId('kitchen-recipe-expiry-input').props.editable).toBe(true);
 

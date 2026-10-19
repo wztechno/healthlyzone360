@@ -2882,11 +2882,8 @@
         "costPerPieceWithWaste": "Per piece + {{percent}}% waste",
         "productionWastePercent": "Production waste (%)",
         "packagingWastePercent": "Packaging waste (%)",
-        "b2bPricePerUnit": "B2B price / {{unit}}",
         "b2bPriceHint": "To a kitchen or corporate buyer, excl. VAT",
-        "b2cPricePerUnit": "B2C price / {{unit}}",
         "b2cPriceHint": "To a diner, incl. VAT",
-        "grossMargin": "Gross margin",
         "marginNoBasis": "Needs a B2B price and a costed formulation",
         "compositionHint": "Computed from the ingredient database — not editable here",
         "sectionAllergenClasses": "Allergen classes",
@@ -4071,10 +4068,7 @@
         "expiryPeriod": "Expiry period",
         "shelfLifeInvalid": "Enter a whole number of days between 0 and 3650.",
         "days": "days",
-        "yieldAndWaste": "Yield & waste",
-        "price": "Price",
-        "marginLow": "Below {{percent}}%",
-        "marginBelowCost": "Below cost"
+        "yieldAndWaste": "Yield & waste"
     },
     "deliveryWindows": {
         "title": "Delivery windows",
