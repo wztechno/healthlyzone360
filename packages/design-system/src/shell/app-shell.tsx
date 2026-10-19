@@ -856,8 +856,11 @@ function AppShellLayout({
                      * its header on the content's 1184px container, but on a wide screen that left
                      * a band of empty bar either side: the brand and destinations sit at the start
                      * edge and the search and controls at the end edge instead.
+                     *
+                     * The gap is 16px from `md` to `lg`: at 768px the destinations and the
+                     * signed-in controls fit on one line only without the wider 28px.
                      */}
-                    <View className="w-full flex-row items-center gap-3 md:gap-7">
+                    <View className="w-full flex-row items-center gap-3 md:gap-4 lg:gap-7">
                         {!wideEnoughForTopNav && navigation.length > 0 ? (
                             <IconButton
                                 testID={testID === undefined ? undefined : `${testID}-menu`}

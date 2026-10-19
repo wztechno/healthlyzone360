@@ -183,7 +183,7 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
             onPress={() => {
                 router.push('/');
             }}
-            className="min-h-touch flex-row items-center gap-2 pe-2"
+            className="min-h-touch min-w-0 shrink flex-row items-center gap-2 pe-2"
         >
             {/*
              * A solid mark with one squared corner, not a gradient tile carrying a letter.
@@ -198,7 +198,10 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
              * gradient also hands violet back to its one job, marking machine-generated content.
              */}
             <View className="h-[26px] w-[26px] rounded rounded-es-xs border-[1.5px] border-surface-canopy bg-surface-brand" />
-            <RNText className="font-display text-xl font-extrabold tracking-display text-content-primary">
+            <RNText
+                numberOfLines={1}
+                className="shrink font-display text-lg font-extrabold tracking-display text-content-primary md:text-xl"
+            >
                 {t('marketplace:brand.name')}
             </RNText>
         </Pressable>
@@ -217,8 +220,11 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
      * query layer here to drift out of step with it. An empty term goes to the bare catalogue
      * rather than to `?q=`, so clearing the box is a route a person can also reach by hand.
      *
-     * Hidden below `md`: 340px of input cannot share a phone bar with a brand mark and a basket,
-     * and the catalogue keeps its own search field on the screen where it belongs.
+     * The field is drawn from `xl` only. Between `md` and `xl` the four destinations, the field and
+     * the controls do not fit on one line — at 820px the row wrapped and the destinations stacked
+     * into a 200px header — so there it is a search button that opens the catalogue, whose own
+     * search field takes the term. Below `md` there is no room even for the button, and the
+     * catalogue is one press away in the menu.
      */
     const [searchDraft, setSearchDraft] = useState('');
     const wideBar = useBreakpoint().atLeast('xl');
@@ -237,7 +243,7 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                 invalid: false,
                 focused: searchFocused,
                 disabled: false,
-            })} hidden w-[340px] min-w-0 shrink md:flex`}
+            })} w-[340px] min-w-0 shrink`}
         >
             <Icon name="search" className="text-content-disabled" />
             <TextInput
@@ -255,6 +261,22 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                 onSubmitEditing={submitSearch}
                 returnKeyType="search"
                 className={inputControlClassName}
+            />
+        </View>
+    );
+
+    const searchButton = (
+        <View className="hidden md:flex">
+            <IconButton
+                testID="marketplace-search-button"
+                size="sm"
+                variant="ghost"
+                className="rounded-full border-stroke"
+                icon={<Icon name="search" size="lg" className="text-content-primary" />}
+                label={t('marketplace:nav.searchLabel')}
+                onPress={() => {
+                    router.push('/meals' as never);
+                }}
             />
         </View>
     );
@@ -350,30 +372,46 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
      * shrink` — is the part that yields, as HealthZone draws it. Below `xl` the group may wrap:
      * React Native Web gives every `View` `flex-shrink: 0`, so without `shrink` and `wrap` the row
      * would take its max-content width and push the document sideways on a phone.
+     *
+     * Narrower bars carry fewer controls rather than wrapping. The language and appearance switches
+     * and Register wait for `lg`: both switches are links in the footer at every width, and the
+     * sign-in page leads to registration. The staff profile icon waits for `lg` too — at 768px it
+     * pushed "Plans" onto a second line in Arabic. What is left on a
+     * phone is the menu, the brand and the account and basket (or Sign in) — the controls a person
+     * reaches for mid-order. They are hidden by class, not left unrendered, so the bar is the same
+     * tree at every width and only its paint changes.
      */
     const topbarEnd = (
         <Inline space="md" justify="end" wrap={!wideBar} className="min-w-0 shrink">
-            {searchField}
+            {wideBar ? searchField : searchButton}
             <Inline space="sm" justify="end">
-                <LocaleToggle />
-                <ThemeToggle />
+                <View className="hidden lg:flex">
+                    <LocaleToggle />
+                </View>
+                <View className="hidden lg:flex">
+                    <ThemeToggle />
+                </View>
                 {signedIn ? (
                     <>
-                        {staffProfileButton}
+                        {staffProfileButton === null ? null : (
+                            <View className="hidden lg:flex">{staffProfileButton}</View>
+                        )}
                         {accountButton}
                         {cartButton}
                     </>
                 ) : (
                     <>
-                        <Button
-                            testID="marketplace-register"
-                            size="sm"
-                            variant="secondary"
-                            label={t('marketplace:nav.register')}
-                            onPress={() => {
-                                goToAuth('/register');
-                            }}
-                        />
+                        <View className="hidden lg:flex">
+                            <Button
+                                testID="marketplace-register"
+                                size="sm"
+                                variant="secondary"
+                                label={t('marketplace:nav.register')}
+                                onPress={() => {
+                                    goToAuth('/register');
+                                }}
+                            />
+                        </View>
                         <Button
                             testID="marketplace-sign-in"
                             size="sm"
