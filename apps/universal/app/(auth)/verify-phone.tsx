@@ -19,7 +19,10 @@ const VerifyPhoneScreen = lazyScreen(
 );
 
 export default function VerifyPhone() {
-    const { challenge, returnTo } = useLocalSearchParams<{ challenge?: string; returnTo?: string }>();
+    const { challenge, returnTo } = useLocalSearchParams<{
+        challenge?: string;
+        returnTo?: string;
+    }>();
 
     return (
         <Gate area="auth" requirement={{ requiresAuth: true }}>

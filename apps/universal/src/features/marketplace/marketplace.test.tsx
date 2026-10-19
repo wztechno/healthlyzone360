@@ -830,9 +830,9 @@ describe('KitchenProfileScreen', () => {
             await render();
 
             await waitFor(() => screen.getByTestId('kitchen-shelves'));
-            expect(screen.getByTestId('kitchen-shelf-bowls').props.accessibilityState).toMatchObject(
-                { selected: true },
-            );
+            expect(
+                screen.getByTestId('kitchen-shelf-bowls').props.accessibilityState,
+            ).toMatchObject({ selected: true });
             expect(screen.getAllByTestId(/^storefront-menu-[a-z0-9-]+-open$/)).toHaveLength(2);
         });
 
@@ -925,7 +925,10 @@ describe('KitchenProfileScreen', () => {
                     index: 1,
                     routes: [
                         { name: 'kitchens/index', params: { diet: 'vegan' } },
-                        { name: 'kitchens/[kitchen]/index', params: { kitchen: String(VERDANT.id) } },
+                        {
+                            name: 'kitchens/[kitchen]/index',
+                            params: { kitchen: String(VERDANT.id) },
+                        },
                     ],
                 },
             });
@@ -1342,7 +1345,10 @@ describe('KitchenMenuScreen', () => {
                             name: 'kitchens/[kitchen]/index',
                             params: { kitchen: String(VERDANT.id), tab: 'menu' },
                         },
-                        { name: 'kitchens/[kitchen]/menu', params: { kitchen: String(VERDANT.id) } },
+                        {
+                            name: 'kitchens/[kitchen]/menu',
+                            params: { kitchen: String(VERDANT.id) },
+                        },
                     ],
                 },
             });

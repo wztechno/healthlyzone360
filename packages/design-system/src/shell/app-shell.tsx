@@ -139,8 +139,7 @@ export interface AppShellProps {
      * the reader scrolls, plus one when they stop.
      */
     readonly onContentScroll?:
-        | ((event: NativeSyntheticEvent<NativeScrollEvent>) => void)
-        | undefined;
+        ((event: NativeSyntheticEvent<NativeScrollEvent>) => void) | undefined;
     /** The content port's content height changed — the page underneath grew or shrank. */
     readonly onContentSizeChange?: ((width: number, height: number) => void) | undefined;
     /** The content port itself was laid out — its own height is the reader's viewport. */

@@ -119,7 +119,10 @@ describe('focusedRouteKey', () => {
 
     it('stops at the deepest route that has a key yet, and is null with no state', () => {
         expect(
-            focusedRouteKey({ index: 0, routes: [{ key: 'marketplace-1', state: { routes: [{}] } }] }),
+            focusedRouteKey({
+                index: 0,
+                routes: [{ key: 'marketplace-1', state: { routes: [{}] } }],
+            }),
         ).toBe('marketplace-1');
         expect(focusedRouteKey(undefined)).toBeNull();
     });
