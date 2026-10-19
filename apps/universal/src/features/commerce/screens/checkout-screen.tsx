@@ -32,7 +32,7 @@ import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { usePrototypeAction } from '../../../prototype/index.ts';
 import { Eyebrow } from '../../../ui/eyebrow.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
-import { AccountSetupSteps, stepForRequirement } from '../../account/account-setup-steps.tsx';
+import { AccountSetupPanel, stepForRequirement } from '../../account/account-setup-steps.tsx';
 import type { AccountSetupStep } from '../../account/account-setup-steps.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import {
@@ -546,16 +546,14 @@ export function CheckoutScreen() {
 
                 {setupSteps.length === 0 ? null : (
                     <View className="mt-5">
-                        <Callout
+                        <AccountSetupPanel
                             testID="checkout-setup-required"
                             role="alert"
-                            tone="warning"
-                            icon="warning"
                             title={t('commerce:checkout.setupTitle')}
                             body={t('commerce:checkout.setupBody', { count: setupSteps.length })}
-                        >
-                            <AccountSetupSteps steps={setupSteps} testID="checkout-setup-step" />
-                        </Callout>
+                            steps={setupSteps}
+                            stepsTestID="checkout-setup-step"
+                        />
                     </View>
                 )}
 

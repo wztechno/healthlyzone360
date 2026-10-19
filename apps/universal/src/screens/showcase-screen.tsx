@@ -158,6 +158,7 @@ import { BrowsePanel } from '../ui/browse-panel.tsx';
 import { ListingHeader } from '../ui/listing-header.tsx';
 import { PageHero } from '../ui/page-hero.tsx';
 import { PillChip } from '../ui/pill-chip.tsx';
+import { AccountSetupPanel, AccountSetupSteps } from '../features/account/account-setup-steps.tsx';
 
 interface SectionProps {
     readonly id: string;
@@ -4559,6 +4560,34 @@ export function ShowcaseScreen() {
                     <OfflineIndicator testID="showcase-offline" state="offline" />
                     <OfflineIndicator testID="showcase-reconnecting" state="reconnecting" />
                     <OfflineIndicator testID="showcase-restored" state="restored" />
+                </Section>
+
+                {/*
+                 * The account-setup steps a refused checkout, a refused plan and the account page
+                 * all draw. What to check: each card is one press target that opens its step, the
+                 * numbers run in order, the action words appear from `md` (the chevron alone below
+                 * it), and the blocked step is inert and says why.
+                 */}
+                <Section id="account-setup-steps" title="Account setup steps">
+                    <AccountSetupPanel
+                        testID="showcase-account-setup"
+                        role="status"
+                        title={t('commerce:checkout.setupTitle')}
+                        body={t('commerce:checkout.setupBody', { count: 3 })}
+                        steps={[
+                            { step: 'add_address', hasAddress: false },
+                            { step: 'dietary_profile' },
+                            { step: 'consents' },
+                        ]}
+                        stepsTestID="showcase-account-setup-step"
+                    />
+                    <AccountSetupSteps
+                        testID="showcase-account-setup-blocked"
+                        steps={[
+                            { step: 'add_address', hasAddress: true },
+                            { step: 'consents', blockedReason: 'Waiting for the new terms' },
+                        ]}
+                    />
                 </Section>
 
                 <Section id="overlays" title={t('designSystem:showcase.sections.overlays')}>
