@@ -1436,6 +1436,7 @@ export const zAdminCatalogueItem = z.object({
     catalogue_id: zUuid,
     item_type: zCatalogueItemType,
     photo_url: z.url().nullish(),
+    recipe_photo_url: z.url().nullish(),
     slug: z.string().max(140),
     name_en: z.string(),
     name_ar: z.string(),

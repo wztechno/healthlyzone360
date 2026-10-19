@@ -2260,6 +2260,14 @@ export type AdminCatalogueItem = {
      */
     photo_url?: string | null;
     /**
+     * The photo of the recipe this item is made from, or null when it has no
+     * recipe or the recipe has no photo. Kept apart from `photo_url` so an
+     * editor never shows the recipe's picture as the item's own; a menu
+     * tile shows `photo_url`, else this, as the marketplace does.
+     *
+     */
+    recipe_photo_url?: string | null;
+    /**
      * Immutable after creation. A rename changes the names and nothing
      * else: a slug is what a link, a marketplace listing and a partner's
      * integration hold.

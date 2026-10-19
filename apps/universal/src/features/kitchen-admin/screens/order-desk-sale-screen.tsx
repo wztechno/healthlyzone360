@@ -244,7 +244,10 @@ interface MenuTile {
     readonly id: string;
     readonly name: LocalisedText;
     readonly imageId: string;
-    /** The record's uploaded photo (BUG-14), shown in place of `imageId`'s when set. */
+    /**
+     * The record's uploaded photo (BUG-14), else its recipe's — shown in place of `imageId`'s when
+     * set, the same order the marketplace card uses.
+     */
     readonly photoUrl: string | null | undefined;
 }
 
@@ -866,7 +869,7 @@ function MenuGrid({
                 id: String(row.id),
                 name: row.name,
                 imageId: row.imagePlaceholderId,
-                photoUrl: row.photoUrl,
+                photoUrl: row.photoUrl ?? row.recipePhotoUrl ?? null,
             })),
         [read.data],
     );
@@ -1031,6 +1034,7 @@ function MenuTileButton({
             }
         >
             <EntityImage
+                testID={`kitchen-order-desk-sale-tile-${tile.id}-image`}
                 assetId={tile.imageId}
                 photoUrl={tile.photoUrl}
                 seed={tile.id}

@@ -679,6 +679,7 @@ export function mapProductAdminFromItem(
     return {
         id: ProductId.unsafe(wire.id),
         photoUrl: wire.photo_url ?? null,
+        recipePhotoUrl: wire.recipe_photo_url ?? null,
         meta: mapCatalogueItemMeta(wire),
         itemType:
             wire.item_type === 'sauce' || wire.item_type === 'dressing'
@@ -734,6 +735,7 @@ export function mapMealAdminFromItem(
     return {
         id: MealId.unsafe(wire.id),
         photoUrl: wire.photo_url ?? null,
+        recipePhotoUrl: wire.recipe_photo_url ?? null,
         meta: mapCatalogueItemMeta(wire),
         name: localised(wire.name_en, wire.name_ar),
         description: localised(wire.description_en ?? '', wire.description_ar),

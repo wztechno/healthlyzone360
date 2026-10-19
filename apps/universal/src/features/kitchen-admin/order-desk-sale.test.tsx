@@ -284,6 +284,22 @@ async function settle() {
 }
 
 const MEAL_TILE = `kitchen-order-desk-sale-tile-${String(MEAL_ID)}`;
+
+/** The first `source` under an image frame — the bundled `require` or the kitchen's `{ uri }`. */
+interface PhotoNode {
+    readonly props: Record<string, unknown>;
+    readonly children: readonly (PhotoNode | string)[];
+}
+
+function sourceUnder(node: PhotoNode): unknown {
+    if (node.props.source !== undefined) return node.props.source;
+    for (const child of node.children) {
+        if (typeof child === 'string') continue;
+        const found = sourceUnder(child);
+        if (found !== undefined) return found;
+    }
+    return undefined;
+}
 const MEAL_LINE = `kitchen-order-desk-sale-line-${String(MEAL_ID)}`;
 const SUBMIT = 'kitchen-order-desk-sale-submit';
 const CHARGE = 'kitchen-order-desk-sale-charge';
@@ -394,6 +410,36 @@ describe('sale — the menu', () => {
         expect(listProducts).toHaveBeenCalledWith(
             expect.objectContaining({ itemType: 'sauce', statuses: ['published'] }),
         );
+    });
+
+    it("draws a tile's own photo, else its recipe's, before any stock picture", async () => {
+        const RECIPE_PHOTO = 'https://api.test/api/v1/media/photos/recipe-photo';
+        const OWN_PHOTO = 'https://api.test/api/v1/media/photos/own-photo';
+        await renderSale({
+            listMeals: async () =>
+                pageOf([{ ...adminMeal(), photoUrl: null, recipePhotoUrl: RECIPE_PHOTO }]),
+            listProducts: async () =>
+                pageOf([{ ...adminProduct(), photoUrl: OWN_PHOTO, recipePhotoUrl: RECIPE_PHOTO }]),
+        });
+        await untilVisible(MEAL_TILE);
+
+        const photoOf = (tile: string) =>
+            sourceUnder(
+                screen.getByTestId(`${tile}-image`, {
+                    includeHiddenElements: true,
+                }) as unknown as PhotoNode,
+            ) as { uri?: string } | undefined;
+
+        expect(photoOf(MEAL_TILE)?.uri).toBe(RECIPE_PHOTO);
+
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-order-desk-sale-menu-toolbar-status-sauce'),
+            );
+        });
+        const product = `kitchen-order-desk-sale-tile-${String(PRODUCT_ID)}`;
+        await untilVisible(product);
+        expect(photoOf(product)?.uri).toBe(OWN_PHOTO);
     });
 
     it('shows the menu failure with a retry rather than an empty menu', async () => {

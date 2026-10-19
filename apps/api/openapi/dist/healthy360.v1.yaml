@@ -28278,6 +28278,16 @@ components:
           description: |
             The kitchen's own photo of this record (`GET /media/photos/{photo}`), or
             null to show the stock picture.
+        recipe_photo_url:
+          type:
+            - string
+            - 'null'
+          format: uri
+          description: |
+            The photo of the recipe this item is made from, or null when it has no
+            recipe or the recipe has no photo. Kept apart from `photo_url` so an
+            editor never shows the recipe's picture as the item's own; a menu
+            tile shows `photo_url`, else this, as the marketplace does.
         slug:
           type: string
           maxLength: 140

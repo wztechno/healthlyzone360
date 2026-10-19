@@ -53,6 +53,15 @@ describe('resolveEntityImage', () => {
         );
     });
 
+    it('maps a sauce or dressing item to the photo filed under its slug', () => {
+        // The order desk keys these tiles `sauce-<slug>` / `dressing-<slug>`; the photographs live
+        // under `meals/` beside the dishes.
+        expect(resolveEntityImage('sauce-aioli-sauce', 'card')).toBeTruthy();
+        expect(resolveEntityImage('sauce-barbecue-dip', 'card')).toBeTruthy();
+        expect(resolveEntityImage('dressing-balsamic-dressing', 'card')).toBeTruthy();
+        expect(resolveEntityImage('sauce-no-such-sauce', 'card')).toBeNull();
+    });
+
     it('maps recipes, kitchens, plans, dietitians and diet hubs', () => {
         expect(resolveEntityImage('recipe-herbed-chicken-freekeh', 'detail')).toBeTruthy();
         expect(resolveEntityImage('kitchen-verdant-kitchen', 'card')).toBeTruthy();

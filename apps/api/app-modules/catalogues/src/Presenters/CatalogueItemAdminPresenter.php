@@ -128,6 +128,9 @@ final class CatalogueItemAdminPresenter
             'image_placeholder_id' => $item->image_placeholder_id,
             // The kitchen's own photo of this item, when it saved one (BUG-14).
             'photo_url' => $this->photos->urlFor(RecordPhotoSubject::CatalogueItem, (string) $item->getKey()),
+            // Its recipe's photo, apart from its own: a menu tile falls back to it, as the
+            // marketplace does, while the item's editor still shows only the item's.
+            'recipe_photo_url' => $this->photos->urlFor(RecordPhotoSubject::Recipe, $item->recipe_id),
             'data_quality_flags' => $flags,
             'source_system' => $item->source_system,
             'source_ref' => $item->source_ref,

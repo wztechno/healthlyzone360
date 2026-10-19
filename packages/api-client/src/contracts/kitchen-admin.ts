@@ -1487,6 +1487,8 @@ export interface ProductAdmin {
      * `/api/v1/media/photos/{id}`; `null` (or absent) shows the stock picture.
      */
     readonly photoUrl?: string | null | undefined;
+    /** The photo of the recipe it is made from — what a menu tile shows when `photoUrl` is null. */
+    readonly recipePhotoUrl?: string | null | undefined;
     readonly meta: AdminEntityMeta;
     /**
      * Which packaged kind this row is. Sauces and dressings share the product
@@ -1756,6 +1758,8 @@ export interface MealAdmin {
      * `/api/v1/media/photos/{id}`; `null` (or absent) shows the stock picture.
      */
     readonly photoUrl?: string | null | undefined;
+    /** The photo of the recipe it is made from — what a menu tile shows when `photoUrl` is null. */
+    readonly recipePhotoUrl?: string | null | undefined;
     readonly meta: AdminEntityMeta;
     readonly name: LocalisedText;
     readonly description: LocalisedText;
