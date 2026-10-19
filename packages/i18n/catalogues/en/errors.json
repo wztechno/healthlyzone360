@@ -101,5 +101,18 @@
         "channel_unavailable": "Something in your basket is not offered on that day.",
         "unpriced": "Something in your basket has no price for that day.",
         "window_not_offered": "The delivery zone for this address does not offer that delivery slot."
+    },
+    "subscriptionRefusal": {
+        "plan_unknown": "This plan is no longer offered.",
+        "plan_not_published": "This plan is not on sale right now.",
+        "plan_not_subscription": "This plan cannot be taken as a subscription.",
+        "configuration_unknown": "The calorie band and meals you chose are no longer offered.",
+        "configuration_not_active": "The calorie band and meals you chose are not available right now.",
+        "duration_unknown": "The length you chose is no longer offered.",
+        "duration_not_offered": "This plan is not offered for that length.",
+        "duration_not_fixed": "Choose a plan length with a set number of days.",
+        "weekdays_empty": "Choose at least one delivery day.",
+        "weekdays_invalid": "One of the delivery days you chose is not offered.",
+        "guest_may_not_subscribe": "Sign in to start a subscription."
     }
 }

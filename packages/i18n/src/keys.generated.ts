@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8280 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8292 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2081,6 +2081,7 @@ export interface NamespaceKeys {
     | 'configurator.notFoundBody'
     | 'configurator.notFoundTitle'
     | 'configurator.plan.band'
+    | 'configurator.plan.bandName'
     | 'configurator.plan.variantLabel'
     | 'configurator.previewEmptyBody'
     | 'configurator.previewEmptyTitle'
@@ -2554,6 +2555,17 @@ export interface NamespaceKeys {
     | 'orderRefusal.variant_unknown'
     | 'orderRefusal.window_not_offered'
     | 'orderRefusal.zone_suspended'
+    | 'subscriptionRefusal.configuration_not_active'
+    | 'subscriptionRefusal.configuration_unknown'
+    | 'subscriptionRefusal.duration_not_fixed'
+    | 'subscriptionRefusal.duration_not_offered'
+    | 'subscriptionRefusal.duration_unknown'
+    | 'subscriptionRefusal.guest_may_not_subscribe'
+    | 'subscriptionRefusal.plan_not_published'
+    | 'subscriptionRefusal.plan_not_subscription'
+    | 'subscriptionRefusal.plan_unknown'
+    | 'subscriptionRefusal.weekdays_empty'
+    | 'subscriptionRefusal.weekdays_invalid'
     | 'validation.accept_privacy'
     | 'validation.accept_terms'
     | 'validation.email'
@@ -10385,6 +10397,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.notFoundBody',
   'commerce:configurator.notFoundTitle',
   'commerce:configurator.plan.band',
+  'commerce:configurator.plan.bandName',
   'commerce:configurator.plan.variantLabel',
   'commerce:configurator.previewEmptyBody',
   'commerce:configurator.previewEmptyTitle',
@@ -10855,6 +10868,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:orderRefusal.variant_unknown',
   'errors:orderRefusal.window_not_offered',
   'errors:orderRefusal.zone_suspended',
+  'errors:subscriptionRefusal.configuration_not_active',
+  'errors:subscriptionRefusal.configuration_unknown',
+  'errors:subscriptionRefusal.duration_not_fixed',
+  'errors:subscriptionRefusal.duration_not_offered',
+  'errors:subscriptionRefusal.duration_unknown',
+  'errors:subscriptionRefusal.guest_may_not_subscribe',
+  'errors:subscriptionRefusal.plan_not_published',
+  'errors:subscriptionRefusal.plan_not_subscription',
+  'errors:subscriptionRefusal.plan_unknown',
+  'errors:subscriptionRefusal.weekdays_empty',
+  'errors:subscriptionRefusal.weekdays_invalid',
   'errors:validation.accept_privacy',
   'errors:validation.accept_terms',
   'errors:validation.email',

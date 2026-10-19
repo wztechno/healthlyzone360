@@ -11,7 +11,7 @@ import { Text as RNText, View } from 'react-native';
 
 import { effectiveDayPrice } from '../catalogue/plan-balance.ts';
 import { formatMoney } from '../marketplace/format.ts';
-import { combinationLabel, weekdayRun } from './configurator-steps.tsx';
+import { combinationLabel, variantName, weekdayRun } from './configurator-steps.tsx';
 import { discountedTotalMinorUnits, weeksFor } from './configurator.ts';
 import type { ConfiguratorState } from './configurator.ts';
 
@@ -139,10 +139,13 @@ export function PlanSetupSummary({
     const lines = [
         variant === null
             ? null
-            : `${variant.name} · ${t('commerce:configurator.plan.band', {
-                  min: formatter.formatNumber(variant.energyRange.min),
-                  max: formatter.formatNumber(variant.energyRange.max),
-              })}`,
+            : `${variantName(variant, formatter.formatNumber, t)} · ${t(
+                  'commerce:configurator.plan.band',
+                  {
+                      min: formatter.formatNumber(variant.energyRange.min),
+                      max: formatter.formatNumber(variant.energyRange.max),
+                  },
+              )}`,
         variant === null ? null : combinationLabel(variant, formatter.formatNumber, t),
         duration,
         showDelivery && state.deliveryWeekdays.length > 0

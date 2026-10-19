@@ -122,14 +122,23 @@ final class MarketplacePlanPresenter
         $band = $configuration['band'];
         $price = $configuration['price_per_week'];
 
+        // A configuration's own name is optional — the plan editor builds the grid
+        // from bands and meal combinations and never asks for one — so the band's
+        // name ("Light", "Balanced") is what a customer chooses between.
+        $name = MarketplaceLocale::pick(
+            $locale,
+            $configuration['variant']->name_en,
+            $configuration['variant']->name_ar,
+        );
+
+        if ($name === '' && $band !== null) {
+            $name = MarketplaceLocale::pick($locale, $band->name_en, $band->name_ar);
+        }
+
         return [
             'id' => (string) $configuration['variant']->getKey(),
             'plan_id' => $planId,
-            'name' => MarketplaceLocale::pick(
-                $locale,
-                $configuration['variant']->name_en,
-                $configuration['variant']->name_ar,
-            ),
+            'name' => $name,
 
             // A band, never a per-person target: a single number would imply an
             // energy calculation this programme does not do (§2.4). A

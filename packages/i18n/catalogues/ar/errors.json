@@ -101,5 +101,18 @@
         "channel_unavailable": "أحد أصناف سلتك غير معروض في ذلك اليوم.",
         "unpriced": "أحد أصناف سلتك ليس له سعر في ذلك اليوم.",
         "window_not_offered": "منطقة التوصيل لهذا العنوان لا تعرض فترة التوصيل هذه."
+    },
+    "subscriptionRefusal": {
+        "plan_unknown": "هذه الخطة لم تعد متاحة.",
+        "plan_not_published": "هذه الخطة غير معروضة للبيع حاليًا.",
+        "plan_not_subscription": "لا يمكن الاشتراك في هذه الخطة.",
+        "configuration_unknown": "فئة السعرات والوجبات التي اخترتها لم تعد متاحة.",
+        "configuration_not_active": "فئة السعرات والوجبات التي اخترتها غير متاحة حاليًا.",
+        "duration_unknown": "المدة التي اخترتها لم تعد متاحة.",
+        "duration_not_offered": "هذه الخطة غير متاحة لهذه المدة.",
+        "duration_not_fixed": "اختر مدة خطة بعدد أيام محدد.",
+        "weekdays_empty": "اختر يوم توصيل واحدًا على الأقل.",
+        "weekdays_invalid": "أحد أيام التوصيل التي اخترتها غير متاح.",
+        "guest_may_not_subscribe": "سجّل الدخول لبدء اشتراك."
     }
 }

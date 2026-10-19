@@ -2342,7 +2342,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
         });
-        expect(screen.getByTestId('configurator-variant-detail')).toBeTruthy();
+        expect(screen.getByTestId('configurator-variant')).toBeTruthy();
         expect(screen.getByTestId('configurator-combination')).toBeTruthy();
         expect(screen.getByTestId('configurator-duration')).toBeTruthy();
         expect(screen.getByTestId('configurator-stepper')).toBeTruthy();
@@ -2364,16 +2364,13 @@ describe('SubscriptionConfiguratorScreen', () => {
         await renderConfigurator({ planId: String(PLAN.id), variantId: String(light.id) });
 
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-variant-detail')).toBeTruthy();
+            expect(screen.getByTestId(`configurator-variant-${String(light.id)}`)).toBeTruthy();
         });
-        expect(
-            screen.getByTestId(`configurator-variant-${String(light.id)}`).props.accessibilityState
-                ?.checked,
-        ).toBe(true);
-        // The band on screen is the supplied variant's, not the plan's own default one.
-        expect(screen.getByTestId('configurator-variant-detail')).toHaveTextContent(
-            /1,400 to 1,600/,
-        );
+        const chosen = screen.getByTestId(`configurator-variant-${String(light.id)}`);
+        // The chosen card is the supplied variant's, not the plan's own default one, and it
+        // carries its own kcal range.
+        expect(chosen.props.accessibilityState?.checked).toBe(true);
+        expect(chosen).toHaveTextContent(/1,400 to 1,600/);
     });
 
     it('states a choice with one option as its answer, not as a lone chip', async () => {
@@ -2396,7 +2393,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('configurator-duration-4w')).toBeTruthy();
         });
-        expect(screen.getByTestId('configurator-duration-4w')).toHaveTextContent(/−10%/);
+        expect(screen.getByTestId('configurator-duration-4w')).toHaveTextContent(/10% off/);
     });
 
     it('pre-fills the allergies already on the profile, and gates removing one', async () => {

@@ -27,6 +27,7 @@ import { View } from 'react-native';
 
 import { mealsFromPages, useMealsQuery, usePlanQuery } from '../../../data/catalogue-hooks.ts';
 import { discountedTotalMinorUnits, weeksFor } from '../../commerce/configurator.ts';
+import { variantName } from '../../commerce/configurator-steps.tsx';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { useSession } from '../../../session/session-provider.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
@@ -306,14 +307,22 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                                 onChange={setVariantId}
                                                 items={item.variants.map((variant) => ({
                                                     value: String(variant.id),
-                                                    label: variant.name,
+                                                    label: variantName(
+                                                        variant,
+                                                        formatter.formatNumber,
+                                                        t,
+                                                    ),
                                                     testID: `plan-detail-variant-${String(variant.id)}`,
                                                 }))}
                                             />
                                         ) : null}
                                         <Text testID="plan-detail-variant-band">
                                             {t('catalogue:plan.variantLabel', {
-                                                name: selected.name,
+                                                name: variantName(
+                                                    selected,
+                                                    formatter.formatNumber,
+                                                    t,
+                                                ),
                                                 min: formatter.formatNumber(
                                                     selected.energyRange.min,
                                                 ),
@@ -365,7 +374,11 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                                             nutrient: t(
                                                                 `marketplace:nutrients.${entry.nutrientId}`,
                                                             ),
-                                                            variant: selected.name,
+                                                            variant: variantName(
+                                                                selected,
+                                                                formatter.formatNumber,
+                                                                t,
+                                                            ),
                                                         })}
                                                         value={
                                                             (entry.range.min + entry.range.max) / 2
@@ -506,7 +519,11 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                             </Text>
                                             <Text tone="secondary" variant="caption">
                                                 {t('catalogue:plan.variantLabel', {
-                                                    name: selected.name,
+                                                    name: variantName(
+                                                        selected,
+                                                        formatter.formatNumber,
+                                                        t,
+                                                    ),
                                                     min: formatter.formatNumber(
                                                         selected.energyRange.min,
                                                     ),

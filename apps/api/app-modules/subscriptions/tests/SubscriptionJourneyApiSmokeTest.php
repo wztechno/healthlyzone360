@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
+use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\Subscriptions\Enums\CreditMemoStatus;
@@ -209,4 +210,25 @@ it('answers somebody else subscription with 404 rather than a denial', function 
 
     $this->postJson('/api/v1/me/subscriptions/'.$subscription->getKey().'/pause', [], firstPartyHeaders())
         ->assertNotFound();
+});
+
+it('starts a plan its kitchen never put on a channel, because plans have no channel rows', function (): void {
+    // The plan editor has no writer for channel availability, and the
+    // marketplace lists a plan on publication alone. A plan built in the admin
+    // therefore has no row — and must still be buyable from its own page.
+    ChannelCatalogueItem::withoutTenancy()
+        ->where('catalogue_item_id', $this->world->plan->getKey())
+        ->delete();
+
+    $this->actingAs($this->customer);
+
+    $this->postJson('/api/v1/subscriptions', [
+        'catalogue_item_id' => (string) $this->world->plan->getKey(),
+        'catalogue_item_variant_id' => (string) $this->world->configuration->getKey(),
+        'plan_duration_days' => $this->world->duration->duration_days,
+        'customer_address_id' => (string) $this->world->customer->address->getKey(),
+        'weekdays' => [1, 2, 3, 4, 5, 6, 7],
+    ], firstPartyHeaders())
+        ->assertCreated()
+        ->assertJsonPath('data.subscription.status', SubscriptionStatus::Active->value);
 });

@@ -422,7 +422,8 @@ export function ChoiceChips({
 
 export interface OptionCardProps {
     readonly label: string;
-    readonly sub: string;
+    /** The muted line under the label; omitted for a card that is its label alone. */
+    readonly sub?: string | undefined;
     readonly chosen: boolean;
     /** Omitted for the chosen card of a one-real-option group: pressing it changes nothing. */
     readonly onPress?: (() => void) | undefined;
@@ -454,7 +455,7 @@ export function OptionCard({
             accessibilityState={{ checked: chosen, disabled }}
             aria-disabled={disabled}
             disabled={disabled}
-            accessibilityLabel={`${label}, ${sub}`}
+            accessibilityLabel={sub === undefined ? label : `${label}, ${sub}`}
             {...(accessibilityHint === undefined ? {} : { accessibilityHint })}
             {...(onPress === undefined ? {} : { onPress })}
             className={cx(
@@ -466,7 +467,11 @@ export function OptionCard({
             <RNText className="text-base font-semibold text-content-primary text-start">
                 {label}
             </RNText>
-            <RNText className="text-sm text-content-secondary text-start">{sub}</RNText>
+            {sub === undefined ? null : (
+                <RNText className="text-sm tabular-nums text-content-secondary text-start">
+                    {sub}
+                </RNText>
+            )}
         </Pressable>
     );
 }

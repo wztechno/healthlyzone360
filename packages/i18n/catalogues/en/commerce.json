@@ -192,7 +192,8 @@
         },
         "plan": {
             "variantLabel": "Calorie band",
-            "band": "{{min}} to {{max}} kcal a day"
+            "band": "{{min}} to {{max}} kcal a day",
+            "bandName": "{{min}}–{{max}} kcal"
         },
         "combination": {
             "label": "Meals a day",

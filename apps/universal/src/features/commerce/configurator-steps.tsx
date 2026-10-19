@@ -25,14 +25,16 @@ import { Pressable, Text as RNText, View } from 'react-native';
 
 import { MedicalDisclaimer } from '../../safety/medical-disclaimer.tsx';
 import { PillChip } from '../../ui/pill-chip.tsx';
-import { weekdayKey } from '../marketplace/format.ts';
+import { formatMoney, weekdayKey } from '../marketplace/format.ts';
 import { formatAddress, toDeliveryAddress } from './address.ts';
 import type { AddressErrors, AddressField } from './address.ts';
 import { AddressForm } from './address-form.tsx';
+import { OptionCard } from './checkout-frame.tsx';
 import {
     combinationKey,
     configuredDeliveryDates,
     diffAllergens,
+    discountedTotalMinorUnits,
     grossMinorUnits,
     mealCombinations,
     perDeliveryPrice,
@@ -51,9 +53,10 @@ import { displayableWarnings, isCriticalWarning, warningMessageKey } from './war
 /**
  * The three step bodies of the subscription configurator — plan, delivery, review.
  *
- * Each is a stack of labelled rows divided by a hairline. A choice with several options is a row of
- * `PillChip` radios; a choice with **one** option is the answer as plain text, because a lone
- * pre-selected chip is a control that asks a question nobody can answer differently. The screen
+ * Each is a stack of section cards, one question to a card. A single choice is a row of option
+ * cards — the answer in bold, what it means (kcal, price, discount) under it; a choice with **one**
+ * option is the answer as plain text, because a lone pre-selected card is a control that asks a
+ * question nobody can answer differently. Many-of choices (weekdays, allergens) stay pills. The screen
  * owns navigation, validation, the request and the summary; these own layout and nothing else.
  */
 
@@ -63,7 +66,7 @@ export interface StepPatch {
 
 /* ── shared rows ─────────────────────────────────────────────────────────────────────────────── */
 
-/** One labelled row of a step, divided from the next by a hairline. */
+/** One question of a step, in its own card under a title. */
 function Row({
     label,
     children,
@@ -74,39 +77,43 @@ function Row({
     readonly testID?: string | undefined;
 }) {
     return (
-        <View testID={testID} className="flex-col gap-3 border-b border-stroke-subtle py-5">
-            <RNText className="text-sm font-semibold text-content-primary text-start">
+        <CardPanel testID={testID} className="gap-3">
+            <RNText
+                accessibilityRole="header"
+                aria-level={2}
+                className="self-start text-base font-semibold text-content-primary text-start"
+            >
                 {label}
             </RNText>
             {children}
-        </View>
+        </CardPanel>
     );
 }
 
 interface Choice {
     readonly value: string;
     readonly label: string;
+    /** What the choice means — the band's kcal range, a length's total — under the label. */
+    readonly sub?: string | undefined;
     readonly testID: string;
 }
 
 /**
- * A single-choice row: radio pills when there is a choice to make, the answer as text when there is
- * not.
+ * A single-choice card: option cards when there is a choice to make, the answer as text when there
+ * is not. Side by side from `md`, stacked on a phone, where three cards abreast would each be a
+ * column of broken words.
  */
 function ChoiceRow({
     label,
     choices,
     value,
     onChange,
-    detail,
     testID,
 }: {
     readonly label: string;
     readonly choices: readonly Choice[];
     readonly value: string;
     readonly onChange: (value: string) => void;
-    /** A line of data under the choice — the band's kcal range, say. */
-    readonly detail?: string | undefined;
     readonly testID: string;
 }) {
     const only = choices.length === 1 ? choices[0] : undefined;
@@ -114,35 +121,44 @@ function ChoiceRow({
     return (
         <Row label={label} testID={testID}>
             {only === undefined ? (
-                <View role="radiogroup" aria-label={label} className="flex-row flex-wrap gap-2">
-                    {choices.map((choice) => (
-                        <PillChip
-                            key={choice.value}
-                            testID={choice.testID}
-                            mode="radio"
-                            label={choice.label}
-                            selected={choice.value === value}
-                            onPress={() => {
-                                onChange(choice.value);
-                            }}
-                        />
-                    ))}
+                <View role="radiogroup" aria-label={label} className="flex-col gap-3 md:flex-row">
+                    {choices.map((choice) => {
+                        const chosen = choice.value === value;
+                        return (
+                            <OptionCard
+                                key={choice.value}
+                                testID={choice.testID}
+                                label={choice.label}
+                                sub={choice.sub}
+                                chosen={chosen}
+                                {...(chosen
+                                    ? {}
+                                    : {
+                                          onPress: () => {
+                                              onChange(choice.value);
+                                          },
+                                      })}
+                            />
+                        );
+                    })}
                 </View>
             ) : (
-                <RNText
-                    testID={`${testID}-only`}
-                    className="self-start text-base text-content-primary text-start"
-                >
-                    {only.label}
-                </RNText>
-            )}
-            {detail === undefined ? null : (
-                <RNText
-                    testID={`${testID}-detail`}
-                    className="self-start text-sm tabular-nums text-content-secondary text-start"
-                >
-                    {detail}
-                </RNText>
+                <View className="flex-col gap-0.5">
+                    <RNText
+                        testID={`${testID}-only`}
+                        className="self-start text-base font-semibold text-content-primary text-start"
+                    >
+                        {only.label}
+                    </RNText>
+                    {only.sub === undefined ? null : (
+                        <RNText
+                            testID={`${testID}-detail`}
+                            className="self-start text-sm tabular-nums text-content-secondary text-start"
+                        >
+                            {only.sub}
+                        </RNText>
+                    )}
+                </View>
             )}
         </Row>
     );
@@ -165,7 +181,7 @@ export function PlanStep({ plan, variant, state, patch, onCombination }: PlanSte
     const combinations = mealCombinations(plan);
 
     return (
-        <View testID="configurator-step-plan" className="flex-col">
+        <View testID="configurator-step-plan" className="flex-col gap-4">
             <ChoiceRow
                 testID="configurator-variant"
                 label={t('commerce:configurator.plan.variantLabel')}
@@ -176,17 +192,18 @@ export function PlanStep({ plan, variant, state, patch, onCombination }: PlanSte
                 }}
                 choices={plan.variants.map((option) => ({
                     value: String(option.id),
-                    label: option.name,
+                    label: variantName(option, formatter.formatNumber, t),
+                    sub: [
+                        t('commerce:configurator.plan.band', {
+                            min: formatter.formatNumber(option.energyRange.min),
+                            max: formatter.formatNumber(option.energyRange.max),
+                        }),
+                        t('commerce:subscriptions.weeklyPrice', {
+                            price: formatMoney(formatter, option.pricePerWeek),
+                        }),
+                    ].join(' · '),
                     testID: `configurator-variant-${String(option.id)}`,
                 }))}
-                detail={
-                    variant === null
-                        ? undefined
-                        : t('commerce:configurator.plan.band', {
-                              min: formatter.formatNumber(variant.energyRange.min),
-                              max: formatter.formatNumber(variant.energyRange.max),
-                          })
-                }
             />
 
             <ChoiceRow
@@ -211,13 +228,28 @@ export function PlanStep({ plan, variant, state, patch, onCombination }: PlanSte
                 }}
                 choices={plan.durations.map((option) => ({
                     value: option.duration,
-                    label:
+                    label: t(`catalogue:compare.duration.${option.duration}`),
+                    sub: [
+                        ...(variant === null
+                            ? []
+                            : [
+                                  t('catalogue:plan.durationTotal', {
+                                      total: formatMoney(formatter, {
+                                          amount: discountedTotalMinorUnits(
+                                              variant.pricePerWeek.amount,
+                                              weeksFor(option.duration),
+                                              option.discountPercent,
+                                          ),
+                                          currency: variant.pricePerWeek.currency,
+                                      }),
+                                  }),
+                              ]),
                         option.discountPercent > 0
-                            ? t('commerce:configurator.duration.withDiscount', {
-                                  duration: t(`catalogue:compare.duration.${option.duration}`),
-                                  percent: formatter.formatNumber(option.discountPercent),
+                            ? t('catalogue:plan.durationDiscount', {
+                                  discount: formatter.formatNumber(option.discountPercent),
                               })
-                            : t(`catalogue:compare.duration.${option.duration}`),
+                            : t('catalogue:plan.durationNoDiscount'),
+                    ].join(' · '),
                     testID: `configurator-duration-${option.duration}`,
                 }))}
             />
@@ -242,6 +274,23 @@ export function combinationLabel(
             count: combination.snacksPerDay,
             snacks: formatNumber(combination.snacksPerDay),
         }),
+    });
+}
+
+/**
+ * What a calorie band is called. A plan configuration need not carry a name of its own — the
+ * server falls back to its energy band's — and when neither does, the kcal range stands in, so
+ * a band choice is never an empty pill.
+ */
+export function variantName(
+    variant: Pick<PlanVariant, 'name' | 'energyRange'>,
+    formatNumber: (value: number) => string,
+    t: TFunction,
+): string {
+    if (variant.name.trim() !== '') return variant.name;
+    return t('commerce:configurator.plan.bandName', {
+        min: formatNumber(variant.energyRange.min),
+        max: formatNumber(variant.energyRange.max),
     });
 }
 
@@ -318,7 +367,7 @@ export function DeliveryStep({
         on ? [...list, value] : list.filter((each) => each !== value);
 
     return (
-        <View testID="configurator-step-delivery" className="flex-col">
+        <View testID="configurator-step-delivery" className="flex-col gap-4">
             <Row
                 label={t('commerce:configurator.delivery.weekdaysTitle')}
                 testID="configurator-weekdays"
@@ -358,8 +407,8 @@ export function DeliveryStep({
                 )}
             </Row>
 
-            <View className="flex-col border-b border-stroke-subtle md:flex-row md:gap-6">
-                <View testID="configurator-start-date" className="flex-col gap-2 py-5 md:flex-1">
+            <CardPanel className="md:flex-row md:gap-6">
+                <View testID="configurator-start-date" className="flex-col gap-2 md:flex-1">
                     <DateField
                         testID="configurator-start-date-field"
                         label={t('commerce:configurator.delivery.startLabel')}
@@ -388,7 +437,7 @@ export function DeliveryStep({
                         </View>
                     )}
                 </View>
-                <View testID="configurator-slot" className="flex-col gap-3 py-5 md:flex-1">
+                <View testID="configurator-slot" className="flex-col gap-3 md:flex-1">
                     <RNText className="text-sm font-semibold text-content-primary text-start">
                         {t('commerce:configurator.delivery.slotTitle')}
                     </RNText>
@@ -411,7 +460,7 @@ export function DeliveryStep({
                         ))}
                     </View>
                 </View>
-            </View>
+            </CardPanel>
 
             <Row
                 label={t('commerce:configurator.delivery.addressTitle')}
@@ -685,7 +734,7 @@ export function ReviewStep({
                         value:
                             variant === null
                                 ? plan.name
-                                : `${variant.name} · ${combinationLabel(variant, formatter.formatNumber, t)}`,
+                                : `${variantName(variant, formatter.formatNumber, t)} · ${combinationLabel(variant, formatter.formatNumber, t)}`,
                     },
                     {
                         key: 'duration',
