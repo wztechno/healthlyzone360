@@ -12,6 +12,8 @@ use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionLine;
+use Healthy360\Recipes\Services\AllergenRollupService;
+use Healthy360\Recipes\Services\RecipeLabelWriter;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 
 /**
@@ -26,9 +28,18 @@ use Healthy360\ReferenceData\Models\MeasurementUnit;
  *
  * Keyed on the meal's slug, so a reseed converges on the version already written
  * rather than publishing a second one every run.
+ *
+ * The version's allergen label is frozen from its lines, as publication does, because
+ * the marketplace reads a recipe meal's allergens from that label alone: a version
+ * written without one would list the meal as allergen-free.
  */
 final class DemoMealRecipeWriter
 {
+    public function __construct(
+        private readonly AllergenRollupService $rollup,
+        private readonly RecipeLabelWriter $labels,
+    ) {}
+
     /**
      * @param  list<array{0: Ingredient, 1: int|float}>  $lines  ingredient → grams in one portion
      */
@@ -39,14 +50,12 @@ final class DemoMealRecipeWriter
             ['name_en' => (string) $meal->name_en, 'name_ar' => (string) $meal->name_ar],
         );
 
-        $hasPublishedVersion = RecipeVersion::withoutTenancy()
+        $version = RecipeVersion::withoutTenancy()
             ->where('recipe_id', $recipe->getKey())
             ->where('status', RecipeVersionStatus::Published->value)
-            ->exists();
+            ->first() ?? $this->publishVersion($organisation, $recipe, $lines);
 
-        if (! $hasPublishedVersion) {
-            $this->publishVersion($organisation, $recipe, $lines);
-        }
+        $this->freezeLabel($version);
 
         $meal->forceFill(['recipe_id' => $recipe->getKey()])->save();
     }
@@ -54,7 +63,7 @@ final class DemoMealRecipeWriter
     /**
      * @param  list<array{0: Ingredient, 1: int|float}>  $lines
      */
-    private function publishVersion(Organisation $organisation, Recipe $recipe, array $lines): void
+    private function publishVersion(Organisation $organisation, Recipe $recipe, array $lines): RecipeVersion
     {
         $gram = MeasurementUnit::query()->where('code', 'g')->sole();
 
@@ -83,5 +92,26 @@ final class DemoMealRecipeWriter
                 'unit_id' => (string) $gram->getKey(),
             ]);
         }
+
+        return $version;
+    }
+
+    /**
+     * Freeze the version's allergen label from its own lines, with the services
+     * publication uses, so a reseed also labels a version an earlier run wrote bare.
+     */
+    private function freezeLabel(RecipeVersion $version): void
+    {
+        /** @var list<string> $ingredientIds */
+        $ingredientIds = RecipeVersionLine::withoutTenancy()
+            ->where('recipe_version_id', $version->getKey())
+            ->orderBy('line_number')
+            ->pluck('ingredient_id')
+            ->map(static fn (mixed $id): string => (string) $id)
+            ->all();
+
+        $effective = $this->rollup->effectiveFor(array_values(array_unique($ingredientIds)), (string) $version->organisation_id);
+
+        $this->labels->freeze($version, $this->rollup->rollUp($ingredientIds, $effective), CarbonImmutable::now());
     }
 }
