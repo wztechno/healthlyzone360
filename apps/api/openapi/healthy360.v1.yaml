@@ -40112,6 +40112,8 @@ components:
         - id
         - line_number
         - catalogue_item_id
+        - item_name_en
+        - item_name_ar
         - catalogue_item_variant_id
         - quantity
         - unit_amount_minor
@@ -40130,6 +40132,12 @@ components:
           allOf:
             - $ref: '#/components/schemas/Uuid'
           description: The article, which must be one the programme's kitchen sells.
+        item_name_en:
+          type: [string, 'null']
+          description: The article's English name, so neither side renders a bare identifier. `null` only if the article no longer exists.
+        item_name_ar:
+          type: [string, 'null']
+          description: The article's Arabic name. `null` only if the article no longer exists.
         catalogue_item_variant_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
@@ -40168,6 +40176,8 @@ components:
         - id
         - organisation_id
         - corporate_programme_id
+        - programme_name_en
+        - programme_name_ar
         - reference
         - status
         - currency_code
@@ -40190,6 +40200,12 @@ components:
           description: The **buyer** organisation. This is the row's tenant, which is why the kitchen's side of this surface reaches it through the programme instead.
         corporate_programme_id:
           $ref: '#/components/schemas/Uuid'
+        programme_name_en:
+          type: [string, 'null']
+          description: The programme's English name, readable from the kitchen's side too. `null` only if the programme no longer exists.
+        programme_name_ar:
+          type: [string, 'null']
+          description: The programme's Arabic name. `null` only if the programme no longer exists.
         reference:
           type: string
           description: A reference a person can read over the phone.

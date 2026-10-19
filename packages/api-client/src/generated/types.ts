@@ -11453,6 +11453,14 @@ export type QuotationLine = {
      */
     catalogue_item_id: Uuid;
     /**
+     * The article's English name, so neither side renders a bare identifier. `null` only if the article no longer exists.
+     */
+    item_name_en: string | null;
+    /**
+     * The article's Arabic name. `null` only if the article no longer exists.
+     */
+    item_name_ar: string | null;
+    /**
      * A variant of that article, when the line names one.
      */
     catalogue_item_variant_id: Uuid | null;
@@ -11491,6 +11499,14 @@ export type Quotation = {
      */
     organisation_id: Uuid;
     corporate_programme_id: Uuid;
+    /**
+     * The programme's English name, readable from the kitchen's side too. `null` only if the programme no longer exists.
+     */
+    programme_name_en: string | null;
+    /**
+     * The programme's Arabic name. `null` only if the programme no longer exists.
+     */
+    programme_name_ar: string | null;
     /**
      * A reference a person can read over the phone.
      */

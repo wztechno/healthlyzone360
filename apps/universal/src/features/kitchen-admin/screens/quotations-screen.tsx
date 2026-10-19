@@ -21,7 +21,7 @@ import {
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { CurrencyCode, QuotationId } from '@healthy360/domain-types';
-import { useFormatter } from '@healthy360/i18n';
+import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
@@ -49,7 +49,7 @@ import {
     B2B_QUOTATION_QUOTE_PERMISSION,
     B2B_QUOTATION_VIEW_PERMISSION,
 } from '../entity-registry.ts';
-import { parseMinorAmount } from '../format.ts';
+import { displayName, parseMinorAmount } from '../format.ts';
 import {
     canQuoteKitchenQuotation,
     kitchenQuotationRowTestId,
@@ -126,6 +126,7 @@ export function QuotationsScreen() {
 function Quotations() {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const { locale } = useLocale();
 
     const [filter, setFilter] = useState<StatusFilter>('all');
     const [search, setSearch] = useState('');
@@ -282,7 +283,7 @@ function Quotations() {
                     label: t(kitchenQuotationStatusKey(viewing.status)),
                     tone: kitchenQuotationStatusTone(viewing.status),
                 }}
-                fields={requestFields(viewing, t, formatter)}
+                fields={requestFields(viewing, t, formatter, locale)}
                 primaryAction={{
                     label: t('kitchen:ops.quotations.open'),
                     icon: null,
@@ -449,6 +450,7 @@ function QuotationPricing({
 }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const { locale } = useLocale();
     const toast = useToast();
     const canQuote = useCan(B2B_QUOTATION_QUOTE_PERMISSION);
 
@@ -481,6 +483,7 @@ function QuotationPricing({
     const lineColumns = quotationLineColumns({
         t,
         formatter,
+        locale,
         currency,
         prices: editable ? prices : undefined,
         onPrice: (lineId, value) => {
@@ -620,7 +623,7 @@ function QuotationPricing({
                     >
                         <RecordWindowFieldGrid
                             testID="kitchen-quotations-detail"
-                            fields={requestFields(quotation, t, formatter)}
+                            fields={requestFields(quotation, t, formatter, locale)}
                         />
                     </FormSection>
 
@@ -706,15 +709,23 @@ function submittedText(row: KitchenQuotation, t: TFunction, formatter: Formatter
 }
 
 /** The request as read-only pairs: programme, currency (stated, never chosen), dates, the note. */
-function requestFields(quotation: KitchenQuotation, t: TFunction, formatter: Formatter) {
+function requestFields(
+    quotation: KitchenQuotation,
+    t: TFunction,
+    formatter: Formatter,
+    locale: string,
+) {
     const date = (value: string | null) =>
         value === null ? t('kitchen:common.notRecorded') : formatter.formatDate(value);
     return [
         {
             key: 'programme',
             label: t('kitchen:ops.quotations.programme'),
-            value: String(quotation.programmeId),
-            mono: true,
+            value:
+                quotation.programmeName === null
+                    ? String(quotation.programmeId)
+                    : displayName(quotation.programmeName, locale).value,
+            mono: quotation.programmeName === null,
         },
         {
             key: 'currency',

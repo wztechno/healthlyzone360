@@ -56,6 +56,8 @@ interface WireQuotationLine {
     readonly id: string;
     readonly line_number: number;
     readonly catalogue_item_id: string;
+    readonly item_name_en: string | null;
+    readonly item_name_ar: string | null;
     readonly catalogue_item_variant_id: string | null;
     readonly quantity: string;
     readonly unit_amount_minor: number | null;
@@ -189,7 +191,8 @@ function mapQuotationLine(wire: WireQuotationLine, currency: string): QuotationL
 
     return {
         catalogueItemId: wire.catalogue_item_id,
-        name: wire.note ?? wire.catalogue_item_id,
+        // English, as `mapProgramme` reads its name: the domain line carries one string.
+        name: wire.item_name_en ?? wire.note ?? wire.catalogue_item_id,
         quantity: Number.parseFloat(wire.quantity) || 0,
         quotedUnitPrice: unit,
         quotedTotal: total,
