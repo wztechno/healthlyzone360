@@ -273,12 +273,22 @@ export function windowsOverAt(
  * The kitchen windows a delivery's address zone offers (`OrderDeskQuote.offeredWindowCodes`).
  * `null` codes — not a delivery, no address, or no serving zone — filter nothing; placement refuses
  * any other slot (`window_not_offered`), so the chips never offer one.
+ *
+ * In the order of the day — Breakfast, Lunch, Snack, Dinner — by start time. The kitchen's
+ * `display_order` is only the order the windows were created in: a Snack added after Dinner sat
+ * after it. A window with no hours keeps its place after the timed ones.
  */
-export function offeredDeskWindows<T extends { readonly code: string }>(
-    windows: readonly T[],
-    codes: readonly string[] | null,
-): readonly T[] {
-    return codes === null ? windows : windows.filter((window) => codes.includes(window.code));
+export function offeredDeskWindows<
+    T extends { readonly code: string; readonly startsAt: string | null },
+>(windows: readonly T[], codes: readonly string[] | null): readonly T[] {
+    const offered =
+        codes === null ? windows : windows.filter((window) => codes.includes(window.code));
+    return [...offered].sort((a, b) => {
+        if (a.startsAt === b.startsAt) return 0;
+        if (a.startsAt === null) return 1;
+        if (b.startsAt === null) return -1;
+        return a.startsAt < b.startsAt ? -1 : 1;
+    });
 }
 
 /**

@@ -21,6 +21,7 @@ import {
     isCounterPaymentComplete,
     needsAddress,
     needsCustomer,
+    offeredDeskWindows,
     paymentMethodsFor,
     saleShortfall,
     scheduleFor,
@@ -294,6 +295,31 @@ describe('desk sale — the schedule a sale is placed for', () => {
             at,
         );
         expect([...over]).toEqual(['midday']);
+    });
+
+    it('lists the slots in the order of the day, whatever order the kitchen created them in', () => {
+        // The kitchen's own order: Snack was added after Dinner.
+        const windows = [
+            { code: 'morning', startsAt: '08:00:00' },
+            { code: 'midday', startsAt: '12:00:00' },
+            { code: 'open', startsAt: null },
+            { code: 'evening', startsAt: '18:00:00' },
+            { code: 'afternoon', startsAt: '15:00:00' },
+        ];
+
+        expect(offeredDeskWindows(windows, null).map((window) => window.code)).toEqual([
+            'morning',
+            'midday',
+            'afternoon',
+            'evening',
+            'open',
+        ]);
+        // Narrowed to the zone's slots, still in that order.
+        expect(
+            offeredDeskWindows(windows, ['evening', 'afternoon', 'morning']).map(
+                (window) => window.code,
+            ),
+        ).toEqual(['morning', 'afternoon', 'evening']);
     });
 });
 
