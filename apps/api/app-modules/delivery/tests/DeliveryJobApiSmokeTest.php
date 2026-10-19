@@ -122,6 +122,8 @@ it('gives a driver the order number, the moment and the whole address snapshot',
             'area_name_ar' => 'الأشرفية',
             'window_code' => 'evening',
             'requested_date' => '2026-05-10',
+            // Who to ask for at the door.
+            'customer_name' => $this->world->customer->account->display_name,
             // The number the *order* was given, resolved from the contact point
             // the snapshot names.
             'phone' => $phone->value_normalised,
@@ -131,15 +133,18 @@ it('gives a driver the order number, the moment and the whole address snapshot',
         ->and($row)->not->toHaveKey('driver_user_id');
 });
 
-it('serves a null number rather than inventing one when the order named no contact', function (): void {
+it('falls back to the customer\'s own phone when the order named no contact', function (): void {
     // Every order placed before the snapshot was widened is this row, and so is
-    // any address that never carried a contact point. There is deliberately no
-    // fallback to "whatever number this customer has today": that answers a
-    // different question, and this route carries no permission code to hold a
-    // customer-contact lookup behind.
-    ContactPoint::factory()->phone()
-        ->forCustomerAccount((string) $this->world->customer->account->getKey())
-        ->create(['is_primary' => true]);
+    // every desk order and any address that never carried a contact point. A
+    // driver who cannot find the door still needs somebody to ring — the same
+    // number the order desk shows, in its ordering, live rows only.
+    $accountId = (string) $this->world->customer->account->getKey();
+
+    // Oldest would win a tie, so a retired oldest row proves it is skipped.
+    ContactPoint::factory()->phone()->forCustomerAccount($accountId)
+        ->create(['created_at' => now()->subDays(2), 'retired_at' => now()]);
+    $live = ContactPoint::factory()->phone()->forCustomerAccount($accountId)
+        ->create(['created_at' => now()->subDay()]);
 
     $order = Order::factory()->create([
         'organisation_id' => $this->world->organisation->getKey(),
@@ -152,7 +157,8 @@ it('serves a null number rather than inventing one when the order named no conta
 
     $row = $this->getJson('/api/v1/driver/jobs', $this->headers)->assertOk()->json('data.jobs.0');
 
-    expect($row['delivery']['phone'])->toBeNull()
+    expect($row['delivery']['phone'])->toBe($live->value_normalised)
+        ->and($row['delivery']['customer_name'])->toBe($this->world->customer->account->display_name)
         // An unassigned run has no moment, and the field says so rather than
         // being absent.
         ->and($row['assigned_at'])->toBeNull();

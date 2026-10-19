@@ -10,6 +10,7 @@ use Healthy360\Delivery\Models\DeliveryJob;
 use Healthy360\Support\Api\ApiResponse;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 /**
  * GET /api/v1/driver/jobs — the caller's own outstanding runs, with enough on
@@ -58,27 +59,30 @@ use Illuminate\Http\JsonResponse;
  * needs more than a projection should open a **port** rather than inherit an
  * import nobody decided on.
  *
- * ## The telephone number is the one the order was given, and nothing else
+ * ## Who to ask for, and the number to ring
  *
- * `orders.delivery_contact_point_id` names *which contact the courier was
- * handed at placement*; this resolves that row and serves its normalised value.
- * When the order names none — every order placed before the snapshot was
- * widened, and any address that never carried a contact — the answer is
- * **null**, and there is deliberately no fallback to "whatever number this
- * customer has today".
+ * A courier at a door they cannot find rings the customer, and asks for them
+ * by name when somebody else answers. So the row carries the customer's name
+ * and a number, the same pair the order desk shows beside the same order.
  *
- * Two reasons, and the second is the stronger. The snapshot answers *which
- * number was given*, and substituting a current one would answer a different
- * question while looking like the same field. And this route carries **no
- * permission code** — it is scoped by ownership, not authority — so resolving a
- * customer's best available number here would put a contact lookup behind a
- * gate that was never designed to hold one. The desk has
- * `order.view_customer_contact_organisation` for exactly that, and it is the
- * surface where somebody who cannot reach a customer goes.
+ * The number prefers `orders.delivery_contact_point_id` — *which contact the
+ * courier was handed at placement* — and falls back to the account's best live
+ * phone when the order names none (every order placed before the snapshot was
+ * widened, and every address that never carried a contact). The fallback uses
+ * the order desk's ordering — primary, account-owned, proven, oldest — so the
+ * desk and the driver name one number. This used to be a deliberate `null`;
+ * in practice it left every desk order and most app orders reaching the driver
+ * with no number at all, and a run sheet with no way to reach the customer is
+ * worse than the narrower lookup it was protecting.
  *
- * A `retired_at` contact is still served: a courier at the door needs the
- * number the order carried, and a number withdrawn from the customer's profile
- * an hour ago is more use than nothing.
+ * A `retired_at` snapshot contact is still served: a courier at the door needs
+ * the number the order carried, and a number withdrawn from the customer's
+ * profile an hour ago is more use than nothing. The fallback, which is a
+ * choice rather than a record, skips retired rows.
+ *
+ * The name is the account's `display_name`. There is no snapshot of it on the
+ * order — `OrderDeskQueue::contactsForOrders()` records why — and a guest or an
+ * anonymised account answers `null`.
  *
  * ## What is still deliberately absent
  *
@@ -125,8 +129,33 @@ final class DriverJobIndexController
         'orders.delivery_window_code as delivery_window_code',
         'orders.requested_delivery_date as requested_delivery_date',
         'orders.ready_at as order_ready_at',
-        'cp.value_normalised as delivery_phone',
+        'ca.display_name as customer_name',
     ];
+
+    /**
+     * The order's own contact, else the account's best live phone — in
+     * `OrderDeskQueue::phoneRows()`'s ordering, so the desk and the driver name
+     * one number. Both ownership arms, because a phone hangs off the account
+     * or off the user behind it.
+     */
+    private const string PHONE_SQL = <<<'SQL'
+        coalesce(cp.value_normalised, (
+            select fallback.value_normalised
+            from contact_points as fallback
+            where fallback.channel = 'phone'
+              and fallback.retired_at is null
+              and (
+                  fallback.customer_account_id = orders.customer_account_id
+                  or (ca.user_id is not null and fallback.user_id = ca.user_id)
+              )
+            order by fallback.is_primary desc,
+                     (fallback.customer_account_id is not null) desc,
+                     (fallback.verified_at is not null) desc,
+                     fallback.created_at,
+                     fallback.id
+            limit 1
+        )) as delivery_phone
+        SQL;
 
     public function __invoke(): JsonResponse
     {
@@ -163,6 +192,7 @@ final class DriverJobIndexController
             // hydrate a `DeliveryJob` whose primary key is an order's.
             ->select('delivery_jobs.*')
             ->addSelect(self::ORDER_COLUMNS)
+            ->addSelect(DB::raw(self::PHONE_SQL))
             // An inner join would be the truer statement of the schema — the
             // foreign key is NOT NULL and cascades — but a left join is what
             // keeps a driver's whole sheet from disappearing if one order ever
@@ -170,7 +200,8 @@ final class DriverJobIndexController
             // still ring the kitchen about; a 200 with an empty list is a driver
             // who thinks their shift is over.
             ->leftJoin('orders', 'orders.id', '=', 'delivery_jobs.order_id')
-            ->leftJoin('contact_points as cp', 'cp.id', '=', 'orders.delivery_contact_point_id');
+            ->leftJoin('contact_points as cp', 'cp.id', '=', 'orders.delivery_contact_point_id')
+            ->leftJoin('customer_accounts as ca', 'ca.id', '=', 'orders.customer_account_id');
 
         $narrow($query);
 
@@ -201,6 +232,7 @@ final class DriverJobIndexController
      *         area_name_ar: string|null,
      *         window_code: string|null,
      *         requested_date: string|null,
+     *         customer_name: string|null,
      *         phone: string|null
      *     }
      * }
@@ -230,8 +262,11 @@ final class DriverJobIndexController
                 'area_name_ar' => $this->text($job, 'delivery_area_name_ar'),
                 'window_code' => $this->text($job, 'delivery_window_code'),
                 'requested_date' => $this->date($job, 'requested_delivery_date'),
-                // Which number the order was given, not which number the
-                // customer has today. Null when the order named none.
+                // Who to ask for at the door. Null for a guest or an
+                // anonymised account.
+                'customer_name' => $this->text($job, 'customer_name'),
+                // The number the order was given, else the account's best
+                // live one. Null only when the customer has no phone at all.
                 'phone' => $this->text($job, 'delivery_phone'),
             ],
         ];

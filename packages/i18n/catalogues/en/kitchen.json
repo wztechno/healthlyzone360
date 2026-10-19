@@ -1649,6 +1649,7 @@
         "claimTaken": "Someone else took that run first.",
         "noAddress": "No address was recorded on this order. Ring the kitchen before you set off.",
         "directions": "Directions: {{directions}}",
+        "customer": "Customer: {{name}}",
         "phone": "Ring {{phone}}",
         "assignedAt": "Given to you at {{at}}",
         "deliver": "Mark delivered",

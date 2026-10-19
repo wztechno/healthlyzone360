@@ -56,6 +56,7 @@ function wireDelivery(overrides: Record<string, unknown> = {}) {
         area_name_ar: 'القوز ١',
         window_code: 'morning',
         requested_date: '2026-08-16',
+        customer_name: 'Layla Haddad',
         phone: '+971500000001',
         ...overrides,
     };
@@ -140,7 +141,8 @@ describe('createApiDriverJobsRepository — listJobs', () => {
             areaNameAr: 'القوز ١',
             windowCode: 'morning',
             requestedDate: '2026-08-16',
-            // The number the *order* was given, not the customer's best current one.
+            // Who to ask for, and the number to ring.
+            customerName: 'Layla Haddad',
             phone: '+971500000001',
         });
     });
@@ -160,6 +162,7 @@ describe('createApiDriverJobsRepository — listJobs', () => {
                                     floor: null,
                                     apartment: null,
                                     directions: null,
+                                    customer_name: null,
                                     phone: null,
                                 }),
                             }),
@@ -180,6 +183,7 @@ describe('createApiDriverJobsRepository — listJobs', () => {
         expect(job.assignedAt).toBeNull();
         expect(job.delivery.building).toBeNull();
         expect(job.delivery.phone).toBeNull();
+        expect(job.delivery.customerName).toBeNull();
         // The parts that *were* recorded still arrive.
         expect(job.delivery.lineOne).toBe('Villa 12, Street 8b');
     });

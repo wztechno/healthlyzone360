@@ -119,11 +119,11 @@ export interface DriverJobDelivery {
     readonly windowCode: string | null;
     /** `YYYY-MM-DD`, or `null` on an order that named no day. */
     readonly requestedDate: string | null;
+    /** Who to ask for at the door — the account's display name. `null` for a guest or anonymised account. */
+    readonly customerName: string | null;
     /**
-     * E.164, and it is **the number the order was given** — resolved from the contact point the
-     * snapshot names, not the customer's best current number. `null` when the order named none, with
-     * no fallback: a substitution would answer a different question while looking like the same
-     * field, and this route carries no permission code to hold a customer-contact lookup behind.
+     * E.164. The number the order was given, else the customer's best live phone — the same number
+     * the order desk shows. `null` only when the customer has no phone at all.
      */
     readonly phone: string | null;
 }

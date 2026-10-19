@@ -11151,13 +11151,16 @@ export type DriverJobDelivery = {
     window_code: string | null;
     requested_date: string | null;
     /**
-     * E.164, and it is **the number the order was given** — resolved from
-     * the contact point the snapshot names, not the customer's best current
-     * number. `null` when the order named none, with no fallback: a
-     * substitution would answer a different question while looking like the
-     * same field, and this route carries no permission code to hold a
-     * customer-contact lookup behind. The desk has
-     * `order.view_customer_contact_organisation` for that.
+     * Who to ask for at the door — the customer account's display name.
+     * `null` for a guest or an anonymised account.
+     *
+     */
+    customer_name: string | null;
+    /**
+     * E.164. The number the order was given (the contact point the snapshot
+     * names), else the customer's best live phone in the order desk's
+     * ordering — so the desk and the driver name one number. `null` only
+     * when the customer has no phone at all.
      *
      */
     phone: string | null;

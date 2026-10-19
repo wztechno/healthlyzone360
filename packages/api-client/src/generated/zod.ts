@@ -7534,6 +7534,7 @@ export const zDriverJobDelivery = z.object({
     area_name_ar: z.string().nullable(),
     window_code: z.string().nullable(),
     requested_date: z.iso.date().nullable(),
+    customer_name: z.string().nullable(),
     phone: z.string().nullable()
 });
 

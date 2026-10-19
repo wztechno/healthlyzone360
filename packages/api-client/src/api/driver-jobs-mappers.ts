@@ -37,6 +37,7 @@ function mapDelivery(wire: WireDriverJobDelivery): DriverJobDelivery {
         areaNameAr: wire.area_name_ar,
         windowCode: wire.window_code,
         requestedDate: wire.requested_date,
+        customerName: wire.customer_name,
         phone: wire.phone,
     };
 }
