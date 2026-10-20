@@ -32111,6 +32111,8 @@ components:
         - supplier_options
         - suggested_supplier_id
         - unassigned_reason
+        - on_order_quantity
+        - open_orders
       description: |
         One row of the supply-order builder (SUP3).
 
@@ -32194,6 +32196,29 @@ components:
             was ever linked. `suppliers_archived`: links exist and every one of
             them is archived, which is a different problem with a different fix.
             Null whenever at least one active option exists.
+        on_order_quantity:
+          type: string
+          description: |
+            What this branch's open supply orders (draft, issued or
+            part-received) still have to deliver of this shelf, in its unit. A
+            part-received order counts only its remainder. `suggested_quantity`
+            restocks to par after this, so a shelf already covered by open
+            orders gets no suggestion — which is what stops a second Create
+            from drafting the same order again.
+        open_orders:
+          type: array
+          description: The open orders behind `on_order_quantity`, oldest first.
+          items:
+            type: object
+            required: [id, number, status]
+            properties:
+              id:
+                $ref: '#/components/schemas/Uuid'
+              number:
+                type: string
+              status:
+                $ref: '#/components/schemas/PurchaseOrderStatus'
+            additionalProperties: false
       additionalProperties: false
 
     OrderProposalCollection:

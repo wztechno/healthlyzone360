@@ -5779,6 +5779,24 @@ export type OrderProposalItem = {
      *
      */
     unassigned_reason: 'no_supplier' | 'suppliers_archived' | null;
+    /**
+     * What this branch's open supply orders (draft, issued or
+     * part-received) still have to deliver of this shelf, in its unit. A
+     * part-received order counts only its remainder. `suggested_quantity`
+     * restocks to par after this, so a shelf already covered by open
+     * orders gets no suggestion — which is what stops a second Create
+     * from drafting the same order again.
+     *
+     */
+    on_order_quantity: string;
+    /**
+     * The open orders behind `on_order_quantity`, oldest first.
+     */
+    open_orders: Array<{
+        id: Uuid;
+        number: string;
+        status: PurchaseOrderStatus;
+    }>;
 };
 
 /**

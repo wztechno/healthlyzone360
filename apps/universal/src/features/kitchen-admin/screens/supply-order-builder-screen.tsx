@@ -393,6 +393,23 @@ function SupplyOrderBuilder() {
                                     quantity: `${formatter.formatNumber(Number(row.quantityOnHand))} ${row.unitCode}`,
                                 })}
                             </Text>
+                            {/* Already on its way: what stops the same order being drafted twice. */}
+                            {row.openOrders.length === 0 ? null : (
+                                <Text
+                                    variant="caption"
+                                    tone="secondary"
+                                    numberOfLines={1}
+                                    className="tabular-nums"
+                                    testID={`${testID}-on-order`}
+                                >
+                                    {t('kitchen:ops.supplyOrders.onOrder', {
+                                        quantity: `${formatter.formatNumber(Number(row.onOrderQuantity))} ${row.unitCode}`,
+                                        orders: row.openOrders
+                                            .map((order) => order.number)
+                                            .join(t('kitchen:common.listSeparator')),
+                                    })}
+                                </Text>
+                            )}
                         </View>
                     );
                 },

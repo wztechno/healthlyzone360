@@ -5191,6 +5191,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.nothingNeededBody'
     | 'ops.supplyOrders.nothingNeededTitle'
     | 'ops.supplyOrders.onHand'
+    | 'ops.supplyOrders.onOrder'
     | 'ops.supplyOrders.order'
     | 'ops.supplyOrders.orderAnyway'
     | 'ops.supplyOrders.ordersCaption'
@@ -13549,6 +13550,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.nothingNeededBody',
   'kitchen:ops.supplyOrders.nothingNeededTitle',
   'kitchen:ops.supplyOrders.onHand',
+  'kitchen:ops.supplyOrders.onOrder',
   'kitchen:ops.supplyOrders.order',
   'kitchen:ops.supplyOrders.orderAnyway',
   'kitchen:ops.supplyOrders.ordersCaption',

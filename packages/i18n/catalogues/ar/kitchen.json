@@ -428,6 +428,7 @@
             "readyTitle": "جاهز للطلب",
             "readyEmpty": "لا شيء جاهز بعد. أدخل كمية واختر مورّدًا لترى الطلب يتشكّل.",
             "onHand": "المتوفر: {{quantity}}",
+            "onOrder": "قيد الطلب: {{quantity}} · {{orders}}",
             "summaryLines": "أسطر للطلب",
             "summaryLeftBehind": "لن يُطلب",
             "summaryDrafts": "طلبات مسودة",

@@ -347,6 +347,12 @@ function mapOrderProposalItem(wire: WireOrderProposalItem): OrderProposalItem {
                 : SupplierId.unsafe(wire.suggested_supplier_id),
         unassignedReason:
             wire.unassigned_reason === null ? null : UNASSIGNED_REASONS[wire.unassigned_reason],
+        onOrderQuantity: wire.on_order_quantity,
+        openOrders: wire.open_orders.map((order) => ({
+            id: PurchaseOrderId.unsafe(order.id),
+            number: order.number,
+            status: order.status,
+        })),
     };
 }
 

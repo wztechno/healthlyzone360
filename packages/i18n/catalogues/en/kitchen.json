@@ -396,6 +396,7 @@
             "readyTitle": "Ready to order",
             "readyEmpty": "Nothing is ready yet. Enter a quantity and choose a supplier to see the order take shape.",
             "onHand": "{{quantity}} on hand",
+            "onOrder": "{{quantity}} on order · {{orders}}",
             "summaryLines": "Lines to order",
             "summaryLeftBehind": "Won't be ordered",
             "summaryDrafts": "Draft orders",

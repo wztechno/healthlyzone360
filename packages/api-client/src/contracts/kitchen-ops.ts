@@ -474,6 +474,22 @@ export interface OrderProposalItem {
      */
     readonly suggestedSupplierId: SupplierId | null;
     readonly unassignedReason: UnassignedReason | null;
+    /**
+     * What this branch's open supply orders (draft, issued, part-received) still have to deliver of
+     * this shelf — a decimal string, `"0.0000"` when none. `suggestedQuantity` already restocks to par
+     * after it, so a shelf its open orders cover has no suggestion.
+     */
+    readonly onOrderQuantity: string;
+    /** The open orders behind {@link onOrderQuantity}, oldest first. */
+    readonly openOrders: readonly OrderProposalOpenOrder[];
+}
+
+/** An open supply order that already carries a proposal row's shelf. */
+export interface OrderProposalOpenOrder {
+    readonly id: PurchaseOrderId;
+    /** `PO-…`, what the kitchen calls it. */
+    readonly number: string;
+    readonly status: PurchaseOrderStatus;
 }
 
 /**
