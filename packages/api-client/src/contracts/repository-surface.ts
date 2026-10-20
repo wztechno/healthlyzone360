@@ -198,6 +198,7 @@ export const REPOSITORY_SURFACE = {
         'archiveIngredient',
         'archiveProduct',
         'archiveZone',
+        'archiveDeliveryWindow',
         'createIngredient',
         'createMeal',
         'createPlan',

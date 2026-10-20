@@ -6338,6 +6338,13 @@ export interface NamespaceKeys {
     | 'windows.activeHint'
     | 'windows.activeLabel'
     | 'windows.add'
+    | 'windows.archive'
+    | 'windows.archiveBody'
+    | 'windows.archiveConfirm'
+    | 'windows.archiveFailed'
+    | 'windows.archiveLabel'
+    | 'windows.archiveTitle'
+    | 'windows.archivedToast'
     | 'windows.capacityColumn'
     | 'windows.capacityHint'
     | 'windows.capacityInvalid'
@@ -14689,6 +14696,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:windows.activeHint',
   'kitchen:windows.activeLabel',
   'kitchen:windows.add',
+  'kitchen:windows.archive',
+  'kitchen:windows.archiveBody',
+  'kitchen:windows.archiveConfirm',
+  'kitchen:windows.archiveFailed',
+  'kitchen:windows.archiveLabel',
+  'kitchen:windows.archiveTitle',
+  'kitchen:windows.archivedToast',
   'kitchen:windows.capacityColumn',
   'kitchen:windows.capacityHint',
   'kitchen:windows.capacityInvalid',

@@ -1433,6 +1433,7 @@ export function mapDeliveryWindow(wire: WireDeliveryWindow): DeliveryWindow {
         endsAt: wire.ends_at ?? '00:00',
         capacity: null,
         isActive: wire.is_active,
+        archivedAt: wire.archived_at ?? null,
         zoneIds: (wire.delivery_zone_ids ?? []).map((id) => DeliveryZoneId.unsafe(id)),
     };
 }

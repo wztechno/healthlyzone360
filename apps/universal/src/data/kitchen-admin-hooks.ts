@@ -2889,6 +2889,29 @@ export function useSaveDeliveryWindowMutation(): UseMutationResult<
     });
 }
 
+/**
+ * Archive a window: switched off, out of every zone, off the list. Refreshes what a save refreshes —
+ * the zones that offered it, the order desk's slots and the storefronts lose it together.
+ */
+export function useArchiveDeliveryWindowMutation(): UseMutationResult<
+    DeliveryWindow,
+    unknown,
+    DeliveryWindowId
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (windowId: DeliveryWindowId) =>
+            repositories.kitchenAdmin.archiveDeliveryWindow(windowId),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.deliveryWindows() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.all() });
+        },
+    });
+}
+
 /* ── branch operating data (K1.7) ────────────────────────────────────────────────────────────── */
 
 /**

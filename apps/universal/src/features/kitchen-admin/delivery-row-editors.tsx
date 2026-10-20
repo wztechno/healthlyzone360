@@ -19,6 +19,7 @@ import {
 } from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import type { ServiceAreaId } from '@healthy360/domain-types';
+import { useLocale } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -81,7 +82,7 @@ export const WINDOW_TRACKS = {
     ends: 120,
     offered: 112,
     zones: 196,
-    remove: 72,
+    remove: 88,
 } as const;
 
 /* ------------------------------------------------------------------------------------------------
@@ -109,6 +110,11 @@ export interface DeliveryWindowRowsProps {
     readonly saveAction?: ReactNode | undefined;
     /** A read-only trailing cell per row — the zones that offer the window. */
     readonly zonesCell?: ((row: DeliveryWindowDraft) => ReactNode) | undefined;
+    /**
+     * Archive a saved window — the screen asks first. Absent where archiving is not offered (a
+     * zone's own windows tab), and then a saved row has no action at all.
+     */
+    readonly onArchive?: ((row: DeliveryWindowDraft) => void) | undefined;
     readonly testID: string;
 }
 
@@ -135,8 +141,8 @@ type Offered = 'yes' | 'no';
  * the window, the name track is the one wide enough for a sentence, and a `DataList` row has no line
  * of its own beneath it.
  *
- * Only a row not yet saved can be removed: there is no window delete, so a saved window is
- * withdrawn with Offered → No instead.
+ * Only a row not yet saved can be removed: there is no window delete. A saved window is withdrawn
+ * with Offered → No, or archived through `onArchive`, which takes it off the list for good.
  */
 export function DeliveryWindowRows({
     rows,
@@ -147,9 +153,11 @@ export function DeliveryWindowRows({
     onAdd,
     saveAction,
     zonesCell,
+    onArchive,
     testID,
 }: DeliveryWindowRowsProps) {
     const { t } = useTranslation();
+    const { locale } = useLocale();
     const [removed, setRemoved] = useState<{
         readonly row: DeliveryWindowDraft;
         readonly index: number;
@@ -390,9 +398,26 @@ export function DeliveryWindowRows({
                       sortable: false,
                       filterable: false,
                       render: (row) => {
-                          // A saved window has no delete; it is withdrawn with Offered → No.
-                          if (row.id !== null) return null;
                           const { index, rowTestId, rowName } = describe(row);
+                          // A saved window has no delete; it is archived, which the screen confirms.
+                          if (row.id !== null) {
+                              if (onArchive === undefined) return null;
+                              const label = displayName(row.label, locale).value;
+                              return (
+                                  <Button
+                                      testID={`${rowTestId}-archive`}
+                                      size="sm"
+                                      variant="quiet"
+                                      label={t('kitchen:windows.archive')}
+                                      accessibilityLabel={t('kitchen:windows.archiveLabel', {
+                                          name: label === '' ? rowName : label,
+                                      })}
+                                      onPress={() => {
+                                          onArchive(row);
+                                      }}
+                                  />
+                              );
+                          }
                           const name = `${t('kitchen:rows.remove')} — ${rowName}`;
                           return (
                               <Pressable

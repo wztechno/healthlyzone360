@@ -1197,7 +1197,8 @@ function ZoneWindowAssignment({
         );
     }
 
-    const all = windows.data ?? [];
+    // An archived window is in no zone and cannot be put back in one, so it is not offered here.
+    const all = (windows.data ?? []).filter((window) => window.archivedAt === null);
     const days = (weekdays: readonly number[]): string => {
         const normalised = normaliseWeekdays(weekdays);
         return normalised.length === ISO_WEEKDAYS.length

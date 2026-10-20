@@ -10,6 +10,8 @@ use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Delivery\Tests\Fixtures\DeliveryWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /*
@@ -173,4 +175,61 @@ it('backfills every existing zone with the active windows of its organisation', 
         ->and($service->windowIdsFor($this->zone))->toHaveCount(2)
         // Nothing crosses organisations: the other kitchen has no windows.
         ->and($service->windowIdsFor($theirZone))->toBe([]);
+});
+
+/*
+| Archiving a window: off the list's use, out of every zone, never changed
+| again — and still there for whatever already names it.
+*/
+
+it('archives a window: switched off, released from every zone, still served with its date', function (): void {
+    app(ZoneWindowService::class)->assignAll((string) $this->a->organisation->getKey(), [(string) $this->morning->getKey(), (string) $this->evening->getKey()]);
+
+    $this->postJson('/api/v1/catalogue/delivery-windows/'.$this->morning->getKey().'/archive', [], $this->headers)
+        ->assertOk()
+        ->assertJsonPath('data.delivery_window.is_active', false)
+        ->assertJsonPath('data.delivery_window.delivery_zone_ids', [])
+        ->assertJsonPath('data.delivery_window.code', 'morning');
+
+    expect($this->morning->refresh()->archived_at)->not->toBeNull()
+        ->and(app(ZoneWindowService::class)->offeredCodes($this->zone->refresh()))->toBe(['evening'])
+        ->and(DeliveryZoneWindow::withoutTenancy()->where('delivery_window_id', $this->morning->getKey())->count())->toBe(0);
+
+    // Not a delete: the list still serves it, flagged, so an order naming it stays explainable.
+    $this->getJson('/api/v1/catalogue/delivery-windows', $this->headers)
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('data.0.code', 'morning')
+        ->assertJsonPath('data.0.is_active', false);
+
+    expect(AuditLog::query()->where('action', 'catalogue.delivery_window_archived')->count())->toBe(1);
+});
+
+it('refuses to archive twice or to change an archived window', function (): void {
+    $url = '/api/v1/catalogue/delivery-windows/'.$this->morning->getKey();
+
+    $this->postJson($url.'/archive', [], $this->headers)->assertOk();
+    $this->postJson($url.'/archive', [], $this->headers)->assertStatus(409);
+
+    // Switching it back on would bring back a slot every zone has let go of.
+    $this->patchJson($url, ['is_active' => true], $this->headers)->assertStatus(409);
+    $this->patchJson($url, ['name_en' => 'Early'], $this->headers)->assertStatus(409);
+});
+
+it('refuses an archived window in a zone, by hand or by seeding', function (): void {
+    $this->postJson('/api/v1/catalogue/delivery-windows/'.$this->morning->getKey().'/archive', [], $this->headers)->assertOk();
+
+    $this->putJson(zoneWindowsUrl($this), [
+        'delivery_window_ids' => [(string) $this->morning->getKey(), (string) $this->evening->getKey()],
+    ], $this->headers + ['If-Match' => '"0"'])
+        ->assertStatus(422)
+        ->assertJsonStructure(['error' => ['details' => ['fields' => ['delivery_window_ids']]]]);
+
+    app(ZoneWindowService::class)->assignAll((string) $this->a->organisation->getKey(), [(string) $this->morning->getKey()]);
+    expect(DeliveryZoneWindow::withoutTenancy()->where('delivery_window_id', $this->morning->getKey())->count())->toBe(0);
+});
+
+it('keeps an archived window inactive at the database', function (): void {
+    expect(fn () => DB::table('delivery_windows')->where('id', $this->morning->getKey())->update(['archived_at' => now()]))
+        ->toThrow(QueryException::class);
 });

@@ -1013,6 +1013,9 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     ): Promise<DeliveryWindow> {
         return notImplemented(`PATCH ${BASE}/catalogue/delivery-windows/{window}`);
     },
+    archiveDeliveryWindow(_windowId: DeliveryWindowId): Promise<DeliveryWindow> {
+        return notImplemented(`POST ${BASE}/catalogue/delivery-windows/{window}/archive`);
+    },
 
     getBranchOperating(_branchId: KitchenBranchId): Promise<BranchOperating> {
         return notImplemented(`GET ${BASE}/kitchen/branch-operating`);

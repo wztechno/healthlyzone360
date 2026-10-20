@@ -7959,8 +7959,49 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/delivery-windows/{window}/archive:
+    post:
+      operationId: archiveDeliveryWindow
+      tags:
+        - Delivery
+      summary: Archive a delivery slot
+      description: |
+        Terminal, and still not a delete. The window is switched off, released
+        from every zone that offered it, and leaves the kitchen's list; the
+        orders and subscriptions that already name it stay explainable.
+        Switching a window off (`is_active: false`) remains the reversible way
+        to stop offering it.
+
+        **Precondition-free**, as the PATCH is. Archiving an archived window is
+        `409`, and so is any later PATCH of it.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/DeliveryWindowPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The archived window, in no zone.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryWindowEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /kitchen/branch-operating:
@@ -32247,7 +32288,16 @@ components:
           type: integer
         is_active:
           type: boolean
-          description: The only withdrawal there is. No DELETE exists.
+          description: Switched off — the reversible withdrawal. No DELETE exists.
+        archived_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: |
+            When the window was archived, or null. An archived window is always
+            inactive, in no zone, and cannot be changed; it is still served so
+            the orders and subscriptions that name it stay explainable.
         delivery_zone_ids:
           type: array
           description: |

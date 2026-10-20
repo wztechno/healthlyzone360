@@ -2919,6 +2919,7 @@ export const zDeliveryWindow = z.object({
     weekdays: z.array(z.int().gte(1).lte(7)).max(7),
     display_order: z.int(),
     is_active: z.boolean(),
+    archived_at: z.iso.datetime({ offset: true }).nullish(),
     delivery_zone_ids: z.array(zUuid),
     created_at: z.iso.datetime({ offset: true }).nullish(),
     updated_at: z.iso.datetime({ offset: true }).nullish()
@@ -12326,6 +12327,23 @@ export const zUpdateDeliveryWindowPath = z.object({
  * The window after the write.
  */
 export const zUpdateDeliveryWindowResponse = zDeliveryWindowEnvelope;
+
+export const zArchiveDeliveryWindowHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zArchiveDeliveryWindowPath = z.object({
+    window: z.union([
+        zUuid,
+        z.string().max(30).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The archived window, in no zone.
+ */
+export const zArchiveDeliveryWindowResponse = zDeliveryWindowEnvelope;
 
 export const zGetBranchOperatingHeaders = z.object({
     'X-Organisation-Id': zUuid,

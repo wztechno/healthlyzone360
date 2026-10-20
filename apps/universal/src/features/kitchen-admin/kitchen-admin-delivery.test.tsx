@@ -265,6 +265,7 @@ function deliveryWindow(ordinal: number, overrides: Partial<DeliveryWindow> = {}
         endsAt: '11:00',
         capacity: null,
         isActive: true,
+        archivedAt: null,
         zoneIds: [],
         ...overrides,
     };
@@ -1504,6 +1505,65 @@ describe('the delivery-windows page', () => {
         // A saved window cannot be deleted — only withdrawn through Offered.
         expect(screen.queryByTestId(`${windowRowId(MORNING_WINDOW)}-remove`)).toBeNull();
         expect(screen.getByTestId(`${windowRowId(LATE_WINDOW)}-active-state`)).toBeTruthy();
+    });
+
+    it('leaves an archived window off the list', async () => {
+        const archived = deliveryWindow(9, {
+            label: { en: 'Old slot', ar: '' },
+            isActive: false,
+            archivedAt: '2026-10-20T12:00:00Z',
+        });
+        await renderStubScreen(<DeliveryWindowsScreen />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: windowsPageReads(() => [...KITCHEN_WINDOWS, archived]) },
+        });
+        await untilVisible(windowRowId(LATE_WINDOW));
+
+        expect(screen.queryByTestId(windowRowId(archived))).toBeNull();
+    });
+
+    it('archives a saved window after asking, and only once its edits are saved', async () => {
+        const archiveDeliveryWindow = jest.fn(async (id: DeliveryWindow['id']) => ({
+            ...KITCHEN_WINDOWS.find((window) => window.id === id)!,
+            isActive: false,
+            archivedAt: '2026-10-20T12:00:00Z',
+            zoneIds: [],
+        }));
+
+        await renderStubScreen(<DeliveryWindowsScreen />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: { ...windowsPageReads(), archiveDeliveryWindow } },
+        });
+        await untilVisible(`${windowRowId(MORNING_WINDOW)}-archive`);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${windowRowId(MORNING_WINDOW)}-archive`));
+        });
+        await untilVisible('kitchen-windows-archive-dialog');
+        // Asking is not doing.
+        expect(archiveDeliveryWindow).not.toHaveBeenCalled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-windows-archive-confirm'));
+        });
+        await untilVisible('kitchen-windows-archived-toast');
+        expect(archiveDeliveryWindow).toHaveBeenCalledWith(MORNING_WINDOW.id);
+    });
+
+    it('holds Archive back while there are unsaved edits', async () => {
+        await renderStubScreen(<DeliveryWindowsScreen />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: windowsPageReads() },
+        });
+        await untilVisible(`${windowRowId(MORNING_WINDOW)}-archive`);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-windows-rows-add'));
+        });
+
+        await waitFor(() => {
+            expect(screen.queryByTestId(`${windowRowId(MORNING_WINDOW)}-archive`)).toBeNull();
+        });
     });
 
     it('saves only the changed row, and creates an added one in no zone', async () => {

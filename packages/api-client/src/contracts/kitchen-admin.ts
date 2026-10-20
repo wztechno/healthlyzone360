@@ -2141,6 +2141,11 @@ export interface DeliveryWindow {
     /** Deliveries the window can take, when the kitchen caps it. `null` for uncapped. */
     readonly capacity: number | null;
     readonly isActive: boolean;
+    /**
+     * When the window was archived, or `null`. An archived window is inactive, in no zone, cannot be
+     * changed, and is left off the kitchen's list; it is still served so past orders can name it.
+     */
+    readonly archivedAt: string | null;
     /** The zones that offer this window. A window in no zone is offered nowhere. */
     readonly zoneIds: readonly DeliveryZoneId[];
 }
@@ -2503,11 +2508,13 @@ export interface KitchenAdminRepository {
     listDeliveryWindows(): Promise<readonly DeliveryWindow[]>;
     /** Created in no zone — a zone opts in through `setZoneWindows`. */
     createDeliveryWindow(request: CreateDeliveryWindowRequest): Promise<DeliveryWindow>;
-    /** There is no delete: withdraw a window with `isActive: false`. */
+    /** There is no delete: withdraw a window with `isActive: false`, or archive it. */
     updateDeliveryWindow(
         windowId: DeliveryWindowId,
         request: UpdateDeliveryWindowRequest,
     ): Promise<DeliveryWindow>;
+    /** Switch the window off, release it from every zone and take it off the list. Terminal. */
+    archiveDeliveryWindow(windowId: DeliveryWindowId): Promise<DeliveryWindow>;
 
     /* ── branch operating data ──────────────────────────────────────────────────────────────── */
 

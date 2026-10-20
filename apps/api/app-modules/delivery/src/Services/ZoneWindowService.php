@@ -69,6 +69,23 @@ final readonly class ZoneWindowService
             );
         }
 
+        /** @var list<string> $archived */
+        $archived = DeliveryWindow::withoutTenancy()
+            ->whereIn('id', $requested)
+            ->whereNotNull('archived_at')
+            ->pluck('id')
+            ->all();
+
+        if ($archived !== []) {
+            $message = 'An archived delivery window cannot be offered in a zone.';
+
+            throw new ApiException(
+                ErrorCode::ValidationFailed,
+                $message,
+                ['fields' => ['delivery_window_ids' => [$message]], 'archived_delivery_window_ids' => $archived],
+            );
+        }
+
         $existing = $this->windowIdsFor($zone);
 
         DB::transaction(function () use ($zone, $requested, $existing, $expectedLockVersion): void {
@@ -236,6 +253,8 @@ final readonly class ZoneWindowService
 
         $windows = DB::table('delivery_windows')->where('organisation_id', $organisationId)
             ->when($windowIds !== null, fn ($query) => $query->whereIn('id', $windowIds), fn ($query) => $query->where('is_active', true))
+            // Never put an archived window back into a zone, even when named.
+            ->whereNull('archived_at')
             ->pluck('id');
 
         $rows = [];

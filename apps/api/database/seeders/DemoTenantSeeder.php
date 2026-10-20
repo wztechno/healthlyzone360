@@ -393,6 +393,8 @@ class DemoTenantSeeder extends Seeder
                 'weekdays' => $weekdays,
                 'display_order' => $displayOrder,
                 'is_active' => true,
+                // A restored demo window is un-archived too: archived implies inactive.
+                'archived_at' => null,
                 'created_by' => $creator->getKey(),
             ],
         );

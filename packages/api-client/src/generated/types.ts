@@ -4473,9 +4473,16 @@ export type DeliveryWindow = {
     weekdays: Array<number>;
     display_order: number;
     /**
-     * The only withdrawal there is. No DELETE exists.
+     * Switched off — the reversible withdrawal. No DELETE exists.
      */
     is_active: boolean;
+    /**
+     * When the window was archived, or null. An archived window is always
+     * inactive, in no zone, and cannot be changed; it is still served so
+     * the orders and subscriptions that name it stay explainable.
+     *
+     */
+    archived_at?: string | null;
     /**
      * The zones this window is assigned to, ordered by zone code. A
      * window in no zone is offered nowhere; a newly created window starts
@@ -23976,6 +23983,14 @@ export type UpdateDeliveryWindowErrors = {
      */
     404: ErrorEnvelope;
     /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
      * The submitted data is invalid.
      */
     422: ErrorEnvelope;
@@ -23995,6 +24010,74 @@ export type UpdateDeliveryWindowResponses = {
 };
 
 export type UpdateDeliveryWindowResponse = UpdateDeliveryWindowResponses[keyof UpdateDeliveryWindowResponses];
+
+export type ArchiveDeliveryWindowData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery window identifier, or its `code`.
+         */
+        window: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/delivery-windows/{window}/archive';
+};
+
+export type ArchiveDeliveryWindowErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ArchiveDeliveryWindowError = ArchiveDeliveryWindowErrors[keyof ArchiveDeliveryWindowErrors];
+
+export type ArchiveDeliveryWindowResponses = {
+    /**
+     * The archived window, in no zone.
+     */
+    200: DeliveryWindowEnvelope;
+};
+
+export type ArchiveDeliveryWindowResponse = ArchiveDeliveryWindowResponses[keyof ArchiveDeliveryWindowResponses];
 
 export type GetBranchOperatingData = {
     body?: never;
