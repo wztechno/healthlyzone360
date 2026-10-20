@@ -11,8 +11,11 @@ import type {
     SubscriptionId,
     SubscriptionPlanId,
 } from '@healthy360/domain-types';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
+import { forgetQueries } from '../../navigation/last-query.ts';
+import { withQuery, withReturnTo } from '../../navigation/return-to.ts';
+import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
 import { testMeResponse } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
@@ -29,6 +32,8 @@ import {
 } from './plan-balance.ts';
 import { PlanBalanceCalculator } from './plan-balance-calculator.tsx';
 import { HowPlansWorkScreen } from './screens/how-plans-work-screen.tsx';
+import { PlanComparisonScreen } from './screens/plan-comparison-screen.tsx';
+import { PlanDetailScreen } from './screens/plan-detail-screen.tsx';
 import { PlansScreen } from './screens/plans-screen.tsx';
 
 /**
@@ -38,32 +43,21 @@ import { PlansScreen } from './screens/plans-screen.tsx';
  * `catalogue.test.tsx`.
  */
 
-const routerState: { params: Record<string, string> } = { params: {} };
-
-jest.mock('expo-router', () => {
-    const push = jest.fn();
-    const setParams = jest.fn();
-    return {
-        __esModule: true,
-        useRouter: () => ({ push, replace: jest.fn(), setParams, back: jest.fn() }),
-        usePathname: () => '/plans',
-        useLocalSearchParams: () => routerState.params,
-        Redirect: () => null,
-        Link: ({ children }: { children: React.ReactNode }) => children,
-        Slot: () => null,
-        Stack: () => null,
-        __push: push,
-        __setParams: setParams,
-    };
-});
+/**
+ * The router is the shared customer-suite mock (`testing/expo-router-mock.ts`): every call is a
+ * spy, and `__set` gives a case its own URL — the plan page reads its band from `?variant=`.
+ */
+jest.mock('expo-router', () =>
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../../testing/expo-router-mock.ts').createExpoRouterMock({ pathname: '/plans' }),
+);
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const routerMock = require('expo-router') as { __push: jest.Mock; __setParams: jest.Mock };
+const routerMock = require('expo-router') as ExpoRouterMock;
 
 beforeEach(() => {
-    routerState.params = {};
-    routerMock.__push.mockClear();
-    routerMock.__setParams.mockClear();
+    routerMock.__reset();
+    forgetQueries();
     globalThis.localStorage?.clear();
 });
 
@@ -394,8 +388,11 @@ describe('PlansScreen — HealthZone structure', () => {
             expect(repositories.commerce.pause).toHaveBeenCalledWith(SUBSCRIPTION.id);
         });
 
+        // Carrying this page, so saving the rules comes back here rather than to a dead end.
         await fireEvent.press(screen.getByTestId('plans-subscriber-dietary'));
-        expect(routerMock.__push).toHaveBeenLastCalledWith('/customer/account/allergies');
+        expect(routerMock.__push).toHaveBeenLastCalledWith(
+            withReturnTo('/customer/account/allergies', '/plans'),
+        );
     });
 
     it('offers Resume in Pause’s place on a paused plan, and no skip', async () => {
@@ -425,9 +422,186 @@ describe('PlansScreen — HealthZone structure', () => {
         // One kitchen publishes both plans, so there is no kitchen to choose between.
         expect(screen.queryByTestId('plans-kitchens')).toBeNull();
         await fireEvent.press(screen.getByTestId('plan-card-lean-days-compare'));
-        expect(routerMock.__setParams).toHaveBeenLastCalledWith({
+        expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({
             compare: String(LEAN.id),
         });
+    });
+
+    it('opens the comparison with the kitchen chip, so coming back keeps both', async () => {
+        routerMock.__set({
+            params: { kitchen: String(KITCHEN_ID), compare: `${BALANCED.id},${LEAN.id}` },
+        });
+        await renderStubScreen(<PlansScreen />, { repositories: REPOSITORIES });
+
+        await fireEvent.press(await screen.findByTestId('plans-compare-open'));
+        expect(routerMock.__push).toHaveBeenLastCalledWith(
+            withQuery('/plans/compare', {
+                plans: `${BALANCED.id},${LEAN.id}`,
+                kitchen: String(KITCHEN_ID),
+            }),
+        );
+    });
+});
+
+/* ── /plans/compare ──────────────────────────────────────────────────────────────────────────── */
+
+describe('PlanComparisonScreen — the way back to /plans', () => {
+    const COMPARED = `${BALANCED.id},${LEAN.id}`;
+    const BACK = withQuery('/plans', { kitchen: String(KITCHEN_ID), compare: COMPARED });
+    const COMPARISON_REPOSITORIES = {
+        marketplace: {
+            ...REPOSITORIES.marketplace,
+            getPlan: async (id: SubscriptionPlanId) =>
+                PLANS.find((entry) => entry.id === id) ?? BALANCED,
+        },
+    };
+
+    it('goes Back when /plans is the page underneath, tray and chip intact', async () => {
+        routerMock.__set({
+            pathname: '/plans/compare',
+            params: { plans: COMPARED, kitchen: String(KITCHEN_ID) },
+            navState: {
+                index: 1,
+                routes: [
+                    { name: 'plans/index', params: { compare: COMPARED } },
+                    { name: 'plans/compare', params: { plans: COMPARED } },
+                ],
+            },
+        });
+        await renderStubScreen(<PlanComparisonScreen />, {
+            repositories: COMPARISON_REPOSITORIES,
+        });
+        await screen.findByTestId('plan-comparison-table');
+
+        await fireEvent.press(screen.getByTestId('plan-comparison-crumb-plans'));
+        expect(routerMock.__router.back).toHaveBeenCalledTimes(1);
+        expect(routerMock.__push).not.toHaveBeenCalled();
+    });
+
+    it('opens /plans with the selection and the kitchen when it is not underneath', async () => {
+        routerMock.__set({
+            pathname: '/plans/compare',
+            params: { plans: COMPARED, kitchen: String(KITCHEN_ID) },
+        });
+        await renderStubScreen(<PlanComparisonScreen />, {
+            repositories: COMPARISON_REPOSITORIES,
+        });
+        await screen.findByTestId('plan-comparison-table');
+
+        await fireEvent.press(screen.getByTestId('plan-comparison-crumb-plans'));
+        expect(routerMock.__push).toHaveBeenLastCalledWith(BACK);
+    });
+});
+
+/* ── /plans/{plan} ───────────────────────────────────────────────────────────────────────────── */
+
+describe('PlanDetailScreen — the band, the sign-in round trip and a held plan', () => {
+    const DETAIL_REPOSITORIES = {
+        marketplace: {
+            ...REPOSITORIES.marketplace,
+            getPlan: async () => BALANCED,
+            listMeals: async () => page([]),
+        },
+    };
+    const [DEARER, CHEAPER] = BALANCED.variants;
+
+    it('writes the chosen band into the URL, and follows the URL when it changes', async () => {
+        routerMock.__set({ pathname: `/plans/${BALANCED.id}` });
+        await renderStubScreen(<PlanDetailScreen planId={String(BALANCED.id)} />, {
+            repositories: DETAIL_REPOSITORIES,
+        });
+
+        await fireEvent.press(await screen.findByTestId(`plan-detail-variant-${DEARER!.id}`));
+        expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({
+            variant: String(DEARER!.id),
+        });
+        expect(screen.getByTestId('plan-detail-variant-band')).toHaveTextContent(/Band 1/);
+
+        // Back onto an entry with the other band: the page shows that one.
+        await act(async () => {
+            routerMock.__set({ params: { variant: String(CHEAPER!.id) } });
+        });
+        expect(screen.getByTestId('plan-detail-variant-band')).toHaveTextContent(/Band 0/);
+    });
+
+    it('sends an anonymous visitor to sign in, coming back to the set-up on this band', async () => {
+        routerMock.__set({
+            pathname: `/plans/${BALANCED.id}`,
+            params: { variant: String(CHEAPER!.id) },
+        });
+        await renderStubScreen(<PlanDetailScreen planId={String(BALANCED.id)} />, {
+            repositories: DETAIL_REPOSITORIES,
+        });
+
+        const configure = await screen.findByTestId('plan-detail-configure');
+        await waitFor(() => {
+            expect(configure).toHaveTextContent('Sign in to configure it');
+        });
+        await fireEvent.press(screen.getByTestId('plan-detail-configure'));
+
+        expect(routerMock.__push).toHaveBeenLastCalledWith(
+            withReturnTo(
+                '/sign-in',
+                `/customer/subscriptions/new?plan=${BALANCED.id}&variant=${CHEAPER!.id}`,
+            ),
+        );
+    });
+
+    it('waits for a stored session instead of offering a signed-in person sign-in', async () => {
+        await renderStubScreen(<PlanDetailScreen planId={String(BALANCED.id)} />, {
+            session: testMeResponse(),
+            // The session's own answer is slow; the plan arrives first.
+            repositories: {
+                ...DETAIL_REPOSITORIES,
+                session: {
+                    me: () =>
+                        new Promise((resolve) => {
+                            setTimeout(() => {
+                                resolve(testMeResponse());
+                            }, 200);
+                        }),
+                },
+                commerce: { listSubscriptions: async () => page([]) },
+            },
+        });
+
+        const configure = await screen.findByTestId('plan-detail-configure');
+        expect(configure).not.toHaveTextContent('Sign in to configure it');
+        expect(configure.props.accessibilityState).toMatchObject({ disabled: true });
+        await fireEvent.press(configure);
+        expect(routerMock.__push).not.toHaveBeenCalled();
+
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('plan-detail-configure').props.accessibilityState,
+            ).toMatchObject({ disabled: false });
+        });
+    });
+
+    it('offers a subscriber Manage plan first, and setting up another after it', async () => {
+        await renderStubScreen(<PlanDetailScreen planId={String(BALANCED.id)} />, {
+            session: testMeResponse(),
+            repositories: { ...DETAIL_REPOSITORIES, commerce: SUBSCRIBER_REPOSITORIES.commerce },
+        });
+
+        const manage = await screen.findByTestId('plan-detail-manage');
+        expect(manage).toHaveTextContent('Manage plan');
+        await fireEvent.press(manage);
+        expect(routerMock.__push).toHaveBeenLastCalledWith(
+            `/customer/subscriptions/${String(SUBSCRIPTION.id)}`,
+        );
+        expect(screen.getByTestId('plan-detail-configure')).toHaveTextContent('Set up plan');
+    });
+
+    it('goes Home to the marketplace home, not the launch resolver', async () => {
+        await renderStubScreen(<PlanDetailScreen planId={String(BALANCED.id)} />, {
+            repositories: DETAIL_REPOSITORIES,
+        });
+        await screen.findByTestId('plan-detail-name');
+
+        await fireEvent.press(screen.getByTestId('plan-detail-crumb-home'));
+        expect(routerMock.__router.navigate).toHaveBeenCalledWith('/discover');
+        expect(routerMock.__push).not.toHaveBeenCalledWith('/');
     });
 });
 

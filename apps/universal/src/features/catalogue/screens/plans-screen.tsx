@@ -7,6 +7,8 @@ import { View } from 'react-native';
 
 import { usePlansQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchensQuery, useSubscriptionsQuery } from '../../../data/marketplace-hooks.ts';
+import { withQuery } from '../../../navigation/return-to.ts';
+import { useRememberQuery } from '../../../navigation/use-return-to.ts';
 import { useSession } from '../../../session/session-provider.tsx';
 import { ListingHeader } from '../../../ui/listing-header.tsx';
 import { PillChip } from '../../../ui/pill-chip.tsx';
@@ -17,7 +19,7 @@ import { PlanCard } from '../plan-card.tsx';
 import { PlanComparisonTray } from '../plan-comparison-tray.tsx';
 import { TextLink } from '../plan-controls.tsx';
 import { PlanGrid, PlanGridItem } from '../plan-grid.tsx';
-import { PlanSubscriberPanel } from '../plan-subscriber-panel.tsx';
+import { PlanSubscriberPanel, isLiveSubscription } from '../plan-subscriber-panel.tsx';
 
 /**
  * `/plans` — the subscription-plan catalogue: the listing title with its count and "How plans work
@@ -38,7 +40,10 @@ import { PlanSubscriberPanel } from '../plan-subscriber-panel.tsx';
  *   plans each narrowed nothing a glance at the cards does not.
  * - **Comparing** is a "Compare" chip in each card's header — the slot the design gives its
  *   "Current" mark — and the bar that opens the comparison appears only once a plan is selected.
- *   The selection is its own URL parameter, so a shared link still opens it.
+ *   The selection is its own URL parameter, so a shared link still opens it. The comparison is
+ *   opened with the kitchen choice as well, and its "Back to the plans" returns both, so the tray
+ *   and the chip are still there when the person comes back (browse-05). The page records the
+ *   query it was last shown with for the same reason: a crumb up from a plan finds it as it was.
  *
  * The "How to read the nutrition figures" notice is gone from this page: a plan card states calorie
  * bands, not nutrition figures, and the plan page that does show them keeps it.
@@ -53,13 +58,6 @@ import { PlanSubscriberPanel } from '../plan-subscriber-panel.tsx';
 const FILTER_KEYS = ['kitchen'] as const;
 export const MAX_COMPARED_PLANS = 3;
 
-/** States in which a subscription still delivers, or will again — the plan a person is "on". */
-const LIVE_STATES: ReadonlySet<Subscription['state']> = new Set([
-    'active',
-    'paused',
-    'skipped_today',
-]);
-
 /** Reads a route parameter that expo-router may hand back as a string or a one-element array. */
 function readParam(raw: string | string[] | undefined): string {
     if (Array.isArray(raw)) return raw[0] ?? '';
@@ -73,6 +71,7 @@ export function PlansScreen() {
     const { me } = useSession();
     const filters = useMarketplaceFilters(FILTER_KEYS);
     const kitchenIds = useMemo(() => filters.selected['kitchen'] ?? [], [filters.selected]);
+    useRememberQuery();
 
     // The comparison selection is its own parameter, so choosing a kitchen never empties it.
     const compared = useMemo(() => {
@@ -111,9 +110,7 @@ export function PlansScreen() {
     const subscriptions = useSubscriptionsQuery(me !== null);
     const liveSubscription = useMemo<Subscription | undefined>(
         () =>
-            (subscriptions.data?.items ?? []).find((subscription) =>
-                LIVE_STATES.has(subscription.state),
-            ),
+            (subscriptions.data?.items ?? []).find(isLiveSubscription),
         [subscriptions.data],
     );
     const openSubscription = useCallback(
@@ -285,7 +282,12 @@ export function PlansScreen() {
                             setCompared([]);
                         }}
                         onCompare={() => {
-                            router.push(`/plans/compare?plans=${compared.join(',')}` as never);
+                            router.push(
+                                withQuery('/plans/compare', {
+                                    plans: compared.join(','),
+                                    kitchen: kitchenIds.join(','),
+                                }) as never,
+                            );
                         }}
                     />
                 </View>

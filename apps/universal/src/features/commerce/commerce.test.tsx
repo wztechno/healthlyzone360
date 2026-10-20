@@ -71,6 +71,13 @@ import {
 } from './address.ts';
 import { LATEST_PLACED, placedOrders } from './checkout-draft.ts';
 import {
+    CONFIGURATOR_PATH,
+    configuratorDraftKey,
+    configuratorDrafts,
+    configuratorHref,
+    parseConfiguratorEdits,
+} from './configurator-draft.ts';
+import {
     CONFIGURATOR_STEPS,
     combinationKey,
     configuredDeliveryDates,
@@ -174,6 +181,9 @@ const routerMock = require('expo-router') as ExpoRouterMock;
 beforeEach(() => {
     routerMock.__reset();
     globalThis.localStorage?.clear();
+    // Session drafts (plan setup, placed order) live in module memory for the whole file; a draft
+    // one test leaves behind is a different starting point for the next.
+    clearAllSessionDrafts();
 });
 
 /* ══ the world these tests author ══════════════════════════════════════════════════════════════ */
@@ -1215,9 +1225,8 @@ describe('step validation', () => {
             plan: PLAN,
             allowedWeekdays: [1, 2, 3, 4, 5, 7],
             areaStatus: 'served',
-            // The typed-address path: these pure cases author full address fields, so the
-            // saved-address shortcut stays out of the way.
-            hasSavedAddress: false,
+            // A saved address is the only way the address requirement is met (plans-02).
+            hasSavedAddress: true,
             earliestStartDate: '2026-07-31',
             storedAllergens: [],
             translate,
@@ -1315,14 +1324,21 @@ describe('step validation', () => {
         expect(validateConfiguratorStep('delivery', state, relaxed)).toEqual([]);
     });
 
-    it('will not leave the delivery step on an incomplete address', () => {
+    /**
+     * A typed address used to satisfy this step on its own. Placement takes only a saved address's
+     * identifier, so that path passed all three steps and was refused at Subscribe every time.
+     */
+    it('will not leave the delivery step without a saved address, however complete the fields', () => {
         const { state, context } = fixture();
         const issues = validateConfiguratorStep(
             'delivery',
-            { ...state, address: EMPTY_ADDRESS },
-            context,
+            { ...state, address: COMPLETE_ADDRESS },
+            { ...context, hasSavedAddress: false },
         );
         expect(issues).toContain('commerce:configurator.issues.address');
+        expect(
+            validateConfiguratorStep('delivery', { ...state, address: EMPTY_ADDRESS }, context),
+        ).toEqual([]);
     });
 
     it('will not confirm without the terms acknowledgement the repository requires', () => {
@@ -2689,6 +2705,10 @@ interface ConfiguratorOptions {
     readonly targets?: StoredNutritionTarget | null | undefined;
     readonly commerce?: Partial<CommerceRepository> | undefined;
     readonly latencyMs?: number | undefined;
+    /** The account's setup checklist. Defaults to one with nothing left to do. */
+    readonly checklist?: AccountSetupChecklist | undefined;
+    /** The set-up's URL query beyond `plan` and `variant` — its step and address live there. */
+    readonly params?: Readonly<Record<string, string>> | undefined;
 }
 
 function configuratorRepositories(options: ConfiguratorOptions = {}): RepositoryOverrides {
@@ -2703,7 +2723,10 @@ function configuratorRepositories(options: ConfiguratorOptions = {}): Repository
             getCurrentTargets: async () =>
                 options.targets === undefined ? STORED_TARGET : options.targets,
         },
-        account: { listAddresses: async () => options.addresses ?? [] },
+        account: {
+            listAddresses: async () => options.addresses ?? [],
+            getChecklist: async () => options.checklist ?? READY_CHECKLIST,
+        },
         commerce: {
             getSubscriptionQuote: async () => options.quote ?? testQuote(),
             previewSubscription: async (configuration: SubscriptionConfiguration) =>
@@ -2713,10 +2736,24 @@ function configuratorRepositories(options: ConfiguratorOptions = {}): Repository
     };
 }
 
+/**
+ * The set-up keeps its step, band and address in its URL, so — like the checkout's — its cases run
+ * with the router mock *following* navigation: Continue is a push of `?step=`, choosing an address
+ * a `setParams`, and the screen reads each back. The spies still record every call.
+ */
 function renderConfigurator(
     props: { readonly planId: string | undefined; readonly variantId?: string | undefined },
     options: ConfiguratorOptions = {},
 ) {
+    routerMock.__set({
+        pathname: CONFIGURATOR_PATH,
+        params: {
+            ...(props.planId === undefined ? {} : { plan: props.planId }),
+            ...(props.variantId === undefined ? {} : { variant: props.variantId }),
+            ...options.params,
+        },
+        follow: true,
+    });
     return renderStubScreen(
         <SubscriptionConfiguratorScreen
             planId={props.planId}
@@ -2732,25 +2769,23 @@ function renderConfigurator(
 
 async function pressNext(times: number): Promise<void> {
     for (let index = 0; index < times; index += 1) {
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('configurator-next'));
-        });
+        // Next is busy until the step rules' data has arrived; a press before that is ignored.
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('configurator-next')).not.toBeDisabled();
+            },
+            { timeout: 15_000 },
+        );
+        // Awaited: `fireEvent` is asynchronous in RNTL 14, and a press left floating inside an
+        // `act` was sometimes dropped once Continue became a navigation the screen re-renders on.
+        await fireEvent.press(screen.getByTestId('configurator-next'));
     }
 }
 
-async function fillAddress(prefix: string, area: string): Promise<void> {
-    await act(async () => {
-        fireEvent.changeText(screen.getByTestId(`${prefix}-label-input`), 'Home');
-        fireEvent.changeText(screen.getByTestId(`${prefix}-line1-input`), 'Apartment 3');
-        fireEvent.changeText(screen.getByTestId(`${prefix}-city-input`), 'Dubai');
-        fireEvent.changeText(screen.getByTestId(`${prefix}-countryCode-input`), 'AE');
-    });
-    await act(async () => {
-        fireEvent.changeText(screen.getByTestId(`${prefix}-area-input`), area);
-    });
-}
-
-/** Plan → delivery → review. */
+/**
+ * Plan → delivery → review, for a person with one saved address in a served area — which the
+ * delivery step chooses on its own, as the checkout does (HA-22).
+ */
 async function walkToReviewStep(): Promise<void> {
     await waitFor(() => {
         expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
@@ -2761,24 +2796,29 @@ async function walkToReviewStep(): Promise<void> {
         expect(screen.getByTestId('configurator-step-delivery')).toBeTruthy();
     });
 
-    await fillAddress('configurator-address-form', SERVED_AREAS[0]!);
     await waitFor(() => {
         expect(screen.getByTestId('configurator-area-served')).toBeTruthy();
     });
     await pressNext(1);
 
-    // The server's price, on the review step.
+    // The server's price, on the review step. A generous wait: the priced preview is three hops
+    // away (plan, weekday probe, preview), and under the full suite's load 5 s was not always enough.
     await waitFor(
         () => {
             expect(screen.getByTestId('configurator-price-total-amount')).toBeTruthy();
         },
-        { timeout: 5000 },
+        { timeout: 15_000 },
     );
     expect(screen.getByTestId('configurator-price-per-delivery-amount')).toBeTruthy();
     expect(screen.getByTestId('configurator-step-review')).toBeTruthy();
 }
 
 describe('SubscriptionConfiguratorScreen', () => {
+    // The set-up's choices are a session draft; no case may inherit one from the case before it.
+    beforeEach(() => {
+        clearAllSessionDrafts();
+    });
+
     it('answers a malformed plan identifier with the not-found state', async () => {
         await renderConfigurator({ planId: 'not-a-uuid' });
         expect(screen.getByTestId('configurator-empty')).toBeTruthy();
@@ -2859,7 +2899,7 @@ describe('SubscriptionConfiguratorScreen', () => {
     });
 
     it('pre-fills the allergies already on the profile, and gates removing one', async () => {
-        await renderConfigurator({ planId: String(PLAN.id) });
+        await renderConfigurator({ planId: String(PLAN.id) }, { addresses: [HOME_ADDRESS] });
         await waitFor(() => {
             expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
         });
@@ -2878,7 +2918,6 @@ describe('SubscriptionConfiguratorScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('configurator-allergen-relaxed')).toBeTruthy();
         });
-        await fillAddress('configurator-address-form', SERVED_AREAS[0]!);
 
         // Dropping a recorded allergy has to be acknowledged before the flow moves on.
         await pressNext(1);
@@ -2914,6 +2953,9 @@ describe('SubscriptionConfiguratorScreen', () => {
             ),
         ).toBeTruthy();
         expect(screen.getByTestId('configurator-step-delivery')).toBeTruthy();
+        // Nothing saved, so no form to type into: the one way on is the address editor.
+        expect(screen.queryByTestId('configurator-address-picker')).toBeNull();
+        expect(screen.getByTestId('configurator-add-address')).toBeTruthy();
     });
 
     it('disables the weekdays the plan does not deliver on', async () => {
@@ -2938,7 +2980,7 @@ describe('SubscriptionConfiguratorScreen', () => {
     });
 
     it('goes back to a step from its Edit on the review', async () => {
-        await renderConfigurator({ planId: String(PLAN.id) });
+        await renderConfigurator({ planId: String(PLAN.id) }, { addresses: [HOME_ADDRESS] });
 
         await walkToReviewStep();
 
@@ -2948,17 +2990,27 @@ describe('SubscriptionConfiguratorScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
         });
+        // Edit is a step of its own in history, like Continue: Back returns to the review.
+        const opened = routerMock.__push.mock.calls.at(-1)?.[0] as string;
+        expect(pathnameOf(opened)).toBe(CONFIGURATOR_PATH);
+        expect(queryOf(opened)['step']).toBeUndefined();
     }, 30_000);
 
     it('walks the three steps and creates a real subscription at the end', async () => {
         const created = testSubscription({ state: 'active' });
         const harness = await renderConfigurator(
             { planId: String(PLAN.id) },
-            { commerce: { createSubscription: async () => created } },
+            {
+                addresses: [HOME_ADDRESS],
+                commerce: { createSubscription: async () => created },
+            },
         );
 
         await walkToReviewStep();
         expect(screen.getByTestId('medical-disclaimer')).toBeTruthy();
+        expect(screen.getByTestId('configurator-summary-address')).toHaveTextContent(
+            /12 Sunset Street/,
+        );
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge-control'));
@@ -2967,26 +3019,37 @@ describe('SubscriptionConfiguratorScreen', () => {
             fireEvent.press(screen.getByTestId('configurator-create'));
         });
 
+        // The set-up is replaced by the subscription itself, flagged as just created: a refresh
+        // shows the subscription, and Back is not a second chance to create it (plans-04).
         await waitFor(
             () => {
-                expect(screen.getByTestId('configurator-success-screen')).toBeTruthy();
+                expect(routerMock.__replace).toHaveBeenCalledWith(
+                    `/customer/subscriptions/${String(created.id)}?created=1`,
+                );
             },
             { timeout: 5000 },
         );
-        expect(screen.getByTestId('configurator-success-state')).toBeTruthy();
+        expect(routerMock.__push).not.toHaveBeenCalledWith(
+            expect.stringContaining(`/customer/subscriptions/${String(created.id)}`),
+        );
 
-        // What the three steps actually sent: the configuration the person assembled, the
-        // acknowledgement the contract requires, and nothing resembling a payment.
+        // What the three steps actually sent: the configuration the person assembled, the saved
+        // address it is delivered to, the acknowledgement the contract requires, and nothing
+        // resembling a payment.
         expect(harness.repositories.commerce.createSubscription).toHaveBeenCalledTimes(1);
         const request = (harness.repositories.commerce.createSubscription as unknown as jest.Mock)
             .mock.calls[0]?.[0] as {
             configuration: SubscriptionConfiguration;
             acknowledgedTerms: boolean;
+            addressId?: string;
         };
         expect(request.acknowledgedTerms).toBe(true);
+        expect(request.addressId).toBe(HOME_ADDRESS.id);
         expect(request.configuration.planId).toBe(PLAN.id);
-        expect(request.configuration.address.area).toBe(SERVED_AREAS[0]);
+        expect(request.configuration.address.area).toBe(HOME_ADDRESS.areaName);
         expect(request.configuration.slotCode).toBe(DEFAULT_SLOT_CODE);
+        // The set-up is spent: its draft is gone.
+        expect(configuratorDrafts.read(configuratorDraftKey(String(PLAN.id)))).toBeNull();
     }, 30_000);
 
     /**
@@ -2996,7 +3059,10 @@ describe('SubscriptionConfiguratorScreen', () => {
     it('will not send a creation whose terms were never acknowledged', async () => {
         const harness = await renderConfigurator(
             { planId: String(PLAN.id) },
-            { commerce: { createSubscription: async () => testSubscription() } },
+            {
+                addresses: [HOME_ADDRESS],
+                commerce: { createSubscription: async () => testSubscription() },
+            },
         );
 
         await walkToReviewStep();
@@ -3009,8 +3075,238 @@ describe('SubscriptionConfiguratorScreen', () => {
             expect(screen.getByTestId('configurator-issue-terms')).toBeTruthy();
         });
         expect(harness.repositories.commerce.createSubscription).not.toHaveBeenCalled();
-        expect(screen.queryByTestId('configurator-success-screen')).toBeNull();
+        expect(routerMock.__replace).not.toHaveBeenCalled();
     }, 30_000);
+});
+
+/**
+ * The set-up as a URL and a draft (plans-02, 03, 06): the step, band and address in the query, the
+ * rest of the person's choices in a session draft keyed by plan — so Back walks the steps, a
+ * refresh or a detour changes nothing, and adding an address comes back to the delivery step with
+ * it chosen.
+ */
+describe('SubscriptionConfiguratorScreen — its place survives leaving it', () => {
+    beforeEach(() => {
+        clearAllSessionDrafts();
+    });
+
+    const PLAN_PARAM = String(PLAN.id);
+    const OFFICE = testAddress({
+        id: 'address-office',
+        label: 'Office',
+        line1: '1 Tower Road',
+        isDefault: false,
+    });
+    /** The band a set-up opened without one starts on: the plan's middle one. */
+    const MIDDLE_BAND = PLAN.variants[Math.floor(PLAN.variants.length / 2)]!;
+    /** The set-up at a step, with the band and address a fresh one derives. */
+    const at = (step: 'plan' | 'delivery' | 'review', address: string | undefined) =>
+        configuratorHref({ plan: PLAN_PARAM, variant: String(MIDDLE_BAND.id), step, address });
+
+    it('opens on the step its URL names', async () => {
+        await renderConfigurator(
+            { planId: PLAN_PARAM },
+            { addresses: [HOME_ADDRESS], params: { step: 'delivery' } },
+        );
+
+        expect(await screen.findByTestId('configurator-step-delivery')).toBeTruthy();
+        expect(screen.queryByTestId('configurator-step-plan')).toBeNull();
+        expect(screen.getByTestId('configurator-progress-delivery')).toBeTruthy();
+    });
+
+    it('pushes each step, so Back walks them instead of leaving the set-up', async () => {
+        await renderConfigurator({ planId: PLAN_PARAM }, { addresses: [HOME_ADDRESS] });
+        await screen.findByTestId('configurator-step-plan');
+
+        await pressNext(1);
+
+        expect(routerMock.__push).toHaveBeenLastCalledWith(at('delivery', HOME_ADDRESS.id));
+        expect(routerMock.__router.setParams).not.toHaveBeenCalledWith({ step: 'delivery' });
+        expect(await screen.findByTestId('configurator-step-delivery')).toBeTruthy();
+    });
+
+    it('moves a step whose earlier answers are missing to the first one still unanswered', async () => {
+        // Review, with no address to deliver to: the delivery step is unanswered.
+        await renderConfigurator({ planId: PLAN_PARAM }, { params: { step: 'review' } });
+
+        expect(await screen.findByTestId('configurator-step-delivery')).toBeTruthy();
+        expect(routerMock.__router.setParams).toHaveBeenCalledWith({ step: 'delivery' });
+        expect(screen.queryByTestId('configurator-step-review')).toBeNull();
+    });
+
+    it.each([
+        ['when the step before is the entry underneath', true],
+        ['after a refresh', false],
+    ] as const)('goes back a step %s', async (_label, underneath) => {
+        routerMock.__set({
+            navState: underneath
+                ? {
+                      index: 1,
+                      routes: [
+                          { name: 'subscriptions/new', params: { plan: PLAN_PARAM } },
+                          {
+                              name: 'subscriptions/new',
+                              params: { plan: PLAN_PARAM, step: 'delivery' },
+                          },
+                      ],
+                  }
+                : undefined,
+        });
+        await renderConfigurator(
+            { planId: PLAN_PARAM },
+            { addresses: [HOME_ADDRESS], params: { step: 'delivery' } },
+        );
+
+        await fireEvent.press(await screen.findByTestId('configurator-back'));
+
+        if (underneath) {
+            expect(routerMock.__router.back).toHaveBeenCalledTimes(1);
+            expect(routerMock.__router.setParams).not.toHaveBeenCalledWith({ step: undefined });
+        } else {
+            expect(routerMock.__router.setParams).toHaveBeenCalledWith({ step: undefined });
+            expect(routerMock.__router.back).not.toHaveBeenCalled();
+            expect(await screen.findByTestId('configurator-step-plan')).toBeTruthy();
+        }
+    });
+
+    it('keeps the choices through a remount, and forgets them on Start over', async () => {
+        const first = await renderConfigurator(
+            { planId: PLAN_PARAM },
+            { addresses: [HOME_ADDRESS], params: { step: 'delivery' } },
+        );
+        await screen.findByTestId('configurator-step-delivery');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-slot-evening'));
+        });
+        expect(
+            screen.getByTestId('configurator-slot-evening').props.accessibilityState,
+        ).toMatchObject({ checked: true });
+        // Written as it is made, so leaving now loses nothing.
+        expect(configuratorDrafts.read(configuratorDraftKey(PLAN_PARAM))?.slotCode).toBe(
+            'evening',
+        );
+
+        // A detour, Back or a refresh unmounts the screen; the new one finds the window chosen.
+        await first.view.unmount();
+        await renderConfigurator(
+            { planId: PLAN_PARAM },
+            { addresses: [HOME_ADDRESS], params: { step: 'delivery' } },
+        );
+        await screen.findByTestId('configurator-step-delivery');
+        expect(
+            screen.getByTestId('configurator-slot-evening').props.accessibilityState,
+        ).toMatchObject({ checked: true });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-start-over'));
+        });
+        expect(routerMock.__router.setParams).toHaveBeenCalledWith({
+            step: undefined,
+            address: undefined,
+        });
+        expect(configuratorDrafts.read(configuratorDraftKey(PLAN_PARAM))).toBeNull();
+        expect(await screen.findByTestId('configurator-step-plan')).toBeTruthy();
+        expect(screen.queryByTestId('configurator-start-over')).toBeNull();
+    });
+
+    it('sends somebody with no saved address to the address editor, and back to this step', async () => {
+        await renderConfigurator(
+            { planId: PLAN_PARAM },
+            { addresses: [], params: { step: 'delivery' } },
+        );
+
+        await fireEvent.press(await screen.findByTestId('configurator-add-address'));
+
+        const opened = routerMock.__push.mock.calls.at(-1)?.[0] as string;
+        expect(opened).toBe(
+            withReturnTo('/customer/account/addresses/new', at('delivery', undefined)),
+        );
+        // The return the editor receives is this set-up on its delivery step, exactly.
+        expect(decodeURIComponent(queryOf(opened)['returnTo'] ?? '')).toBe(
+            at('delivery', undefined),
+        );
+    });
+
+    it('chooses the address the editor comes back with', async () => {
+        await renderConfigurator(
+            { planId: PLAN_PARAM },
+            {
+                addresses: [HOME_ADDRESS, OFFICE],
+                params: { step: 'delivery', address: OFFICE.id },
+            },
+        );
+        await screen.findByTestId('configurator-step-delivery');
+
+        await waitFor(() => {
+            expect(screen.getByTestId('configurator-address-picker-trigger')).toHaveTextContent(
+                /1 Tower Road/,
+            );
+        });
+        // And another choice is written back into the URL, not kept in the screen.
+        await fireEvent.press(screen.getByTestId('configurator-address-picker-trigger'));
+        await fireEvent.press(
+            await screen.findByTestId(`configurator-address-picker-option-${HOME_ADDRESS.id}`),
+        );
+        expect(routerMock.__router.setParams).toHaveBeenCalledWith({ address: HOME_ADDRESS.id });
+    });
+
+    it('lists the account steps up front, each coming back here, and holds Subscribe', async () => {
+        await renderConfigurator(
+            { planId: PLAN_PARAM },
+            {
+                addresses: [HOME_ADDRESS],
+                checklist: {
+                    lifecycle: 'provisional',
+                    canActivate: false,
+                    items: [
+                        { step: 'verify_email', complete: true, required: true, blockedReason: null },
+                        {
+                            step: 'dietary_profile',
+                            complete: false,
+                            required: true,
+                            blockedReason: null,
+                        },
+                    ],
+                },
+            },
+        );
+
+        // Before step one, not after a refused Subscribe.
+        const panel = await screen.findByTestId('configurator-setup-required');
+        expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
+        expect(panel).toHaveTextContent(/1 step is left before you can subscribe/);
+
+        await fireEvent.press(screen.getByTestId('configurator-setup-step-dietary_profile-open'));
+        expect(routerMock.__push).toHaveBeenLastCalledWith(
+            withReturnTo('/customer/account/allergies', at('plan', HOME_ADDRESS.id)),
+        );
+
+        // Back from the detour; the set-up itself can still be walked, and only Subscribe waits.
+        await act(async () => {
+            routerMock.__set({ pathname: CONFIGURATOR_PATH, params: { plan: PLAN_PARAM } });
+        });
+        await walkToReviewStep();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge-control'));
+        });
+        const create = screen.getByTestId('configurator-create');
+        expect(create.props.accessibilityState).toMatchObject({ disabled: true });
+        expect(create.props.accessibilityHint).toBe('Finish the steps above to subscribe.');
+    }, 30_000);
+
+    it('reads back only what a draft may hold', () => {
+        expect(
+            parseConfiguratorEdits({
+                duration: '4w',
+                slotCode: 'evening',
+                deliveryWeekdays: [1, 3, 9],
+                excludeAllergens: ['tree_nut'],
+                termsAcknowledged: true,
+                variantId: 'from-somewhere',
+            }),
+        ).toEqual({ duration: '4w', slotCode: 'evening', excludeAllergens: ['tree_nut'] });
+        expect(parseConfiguratorEdits('not a draft')).toBeNull();
+    });
 });
 
 /* ══ screens: subscription list and detail ═════════════════════════════════════════════════════ */
@@ -3089,6 +3385,40 @@ describe('SubscriptionsScreen', () => {
             expect(screen.getByTestId('subscriptions-empty')).toBeTruthy();
         });
         expect(screen.getByTestId('subscriptions-clear-filter')).toBeTruthy();
+        // The group is written into the URL — as `status`, never the reserved `state`.
+        expect(routerMock.__router.setParams).toHaveBeenCalledWith({ status: 'ended' });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('subscriptions-clear-filter'));
+        });
+        expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ status: undefined });
+    });
+
+    it('opens on the group its URL names, so Back and a refresh keep it', async () => {
+        routerMock.__set({ params: { status: 'paused' } });
+        const harness = await renderSubscriptions([
+            testSubscription(),
+            testSubscription({ id: uuid(8, 2) as SubscriptionId, state: 'paused' }),
+        ]);
+
+        await waitFor(() => {
+            expect(screen.getByTestId(`subscription-row-${String(uuid(8, 2))}`)).toBeTruthy();
+        });
+        expect(screen.queryByTestId(`subscription-row-${String(SUBSCRIPTION_ID)}`)).toBeNull();
+        expect(harness.repositories.commerce.listSubscriptions).toHaveBeenCalledWith({
+            states: ['paused'],
+        });
+    });
+
+    it('ends the list in a way to another plan, not a sentence about one', async () => {
+        await renderSubscriptions([testSubscription()]);
+        await waitFor(() => {
+            expect(screen.getByTestId('subscriptions-list')).toBeTruthy();
+        });
+
+        expect(screen.queryByTestId('subscriptions-new-hint')).toBeNull();
+        await fireEvent.press(screen.getByTestId('subscriptions-browse'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/plans');
     });
 });
 
@@ -3439,11 +3769,100 @@ describe('SubscriptionDetailScreen', () => {
             fireEvent.press(screen.getByTestId('subscription-pause-confirm'));
         });
 
+        // Inside the dialog that is still open, not on the page behind its backdrop (plans-09).
         await waitFor(() => {
-            expect(screen.getByTestId('subscription-detail-error')).toHaveTextContent(
-                /already paused/,
+            expect(
+                within(screen.getByTestId('subscription-pause-dialog')).getByTestId(
+                    'subscription-pause-failure',
+                ),
+            ).toHaveTextContent(/already paused/);
+        });
+
+        // Closed and opened again, the dialog starts clean rather than on the old refusal.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('subscription-pause-cancel'));
+        });
+        world.subscription = { ...world.subscription, state: 'active' };
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('subscription-pause'));
+        });
+        expect(await screen.findByTestId('subscription-pause-confirm')).toBeTruthy();
+        expect(screen.queryByTestId('subscription-pause-failure')).toBeNull();
+    });
+
+    it('says the subscription was just created, once, from its URL', async () => {
+        routerMock.__set({ params: { created: '1' } });
+        await renderDetail(liveWorld());
+
+        const created = await screen.findByTestId('subscription-created');
+        expect(created).toHaveTextContent(/Your subscription is set up/);
+        await fireEvent.press(screen.getByTestId('subscription-created-dismiss'));
+        expect(routerMock.__router.setParams).toHaveBeenCalledWith({ created: undefined });
+    });
+
+    it('adds a new address from the address dialog, and reopens it on that address', async () => {
+        const garden = testAddress({
+            id: 'address-garden',
+            label: 'Garden',
+            line1: 'Villa 12, Garden Row',
+            areaName: 'Dubai Marina',
+            isDefault: false,
+        });
+        const first = await renderDetail(liveWorld(), { addresses: [HOME_ADDRESS] });
+
+        await fireEvent.press(await screen.findByTestId('subscription-change-address'));
+        await fireEvent.press(await screen.findByTestId('subscription-address-add'));
+        expect(routerMock.__push).toHaveBeenLastCalledWith(
+            withReturnTo(
+                '/customer/account/addresses/new',
+                `/customer/subscriptions/${String(SUBSCRIPTION_ID)}?dialog=address`,
+            ),
+        );
+
+        // The detour unmounted the page; the editor finishes onto it with the new address patched in.
+        await first.view.unmount();
+        routerMock.__reset();
+        routerMock.__set({ params: { dialog: 'address', address: garden.id } });
+        await renderDetail(liveWorld(), { addresses: [HOME_ADDRESS, garden] });
+
+        expect(await screen.findByTestId('subscription-address-dialog')).toBeTruthy();
+        await waitFor(() => {
+            expect(screen.getByTestId('subscription-address-picker-trigger')).toHaveTextContent(
+                /Villa 12, Garden Row/,
             );
         });
+        // Taken off the entry, so a refresh or a Back onto it does not open the dialog again.
+        expect(routerMock.__router.setParams).toHaveBeenCalledWith({
+            dialog: undefined,
+            address: undefined,
+        });
+    });
+
+    it('goes up to the account and the list by name, never stacking a copy', async () => {
+        await renderDetail(liveWorld());
+        await screen.findByTestId('subscription-detail-name');
+
+        await fireEvent.press(screen.getByTestId('subscription-detail-crumb-subscriptions'));
+        expect(routerMock.__router.dismissTo).toHaveBeenLastCalledWith(
+            '/customer/account?section=subscriptions',
+        );
+        await fireEvent.press(screen.getByTestId('subscription-detail-crumb-account'));
+        expect(routerMock.__router.dismissTo).toHaveBeenLastCalledWith('/customer/account');
+        expect(routerMock.__push).not.toHaveBeenCalled();
+    });
+
+    it('offers the same plan again, or the list, once a subscription is over', async () => {
+        await renderDetail(liveWorld({ state: 'expired', nextDeliveryDate: null }));
+
+        const notice = await screen.findByTestId('subscription-detail-read-only');
+        await fireEvent.press(within(notice).getByTestId('subscription-detail-plan-again'));
+        expect(routerMock.__push).toHaveBeenLastCalledWith(
+            `/plans/${String(PLAN_ID)}?variant=${String(testConfiguration().variantId)}`,
+        );
+        await fireEvent.press(within(notice).getByTestId('subscription-detail-list'));
+        expect(routerMock.__router.dismissTo).toHaveBeenLastCalledWith(
+            '/customer/account?section=subscriptions',
+        );
     });
 
     /**

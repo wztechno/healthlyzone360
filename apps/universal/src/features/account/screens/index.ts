@@ -9,7 +9,6 @@
 export { AccountScreen } from './account-screen.tsx';
 export { AddressEditorScreen, NEW_ADDRESS_PARAM } from './address-editor-screen.tsx';
 export type { AddressEditorScreenProps } from './address-editor-screen.tsx';
-export { AddressesScreen } from './addresses-screen.tsx';
 export { AllergiesScreen } from './allergies-screen.tsx';
 export { CLOSURE_STEPS, ClosureWizardScreen, isClosureStep } from './closure-wizard-screen.tsx';
 export type { ClosureStep, ClosureWizardScreenProps } from './closure-wizard-screen.tsx';

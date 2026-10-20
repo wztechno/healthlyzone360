@@ -2,13 +2,13 @@ import { Breadcrumbs, Button, Collapse, Icon, cx } from '@healthy360/design-syst
 import { gradients } from '@healthy360/design-tokens';
 import { useFormatter } from '@healthy360/i18n';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, Pressable, Text as RNText, StyleSheet, View } from 'react-native';
 
 import { usePlansQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
+import { useNavigateUp } from '../../../navigation/use-return-to.ts';
 import { Eyebrow } from '../../../ui/eyebrow.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { PlanBalanceCalculator } from '../plan-balance-calculator.tsx';
@@ -253,7 +253,7 @@ function Faq() {
 
 export function HowPlansWorkScreen() {
     const { t } = useTranslation();
-    const router = useRouter();
+    const navigateUp = useNavigateUp();
 
     const plans = usePlansQuery({});
     const kitchens = useKitchensQuery({ channels: ['marketplace'], limit: 20 });
@@ -263,8 +263,10 @@ export function HowPlansWorkScreen() {
         return map;
     }, [kitchens.data]);
 
+    // Both the crumb and "Choose a plan" lead to the listing this page is read from — so back to
+    // it, kitchen chip and compare tray intact, when it is the page underneath (browse-05).
     const choosePlan = () => {
-        router.push('/plans');
+        navigateUp('/plans');
     };
 
     // An in-page jump only exists where there is a document to scroll; on native the calculator

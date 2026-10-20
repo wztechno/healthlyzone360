@@ -15,12 +15,14 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
+import { useCan } from '../../access/gate.tsx';
 import {
     toFailure,
     useContactPointsQuery,
     useDietaryProfileQuery,
     useSaveDietaryProfileMutation,
 } from '../../data/account-hooks.ts';
+import { withReturnTo } from '../../navigation/return-to.ts';
 import { useSession } from '../../session/session-provider.tsx';
 import { Eyebrow } from '../../ui/eyebrow.tsx';
 import { PillChip } from '../../ui/pill-chip.tsx';
@@ -65,7 +67,18 @@ import { hasAnsweredAllergyQuestion } from './dietary.ts';
  * their mouth, so until they have, the chips and Save are inert and the one line under the chips
  * sends them to the question. Once they have, that line states their declared allergies and links
  * to edit them, and a save carries the stored allergens and exclusions through untouched.
+ *
+ * ## Sign-in and security
+ *
+ * Change password and Devices had no way in for a customer: they were linked from `/profile`,
+ * which only the staff workspace reaches. They sit at the foot of this card, each opened with this
+ * tab as its `?returnTo=` so finishing comes back here. Devices is behind `device.manage_own`, the
+ * permission its own route gates on — a link to a page that would refuse the person is worse than
+ * no link.
  */
+
+/** Where the security pages come back to. */
+const PROFILE_HOME = '/customer/account?section=profile';
 
 const TEST_ID = 'account-profile';
 
@@ -318,6 +331,44 @@ function DietaryUnavailable() {
     );
 }
 
+function SecurityLinks() {
+    const { t } = useTranslation();
+    const router = useRouter();
+    const canManageDevices = useCan('device.manage_own');
+    const title = t('account:profile.securityTitle');
+
+    return (
+        <View testID={`${TEST_ID}-security`} className="flex-col">
+            <Eyebrow>{title}</Eyebrow>
+            <View
+                role="group"
+                aria-label={title}
+                accessibilityLabel={title}
+                className="mt-3 flex-row flex-wrap gap-2.5"
+            >
+                <Button
+                    testID={`${TEST_ID}-change-password`}
+                    variant="secondary"
+                    label={t('account:profile.changePassword')}
+                    onPress={() => {
+                        router.push(withReturnTo('/change-password', PROFILE_HOME) as never);
+                    }}
+                />
+                {canManageDevices ? (
+                    <Button
+                        testID={`${TEST_ID}-devices`}
+                        variant="secondary"
+                        label={t('account:profile.devices')}
+                        onPress={() => {
+                            router.push(withReturnTo('/devices', PROFILE_HOME) as never);
+                        }}
+                    />
+                ) : null}
+            </View>
+        </View>
+    );
+}
+
 export function AccountProfilePanel() {
     const { t } = useTranslation();
     const { atLeast } = useBreakpoint();
@@ -394,6 +445,10 @@ export function AccountProfilePanel() {
                         )}
                     </QueryStates>
                 )}
+            </View>
+
+            <View className="mt-5 border-t border-stroke-subtle pt-5">
+                <SecurityLinks />
             </View>
         </View>
     );

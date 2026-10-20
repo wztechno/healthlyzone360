@@ -16,13 +16,12 @@ import {
 import type { Subscription, CustomerAddress } from '@healthy360/api-client/contracts';
 import { SubscriptionId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
 import {
-    toFailure,
     useCancelSubscriptionMutation,
     useChangeAddressMutation,
     useChangeSlotMutation,
@@ -38,10 +37,12 @@ import {
 } from '../../../data/commerce-hooks.ts';
 import { useAddressesQuery } from '../../../data/account-hooks.ts';
 import { useKitchenMenuQuery } from '../../../data/marketplace-hooks.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
 import { weekdayRun } from '../configurator-steps.tsx';
+import { savedAddressValues } from '../configurator.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
-import { formatAddress } from '../address.ts';
+import { formatAddress, toDeliveryAddress } from '../address.ts';
 import { earliestStartDate, upcomingDeliveryDates } from '../dates.ts';
 import { DELIVERY_SLOTS } from '../delivery.ts';
 import {
@@ -56,6 +57,7 @@ import { CardPanel, SummaryCard } from '../summary-card.tsx';
 import type { SummaryCardRow } from '../summary-card.tsx';
 import {
     CancelSubscriptionDialog,
+    DialogFailure,
     MealChoicesDialog,
     WeekdayEditorDialog,
 } from '../subscription-editors.tsx';
@@ -84,15 +86,26 @@ import {
  *
  * The repository refuses a transition the state does not allow — resuming something that was never
  * paused, pausing something cancelled — and answers with a sentence a person can read. Those
- * rejections are rendered rather than swallowed. The controls a state does not permit are not shown
- * at all, so the rejection path is a safety net rather than the normal route; but the net is real,
- * because a stale screen and a changed subscription is an ordinary Tuesday.
+ * rejections are rendered rather than swallowed, inside the dialog that asked (`DialogFailure`): the
+ * dialogs are modal and stay open on a refusal, so a notice on the page underneath was drawn behind
+ * the backdrop (plans-09). The controls a state does not permit are not shown at all, so the
+ * rejection path is a safety net rather than the normal route; but the net is real, because a stale
+ * screen and a changed subscription is an ordinary Tuesday.
  *
  * ## Cancelled and expired are read-only
  *
- * There is no control on a finished subscription, and the screen says why. Doc 11, `MGT-06` and
- * `MGT-08` record the reference's own terms drawing the same line between a live package and a
- * finished one.
+ * There is no control on a finished subscription, and the screen says why — and where to go from
+ * here: the same plan again, or the list (plans-13). Doc 11, `MGT-06` and `MGT-08` record the
+ * reference's own terms drawing the same line between a live package and a finished one.
+ *
+ * ## What arrives in the URL
+ *
+ * - `?created=1` — the set-up replaced itself with this page once the subscription existed, and the
+ *   confirmation is said here, where a refresh still finds it (plans-04). Dismissing it takes the
+ *   flag off the entry.
+ * - `?dialog=address&address={id}` — the way back from "Add a new address" in the address dialog.
+ *   The page is a sibling in the customer `<Slot/>`, so the detour unmounted it; the dialog opens
+ *   again on the address just saved, and both parameters are taken off the entry (plans-06).
  *
  * ## Laid out as cards
  *
@@ -108,8 +121,16 @@ export interface SubscriptionDetailScreenProps {
     readonly subscriptionId: string | undefined;
 }
 
-type OpenDialog =
-    'pause' | 'resume' | 'skip' | 'address' | 'slot' | 'weekdays' | 'choices' | 'cancel' | null;
+type DialogKey = 'pause' | 'resume' | 'skip' | 'address' | 'slot' | 'weekdays' | 'choices' | 'cancel';
+type OpenDialog = DialogKey | null;
+
+const ACCOUNT_HREF = '/customer/account';
+const SUBSCRIPTIONS_HREF = '/customer/account?section=subscriptions';
+
+function single(value: string | string[] | undefined): string | null {
+    const first = Array.isArray(value) ? value[0] : value;
+    return first === undefined || first === '' ? null : first;
+}
 
 /** How many meals the Free Selection picker offers. The kitchen's menu, not the whole catalogue. */
 const CHOICE_OPTIONS = 20;
@@ -121,6 +142,10 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
+    const params = useLocalSearchParams<{ created?: string; dialog?: string; address?: string }>();
+    const justCreated = single(params.created) === '1';
+    const requestedDialog = single(params.dialog) === 'address' ? 'address' : null;
+    const requestedAddress = single(params.address);
 
     const parsed = subscriptionId === undefined ? null : SubscriptionId.safeParse(subscriptionId);
     const query = useSubscriptionQuery(parsed);
@@ -181,15 +206,47 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
         { limit: CHOICE_OPTIONS },
     );
 
-    const failure =
-        toFailure(pause.error) ??
-        toFailure(resume.error) ??
-        toFailure(skipDay.error) ??
-        toFailure(changeAddress.error) ??
-        toFailure(changeSlot.error) ??
-        toFailure(changeWeekdays.error) ??
-        toFailure(setMealChoices.error) ??
-        toFailure(cancel.error);
+    /**
+     * Every dialog opens on a clean slate: its mutation is reset first, so the refusal of an earlier
+     * attempt is never what greets the next one. The refusal itself is drawn inside the dialog.
+     */
+    const mutations: Readonly<Record<DialogKey, { readonly reset: () => void }>> = {
+        pause,
+        resume,
+        skip: skipDay,
+        address: changeAddress,
+        slot: changeSlot,
+        weekdays: changeWeekdays,
+        choices: setMealChoices,
+        cancel,
+    };
+    const openDialog = (next: DialogKey) => {
+        mutations[next].reset();
+        setDialog(next);
+    };
+
+    /*
+     * `?dialog=address` — back from adding an address — reopens the address dialog on the address
+     * just saved, once the subscription is known to still take one. Adjusted during render rather
+     * than in an effect, so the page never paints a frame without the dialog it was asked for; the
+     * parameters then come off the entry, so a refresh or a Back onto it does not open it again.
+     */
+    const dialogRequest =
+        requestedDialog === null ? null : `${requestedDialog}:${requestedAddress ?? ''}`;
+    const [handledRequest, setHandledRequest] = useState<string | null>(null);
+    if (dialogRequest !== null && dialogRequest !== handledRequest && subscription !== undefined) {
+        setHandledRequest(dialogRequest);
+        if (canChangeDelivery(subscription.state)) {
+            setAddressId(requestedAddress);
+            setShowAddressErrors(false);
+            setDialog('address');
+        }
+    }
+    const requestHandled = dialogRequest !== null && dialogRequest === handledRequest;
+    useEffect(() => {
+        if (!requestHandled) return;
+        router.setParams({ dialog: undefined, address: undefined } as never);
+    }, [requestHandled, router]);
 
     const busy =
         pause.isPending ||
@@ -228,8 +285,9 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
             // a plan, cancel a subscription — are further down and own the emphasis.
             variant="quiet"
             label={t('commerce:subscription.backToList')}
+            // Up to the list by name — popping to it when it is underneath, never stacking a copy.
             onPress={() => {
-                router.push('/customer/account?section=subscriptions' as never);
+                router.dismissTo(SUBSCRIPTIONS_HREF as never);
             }}
         />
     );
@@ -288,7 +346,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                         setEditedWeekdays([
                                             ...subscription.configuration.deliveryWeekdays,
                                         ]);
-                                        setDialog('weekdays');
+                                        openDialog('weekdays');
                                     },
                                 },
                             }
@@ -311,7 +369,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                         setWeekdays([
                                             ...subscription.configuration.deliveryWeekdays,
                                         ]);
-                                        setDialog('slot');
+                                        openDialog('slot');
                                     },
                                 },
                             }
@@ -329,7 +387,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                     testID: 'subscription-change-address',
                                     onPress: () => {
                                         setAddressId(null);
-                                        setDialog('address');
+                                        openDialog('address');
                                     },
                                 },
                             }
@@ -375,22 +433,33 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
 
     return (
         <View testID="subscription-detail-screen" className="flex-col">
+            {/* Each crumb goes up to the page it names, by `dismissTo`: back to that entry when it is
+                underneath, a replace otherwise — never a push that makes Back loop. */}
             <Breadcrumbs
                 testID="subscription-detail-breadcrumbs"
                 items={[
                     {
                         key: 'account',
                         label: t('commerce:subscription.crumbAccount'),
+                        testID: 'subscription-detail-crumb-account',
                         onPress: () => {
-                            router.push('/customer/account' as never);
+                            router.dismissTo(ACCOUNT_HREF as never);
                         },
                     },
                     {
                         key: 'subscriptions',
                         label: t('commerce:subscription.crumbSubscriptions'),
+                        testID: 'subscription-detail-crumb-subscriptions',
                         onPress: () => {
-                            router.push('/customer/account?section=subscriptions' as never);
+                            router.dismissTo(SUBSCRIPTIONS_HREF as never);
                         },
+                    },
+                    // The page itself. A trail's last crumb is drawn as "you are here" and is not
+                    // a link, so without it "Subscriptions" was the current page and could not be
+                    // pressed.
+                    {
+                        key: 'subscription',
+                        label: subscription?.planName ?? t('commerce:subscription.planTitle'),
                     },
                 ]}
             />
@@ -405,6 +474,30 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
             >
                 {subscription === undefined ? null : (
                     <View className="mt-3 flex-col gap-6">
+                        {justCreated ? (
+                            <Callout
+                                testID="subscription-created"
+                                role="status"
+                                tone="success"
+                                icon="success"
+                                title={t('commerce:configurator.successTitle')}
+                                body={t('commerce:configurator.successBody', {
+                                    plan: subscription.planName,
+                                })}
+                                actions={
+                                    <Button
+                                        testID="subscription-created-dismiss"
+                                        variant="quiet"
+                                        size="sm"
+                                        label={t('common:action.dismiss')}
+                                        onPress={() => {
+                                            router.setParams({ created: undefined } as never);
+                                        }}
+                                    />
+                                }
+                            />
+                        ) : null}
+
                         {/* The opening: the plan, its state on the title's line, and the two facts
                             somebody opens this page for — what it costs and when the next one comes. */}
                         <View className="flex-col gap-1.5">
@@ -481,17 +574,6 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                         <SubscriptionBalanceCard balance={balanceQuery.data} />
                                     )}
 
-                                    {failure === null ? null : (
-                                        <Callout
-                                            testID="subscription-detail-error"
-                                            role="alert"
-                                            tone="danger"
-                                            icon="warning"
-                                            title={t('commerce:subscription.actionFailedTitle')}
-                                            body={failure.message}
-                                        />
-                                    )}
-
                                     {readOnly ? (
                                         <Callout
                                             testID="subscription-detail-read-only"
@@ -501,6 +583,34 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                             body={t(
                                                 `commerce:subscription.readOnly.${subscription.state}`,
                                             )}
+                                            // A finished subscription is a place to leave from:
+                                            // the same plan again, on the same band, or the list.
+                                            actions={
+                                                <>
+                                                    <Button
+                                                        testID="subscription-detail-plan-again"
+                                                        size="sm"
+                                                        label={t(
+                                                            'commerce:subscription.choosePlanAgain',
+                                                        )}
+                                                        onPress={() => {
+                                                            router.push(
+                                                                withQuery(
+                                                                    `/plans/${String(subscription.configuration.planId)}`,
+                                                                    {
+                                                                        variant: String(
+                                                                            subscription
+                                                                                .configuration
+                                                                                .variantId,
+                                                                        ),
+                                                                    },
+                                                                ) as never,
+                                                            );
+                                                        }}
+                                                    />
+                                                    {listAction}
+                                                </>
+                                            }
                                         />
                                     ) : null}
 
@@ -530,7 +640,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                                     label={t('commerce:choices.open')}
                                                     disabled={busy}
                                                     onPress={() => {
-                                                        setDialog('choices');
+                                                        openDialog('choices');
                                                     }}
                                                 />
                                             ) : null}
@@ -543,7 +653,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                                     disabled={busy}
                                                     onPress={() => {
                                                         setPauseUntil(null);
-                                                        setDialog('pause');
+                                                        openDialog('pause');
                                                     }}
                                                 />
                                             ) : null}
@@ -554,7 +664,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                                     label={t('commerce:subscription.resume')}
                                                     disabled={busy}
                                                     onPress={() => {
-                                                        setDialog('resume');
+                                                        openDialog('resume');
                                                     }}
                                                 />
                                             ) : null}
@@ -571,7 +681,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                                 aria-disabled={busy}
                                                 accessibilityState={{ disabled: busy }}
                                                 onPress={() => {
-                                                    setDialog('cancel');
+                                                    openDialog('cancel');
                                                 }}
                                                 className="min-h-touch items-center justify-center"
                                             >
@@ -605,7 +715,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                     onPress: () => {
                         setSkipSheetOpen(false);
                         setSkipDate(date);
-                        setDialog('skip');
+                        openDialog('skip');
                     },
                 }))}
             />
@@ -670,6 +780,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                   })
                         }
                     />
+                    <DialogFailure error={pause.error} testID="subscription-pause-failure" />
                 </Stack>
             </Dialog>
 
@@ -699,7 +810,9 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                         />
                     </>
                 }
-            />
+            >
+                <DialogFailure error={resume.error} testID="subscription-resume-failure" />
+            </Dialog>
 
             {/* ── skip a day ─────────────────────────────────────────────────────────────────── */}
             <Dialog
@@ -740,14 +853,17 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                     </>
                 }
             >
-                <Callout
-                    testID="subscription-skip-consequence"
-                    role="note"
-                    tone="warning"
-                    icon="info"
-                    title={t('commerce:subscription.skipConsequenceTitle')}
-                    body={t('commerce:subscription.skipConsequenceBody')}
-                />
+                <Stack space="sm">
+                    <Callout
+                        testID="subscription-skip-consequence"
+                        role="note"
+                        tone="warning"
+                        icon="info"
+                        title={t('commerce:subscription.skipConsequenceTitle')}
+                        body={t('commerce:subscription.skipConsequenceBody')}
+                    />
+                    <DialogFailure error={skipDay.error} testID="subscription-skip-failure" />
+                </Stack>
             </Dialog>
 
             {/* ── change address ─────────────────────────────────────────────────────────────── */}
@@ -785,15 +901,9 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                             address:
                                                 selected === undefined
                                                     ? subscription.configuration.address
-                                                    : {
-                                                          label: selected.label,
-                                                          line1: selected.line1,
-                                                          line2: selected.line2,
-                                                          area: selected.areaName,
-                                                          city: '',
-                                                          countryCode: '',
-                                                          instructions: selected.notes,
-                                                      },
+                                                    : toDeliveryAddress(
+                                                          savedAddressValues(selected),
+                                                      ),
                                             addressId,
                                         },
                                     },
@@ -804,24 +914,56 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                     </>
                 }
             >
-                <Select
-                    testID="subscription-address-picker"
-                    label={t('commerce:subscription.addressDialogTitle')}
-                    value={addressId}
-                    onChange={setAddressId}
-                    options={addressList.map((entry) => ({
-                        value: entry.id,
-                        label: [entry.label, entry.line1, entry.areaName]
-                            .filter((part) => part.trim() !== '')
-                            .join(' · '),
-                    }))}
-                    placeholder={t('commerce:subscription.addressDialogTitle')}
-                />
-                {showAddressErrors && addressId === null ? (
-                    <Text tone="danger" variant="caption" testID="subscription-address-error">
-                        {t('commerce:validation.required')}
-                    </Text>
-                ) : null}
+                <Stack space="sm">
+                    <Select
+                        testID="subscription-address-picker"
+                        label={t('commerce:subscription.addressDialogTitle')}
+                        value={addressId}
+                        onChange={setAddressId}
+                        options={addressList.map((entry) => ({
+                            value: entry.id,
+                            label: [entry.label, entry.line1, entry.areaName]
+                                .filter((part) => part.trim() !== '')
+                                .join(' · '),
+                        }))}
+                        placeholder={t('commerce:subscription.addressDialogTitle')}
+                    />
+                    {showAddressErrors && addressId === null ? (
+                        <Text tone="danger" variant="caption" testID="subscription-address-error">
+                            {t('commerce:validation.required')}
+                        </Text>
+                    ) : null}
+                    {/*
+                     * The address that is needed may not be saved yet. The editor saves it and comes
+                     * back here with `?dialog=address&address={new id}`, which reopens this dialog
+                     * on it — rather than ending on the address list, three pages from here.
+                     */}
+                    <View className="self-start">
+                        <Button
+                            testID="subscription-address-add"
+                            variant="quiet"
+                            size="sm"
+                            label={t('commerce:subscription.addAddress')}
+                            onPress={() => {
+                                if (subscription === undefined) return;
+                                setDialog(null);
+                                router.push(
+                                    withReturnTo(
+                                        '/customer/account/addresses/new',
+                                        withQuery(
+                                            `/customer/subscriptions/${String(subscription.id)}`,
+                                            { dialog: 'address' },
+                                        ),
+                                    ) as never,
+                                );
+                            }}
+                        />
+                    </View>
+                    <DialogFailure
+                        error={changeAddress.error}
+                        testID="subscription-address-failure"
+                    />
+                </Stack>
             </Dialog>
 
             {/* ── change slot and delivery days ──────────────────────────────────────────────── */}
@@ -903,6 +1045,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                             {t('commerce:subscription.slotDaysNote')}
                         </Text>
                     </Stack>
+                    <DialogFailure error={changeSlot.error} testID="subscription-slot-failure" />
                 </Stack>
             </Dialog>
             {/* ── delivery weekdays, from the plan's real availability ───────────────────────── */}
@@ -912,6 +1055,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                 balance={balanceQuery.data}
                 selected={editedWeekdays ?? subscription?.configuration.deliveryWeekdays ?? []}
                 pending={changeWeekdays.isPending}
+                error={changeWeekdays.error}
                 onChange={setEditedWeekdays}
                 onClose={close}
                 onConfirm={() => {
@@ -937,6 +1081,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                 current={[]}
                 slotCode={subscription?.configuration.slotCode ?? ''}
                 pending={setMealChoices.isPending}
+                error={setMealChoices.error}
                 onClose={close}
                 onConfirm={(mealId) => {
                     if (subscription?.nextDeliveryDate == null) return;
@@ -959,6 +1104,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                 balance={balanceQuery.data}
                 memo={cancel.data === undefined ? undefined : cancel.data.creditMemo}
                 pending={cancel.isPending}
+                error={cancel.error}
                 onClose={close}
                 onConfirm={() => {
                     if (subscription === undefined) return;

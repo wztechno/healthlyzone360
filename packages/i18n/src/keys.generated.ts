@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8333 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8335 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -351,7 +351,6 @@ export interface NamespaceKeys {
     | 'addresses.save'
     | 'addresses.savedToast'
     | 'addresses.subtitle'
-    | 'addresses.title'
     | 'checklist.blocked'
     | 'checklist.cannotActivate'
     | 'checklist.outstanding'
@@ -393,6 +392,7 @@ export interface NamespaceKeys {
     | 'closure.finish'
     | 'closure.irreversibleBody'
     | 'closure.irreversibleTitle'
+    | 'closure.keepAccount'
     | 'closure.next'
     | 'closure.noChallenge'
     | 'closure.noteHint'
@@ -591,13 +591,14 @@ export interface NamespaceKeys {
     | 'profile.allergiesNone'
     | 'profile.answerAllergies'
     | 'profile.cancel'
+    | 'profile.changePassword'
+    | 'profile.devices'
     | 'profile.dietsEyebrow'
     | 'profile.dietsLocked'
     | 'profile.dietsUnavailable'
     | 'profile.editAllergies'
     | 'profile.emailLabel'
     | 'profile.listSeparator'
-    | 'profile.manageAddresses'
     | 'profile.mobileLabel'
     | 'profile.nameLabel'
     | 'profile.noPhone'
@@ -606,6 +607,7 @@ export interface NamespaceKeys {
     | 'profile.phoneVerify'
     | 'profile.save'
     | 'profile.saved'
+    | 'profile.securityTitle'
     | 'profile.slotLabel'
     | 'profile.slotUnset'
     | 'profile.title'
@@ -8721,7 +8723,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:addresses.save',
   'account:addresses.savedToast',
   'account:addresses.subtitle',
-  'account:addresses.title',
   'account:checklist.blocked',
   'account:checklist.cannotActivate',
   'account:checklist.outstanding',
@@ -8766,6 +8767,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:closure.next',
   'account:closure.noChallenge',
   'account:closure.noteHint',
+  'account:closure.keepAccount',
   'account:closure.noteLabel',
   'account:closure.notePlaceholder',
   'account:closure.optOutConfirm',
@@ -8964,10 +8966,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:profile.dietsEyebrow',
   'account:profile.dietsLocked',
   'account:profile.dietsUnavailable',
+  'account:profile.changePassword',
+  'account:profile.devices',
   'account:profile.editAllergies',
   'account:profile.emailLabel',
   'account:profile.listSeparator',
-  'account:profile.manageAddresses',
   'account:profile.mobileLabel',
   'account:profile.nameLabel',
   'account:profile.noPhone',
@@ -8979,6 +8982,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:profile.slotLabel',
   'account:profile.slotUnset',
   'account:profile.title',
+  'account:profile.securityTitle',
   'account:title',
   'auth:aside.headline',
   'auth:aside.points.marketplace',

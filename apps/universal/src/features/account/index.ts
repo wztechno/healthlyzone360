@@ -61,7 +61,6 @@ export type { DialingCode, PhoneErrorKey } from './phone.ts';
 export {
     AccountScreen,
     AddressEditorScreen,
-    AddressesScreen,
     AllergiesScreen,
     ConsentsScreen,
     NEW_ADDRESS_PARAM,

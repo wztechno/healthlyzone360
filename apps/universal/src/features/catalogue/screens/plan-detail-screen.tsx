@@ -20,21 +20,26 @@ import { EntityImage } from '../../../media/entity-image.tsx';
 import type { PlanVariant, SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { SubscriptionPlanId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
+import { ROUTE_PATHS } from '@healthy360/permissions';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { mealsFromPages, useMealsQuery, usePlanQuery } from '../../../data/catalogue-hooks.ts';
 import { discountedTotalMinorUnits, weeksFor } from '../../commerce/configurator.ts';
+import { configuratorHref } from '../../commerce/configurator-draft.ts';
 import { variantName } from '../../commerce/configurator-steps.tsx';
-import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
+import { useKitchenQuery, useSubscriptionsQuery } from '../../../data/marketplace-hooks.ts';
+import { withQuery } from '../../../navigation/return-to.ts';
+import { useGoToAuth, useNavigateUp } from '../../../navigation/use-return-to.ts';
 import { useSession } from '../../../session/session-provider.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { recordResumeIntent } from '../../marketplace/resume-intent.ts';
 import { CardGrid, CardGridItem } from '../../marketplace/section-header.tsx';
 import { MealCard } from '../../marketplace/meal-card.tsx';
+import { isLiveSubscription } from '../plan-subscriber-panel.tsx';
 
 /**
  * `/plans/{plan}` — one subscription plan.
@@ -67,8 +72,20 @@ import { MealCard } from '../../marketplace/meal-card.tsx';
  *
  * A signed-in press goes straight to `/customer/subscriptions/new`, carrying both the plan and the
  * variant the person was looking at — so the configurator opens on the calorie band they chose here
- * rather than resetting to the advertised one. An anonymous visitor gets a real navigation to
- * sign-in with the page recorded, so the plan is one press away once they are back.
+ * rather than resetting to the advertised one. An anonymous visitor goes to sign-in with that same
+ * configurator URL as `?returnTo=`, so signing in lands on the set-up for this plan and band rather
+ * than on `/discover` (browse-08). While the session is still being restored the button waits — it
+ * used to read a not-yet-loaded session as "signed out" and send a signed-in person to sign in
+ * (AUTH-09).
+ *
+ * Somebody who already holds a live subscription to this plan is offered "Manage plan" first — the
+ * same action the plan's card on `/plans` offers — and setting up a second one only after it
+ * (plans-12).
+ *
+ * ## The band is in the URL
+ *
+ * `?variant=`, written with `setParams`, so the band survives the kitchen link and Back, a refresh,
+ * and the sign-in round trip. The page follows the URL when it changes underneath it.
  *
  * Until the commerce wave landed, this control opened a prototype dialog naming the endpoint it was
  * waiting on. Replacing it was the whole handoff: one branch, and the notice is gone.
@@ -99,9 +116,15 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
     const { t } = useTranslation();
     const basket = useBasketAdd({ labelKey: 'catalogue:nav.plans', testID: 'plan-detail' });
     const router = useRouter();
+    const navigateUp = useNavigateUp();
+    const goToAuth = useGoToAuth();
     const formatter = useFormatter();
-    const { me } = useSession();
-    const signedIn = me !== null;
+    // Read from the session's phase, not from `me`: `me` is also null while a stored session is
+    // still being restored, and that is not the same as being signed out.
+    const { phase } = useSession();
+    const restoring = phase === 'restoring';
+    const signedIn = phase !== 'restoring' && phase !== 'anonymous';
+    const verified = phase === 'contextPending' || phase === 'ready';
     const wide = useBreakpoint().atLeast('lg');
 
     const parsed = planId === undefined ? null : SubscriptionPlanId.safeParse(planId);
@@ -110,7 +133,33 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
 
     const kitchen = useKitchenQuery(item?.kitchenId ?? null);
 
-    const [variantId, setVariantId] = useState<string | null>(null);
+    // The same list `/plans` reads, so it is usually cached: a person's own, asked for only once the
+    // session is a verified one (anyone else is answered 401 or 403).
+    const subscriptions = useSubscriptionsQuery(verified);
+    const held =
+        item === undefined
+            ? undefined
+            : (subscriptions.data?.items ?? []).find(
+                  (subscription) =>
+                      isLiveSubscription(subscription) &&
+                      String(subscription.configuration.planId) === String(item.id),
+              );
+
+    // The band follows `?variant=` — the kitchen-profile `?tab` pattern: chosen with `setParams`, and
+    // followed during render when the URL changes underneath the page.
+    const params = useLocalSearchParams<{ variant?: string | string[] }>();
+    const requestedVariant =
+        (Array.isArray(params.variant) ? params.variant[0] : params.variant) ?? null;
+    const [variantId, setVariantId] = useState<string | null>(requestedVariant);
+    const [followedVariant, setFollowedVariant] = useState<string | null>(requestedVariant);
+    if (followedVariant !== requestedVariant) {
+        setFollowedVariant(requestedVariant);
+        setVariantId(requestedVariant);
+    }
+    const chooseVariant = (next: string) => {
+        setVariantId(next);
+        router.setParams({ variant: next } as never);
+    };
 
     // The middle variant is the advertised one, so it is what an unopened page should be showing.
     const selected: PlanVariant | undefined =
@@ -175,15 +224,21 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                     {
                         key: 'home',
                         label: t('catalogue:nav.home'),
+                        testID: 'plan-detail-crumb-home',
+                        // The marketplace home itself, not `/` — the launch resolver, which sends an
+                        // unverified account to verify its email (browse-10). `navigate`, so it adds
+                        // no entry when that page is already the one underneath.
                         onPress: () => {
-                            router.push('/');
+                            router.navigate(ROUTE_PATHS.customerHome as never);
                         },
                     },
                     {
                         key: 'plans',
                         label: t('catalogue:nav.plans'),
+                        testID: 'plan-detail-crumb-plans',
+                        // Back to the listing as it was left — its kitchen chip and compare tray.
                         onPress: () => {
-                            router.push('/plans');
+                            navigateUp('/plans');
                         },
                     },
                     { key: 'plan', label: item?.name ?? t('catalogue:plan.loading') },
@@ -304,7 +359,7 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                                 label={t('catalogue:plan.variantsTitle')}
                                                 block
                                                 value={String(selected.id)}
-                                                onChange={setVariantId}
+                                                onChange={chooseVariant}
                                                 items={item.variants.map((variant) => ({
                                                     value: String(variant.id),
                                                     label: variantName(
@@ -534,27 +589,52 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                             </Text>
                                         </Stack>
 
+                                        {held === undefined ? null : (
+                                            <Button
+                                                testID="plan-detail-manage"
+                                                block
+                                                label={t('catalogue:plans.managePlan')}
+                                                accessibilityLabel={t(
+                                                    'catalogue:plans.managePlanNamed',
+                                                    { plan: item.name },
+                                                )}
+                                                onPress={() => {
+                                                    router.push(
+                                                        `/customer/subscriptions/${String(held.id)}` as never,
+                                                    );
+                                                }}
+                                            />
+                                        )}
                                         <Button
                                             testID="plan-detail-configure"
                                             block
+                                            variant={held === undefined ? 'primary' : 'secondary'}
                                             label={
-                                                signedIn
+                                                signedIn || restoring
                                                     ? t('catalogue:plan.configure')
                                                     : t('catalogue:plan.configureSignIn')
                                             }
+                                            loading={restoring}
+                                            disabled={restoring}
                                             onPress={() => {
+                                                const setUp = configuratorHref({
+                                                    plan: String(item.id),
+                                                    variant: String(selected.id),
+                                                });
                                                 if (signedIn) {
-                                                    router.push(
-                                                        `/customer/subscriptions/new?plan=${String(item.id)}&variant=${String(selected.id)}` as never,
-                                                    );
+                                                    router.push(setUp as never);
                                                     return;
                                                 }
+                                                // The fallback for a sign-in that ends somewhere
+                                                // else in the tab; `returnTo` is the way back.
                                                 recordResumeIntent({
-                                                    href: `/plans/${String(item.id)}`,
+                                                    href: withQuery(`/plans/${String(item.id)}`, {
+                                                        variant: String(selected.id),
+                                                    }),
                                                     labelKey: 'catalogue:nav.plans',
                                                     name: item.name,
                                                 });
-                                                router.push('/sign-in');
+                                                goToAuth('/sign-in', setUp);
                                             }}
                                         />
                                     </Stack>

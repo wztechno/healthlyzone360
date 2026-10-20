@@ -43,6 +43,13 @@ export interface PlanSetupSummaryProps {
     readonly actionLabel: string;
     readonly actionTestID: string;
     readonly actionLoading?: boolean | undefined;
+    /**
+     * Holds the action — Subscribe while the account still has required set-up steps, the same
+     * rule the checkout's Place order follows. `actionHint` says why to somebody who cannot see the
+     * steps listed above.
+     */
+    readonly actionDisabled?: boolean | undefined;
+    readonly actionHint?: string | undefined;
     readonly onAction: () => void;
     /** What still needs an answer — the issues list or a refusal — shown above the action. */
     readonly notice?: ReactNode | undefined;
@@ -59,6 +66,8 @@ export function PlanSetupSummary({
     actionLabel,
     actionTestID,
     actionLoading,
+    actionDisabled = false,
+    actionHint,
     onAction,
     notice,
     confirm,
@@ -115,6 +124,8 @@ export function PlanSetupSummary({
             testID={actionTestID}
             label={actionLabel}
             loading={actionLoading}
+            disabled={actionDisabled}
+            {...(actionHint === undefined ? {} : { accessibilityHint: actionHint })}
             onPress={onAction}
             {...(atLeast('lg') ? { block: true } : {})}
         />
