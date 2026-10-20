@@ -3326,10 +3326,12 @@ export function useAdminPlanPageQuery(
         placeholderData: keepAcrossPages(key),
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
+            // The page shows each plan's configurations, durations and prices, so it needs them.
             return repositories.kitchenAdmin.listPlans({
                 ...filter,
                 page,
                 perPage: KITCHEN_PAGE_SIZE,
+                withMatrix: true,
             });
         },
     });

@@ -411,6 +411,70 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         return mapAdminCursorPage(envelope.data, meta, (wire) => wire);
     }
 
+    /*
+     * A plan's own configurations and their duration assignments, each degrading to an empty list.
+     *
+     * The assignments rather than the kitchen's whole duration vocabulary: reading the vocabulary
+     * made each plan show every length any plan had ever used, so replacing 20 days with 28 read
+     * back as both; and it carried no discount, so a stated one read back as "not set".
+     */
+    async function readPlanMatrix(planId: string): Promise<{
+        readonly cells: PlanVariantCell[];
+        readonly assignments: PlanDurationAssignment[];
+    }> {
+        const id = encodeURIComponent(planId);
+        const [cells, assignments] = await Promise.all([
+            transport
+                .requestEnvelope<{ item: AdminCatalogueItem; cells: PlanVariantCell[] }>({
+                    method: 'GET',
+                    path: `/catalogue/plans/${id}/variants`,
+                })
+                .then((envelope) => envelope.data.cells)
+                .catch((): PlanVariantCell[] => []),
+            transport
+                .requestEnvelope<{ assignments: PlanDurationAssignment[] }>({
+                    method: 'GET',
+                    path: `/catalogue/plans/${id}/variant-durations`,
+                })
+                .then((envelope) => envelope.data.assignments)
+                .catch((): PlanDurationAssignment[] => []),
+        ]);
+        return { cells, assignments };
+    }
+
+    /*
+     * The kitchen's plan vocabulary — durations, meal combinations, energy bands — shared by every
+     * plan. Each read degrades to an empty list, so an unreachable endpoint leaves the plan
+     * renderable with the parts that did load.
+     */
+    async function readPlanVocabulary(): Promise<{
+        readonly durations: PlanDurationOption[];
+        readonly combinations: MealCombinationOption[];
+        readonly bands: Map<string, EnergyBand>;
+    }> {
+        const [durations, combinations, bands] = await Promise.all([
+            transport
+                .request<PlanDurationOption[]>({
+                    method: 'GET',
+                    path: '/catalogue/plan-vocabulary/durations',
+                })
+                .catch((): PlanDurationOption[] => []),
+            transport
+                .request<MealCombinationOption[]>({
+                    method: 'GET',
+                    path: '/catalogue/plan-vocabulary/combinations',
+                })
+                .catch((): MealCombinationOption[] => []),
+            transport
+                .request<EnergyBand[]>({
+                    method: 'GET',
+                    path: '/catalogue/plan-vocabulary/energy-bands',
+                })
+                .catch((): EnergyBand[] => []),
+        ]);
+        return { durations, combinations, bands: new Map(bands.map((band) => [band.id, band])) };
+    }
+
     const reads: ApiKitchenAdminReads = {
         async nextReference(prefix: ReferenceSeries): Promise<string> {
             const envelope = await transport.requestEnvelope<{ readonly reference: string }>({
@@ -856,10 +920,30 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 pickCursorFilter(filter),
                 status,
             );
-            return {
-                ...page,
-                items: page.items.map((wire) => mapPlanAdminFromItem(wire)),
-            };
+
+            if (filter?.withMatrix !== true) {
+                return {
+                    ...page,
+                    items: page.items.map((wire) => mapPlanAdminFromItem(wire)),
+                };
+            }
+
+            // The vocabulary is the kitchen's, shared by every plan: read it once for the page.
+            const vocabulary = await readPlanVocabulary();
+            const items = await Promise.all(
+                page.items.map(async (wire) => {
+                    const matrix = await readPlanMatrix(wire.id);
+                    return mapPlanAdminFromItem(wire, {
+                        variants: mapPlanVariantsFromCells(matrix.cells, vocabulary.bands),
+                        durations: planDurationsFromAssignments(
+                            matrix.assignments,
+                            vocabulary.durations,
+                        ),
+                        combinations: vocabulary.combinations.map(mapPlanCombination),
+                    });
+                }),
+            );
+            return { ...page, items };
         },
 
         async getPlan(planId: SubscriptionPlanId): Promise<PlanAdmin> {
@@ -873,69 +957,14 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 path: `/catalogue/plans/${encodeURIComponent(id)}/profile`,
             });
 
-            /*
-             * Four optional reads, each degrading to an empty list.
-             *
-             * `.catch(() => [])` rather than a `let` and a `try`/`catch`: every branch of those
-             * assigned, which made the declaration's initialiser dead code the linter was right to
-             * flag. The behaviour is unchanged — a vocabulary endpoint that is unreachable leaves
-             * the plan renderable with the parts that did load, which is the point of not awaiting
-             * them together.
-             */
-            const cells = await transport
-                .requestEnvelope<{
-                    item: AdminCatalogueItem;
-                    cells: PlanVariantCell[];
-                }>({
-                    method: 'GET',
-                    path: `/catalogue/plans/${encodeURIComponent(id)}/variants`,
-                })
-                .then((envelope) => envelope.data.cells)
-                .catch((): PlanVariantCell[] => []);
-
-            const durations = await transport
-                .request<PlanDurationOption[]>({
-                    method: 'GET',
-                    path: '/catalogue/plan-vocabulary/durations',
-                })
-                .catch((): PlanDurationOption[] => []);
-
-            /*
-             * What this plan actually offers — its configurations' duration assignments — rather
-             * than the kitchen's whole duration vocabulary, which is shared by every plan. Reading
-             * the vocabulary made each plan show every length any plan had ever used, so replacing
-             * 20 days with 28 read back as both; and it carried no discount, so a stated one read
-             * back as "not set".
-             */
-            const assignments = await transport
-                .requestEnvelope<{ assignments: PlanDurationAssignment[] }>({
-                    method: 'GET',
-                    path: `/catalogue/plans/${encodeURIComponent(id)}/variant-durations`,
-                })
-                .then((envelope) => envelope.data.assignments)
-                .catch((): PlanDurationAssignment[] => []);
-
-            const combinations = await transport
-                .request<MealCombinationOption[]>({
-                    method: 'GET',
-                    path: '/catalogue/plan-vocabulary/combinations',
-                })
-                .catch((): MealCombinationOption[] => []);
-
-            const bands = await transport
-                .request<EnergyBand[]>({
-                    method: 'GET',
-                    path: '/catalogue/plan-vocabulary/energy-bands',
-                })
-                .catch((): EnergyBand[] => []);
-
-            const bandMap = new Map(bands.map((band) => [band.id, band]));
+            const matrix = await readPlanMatrix(id);
+            const vocabulary = await readPlanVocabulary();
 
             return mapPlanAdminFromItem(profileEnvelope.data.item, {
                 profile: profileEnvelope.data.profile,
-                variants: mapPlanVariantsFromCells(cells, bandMap),
-                durations: planDurationsFromAssignments(assignments, durations),
-                combinations: combinations.map(mapPlanCombination),
+                variants: mapPlanVariantsFromCells(matrix.cells, vocabulary.bands),
+                durations: planDurationsFromAssignments(matrix.assignments, vocabulary.durations),
+                combinations: vocabulary.combinations.map(mapPlanCombination),
             });
         },
 

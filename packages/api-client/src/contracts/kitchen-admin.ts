@@ -1982,6 +1982,12 @@ export interface PlanAdminFilter extends CursorPageRequest, OffsetPageRequest {
     readonly query?: string | undefined;
     readonly statuses?: readonly PublishableStatus[] | undefined;
     readonly kitchenId?: KitchenId | undefined;
+    /**
+     * Read each row's configurations and durations as well. The catalogue index carries neither,
+     * so without it every row's `variants`, `durations` and `combinations` are empty — fine for a
+     * count, wrong for a list that shows them.
+     */
+    readonly withMatrix?: boolean | undefined;
 }
 
 export interface CreatePlanRequest {
