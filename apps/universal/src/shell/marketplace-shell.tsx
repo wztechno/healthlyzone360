@@ -27,6 +27,7 @@ import { QUERY_PARAM } from '../features/marketplace/filter-bar.tsx';
 import { marketplaceNavigation } from '../navigation/consumer-items.ts';
 import { availableWorkspaceAreas } from '../navigation/items.ts';
 import { useOnlineStatus } from '../online/online-status.tsx';
+import { isBusinessCustomer } from '../session/machine.ts';
 import { useAccessState, useSession } from '../session/session-provider.tsx';
 import { LocaleToggle } from './locale-toggle.tsx';
 import { ThemeToggle } from './theme-toggle.tsx';
@@ -112,7 +113,7 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
     const pathname = usePathname();
     const { locale, setLocale } = useLocale();
     const { state: connectivity } = useOnlineStatus();
-    const { phase } = useSession();
+    const { phase, me } = useSession();
     const accessState = useAccessState();
     const signedIn = phase !== 'anonymous' && phase !== 'restoring';
     // Count only while signed in: `getCart` opens a basket lazily, and an anonymous visit must not
@@ -313,6 +314,24 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
     ) : null;
 
     /*
+     * Business customers only: the way from the shop to the corporate area, where they order at
+     * their wholesale prices. Labelled rather than an icon — it is the one door in, and a glyph is
+     * easy to miss. `/workspace` picks the organisation first when none is chosen yet.
+     */
+    const workspacesButton = isBusinessCustomer(me?.memberships ?? []) ? (
+        <Button
+            testID="marketplace-workspaces"
+            size="sm"
+            variant="secondary"
+            iconStart={<Icon name="layoutGrid" size="sm" />}
+            label={t('marketplace:nav.workspaces')}
+            onPress={() => {
+                router.push('/workspace' as never);
+            }}
+        />
+    ) : null;
+
+    /*
      * The cart: a basket and its count, always. The design draws the count chip even at zero, and a
      * chip that appears only once something is added makes the button change width under the
      * pointer at the moment of the first add. The chip is the button's colours inverted.
@@ -359,6 +378,7 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                 <ThemeToggle />
                 {signedIn ? (
                     <>
+                        {workspacesButton}
                         {staffProfileButton}
                         {accountButton}
                         {cartButton}

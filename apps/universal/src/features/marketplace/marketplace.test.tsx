@@ -34,7 +34,12 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { queryKeys } from '../../data/query-keys.ts';
 import { consumerNavigation, marketplaceNavigation } from '../../navigation/consumer-items.ts';
 import { ConsumerShell } from '../../shell/consumer-shell.tsx';
-import { kitchenManagerSession, testMeResponse } from '../../testing/session-fixtures.ts';
+import {
+    kitchenManagerSession,
+    testMembership,
+    testMeResponse,
+    testOrganisation,
+} from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { clearResumeIntent, getResumeIntent, recordResumeIntent } from './resume-intent.ts';
@@ -1714,6 +1719,27 @@ describe('ConsumerShell', () => {
         expect(screen.getByTestId('theme-toggle')).toBeTruthy();
         // A plain customer has no staff workspace, so no staff profile icon.
         expect(screen.queryByTestId('marketplace-staff-profile')).toBeNull();
+        expect(screen.queryByTestId('marketplace-workspaces')).toBeNull();
+    });
+
+    it('gives a business customer a Workspaces link, before any organisation is chosen', async () => {
+        await renderStubScreen(
+            <ConsumerShell unguarded>
+                <></>
+            </ConsumerShell>,
+            {
+                session: testMeResponse({
+                    memberships: [
+                        testMembership({
+                            organisation: testOrganisation({ type: 'corporate_customer' }),
+                        }),
+                    ],
+                }),
+            },
+        );
+
+        await fireEvent.press(await screen.findByTestId('marketplace-workspaces'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/workspace');
     });
 
     it('gives staff a second icon, to their staff profile', async () => {
@@ -1726,6 +1752,8 @@ describe('ConsumerShell', () => {
 
         await fireEvent.press(await screen.findByTestId('marketplace-staff-profile'));
         expect(routerMock.__push).toHaveBeenCalledWith('/profile');
+        // Kitchen staff are not business customers.
+        expect(screen.queryByTestId('marketplace-workspaces')).toBeNull();
         expect(screen.queryByTestId('prototype-notice')).toBeNull();
     });
 });
