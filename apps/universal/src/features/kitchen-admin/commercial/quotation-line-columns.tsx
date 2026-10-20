@@ -37,6 +37,9 @@ import { parseMinorAmount } from '../format.ts';
  * alone until it is. An unpriced line sorts last either way — it is not a zero.
  */
 
+/** The price box's width — enough for `12,345.67` at the small size. */
+const PRICE_INPUT_WIDTH = 132;
+
 /** Minor-unit amounts in `direction`, `null` (not priced) last both ways. */
 function compareAmount(
     left: number | null,
@@ -138,28 +141,34 @@ export function quotationLineColumns({
                 }
                 const raw = prices[line.id] ?? '';
                 const invalid = raw !== '' && parseMinorAmount(raw, currency) === null;
+                // A fixed width: the cell is a flex row, and an input there has no intrinsic width —
+                // it rendered 18px wide, a border with nothing anybody could click into.
                 return (
-                    <TextInputField
-                        testID={`kitchen-quotation-line-${line.id}-price`}
-                        id={`kitchen-quotation-line-${line.id}-price`}
-                        label={t('kitchen:ops.quotations.linePriceLabel', {
-                            line: line.lineNumber,
-                        })}
-                        labelHidden
-                        size="sm"
-                        placeholder={t('kitchen:fields.unitPricePlaceholder')}
-                        value={raw}
-                        onChangeText={(next) => {
-                            onPrice(line.id, next);
-                        }}
-                        inputMode="decimal"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        // Only a malformed figure is an error. An empty one is announced by the total
-                        // beside it, in words and danger ink — `FormField` draws an error row for any
-                        // defined message, and an empty one would be an icon with nothing to say.
-                        error={invalid ? t('kitchen:ops.quotations.linePriceInvalid') : undefined}
-                    />
+                    <View style={{ width: PRICE_INPUT_WIDTH }}>
+                        <TextInputField
+                            testID={`kitchen-quotation-line-${line.id}-price`}
+                            id={`kitchen-quotation-line-${line.id}-price`}
+                            label={t('kitchen:ops.quotations.linePriceLabel', {
+                                line: line.lineNumber,
+                            })}
+                            labelHidden
+                            size="sm"
+                            placeholder={t('kitchen:fields.unitPricePlaceholder')}
+                            value={raw}
+                            onChangeText={(next) => {
+                                onPrice(line.id, next);
+                            }}
+                            inputMode="decimal"
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            // Only a malformed figure is an error. An empty one is announced by the total
+                            // beside it, in words and danger ink — `FormField` draws an error row for any
+                            // defined message, and an empty one would be an icon with nothing to say.
+                            error={
+                                invalid ? t('kitchen:ops.quotations.linePriceInvalid') : undefined
+                            }
+                        />
+                    </View>
                 );
             },
         },

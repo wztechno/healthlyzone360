@@ -313,7 +313,9 @@
         "addressPlaceholder": "اختر عنوانًا",
         "noAddress": "لا يوجد لشركتك عنوان توصيل بعد. أضف عنوانًا من الملف الشخصي أولًا.",
         "window": "فترة التوصيل",
-        "refusedTitle": "تعذّر تقديم الطلب"
+        "refusedTitle": "تعذّر تقديم الطلب",
+        "placedTitle": "تم تقديم الطلب {{order}}",
+        "placedBody": "أصبح الطلب في تقويم المطبخ ليوم {{date}}."
     },
     "decline": {
         "title": "رفض {{reference}}",

@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Healthy360\B2b\Presenters;
 
+use Healthy360\B2b\Models\CorporateProgramme;
 use Healthy360\B2b\Models\Quotation;
 use Healthy360\B2b\Models\QuotationLine;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Orders\Models\Order;
+use Healthy360\Organisations\Models\Organisation;
 use Illuminate\Support\Collection;
 
 /**
@@ -27,6 +29,8 @@ final class QuotationPresenter
      *     id: string,
      *     organisation_id: string,
      *     corporate_programme_id: string,
+     *     corporate_programme_name: string|null,
+     *     buyer_name: string|null,
      *     reference: string,
      *     status: string,
      *     currency_code: string,
@@ -54,6 +58,10 @@ final class QuotationPresenter
             'id' => (string) $quotation->getKey(),
             'organisation_id' => $quotation->organisation_id,
             'corporate_programme_id' => $quotation->corporate_programme_id,
+            // Names, so neither side reads an identifier where a person expects a word. Read
+            // across tenancy: the kitchen reaches the buyer's quotation sideways.
+            'corporate_programme_name' => CorporateProgramme::withoutTenancy()->whereKey($quotation->corporate_programme_id)->value('name_en'),
+            'buyer_name' => Organisation::query()->whereKey($quotation->organisation_id)->value('name'),
             'reference' => $quotation->reference,
             'status' => $quotation->status->value,
             'currency_code' => $quotation->currency_code,

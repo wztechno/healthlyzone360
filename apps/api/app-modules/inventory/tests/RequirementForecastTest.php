@@ -12,8 +12,10 @@ use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockReservation;
+use Healthy360\Inventory\Models\StockSufficiencyCheck;
 use Healthy360\Inventory\Services\RequirementForecast;
 use Healthy360\Inventory\Services\ReservationService;
+use Healthy360\Inventory\Services\StockSufficiencyCheckRunner;
 use Healthy360\Orders\Enums\CancellationReason;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\Order;
@@ -754,4 +756,45 @@ it('takes a resold product off the shelf its ingredient names, and says so when 
     expect(($this->row)($result, 'sku-water')['required'])->toBe('6.000000')
         ->and(($this->row)($result, 'sku-water')['short'])->toBe('5.0000')
         ->and($result->reasons)->toBe(['no_ingredient_link' => 1]);
+});
+
+/*
+|--------------------------------------------------------------------------
+| The weekly stock check (2026-10-21)
+|--------------------------------------------------------------------------
+|
+| The scheduler's Monday run of this same forecast, recorded per branch. The
+| numbers must be the forecast's own, so the record and the screen agree.
+|
+*/
+
+it('records what the weekly check found short, one row for the branch that keeps a shelf', function (): void {
+    [$onion, $onionShelf] = ($this->shelf)('sku-onion', $this->kg);
+    $roast = ($this->meal)('Roast', $onion, '2', $this->kg);
+    ($this->level)($onionShelf, '1.0000');
+
+    // Thursday's order needs 8 kg; the shelf holds 1.
+    ($this->order)($this->thursday, [[$roast, '4.0000']]);
+
+    $checked = app(StockSufficiencyCheckRunner::class)->run($this->monday->addHours(5));
+
+    $check = StockSufficiencyCheck::withoutTenancy()->where('branch_id', $this->branchId)->sole();
+    $onionRow = collect($check->shortfalls)->firstWhere('code', 'sku-onion');
+
+    expect($checked)->toBe(1)
+        ->and($check->window_from->toDateString())->toBe($this->monday->toDateString())
+        ->and($check->window_to->toDateString())->toBe($this->sunday->toDateString())
+        ->and($check->short_count)->toBe(count($check->shortfalls))
+        ->and($onionRow)->not->toBeNull()
+        ->and($onionRow['short'])->toBe(($this->row)(($this->week)(), 'sku-onion')['short'])
+        ->and($onionRow['short'])->toBe('7.0000');
+});
+
+it('runs from the command the scheduler calls', function (): void {
+    [, $onionShelf] = ($this->shelf)('sku-onion', $this->kg);
+    ($this->level)($onionShelf, '10.0000');
+
+    $this->artisan('inventory:check-stock-sufficiency')->assertSuccessful();
+
+    expect(StockSufficiencyCheck::withoutTenancy()->where('branch_id', $this->branchId)->count())->toBe(1);
 });

@@ -13795,6 +13795,50 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/requirements/weekly-check:
+    get:
+      operationId: getOrderDeskWeeklyCheck
+      tags:
+        - Order desk
+      summary: What the latest weekly stock check found
+      description: |
+        Every Monday at 05:00 the scheduler runs the buy list for the next
+        seven days against every branch that keeps a shelf, and records what
+        was short (`inventory:check-stock-sufficiency`). This is the latest of
+        those records for one branch: when it ran, the window it looked at and
+        the items it found short **as they stood then** — a snapshot, so it can
+        differ from the live list beside it.
+
+        `check: null` when no branch is named or the branch has never been
+        checked. Null is not an all-clear and must not render as one.
+
+        Requires `inventory.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: branch_id
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The latest check, or null.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskWeeklyCheckEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/order-desk/delivery-windows:
     get:
       operationId: listOrderDeskDeliveryWindows
@@ -16845,8 +16889,8 @@ paths:
         `order_id` / `order_number`.
 
         `If-Match` is the lock version the buyer was shown: a quotation the
-        kitchen re-priced since is a `412`, never an acceptance of prices nobody
-        saw. Acceptance changes neither the agreement nor its price list (B6).
+        kitchen re-priced since is a `409` stale-version refusal, never an
+        acceptance of prices nobody saw. Acceptance changes neither the agreement nor its price list (B6).
 
         **A quotation past its `expires_at` is refused even before the sweep
         has moved it.** The nightly job that writes `expired` runs on a queue;
@@ -39068,6 +39112,96 @@ components:
                     The longest window this operation will answer, counted
                     inclusively. Echoed so a client can bound its own date picker
                     instead of discovering the limit as a 422.
+    StockSufficiencyShortfall:
+      type: object
+      required:
+        - stock_item_id
+        - code
+        - name_en
+        - unit_code
+        - required
+        - available
+        - short
+        - suggested_buy
+      properties:
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+        name_en:
+          type: string
+        unit_code:
+          type:
+            - string
+            - 'null'
+        required:
+          type: string
+          description: Decimal string, six places.
+        available:
+          type: string
+          description: Decimal string, four places. May be negative.
+        short:
+          type: string
+          description: Decimal string, four places, above zero.
+        suggested_buy:
+          type: string
+          description: Decimal string, four places.
+    StockSufficiencyCheck:
+      type: object
+      required:
+        - id
+        - branch_id
+        - window_from
+        - window_to
+        - checked_at
+        - requirement_count
+        - short_count
+        - not_computable_days
+        - shortfalls
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        branch_id:
+          $ref: '#/components/schemas/Uuid'
+        window_from:
+          type: string
+          format: date
+        window_to:
+          type: string
+          format: date
+        checked_at:
+          type: string
+          format: date-time
+        requirement_count:
+          type: integer
+          description: Stock items the window needs at all.
+        short_count:
+          type: integer
+          description: Of those, how many the shelf could not cover.
+        not_computable_days:
+          type: integer
+          description: Days with demand nobody could work out — a missing recipe, an unwritten menu.
+        shortfalls:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockSufficiencyShortfall'
+    OrderDeskWeeklyCheckEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - check
+          properties:
+            check:
+              oneOf:
+                - $ref: '#/components/schemas/StockSufficiencyCheck'
+                - type: 'null'
+        meta:
+          $ref: '#/components/schemas/Meta'
     OrderDeskShortfallCountEnvelope:
       type: object
       required:
@@ -43246,6 +43380,8 @@ components:
         - id
         - organisation_id
         - corporate_programme_id
+        - corporate_programme_name
+        - buyer_name
         - reference
         - status
         - currency_code
@@ -43274,6 +43410,16 @@ components:
           description: The **buyer** organisation. This is the row's tenant, which is why the kitchen's side of this surface reaches it through the programme instead.
         corporate_programme_id:
           $ref: '#/components/schemas/Uuid'
+        corporate_programme_name:
+          type:
+            - string
+            - 'null'
+          description: The programme's English name.
+        buyer_name:
+          type:
+            - string
+            - 'null'
+          description: The buyer organisation's name — who the kitchen is quoting for.
         reference:
           type: string
           description: A reference a person can read over the phone.

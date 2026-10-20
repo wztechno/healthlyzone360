@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8271 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8281 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1140,6 +1140,8 @@ export interface NamespaceKeys {
     | 'accept.confirm'
     | 'accept.date'
     | 'accept.noAddress'
+    | 'accept.placedBody'
+    | 'accept.placedTitle'
     | 'accept.refusedTitle'
     | 'accept.title'
     | 'accept.total'
@@ -4672,6 +4674,7 @@ export interface NamespaceKeys {
     | 'ops.qc.summaryTitle'
     | 'ops.qc.title'
     | 'ops.qc.viewKind'
+    | 'ops.quotations.buyer'
     | 'ops.quotations.caption'
     | 'ops.quotations.clearFilter'
     | 'ops.quotations.columnActions'
@@ -4857,6 +4860,13 @@ export interface NamespaceKeys {
     | 'ops.requirements.summaryReadOnly'
     | 'ops.requirements.summaryShort'
     | 'ops.requirements.title'
+    | 'ops.requirements.weeklyClearBody'
+    | 'ops.requirements.weeklyClearTitle'
+    | 'ops.requirements.weeklyClearWithHoles'
+    | 'ops.requirements.weeklyShortLine'
+    | 'ops.requirements.weeklyShortMore'
+    | 'ops.requirements.weeklyShortTitle'
+    | 'ops.requirements.weeklyShowWindow'
     | 'ops.requirements.windowInvalidBody'
     | 'ops.requirements.windowInvalidTitle'
     | 'ops.requirements.windowLabel'
@@ -9437,6 +9447,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:accept.confirm',
   'business:accept.date',
   'business:accept.noAddress',
+  'business:accept.placedBody',
+  'business:accept.placedTitle',
   'business:accept.refusedTitle',
   'business:accept.title',
   'business:accept.total',
@@ -12961,6 +12973,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.qc.summaryTitle',
   'kitchen:ops.qc.title',
   'kitchen:ops.qc.viewKind',
+  'kitchen:ops.quotations.buyer',
   'kitchen:ops.quotations.caption',
   'kitchen:ops.quotations.clearFilter',
   'kitchen:ops.quotations.columnActions',
@@ -13146,6 +13159,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.requirements.summaryReadOnly',
   'kitchen:ops.requirements.summaryShort',
   'kitchen:ops.requirements.title',
+  'kitchen:ops.requirements.weeklyClearBody',
+  'kitchen:ops.requirements.weeklyClearTitle',
+  'kitchen:ops.requirements.weeklyClearWithHoles',
+  'kitchen:ops.requirements.weeklyShortLine',
+  'kitchen:ops.requirements.weeklyShortMore',
+  'kitchen:ops.requirements.weeklyShortTitle',
+  'kitchen:ops.requirements.weeklyShowWindow',
   'kitchen:ops.requirements.windowInvalidBody',
   'kitchen:ops.requirements.windowInvalidTitle',
   'kitchen:ops.requirements.windowLabel',

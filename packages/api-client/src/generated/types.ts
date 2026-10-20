@@ -8942,6 +8942,57 @@ export type OrderDeskRequirementsEnvelope = {
     };
 };
 
+export type StockSufficiencyShortfall = {
+    stock_item_id: Uuid;
+    code: string;
+    name_en: string;
+    unit_code: string | null;
+    /**
+     * Decimal string, six places.
+     */
+    required: string;
+    /**
+     * Decimal string, four places. May be negative.
+     */
+    available: string;
+    /**
+     * Decimal string, four places, above zero.
+     */
+    short: string;
+    /**
+     * Decimal string, four places.
+     */
+    suggested_buy: string;
+};
+
+export type StockSufficiencyCheck = {
+    id: Uuid;
+    branch_id: Uuid;
+    window_from: string;
+    window_to: string;
+    checked_at: string;
+    /**
+     * Stock items the window needs at all.
+     */
+    requirement_count: number;
+    /**
+     * Of those, how many the shelf could not cover.
+     */
+    short_count: number;
+    /**
+     * Days with demand nobody could work out — a missing recipe, an unwritten menu.
+     */
+    not_computable_days: number;
+    shortfalls: Array<StockSufficiencyShortfall>;
+};
+
+export type OrderDeskWeeklyCheckEnvelope = {
+    data: {
+        check: StockSufficiencyCheck | null;
+    };
+    meta: Meta;
+};
+
 export type OrderDeskShortfallCountEnvelope = {
     data: {
         /**
@@ -11308,6 +11359,14 @@ export type Quotation = {
      */
     organisation_id: Uuid;
     corporate_programme_id: Uuid;
+    /**
+     * The programme's English name.
+     */
+    corporate_programme_name: string | null;
+    /**
+     * The buyer organisation's name — who the kitchen is quoting for.
+     */
+    buyer_name: string | null;
     /**
      * A reference a person can read over the phone.
      */
@@ -30305,6 +30364,63 @@ export type GetOrderDeskShortfallCountResponses = {
 };
 
 export type GetOrderDeskShortfallCountResponse = GetOrderDeskShortfallCountResponses[keyof GetOrderDeskShortfallCountResponses];
+
+export type GetOrderDeskWeeklyCheckData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        branch_id?: Uuid;
+    };
+    url: '/catalogue/order-desk/requirements/weekly-check';
+};
+
+export type GetOrderDeskWeeklyCheckErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderDeskWeeklyCheckError = GetOrderDeskWeeklyCheckErrors[keyof GetOrderDeskWeeklyCheckErrors];
+
+export type GetOrderDeskWeeklyCheckResponses = {
+    /**
+     * The latest check, or null.
+     */
+    200: OrderDeskWeeklyCheckEnvelope;
+};
+
+export type GetOrderDeskWeeklyCheckResponse = GetOrderDeskWeeklyCheckResponses[keyof GetOrderDeskWeeklyCheckResponses];
 
 export type ListOrderDeskDeliveryWindowsData = {
     body?: never;

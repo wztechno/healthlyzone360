@@ -188,6 +188,7 @@ use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionResolveController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionRetryController;
 use Healthy360\Inventory\Http\Controllers\OrderDeskRequirementsController;
 use Healthy360\Inventory\Http\Controllers\OrderDeskShortfallCountController;
+use Healthy360\Inventory\Http\Controllers\OrderDeskWeeklyCheckController;
 use Healthy360\Inventory\Http\Controllers\StockAdjustController;
 use Healthy360\Inventory\Http\Controllers\StockCountController;
 use Healthy360\Inventory\Http\Controllers\StockItemIndexController;
@@ -2166,6 +2167,8 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                     ->name('catalogue.order-desk.requirements');
                 Route::get('/order-desk/requirements/shortfall-count', OrderDeskShortfallCountController::class)
                     ->name('catalogue.order-desk.requirements.shortfall-count');
+                Route::get('/order-desk/requirements/weekly-check', OrderDeskWeeklyCheckController::class)
+                    ->name('catalogue.order-desk.requirements.weekly-check');
             });
 
             /*

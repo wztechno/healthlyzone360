@@ -334,6 +334,7 @@ export const REPOSITORY_SURFACE = {
         'addCustomerAddress',
         'assignDeliveryJob',
         'countRequirementShortfalls',
+        'getWeeklyStockCheck',
         'createCustomer',
         'getCashReport',
         'listCalendar',

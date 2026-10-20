@@ -552,6 +552,34 @@ export interface OrderDeskShortfallCount {
     readonly branchId: string | null;
 }
 
+/** One item the weekly check found short, as it stood when the check ran. Decimal strings. */
+export interface WeeklyStockShortfall {
+    readonly stockItemId: string;
+    readonly code: string;
+    readonly name: string;
+    readonly unitCode: string | null;
+    readonly required: string;
+    readonly available: string;
+    readonly short: string;
+    readonly suggestedBuy: string;
+}
+
+/**
+ * The latest weekly stock check for one branch — the scheduler's Monday run of the buy list over
+ * the next seven days. A snapshot: it can differ from the live list, which keeps moving.
+ */
+export interface WeeklyStockCheck {
+    readonly id: string;
+    readonly branchId: string;
+    readonly windowFrom: string;
+    readonly windowTo: string;
+    readonly checkedAt: string;
+    readonly requirementCount: number;
+    readonly shortCount: number;
+    readonly notComputableDays: number;
+    readonly shortfalls: readonly WeeklyStockShortfall[];
+}
+
 /* ------------------------------------------------------------------------------------------------
  * The day's takings
  * ---------------------------------------------------------------------------------------------- */
@@ -1030,6 +1058,12 @@ export interface OrderDeskRepository {
      * against the application clock rather than the branch's.
      */
     countRequirementShortfalls(branchId?: BranchId | undefined): Promise<OrderDeskShortfallCount>;
+
+    /**
+     * The latest weekly stock check for one branch, or `null` when none is named or it has never
+     * been checked — and null is not an all-clear.
+     */
+    getWeeklyStockCheck(branchId?: BranchId | undefined): Promise<WeeklyStockCheck | null>;
 
     /**
      * The people {@link OrderDeskRepository.assignDeliveryJob} will accept.

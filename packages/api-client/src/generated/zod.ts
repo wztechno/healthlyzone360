@@ -5866,6 +5866,36 @@ export const zOrderDeskRequirementsEnvelope = z.object({
     }))
 });
 
+export const zStockSufficiencyShortfall = z.object({
+    stock_item_id: zUuid,
+    code: z.string(),
+    name_en: z.string(),
+    unit_code: z.string().nullable(),
+    required: z.string(),
+    available: z.string(),
+    short: z.string(),
+    suggested_buy: z.string()
+});
+
+export const zStockSufficiencyCheck = z.object({
+    id: zUuid,
+    branch_id: zUuid,
+    window_from: z.iso.date(),
+    window_to: z.iso.date(),
+    checked_at: z.iso.datetime({ offset: true }),
+    requirement_count: z.int(),
+    short_count: z.int(),
+    not_computable_days: z.int(),
+    shortfalls: z.array(zStockSufficiencyShortfall)
+});
+
+export const zOrderDeskWeeklyCheckEnvelope = z.object({
+    data: z.object({
+        check: zStockSufficiencyCheck.nullable()
+    }),
+    meta: zMeta
+});
+
 export const zOrderDeskShortfallCountEnvelope = z.object({
     data: z.object({
         shortfall_count: z.int().gte(0).nullable(),
@@ -7661,6 +7691,8 @@ export const zQuotation = z.object({
     id: zUuid,
     organisation_id: zUuid,
     corporate_programme_id: zUuid,
+    corporate_programme_name: z.string().nullable(),
+    buyer_name: z.string().nullable(),
     reference: z.string(),
     status: zQuotationStatus,
     currency_code: zCurrencyCode,
@@ -13629,6 +13661,20 @@ export const zGetOrderDeskShortfallCountQuery = z.object({
  * The count, or null when no branch was named.
  */
 export const zGetOrderDeskShortfallCountResponse = zOrderDeskShortfallCountEnvelope;
+
+export const zGetOrderDeskWeeklyCheckHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderDeskWeeklyCheckQuery = z.object({
+    branch_id: zUuid.optional()
+});
+
+/**
+ * The latest check, or null.
+ */
+export const zGetOrderDeskWeeklyCheckResponse = zOrderDeskWeeklyCheckEnvelope;
 
 export const zListOrderDeskDeliveryWindowsHeaders = z.object({
     'X-Organisation-Id': zUuid,

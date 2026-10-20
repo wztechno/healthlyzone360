@@ -17,6 +17,7 @@ import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
 import { useAddCartItemMutation } from './catalogue-hooks.ts';
 import { queryKeys } from './query-keys.ts';
+import { useSession } from '../session/session-provider.tsx';
 import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
 
 /**
@@ -110,12 +111,26 @@ export function useCorporateProgrammeQuery(
  * Served by `BusinessRepository.listCorporateProgrammes()` (B2) — one request,
  * no derivation from quotation history.
  */
+/**
+ * The organisation the buyer is acting for, once the session has restored it.
+ *
+ * `GET /b2b/programmes` refuses a request with no `X-Organisation-Id`, and the transport only has
+ * one after `me()` resolves. The corporate chrome mounts outside the area gate, so on a fresh page
+ * load its query fired first, earned a 400 and was never retried — the rail lost its catalogue and
+ * the quotation list failed until somebody navigated in-app. Waiting for the context costs nothing.
+ */
+function useBuyerOrganisation(): string | undefined {
+    const { accessState } = useSession();
+    return accessState.organisation?.id;
+}
+
 export function useCorporateProgrammesQuery(): UseQueryResult<readonly CorporateProgramme[]> {
     const { repositories } = useRepositoryContext();
+    const organisation = useBuyerOrganisation();
 
     return useQuery({
         queryKey: queryKeys.business.programmes(),
-        enabled: repositories !== null,
+        enabled: repositories !== null && organisation !== undefined,
         queryFn: async (): Promise<readonly CorporateProgramme[]> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.business.listCorporateProgrammes();
@@ -238,10 +253,11 @@ export function useQuotationsQuery(
     filter?: QuotationFilter,
 ): UseQueryResult<CursorPage<Quotation>> {
     const { repositories } = useRepositoryContext();
+    const organisation = useBuyerOrganisation();
 
     return useQuery({
         queryKey: queryKeys.business.quotations(filter),
-        enabled: repositories !== null,
+        enabled: repositories !== null && organisation !== undefined,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.business.listQuotations(filter);
@@ -269,8 +285,10 @@ export function useRequestQuotationMutation(): UseMutationResult<
     return useMutation({
         mutationFn: (request: RequestQuotationRequest) =>
             repositories.business.requestQuotation(request),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.business.all() });
+        onSuccess: () => {
+            // Only the quotations moved — the catalogue and the programmes did not, and the B2B
+            // catalogue is the slowest read in the area. Not awaited, so the screen answers now.
+            void queryClient.invalidateQueries({ queryKey: ['business', 'quotations'] });
         },
     });
 }
@@ -286,8 +304,10 @@ export function useAcceptQuotationMutation(): UseMutationResult<
     return useMutation({
         mutationFn: (request: AcceptQuotationRequest) =>
             repositories.business.acceptQuotation(request),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.business.all() });
+        onSuccess: () => {
+            // Only the quotations moved — the catalogue and the programmes did not, and the B2B
+            // catalogue is the slowest read in the area. Not awaited, so the screen answers now.
+            void queryClient.invalidateQueries({ queryKey: ['business', 'quotations'] });
         },
     });
 }
@@ -303,8 +323,10 @@ export function useDeclineQuotationMutation(): UseMutationResult<
     return useMutation({
         mutationFn: (request: DeclineQuotationRequest) =>
             repositories.business.declineQuotation(request),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.business.all() });
+        onSuccess: () => {
+            // Only the quotations moved — the catalogue and the programmes did not, and the B2B
+            // catalogue is the slowest read in the area. Not awaited, so the screen answers now.
+            void queryClient.invalidateQueries({ queryKey: ['business', 'quotations'] });
         },
     });
 }

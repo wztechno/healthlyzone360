@@ -549,6 +549,8 @@ function quotation(overrides: Partial<KitchenQuotation> = {}): KitchenQuotation 
         id: quotationIdAt(1),
         buyerOrganisationId: 'test-0000-buyer-0001' as KitchenQuotation['buyerOrganisationId'],
         programmeId: 'test-0000-programme-0001' as KitchenQuotation['programmeId'],
+        programmeName: null,
+        buyerName: null,
         reference: 'QT-2026-0007',
         status: 'submitted',
         currencyCode: 'USD',

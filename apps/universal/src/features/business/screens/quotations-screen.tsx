@@ -1,6 +1,7 @@
 import {
     Badge,
     Button,
+    Callout,
     Cascade,
     EmptyState,
     ErrorState,
@@ -103,6 +104,11 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
         readonly kind: 'accept' | 'decline';
         readonly quotation: Quotation;
     } | null>(null);
+    /**
+     * The quotation as the decision answered it. The list refetches behind the dialog and can
+     * take a moment; the record shows the server's answer — accepted, with its order — at once.
+     */
+    const [decided, setDecided] = useState<Quotation | null>(null);
     const kitchenOf = (row: Quotation) =>
         programmes.data?.find((programme) => programme.id === row.programmeId)?.kitchenIds[0] ??
         null;
@@ -114,7 +120,8 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                 onClose={() => {
                     setDeciding(null);
                 }}
-                onAccepted={() => {
+                onAccepted={(accepted) => {
+                    setDecided(accepted);
                     setDeciding(null);
                 }}
             />
@@ -124,7 +131,8 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                 onClose={() => {
                     setDeciding(null);
                 }}
-                onDeclined={() => {
+                onDeclined={(declined) => {
+                    setDecided(declined);
                     setDeciding(null);
                 }}
             />
@@ -274,7 +282,11 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
         controls.clearFilters();
     };
 
-    const viewing = (loaded ?? []).find((row) => String(row.id) === viewingId) ?? null;
+    const listed = (loaded ?? []).find((row) => String(row.id) === viewingId) ?? null;
+    const viewing =
+        decided !== null && String(decided.id) === viewingId && listed?.state === 'quoted'
+            ? decided
+            : listed;
 
     if (viewing !== null) {
         return (
@@ -379,6 +391,24 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                                 {formatMoney(formatter, viewing.requestedTotal)}
                             </Text>
                         )}
+                        {viewing.state === 'accepted' && viewing.orderNumber !== null ? (
+                            <Callout
+                                testID={`quotation-${viewing.reference}-order-placed`}
+                                tone="success"
+                                icon="check"
+                                role="status"
+                                title={t('business:accept.placedTitle', {
+                                    order: viewing.orderNumber,
+                                })}
+                                body={
+                                    viewing.requestedDeliveryDate === null
+                                        ? undefined
+                                        : t('business:accept.placedBody', {
+                                              date: dateText(viewing.requestedDeliveryDate),
+                                          })
+                                }
+                            />
+                        ) : null}
                         {viewing.state === 'quoted' ? (
                             <Inline space="xs" wrap>
                                 <Button

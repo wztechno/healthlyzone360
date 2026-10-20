@@ -85,6 +85,8 @@ export function mapKitchenQuotation(wire: WireQuotation): KitchenQuotation {
         id: QuotationId.unsafe(wire.id),
         buyerOrganisationId: OrganisationId.unsafe(wire.organisation_id),
         programmeId: CorporateProgrammeId.unsafe(wire.corporate_programme_id),
+        programmeName: wire.corporate_programme_name ?? null,
+        buyerName: wire.buyer_name ?? null,
         reference: wire.reference,
         status: mapStatus(wire.status),
         currencyCode: currencyOf(wire.currency_code),

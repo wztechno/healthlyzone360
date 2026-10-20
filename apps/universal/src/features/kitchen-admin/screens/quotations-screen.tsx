@@ -169,6 +169,17 @@ function Quotations() {
             ),
         },
         {
+            key: 'buyer',
+            role: 'meta',
+            label: t('kitchen:ops.quotations.buyer'),
+            width: 200,
+            grow: true,
+            priority: 90,
+            value: (row) => row.buyerName ?? t('kitchen:common.notRecorded'),
+            sort: (left, right, direction) =>
+                compareText(left.buyerName ?? '', right.buyerName ?? '', direction),
+        },
+        {
             key: 'currency',
             role: 'meta',
             label: t('kitchen:ops.quotations.columnCurrency'),
@@ -710,11 +721,20 @@ function requestFields(quotation: KitchenQuotation, t: TFunction, formatter: For
     const date = (value: string | null) =>
         value === null ? t('kitchen:common.notRecorded') : formatter.formatDate(value);
     return [
+        ...(quotation.buyerName === null
+            ? []
+            : [
+                  {
+                      key: 'buyer',
+                      label: t('kitchen:ops.quotations.buyer'),
+                      value: quotation.buyerName,
+                  },
+              ]),
         {
             key: 'programme',
             label: t('kitchen:ops.quotations.programme'),
-            value: String(quotation.programmeId),
-            mono: true,
+            value: quotation.programmeName ?? String(quotation.programmeId),
+            mono: quotation.programmeName === null,
         },
         {
             key: 'currency',

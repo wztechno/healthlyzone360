@@ -305,7 +305,9 @@
         "addressPlaceholder": "Choose an address",
         "noAddress": "Your company has no delivery address yet. Add one under Profile first.",
         "window": "Delivery window",
-        "refusedTitle": "The order could not be placed"
+        "refusedTitle": "The order could not be placed",
+        "placedTitle": "Order {{order}} placed",
+        "placedBody": "The kitchen has it on its calendar for {{date}}."
     },
     "decline": {
         "title": "Decline {{reference}}",

@@ -28,6 +28,7 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
+import { WeeklyStockCheckBanner } from '../weekly-stock-check.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
 
@@ -309,6 +310,14 @@ function OrderDeskRequirements() {
 
     return (
         <Cascade space="md" testID="kitchen-order-desk-requirements-screen">
+            <WeeklyStockCheckBanner
+                branchId={branchId}
+                onShowWindow={(windowFrom, windowTo) => {
+                    setFrom(windowFrom);
+                    setTo(windowTo);
+                }}
+            />
+
             {/*
              * The figures as cards, from the first frame. While the window is in flight each card
              * holds a placeholder where its figure goes — a zero there would claim an answer the

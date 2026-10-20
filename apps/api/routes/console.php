@@ -323,3 +323,22 @@ Schedule::job(new ProcessScheduledClosures)
     ->name('customers:process-scheduled-closures')
     ->withoutOverlapping()
     ->onOneServer();
+
+/*
+|--------------------------------------------------------------------------
+| The weekly stock check — Mondays, before the kitchen opens
+|--------------------------------------------------------------------------
+|
+| Every branch that keeps a shelf gets the buy list for the coming seven days
+| written down (`stock_sufficiency_checks`), so the requirements screen can say
+| what Monday's check found even if nobody opened the screen on Monday. The
+| numbers are the live forecast's, so the record and the screen agree.
+|
+| `withoutOverlapping()` and `onOneServer()` for the reasons the weekly price
+| publisher gives: a cluster-wide sweep that writes.
+*/
+Schedule::command('inventory:check-stock-sufficiency')
+    ->weeklyOn(1, '05:00')
+    ->name('inventory:check-stock-sufficiency')
+    ->withoutOverlapping()
+    ->onOneServer();

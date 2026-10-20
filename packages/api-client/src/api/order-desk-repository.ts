@@ -24,6 +24,7 @@ import type {
     OrderDeskRequirementsFilters,
     OrderDeskSaleRequest,
     OrderDeskShortfallCount,
+    WeeklyStockCheck,
     PlaceOrderDeskSaleRequest,
     UpdateOrderDeskCustomerRequest,
 } from '../contracts/order-desk.ts';
@@ -46,6 +47,7 @@ import type {
     OrderDeskRow as WireOrderDeskRow,
     OrderDeskSaleBase,
     OrderDeskShortfallCountEnvelope,
+    OrderDeskWeeklyCheckEnvelope,
     PlaceOrderDeskRequest,
 } from '../generated/types.ts';
 import { generateRequestId } from './config.ts';
@@ -68,6 +70,7 @@ import {
     mapOrderDeskRequirement,
     mapOrderDeskRequirementsMeta,
     mapOrderDeskShortfallCount,
+    mapWeeklyStockCheck,
 } from './order-desk-mappers.ts';
 import type { Transport } from './transport.ts';
 
@@ -339,6 +342,20 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
             });
 
             return mapOrderDeskShortfallCount(envelope.data);
+        },
+
+        async getWeeklyStockCheck(
+            branchId?: BranchId | undefined,
+        ): Promise<WeeklyStockCheck | null> {
+            const query =
+                branchId === undefined ? '' : `?branch_id=${encodeURIComponent(String(branchId))}`;
+
+            const envelope = await transport.requestEnvelope<OrderDeskWeeklyCheckEnvelope['data']>({
+                method: 'GET',
+                path: `/catalogue/order-desk/requirements/weekly-check${query}`,
+            });
+
+            return mapWeeklyStockCheck(envelope.data);
         },
 
         async listDrivers(): Promise<OrderDeskDrivers> {

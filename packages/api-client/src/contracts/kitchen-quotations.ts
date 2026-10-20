@@ -102,6 +102,9 @@ export interface KitchenQuotation {
     /** The **buyer** organisation. The row's tenant, which is why this surface is reached sideways. */
     readonly buyerOrganisationId: OrganisationId;
     readonly programmeId: CorporateProgrammeId;
+    /** The programme's and the buyer's names — `null` only from an older API. */
+    readonly programmeName: string | null;
+    readonly buyerName: string | null;
     /** What a person reads over the phone. The only identifier on this screen worth showing. */
     readonly reference: string;
     readonly status: KitchenQuotationStatus;
