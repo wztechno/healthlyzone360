@@ -24133,6 +24133,14 @@ export type ListMarketplaceMealsData = {
          */
         kitchen_ids?: string;
         /**
+         * Comma-separated meal identifiers, at most 100 — how a basket draws
+         * all of its lines in one request. An id that is not on sale is absent
+         * from the page rather than an error. Pass a `limit` at least as large
+         * as the list.
+         *
+         */
+        ids?: string;
+        /**
          * One published-category code from the platform product taxonomy
          * (`frozen`, `beverage`, `sauce`, `dressing`, `meal`, `bread`, …).
          * An unknown code matches nothing — the codes are navigation, and a

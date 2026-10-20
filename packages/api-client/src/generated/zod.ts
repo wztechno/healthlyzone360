@@ -12330,6 +12330,7 @@ export const zListMarketplaceMealsHeaders = z.object({
 export const zListMarketplaceMealsQuery = z.object({
     query: z.string().max(120).optional(),
     kitchen_ids: z.string().optional(),
+    ids: z.string().optional(),
     category_slug: z.string().optional(),
     item_types: z.string().optional(),
     diet_classifications: z.string().optional(),

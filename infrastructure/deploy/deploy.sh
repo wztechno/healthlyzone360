@@ -317,6 +317,14 @@ docker compose up -d --force-recreate "$WEB_SERVICE"
 # container, but an already-running one has to be told to pick the code up.
 docker compose restart queue scheduler >/dev/null 2>&1 || true
 
+# Config, routes and events are otherwise re-read on every request — measured on
+# dev (2026-10-20) as 60-150ms off each API call. Cached inside the running api
+# container, against the env it actually serves with; a recreate drops the cache
+# and the next deploy writes it again. Run as root, so hand the files to fpm.
+echo "==> caching config and routes"
+docker compose exec -T api sh -c 'php artisan optimize >/dev/null && chown -R www-data:www-data bootstrap/cache storage/framework/views' \
+    || echo "warning: artisan optimize failed - the api is serving uncached"
+
 echo
 echo "==> smoke check"
 sleep 5

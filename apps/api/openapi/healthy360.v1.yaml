@@ -8040,6 +8040,16 @@ paths:
           description: Comma-separated kitchen identifiers.
           schema:
             type: string
+        - name: ids
+          in: query
+          required: false
+          description: |
+            Comma-separated meal identifiers, at most 100 — how a basket draws
+            all of its lines in one request. An id that is not on sale is absent
+            from the page rather than an error. Pass a `limit` at least as large
+            as the list.
+          schema:
+            type: string
         - name: category_slug
           in: query
           required: false

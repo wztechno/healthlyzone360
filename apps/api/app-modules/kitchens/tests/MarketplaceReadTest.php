@@ -223,6 +223,22 @@ it('names the filters the platform stores nothing for rather than ignoring them'
         ->assertJsonPath('meta.unsupported_filters', ['cuisines', 'energy_max']);
 });
 
+it('fetches named meals in one request, leaving out an id that is not on sale', function (): void {
+    $listed = collect($this->getJson('/api/v1/marketplace/meals?limit=50')->assertOk()->json('data'));
+    $wanted = $listed->take(2)->pluck('id');
+    $absent = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1c99';
+
+    $ids = collect($this->getJson('/api/v1/marketplace/meals?ids='.$wanted->push($absent)->implode(',').'&limit=3')
+        ->assertOk()
+        ->json('data'))->pluck('id');
+
+    expect($ids->sort()->values()->all())->toBe($listed->take(2)->pluck('id')->sort()->values()->all());
+
+    $this->getJson('/api/v1/marketplace/meals?ids=mezze-plate')
+        ->assertStatus(400)
+        ->assertJsonPath('error.details.parameter', 'ids');
+});
+
 it('answers 404 for a kitchen the platform has suspended', function (): void {
     Organisation::query()->where('slug', 'verdant-kitchen')->update(['status' => OrganisationStatus::Suspended->value]);
 

@@ -25,9 +25,9 @@ import type { Transport } from './transport.ts';
  * Cart + real server-side checkout preview, over HTTP.
  *
  * The wire cart carries **no prices** (repriced at placement). Domain `Cart` needs names, unit
- * prices and allergens for the UI, so every projection hydrates lines via
- * `GET /marketplace/meals/{id}` for consumer channels, or `GET /b2b/catalogue/items/{id}` for
- * wholesale channels — the same enrichment the mock world does from fixtures.
+ * prices and allergens for the UI, so every projection hydrates lines — for consumer channels from
+ * one `GET /marketplace/meals?ids=` per basket (kept a minute, see `MEAL_LOOKUP_TTL_MS`), for
+ * wholesale channels from `GET /b2b/catalogue/items/{id}` per line, the buyer's contract price.
  *
  * `previewCheckout` calls `POST /checkouts/preview`, which runs the identical `LineProbe` and
  * `ZoneResolver` paths placement runs, so the number a person sees here and the number they are
@@ -84,6 +84,10 @@ async function fetchMeal(transport: Transport, mealId: string) {
         anonymous: true,
         path: `/marketplace/meals/${pathSegment(mealId)}`,
     });
+    return toMeal(wire, mealId);
+}
+
+function toMeal(wire: WireMeal, mealId: string) {
     const meal = mapMarketplaceMeal(wire);
     if (meal === null) {
         throw new ApiError(
@@ -120,8 +124,11 @@ async function fetchB2bCatalogueItem(transport: Transport, itemId: string) {
     };
 }
 
+type MealLookup = (mealId: string) => ReturnType<typeof fetchMeal>;
+
 async function mapCartLine(
     transport: Transport,
+    lookupMeal: MealLookup,
     line: WireCartLine,
     channelCode: string,
 ): Promise<CartItem> {
@@ -144,7 +151,7 @@ async function mapCartLine(
         };
     }
 
-    const meal = await fetchMeal(transport, line.catalogue_item_id);
+    const meal = await lookupMeal(line.catalogue_item_id);
     const unitPrice = meal.price;
     const lineTotal = money(unitPrice.amount * quantity, unitPrice.currency);
 
@@ -180,9 +187,14 @@ async function mapCartLine(
  * API: php-fpm behind nginx overlaps them, PHP's built-in `artisan serve` does not. The requests
  * that this change *removes* (see `useAddCartItemMutation`) are the ones that help either way.
  */
-async function mapCart(transport: Transport, wire: WireCart, channelCode: string): Promise<Cart> {
+async function mapCart(
+    transport: Transport,
+    lookupMeal: MealLookup,
+    wire: WireCart,
+    channelCode: string,
+): Promise<Cart> {
     const items: CartItem[] = await Promise.all(
-        wire.lines.map((line) => mapCartLine(transport, line, channelCode)),
+        wire.lines.map((line) => mapCartLine(transport, lookupMeal, line, channelCode)),
     );
 
     const currency =
@@ -240,8 +252,75 @@ function mapCheckoutPreview(
     };
 }
 
+/**
+ * How long a looked-up meal is reused for basket lines.
+ *
+ * Every add, remove and open used to look up every line again — a five-line basket paid five
+ * `GET /marketplace/meals/{id}` per press, each one rebuilding the kitchen's whole marketplace
+ * context on the server (~400ms cold on the dev droplet). The meal endpoint is anonymous, so its
+ * answer is the same for every account and safe to keep across a sign-in change. A minute bounds how
+ * stale a basket's displayed price can be; the number charged comes from `previewCheckout` and
+ * placement, never from here. Wholesale lines are not kept: their price is the buyer's contract.
+ */
+const MEAL_LOOKUP_TTL_MS = 60_000;
+
 export function createApiCartSurface(transport: Transport): ApiCartSurface {
     let sessionChannelCode = DEFAULT_CART_CHANNEL_CODE;
+    const meals = new Map<string, { readonly at: number; readonly meal: ReturnType<typeof fetchMeal> }>();
+
+    const fresh = (mealId: string) => {
+        const known = meals.get(mealId);
+        return known !== undefined && Date.now() - known.at < MEAL_LOOKUP_TTL_MS
+            ? known.meal
+            : undefined;
+    };
+
+    // The promise is kept, not the result, so lines that share a meal ask once.
+    const remember = (mealId: string, meal: ReturnType<typeof fetchMeal>) => {
+        meals.set(mealId, { at: Date.now(), meal });
+        meal.catch(() => {
+            meals.delete(mealId);
+        });
+        return meal;
+    };
+
+    const lookupMeal: MealLookup = (mealId) =>
+        fresh(mealId) ?? remember(mealId, fetchMeal(transport, mealId));
+
+    /**
+     * Every line the cache cannot answer, in one `GET /marketplace/meals?ids=`. A line the list
+     * leaves out — no longer on sale — and every line of a batch that failed (or a server that does
+     * not know `ids` yet) fall back to their own lookup, which answers exactly as it always did.
+     */
+    const prefetchMeals = (lines: readonly WireCartLine[]) => {
+        const missing = [...new Set(lines.map((line) => line.catalogue_item_id))]
+            .filter((mealId) => fresh(mealId) === undefined)
+            .slice(0, 100);
+        if (missing.length < 2) return;
+
+        const batch = transport.request<WireMeal[]>({
+            method: 'GET',
+            anonymous: true,
+            path: `/marketplace/meals?ids=${missing.map(pathSegment).join(',')}&limit=${String(missing.length)}`,
+        });
+        for (const mealId of missing) {
+            remember(
+                mealId,
+                batch.then(
+                    (wires) => {
+                        const wire = wires.find((candidate) => candidate.id === mealId);
+                        return wire === undefined ? fetchMeal(transport, mealId) : toMeal(wire, mealId);
+                    },
+                    () => fetchMeal(transport, mealId),
+                ),
+            );
+        }
+    };
+
+    const hydrate = (wire: WireCart, channelCode: string) => {
+        if (!isB2bChannel(channelCode)) prefetchMeals(wire.lines);
+        return mapCart(transport, lookupMeal, wire, channelCode);
+    };
 
     async function openCart(channelCode?: string): Promise<Cart> {
         const code = channelCode ?? sessionChannelCode;
@@ -252,7 +331,7 @@ export function createApiCartSurface(transport: Transport): ApiCartSurface {
             path: '/carts',
             body: { channel_code: code },
         });
-        return mapCart(transport, payload.cart, code);
+        return hydrate(payload.cart, code);
     }
 
     return {
@@ -276,7 +355,7 @@ export function createApiCartSurface(transport: Transport): ApiCartSurface {
                         : { delivery_date: request.deliveryDate }),
                 },
             });
-            return mapCart(transport, payload.cart, sessionChannelCode);
+            return hydrate(payload.cart, sessionChannelCode);
         },
 
         async removeCartItem(cartId, itemId: string): Promise<Cart> {
