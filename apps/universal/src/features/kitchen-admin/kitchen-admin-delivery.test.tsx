@@ -565,6 +565,18 @@ describe('the delivery model', () => {
         );
         expect(label.get('w1')).toBe('label');
 
+        // Punctuation is not a name: "." was saved as one.
+        expect(
+            windowErrors([windowRow({ label: { en: '.', ar: '.' } })], WINDOW_MESSAGES).get('w1'),
+        ).toBe('label');
+        // Any script or a digit is.
+        expect(
+            windowErrors([windowRow({ label: { en: 'غداء', ar: '' } })], WINDOW_MESSAGES).size,
+        ).toBe(0);
+        expect(
+            windowErrors([windowRow({ label: { en: 'Slot 2', ar: '' } })], WINDOW_MESSAGES).size,
+        ).toBe(0);
+
         const days = windowErrors([windowRow({ weekdays: [] })], WINDOW_MESSAGES);
         expect(days.get('w1')).toBe('weekdays');
 
