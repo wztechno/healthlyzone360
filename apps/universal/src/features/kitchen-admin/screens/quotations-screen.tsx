@@ -755,9 +755,52 @@ function requestFields(quotation: KitchenQuotation, t: TFunction, formatter: For
                   },
               ]),
         {
+            key: 'requested-delivery',
+            label: t('kitchen:ops.quotations.requestedDelivery'),
+            value: date(quotation.requestedDeliveryDate),
+            mono: true,
+        },
+        {
+            key: 'schedule',
+            label: t('kitchen:ops.quotations.schedule'),
+            value: quotation.recurring
+                ? t('kitchen:ops.quotations.recurring')
+                : t('kitchen:ops.quotations.oneOff'),
+        },
+        ...(quotation.contactName === null && quotation.contactEmail === null
+            ? []
+            : [
+                  {
+                      key: 'contact',
+                      label: t('kitchen:ops.quotations.contact'),
+                      value: [quotation.contactName, quotation.contactEmail]
+                          .filter((part): part is string => part !== null)
+                          .join(' · '),
+                  },
+              ]),
+        ...(quotation.orderNumber === null
+            ? []
+            : [
+                  {
+                      key: 'order',
+                      label: t('kitchen:ops.quotations.order'),
+                      value: quotation.orderNumber,
+                      mono: true,
+                  },
+              ]),
+        {
             key: 'notes',
             label: t('kitchen:ops.quotations.notes'),
             value: quotation.notes ?? t('kitchen:ops.quotations.noNotes'),
         },
+        ...(quotation.declineReason === null
+            ? []
+            : [
+                  {
+                      key: 'decline-reason',
+                      label: t('kitchen:ops.quotations.declineReason'),
+                      value: quotation.declineReason,
+                  },
+              ]),
     ];
 }

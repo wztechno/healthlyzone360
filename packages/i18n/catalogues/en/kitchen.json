@@ -233,7 +233,14 @@
             "statAwaitingCaption": "waiting on your prices",
             "statQuotedCaption": "sent, awaiting the buyer",
             "viewKind": "Quotation",
-            "sendRule": "Every line needs a price. Zero is accepted; empty is not."
+            "sendRule": "Every line needs a price. Zero is accepted; empty is not.",
+            "requestedDelivery": "Requested delivery",
+            "schedule": "Schedule",
+            "recurring": "Standing schedule",
+            "oneOff": "One delivery",
+            "contact": "Reply to",
+            "order": "Order placed",
+            "declineReason": "Why the buyer declined"
         },
         "stock": {
             "metrics": {

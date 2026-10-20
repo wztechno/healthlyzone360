@@ -186,7 +186,26 @@
         "columnValue": "Indicative value",
         "noTierShort": "No agreed rate",
         "linesTitle": "Lines",
-        "loadErrorTitle": "The catalogue could not be loaded"
+        "loadErrorTitle": "The catalogue could not be loaded",
+        "requestTitle": "Your request",
+        "requestEmpty": "Add items from the menu. Each starts at its minimum order, and you can change the quantity here.",
+        "lineCount_one": "{{count}} item",
+        "lineCount_other": "{{count}} items",
+        "priceEach": "{{price}} each",
+        "minimumShort": "Minimum order {{count}}",
+        "add": "Add",
+        "addNamed": "Add {{name}} to the request",
+        "removeNamed": "Remove {{name}} from the request",
+        "deliveryTitle": "Delivery",
+        "searchEmptyTitle": "Nothing matches",
+        "searchEmptyBody": "Try another word, or show every kind.",
+        "searchClear": "Clear the search",
+        "submitHint": "The kitchen replies with a priced quotation. Nothing is ordered until you accept it.",
+        "kindPlural": {
+            "meal": "Meals",
+            "bulk_package": "Bulk packages",
+            "meal_plan": "Meal plans"
+        }
     },
     "quotations": {
         "filterLabel": "Show",
@@ -231,7 +250,10 @@
         "searchLabel": "Search quotations",
         "loadErrorTitle": "The quotations could not be loaded",
         "caption": "Quotations",
-        "view": "View"
+        "view": "View",
+        "columnContact": "Contact",
+        "columnOrder": "Order",
+        "columnDeclineReason": "Why it was declined"
     },
     "partner": {
         "title": "Supply commitments",
@@ -272,5 +294,25 @@
         "quotationsSection": "Requests",
         "newQuotation": "New quotation",
         "windDown": "Winding down"
+    },
+    "accept": {
+        "title": "Accept {{reference}} and schedule the delivery",
+        "body": "Accepting places the order at the quoted prices. Choose when and where it should arrive.",
+        "confirm": "Accept and place the order",
+        "total": "Quoted total",
+        "date": "Delivery day",
+        "address": "Deliver to",
+        "addressPlaceholder": "Choose an address",
+        "noAddress": "Your company has no delivery address yet. Add one under Profile first.",
+        "window": "Delivery window",
+        "refusedTitle": "The order could not be placed"
+    },
+    "decline": {
+        "title": "Decline {{reference}}",
+        "body": "The kitchen will see that you declined. A reason helps them quote better next time.",
+        "confirm": "Decline the quotation",
+        "reason": "Reason (optional)",
+        "reasonPlaceholder": "e.g. Over our budget for this month",
+        "failedTitle": "The quotation could not be declined"
     }
 }

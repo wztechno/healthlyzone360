@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8347 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8271 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1134,6 +1134,18 @@ export interface NamespaceKeys {
     | 'wizard.saving'
     | 'wizard.stepPosition';
   readonly "business":
+    | 'accept.address'
+    | 'accept.addressPlaceholder'
+    | 'accept.body'
+    | 'accept.confirm'
+    | 'accept.date'
+    | 'accept.noAddress'
+    | 'accept.refusedTitle'
+    | 'accept.title'
+    | 'accept.total'
+    | 'accept.window'
+    | 'builder.add'
+    | 'builder.addNamed'
     | 'builder.back'
     | 'builder.cancel'
     | 'builder.columnQuantity'
@@ -1145,6 +1157,7 @@ export interface NamespaceKeys {
     | 'builder.contactTitle'
     | 'builder.deliveryDate'
     | 'builder.deliveryDatePlaceholder'
+    | 'builder.deliveryTitle'
     | 'builder.draftNote'
     | 'builder.emptyBody'
     | 'builder.emptyTitle'
@@ -1152,9 +1165,14 @@ export interface NamespaceKeys {
     | 'builder.errorNoLines'
     | 'builder.errorTitle'
     | 'builder.home'
+    | 'builder.kindPlural.bulk_package'
+    | 'builder.kindPlural.meal'
+    | 'builder.kindPlural.meal_plan'
     | 'builder.lineBelowMinimum'
+    | 'builder.lineCount'
     | 'builder.linesTitle'
     | 'builder.loadErrorTitle'
+    | 'builder.minimumShort'
     | 'builder.noTier'
     | 'builder.noTierShort'
     | 'builder.notFoundBody'
@@ -1163,13 +1181,21 @@ export interface NamespaceKeys {
     | 'builder.noteHint'
     | 'builder.notePlaceholder'
     | 'builder.openList'
+    | 'builder.priceEach'
     | 'builder.quantityLabel'
     | 'builder.recurring'
     | 'builder.recurringHint'
     | 'builder.rejectedTitle'
+    | 'builder.removeNamed'
+    | 'builder.requestEmpty'
+    | 'builder.requestTitle'
     | 'builder.saveDraft'
     | 'builder.scopeBody'
+    | 'builder.searchClear'
+    | 'builder.searchEmptyBody'
+    | 'builder.searchEmptyTitle'
     | 'builder.submit'
+    | 'builder.submitHint'
     | 'builder.successBody'
     | 'builder.successTitle'
     | 'builder.title'
@@ -1256,6 +1282,12 @@ export interface NamespaceKeys {
     | 'dashboard.statProgrammes'
     | 'dashboard.statProgrammesCaption'
     | 'dashboard.title'
+    | 'decline.body'
+    | 'decline.confirm'
+    | 'decline.failedTitle'
+    | 'decline.reason'
+    | 'decline.reasonPlaceholder'
+    | 'decline.title'
     | 'item.addToCart'
     | 'item.addedToCart'
     | 'item.fieldDescription'
@@ -1332,11 +1364,14 @@ export interface NamespaceKeys {
     | 'quotations.awaitingPriceShort'
     | 'quotations.caption'
     | 'quotations.clearFilter'
+    | 'quotations.columnContact'
+    | 'quotations.columnDeclineReason'
     | 'quotations.columnDelivery'
     | 'quotations.columnExpires'
     | 'quotations.columnLineTotal'
     | 'quotations.columnLines'
     | 'quotations.columnNote'
+    | 'quotations.columnOrder'
     | 'quotations.columnProgramme'
     | 'quotations.columnQuantity'
     | 'quotations.columnRaised'
@@ -4647,9 +4682,11 @@ export interface NamespaceKeys {
     | 'ops.quotations.conflictBody'
     | 'ops.quotations.conflictRefresh'
     | 'ops.quotations.conflictTitle'
+    | 'ops.quotations.contact'
     | 'ops.quotations.currency'
     | 'ops.quotations.decidedAt'
     | 'ops.quotations.declineHeading'
+    | 'ops.quotations.declineReason'
     | 'ops.quotations.detailLoadErrorTitle'
     | 'ops.quotations.detailTitle'
     | 'ops.quotations.emptyBody'
@@ -4682,11 +4719,16 @@ export interface NamespaceKeys {
     | 'ops.quotations.noNotes'
     | 'ops.quotations.notPricedYet'
     | 'ops.quotations.notes'
+    | 'ops.quotations.oneOff'
     | 'ops.quotations.open'
+    | 'ops.quotations.order'
     | 'ops.quotations.programme'
     | 'ops.quotations.quotedAt'
     | 'ops.quotations.quotedToast'
+    | 'ops.quotations.recurring'
     | 'ops.quotations.requestHeading'
+    | 'ops.quotations.requestedDelivery'
+    | 'ops.quotations.schedule'
     | 'ops.quotations.send'
     | 'ops.quotations.sendRule'
     | 'ops.quotations.staleBody'
@@ -6682,6 +6724,7 @@ export interface NamespaceKeys {
     | 'nav.searchPlaceholder'
     | 'nav.signIn'
     | 'nav.skipToContent'
+    | 'nav.workspaces'
     | 'nutrients.carbohydrate'
     | 'nutrients.energy'
     | 'nutrients.fat'
@@ -9388,6 +9431,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:wizard.saved',
   'b2bApplication:wizard.saving',
   'b2bApplication:wizard.stepPosition',
+  'business:accept.address',
+  'business:accept.addressPlaceholder',
+  'business:accept.body',
+  'business:accept.confirm',
+  'business:accept.date',
+  'business:accept.noAddress',
+  'business:accept.refusedTitle',
+  'business:accept.title',
+  'business:accept.total',
+  'business:accept.window',
+  'business:builder.add',
+  'business:builder.addNamed',
   'business:builder.back',
   'business:builder.cancel',
   'business:builder.columnQuantity',
@@ -9399,6 +9454,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:builder.contactTitle',
   'business:builder.deliveryDate',
   'business:builder.deliveryDatePlaceholder',
+  'business:builder.deliveryTitle',
   'business:builder.draftNote',
   'business:builder.emptyBody',
   'business:builder.emptyTitle',
@@ -9406,9 +9462,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:builder.errorNoLines',
   'business:builder.errorTitle',
   'business:builder.home',
+  'business:builder.kindPlural.bulk_package',
+  'business:builder.kindPlural.meal',
+  'business:builder.kindPlural.meal_plan',
   'business:builder.lineBelowMinimum',
+  'business:builder.lineCount',
   'business:builder.linesTitle',
   'business:builder.loadErrorTitle',
+  'business:builder.minimumShort',
   'business:builder.noTier',
   'business:builder.noTierShort',
   'business:builder.notFoundBody',
@@ -9417,13 +9478,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:builder.noteHint',
   'business:builder.notePlaceholder',
   'business:builder.openList',
+  'business:builder.priceEach',
   'business:builder.quantityLabel',
   'business:builder.recurring',
   'business:builder.recurringHint',
   'business:builder.rejectedTitle',
+  'business:builder.removeNamed',
+  'business:builder.requestEmpty',
+  'business:builder.requestTitle',
   'business:builder.saveDraft',
   'business:builder.scopeBody',
+  'business:builder.searchClear',
+  'business:builder.searchEmptyBody',
+  'business:builder.searchEmptyTitle',
   'business:builder.submit',
+  'business:builder.submitHint',
   'business:builder.successBody',
   'business:builder.successTitle',
   'business:builder.title',
@@ -9510,6 +9579,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:dashboard.statProgrammes',
   'business:dashboard.statProgrammesCaption',
   'business:dashboard.title',
+  'business:decline.body',
+  'business:decline.confirm',
+  'business:decline.failedTitle',
+  'business:decline.reason',
+  'business:decline.reasonPlaceholder',
+  'business:decline.title',
   'business:item.addToCart',
   'business:item.addedToCart',
   'business:item.fieldDescription',
@@ -9586,11 +9661,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:quotations.awaitingPriceShort',
   'business:quotations.caption',
   'business:quotations.clearFilter',
+  'business:quotations.columnContact',
+  'business:quotations.columnDeclineReason',
   'business:quotations.columnDelivery',
   'business:quotations.columnExpires',
   'business:quotations.columnLineTotal',
   'business:quotations.columnLines',
   'business:quotations.columnNote',
+  'business:quotations.columnOrder',
   'business:quotations.columnProgramme',
   'business:quotations.columnQuantity',
   'business:quotations.columnRaised',
@@ -12893,9 +12971,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.conflictBody',
   'kitchen:ops.quotations.conflictRefresh',
   'kitchen:ops.quotations.conflictTitle',
+  'kitchen:ops.quotations.contact',
   'kitchen:ops.quotations.currency',
   'kitchen:ops.quotations.decidedAt',
   'kitchen:ops.quotations.declineHeading',
+  'kitchen:ops.quotations.declineReason',
   'kitchen:ops.quotations.detailLoadErrorTitle',
   'kitchen:ops.quotations.detailTitle',
   'kitchen:ops.quotations.emptyBody',
@@ -12928,11 +13008,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.noNotes',
   'kitchen:ops.quotations.notPricedYet',
   'kitchen:ops.quotations.notes',
+  'kitchen:ops.quotations.oneOff',
   'kitchen:ops.quotations.open',
+  'kitchen:ops.quotations.order',
   'kitchen:ops.quotations.programme',
   'kitchen:ops.quotations.quotedAt',
   'kitchen:ops.quotations.quotedToast',
+  'kitchen:ops.quotations.recurring',
   'kitchen:ops.quotations.requestHeading',
+  'kitchen:ops.quotations.requestedDelivery',
+  'kitchen:ops.quotations.schedule',
   'kitchen:ops.quotations.send',
   'kitchen:ops.quotations.sendRule',
   'kitchen:ops.quotations.staleBody',
@@ -14927,6 +15012,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:nav.searchPlaceholder',
   'marketplace:nav.signIn',
   'marketplace:nav.skipToContent',
+  'marketplace:nav.workspaces',
   'marketplace:nutrients.carbohydrate',
   'marketplace:nutrients.energy',
   'marketplace:nutrients.fat',

@@ -257,7 +257,14 @@
             "statAwaitingCaption": "بانتظار أسعارك",
             "statQuotedCaption": "أُرسلت، بانتظار المشتري",
             "viewKind": "عرض سعر",
-            "sendRule": "كل بند يحتاج سعرًا. الصفر مقبول؛ الفراغ غير مقبول."
+            "sendRule": "كل بند يحتاج سعرًا. الصفر مقبول؛ الفراغ غير مقبول.",
+            "requestedDelivery": "التوصيل المطلوب",
+            "schedule": "الجدولة",
+            "recurring": "جدول متكرر",
+            "oneOff": "توصيل واحد",
+            "contact": "الرد إلى",
+            "order": "الطلب المقدَّم",
+            "declineReason": "سبب رفض المشتري"
         },
         "stock": {
             "metrics": {

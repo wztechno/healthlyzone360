@@ -11262,6 +11262,14 @@ export type QuotationLine = {
      */
     catalogue_item_id: Uuid;
     /**
+     * The article's English name, so neither side reads an identifier.
+     */
+    catalogue_item_name_en: string | null;
+    /**
+     * The article's Arabic name.
+     */
+    catalogue_item_name_ar: string | null;
+    /**
      * A variant of that article, when the line names one.
      */
     catalogue_item_variant_id: Uuid | null;
@@ -11313,6 +11321,24 @@ export type Quotation = {
      */
     currency_code: CurrencyCode;
     notes: string | null;
+    /**
+     * The first delivery the buyer would like. Accepting schedules against it.
+     */
+    requested_delivery_date: string | null;
+    /**
+     * The buyer wants a standing schedule rather than one delivery.
+     */
+    recurring: boolean;
+    contact_name: string | null;
+    contact_email: string | null;
+    /**
+     * The order accepting placed. Null until accepted, and on quotations accepted before 2026-10-20.
+     */
+    order_id: Uuid | null;
+    /**
+     * That order's human-readable number.
+     */
+    order_number: string | null;
     /**
      * Set only when the buyer declined, and only when they gave one.
      */
@@ -11379,6 +11405,13 @@ export type QuotationLineInput = {
 export type CreateQuotationRequest = {
     notes?: string | null;
     /**
+     * The preferred first delivery, today or later.
+     */
+    requested_delivery_date?: string | null;
+    recurring?: boolean;
+    contact_name?: string | null;
+    contact_email?: string | null;
+    /**
      * Optional. A draft may be opened empty and filled in by a later
      * `PATCH` — which is how a client that wants an identifier before
      * the user has chosen anything gets one. When present it may not be
@@ -11391,6 +11424,13 @@ export type CreateQuotationRequest = {
 export type UpdateQuotationRequest = {
     notes?: string | null;
     /**
+     * The preferred first delivery, today or later.
+     */
+    requested_delivery_date?: string | null;
+    recurring?: boolean;
+    contact_name?: string | null;
+    contact_email?: string | null;
+    /**
      * **The desired complete set**, not a delta — send every line to be
      * kept. `[]` clears the draft. Omitting the key entirely leaves the
      * existing lines untouched, which is what makes "save the note I
@@ -11398,6 +11438,21 @@ export type UpdateQuotationRequest = {
      *
      */
     lines?: Array<QuotationLineInput> | null;
+};
+
+export type AcceptQuotationRequest = {
+    /**
+     * One of the buyer account's delivery addresses.
+     */
+    customer_address_id: Uuid;
+    /**
+     * The delivery day, today or later; the branch cut-off still applies.
+     */
+    requested_date: string;
+    /**
+     * A window the address's zone offers.
+     */
+    delivery_window_code: string;
 };
 
 export type DeclineQuotationRequest = {
@@ -11443,6 +11498,18 @@ export type B2bCatalogueItem = {
      *
      */
     name: string;
+    /**
+     * The item's description in the same language as `name`, falling
+     * back to English when no Arabic text exists.
+     *
+     */
+    description: string | null;
+    /**
+     * The photograph key, by the marketplace's rule: the item's own
+     * `image_placeholder_id`, else `<item_type>-<slug>`.
+     *
+     */
+    image_placeholder_id: string;
     item_type: CatalogueItemType;
     /**
      * The kitchen that sells it.
@@ -33383,7 +33450,7 @@ export type SubmitQuotationResponses = {
 export type SubmitQuotationResponse = SubmitQuotationResponses[keyof SubmitQuotationResponses];
 
 export type AcceptQuotationData = {
-    body?: never;
+    body: AcceptQuotationRequest;
     headers: {
         /**
          * The active organisation. Never trusted without server-side validation
@@ -33459,6 +33526,10 @@ export type AcceptQuotationErrors = {
      *
      */
     409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
     /**
      * The resource is lock-versioned and the write carried no `If-Match`.
      * **HTTP 428, not 409 and not 400**: the client has not lost a race — it

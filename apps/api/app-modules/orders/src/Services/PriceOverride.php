@@ -42,6 +42,12 @@ final readonly class PriceOverride
      */
     public const string SUBSCRIPTION_INCLUDED = 'subscription_included';
 
+    /**
+     * The unit price the kitchen quoted and the buyer accepted. The quotation
+     * is the agreement for that order, so the tariff is not consulted again.
+     */
+    public const string QUOTATION = 'quotation';
+
     public function __construct(
         public int $unitPriceMinor,
         public string $currencyCode,

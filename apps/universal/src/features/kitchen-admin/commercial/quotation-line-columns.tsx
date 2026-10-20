@@ -79,7 +79,8 @@ export function quotationLineColumns({
             label: t('kitchen:ops.quotations.lineColumn'),
             width: 220,
             priority: 100,
-            sort: (left, right, direction) => compareText(left.note, right.note, direction),
+            sort: (left, right, direction) =>
+                compareText(left.name ?? left.note, right.name ?? right.note, direction),
             render: (line) => (
                 <View className="min-w-0 flex-col py-1">
                     <Text
@@ -87,11 +88,14 @@ export function quotationLineColumns({
                         numberOfLines={1}
                         testID={`kitchen-quotation-line-${line.id}-name`}
                     >
-                        {line.note ?? t('kitchen:ops.quotations.lineUnnamed')}
+                        {line.name ?? line.note ?? t('kitchen:ops.quotations.lineUnnamed')}
                     </Text>
-                    <Text variant="mono" tone="secondary" numberOfLines={1}>
-                        {line.catalogueItemId}
-                    </Text>
+                    {/* The buyer's own note on the line, under the article it is about. */}
+                    {line.name !== null && line.note !== null ? (
+                        <Text variant="caption" tone="secondary" numberOfLines={1}>
+                            {line.note}
+                        </Text>
+                    ) : null}
                 </View>
             ),
         },

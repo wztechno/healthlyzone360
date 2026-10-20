@@ -12,7 +12,6 @@ import type {
     OrderId,
     PriceListId,
     ProductId,
-    QuotationId,
     RecipeId,
     SubscriptionId,
     SubscriptionPlanId,
@@ -27,6 +26,8 @@ import type {
     CatalogueFilter,
     CatalogueItem,
     CorporateProgramme,
+    AcceptQuotationRequest,
+    DeclineQuotationRequest,
     Quotation,
     QuotationFilter,
     RequestQuotationRequest,
@@ -671,10 +672,10 @@ export const apiBusinessRepository: BusinessRepository = {
      * inline rather than joining `PROTOTYPE_ENDPOINTS`: that table is the ledger of surfaces still
      * without HTTP, and these have it.
      */
-    acceptQuotation(_quotationId: QuotationId): Promise<Quotation> {
+    acceptQuotation(_request: AcceptQuotationRequest): Promise<Quotation> {
         return notImplemented(`POST ${BASE}/b2b/quotations/{quotation}/accept`);
     },
-    declineQuotation(_quotationId: QuotationId, _reason?: string): Promise<Quotation> {
+    declineQuotation(_request: DeclineQuotationRequest): Promise<Quotation> {
         return notImplemented(`POST ${BASE}/b2b/quotations/{quotation}/decline`);
     },
 };

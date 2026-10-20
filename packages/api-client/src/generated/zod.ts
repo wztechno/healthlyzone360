@@ -7645,6 +7645,8 @@ export const zQuotationLine = z.object({
     id: zUuid,
     line_number: z.int().gte(1),
     catalogue_item_id: zUuid,
+    catalogue_item_name_en: z.string().nullable(),
+    catalogue_item_name_ar: z.string().nullable(),
     catalogue_item_variant_id: zUuid.nullable(),
     quantity: z.string(),
     unit_amount_minor: z.int().gte(0).nullable(),
@@ -7663,6 +7665,12 @@ export const zQuotation = z.object({
     status: zQuotationStatus,
     currency_code: zCurrencyCode,
     notes: z.string().max(2000).nullable(),
+    requested_delivery_date: z.iso.date().nullable(),
+    recurring: z.boolean(),
+    contact_name: z.string().max(120).nullable(),
+    contact_email: z.string().max(190).nullable(),
+    order_id: zUuid.nullable(),
+    order_number: z.string().nullable(),
     decline_reason: z.string().max(2000).nullable(),
     submitted_at: z.iso.datetime({ offset: true }).nullable(),
     quoted_at: z.iso.datetime({ offset: true }).nullable(),
@@ -7695,12 +7703,26 @@ export const zQuotationLineInput = z.object({
 
 export const zCreateQuotationRequest = z.object({
     notes: z.string().max(2000).nullish(),
+    requested_delivery_date: z.iso.date().nullish(),
+    recurring: z.boolean().optional(),
+    contact_name: z.string().max(120).nullish(),
+    contact_email: z.email().max(190).nullish(),
     lines: z.array(zQuotationLineInput).min(1).nullish()
 });
 
 export const zUpdateQuotationRequest = z.object({
     notes: z.string().max(2000).nullish(),
+    requested_delivery_date: z.iso.date().nullish(),
+    recurring: z.boolean().optional(),
+    contact_name: z.string().max(120).nullish(),
+    contact_email: z.email().max(190).nullish(),
     lines: z.array(zQuotationLineInput).nullish()
+});
+
+export const zAcceptQuotationRequest = z.object({
+    customer_address_id: zUuid,
+    requested_date: z.iso.date(),
+    delivery_window_code: z.string().max(40)
 });
 
 export const zDeclineQuotationRequest = z.object({
@@ -7722,6 +7744,8 @@ export const zQuoteQuotationRequest = z.object({
 export const zB2bCatalogueItem = z.object({
     id: zUuid,
     name: z.string(),
+    description: z.string().nullable(),
+    image_placeholder_id: z.string(),
     item_type: zCatalogueItemType,
     seller_organisation_id: zUuid,
     sales_channel_id: zUuid,
@@ -14331,6 +14355,8 @@ export const zSubmitQuotationPath = z.object({
  * The submitted quotation.
  */
 export const zSubmitQuotationResponse = zQuotationEnvelope;
+
+export const zAcceptQuotationBody = zAcceptQuotationRequest;
 
 export const zAcceptQuotationHeaders = z.object({
     'X-Organisation-Id': zUuid,

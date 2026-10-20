@@ -55,6 +55,7 @@ function quotationLine(
         id: `test-quotation-line-${String(ordinal)}`,
         lineNumber: ordinal,
         catalogueItemId: `test-catalogue-item-${String(ordinal)}`,
+        name: null,
         catalogueItemVariantId: null,
         quantity: '12.0000',
         unitAmountMinor: null,
@@ -73,6 +74,12 @@ function quotation(overrides: Partial<KitchenQuotation> = {}): KitchenQuotation 
         status: 'submitted',
         currencyCode: 'USD',
         notes: 'Weekly for the pilot floor.',
+        requestedDeliveryDate: null,
+        recurring: false,
+        contactName: null,
+        contactEmail: null,
+        orderId: null,
+        orderNumber: null,
         declineReason: null,
         submittedAt: '2026-08-10T09:00:00Z',
         quotedAt: null,
@@ -120,7 +127,18 @@ function seedQuotations(): KitchenQuotation[] {
             quotedAt: '2026-08-05T10:00:00Z',
             decidedAt: '2026-08-06T08:00:00Z',
             lockVersion: 4,
-            lines: [quotationLine(5, { unitAmountMinor: 2_000, lineTotalMinor: 24_000 })],
+            requestedDeliveryDate: '2026-08-12',
+            contactName: 'Layla Haddad',
+            contactEmail: 'layla@example.com',
+            orderId: 'test-0000-order-0001',
+            orderNumber: 'ORD-TEST0001',
+            lines: [
+                quotationLine(5, {
+                    name: 'Chicken Crispy',
+                    unitAmountMinor: 2_000,
+                    lineTotalMinor: 24_000,
+                }),
+            ],
         }),
     ];
 }
@@ -307,6 +325,22 @@ describe('kitchen quotations', () => {
         expect(screen.getByTestId('kitchen-quotations-detail-total')).toHaveTextContent(
             'Not priced yet',
         );
+    });
+
+    it('names the article, the delivery asked for and the order an acceptance placed', async () => {
+        const book = createQuotationBook();
+        await renderQuotations(book);
+
+        await waitForTable();
+        fireEvent.press(screen.getByTestId(`kitchen-quotation-${String(quotationIdAt(4))}-open`));
+        await waitForDetail();
+
+        // The article's own name, never its identifier.
+        expect(
+            screen.getByTestId('kitchen-quotation-line-test-quotation-line-5-name'),
+        ).toHaveTextContent('Chicken Crispy');
+        expect(screen.getByText('ORD-TEST0001')).toBeTruthy();
+        expect(screen.getByText('Layla Haddad · layla@example.com')).toBeTruthy();
     });
 
     it('offers no price fields on a quotation the kitchen may no longer move', async () => {

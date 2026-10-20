@@ -1,4 +1,5 @@
 import {
+    Badge,
     Button,
     Callout,
     Cascade,
@@ -6,13 +7,13 @@ import {
     DatePickerButton,
     EmptyState,
     ErrorState,
-    FormGrid,
     FormSection,
     Icon,
+    IconButton,
     InfoTip,
     Inline,
     QuantityInput,
-    TableSkeleton,
+    Skeleton,
     Text,
     TextInputField,
 } from '@healthy360/design-system';
@@ -22,6 +23,7 @@ import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Platform, View } from 'react-native';
 
 import {
     toFailure,
@@ -29,12 +31,14 @@ import {
     useCorporateProgrammeQuery,
     useRequestQuotationMutation,
 } from '../../../data/business-hooks.ts';
+import { EntityImage } from '../../../media/entity-image.tsx';
 import { useValidationTranslate } from '../../../screens/form-helpers.ts';
+import { useSession } from '../../../session/session-provider.tsx';
 import { earliestStartDate } from '../../commerce/dates.ts';
-import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
+import { useCataloguePort } from '../../kitchen-admin/catalogue/catalogue-nav.tsx';
 import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
-import { formatMoney } from '../../marketplace/format.ts';
+import { CatalogueToolbar } from '../../kitchen-admin/catalogue/catalogue-toolbar.tsx';
+import { formatMoney, formatPackSize } from '../../marketplace/format.ts';
 import {
     CORPORATE_HOME_HREF,
     CORPORATE_QUOTATIONS_HREF,
@@ -45,34 +49,21 @@ import type { DraftContact, DraftQuantities } from '../draft.ts';
 import { contractPriceTestId, isMixedCurrency, lineValue, totalsByCurrency } from '../format.ts';
 
 /**
- * `/corporate/quotations/new` — compose a quotation from a programme's negotiated lines.
+ * `/corporate/quotations/new` — compose a quotation by picking from the programme's menu.
  *
- * Drawn as an admin editor (`kitchen-admin/screens/ingredient-edit-screen.tsx`): the title with
- * Cancel and Submit beside it, then one card per concern — the lines as a table with a quantity
- * cell each, the reply details in a two-up grid — and the indicative value at the foot of the
- * lines. The trail reads `Overview › Quotations › New quotation`.
+ * Drawn as the kitchen's order desk draws a sale (`kitchen-admin/screens/order-desk-sale-screen.tsx`):
+ * the menu as photographed tiles on the leading side, and the request beside it as a sticky panel —
+ * the lines with a stepper each, the indicative value, the delivery and the reply details, and Send
+ * at its foot. Below the width where two tiles still fit beside the panel, the panel drops under the
+ * menu. A tile's Add puts the item on the request at its minimum order, so the request is never
+ * opened already invalid; stepping a line below that minimum takes it off again.
  *
- * ## Submission is a real mutation, not a prototype notice
+ * Submission is a real mutation: the server files a `submitted` quotation carrying no price, because
+ * pricing is the kitchen's act. The indicative value is per currency and labelled indicative — the
+ * rates agreed so far, never a quote.
  *
- * `BusinessRepository.requestQuotation` exists and the prototype store honours it: it validates every
- * line against its minimum order quantity, allocates an `H360-Q` reference and files a `submitted`
- * quotation carrying **no price at all**, because pricing is the account manager's act and a
- * prototype that quotes a total back has invented a commercial commitment. `usePrototypeAction` is
- * reserved for capabilities that genuinely do not exist (`src/prototype/prototype-action.ts`), and
- * this is not one of them — so pressing submit really does change the world, and the quotation list
- * really does show the new reference.
- *
- * What *is* absent is everything around it: there is no way to save a half-composed draft and no
- * export. `quotationExport` in `src/features/availability.ts` records why, and neither the controls
- * nor the standing "prototype limitation" note that explained them is rendered — a screen that
- * composes and submits in one go does not need to apologise for the button it does not have.
- *
- * ## The indicative value is per currency, and it is labelled indicative
- *
- * The tier a quantity earns has a price, so the interface can say what the request is *worth at the
- * agreed rates* — but that is not a quotation, and the copy says so. It is reported per currency
- * ({@link totalsByCurrency}) because one fixture line is priced in SAR and adding riyals to dirhams
- * behind one plausible number is the exact failure that fixture exists to catch.
+ * The reply contact starts as the signed-in buyer, since they are who the kitchen answers nine times
+ * in ten; both fields stay editable.
  */
 
 export interface QuotationBuilderScreenProps {
@@ -80,6 +71,20 @@ export interface QuotationBuilderScreenProps {
     /** A line to start from, arriving from the catalogue's "request a quotation" control. */
     readonly initialItemId?: string | undefined;
 }
+
+/** The request panel's narrowest width beside the menu. */
+const PANEL_MIN_WIDTH = 360;
+/** A tile beside the panel: a 4:3 photograph over two lines of name and the price. */
+const TILE_WIDTH = 188;
+/** Under the panel the tiles stretch to fill the row, never below this. */
+const TILE_MIN_WIDTH = 156;
+const TILE_GAP = 12;
+const BODY_GAP = 16;
+const THUMB_SIZE = 44;
+
+type KindFilter = 'all' | CatalogueItem['kind'];
+
+const KIND_ORDER: readonly CatalogueItem['kind'][] = ['meal', 'bulk_package', 'meal_plan'];
 
 export function QuotationBuilderScreen({
     programmeId,
@@ -89,6 +94,8 @@ export function QuotationBuilderScreen({
     const router = useRouter();
     const formatter = useFormatter();
     const validationTranslate = useValidationTranslate();
+    const { me } = useSession();
+    const port = useCataloguePort();
 
     const parsed = programmeId === undefined ? null : CorporateProgrammeId.safeParse(programmeId);
 
@@ -96,8 +103,7 @@ export function QuotationBuilderScreen({
     const catalogue = useCorporateCatalogueQuery(parsed === null ? null : { programmeId: parsed });
     /**
      * Memoised so the draft below has a stable dependency: `data?.items ?? []` is a fresh array
-     * literal on every render while the page is still loading, which would rebuild the draft — and
-     * therefore re-run validation — on every keystroke in the contact form.
+     * literal on every render while the page is still loading.
      */
     const items = useMemo<readonly CatalogueItem[]>(
         () => catalogue.data?.items ?? [],
@@ -105,23 +111,28 @@ export function QuotationBuilderScreen({
     );
 
     const [edits, setEdits] = useState<DraftQuantities>({});
-    const [contact, setContact] = useState<DraftContact>(EMPTY_CONTACT);
+    const [contactEdits, setContact] = useState<DraftContact>(EMPTY_CONTACT);
+    // Name and email follow the signed-in buyer until edited; the session can arrive after the
+    // first render, so they are derived rather than seeded once.
+    const [nameEdited, setNameEdited] = useState(false);
+    const [emailEdited, setEmailEdited] = useState(false);
+    const contact: DraftContact = {
+        ...contactEdits,
+        name: nameEdited ? contactEdits.name : (me?.user.profile.displayName ?? ''),
+        email: emailEdited ? contactEdits.email : (me?.user.email ?? ''),
+    };
     const [showErrors, setShowErrors] = useState(false);
     const [submitted, setSubmitted] = useState<Quotation | null>(null);
+    const [query, setQuery] = useState('');
+    const [kind, setKind] = useState<KindFilter>('all');
 
     const request = useRequestQuotationMutation();
     const failure = toFailure(request.error);
 
     /**
-     * The draft, with the catalogue's chosen line seeded at its minimum order quantity.
-     *
-     * Derived rather than copied into state on arrival: the catalogue loads asynchronously, and
-     * synchronising an incoming row into a state object is how a form ends up fighting its own
-     * refetches. `id in edits` rather than a `??` so that clearing a seeded line back to nothing
-     * stays cleared instead of springing back to the minimum.
-     *
-     * Seeded at the minimum rather than at one because a minimum order is the smallest thing the
-     * buyer may ask for — starting below it would open the form already invalid.
+     * The draft, with the catalogue's chosen line seeded at its minimum order quantity. Derived
+     * rather than copied into state on arrival, and `id in edits` rather than `??` so a seeded line
+     * the buyer removes stays removed.
      */
     const quantities: DraftQuantities = useMemo(() => {
         const resolved: Record<string, number | null> = {};
@@ -140,6 +151,36 @@ export function QuotationBuilderScreen({
     const lines = draftLines(items, quantities);
     const values = draftValues(items, quantities);
     const totals = totalsByCurrency(values);
+    const chosen = items.filter((item) => (quantities[item.id] ?? 0) > 0);
+
+    const kinds = KIND_ORDER.filter((candidate) => items.some((item) => item.kind === candidate));
+    const needle = query.trim().toLocaleLowerCase();
+    const shown = items.filter(
+        (item) =>
+            (kind === 'all' || item.kind === kind) &&
+            (needle === '' || item.name.toLocaleLowerCase().includes(needle)),
+    );
+
+    /*
+     * Beside or under, as the desk decides it: the panel sits beside the menu wherever two tiles
+     * still fit next to it, and the menu then takes whole tiles only, so its toolbar is the tiles'
+     * width and the panel takes the rest.
+     */
+    const bodyWidth = port.width;
+    const besideColumns = Math.floor(
+        (bodyWidth - BODY_GAP - PANEL_MIN_WIDTH + TILE_GAP) / (TILE_WIDTH + TILE_GAP),
+    );
+    const beside = besideColumns >= 2;
+    const stackedColumns = Math.max(
+        1,
+        Math.floor((bodyWidth + TILE_GAP) / (TILE_MIN_WIDTH + TILE_GAP)),
+    );
+    const tileWidth = beside
+        ? TILE_WIDTH
+        : bodyWidth === 0
+          ? TILE_MIN_WIDTH
+          : (bodyWidth - TILE_GAP * (stackedColumns - 1)) / stackedColumns;
+    const menuWidth = beside ? besideColumns * TILE_WIDTH + (besideColumns - 1) * TILE_GAP : null;
 
     const toCatalogue = () => {
         router.push(
@@ -209,111 +250,49 @@ export function QuotationBuilderScreen({
         );
     }
 
-    const setQuantity = (itemId: string, text: string) => {
-        const trimmed = text.trim();
-        if (trimmed === '') {
-            setEdits((current) => ({ ...current, [itemId]: null }));
-            return;
-        }
-        const next = Number(trimmed);
-        // Whole units only: a part-case is not something an account manager can price.
-        if (!Number.isInteger(next) || next < 0) return;
+    const setQuantity = (itemId: string, next: number | null) => {
         setEdits((current) => ({ ...current, [itemId]: next }));
     };
 
-    const lineColumns: readonly CatalogueColumn<CatalogueItem>[] = [
-        {
-            key: 'name',
-            role: 'title',
-            label: t('business:catalogue.columnItem'),
-            width: 220,
-            min: 160,
-            grow: true,
-            priority: 100,
-            value: (item) => item.name,
-            render: (item) => (
-                <Text variant="bodyStrong" numberOfLines={1}>
-                    {item.name}
-                </Text>
-            ),
-        },
-        {
-            key: 'minimum',
-            role: 'meta',
-            label: t('business:catalogue.columnMinimum'),
-            width: 90,
-            align: 'end',
-            priority: 80,
-            value: (item) => formatter.formatNumber(item.minimumOrderQuantity),
-        },
-        {
-            key: 'quantity',
-            role: 'metric',
-            label: t('business:builder.columnQuantity'),
-            width: 130,
-            align: 'end',
-            priority: 95,
-            value: (item) => {
-                const quantity = quantities[item.id] ?? null;
-                return quantity === null ? '' : formatter.formatNumber(quantity);
-            },
-            render: (item) => {
-                const quantity = quantities[item.id] ?? null;
-                const belowMinimum =
-                    quantity !== null && quantity > 0 && quantity < item.minimumOrderQuantity;
-                return (
-                    <QuantityInput
-                        testID={`quotation-line-${item.id}-quantity`}
-                        label={t('business:builder.quantityLabel', { name: item.name })}
-                        labelHidden
-                        size="sm"
-                        value={quantity === null ? '' : String(quantity)}
-                        placeholder="0"
-                        onChangeText={(next) => {
-                            setQuantity(item.id, next);
-                        }}
-                        {...(belowMinimum
-                            ? {
-                                  error: t('business:builder.lineBelowMinimum', {
-                                      count: item.minimumOrderQuantity,
-                                  }),
-                              }
-                            : {})}
-                    />
-                );
-            },
-        },
-        {
-            key: 'value',
-            role: 'meta',
-            label: t('business:builder.columnValue'),
-            width: 150,
-            align: 'end',
-            priority: 90,
-            value: (item) => {
-                const value = lineValue(item, quantities[item.id] ?? 0);
-                return value === null ? '' : formatMoney(formatter, value);
-            },
-            render: (item) => {
-                const quantity = quantities[item.id] ?? null;
-                const value = lineValue(item, quantity ?? 0);
-                if (value === null) {
-                    return (
-                        <Text tone="secondary" testID={`quotation-line-${item.id}-no-value`}>
-                            {quantity === null || quantity === 0
-                                ? '—'
-                                : t('business:builder.noTierShort')}
-                        </Text>
-                    );
-                }
-                return (
-                    <Text variant="mono" testID={contractPriceTestId(`line-${item.id}`)}>
-                        {formatMoney(formatter, value)}
-                    </Text>
-                );
-            },
-        },
-    ];
+    /** Add puts an item on at its minimum; a step below the minimum takes it off again. */
+    const step = (item: CatalogueItem, delta: 1 | -1) => {
+        // Read inside the updater, so two quick presses step twice rather than once.
+        setEdits((current) => {
+            const now =
+                item.id in current
+                    ? (current[item.id] ?? 0)
+                    : item.id === initialItemId
+                      ? item.minimumOrderQuantity
+                      : 0;
+            const next =
+                delta === 1
+                    ? now === 0
+                        ? item.minimumOrderQuantity
+                        : now + 1
+                    : now - 1 < item.minimumOrderQuantity
+                      ? null
+                      : now - 1;
+            return { ...current, [item.id]: next };
+        });
+    };
+
+    /** A typed quantity lands once it is a whole number above zero; 0 takes the line off. */
+    const typeQuantity = (itemId: string, next: number) => {
+        // Whole units only: a part-case is not something an account manager can price.
+        if (!Number.isInteger(next) || next < 0) return;
+        setQuantity(itemId, next === 0 ? null : next);
+    };
+
+    const priceText = (item: CatalogueItem): string | null => {
+        if (item.contractPrice === null) return null;
+        const price = formatMoney(formatter, item.contractPrice);
+        return item.pack === null
+            ? t('business:builder.priceEach', { price })
+            : t('business:catalogue.pricePerPack', {
+                  price,
+                  size: formatPackSize(t, formatter, item.pack),
+              });
+    };
 
     const catalogueFailure = toFailure(catalogue.error);
 
@@ -342,6 +321,312 @@ export function QuotationBuilderScreen({
         );
     };
 
+    const menu = (
+        <View
+            testID="quotation-builder-menu"
+            className="z-auto min-w-0 flex-col gap-snug"
+            style={menuWidth === null ? { alignSelf: 'stretch' } : { width: menuWidth }}
+        >
+            <CatalogueToolbar<KindFilter>
+                testID="quotation-builder-toolbar"
+                search={query}
+                onSearchChange={setQuery}
+                searchLabel={t('business:catalogue.searchLabel')}
+                searchPlaceholder={t('business:catalogue.searchPlaceholder')}
+                statusLabel={t('business:catalogue.kindLabel')}
+                statusSegments={[
+                    { value: 'all', label: t('business:catalogue.kindAll') },
+                    ...kinds.map((candidate) => ({
+                        value: candidate,
+                        label: t(`business:builder.kindPlural.${candidate}`),
+                    })),
+                ]}
+                status={kind}
+                onStatusChange={setKind}
+            />
+
+            {catalogue.isPending ? (
+                <Skeleton testID="quotation-builder-catalogue-loading" heightClassName="h-48" />
+            ) : catalogueFailure !== null ? (
+                <ErrorState
+                    testID="quotation-builder-catalogue-error"
+                    title={t('business:builder.loadErrorTitle')}
+                    failure={catalogueFailure}
+                    onRetry={() => {
+                        void catalogue.refetch();
+                    }}
+                    retrying={catalogue.isFetching}
+                />
+            ) : items.length === 0 ? (
+                <EmptyState
+                    testID="quotation-builder-catalogue-empty"
+                    title={t('business:builder.emptyTitle')}
+                    body={t('business:builder.emptyBody')}
+                />
+            ) : shown.length === 0 ? (
+                <EmptyState
+                    testID="quotation-builder-search-empty"
+                    title={t('business:builder.searchEmptyTitle')}
+                    body={t('business:builder.searchEmptyBody')}
+                    actions={
+                        <Button
+                            testID="quotation-builder-search-clear"
+                            size="sm"
+                            variant="secondary"
+                            label={t('business:builder.searchClear')}
+                            onPress={() => {
+                                setQuery('');
+                                setKind('all');
+                            }}
+                        />
+                    }
+                />
+            ) : (
+                <View testID="quotation-builder-tiles" className="flex-row flex-wrap gap-snug">
+                    {shown.map((item) => (
+                        <MenuTile
+                            key={item.id}
+                            item={item}
+                            width={tileWidth}
+                            price={priceText(item)}
+                            quantity={quantities[item.id] ?? 0}
+                            onStep={(delta) => {
+                                step(item, delta);
+                            }}
+                        />
+                    ))}
+                </View>
+            )}
+        </View>
+    );
+
+    const panel = (
+        <View
+            testID="quotation-builder-panel"
+            role="complementary"
+            aria-label={t('business:builder.requestTitle')}
+            style={beside ? { minWidth: PANEL_MIN_WIDTH } : undefined}
+            className={
+                beside
+                    ? 'z-auto min-w-0 flex-1 self-start web:sticky web:top-0'
+                    : 'z-auto self-stretch'
+            }
+        >
+            <FormSection
+                variant="card"
+                first
+                testID="quotation-builder-lines-section"
+                title={t('business:builder.requestTitle')}
+                description={t('business:builder.scopeBody')}
+                aside={
+                    <Text variant="caption" tone="secondary" testID="quotation-builder-count">
+                        {t('business:builder.lineCount', { count: chosen.length })}
+                    </Text>
+                }
+            >
+                <View className="flex-col gap-base">
+                    {showErrors && errors.lines !== undefined ? (
+                        <Callout
+                            testID="quotation-builder-lines-error"
+                            role="alert"
+                            tone="danger"
+                            icon="warning"
+                            title={t('business:builder.errorTitle')}
+                            body={errors.lines}
+                        />
+                    ) : null}
+
+                    {chosen.length === 0 ? (
+                        <View
+                            testID="quotation-builder-request-empty"
+                            className="flex-col items-center gap-tight rounded border border-dashed border-stroke px-base py-base"
+                        >
+                            <Icon name="shoppingBasket" size="lg" className="text-content-secondary" />
+                            <Text variant="body" tone="secondary" align="center">
+                                {t('business:builder.requestEmpty')}
+                            </Text>
+                        </View>
+                    ) : (
+                        <View testID="quotation-builder-request-lines" className="flex-col">
+                            {chosen.map((item) => (
+                                <RequestLine
+                                    key={item.id}
+                                    item={item}
+                                    quantity={quantities[item.id] ?? 0}
+                                    onStep={(delta) => {
+                                        step(item, delta);
+                                    }}
+                                    onType={(next) => {
+                                        typeQuantity(item.id, next);
+                                    }}
+                                    onRemove={() => {
+                                        setQuantity(item.id, null);
+                                    }}
+                                />
+                            ))}
+                        </View>
+                    )}
+
+                    <View
+                        testID="quotation-builder-value"
+                        className="flex-col gap-hair rounded bg-surface-sunken px-tight py-tight"
+                    >
+                        <View className="flex-row items-center justify-between gap-tight">
+                            <Inline space="xs" align="center">
+                                <Text variant="label">{t('business:builder.valueTitle')}</Text>
+                                <InfoTip
+                                    testID="quotation-builder-value-tip"
+                                    label={t('business:builder.valueTitle')}
+                                    text={t('business:builder.valueNote')}
+                                />
+                            </Inline>
+                            <View className="flex-col items-end">
+                                {totals.length === 0 ? (
+                                    <Text testID="quotation-builder-value-none" tone="secondary">
+                                        {t('business:builder.valueNone')}
+                                    </Text>
+                                ) : (
+                                    totals.map((total) => (
+                                        <Text
+                                            key={total.currency}
+                                            variant="section"
+                                            className="tabular-nums"
+                                            testID={contractPriceTestId(
+                                                `draft-total-${total.currency}`,
+                                            )}
+                                        >
+                                            {formatMoney(formatter, total)}
+                                        </Text>
+                                    ))
+                                )}
+                            </View>
+                        </View>
+                        {isMixedCurrency(values) ? (
+                            <Text
+                                tone="warning"
+                                variant="caption"
+                                testID="quotation-builder-value-note"
+                            >
+                                {t('business:builder.valueMixedNote')}
+                            </Text>
+                        ) : null}
+                    </View>
+
+                    <View testID="quotation-builder-delivery" className="z-auto flex-col gap-tight">
+                        <Text variant="label">{t('business:builder.deliveryTitle')}</Text>
+                        {/* Picked from a month, as every date on the desk is; clearable, since it is optional. */}
+                        <DatePickerButton
+                            testID="quotation-builder-delivery-date"
+                            label={t('business:builder.deliveryDate')}
+                            labelVisible
+                            placeholder={t('business:builder.deliveryDatePlaceholder')}
+                            value={contact.requestedDeliveryDate ?? ''}
+                            min={earliestStartDate()}
+                            onChange={(next) => {
+                                setContact((current) => ({
+                                    ...current,
+                                    requestedDeliveryDate: next === '' ? null : next,
+                                }));
+                            }}
+                            onClear={() => {
+                                setContact((current) => ({
+                                    ...current,
+                                    requestedDeliveryDate: null,
+                                }));
+                            }}
+                        />
+                        <Checkbox
+                            testID="quotation-builder-recurring"
+                            label={t('business:builder.recurring')}
+                            description={t('business:builder.recurringHint')}
+                            checked={contact.recurring}
+                            onChange={(next) => {
+                                setContact((current) => ({ ...current, recurring: next }));
+                            }}
+                        />
+                    </View>
+
+                    <View testID="quotation-builder-contact" className="flex-col gap-tight">
+                        <Text variant="label">{t('business:builder.contactTitle')}</Text>
+                        <TextInputField
+                            testID="quotation-builder-contact-name"
+                            id="quotation-builder-contact-name"
+                            size="sm"
+                            label={t('business:builder.contactName')}
+                            placeholder={t('business:builder.contactNamePlaceholder')}
+                            value={contact.name}
+                            required
+                            onChangeText={(next: string) => {
+                                setNameEdited(true);
+                                setContact((current) => ({ ...current, name: next }));
+                            }}
+                            {...(showErrors && errors.name !== undefined
+                                ? { error: errors.name }
+                                : {})}
+                        />
+                        <TextInputField
+                            testID="quotation-builder-contact-email"
+                            id="quotation-builder-contact-email"
+                            size="sm"
+                            label={t('business:builder.contactEmail')}
+                            placeholder={t('business:builder.contactEmailPlaceholder')}
+                            value={contact.email}
+                            required
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            keyboardType="email-address"
+                            onChangeText={(next: string) => {
+                                setEmailEdited(true);
+                                setContact((current) => ({ ...current, email: next }));
+                            }}
+                            {...(showErrors && errors.email !== undefined
+                                ? { error: errors.email }
+                                : {})}
+                        />
+                        <TextInputField
+                            testID="quotation-builder-note"
+                            id="quotation-builder-note"
+                            size="sm"
+                            label={t('business:builder.note')}
+                            placeholder={t('business:builder.notePlaceholder')}
+                            hint={t('business:builder.noteHint')}
+                            value={contact.note}
+                            multiline
+                            onChangeText={(next: string) => {
+                                setContact((current) => ({ ...current, note: next }));
+                            }}
+                        />
+                    </View>
+
+                    {failure === null ? null : (
+                        <Callout
+                            testID="quotation-builder-failure"
+                            role="alert"
+                            tone="danger"
+                            icon="warning"
+                            title={t('business:builder.rejectedTitle')}
+                            body={failure.message}
+                        />
+                    )}
+
+                    <View className="flex-col gap-hair">
+                        <Button
+                            testID="quotation-builder-submit"
+                            block
+                            label={t('business:builder.submit')}
+                            iconStart={<Icon name="send" size="sm" />}
+                            loading={request.isPending}
+                            onPress={submit}
+                        />
+                        <Text variant="caption" tone="secondary" align="center">
+                            {t('business:builder.submitHint')}
+                        </Text>
+                    </View>
+                </View>
+            </FormSection>
+        </View>
+    );
+
     return (
         <Cascade space="md" testID="quotation-builder-screen">
             <CataloguePageHeader
@@ -356,218 +641,300 @@ export function QuotationBuilderScreen({
                     </Text>
                 }
                 primaryAction={
-                    <Inline space="xs" align="center">
-                        <Button
-                            testID="quotation-builder-back"
-                            variant="secondary"
-                            label={t('business:builder.cancel')}
-                            onPress={toCatalogue}
-                        />
-                        <Button
-                            testID="quotation-builder-submit"
-                            label={t('business:builder.submit')}
-                            iconStart={<Icon name="send" size="sm" />}
-                            loading={request.isPending}
-                            onPress={submit}
-                        />
-                    </Inline>
+                    <Button
+                        testID="quotation-builder-cancel"
+                        variant="secondary"
+                        label={t('business:builder.cancel')}
+                        onPress={toCatalogue}
+                    />
                 }
             />
 
-            {failure === null ? null : (
-                <Callout
-                    testID="quotation-builder-failure"
-                    role="alert"
-                    tone="danger"
-                    icon="warning"
-                    title={t('business:builder.rejectedTitle')}
-                    body={failure.message}
-                />
-            )}
-
-            {showErrors && errors.lines !== undefined ? (
-                <Callout
-                    testID="quotation-builder-lines-error"
-                    role="alert"
-                    tone="danger"
-                    icon="warning"
-                    title={t('business:builder.errorTitle')}
-                    body={errors.lines}
-                />
-            ) : null}
-
-            <FormSection
-                variant="card"
-                first
-                testID="quotation-builder-lines-section"
-                title={t('business:builder.linesTitle')}
-                description={t('business:builder.scopeBody')}
+            <View
+                // Both measurement paths, each inert on the other's platform — as the desk's sale.
+                ref={Platform.OS === 'web' ? port.ref : undefined}
+                onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
+                className={
+                    beside ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
+                }
             >
-                {catalogue.isPending ? (
-                    <TableSkeleton testID="quotation-builder-catalogue-loading" />
-                ) : catalogueFailure !== null ? (
-                    <ErrorState
-                        testID="quotation-builder-catalogue-error"
-                        title={t('business:builder.loadErrorTitle')}
-                        failure={catalogueFailure}
-                        onRetry={() => {
-                            void catalogue.refetch();
-                        }}
-                        retrying={catalogue.isFetching}
+                {menu}
+                {panel}
+            </View>
+        </Cascade>
+    );
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * The menu tile
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * One item on the menu: its photograph, its name over its agreed price and minimum, and Add — which
+ * becomes a stepper once the item is on the request, with the tile outlined in the brand colour.
+ */
+function MenuTile({
+    item,
+    width,
+    price,
+    quantity,
+    onStep,
+}: {
+    readonly item: CatalogueItem;
+    readonly width: number;
+    readonly price: string | null;
+    readonly quantity: number;
+    readonly onStep: (delta: 1 | -1) => void;
+}) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const selected = quantity > 0;
+
+    return (
+        <View
+            testID={`quotation-builder-tile-${item.id}`}
+            role="group"
+            aria-label={item.name}
+            style={{ width }}
+            className={
+                selected
+                    ? 'relative flex-col overflow-hidden rounded border border-surface-brand bg-surface-raised shadow-elevation-card'
+                    : 'relative flex-col overflow-hidden rounded border border-stroke-subtle bg-surface-raised shadow-elevation-card web:hover:border-stroke'
+            }
+        >
+            <EntityImage
+                testID={`quotation-builder-tile-${item.id}-image`}
+                assetId={item.imagePlaceholderId}
+                seed={item.id}
+                label={item.name}
+                aspect="card"
+                decorative
+                flush
+            />
+            {selected ? (
+                <View className="absolute end-1.5 top-1.5" aria-hidden>
+                    <Badge
+                        testID={`quotation-builder-tile-${item.id}-count`}
+                        tone="brand"
+                        icon={null}
+                        label={formatter.formatNumber(quantity)}
                     />
-                ) : items.length === 0 ? (
-                    <EmptyState
-                        testID="quotation-builder-catalogue-empty"
-                        title={t('business:builder.emptyTitle')}
-                        body={t('business:builder.emptyBody')}
+                </View>
+            ) : null}
+            <View className="flex-1 flex-col gap-hair px-tight pt-tight">
+                <Text variant="strong" numberOfLines={2}>
+                    {item.name}
+                </Text>
+                <Text variant="mono" tone={price === null ? 'secondary' : 'brand'}>
+                    {price ?? t('business:catalogue.unpricedShort')}
+                </Text>
+                {item.minimumOrderQuantity > 1 ? (
+                    <Text variant="caption" tone="secondary">
+                        {t('business:builder.minimumShort', {
+                            count: item.minimumOrderQuantity,
+                        })}
+                    </Text>
+                ) : null}
+            </View>
+            <View className="px-tight pb-tight pt-tight">
+                {selected ? (
+                    <Stepper
+                        testIDPrefix={`quotation-builder-tile-${item.id}`}
+                        name={item.name}
+                        quantity={quantity}
+                        onStep={onStep}
                     />
                 ) : (
-                    <CatalogueList<CatalogueItem>
-                        testID="quotation-builder-lines"
-                        label={t('business:builder.linesTitle')}
-                        columns={lineColumns}
-                        rows={items}
-                        rowKey={(item) => item.id}
-                        // Rows carry no padding of their own, so a 28px quantity box in a 28px row
-                        // touches the boxes above and below it. The 36px row leaves 8px between them.
-                        density="lg"
-                        rowActionsLabel={t('business:catalogue.rowActions')}
-                        rowEntrance={false}
+                    <Button
+                        testID={`quotation-builder-tile-${item.id}-add`}
+                        size="sm"
+                        variant="secondary"
+                        block
+                        label={t('business:builder.add')}
+                        accessibilityLabel={t('business:builder.addNamed', { name: item.name })}
+                        iconStart={<Icon name="plus" size="sm" />}
+                        onPress={() => {
+                            onStep(1);
+                        }}
                     />
                 )}
+            </View>
+        </View>
+    );
+}
 
-                <Inline
-                    space="sm"
-                    align="center"
-                    justify="between"
-                    wrap
-                    testID="quotation-builder-value"
-                >
-                    <Inline space="xs" align="center">
-                        <Text variant="label">{t('business:builder.valueTitle')}</Text>
-                        <InfoTip
-                            testID="quotation-builder-value-tip"
-                            label={t('business:builder.valueTitle')}
-                            text={t('business:builder.valueNote')}
-                        />
-                        {isMixedCurrency(values) ? (
-                            <Text
-                                tone="warning"
-                                variant="caption"
-                                testID="quotation-builder-value-note"
-                            >
-                                {t('business:builder.valueMixedNote')}
-                            </Text>
-                        ) : null}
-                    </Inline>
-                    <Inline space="sm" align="center">
-                        {totals.length === 0 ? (
-                            <Text testID="quotation-builder-value-none" tone="secondary">
-                                {t('business:builder.valueNone')}
-                            </Text>
-                        ) : (
-                            totals.map((total) => (
-                                <Text
-                                    key={total.currency}
-                                    variant="strong"
-                                    testID={contractPriceTestId(`draft-total-${total.currency}`)}
-                                >
-                                    {formatMoney(formatter, total)}
-                                </Text>
-                            ))
-                        )}
-                    </Inline>
-                </Inline>
-            </FormSection>
+/** − count +, the desk ticket's stepper, centred in a tile's footer. */
+function Stepper({
+    testIDPrefix,
+    name,
+    quantity,
+    onStep,
+}: {
+    readonly testIDPrefix: string;
+    readonly name: string;
+    readonly quantity: number;
+    readonly onStep: (delta: 1 | -1) => void;
+}) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    return (
+        <View className="flex-row items-center justify-between gap-hair">
+            <IconButton
+                testID={`${testIDPrefix}-decrement`}
+                icon={<Icon name="minus" size="sm" />}
+                variant="secondary"
+                size="sm"
+                label={t('designSystem:numberStepper.decrease', { label: name })}
+                onPress={() => {
+                    onStep(-1);
+                }}
+            />
+            <Text variant="mono" align="center" aria-live="polite" testID={`${testIDPrefix}-quantity`}>
+                {formatter.formatNumber(quantity)}
+            </Text>
+            <IconButton
+                testID={`${testIDPrefix}-increment`}
+                icon={<Icon name="plus" size="sm" />}
+                variant="secondary"
+                size="sm"
+                label={t('designSystem:numberStepper.increase', { label: name })}
+                onPress={() => {
+                    onStep(1);
+                }}
+            />
+        </View>
+    );
+}
 
-            <FormSection
-                variant="card"
-                testID="quotation-builder-contact"
-                title={t('business:builder.contactTitle')}
-            >
-                {/*
-                 * The 280px field track, as on every desk editor: three fields to a row from `lg`,
-                 * the checkbox under them, and the note across the grid.
-                 */}
-                <FormGrid testID="quotation-builder-contact-grid">
-                    <TextInputField
-                        testID="quotation-builder-contact-name"
-                        id="quotation-builder-contact-name"
-                        size="sm"
-                        label={t('business:builder.contactName')}
-                        placeholder={t('business:builder.contactNamePlaceholder')}
-                        value={contact.name}
-                        required
-                        onChangeText={(next: string) => {
-                            setContact((current) => ({ ...current, name: next }));
-                        }}
-                        {...(showErrors && errors.name !== undefined ? { error: errors.name } : {})}
+/* ------------------------------------------------------------------------------------------------
+ * A line on the request
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * A chosen item: its thumbnail and name, the quantity as a stepper around a typed field — a buyer
+ * asking for 240 trays types it rather than pressing + 239 times — the line's indicative value and
+ * a remove control.
+ */
+function RequestLine({
+    item,
+    quantity,
+    onStep,
+    onType,
+    onRemove,
+}: {
+    readonly item: CatalogueItem;
+    readonly quantity: number;
+    readonly onStep: (delta: 1 | -1) => void;
+    readonly onType: (quantity: number) => void;
+    readonly onRemove: () => void;
+}) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    /*
+     * The text while the field is being typed in. Held here rather than written straight through,
+     * so clearing the field to type a new number does not take the line off under the caret; the
+     * line follows each whole number typed, and blur puts the field back to the line's quantity.
+     */
+    const [draft, setDraft] = useState<string | null>(null);
+    const value = lineValue(item, quantity);
+    const belowMinimum = quantity > 0 && quantity < item.minimumOrderQuantity;
+
+    return (
+        <View
+            testID={`quotation-builder-line-${item.id}`}
+            role="group"
+            aria-label={item.name}
+            className="flex-col gap-hair border-b border-stroke-subtle py-tight"
+        >
+            <View className="flex-row items-center gap-tight">
+                <View style={{ width: THUMB_SIZE }} className="overflow-hidden rounded-sm">
+                    <EntityImage
+                        assetId={item.imagePlaceholderId}
+                        seed={item.id}
+                        label={item.name}
+                        aspect="square"
+                        decorative
+                        flush
                     />
-
-                    <TextInputField
-                        testID="quotation-builder-contact-email"
-                        id="quotation-builder-contact-email"
+                </View>
+                <View className="min-w-0 flex-1 flex-col">
+                    <Text variant="label" numberOfLines={2}>
+                        {item.name}
+                    </Text>
+                    {value === null ? (
+                        <Text
+                            variant="caption"
+                            tone="secondary"
+                            testID={`quotation-line-${item.id}-no-value`}
+                        >
+                            {t('business:builder.noTierShort')}
+                        </Text>
+                    ) : (
+                        <Text
+                            variant="caption"
+                            tone="secondary"
+                            className="tabular-nums"
+                            testID={contractPriceTestId(`line-${item.id}`)}
+                        >
+                            {formatMoney(formatter, value)}
+                        </Text>
+                    )}
+                </View>
+                <IconButton
+                    testID={`quotation-builder-line-${item.id}-remove`}
+                    icon={<Icon name="close" size="sm" />}
+                    variant="ghost"
+                    size="sm"
+                    label={t('business:builder.removeNamed', { name: item.name })}
+                    onPress={onRemove}
+                />
+            </View>
+            <View className="flex-row items-center gap-hair">
+                <IconButton
+                    testID={`quotation-builder-line-${item.id}-decrement`}
+                    icon={<Icon name="minus" size="sm" />}
+                    variant="secondary"
+                    size="sm"
+                    label={t('designSystem:numberStepper.decrease', { label: item.name })}
+                    onPress={() => {
+                        onStep(-1);
+                    }}
+                />
+                <View style={{ width: 88 }}>
+                    <QuantityInput
+                        testID={`quotation-line-${item.id}-quantity`}
+                        label={t('business:builder.quantityLabel', { name: item.name })}
+                        labelHidden
                         size="sm"
-                        label={t('business:builder.contactEmail')}
-                        placeholder={t('business:builder.contactEmailPlaceholder')}
-                        value={contact.email}
-                        required
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        keyboardType="email-address"
-                        onChangeText={(next: string) => {
-                            setContact((current) => ({ ...current, email: next }));
+                        value={draft ?? String(quantity)}
+                        onChangeText={(text) => {
+                            setDraft(text);
+                            const trimmed = text.trim();
+                            if (trimmed !== '' && /^\d+$/.test(trimmed)) onType(Number(trimmed));
                         }}
-                        {...(showErrors && errors.email !== undefined
-                            ? { error: errors.email }
+                        onCommit={() => {
+                            setDraft(null);
+                        }}
+                        {...(belowMinimum
+                            ? {
+                                  error: t('business:builder.lineBelowMinimum', {
+                                      count: item.minimumOrderQuantity,
+                                  }),
+                              }
                             : {})}
                     />
-
-                    {/* Picked from a month, as every date on the desk is; clearable, since it is optional. */}
-                    <DatePickerButton
-                        testID="quotation-builder-delivery-date"
-                        label={t('business:builder.deliveryDate')}
-                        labelVisible
-                        placeholder={t('business:builder.deliveryDatePlaceholder')}
-                        value={contact.requestedDeliveryDate ?? ''}
-                        min={earliestStartDate()}
-                        onChange={(next) => {
-                            setContact((current) => ({
-                                ...current,
-                                requestedDeliveryDate: next === '' ? null : next,
-                            }));
-                        }}
-                        onClear={() => {
-                            setContact((current) => ({ ...current, requestedDeliveryDate: null }));
-                        }}
-                    />
-
-                    <Checkbox
-                        testID="quotation-builder-recurring"
-                        label={t('business:builder.recurring')}
-                        description={t('business:builder.recurringHint')}
-                        checked={contact.recurring}
-                        onChange={(next) => {
-                            setContact((current) => ({ ...current, recurring: next }));
-                        }}
-                    />
-
-                    <TextInputField
-                        testID="quotation-builder-note"
-                        id="quotation-builder-note"
-                        size="sm"
-                        fullWidth
-                        label={t('business:builder.note')}
-                        placeholder={t('business:builder.notePlaceholder')}
-                        hint={t('business:builder.noteHint')}
-                        value={contact.note}
-                        multiline
-                        onChangeText={(next: string) => {
-                            setContact((current) => ({ ...current, note: next }));
-                        }}
-                    />
-                </FormGrid>
-            </FormSection>
-        </Cascade>
+                </View>
+                <IconButton
+                    testID={`quotation-builder-line-${item.id}-increment`}
+                    icon={<Icon name="plus" size="sm" />}
+                    variant="secondary"
+                    size="sm"
+                    label={t('designSystem:numberStepper.increase', { label: item.name })}
+                    onPress={() => {
+                        onStep(1);
+                    }}
+                />
+            </View>
+        </View>
     );
 }

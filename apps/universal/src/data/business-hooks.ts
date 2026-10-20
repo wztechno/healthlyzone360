@@ -1,15 +1,17 @@
 import type {
+    AcceptQuotationRequest,
     AddCartItemRequest,
     CatalogueFilter,
     CatalogueItem,
     Cart,
     CorporateProgramme,
     CursorPage,
+    DeclineQuotationRequest,
     Quotation,
     QuotationFilter,
     RequestQuotationRequest,
 } from '@healthy360/api-client/contracts';
-import type { CorporateProgrammeId, MealId, QuotationId } from '@healthy360/domain-types';
+import type { CorporateProgrammeId, MealId } from '@healthy360/domain-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
@@ -273,13 +275,17 @@ export function useRequestQuotationMutation(): UseMutationResult<
     });
 }
 
-export function useAcceptQuotationMutation(): UseMutationResult<Quotation, unknown, QuotationId> {
+export function useAcceptQuotationMutation(): UseMutationResult<
+    Quotation,
+    unknown,
+    AcceptQuotationRequest
+> {
     const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (quotationId: QuotationId) =>
-            repositories.business.acceptQuotation(quotationId),
+        mutationFn: (request: AcceptQuotationRequest) =>
+            repositories.business.acceptQuotation(request),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.business.all() });
         },
@@ -289,14 +295,14 @@ export function useAcceptQuotationMutation(): UseMutationResult<Quotation, unkno
 export function useDeclineQuotationMutation(): UseMutationResult<
     Quotation,
     unknown,
-    { readonly quotationId: QuotationId; readonly reason?: string }
+    DeclineQuotationRequest
 > {
     const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ quotationId, reason }) =>
-            repositories.business.declineQuotation(quotationId, reason),
+        mutationFn: (request: DeclineQuotationRequest) =>
+            repositories.business.declineQuotation(request),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.business.all() });
         },

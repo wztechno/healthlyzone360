@@ -47,6 +47,8 @@ describe('createApiBusinessReads', () => {
                             {
                                 id: itemId,
                                 name: 'Wholesale lunch tray',
+                                description: 'Rice, chicken and greens',
+                                image_placeholder_id: 'meal-wholesale-lunch-tray',
                                 item_type: 'meal',
                                 seller_organisation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1df0',
                                 sales_channel_id: 'channel-wholesale',
@@ -70,6 +72,8 @@ describe('createApiBusinessReads', () => {
         expect(page.items[0]?.contractPrice).toEqual({ amount: 1800, currency: 'USD' });
         expect(page.items[0]?.pack).toEqual({ quantity: 1, unit: 'kg' });
         expect(page.items[0]?.channels).toEqual(['b2b']);
+        expect(page.items[0]?.imagePlaceholderId).toBe('meal-wholesale-lunch-tray');
+        expect(page.items[0]?.description).toBe('Rice, chicken and greens');
     });
 
     it('reads one catalogue item by identifier', async () => {

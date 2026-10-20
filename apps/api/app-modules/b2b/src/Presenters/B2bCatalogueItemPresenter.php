@@ -18,6 +18,8 @@ final class B2bCatalogueItemPresenter
      * @return array{
      *     id: string,
      *     name: string,
+     *     description: string|null,
+     *     image_placeholder_id: string,
      *     item_type: string,
      *     seller_organisation_id: string,
      *     sales_channel_id: string,
@@ -35,6 +37,9 @@ final class B2bCatalogueItemPresenter
         return [
             'id' => (string) $item->getKey(),
             'name' => $languageCode === 'ar' ? $item->name_ar : $item->name_en,
+            'description' => $languageCode === 'ar' ? ($item->description_ar ?? $item->description_en) : $item->description_en,
+            // The marketplace's rule, so a buyer sees the photograph a customer sees.
+            'image_placeholder_id' => $item->image_placeholder_id ?? $item->item_type->value.'-'.$item->slug,
             'item_type' => $item->item_type->value,
             'seller_organisation_id' => $item->organisation_id,
             'sales_channel_id' => $salesChannelId,

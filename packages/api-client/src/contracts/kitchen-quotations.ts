@@ -82,8 +82,10 @@ export interface KitchenQuotationLine {
     readonly id: string;
     /** Position in the set, renumbered from 1 whenever the buyer replaced their lines. */
     readonly lineNumber: number;
-    /** The article, which is one this kitchen sells. The wire carries no name for it. */
+    /** The article, which is one this kitchen sells. */
     readonly catalogueItemId: string;
+    /** The article's name as the kitchen's catalogue spells it — `null` only from an older API. */
+    readonly name: string | null;
     readonly catalogueItemVariantId: string | null;
     /** A decimal string at four places — `"12.0000"`. Never a float: an invoice is reconciled against it. */
     readonly quantity: string;
@@ -107,6 +109,15 @@ export interface KitchenQuotation {
     readonly currencyCode: CurrencyCode;
     /** The buyer's note on the whole quotation. */
     readonly notes: string | null;
+    /** The first delivery the buyer would like. */
+    readonly requestedDeliveryDate: string | null;
+    /** The buyer wants a standing schedule rather than one delivery. */
+    readonly recurring: boolean;
+    readonly contactName: string | null;
+    readonly contactEmail: string | null;
+    /** The order the buyer's acceptance placed. */
+    readonly orderId: string | null;
+    readonly orderNumber: string | null;
     /** Set only when the buyer declined, and only when they gave one. */
     readonly declineReason: string | null;
     readonly submittedAt: IsoDateTime | null;
