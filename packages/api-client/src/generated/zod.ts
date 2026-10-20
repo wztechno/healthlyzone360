@@ -4930,7 +4930,7 @@ export const zConsumptionExceptionCollection = z.object({
     data: z.object({
         exceptions: z.array(zConsumptionException)
     }),
-    meta: zPaginationMeta
+    meta: zPaginatedOrNumberedMeta
 });
 
 export const zConsumptionExceptionEnvelope = z.object({
@@ -4942,7 +4942,8 @@ export const zConsumptionExceptionEnvelope = z.object({
 
 export const zConsumptionExceptionCountEnvelope = z.object({
     data: z.object({
-        count: z.int().gte(0)
+        count: z.int().gte(0),
+        resolved_count: z.int().gte(0)
     }),
     meta: zMeta
 });
@@ -13166,11 +13167,13 @@ export const zListConsumptionExceptionsQuery = z.object({
     from: z.iso.date().optional(),
     to: z.iso.date().optional(),
     limit: z.int().gte(1).lte(100).optional().default(25),
-    cursor: z.string().max(200).optional()
+    cursor: z.string().max(200).optional(),
+    page: z.int().gte(1).optional(),
+    per_page: z.int().gte(1).lte(100).optional().default(25)
 });
 
 /**
- * A page of consumption exceptions, newest first.
+ * A page of consumption exceptions, newest first. With `page`, numbered — `meta` then carries `total_count` and `total_pages`.
  */
 export const zListConsumptionExceptionsResponse = zConsumptionExceptionCollection;
 

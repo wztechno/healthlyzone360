@@ -64,6 +64,7 @@ import type {
     RecipientSnapshot,
     RecipientSnapshotContact,
     ResolveConsumptionExceptionRequest,
+    ConsumptionExceptionTotals,
     SetStockThresholdRequest,
     SpendSummary,
     SpendSummaryCurrencyTotals,
@@ -1724,6 +1725,8 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             if (filter.to !== undefined) params.set('to', filter.to);
             if (filter.cursor !== undefined) params.set('cursor', filter.cursor);
             if (filter.limit !== undefined) params.set('limit', String(filter.limit));
+            if (filter.page !== undefined) params.set('page', String(filter.page));
+            if (filter.perPage !== undefined) params.set('per_page', String(filter.perPage));
 
             const query = params.toString();
             const envelope = await transport.requestEnvelope<{
@@ -1736,10 +1739,24 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             const meta = (envelope.meta ?? {}) as {
                 readonly next_cursor?: string | null;
                 readonly has_more?: boolean;
+                readonly page?: number;
+                readonly total_pages?: number;
+                readonly total_count?: number;
             };
+            const items = envelope.data.exceptions.map(mapConsumptionException);
+
+            // A numbered page (`page` sent) carries its totals and no cursor.
+            if (meta.total_count !== undefined) {
+                return {
+                    items,
+                    nextCursor: null,
+                    hasMore: (meta.page ?? 1) < (meta.total_pages ?? 1),
+                    totalCount: meta.total_count,
+                };
+            }
 
             return {
-                items: envelope.data.exceptions.map(mapConsumptionException),
+                items,
                 nextCursor: meta.next_cursor ?? null,
                 hasMore: meta.has_more ?? false,
                 totalCount: null,
@@ -1754,6 +1771,17 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                 path: '/catalogue/inventory/consumption-exceptions/unresolved-count',
             });
             return envelope.data.count;
+        },
+
+        async countConsumptionExceptions(): Promise<ConsumptionExceptionTotals> {
+            const envelope = await transport.requestEnvelope<{
+                readonly count: number;
+                readonly resolved_count: number;
+            }>({
+                method: 'GET',
+                path: '/catalogue/inventory/consumption-exceptions/unresolved-count',
+            });
+            return { unresolved: envelope.data.count, resolved: envelope.data.resolved_count };
         },
 
         async resolveConsumptionException(

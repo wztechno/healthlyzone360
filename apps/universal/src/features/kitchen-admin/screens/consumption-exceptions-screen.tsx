@@ -20,7 +20,9 @@ import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
+import { KITCHEN_PAGE_SIZE, pagesInResult } from '../../../data/kitchen-admin-hooks.ts';
 import {
+    useConsumptionExceptionTotalsQuery,
     useConsumptionExceptionsQuery,
     useResolveConsumptionExceptionMutation,
     useRetryConsumptionExceptionMutation,
@@ -29,6 +31,8 @@ import { useAccessState } from '../../../session/session-provider.tsx';
 import { ExceptionRowActions } from '../consumption-exceptions/exception-row-actions.tsx';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
+import { useListPage } from '../use-list-page.ts';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
@@ -63,10 +67,11 @@ import { WithColumnPicker } from '../catalogue/column-picker.tsx';
  * open question §6.3, answered). Retry is not confirmed: it re-runs the same guarded deduction a
  * confirm uses and cannot deduct twice.
  *
- * ## The cards count the page in hand
+ * ## The cards are whole totals
  *
- * The list is cursor-paged and the server returns no total, so Shown counts this page and says so
- * in its caption. Unresolved takes the danger ink only while it is non-zero.
+ * Numbered pages, the admin's one pager: Shown is "18 of 84" from the page's own total, and
+ * Unresolved and Resolved come from the count endpoint — they used to count the 25 rows in hand.
+ * Unresolved takes the danger ink only while it is non-zero.
  */
 export function ConsumptionExceptionsScreen() {
     return (
@@ -82,6 +87,8 @@ export function ConsumptionExceptionsScreen() {
 
 type StatusFilter = 'unresolved' | 'resolved' | 'all';
 
+const EM_DASH = '—';
+
 function ConsumptionExceptions() {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -93,33 +100,41 @@ function ConsumptionExceptions() {
     // report link to is the unresolved total, and a page that opened on today showed 0 beside 14.
     const [status, setStatus] = useState<StatusFilter>('unresolved');
     const [from, setFrom] = useState('');
-    const [cursor, setCursor] = useState<string | undefined>(undefined);
     const [viewing, setViewing] = useState<ConsumptionException | null>(null);
     const [resolving, setResolving] = useState<ConsumptionException | null>(null);
 
     const fromIsValid = from === '' || /^\d{4}-\d{2}-\d{2}$/.test(from);
+    const filterKey = `${status}|${fromIsValid ? from : ''}`;
+    // The admin's one pager, numbered like every other list. It used to be a cursor "Next page"
+    // over 25 rows that the table then cut into its own pages of 18 — two pagers on one list.
+    const [page, setPage] = useListPage(filterKey);
     const filter = useMemo(
         () => ({
             ...(status === 'all' ? {} : { resolved: status === 'resolved' }),
             ...(from === '' || !fromIsValid ? {} : { from }),
-            ...(cursor === undefined ? {} : { cursor }),
+            page,
+            perPage: KITCHEN_PAGE_SIZE,
         }),
-        [status, from, fromIsValid, cursor],
+        [status, from, fromIsValid, page],
     );
     const exceptions = useConsumptionExceptionsQuery(filter);
+    // Whole totals for the cards. The list carries none, and counting its rows counted the page.
+    const totals = useConsumptionExceptionTotalsQuery();
 
     const resolve = useResolveConsumptionExceptionMutation();
     const retry = useRetryConsumptionExceptionMutation();
     const [pendingId, setPendingId] = useState<string | null>(null);
 
     const rows = exceptions.data?.items ?? [];
-    const nextCursor = exceptions.data?.nextCursor ?? null;
-    const hasMore = (exceptions.data?.hasMore ?? false) && nextCursor !== null;
-    const unresolved = rows.filter((row) => !row.resolved).length;
+    const total = exceptions.data?.totalCount ?? null;
+    const totalPages = pagesInResult(exceptions.data) ?? 0;
+    // Rows up to the end of this page: 18 of 84 on the first, 36 on the second.
+    const shownSoFar = Math.min(page * KITCHEN_PAGE_SIZE, total ?? rows.length);
+    const unresolved = totals.data?.unresolved ?? null;
+    const resolved = totals.data?.resolved ?? null;
 
     /** A filter change is a navigation: the page, and any record held in the window, go with it. */
     const refilter = () => {
-        setCursor(undefined);
         setViewing(null);
     };
 
@@ -386,14 +401,17 @@ function ConsumptionExceptions() {
             {failure !== null ? null : (
                 <CatalogueStatCards
                     testID="kitchen-consumption-exceptions-summary"
-                    pending={exceptions.isPending}
+                    pending={exceptions.isPending || totals.isPending}
                     cards={[
                         {
                             key: 'shown',
-                            label: t('kitchen:review.statShown'),
-                            value: formatter.formatNumber(rows.length),
-                            unit: t('kitchen:ops.exceptions.statUnit'),
-                            caption: t('kitchen:ops.exceptions.statShownCaption'),
+                            label: t('kitchen:list.statShown'),
+                            value: formatter.formatNumber(shownSoFar),
+                            unit: t('kitchen:list.statShownUnit', { total: total ?? shownSoFar }),
+                            caption:
+                                status === 'all' && from === ''
+                                    ? t('kitchen:list.statShownUnfiltered')
+                                    : t('kitchen:list.statShownFiltered'),
                             mark: 'list',
                             tone: 'brand',
                             onPress: () => {
@@ -405,11 +423,12 @@ function ConsumptionExceptions() {
                         {
                             key: 'unresolved',
                             label: t('kitchen:ops.exceptions.filterUnresolved'),
-                            value: formatter.formatNumber(unresolved),
+                            value:
+                                unresolved === null ? EM_DASH : formatter.formatNumber(unresolved),
                             unit: t('kitchen:ops.exceptions.statUnit'),
                             caption: t('kitchen:ops.exceptions.statUnresolvedCaption'),
                             mark: 'alert',
-                            tone: unresolved === 0 ? 'default' : 'danger',
+                            tone: unresolved === null || unresolved === 0 ? 'default' : 'danger',
                             onPress: () => {
                                 setStatus('unresolved');
                                 refilter();
@@ -419,7 +438,7 @@ function ConsumptionExceptions() {
                         {
                             key: 'resolved',
                             label: t('kitchen:ops.exceptions.filterResolved'),
-                            value: formatter.formatNumber(rows.length - unresolved),
+                            value: resolved === null ? EM_DASH : formatter.formatNumber(resolved),
                             unit: t('kitchen:ops.exceptions.statUnit'),
                             caption: t('kitchen:ops.exceptions.statResolvedCaption'),
                             mark: 'circleCheck',
@@ -498,20 +517,16 @@ function ConsumptionExceptions() {
                             rowActionsLabel={t('kitchen:list.rowActions')}
                         />
                     </WithColumnPicker>
-                    {hasMore ? (
-                        <View className="flex-row justify-end">
-                            <Button
-                                testID="kitchen-consumption-exceptions-next"
-                                variant="secondary"
-                                size="sm"
-                                label={t('kitchen:ops.exceptions.nextPage')}
-                                onPress={() => {
-                                    setCursor(nextCursor ?? undefined);
-                                    setViewing(null);
-                                }}
-                            />
-                        </View>
-                    ) : null}
+                    <CataloguePager
+                        testID="kitchen-consumption-exceptions-pagination"
+                        page={page}
+                        totalPages={totalPages}
+                        onPageChange={(next) => {
+                            setPage(next);
+                            setViewing(null);
+                        }}
+                        label={t('kitchen:catalogue.pagerLabel')}
+                    />
                 </View>
             )}
 

@@ -3,6 +3,7 @@ import type {
     CompleteReceiptPricesRequest,
     ConsumptionException,
     ConsumptionExceptionFilter,
+    ConsumptionExceptionTotals,
     CreateProductionOrderRequest,
     CreatePurchaseOrdersRequest,
     CreateQualityCheckRequest,
@@ -893,6 +894,25 @@ export function useConsumptionExceptionCountQuery(enabled = true): UseQueryResul
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.countUnresolvedConsumptionExceptions();
+        },
+    });
+}
+
+/**
+ * Unresolved and resolved totals for the Stock gaps cards. The list is cursor-paged with no total,
+ * so counting its rows counted only the page in hand (25 beside a home tile saying 84).
+ */
+export function useConsumptionExceptionTotalsQuery(
+    enabled = true,
+): UseQueryResult<ConsumptionExceptionTotals> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.consumptionExceptionTotals(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.countConsumptionExceptions();
         },
     });
 }

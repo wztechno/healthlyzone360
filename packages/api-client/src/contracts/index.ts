@@ -431,6 +431,7 @@ export type {
     CompleteReceiptPricesRequest,
     ConsumptionException,
     ConsumptionExceptionFilter,
+    ConsumptionExceptionTotals,
     ConsumptionExceptionReasonCode,
     CreateProductionOrderRequest,
     CreatePurchaseOrderInput,

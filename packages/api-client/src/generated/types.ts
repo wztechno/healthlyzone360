@@ -7386,7 +7386,7 @@ export type ConsumptionExceptionCollection = {
     data: {
         exceptions: Array<ConsumptionException>;
     };
-    meta: PaginationMeta;
+    meta: PaginatedOrNumberedMeta;
 };
 
 export type ConsumptionExceptionEnvelope = {
@@ -7402,6 +7402,10 @@ export type ConsumptionExceptionCountEnvelope = {
          * How many consumption exceptions are unresolved in scope.
          */
         count: number;
+        /**
+         * How many have been marked handled, under the same scope — so the Stock gaps page can total both states rather than count the page in hand.
+         */
+        resolved_count: number;
     };
     meta: Meta;
 };
@@ -27821,6 +27825,27 @@ export type ListConsumptionExceptionsData = {
          *
          */
         cursor?: string;
+        /**
+         * Ask for a numbered page instead of walking the cursor. 1-based.
+         *
+         * Only the kitchen catalogue accepts this — see `docs/api/conventions.md`
+         * for why offset is safe on these five collections and on nothing else.
+         * Sending it switches the response `meta` to `NumberedPaginationMeta`;
+         * omitting it leaves the keyset behaviour exactly as it was, so a client
+         * that has never heard of `page` is unaffected.
+         *
+         * A page past the last is `400 request.invalid`, not an empty list. Page
+         * 1 of an empty collection is not: that is a legitimate empty answer.
+         *
+         */
+        page?: number;
+        /**
+         * Page size for a numbered page. A synonym for `limit`, accepted so a
+         * client does not have to change which word it sends when it starts
+         * asking for pages; `per_page` wins if both are present.
+         *
+         */
+        per_page?: number;
     };
     url: '/catalogue/inventory/consumption-exceptions';
 };
@@ -27854,7 +27879,7 @@ export type ListConsumptionExceptionsError = ListConsumptionExceptionsErrors[key
 
 export type ListConsumptionExceptionsResponses = {
     /**
-     * A page of consumption exceptions, newest first.
+     * A page of consumption exceptions, newest first. With `page`, numbered — `meta` then carries `total_count` and `total_pages`.
      */
     200: ConsumptionExceptionCollection;
 };
