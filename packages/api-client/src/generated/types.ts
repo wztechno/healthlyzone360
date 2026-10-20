@@ -4540,6 +4540,10 @@ export type BranchOperatingDay = {
 export type BranchOperatingEnvelope = {
     data: Array<BranchOperatingDay>;
     meta: Meta & {
+        /**
+         * The branch's IANA zone (`organisation_branches.timezone`). Every time in the week is a clock face read in it.
+         */
+        timezone: string;
         configured_weekdays?: Array<number>;
         open_day_count?: number;
         /**

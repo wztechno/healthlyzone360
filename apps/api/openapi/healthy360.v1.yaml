@@ -30508,7 +30508,13 @@ components:
           allOf:
             - $ref: '#/components/schemas/Meta'
             - type: object
+              required: [timezone]
               properties:
+                timezone:
+                  type: string
+                  maxLength: 64
+                  description: The branch's IANA zone (`organisation_branches.timezone`). Every time in the week is a clock face read in it.
+                  example: Asia/Beirut
                 configured_weekdays:
                   type: array
                   maxItems: 7

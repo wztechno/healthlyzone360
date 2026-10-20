@@ -48,6 +48,7 @@ import type {
     AdminDeliveryArea,
     AdminIngredient,
     AdminPriceList,
+    BranchOperatingEnvelope,
     AdminPriceListEntry,
     AdminRecipe,
     AdminRecipeVersion,
@@ -1127,12 +1128,13 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         },
 
         async getBranchOperating(branchId: KitchenBranchId): Promise<BranchOperating> {
-            const daysWire = await transport.request<WireBranchOperatingDay[]>({
+            const envelope = await transport.requestEnvelope<WireBranchOperatingDay[]>({
                 method: 'GET',
                 path: '/kitchen/branch-operating',
             });
+            const meta = envelope.meta as BranchOperatingEnvelope['meta'];
 
-            return mapBranchOperating(branchId, daysWire);
+            return mapBranchOperating(branchId, envelope.data, meta.timezone);
         },
     };
 

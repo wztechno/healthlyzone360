@@ -2958,6 +2958,7 @@ export const zBranchOperatingDay = z.object({
 export const zBranchOperatingEnvelope = z.object({
     data: z.array(zBranchOperatingDay).max(7),
     meta: zMeta.and(z.object({
+        timezone: z.string().max(64),
         configured_weekdays: z.array(z.int().gte(1).lte(7)).max(7).optional(),
         open_day_count: z.int().gte(0).lte(7).optional(),
         is_complete: z.boolean().optional()
