@@ -17,6 +17,7 @@ import {
 import type { SaleState } from './order-desk/sale-state.ts';
 import {
     defaultPaymentMethodFor,
+    firstOpenDay,
     initialSaleState,
     isCounterPaymentComplete,
     needsAddress,
@@ -282,6 +283,50 @@ describe('desk sale — the schedule a sale is placed for', () => {
             requestedDeliveryDate: '2026-10-13',
             deliveryWindowCode: 'midday',
         });
+    });
+
+    it('drops a chosen slot that is over today, but keeps it on another day', () => {
+        // Breakfast chosen, then the clock passed 10:00 — 3 PM, only Snack and Dinner are left.
+        const breakfast = {
+            ...withFulfilmentType(counterState(), 'delivery'),
+            deliveryWindowCode: 'morning',
+        };
+        const offered = ['morning', 'midday', 'afternoon', 'evening'];
+        const over = new Set(['morning', 'midday']);
+
+        expect(scheduleFor(breakfast, TODAY, offered, over)).toEqual({
+            requestedDeliveryDate: TODAY,
+            deliveryWindowCode: 'afternoon',
+        });
+        // Tomorrow's Breakfast has not ended.
+        expect(
+            scheduleFor(
+                { ...breakfast, requestedDeliveryDate: '2026-10-08' },
+                TODAY,
+                offered,
+                over,
+            ),
+        ).toEqual({ requestedDeliveryDate: '2026-10-08', deliveryWindowCode: 'morning' });
+    });
+
+    it('moves a sale the agent set for today to tomorrow once every slot today is over', () => {
+        const today = {
+            ...withFulfilmentType(counterState(), 'pickup'),
+            requestedDeliveryDate: TODAY,
+        };
+
+        expect(
+            scheduleFor(today, TODAY, ['morning', 'midday'], new Set(['morning', 'midday'])),
+        ).toEqual({ requestedDeliveryDate: '2026-10-08', deliveryWindowCode: 'midday' });
+    });
+
+    it('starts the date picker tomorrow only when no slot is left today', () => {
+        expect(firstOpenDay(TODAY, ['morning', 'evening'], new Set(['morning']))).toBe(TODAY);
+        expect(firstOpenDay(TODAY, ['morning', 'evening'], new Set(['morning', 'evening']))).toBe(
+            '2026-10-08',
+        );
+        // A kitchen with no slots never closes the day.
+        expect(firstOpenDay(TODAY, [], new Set())).toBe(TODAY);
     });
 
     it('reads which windows have ended from their end time', () => {
