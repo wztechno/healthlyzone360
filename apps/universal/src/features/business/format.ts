@@ -79,14 +79,21 @@ export function tierForQuantity(tiers: readonly VolumeTier[], quantity: number):
 /**
  * What one draft line is worth at the tier its quantity earns.
  *
- * `null` when no tier applies — a quantity below the minimum order has no price, and inventing one
- * from the base contract price would quote a rate the volume does not entitle the buyer to.
+ * `null` when the item has tiers and none applies — a quantity below the first tier has no price,
+ * and inventing one from the base contract price would quote a rate the volume does not entitle the
+ * buyer to. An item with **no tiers at all** is priced flat at its contract price: that is what the
+ * live agreement tariff serves, one price per pack, and reading it as "no agreed rate" left every
+ * line unvalued.
  */
 export function lineValue(item: CatalogueItem, quantity: number): Money | null {
+    if (quantity <= 0) return null;
+    if (item.volumeTiers.length === 0) {
+        const flat = item.contractPrice;
+        return flat === null ? null : { amount: flat.amount * quantity, currency: flat.currency };
+    }
     const tier = tierForQuantity(item.volumeTiers, quantity);
-    const unitPrice = tier?.unitPrice ?? item.contractPrice;
-    if (unitPrice === null || tier === null) return null;
-    return { amount: unitPrice.amount * quantity, currency: unitPrice.currency };
+    if (tier === null) return null;
+    return { amount: tier.unitPrice.amount * quantity, currency: tier.unitPrice.currency };
 }
 
 /* ── money ───────────────────────────────────────────────────────────────────────────────────── */

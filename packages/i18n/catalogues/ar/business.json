@@ -190,7 +190,30 @@
         "columnValue": "القيمة التقديرية",
         "noTierShort": "لا يوجد سعر متفق عليه",
         "linesTitle": "البنود",
-        "loadErrorTitle": "تعذّر تحميل الكتالوج"
+        "loadErrorTitle": "تعذّر تحميل الكتالوج",
+        "requestTitle": "طلبك",
+        "requestEmpty": "أضف أصنافًا من القائمة. يبدأ كل صنف بحده الأدنى للطلب، ويمكنك تعديل الكمية هنا.",
+        "lineCount_zero": "{{count}} صنف",
+        "lineCount_one": "صنف واحد",
+        "lineCount_two": "صنفان",
+        "lineCount_few": "{{count}} أصناف",
+        "lineCount_many": "{{count}} صنفًا",
+        "lineCount_other": "{{count}} صنف",
+        "priceEach": "{{price}} للوحدة",
+        "minimumShort": "الحد الأدنى للطلب {{count}}",
+        "add": "إضافة",
+        "addNamed": "إضافة {{name}} إلى الطلب",
+        "removeNamed": "إزالة {{name}} من الطلب",
+        "deliveryTitle": "التوصيل",
+        "searchEmptyTitle": "لا توجد نتائج",
+        "searchEmptyBody": "جرّب كلمة أخرى، أو اعرض كل الأنواع.",
+        "searchClear": "مسح البحث",
+        "submitHint": "يرد المطبخ بعرض سعر مفصل. لا يُطلب شيء حتى توافق عليه.",
+        "kindPlural": {
+            "meal": "الوجبات",
+            "bulk_package": "العبوات بالجملة",
+            "meal_plan": "خطط الوجبات"
+        }
     },
     "quotations": {
         "filterLabel": "اعرض",
@@ -235,7 +258,10 @@
         "searchLabel": "ابحث في عروض الأسعار",
         "loadErrorTitle": "تعذّر تحميل عروض الأسعار",
         "caption": "عروض الأسعار",
-        "view": "عرض"
+        "view": "عرض",
+        "columnContact": "جهة الاتصال",
+        "columnOrder": "الطلب",
+        "columnDeclineReason": "سبب الرفض"
     },
     "partner": {
         "title": "التزامات التوريد",
@@ -276,5 +302,47 @@
         "quotationsSection": "الطلبات",
         "newQuotation": "طلب تسعير جديد",
         "windDown": "إنهاء العلاقة"
+    },
+    "accept": {
+        "title": "قبول {{reference}} وجدولة التوصيل",
+        "body": "يؤدي القبول إلى تقديم الطلب بالأسعار المعروضة. اختر موعد ومكان التسليم.",
+        "confirm": "قبول وتقديم الطلب",
+        "total": "الإجمالي المعروض",
+        "date": "يوم التوصيل",
+        "address": "التوصيل إلى",
+        "addressPlaceholder": "اختر عنوانًا",
+        "noAddress": "لا يوجد لشركتك عنوان توصيل بعد. أضف عنوانًا من الملف الشخصي أولًا.",
+        "window": "فترة التوصيل",
+        "refusedTitle": "تعذّر تقديم الطلب",
+        "placedTitle": "تم تقديم الطلب {{order}}",
+        "placedBody": "أصبح الطلب في تقويم المطبخ ليوم {{date}}.",
+        "totalPerDelivery": "الإجمالي المعروض لكل توصيل",
+        "repeat": "كرّر كل أسبوع لمدة",
+        "repeatHint_zero": "لا طلبات.",
+        "repeatHint_one": "طلب واحد يوم {{weekday}}.",
+        "repeatHint_two": "طلبان، كل {{weekday}}، بالأسعار المعروضة.",
+        "repeatHint_few": "{{count}} طلبات، كل {{weekday}}، بالأسعار المعروضة.",
+        "repeatHint_many": "{{count}} طلبًا، كل {{weekday}}، بالأسعار المعروضة.",
+        "repeatHint_other": "{{count}} طلب، كل {{weekday}}، بالأسعار المعروضة.",
+        "weeks_zero": "{{count}} أسبوع",
+        "weeks_one": "أسبوع واحد",
+        "weeks_two": "أسبوعان",
+        "weeks_few": "{{count}} أسابيع",
+        "weeks_many": "{{count}} أسبوعًا",
+        "weeks_other": "{{count}} أسبوع",
+        "placedRunTitle_zero": "لم تُقدَّم طلبات",
+        "placedRunTitle_one": "تم تقديم الطلب {{order}}",
+        "placedRunTitle_two": "تم تقديم طلبين أسبوعيين، أولهما {{order}}",
+        "placedRunTitle_few": "تم تقديم {{count}} طلبات أسبوعية، أولها {{order}}",
+        "placedRunTitle_many": "تم تقديم {{count}} طلبًا أسبوعيًا، أولها {{order}}",
+        "placedRunTitle_other": "تم تقديم {{count}} طلب أسبوعي، أولها {{order}}"
+    },
+    "decline": {
+        "title": "رفض {{reference}}",
+        "body": "سيرى المطبخ أنك رفضت العرض. ذكر السبب يساعده على تقديم عرض أفضل لاحقًا.",
+        "confirm": "رفض عرض السعر",
+        "reason": "السبب (اختياري)",
+        "reasonPlaceholder": "مثال: يتجاوز ميزانيتنا لهذا الشهر",
+        "failedTitle": "تعذّر رفض عرض السعر"
     }
 }

@@ -8362,6 +8362,16 @@ paths:
           description: Comma-separated kitchen identifiers.
           schema:
             type: string
+        - name: ids
+          in: query
+          required: false
+          description: |
+            Comma-separated meal identifiers, at most 100 — how a basket draws
+            all of its lines in one request. An id that is not on sale is absent
+            from the page rather than an error. Pass a `limit` at least as large
+            as the list.
+          schema:
+            type: string
         - name: category_slug
           in: query
           required: false
@@ -14191,6 +14201,50 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/requirements/weekly-check:
+    get:
+      operationId: getOrderDeskWeeklyCheck
+      tags:
+        - Order desk
+      summary: What the latest weekly stock check found
+      description: |
+        Every Monday at 05:00 the scheduler runs the buy list for the next
+        seven days against every branch that keeps a shelf, and records what
+        was short (`inventory:check-stock-sufficiency`). This is the latest of
+        those records for one branch: when it ran, the window it looked at and
+        the items it found short **as they stood then** — a snapshot, so it can
+        differ from the live list beside it.
+
+        `check: null` when no branch is named or the branch has never been
+        checked. Null is not an all-clear and must not render as one.
+
+        Requires `inventory.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: branch_id
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The latest check, or null.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskWeeklyCheckEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/order-desk/delivery-windows:
     get:
       operationId: listOrderDeskDeliveryWindows
@@ -17303,14 +17357,20 @@ paths:
         - B2B quotations
       summary: Accept the kitchen's prices
       description: |
-        `quoted` → `accepted` (B5). The body is empty.
+        `quoted` → `accepted` (B5), and the order it becomes (2026-10-20).
 
-        **The only side-effect is that nothing new happens (B6).** Catalogue
-        access for this buyer is already governed entirely by the agreement's
-        active price list, resolved fresh on every browse, and acceptance
-        changes neither the agreement nor the price list. What acceptance
-        records is that the buyer confirmed a total — there is no grant to
-        refresh and no catalogue to unlock.
+        The body names the delivery — an address of the buyer's, the day and
+        the window — and the order is placed in the same step through the
+        kitchen's composed placement, each line at the **quoted** unit price
+        (`order_lines.price_source = quotation`). Every placement gate still
+        applies (zone, window offered there, cut-off, the buyer's account), and
+        a refusal is `409 order.placement_refused` with `details.reasons`,
+        leaving the quotation `quoted`. The quotation then carries
+        `order_id` / `order_number`.
+
+        `If-Match` is the lock version the buyer was shown: a quotation the
+        kitchen re-priced since is a `409` stale-version refusal, never an
+        acceptance of prices nobody saw. Acceptance changes neither the agreement nor its price list (B6).
 
         **A quotation past its `expires_at` is refused even before the sweep
         has moved it.** The nightly job that writes `expired` runs on a queue;
@@ -17322,6 +17382,12 @@ paths:
         - $ref: '#/components/parameters/QuotationPath'
         - $ref: '#/components/parameters/IfMatch'
         - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptQuotationRequest'
       responses:
         '200':
           description: The accepted quotation.
@@ -17344,6 +17410,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/B2bQuotationStateInvalid'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
         '428':
           $ref: '#/components/responses/PreconditionRequired'
         '429':
@@ -39876,6 +39944,96 @@ components:
                     The longest window this operation will answer, counted
                     inclusively. Echoed so a client can bound its own date picker
                     instead of discovering the limit as a 422.
+    StockSufficiencyShortfall:
+      type: object
+      required:
+        - stock_item_id
+        - code
+        - name_en
+        - unit_code
+        - required
+        - available
+        - short
+        - suggested_buy
+      properties:
+        stock_item_id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+        name_en:
+          type: string
+        unit_code:
+          type:
+            - string
+            - 'null'
+        required:
+          type: string
+          description: Decimal string, six places.
+        available:
+          type: string
+          description: Decimal string, four places. May be negative.
+        short:
+          type: string
+          description: Decimal string, four places, above zero.
+        suggested_buy:
+          type: string
+          description: Decimal string, four places.
+    StockSufficiencyCheck:
+      type: object
+      required:
+        - id
+        - branch_id
+        - window_from
+        - window_to
+        - checked_at
+        - requirement_count
+        - short_count
+        - not_computable_days
+        - shortfalls
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        branch_id:
+          $ref: '#/components/schemas/Uuid'
+        window_from:
+          type: string
+          format: date
+        window_to:
+          type: string
+          format: date
+        checked_at:
+          type: string
+          format: date-time
+        requirement_count:
+          type: integer
+          description: Stock items the window needs at all.
+        short_count:
+          type: integer
+          description: Of those, how many the shelf could not cover.
+        not_computable_days:
+          type: integer
+          description: Days with demand nobody could work out — a missing recipe, an unwritten menu.
+        shortfalls:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockSufficiencyShortfall'
+    OrderDeskWeeklyCheckEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - check
+          properties:
+            check:
+              oneOf:
+                - $ref: '#/components/schemas/StockSufficiencyCheck'
+                - type: 'null'
+        meta:
+          $ref: '#/components/schemas/Meta'
     OrderDeskShortfallCountEnvelope:
       type: object
       required:
@@ -44075,10 +44233,18 @@ components:
         - corporate_programme_id
         - programme_name_en
         - programme_name_ar
+        - buyer_name
         - reference
         - status
         - currency_code
         - notes
+        - requested_delivery_date
+        - recurring
+        - contact_name
+        - contact_email
+        - order_id
+        - order_number
+        - orders
         - decline_reason
         - submitted_at
         - quoted_at
@@ -44107,6 +44273,11 @@ components:
             - string
             - 'null'
           description: The programme's Arabic name. `null` only if the programme no longer exists.
+        buyer_name:
+          type:
+            - string
+            - 'null'
+          description: The buyer organisation's name — who the kitchen is quoting for.
         reference:
           type: string
           description: A reference a person can read over the phone.
@@ -44126,6 +44297,54 @@ components:
             - string
             - 'null'
           maxLength: 2000
+        requested_delivery_date:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: The first delivery the buyer would like. Accepting schedules against it.
+        recurring:
+          type: boolean
+          description: The buyer wants a standing schedule rather than one delivery.
+        contact_name:
+          type:
+            - string
+            - 'null'
+          maxLength: 120
+        contact_email:
+          type:
+            - string
+            - 'null'
+          maxLength: 190
+        order_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The order accepting placed. Null until accepted, and on quotations accepted before 2026-10-20.
+        order_number:
+          type:
+            - string
+            - 'null'
+          description: That order's human-readable number.
+        orders:
+          type: array
+          description: Every order the acceptance placed, in delivery order — one, or one a week for a repeating quotation. Empty until accepted.
+          items:
+            type: object
+            required:
+              - order_id
+              - order_number
+              - delivery_date
+            properties:
+              order_id:
+                $ref: '#/components/schemas/Uuid'
+              order_number:
+                type:
+                  - string
+                  - 'null'
+              delivery_date:
+                type: string
+                format: date
         decline_reason:
           type:
             - string
@@ -44233,6 +44452,25 @@ components:
             - string
             - 'null'
           maxLength: 2000
+        requested_delivery_date:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: The preferred first delivery, today or later.
+        recurring:
+          type: boolean
+        contact_name:
+          type:
+            - string
+            - 'null'
+          maxLength: 120
+        contact_email:
+          type:
+            - string
+            - 'null'
+          format: email
+          maxLength: 190
         lines:
           type:
             - array
@@ -44254,6 +44492,25 @@ components:
             - string
             - 'null'
           maxLength: 2000
+        requested_delivery_date:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: The preferred first delivery, today or later.
+        recurring:
+          type: boolean
+        contact_name:
+          type:
+            - string
+            - 'null'
+          maxLength: 120
+        contact_email:
+          type:
+            - string
+            - 'null'
+          format: email
+          maxLength: 190
         lines:
           type:
             - array
@@ -44265,6 +44522,37 @@ components:
             kept. `[]` clears the draft. Omitting the key entirely leaves the
             existing lines untouched, which is what makes "save the note I
             just typed" a request that cannot lose a line.
+      additionalProperties: false
+    AcceptQuotationRequest:
+      type: object
+      required:
+        - customer_address_id
+        - requested_date
+        - delivery_window_code
+      properties:
+        customer_address_id:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: One of the buyer account's delivery addresses.
+        requested_date:
+          type: string
+          format: date
+          description: The delivery day, today or later; the branch cut-off still applies.
+        delivery_window_code:
+          type: string
+          maxLength: 40
+          description: A window the address's zone offers.
+        repeat_weeks:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+          maximum: 12
+          description: |
+            A repeating quotation's run: one order a week for this many weeks,
+            the first on `requested_date`, all at the quoted prices and placed
+            together (a refused week refuses the run). Above 1 is a `422` on a
+            quotation that was for one delivery.
       additionalProperties: false
     DeclineQuotationRequest:
       type: object
@@ -44314,6 +44602,8 @@ components:
       required:
         - id
         - name
+        - description
+        - image_placeholder_id
         - item_type
         - seller_organisation_id
         - sales_channel_id
@@ -44328,6 +44618,18 @@ components:
             The single name for the `language` asked for — the corporate
             catalogue serves one, not a bilingual pair, because a procurement
             screen shows one and the choice is per request.
+        description:
+          type:
+            - string
+            - 'null'
+          description: |
+            The item's description in the same language as `name`, falling
+            back to English when no Arabic text exists.
+        image_placeholder_id:
+          type: string
+          description: |
+            The photograph key, by the marketplace's rule: the item's own
+            `image_placeholder_id`, else `<item_type>-<slug>`.
         item_type:
           $ref: '#/components/schemas/CatalogueItemType'
         seller_organisation_id:

@@ -4,6 +4,7 @@ import type {
     CatalogueFilter,
     CatalogueItem,
     CorporateProgramme,
+    CustomerAddress,
     Kitchen,
     Quotation,
     QuotationFilter,
@@ -17,7 +18,7 @@ import {
     QuotationId,
     VolumeTierId,
 } from '@healthy360/domain-types';
-import type { Money } from '@healthy360/domain-types';
+import type { Money, ServiceAreaId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
@@ -230,6 +231,21 @@ const WHOLESALE_PROGRAMME: CorporateProgramme = {
     isActive: false,
 };
 
+/** The buyer's delivery address — accepting a quotation schedules the order there. */
+const OFFICE_ADDRESS: CustomerAddress = {
+    id: 'address-office',
+    label: 'Office',
+    areaId: '01920003-0000-7000-8000-000000000001' as ServiceAreaId,
+    areaName: 'Business Bay',
+    isDeliverable: true,
+    line1: 'Tower B, floor 3',
+    line2: null,
+    building: null,
+    floor: null,
+    notes: null,
+    isDefault: true,
+};
+
 /** Still with the account manager: every line unpriced, which is what the list has to say. */
 const SUBMITTED_QUOTATION: Quotation = {
     id: QuotationId.unsafe('01920002-0000-7000-8000-000000000001'),
@@ -252,6 +268,13 @@ const SUBMITTED_QUOTATION: Quotation = {
     requestedAt: '2026-07-28T07:20:00.000Z',
     respondedAt: null,
     expiresAt: null,
+    contactName: null,
+    contactEmail: null,
+    declineReason: null,
+    lockVersion: 2,
+    orderId: null,
+    orderNumber: null,
+    orders: [],
 };
 
 /** Priced, so it carries a total and offers accept/decline. */
@@ -276,6 +299,13 @@ const QUOTED_QUOTATION: Quotation = {
     requestedAt: '2026-07-21T06:05:00.000Z',
     respondedAt: '2026-07-23T12:40:00.000Z',
     expiresAt: '2026-08-20T23:59:59.000Z',
+    contactName: null,
+    contactEmail: null,
+    declineReason: null,
+    lockVersion: 2,
+    orderId: null,
+    orderNumber: null,
+    orders: [],
 };
 
 function kitchen(id: KitchenId, name: string, slug: string): Kitchen {
@@ -420,14 +450,22 @@ function businessWorld(seed: Partial<WorldSeed> = {}): BusinessWorld {
                     requestedAt: '2026-08-01T09:00:00.000Z',
                     respondedAt: null,
                     expiresAt: null,
+                    contactName: request.contactName,
+                    contactEmail: request.contactEmail,
+                    declineReason: null,
+                    lockVersion: 1,
+                    orderId: null,
+                    orderNumber: null,
+                    orders: [],
                 };
                 quotations.push(filed);
                 return filed;
             },
-            acceptQuotation: async (quotationId) => move(quotationId, 'accepted'),
-            declineQuotation: async (quotationId) => move(quotationId, 'declined'),
+            acceptQuotation: async (request) => move(request.quotationId, 'accepted'),
+            declineQuotation: async (request) => move(request.quotationId, 'declined'),
         },
         marketplace: { listKitchens: async () => page(KITCHENS) },
+        account: { listAddresses: async () => [OFFICE_ADDRESS] },
     };
 
     return { quotations, overrides };
@@ -485,6 +523,18 @@ describe('volume tiers', () => {
         expect(value).not.toBeNull();
         expect(value?.currency).toBe(tier?.unitPrice.currency);
         expect(value?.amount).toBe((tier?.unitPrice.amount ?? 0) * 120);
+    });
+
+    it('prices a line with no tiers flat at its contract price, as the live tariff serves it', () => {
+        const flat: CatalogueItem = {
+            ...STAFF_LUNCH_BOX,
+            volumeTiers: [],
+            contractPrice: usd(900),
+        };
+
+        expect(lineValue(flat, 3)).toEqual(usd(2700));
+        expect(lineValue(flat, 0)).toBeNull();
+        expect(lineValue({ ...flat, contractPrice: null }, 3)).toBeNull();
     });
 });
 
@@ -761,9 +811,7 @@ describe('quotation builder', () => {
         );
 
         await waitFor(() => {
-            expect(
-                screen.getByTestId(`quotation-builder-lines-row-${STAFF_LUNCH_BOX.id}`),
-            ).toBeTruthy();
+            expect(screen.getByTestId(`quotation-builder-tile-${STAFF_LUNCH_BOX.id}`)).toBeTruthy();
         });
 
         fireEvent.press(screen.getByTestId('quotation-builder-submit'));
@@ -852,6 +900,87 @@ describe('quotation builder', () => {
         // Filed unpriced: a prototype that quoted a total back would have invented a commitment.
         expect(world.quotations.at(-1)?.state).toBe('submitted');
         expect(world.quotations.at(-1)?.requestedTotal).toBeNull();
+    });
+
+    it('adds a tile at its minimum order, steps it, and takes it off below the minimum', async () => {
+        const world = businessWorld();
+        await renderStubScreen(
+            <QuotationBuilderScreen programmeId={String(STAFF_PROGRAMME_ID)} />,
+            { session: buyerSession(), repositories: world.overrides },
+        );
+
+        const id = STAFF_LUNCH_BOX.id;
+        const minimum = STAFF_LUNCH_BOX.minimumOrderQuantity;
+        await waitFor(() => {
+            expect(screen.getByTestId(`quotation-builder-tile-${id}-add`)).toBeTruthy();
+        });
+        expect(screen.getByTestId('quotation-builder-request-empty')).toBeTruthy();
+
+        // Added at the minimum: a request is never opened already invalid.
+        await fireEvent.press(screen.getByTestId(`quotation-builder-tile-${id}-add`));
+        await waitFor(() => {
+            expect(screen.getByTestId(`quotation-line-${id}-quantity-input`).props.value).toBe(
+                String(minimum),
+            );
+        });
+        expect(screen.getByTestId(`quotation-builder-tile-${id}-quantity`)).toBeTruthy();
+
+        await fireEvent.press(screen.getByTestId(`quotation-builder-line-${id}-increment`));
+        await waitFor(() => {
+            expect(screen.getByTestId(`quotation-line-${id}-quantity-input`).props.value).toBe(
+                String(minimum + 1),
+            );
+        });
+
+        // Two steps down crosses the minimum, so the line comes off rather than going invalid.
+        await fireEvent.press(screen.getByTestId(`quotation-builder-line-${id}-decrement`));
+        await fireEvent.press(screen.getByTestId(`quotation-builder-line-${id}-decrement`));
+        await waitFor(() => {
+            expect(screen.queryByTestId(`quotation-builder-line-${id}`)).toBeNull();
+        });
+        expect(screen.getByTestId(`quotation-builder-tile-${id}-add`)).toBeTruthy();
+    });
+
+    it('starts the reply contact as the signed-in buyer', async () => {
+        const world = businessWorld();
+        await renderStubScreen(
+            <QuotationBuilderScreen programmeId={String(STAFF_PROGRAMME_ID)} />,
+            { session: buyerSession(), repositories: world.overrides },
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('quotation-builder-contact-email-input').props.value).toBe(
+                'test.person@example.test',
+            );
+        });
+        expect(screen.getByTestId('quotation-builder-contact-name-input').props.value).toBe(
+            'Test Person',
+        );
+    });
+
+    it('narrows the menu by search and shows a way back when nothing matches', async () => {
+        const world = businessWorld();
+        await renderStubScreen(
+            <QuotationBuilderScreen programmeId={String(STAFF_PROGRAMME_ID)} />,
+            { session: buyerSession(), repositories: world.overrides },
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId(`quotation-builder-tile-${STAFF_LUNCH_BOX.id}`)).toBeTruthy();
+        });
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('quotation-builder-toolbar-search-input'),
+                'zzz no such dish',
+            );
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId('quotation-builder-search-empty')).toBeTruthy();
+        });
+        await fireEvent.press(screen.getByTestId('quotation-builder-search-clear'));
+        await waitFor(() => {
+            expect(screen.getByTestId(`quotation-builder-tile-${STAFF_LUNCH_BOX.id}`)).toBeTruthy();
+        });
     });
 
     it('offers neither a draft control nor a note apologising for its absence', async () => {
@@ -952,7 +1081,7 @@ describe('quotation list', () => {
         });
     });
 
-    it('accepts a quoted quotation for real, and offers no export control', async () => {
+    it('accepts a quoted quotation by scheduling its delivery, and offers no export control', async () => {
         const world = businessWorld();
         const { repositories } = await renderStubScreen(<QuotationsScreen />, {
             session: buyerSession(),
@@ -964,19 +1093,77 @@ describe('quotation list', () => {
         });
 
         const testId = `quotation-${QUOTED_QUOTATION.reference}-accept`;
-        fireEvent.press(await screen.findByTestId(testId));
+        await fireEvent.press(await screen.findByTestId(testId));
+
+        // Accepting places the order, so it asks where and when before it does anything.
+        await waitFor(() => {
+            expect(screen.getByTestId('quotation-accept-dialog')).toBeTruthy();
+        });
+        expect(repositories.business.acceptQuotation).not.toHaveBeenCalled();
+
+        await waitFor(() => {
+            expect(screen.getByTestId('quotation-accept-confirm')).toBeEnabled();
+        });
+        await fireEvent.press(screen.getByTestId('quotation-accept-confirm'));
         await waitFor(() => {
             expect(screen.queryByTestId(testId)).toBeNull();
         });
 
-        // The control is gone because the record moved, not because the screen hid it.
-        expect(repositories.business.acceptQuotation).toHaveBeenCalledWith(QUOTED_QUOTATION.id);
+        // The control is gone because the record moved, not because the screen hid it — and the
+        // version sent is the one on screen, never a fresh read that would accept an unseen price.
+        expect(repositories.business.acceptQuotation).toHaveBeenCalledWith(
+            expect.objectContaining({
+                quotationId: QUOTED_QUOTATION.id,
+                lockVersion: QUOTED_QUOTATION.lockVersion,
+                delivery: expect.objectContaining({ customerAddressId: OFFICE_ADDRESS.id }),
+            }),
+        );
         expect(
             world.quotations.find((quotation) => quotation.id === QUOTED_QUOTATION.id)?.state,
         ).toBe('accepted');
 
         // `quotationExport` is unavailable, so there is no document control to press.
         expect(screen.queryAllByTestId('prototype-action')).toEqual([]);
+    });
+
+    it('accepts a repeating quotation as a weekly run, four weeks to begin with', async () => {
+        const repeating: Quotation = { ...QUOTED_QUOTATION, recurring: true };
+        const world = businessWorld({ quotations: [SUBMITTED_QUOTATION, repeating] });
+        const { repositories } = await renderStubScreen(<QuotationsScreen />, {
+            session: buyerSession(),
+            repositories: world.overrides,
+        });
+
+        await fireEvent.press(await screen.findByTestId(`quotation-${repeating.reference}-accept`));
+        await waitFor(() => {
+            expect(screen.getByTestId('quotation-accept-weeks')).toBeTruthy();
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId('quotation-accept-confirm')).toBeEnabled();
+        });
+        await fireEvent.press(screen.getByTestId('quotation-accept-confirm'));
+
+        await waitFor(() => {
+            expect(repositories.business.acceptQuotation).toHaveBeenCalledWith(
+                expect.objectContaining({ quotationId: repeating.id, repeatWeeks: 4 }),
+            );
+        });
+    });
+
+    it('offers no weekly run on a quotation for one delivery', async () => {
+        const world = businessWorld();
+        await renderStubScreen(<QuotationsScreen />, {
+            session: buyerSession(),
+            repositories: world.overrides,
+        });
+
+        await fireEvent.press(
+            await screen.findByTestId(`quotation-${QUOTED_QUOTATION.reference}-accept`),
+        );
+        await waitFor(() => {
+            expect(screen.getByTestId('quotation-accept-dialog')).toBeTruthy();
+        });
+        expect(screen.queryByTestId('quotation-accept-weeks')).toBeNull();
     });
 });
 

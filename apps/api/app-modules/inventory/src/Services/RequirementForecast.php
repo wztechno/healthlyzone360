@@ -212,13 +212,18 @@ final readonly class RequirementForecast
     }
 
     /**
-     * Population 1 — every line of every non-cancelled order the window carries.
+     * Population 1 — every line of every non-cancelled order the window carries,
+     * **except the lines whose stock has already been taken off the shelf.**
      *
-     * Which orders count is the calendar's rule, for the calendar's reason: a
-     * *fulfilled* order still consumed its ingredients that day, and a buy list
-     * that dropped it would empty the past out as the week was worked. Cancelled
-     * orders count nowhere; consumption reverses their deduction, so counting
-     * them would be buying for food nobody cooks.
+     * Confirming an order deducts its ingredients there and then
+     * (`OrderConsumptionService::consume()`), so for a confirmed or fulfilled
+     * line `on_hand` already reflects it. Counting it again against that same
+     * shelf asked the buyer to buy everything twice (owner ruling, 2026-10-21).
+     * The test is the ledger, not the status: a line is skipped when a
+     * `consume` movement names it, so a confirmed line whose deduction was
+     * blocked (no recipe, no stock item) still counts — nothing came off for it.
+     * Cancelled orders count nowhere; consumption reverses their deduction, so
+     * counting them would be buying for food nobody cooks.
      *
      * Orders with no requested delivery date are excluded — they have no day in
      * the window to be demand *for*, and treating one as "today" (which is the
@@ -242,6 +247,12 @@ final readonly class RequirementForecast
             ->join('orders', 'orders.id', '=', 'order_lines.order_id')
             ->where('orders.organisation_id', $organisationId)
             ->where('orders.status', '!=', OrderStatus::Cancelled->value)
+            ->whereNotExists(static function ($deducted): void {
+                $deducted->selectRaw('1')
+                    ->from('stock_movements')
+                    ->whereColumn('stock_movements.order_line_id', 'order_lines.id')
+                    ->where('stock_movements.reason', 'consume');
+            })
             ->whereNotNull('orders.requested_delivery_date')
             ->whereBetween('orders.requested_delivery_date', [$start->toDateString(), $end->toDateString()])
             ->orderBy('order_lines.id')

@@ -23,6 +23,7 @@ import type {
     PlaceOrderDeskSaleRequest,
     ServiceArea,
     UpdateOrderDeskCustomerRequest,
+    WeeklyStockCheck,
 } from '@healthy360/api-client/contracts';
 import type { BranchId } from '@healthy360/domain-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -186,6 +187,26 @@ export function useOrderDeskShortfallCountQuery(
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.orderDesk.countRequirementShortfalls(branchId ?? undefined);
+        },
+    });
+}
+
+/**
+ * The latest weekly stock check for the branch — what Monday's scheduled run of the buy list found
+ * short. Not polled: it changes once a week.
+ */
+export function useWeeklyStockCheckQuery(
+    branchId: BranchId | null,
+): UseQueryResult<WeeklyStockCheck | null> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.orderDesk.weeklyCheck(branchId),
+        enabled: branchId !== null && repositories !== null,
+        staleTime: REQUIREMENTS_STALE_MS,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.orderDesk.getWeeklyStockCheck(branchId ?? undefined);
         },
     });
 }

@@ -124,3 +124,18 @@ export function buildAccessState({ mode, phase, me }: BuildAccessStateInput): Ac
 export function selectableMemberships(memberships: readonly Membership[]): readonly Membership[] {
     return memberships.filter((membership) => membership.status === 'active');
 }
+
+/** `organisation_types.code` of a company that buys meals for its people at wholesale. */
+const BUSINESS_CUSTOMER_TYPE = 'corporate_customer';
+
+/**
+ * True when the person buys for a business: an active membership of a corporate customer.
+ *
+ * Read from the memberships rather than the active context on purpose — it must hold before an
+ * organisation is chosen, because getting them to the place where one is chosen is its job.
+ */
+export function isBusinessCustomer(memberships: readonly Membership[]): boolean {
+    return selectableMemberships(memberships).some(
+        (membership) => membership.organisation.type === BUSINESS_CUSTOMER_TYPE,
+    );
+}

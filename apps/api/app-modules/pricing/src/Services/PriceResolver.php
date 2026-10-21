@@ -16,6 +16,7 @@ use Healthy360\Pricing\Models\ChannelPriceList;
 use Healthy360\Pricing\Models\PriceList;
 use Healthy360\Pricing\Models\PriceListItem;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * What one article actually costs, through one channel, on one day.
@@ -128,6 +129,81 @@ final readonly class PriceResolver
     }
 
     /**
+     * `currentFor()` for many articles on one channel at once — each article at
+     * the first of its candidate variants that prices, the way a catalogue
+     * listing asks (a pack, then the next pack, then the item-level row).
+     *
+     * The answer for every article is exactly what calling `currentFor()` per
+     * candidate in turn would give: the lists are consulted in the same order
+     * and each list's rows are judged by the same `pickRow()`. What changes is
+     * the cost — the channel, the buyer's agreement and the lists are read
+     * once, and each list's rows for every article in one query, instead of
+     * all of it again per article and per pack. The B2B catalogue paid about
+     * four seconds for thirty articles the other way.
+     *
+     * @param  array<string, list<string|null>>  $variantsByItem  article id → variant ids to try in order (null is the item-level row)
+     * @return array<string, ResolvedPrice> article id → price; an article nothing prices is absent
+     */
+    public function firstPricedForMany(
+        string $salesChannelId,
+        array $variantsByItem,
+        ?CarbonImmutable $date = null,
+        ?CustomerAccount $buyer = null,
+    ): array {
+        if ($variantsByItem === []) {
+            return [];
+        }
+
+        $on = ($date ?? CarbonImmutable::now())->startOfDay();
+        $channel = SalesChannel::withoutTenancy()->whereKey($salesChannelId)->first();
+
+        if (! $channel instanceof SalesChannel) {
+            return [];
+        }
+
+        $itemIds = array_map('strval', array_keys($variantsByItem));
+        $lists = $this->listsFor($channel, $on, $buyer);
+
+        /** @var array<int, array<string, list<PriceListItem>>> $rowsByList list position → article id → rows */
+        $rowsByList = [];
+
+        foreach ($lists as $position => $list) {
+            $grouped = [];
+
+            foreach ($this->standingRows($list, $channel->organisation_id, $itemIds, $on) as $row) {
+                $grouped[(string) $row->catalogue_item_id][] = $row;
+            }
+
+            $rowsByList[$position] = $grouped;
+        }
+
+        $resolved = [];
+
+        foreach ($variantsByItem as $itemId => $candidates) {
+            foreach ($candidates as $variantId) {
+                foreach ($lists as $position => $list) {
+                    $row = $this->pickRow($rowsByList[$position][(string) $itemId] ?? [], $variantId, 1.0);
+
+                    if ($row !== null) {
+                        $resolved[(string) $itemId] = new ResolvedPrice(
+                            amountMinor: (int) $row->unit_amount_minor,
+                            currencyCode: $list->currency_code,
+                            priceListId: (string) $list->getKey(),
+                            priceListItemId: (string) $row->getKey(),
+                            minQuantity: $row->min_quantity,
+                            catalogueItemVariantId: $row->catalogue_item_variant_id,
+                        );
+
+                        continue 3;
+                    }
+                }
+            }
+        }
+
+        return $resolved;
+    }
+
+    /**
      * The list a channel quotes from to a buyer with no agreement — the
      * channel's own standing price, which is what "the B2B price" and "the
      * B2C price" of an article mean. Null when the channel reads no active
@@ -233,10 +309,23 @@ final readonly class PriceResolver
         float $quantity,
         CarbonImmutable $on,
     ): ?PriceListItem {
-        $candidates = PriceListItem::withoutTenancy()
+        $candidates = $this->standingRows($priceList, $organisationId, [$catalogueItemId], $on)->all();
+
+        return $this->pickRow($candidates, $catalogueItemVariantId, $quantity);
+    }
+
+    /**
+     * The confirmed rows of one list standing on a day, for the articles named.
+     *
+     * @param  list<string>  $catalogueItemIds
+     * @return Collection<int, PriceListItem>
+     */
+    private function standingRows(PriceList $priceList, string $organisationId, array $catalogueItemIds, CarbonImmutable $on): Collection
+    {
+        return PriceListItem::withoutTenancy()
             ->where('price_list_id', $priceList->getKey())
             ->where('organisation_id', $organisationId)
-            ->where('catalogue_item_id', $catalogueItemId)
+            ->whereIn('catalogue_item_id', $catalogueItemIds)
             ->where('price_status', PriceStatus::Confirmed->value)
             ->where('effective_from', '<=', $on->toDateString())
             ->where(function (Builder $scoped) use ($on): void {
@@ -246,12 +335,18 @@ final readonly class PriceResolver
                 $scoped->whereNull('effective_to')->orWhere('effective_to', '>', $on->toDateString());
             })
             ->get();
+    }
 
-        // The variant rule: the named variant's own rows first, item-level
-        // rows only if it has none. Evaluated as two passes over one result
-        // set rather than two queries, because falling back has to consider
-        // *every* tier of the fallback, not merely the tiers the first pass
-        // missed.
+    /**
+     * The variant rule: the named variant's own rows first, item-level rows
+     * only if it has none. Evaluated as two passes over one result set rather
+     * than two queries, because falling back has to consider *every* tier of
+     * the fallback, not merely the tiers the first pass missed.
+     *
+     * @param  array<int, PriceListItem>  $candidates  one article's rows in one list
+     */
+    private function pickRow(array $candidates, ?string $catalogueItemVariantId, float $quantity): ?PriceListItem
+    {
         $passes = $catalogueItemVariantId === null
             ? [null]
             : [$catalogueItemVariantId, null];

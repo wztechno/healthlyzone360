@@ -1,15 +1,17 @@
 import type {
+    AcceptQuotationRequest,
     AddCartItemRequest,
     CatalogueFilter,
     CatalogueItem,
     Cart,
     CorporateProgramme,
     CursorPage,
+    DeclineQuotationRequest,
     Quotation,
     QuotationFilter,
     RequestQuotationRequest,
 } from '@healthy360/api-client/contracts';
-import type { CorporateProgrammeId, MealId, QuotationId } from '@healthy360/domain-types';
+import type { CorporateProgrammeId, MealId } from '@healthy360/domain-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
@@ -286,21 +288,29 @@ export function useRequestQuotationMutation(): UseMutationResult<
     return useMutation({
         mutationFn: (request: RequestQuotationRequest) =>
             repositories.business.requestQuotation(request),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.business.all() });
+        onSuccess: () => {
+            // Only the quotations moved — the catalogue and the programmes did not, and the B2B
+            // catalogue is the slowest read in the area. Not awaited, so the screen answers now.
+            void queryClient.invalidateQueries({ queryKey: ['business', 'quotations'] });
         },
     });
 }
 
-export function useAcceptQuotationMutation(): UseMutationResult<Quotation, unknown, QuotationId> {
+export function useAcceptQuotationMutation(): UseMutationResult<
+    Quotation,
+    unknown,
+    AcceptQuotationRequest
+> {
     const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (quotationId: QuotationId) =>
-            repositories.business.acceptQuotation(quotationId),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.business.all() });
+        mutationFn: (request: AcceptQuotationRequest) =>
+            repositories.business.acceptQuotation(request),
+        onSuccess: () => {
+            // Only the quotations moved — the catalogue and the programmes did not, and the B2B
+            // catalogue is the slowest read in the area. Not awaited, so the screen answers now.
+            void queryClient.invalidateQueries({ queryKey: ['business', 'quotations'] });
         },
     });
 }
@@ -308,16 +318,18 @@ export function useAcceptQuotationMutation(): UseMutationResult<Quotation, unkno
 export function useDeclineQuotationMutation(): UseMutationResult<
     Quotation,
     unknown,
-    { readonly quotationId: QuotationId; readonly reason?: string }
+    DeclineQuotationRequest
 > {
     const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ quotationId, reason }) =>
-            repositories.business.declineQuotation(quotationId, reason),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.business.all() });
+        mutationFn: (request: DeclineQuotationRequest) =>
+            repositories.business.declineQuotation(request),
+        onSuccess: () => {
+            // Only the quotations moved — the catalogue and the programmes did not, and the B2B
+            // catalogue is the slowest read in the area. Not awaited, so the screen answers now.
+            void queryClient.invalidateQueries({ queryKey: ['business', 'quotations'] });
         },
     });
 }

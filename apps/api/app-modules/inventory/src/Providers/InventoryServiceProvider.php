@@ -6,6 +6,7 @@ namespace Healthy360\Inventory\Providers;
 
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Inventory\Console\CheckStockSufficiencyCommand;
 use Healthy360\Inventory\Console\DeriveStockItemsCommand;
 use Healthy360\Inventory\Contracts\ProductionValuationLedger;
 use Healthy360\Inventory\Contracts\SubscriptionMealDemand;
@@ -85,7 +86,7 @@ class InventoryServiceProvider extends ServiceProvider
         }
 
         if ($this->app->runningInConsole()) {
-            $this->commands([DeriveStockItemsCommand::class]);
+            $this->commands([DeriveStockItemsCommand::class, CheckStockSufficiencyCommand::class]);
         }
     }
 }

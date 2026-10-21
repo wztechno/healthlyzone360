@@ -9155,6 +9155,57 @@ export type OrderDeskRequirementsEnvelope = {
     };
 };
 
+export type StockSufficiencyShortfall = {
+    stock_item_id: Uuid;
+    code: string;
+    name_en: string;
+    unit_code: string | null;
+    /**
+     * Decimal string, six places.
+     */
+    required: string;
+    /**
+     * Decimal string, four places. May be negative.
+     */
+    available: string;
+    /**
+     * Decimal string, four places, above zero.
+     */
+    short: string;
+    /**
+     * Decimal string, four places.
+     */
+    suggested_buy: string;
+};
+
+export type StockSufficiencyCheck = {
+    id: Uuid;
+    branch_id: Uuid;
+    window_from: string;
+    window_to: string;
+    checked_at: string;
+    /**
+     * Stock items the window needs at all.
+     */
+    requirement_count: number;
+    /**
+     * Of those, how many the shelf could not cover.
+     */
+    short_count: number;
+    /**
+     * Days with demand nobody could work out — a missing recipe, an unwritten menu.
+     */
+    not_computable_days: number;
+    shortfalls: Array<StockSufficiencyShortfall>;
+};
+
+export type OrderDeskWeeklyCheckEnvelope = {
+    data: {
+        check: StockSufficiencyCheck | null;
+    };
+    meta: Meta;
+};
+
 export type OrderDeskShortfallCountEnvelope = {
     data: {
         /**
@@ -11541,6 +11592,10 @@ export type Quotation = {
      */
     programme_name_ar: string | null;
     /**
+     * The buyer organisation's name — who the kitchen is quoting for.
+     */
+    buyer_name: string | null;
+    /**
      * A reference a person can read over the phone.
      */
     reference: string;
@@ -11553,6 +11608,32 @@ export type Quotation = {
      */
     currency_code: CurrencyCode;
     notes: string | null;
+    /**
+     * The first delivery the buyer would like. Accepting schedules against it.
+     */
+    requested_delivery_date: string | null;
+    /**
+     * The buyer wants a standing schedule rather than one delivery.
+     */
+    recurring: boolean;
+    contact_name: string | null;
+    contact_email: string | null;
+    /**
+     * The order accepting placed. Null until accepted, and on quotations accepted before 2026-10-20.
+     */
+    order_id: Uuid | null;
+    /**
+     * That order's human-readable number.
+     */
+    order_number: string | null;
+    /**
+     * Every order the acceptance placed, in delivery order — one, or one a week for a repeating quotation. Empty until accepted.
+     */
+    orders: Array<{
+        order_id: Uuid;
+        order_number: string | null;
+        delivery_date: string;
+    }>;
     /**
      * Set only when the buyer declined, and only when they gave one.
      */
@@ -11619,6 +11700,13 @@ export type QuotationLineInput = {
 export type CreateQuotationRequest = {
     notes?: string | null;
     /**
+     * The preferred first delivery, today or later.
+     */
+    requested_delivery_date?: string | null;
+    recurring?: boolean;
+    contact_name?: string | null;
+    contact_email?: string | null;
+    /**
      * Optional. A draft may be opened empty and filled in by a later
      * `PATCH` — which is how a client that wants an identifier before
      * the user has chosen anything gets one. When present it may not be
@@ -11631,6 +11719,13 @@ export type CreateQuotationRequest = {
 export type UpdateQuotationRequest = {
     notes?: string | null;
     /**
+     * The preferred first delivery, today or later.
+     */
+    requested_delivery_date?: string | null;
+    recurring?: boolean;
+    contact_name?: string | null;
+    contact_email?: string | null;
+    /**
      * **The desired complete set**, not a delta — send every line to be
      * kept. `[]` clears the draft. Omitting the key entirely leaves the
      * existing lines untouched, which is what makes "save the note I
@@ -11638,6 +11733,29 @@ export type UpdateQuotationRequest = {
      *
      */
     lines?: Array<QuotationLineInput> | null;
+};
+
+export type AcceptQuotationRequest = {
+    /**
+     * One of the buyer account's delivery addresses.
+     */
+    customer_address_id: Uuid;
+    /**
+     * The delivery day, today or later; the branch cut-off still applies.
+     */
+    requested_date: string;
+    /**
+     * A window the address's zone offers.
+     */
+    delivery_window_code: string;
+    /**
+     * A repeating quotation's run: one order a week for this many weeks,
+     * the first on `requested_date`, all at the quoted prices and placed
+     * together (a refused week refuses the run). Above 1 is a `422` on a
+     * quotation that was for one delivery.
+     *
+     */
+    repeat_weeks?: number | null;
 };
 
 export type DeclineQuotationRequest = {
@@ -11683,6 +11801,18 @@ export type B2bCatalogueItem = {
      *
      */
     name: string;
+    /**
+     * The item's description in the same language as `name`, falling
+     * back to English when no Arabic text exists.
+     *
+     */
+    description: string | null;
+    /**
+     * The photograph key, by the marketplace's rule: the item's own
+     * `image_placeholder_id`, else `<item_type>-<slug>`.
+     *
+     */
+    image_placeholder_id: string;
     item_type: CatalogueItemType;
     /**
      * The kitchen that sells it.
@@ -24456,6 +24586,14 @@ export type ListMarketplaceMealsData = {
          */
         kitchen_ids?: string;
         /**
+         * Comma-separated meal identifiers, at most 100 — how a basket draws
+         * all of its lines in one request. An id that is not on sale is absent
+         * from the page rather than an error. Pass a `limit` at least as large
+         * as the list.
+         *
+         */
+        ids?: string;
+        /**
          * One published-category code from the platform product taxonomy
          * (`frozen`, `beverage`, `sauce`, `dressing`, `meal`, `bread`, …).
          * An unknown code matches nothing — the codes are navigation, and a
@@ -31107,6 +31245,63 @@ export type GetOrderDeskShortfallCountResponses = {
 
 export type GetOrderDeskShortfallCountResponse = GetOrderDeskShortfallCountResponses[keyof GetOrderDeskShortfallCountResponses];
 
+export type GetOrderDeskWeeklyCheckData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        branch_id?: Uuid;
+    };
+    url: '/catalogue/order-desk/requirements/weekly-check';
+};
+
+export type GetOrderDeskWeeklyCheckErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderDeskWeeklyCheckError = GetOrderDeskWeeklyCheckErrors[keyof GetOrderDeskWeeklyCheckErrors];
+
+export type GetOrderDeskWeeklyCheckResponses = {
+    /**
+     * The latest check, or null.
+     */
+    200: OrderDeskWeeklyCheckEnvelope;
+};
+
+export type GetOrderDeskWeeklyCheckResponse = GetOrderDeskWeeklyCheckResponses[keyof GetOrderDeskWeeklyCheckResponses];
+
 export type ListOrderDeskDeliveryWindowsData = {
     body?: never;
     headers: {
@@ -34345,7 +34540,7 @@ export type SubmitQuotationResponses = {
 export type SubmitQuotationResponse = SubmitQuotationResponses[keyof SubmitQuotationResponses];
 
 export type AcceptQuotationData = {
-    body?: never;
+    body: AcceptQuotationRequest;
     headers: {
         /**
          * The active organisation. Never trusted without server-side validation
@@ -34421,6 +34616,10 @@ export type AcceptQuotationErrors = {
      *
      */
     409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
     /**
      * The resource is lock-versioned and the write carried no `If-Match`.
      * **HTTP 428, not 409 and not 400**: the client has not lost a race — it

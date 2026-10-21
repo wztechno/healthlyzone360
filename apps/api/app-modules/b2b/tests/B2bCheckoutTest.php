@@ -122,6 +122,8 @@ it('lists catalogue items for a corporate buyer with agreement prices', function
         ->assertJsonPath('data.items.0.price.amount_minor', 1800)
         // Priced as itself, so there is no pack size to state.
         ->assertJsonPath('data.items.0.pack', null)
+        // The marketplace's photograph id, so the builder can show the dish.
+        ->assertJsonPath('data.items.0.image_placeholder_id', $world['meal']->item_type->value.'-'.$world['meal']->slug)
         ->assertJsonMissing(['price_list_id', 'price_list_item_id', 'unit_amount_minor']);
 });
 

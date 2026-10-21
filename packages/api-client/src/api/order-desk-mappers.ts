@@ -25,6 +25,7 @@ import type {
     OrderDeskRequirement,
     OrderDeskRequirementsMeta,
     OrderDeskShortfallCount,
+    WeeklyStockCheck,
 } from '../contracts/order-desk.ts';
 import type {
     AssignedDeliveryJob as WireAssignedDeliveryJob,
@@ -50,6 +51,7 @@ import type {
     OrderDeskRequirementsEnvelope,
     OrderDeskRow as WireOrderDeskRow,
     OrderDeskShortfallCountEnvelope,
+    OrderDeskWeeklyCheckEnvelope,
     OrderPaymentSummary as WireOrderPaymentSummary,
 } from '../generated/types.ts';
 import { mapKitchenOrder } from './kitchen-orders-repository.ts';
@@ -308,6 +310,33 @@ export function mapOrderDeskShortfallCount(
     wire: OrderDeskShortfallCountEnvelope['data'],
 ): OrderDeskShortfallCount {
     return { count: wire.shortfall_count, branchId: wire.branch_id };
+}
+
+export function mapWeeklyStockCheck(
+    wire: OrderDeskWeeklyCheckEnvelope['data'],
+): WeeklyStockCheck | null {
+    const check = wire.check;
+    if (check === null) return null;
+    return {
+        id: check.id,
+        branchId: check.branch_id,
+        windowFrom: check.window_from,
+        windowTo: check.window_to,
+        checkedAt: check.checked_at,
+        requirementCount: check.requirement_count,
+        shortCount: check.short_count,
+        notComputableDays: check.not_computable_days,
+        shortfalls: check.shortfalls.map((row) => ({
+            stockItemId: row.stock_item_id,
+            code: row.code,
+            name: row.name_en,
+            unitCode: row.unit_code,
+            required: row.required,
+            available: row.available,
+            short: row.short,
+            suggestedBuy: row.suggested_buy,
+        })),
+    };
 }
 
 /**

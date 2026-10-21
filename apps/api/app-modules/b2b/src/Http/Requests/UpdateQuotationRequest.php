@@ -26,6 +26,10 @@ class UpdateQuotationRequest extends FormRequest
     {
         return [
             'notes' => ['nullable', 'string', 'max:2000'],
+            'requested_delivery_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'recurring' => ['sometimes', 'boolean'],
+            'contact_name' => ['nullable', 'string', 'max:120'],
+            'contact_email' => ['nullable', 'email', 'max:190'],
             'lines' => ['nullable', 'array'],
             'lines.*.catalogue_item_id' => ['required', 'uuid'],
             'lines.*.catalogue_item_variant_id' => ['nullable', 'uuid'],
@@ -35,7 +39,7 @@ class UpdateQuotationRequest extends FormRequest
     }
 
     /**
-     * @return array{notes?: string|null, lines?: list<array<string, mixed>>|null}
+     * @return array{notes?: string|null, requested_delivery_date?: string|null, recurring?: bool, contact_name?: string|null, contact_email?: string|null, lines?: list<array<string, mixed>>|null}
      */
     public function payload(): array
     {

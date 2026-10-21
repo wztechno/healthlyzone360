@@ -231,6 +231,21 @@ MAIL_FROM_ADDRESS=$MAIL_FROM_ADDRESS
 MAIL_FROM_NAME="$MAIL_FROM_NAME"
 EOF
 
+# The ingredient reference lookups are opt-in per instance, the same bargain
+# Brevo takes above: put the key in this directory's write-once .env and it
+# reaches the container, leave it out and the instance uses the shipped
+# defaults in config/services.php.
+#
+# Written only when set, and that is the whole point. An empty line is not the
+# same as an absent one — `env()` hands back "" rather than the default, so
+# `USDA_FDC_HOURLY_BUDGET=` would floor the hourly budget at one request
+# instead of nine hundred, and `OPEN_FOOD_FACTS_USER_AGENT=` would send the
+# empty user agent that Open Food Facts asks callers not to send.
+for key in USDA_FDC_API_KEY USDA_FDC_HOURLY_BUDGET OPEN_FOOD_FACTS_USER_AGENT; do
+    value="$(envval "$key")"
+    [ -n "$value" ] && printf '%s="%s"\n' "$key" "$value" >> .env.deploy
+done
+
 # ---------------------------------------------------------------------------
 # 3. Build and start the data layer
 # ---------------------------------------------------------------------------
@@ -316,6 +331,14 @@ docker compose up -d --force-recreate "$WEB_SERVICE"
 # Horizon holds its supervisor configuration in memory; a new image means a new
 # container, but an already-running one has to be told to pick the code up.
 docker compose restart queue scheduler >/dev/null 2>&1 || true
+
+# Config, routes and events are otherwise re-read on every request — measured on
+# dev (2026-10-20) as 60-150ms off each API call. Cached inside the running api
+# container, against the env it actually serves with; a recreate drops the cache
+# and the next deploy writes it again. Run as root, so hand the files to fpm.
+echo "==> caching config and routes"
+docker compose exec -T api sh -c 'php artisan optimize >/dev/null && chown -R www-data:www-data bootstrap/cache storage/framework/views' \
+    || echo "warning: artisan optimize failed - the api is serving uncached"
 
 echo
 echo "==> smoke check"

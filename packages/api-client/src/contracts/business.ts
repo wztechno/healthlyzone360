@@ -116,9 +116,48 @@ export interface Quotation {
     readonly requestedDeliveryDate: string | null;
     readonly recurring: boolean;
     readonly note: string | null;
+    readonly contactName: string | null;
+    readonly contactEmail: string | null;
+    readonly declineReason: string | null;
     readonly requestedAt: IsoDateTime;
     readonly respondedAt: IsoDateTime | null;
     readonly expiresAt: IsoDateTime | null;
+    /** The version the buyer is looking at — sent back on accept and decline, so a re-priced quotation is refused rather than accepted unseen. */
+    readonly lockVersion: number;
+    /** The order accepting placed, once accepted. */
+    readonly orderId: string | null;
+    readonly orderNumber: string | null;
+    /** Every order the acceptance placed, in delivery order — one a week for a repeating quotation. */
+    readonly orders: readonly QuotationPlacedOrder[];
+}
+
+export interface QuotationPlacedOrder {
+    readonly orderId: string;
+    readonly orderNumber: string | null;
+    /** `YYYY-MM-DD`. */
+    readonly deliveryDate: string;
+}
+
+/** Where and when an accepted quotation is delivered — the order it places needs all three. */
+export interface QuotationDelivery {
+    readonly customerAddressId: string;
+    /** `YYYY-MM-DD`. */
+    readonly requestedDate: string;
+    readonly deliveryWindowCode: string;
+}
+
+export interface AcceptQuotationRequest {
+    readonly quotationId: QuotationId;
+    readonly lockVersion: number;
+    readonly delivery: QuotationDelivery;
+    /** A repeating quotation's run: one order a week for this many weeks (1–12). */
+    readonly repeatWeeks?: number | undefined;
+}
+
+export interface DeclineQuotationRequest {
+    readonly quotationId: QuotationId;
+    readonly lockVersion: number;
+    readonly reason?: string | undefined;
 }
 
 export interface CatalogueFilter extends CursorPageRequest {
@@ -164,15 +203,15 @@ export interface BusinessRepository {
     listQuotations(filter?: QuotationFilter): Promise<CursorPage<Quotation>>;
 
     /**
-     * Buyer accepts a `quoted` quotation (`quoted` → `accepted`). Catalogue
-     * access stays on the agreement's price list — acceptance records the
-     * decision only (B6).
+     * Buyer accepts a `quoted` quotation (`quoted` → `accepted`) and the order
+     * is placed at the quoted prices for the delivery named. A refused
+     * placement rejects with `order.placement_refused` and leaves it `quoted`.
      */
-    acceptQuotation(quotationId: QuotationId): Promise<Quotation>;
+    acceptQuotation(request: AcceptQuotationRequest): Promise<Quotation>;
 
     /**
-     * Buyer declines a `quoted` quotation (`quoted` → `declined`). Optional
-     * reason is stored for the seller; PDF export remains deferred.
+     * Buyer declines a `quoted` quotation (`quoted` → `declined`). The reason
+     * is stored for the kitchen; PDF export remains deferred.
      */
-    declineQuotation(quotationId: QuotationId, reason?: string): Promise<Quotation>;
+    declineQuotation(request: DeclineQuotationRequest): Promise<Quotation>;
 }

@@ -11,6 +11,7 @@ use Healthy360\B2b\Enums\QuotationStatus;
 use Healthy360\B2b\Models\CorporateProgramme;
 use Healthy360\B2b\Models\Quotation;
 use Healthy360\B2b\Models\QuotationLine;
+use Healthy360\B2b\Models\QuotationOrder;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Pricing\Models\PriceList;
@@ -41,10 +42,11 @@ final readonly class QuotationService
     public function __construct(
         private AuditRecorder $audit,
         private IdentifierService $identifiers,
+        private QuotationNotices $notices,
     ) {}
 
     /**
-     * @param  array{notes?: string|null, lines?: list<array<string, mixed>>|null}  $attributes
+     * @param  array{notes?: string|null, requested_delivery_date?: string|null, recurring?: bool, contact_name?: string|null, contact_email?: string|null, lines?: list<array<string, mixed>>|null}  $attributes
      *
      * @throws ApiException
      */
@@ -60,6 +62,10 @@ final readonly class QuotationService
             $quotation->status = QuotationStatus::Draft;
             $quotation->currency_code = $priceList->currency_code;
             $quotation->notes = $this->trimmedOrNull($attributes['notes'] ?? null);
+            $quotation->requested_delivery_date = $this->dateOrNull($attributes['requested_delivery_date'] ?? null);
+            $quotation->recurring = (bool) ($attributes['recurring'] ?? false);
+            $quotation->contact_name = $this->trimmedOrNull($attributes['contact_name'] ?? null);
+            $quotation->contact_email = $this->trimmedOrNull($attributes['contact_email'] ?? null);
             $quotation->created_by = (string) $actor->getKey();
             $quotation->updated_by = (string) $actor->getKey();
             $quotation->lock_version = 0;
@@ -85,7 +91,7 @@ final readonly class QuotationService
     }
 
     /**
-     * @param  array{notes?: string|null, lines?: list<array<string, mixed>>|null}  $attributes
+     * @param  array{notes?: string|null, requested_delivery_date?: string|null, recurring?: bool, contact_name?: string|null, contact_email?: string|null, lines?: list<array<string, mixed>>|null}  $attributes
      *
      * @throws ApiException
      */
@@ -98,6 +104,20 @@ final readonly class QuotationService
 
             if (array_key_exists('notes', $attributes)) {
                 $changes['notes'] = $this->trimmedOrNull($attributes['notes']);
+            }
+
+            if (array_key_exists('requested_delivery_date', $attributes)) {
+                $changes['requested_delivery_date'] = $this->dateOrNull($attributes['requested_delivery_date'])?->toDateString();
+            }
+
+            if (array_key_exists('recurring', $attributes)) {
+                $changes['recurring'] = (bool) $attributes['recurring'];
+            }
+
+            foreach (['contact_name', 'contact_email'] as $field) {
+                if (array_key_exists($field, $attributes)) {
+                    $changes[$field] = $this->trimmedOrNull($attributes[$field]);
+                }
             }
 
             $changes['updated_by'] = (string) $actor->getKey();
@@ -143,10 +163,14 @@ final readonly class QuotationService
             );
         }
 
-        return $this->transition($quotation, QuotationStatus::Submitted, $actor, [
+        $submitted = $this->transition($quotation, QuotationStatus::Submitted, $actor, [
             'submitted_at' => now(),
             'submitted_by' => (string) $actor->getKey(),
         ], $expectedLockVersion, ['line_count' => $lineCount]);
+
+        $this->notices->submitted($submitted);
+
+        return $submitted;
     }
 
     /**
@@ -229,36 +253,68 @@ final readonly class QuotationService
                 ]);
             }
 
-            return $this->transition($quotation, QuotationStatus::Quoted, $actor, [
+            $quoted = $this->transition($quotation, QuotationStatus::Quoted, $actor, [
                 'quoted_at' => $now,
                 'quoted_by' => (string) $actor->getKey(),
                 'expires_at' => $now->addDays(7),
             ], $expectedLockVersion, ['line_count' => $lines->count()]);
+
+            $this->notices->quoted($quoted);
+
+            return $quoted;
         });
     }
 
     /**
-     * Quoted → accepted.
+     * Quoted → accepted, and the order the acceptance places.
      *
-     * **The only side-effect is that nothing new happens (B6).** Catalogue
-     * access for this buyer is already governed entirely by the agreement's
-     * active price list — `BuyerAgreementLookup` resolves it fresh on every
-     * browse — and acceptance changes neither the agreement nor the price
-     * list, so there is no catalogue grant to refresh. What acceptance
-     * actually records is that the buyer confirmed a total; if the agreement
-     * itself is not active, catalogue browsing is already refused for a
-     * reason that has nothing to do with this quotation.
+     * Acceptance changes neither the agreement nor its price list (B6) — the
+     * catalogue grant stays where it was. What it does now (2026-10-20) is
+     * place the order: `$placeOrder` composes it at the quoted prices for the
+     * delivery the buyer chose ({@see QuotationOrderPlacer}) and returns its
+     * id, which is written onto the quotation. One transaction: a refused
+     * placement leaves the quotation `quoted`, and a stale lock version
+     * unwinds the order it would otherwise have orphaned.
+     *
+     * The state is checked before anything is placed, so accepting a
+     * quotation that is not `quoted` is the usual 409 and never an order.
+     *
+     * A repeating quotation places a run of weekly orders; every one is
+     * recorded in `quotation_orders` and `order_id` names the first.
+     *
+     * @param  (\Closure(): list<array{order_id: string, delivery_date: CarbonImmutable}>)|null  $placeOrder  null only for callers that record a decision without scheduling it
      *
      * @throws ApiException
      */
-    public function accept(Quotation $quotation, User $actor, int $expectedLockVersion): Quotation
+    public function accept(Quotation $quotation, User $actor, int $expectedLockVersion, ?\Closure $placeOrder = null): Quotation
     {
         $this->assertNotPastExpiry($quotation);
+        $this->assertCanBecome($quotation, QuotationStatus::Accepted);
 
-        return $this->transition($quotation, QuotationStatus::Accepted, $actor, [
-            'decided_at' => now(),
-            'decided_by' => (string) $actor->getKey(),
-        ], $expectedLockVersion);
+        return DB::transaction(function () use ($quotation, $actor, $expectedLockVersion, $placeOrder): Quotation {
+            $placed = $placeOrder === null ? [] : $placeOrder();
+            $orderId = $placed[0]['order_id'] ?? null;
+
+            $accepted = $this->transition($quotation, QuotationStatus::Accepted, $actor, [
+                'decided_at' => now(),
+                'decided_by' => (string) $actor->getKey(),
+                'order_id' => $orderId,
+            ], $expectedLockVersion, $orderId === null ? [] : ['order_id' => $orderId, 'orders_placed' => count($placed)]);
+
+            foreach ($placed as $index => $run) {
+                $row = new QuotationOrder;
+                $row->organisation_id = $quotation->organisation_id;
+                $row->quotation_id = (string) $quotation->getKey();
+                $row->order_id = $run['order_id'];
+                $row->sequence = $index + 1;
+                $row->delivery_date = $run['delivery_date'];
+                $row->save();
+            }
+
+            $this->notices->accepted($accepted);
+
+            return $accepted;
+        });
     }
 
     /**
@@ -270,11 +326,15 @@ final readonly class QuotationService
     {
         $this->assertNotPastExpiry($quotation);
 
-        return $this->transition($quotation, QuotationStatus::Declined, $actor, [
+        $declined = $this->transition($quotation, QuotationStatus::Declined, $actor, [
             'decided_at' => now(),
             'decided_by' => (string) $actor->getKey(),
             'decline_reason' => $this->trimmedOrNull($reason),
         ], $expectedLockVersion);
+
+        $this->notices->declined($declined);
+
+        return $declined;
     }
 
     /**
@@ -463,6 +523,33 @@ final readonly class QuotationService
     }
 
     /**
+     * The transition check on its own, for a move with side-effects that
+     * must not run when the move itself would be refused.
+     *
+     * @throws ApiException
+     */
+    private function assertCanBecome(Quotation $quotation, QuotationStatus $next): void
+    {
+        if ($quotation->status->canTransitionTo($next)) {
+            return;
+        }
+
+        throw new ApiException(
+            ErrorCode::B2bQuotationStateInvalid,
+            "A quotation that is {$quotation->status->value} cannot become {$next->value}.",
+            [
+                'status' => $quotation->status->value,
+                'requested_status' => $next->value,
+                'allowed_transitions' => array_map(
+                    static fn (QuotationStatus $status): string => $status->value,
+                    $quotation->status->allowedTransitions(),
+                ),
+                'current_lock_version' => $quotation->lock_version,
+            ],
+        );
+    }
+
+    /**
      * @throws ApiException
      */
     private function assertLinesEditable(Quotation $quotation): void
@@ -536,6 +623,11 @@ final readonly class QuotationService
         }
 
         return $amount;
+    }
+
+    private function dateOrNull(mixed $value): ?CarbonImmutable
+    {
+        return is_string($value) && $value !== '' ? CarbonImmutable::createFromFormat('!Y-m-d', $value) ?: null : null;
     }
 
     private function trimmedOrNull(mixed $value): ?string

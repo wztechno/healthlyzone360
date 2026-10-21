@@ -1,6 +1,7 @@
 import {
     Badge,
     Button,
+    Callout,
     Cascade,
     EmptyState,
     ErrorState,
@@ -17,9 +18,7 @@ import { useTranslation } from 'react-i18next';
 
 import {
     toFailure,
-    useAcceptQuotationMutation,
     useCorporateProgrammesQuery,
-    useDeclineQuotationMutation,
     useQuotationsQuery,
 } from '../../../data/business-hooks.ts';
 import { CATALOGUE_ROW_ICONS } from '../../kitchen-admin/catalogue/catalogue-list-item.tsx';
@@ -35,6 +34,7 @@ import {
 } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
+import { AcceptQuotationDialog, DeclineQuotationDialog } from '../accept-quotation-dialog.tsx';
 import { CORPORATE_HOME_HREF } from '../corporate-chrome.tsx';
 import { contractPriceTestId, quotationStateKey, quotationTone } from '../format.ts';
 
@@ -51,9 +51,12 @@ import { contractPriceTestId, quotationStateKey, quotationTone } from '../format
  * line, and a `quoted` one renders the figures. That distinction is the whole state machine made
  * visible: the prototype never invents a total for something nobody has priced.
  *
- * ## Accept and decline are real; PDF export is not offered
+ * ## Accept places the order; decline says why; PDF export is not offered
  *
- * `acceptQuotation` / `declineQuotation` hit `POST /b2b/quotations/{id}/accept|decline`. There is no
+ * Accept opens a dialog for the delivery — day, address, window — because accepting places the
+ * order at the quoted prices (`accept-quotation-dialog.tsx`); the accepted quotation then names its
+ * order. Decline asks for the reason the kitchen will read. Both send the version on screen, so a
+ * quotation the kitchen re-priced meanwhile is refused rather than accepted unseen. There is no
  * document endpoint, so `quotationExport` is unavailable (`src/features/availability.ts`) and the
  * download control is absent — a button that could only ever explain its own absence is worse than
  * no button.
@@ -96,9 +99,44 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
     // rail's badge counts, so the two numbers cannot disagree.
     const everything = useQuotationsQuery();
     const programmes = useCorporateProgrammesQuery();
-    const accept = useAcceptQuotationMutation();
-    const decline = useDeclineQuotationMutation();
-    const deciding = accept.isPending || decline.isPending;
+    /** The decision being made, in its dialog; `null` when none is open. */
+    const [deciding, setDeciding] = useState<{
+        readonly kind: 'accept' | 'decline';
+        readonly quotation: Quotation;
+    } | null>(null);
+    /**
+     * The quotation as the decision answered it. The list refetches behind the dialog and can
+     * take a moment; the record shows the server's answer — accepted, with its order — at once.
+     */
+    const [decided, setDecided] = useState<Quotation | null>(null);
+    const kitchenOf = (row: Quotation) =>
+        programmes.data?.find((programme) => programme.id === row.programmeId)?.kitchenIds[0] ??
+        null;
+    const dialog =
+        deciding === null ? null : deciding.kind === 'accept' ? (
+            <AcceptQuotationDialog
+                quotation={deciding.quotation}
+                kitchenId={kitchenOf(deciding.quotation)}
+                onClose={() => {
+                    setDeciding(null);
+                }}
+                onAccepted={(accepted) => {
+                    setDecided(accepted);
+                    setDeciding(null);
+                }}
+            />
+        ) : (
+            <DeclineQuotationDialog
+                quotation={deciding.quotation}
+                onClose={() => {
+                    setDeciding(null);
+                }}
+                onDeclined={(declined) => {
+                    setDecided(declined);
+                    setDeciding(null);
+                }}
+            />
+        );
 
     const loaded = quotations.data?.items;
     const rows = useMemo(() => {
@@ -244,7 +282,11 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
         controls.clearFilters();
     };
 
-    const viewing = (loaded ?? []).find((row) => String(row.id) === viewingId) ?? null;
+    const listed = (loaded ?? []).find((row) => String(row.id) === viewingId) ?? null;
+    const viewing =
+        decided !== null && String(decided.id) === viewingId && listed?.state === 'quoted'
+            ? decided
+            : listed;
 
     if (viewing !== null) {
         return (
@@ -290,6 +332,28 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                             ? t('business:quotations.recurring')
                             : t('business:quotations.oneOff'),
                     },
+                    ...(viewing.contactName === null
+                        ? []
+                        : [
+                              {
+                                  key: 'contact',
+                                  label: t('business:quotations.columnContact'),
+                                  value:
+                                      viewing.contactEmail === null
+                                          ? viewing.contactName
+                                          : `${viewing.contactName} · ${viewing.contactEmail}`,
+                              },
+                          ]),
+                    ...(viewing.orderNumber === null
+                        ? []
+                        : [
+                              {
+                                  key: 'order',
+                                  label: t('business:quotations.columnOrder'),
+                                  value: viewing.orderNumber,
+                                  mono: true,
+                              },
+                          ]),
                     ...(viewing.note === null
                         ? []
                         : [
@@ -297,6 +361,15 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                                   key: 'note',
                                   label: t('business:quotations.columnNote'),
                                   value: viewing.note,
+                              },
+                          ]),
+                    ...(viewing.declineReason === null
+                        ? []
+                        : [
+                              {
+                                  key: 'declineReason',
+                                  label: t('business:quotations.columnDeclineReason'),
+                                  value: viewing.declineReason,
                               },
                           ]),
                 ]}
@@ -318,6 +391,31 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                                 {formatMoney(formatter, viewing.requestedTotal)}
                             </Text>
                         )}
+                        {viewing.state === 'accepted' && viewing.orderNumber !== null ? (
+                            <Callout
+                                testID={`quotation-${viewing.reference}-order-placed`}
+                                tone="success"
+                                icon="check"
+                                role="status"
+                                title={
+                                    viewing.orders.length > 1
+                                        ? t('business:accept.placedRunTitle', {
+                                              count: viewing.orders.length,
+                                              order: viewing.orderNumber,
+                                          })
+                                        : t('business:accept.placedTitle', {
+                                              order: viewing.orderNumber,
+                                          })
+                                }
+                                body={
+                                    viewing.requestedDeliveryDate === null
+                                        ? undefined
+                                        : t('business:accept.placedBody', {
+                                              date: dateText(viewing.requestedDeliveryDate),
+                                          })
+                                }
+                            />
+                        ) : null}
                         {viewing.state === 'quoted' ? (
                             <Inline space="xs" wrap>
                                 <Button
@@ -325,13 +423,13 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                                     size="sm"
                                     variant="secondary"
                                     label={t('business:quotations.decline')}
-                                    disabled={deciding}
                                     onPress={() => {
-                                        decline.mutate({ quotationId: viewing.id });
+                                        setDeciding({ kind: 'decline', quotation: viewing });
                                     }}
                                 />
                             </Inline>
                         ) : null}
+                        {dialog}
                     </>
                 }
                 primaryAction={
@@ -340,10 +438,8 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                               testID: `quotation-${viewing.reference}-accept`,
                               label: t('business:quotations.accept'),
                               icon: 'circleCheck',
-                              loading: accept.isPending,
-                              disabled: deciding,
                               onPress: () => {
-                                  accept.mutate(viewing.id);
+                                  setDeciding({ kind: 'accept', quotation: viewing });
                               },
                           }
                         : undefined
@@ -501,9 +597,8 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                                       label: t('business:quotations.accept'),
                                       icon: 'circleCheck' as const,
                                       testID: `quotation-${row.reference}-accept`,
-                                      disabled: deciding,
                                       onSelect: () => {
-                                          accept.mutate(row.id);
+                                          setDeciding({ kind: 'accept', quotation: row });
                                       },
                                   },
                                   {
@@ -512,9 +607,8 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                                       icon: 'circleX' as const,
                                       tone: 'danger' as const,
                                       testID: `quotation-${row.reference}-decline`,
-                                      disabled: deciding,
                                       onSelect: () => {
-                                          decline.mutate({ quotationId: row.id });
+                                          setDeciding({ kind: 'decline', quotation: row });
                                       },
                                   },
                               ]
@@ -522,6 +616,7 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                     ]}
                 />
             )}
+            {dialog}
         </Cascade>
     );
 }

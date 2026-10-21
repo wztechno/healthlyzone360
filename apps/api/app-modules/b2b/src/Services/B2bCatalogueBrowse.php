@@ -48,11 +48,40 @@ final readonly class B2bCatalogueBrowse
         $presented = [];
 
         foreach ($channels as $channel) {
-            foreach ($this->offeredItems($channel, $on) as $item) {
-                // Priced under the seller's tenant, as `LineProbe` prices a basket line: the
-                // buyer's ambient organisation is the corporate one, and the policy on
-                // `price_list_items` would otherwise hide every row of the kitchen's tariff.
-                $price = $this->tenantContext->during(null, (string) $channel->organisation_id, null, fn (): ?ResolvedPrice => $this->resolvePrice($channel, $item, $buyer, $on));
+            $items = $this->offeredItems($channel, $on);
+
+            if ($items === []) {
+                continue;
+            }
+
+            // Every article's candidates — its active packs, default first, then the item-level
+            // row — read in one query, and the whole channel priced in one batch (2026-10-21: per
+            // article it cost ~4s for thirty). The order of candidates is `resolvePrice()`'s.
+            $packs = $this->activePackIdsFor($items);
+            $candidates = [];
+
+            foreach ($items as $item) {
+                $candidates[(string) $item->getKey()] = [...($packs[(string) $item->getKey()] ?? []), null];
+            }
+
+            // Priced under the seller's tenant, as `LineProbe` prices a basket line: the
+            // buyer's ambient organisation is the corporate one, and the policy on
+            // `price_list_items` would otherwise hide every row of the kitchen's tariff.
+            /** @var array<string, ResolvedPrice> $prices */
+            $prices = $this->tenantContext->during(
+                null,
+                (string) $channel->organisation_id,
+                null,
+                fn (): array => $this->prices->firstPricedForMany((string) $channel->getKey(), $candidates, $on, $buyer),
+            );
+
+            $sizes = CatalogueItemPackVariant::sizesOf(array_values(array_filter(array_map(
+                static fn (ResolvedPrice $price): ?string => $price->catalogueItemVariantId,
+                $prices,
+            ))));
+
+            foreach ($items as $item) {
+                $price = $prices[(string) $item->getKey()] ?? null;
 
                 if (! $price instanceof ResolvedPrice) {
                     continue;
@@ -62,7 +91,7 @@ final readonly class B2bCatalogueBrowse
                     'item' => $item,
                     'sales_channel_id' => (string) $channel->getKey(),
                     'price' => $price,
-                    'pack' => CatalogueItemPackVariant::sizeOf($price->catalogueItemVariantId),
+                    'pack' => $price->catalogueItemVariantId === null ? null : ($sizes[$price->catalogueItemVariantId] ?? null),
                 ];
             }
         }
@@ -145,6 +174,37 @@ final readonly class B2bCatalogueBrowse
         }
 
         return null;
+    }
+
+    /**
+     * `activePackIds()` for many articles in one query, in the same order.
+     *
+     * @param  list<CatalogueItem>  $items
+     * @return array<string, list<string>> article id → pack ids
+     */
+    private function activePackIdsFor(array $items): array
+    {
+        $packed = array_values(array_map(
+            static fn (CatalogueItem $item): string => (string) $item->getKey(),
+            array_filter($items, static fn (CatalogueItem $item): bool => $item->item_type->variantType() === VariantType::Pack),
+        ));
+
+        if ($packed === []) {
+            return [];
+        }
+
+        $byItem = [];
+
+        foreach (CatalogueItemVariant::withoutTenancy()
+            ->whereIn('catalogue_item_id', $packed)
+            ->where('status', VariantStatus::Active->value)
+            ->orderByDesc('is_default')
+            ->orderBy('created_at')
+            ->get(['id', 'catalogue_item_id']) as $variant) {
+            $byItem[(string) $variant->catalogue_item_id][] = (string) $variant->getKey();
+        }
+
+        return $byItem;
     }
 
     /**

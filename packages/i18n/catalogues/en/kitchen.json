@@ -245,11 +245,15 @@
             "statAwaitingCaption": "waiting on your prices",
             "statQuotedCaption": "sent, awaiting the buyer",
             "viewKind": "Quotation",
-            "backToQuotations": "Back to quotations",
-            "detailSubtitle": "{{programme}} · submitted {{date}}",
-            "summaryTitle": "This quotation",
-            "lineCount_one": "{{count}} line",
-            "lineCount_other": "{{count}} lines"
+            "sendRule": "Every line needs a price. Zero is accepted; empty is not.",
+            "requestedDelivery": "Requested delivery",
+            "schedule": "Schedule",
+            "recurring": "Standing schedule",
+            "oneOff": "One delivery",
+            "contact": "Reply to",
+            "order": "Order placed",
+            "declineReason": "Why the buyer declined",
+            "buyer": "Buyer"
         },
         "stock": {
             "metrics": {
@@ -1495,7 +1499,17 @@
             "windowTo": "to",
             "footnote": "Required quantities come from orders, meal choices and menu days in the window. The shelf is the last stock count at this branch. Nothing is bought or edited here.",
             "columnOnHand": "On hand",
-            "columnReserved": "Reserved"
+            "columnReserved": "Reserved",
+            "weeklyShortTitle_one": "Weekly check on {{checked}}: {{count}} item short for {{from}} – {{to}}",
+            "weeklyShortTitle_other": "Weekly check on {{checked}}: {{count}} items short for {{from}} – {{to}}",
+            "weeklyShortLine": "{{name}} — short {{short}} {{unit}}, buy {{buy}} {{unit}}",
+            "weeklyShortMore_one": "and {{count}} more",
+            "weeklyShortMore_other": "and {{count}} more",
+            "weeklyClearTitle": "Weekly check on {{checked}}: everything for {{from}} – {{to}} was in stock",
+            "weeklyClearBody": "The orders and subscriptions booked for that week were covered by the shelf.",
+            "weeklyClearWithHoles_one": "Covered — but {{count}} day had demand nobody could work out. See the list below.",
+            "weeklyClearWithHoles_other": "Covered — but {{count}} days had demand nobody could work out. See the list below.",
+            "weeklyShowWindow": "Show that week"
         },
         "cashReport": {
             "title": "Cash taken",

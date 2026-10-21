@@ -31,6 +31,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $quoted_at
  * @property CarbonImmutable|null $expires_at
  * @property CarbonImmutable|null $decided_at
+ * @property CarbonImmutable|null $requested_delivery_date
+ * @property bool $recurring
+ * @property string|null $contact_name
+ * @property string|null $contact_email
+ * @property string|null $order_id the order an acceptance placed
  * @property string|null $submitted_by
  * @property string|null $quoted_by
  * @property string|null $decided_by
@@ -59,6 +64,8 @@ class Quotation extends BaseModel implements OrganisationScoped
             'quoted_at' => 'immutable_datetime',
             'expires_at' => 'immutable_datetime',
             'decided_at' => 'immutable_datetime',
+            'requested_delivery_date' => 'immutable_date',
+            'recurring' => 'boolean',
         ];
     }
 

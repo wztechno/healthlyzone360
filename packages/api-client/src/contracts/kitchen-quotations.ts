@@ -106,6 +106,8 @@ export interface KitchenQuotation {
     readonly programmeId: CorporateProgrammeId;
     /** The programme's name in both languages. `null` only when the programme no longer exists. */
     readonly programmeName: LocalisedText | null;
+    /** The buyer organisation's name — who the kitchen is quoting for. */
+    readonly buyerName: string | null;
     /** What a person reads over the phone. The only identifier on this screen worth showing. */
     readonly reference: string;
     readonly status: KitchenQuotationStatus;
@@ -113,6 +115,20 @@ export interface KitchenQuotation {
     readonly currencyCode: CurrencyCode;
     /** The buyer's note on the whole quotation. */
     readonly notes: string | null;
+    /** The first delivery the buyer would like. */
+    readonly requestedDeliveryDate: string | null;
+    /** The buyer wants a standing schedule rather than one delivery. */
+    readonly recurring: boolean;
+    readonly contactName: string | null;
+    readonly contactEmail: string | null;
+    /** The order the buyer's acceptance placed. */
+    readonly orderId: string | null;
+    readonly orderNumber: string | null;
+    /** Every order the acceptance placed, in delivery order — one a week for a repeating quotation. */
+    readonly orders: readonly {
+        readonly orderNumber: string | null;
+        readonly deliveryDate: string;
+    }[];
     /** Set only when the buyer declined, and only when they gave one. */
     readonly declineReason: string | null;
     readonly submittedAt: IsoDateTime | null;
