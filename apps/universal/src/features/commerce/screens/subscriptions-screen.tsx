@@ -10,9 +10,10 @@ import {
 import type { Subscription, SubscriptionFilter } from '@healthy360/api-client/contracts';
 import type { SubscriptionState } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { useSubscriptionsQuery } from '../../../data/commerce-hooks.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
@@ -41,10 +42,26 @@ import { SubscriptionStateBadge } from '../state-badge.tsx';
  * Doc 17, `SUB-12` puts the remaining entitlement first on the detail screen; on a list, the fact
  * that decides whether somebody needs to act at all is the next delivery date. A paused
  * subscription says so instead of showing a date it will not honour.
+ *
+ * ## The filter is in the URL
+ *
+ * `?status=` on whatever page draws the list — the account's subscriptions section — written with
+ * `setParams`, so opening a subscription and coming Back, or a refresh, finds the group the person
+ * chose rather than "All" again (plans-08). Never `?state=`: React Navigation reads `state` (with
+ * `screen`, `params`, `initial`, `merge` and `pop`) as an instruction for a nested navigator.
+ *
+ * ## Another plan is one press away
+ *
+ * The list ends in "Browse meal plans", the action itself, where it used to end in a sentence naming
+ * a button this page does not have (plans-14).
  */
 
 const FILTERS = ['all', 'live', 'paused', 'ended'] as const;
 type FilterKey = (typeof FILTERS)[number];
+
+function isFilterKey(value: unknown): value is FilterKey {
+    return typeof value === 'string' && (FILTERS as readonly string[]).includes(value);
+}
 
 const FILTER_STATES: Readonly<Record<FilterKey, readonly SubscriptionState[]>> = {
     all: [],
@@ -66,7 +83,22 @@ export function SubscriptionsScreen({ embedded = false }: SubscriptionsScreenPro
     const router = useRouter();
     const formatter = useFormatter();
 
-    const [filter, setFilter] = useState<FilterKey>('all');
+    const params = useLocalSearchParams<{ status?: string | string[] }>();
+    const rawStatus = Array.isArray(params.status) ? params.status[0] : params.status;
+    // An unknown `?status=` lists everything.
+    const requested: FilterKey = isFilterKey(rawStatus) ? rawStatus : 'all';
+    const [filter, setFilter] = useState<FilterKey>(requested);
+    // Follow the URL when it changes underneath the list — Back onto an entry with another group.
+    // Adjusted during render rather than in an effect, so the list never paints the old group.
+    const [followed, setFollowed] = useState<FilterKey>(requested);
+    if (followed !== requested) {
+        setFollowed(requested);
+        setFilter(requested);
+    }
+    const chooseFilter = (next: FilterKey) => {
+        setFilter(next);
+        router.setParams({ status: next === 'all' ? undefined : next } as never);
+    };
     const states = FILTER_STATES[filter];
     const request: SubscriptionFilter = states.length === 0 ? {} : { states };
 
@@ -100,7 +132,7 @@ export function SubscriptionsScreen({ embedded = false }: SubscriptionsScreenPro
                 block
                 value={filter}
                 onChange={(next) => {
-                    setFilter(next as FilterKey);
+                    if (isFilterKey(next)) chooseFilter(next);
                 }}
                 items={FILTERS.map((key) => ({
                     value: key,
@@ -131,7 +163,7 @@ export function SubscriptionsScreen({ embedded = false }: SubscriptionsScreenPro
                             variant="secondary"
                             label={t('commerce:subscriptions.clearFilter')}
                             onPress={() => {
-                                setFilter('all');
+                                chooseFilter('all');
                             }}
                         />
                     )
@@ -213,9 +245,19 @@ export function SubscriptionsScreen({ embedded = false }: SubscriptionsScreenPro
                 </Stack>
             </QueryStates>
 
-            <Text tone="secondary" variant="caption" testID="subscriptions-new-hint">
-                {t('commerce:subscriptions.newHint')}
-            </Text>
+            {/* The empty state already carries it; under a list it is the way to another plan. */}
+            {items.length === 0 ? null : (
+                <View className="self-start">
+                    <Button
+                        testID="subscriptions-browse"
+                        variant="secondary"
+                        label={t('commerce:subscriptions.browse')}
+                        onPress={() => {
+                            router.push('/plans');
+                        }}
+                    />
+                </View>
+            )}
         </Stack>
     );
 }

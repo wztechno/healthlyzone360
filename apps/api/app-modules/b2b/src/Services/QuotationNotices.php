@@ -45,9 +45,9 @@ final readonly class QuotationNotices
             __('notices.quotation.submitted.heading', ['reference' => $quotation->reference, 'buyer' => $this->buyerName($quotation)], $locale),
             array_values(array_filter([
                 trans_choice('notices.quotation.submitted.lines', $lineCount, ['count' => $lineCount], $locale),
-                $quotation->requested_delivery_date === null ? null : __('notices.quotation.submitted.delivery', ['date' => $quotation->requested_delivery_date->toDateString()], $locale),
-                $quotation->recurring ? __('notices.quotation.submitted.recurring', [], $locale) : null,
-                $quotation->notes === null ? null : __('notices.quotation.submitted.note', ['note' => $quotation->notes], $locale),
+                $quotation->requested_delivery_date === null ? null : (string) __('notices.quotation.submitted.delivery', ['date' => $quotation->requested_delivery_date->toDateString()], $locale),
+                $quotation->recurring ? (string) __('notices.quotation.submitted.recurring', [], $locale) : null,
+                $quotation->notes === null ? null : (string) __('notices.quotation.submitted.note', ['note' => $quotation->notes], $locale),
             ])),
             __('notices.quotation.submitted.action', [], $locale),
             '/kitchen/quotations',
@@ -70,8 +70,8 @@ final readonly class QuotationNotices
             'quotation_quoted',
             __('notices.quotation.quoted.heading', ['reference' => $quotation->reference], $locale),
             array_values(array_filter([
-                __('notices.quotation.quoted.total', ['total' => $this->money($totalMinor, $quotation->currency_code)], $locale),
-                $quotation->expires_at === null ? null : __('notices.quotation.quoted.expires', ['date' => $quotation->expires_at->toDateString()], $locale),
+                (string) __('notices.quotation.quoted.total', ['total' => $this->money($totalMinor, $quotation->currency_code)], $locale),
+                $quotation->expires_at === null ? null : (string) __('notices.quotation.quoted.expires', ['date' => $quotation->expires_at->toDateString()], $locale),
             ])),
             __('notices.quotation.quoted.action', [], $locale),
             $this->url('/corporate/quotations?state=quoted'),

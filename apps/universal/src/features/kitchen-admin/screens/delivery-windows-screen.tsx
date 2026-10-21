@@ -3,6 +3,7 @@ import {
     Button,
     Callout,
     Cascade,
+    Dialog,
     EmptyState,
     ErrorState,
     FormSection,
@@ -19,6 +20,7 @@ import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     useAdminZonesQuery,
+    useArchiveDeliveryWindowMutation,
     useDeliveryWindowsQuery,
     useSaveDeliveryWindowMutation,
     zonesFromPages,
@@ -46,7 +48,8 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * shows — read-only — the zones that offer each one. A new window is offered in no zone.
  *
  * Save writes row by row: a new row is created, a changed row is patched, and a row nobody touched
- * is never sent. There is no delete; a window is withdrawn with Offered → No.
+ * is never sent. There is no delete: a window is withdrawn with Offered → No, or archived — off this
+ * list and out of every zone for good, still named on the orders that used it.
  */
 export function DeliveryWindowsScreen() {
     return (
@@ -60,11 +63,14 @@ export function DeliveryWindowsScreen() {
     );
 }
 
+/** The windows still on the list: an archived one is served only so past orders can name it. */
 function draftsFrom(windows: readonly DeliveryWindow[]): readonly DeliveryWindowDraft[] {
-    return windows.map((window) => ({
-        ...windowDraft(window, 0),
-        key: `window-${String(window.id)}`,
-    }));
+    return windows
+        .filter((window) => window.archivedAt === null)
+        .map((window) => ({
+            ...windowDraft(window, 0),
+            key: `window-${String(window.id)}`,
+        }));
 }
 
 function DeliveryWindowsEditor() {
@@ -76,6 +82,9 @@ function DeliveryWindowsEditor() {
     const windows = useDeliveryWindowsQuery();
     const zones = useAdminZonesQuery({ limit: 100 });
     const save = useSaveDeliveryWindowMutation();
+    const archive = useArchiveDeliveryWindowMutation();
+    /** The saved row whose archive is being confirmed. */
+    const [archiving, setArchiving] = useState<DeliveryWindowDraft | null>(null);
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
 
     const [rows, setRows] = useState<readonly DeliveryWindowDraft[]>([]);
@@ -307,6 +316,15 @@ function DeliveryWindowsEditor() {
                         canManage={canManage}
                         onChange={edit}
                         onAdd={addRow}
+                        // Archiving writes straight away, so it waits until pending edits are saved.
+                        onArchive={
+                            dirty
+                                ? undefined
+                                : (row) => {
+                                      archive.reset();
+                                      setArchiving(row);
+                                  }
+                        }
                         zonesCell={(row) => {
                             const zoneIds =
                                 row.id === null
@@ -330,6 +348,61 @@ function DeliveryWindowsEditor() {
                         }}
                     />
                 </FormSection>
+            )}
+
+            <Dialog
+                testID="kitchen-windows-archive-dialog"
+                open={archiving !== null}
+                onClose={() => {
+                    setArchiving(null);
+                }}
+                title={t('kitchen:windows.archiveTitle')}
+                description={t('kitchen:windows.archiveBody')}
+                actions={
+                    <>
+                        <Button
+                            testID="kitchen-windows-archive-cancel"
+                            variant="quiet"
+                            label={t('kitchen:common.cancel')}
+                            onPress={() => {
+                                setArchiving(null);
+                            }}
+                        />
+                        <Button
+                            testID="kitchen-windows-archive-confirm"
+                            variant="danger"
+                            label={t('kitchen:windows.archiveConfirm')}
+                            loading={archive.isPending}
+                            onPress={() => {
+                                if (archiving?.id == null) return;
+                                const name = displayName(archiving.label, locale).value;
+                                archive.mutate(archiving.id, {
+                                    onSuccess: () => {
+                                        setArchiving(null);
+                                        toast.show({
+                                            testID: 'kitchen-windows-archived-toast',
+                                            tone: 'success',
+                                            message: t('kitchen:windows.archivedToast', { name }),
+                                        });
+                                    },
+                                    onError: () => {
+                                        setArchiving(null);
+                                    },
+                                });
+                            }}
+                        />
+                    </>
+                }
+            />
+
+            {archive.error === null ? null : (
+                <Callout
+                    testID="kitchen-windows-archive-error"
+                    role="alert"
+                    tone="danger"
+                    title={t('kitchen:windows.archiveFailed')}
+                    body={toFailure(archive.error)?.message}
+                />
             )}
 
             <EditorGuardDialogs testID="kitchen-windows-screen" guard={guard} />

@@ -19,6 +19,7 @@ import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { toFailure } from '../../data/commerce-hooks.ts';
 import { formatMoney, weekdayKey } from '../marketplace/format.ts';
 
 /**
@@ -30,6 +31,36 @@ import { formatMoney, weekdayKey } from '../marketplace/format.ts';
  * each other.
  */
 
+/**
+ * Why an action did not go through, inside the dialog that asked for it.
+ *
+ * Every subscription dialog is modal and stays open when the server refuses, so a refusal drawn on
+ * the page underneath is drawn behind the backdrop — the person pressed Confirm and saw nothing
+ * happen (plans-09). It is drawn here instead, in the server's own words, and each dialog's
+ * mutation is reset as the dialog opens so an old refusal never greets a fresh attempt.
+ */
+export function DialogFailure({
+    error,
+    testID,
+}: {
+    readonly error: unknown;
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    const failure = toFailure(error);
+    if (failure === null) return null;
+    return (
+        <Callout
+            testID={testID}
+            role="alert"
+            tone="danger"
+            icon="warning"
+            title={t('commerce:subscription.actionFailedTitle')}
+            body={failure.message}
+        />
+    );
+}
+
 /* ── cancellation ────────────────────────────────────────────────────────────────────────────── */
 
 export interface CancelSubscriptionDialogProps {
@@ -38,6 +69,8 @@ export interface CancelSubscriptionDialogProps {
     /** Set once the cancellation has happened, so the dialog can report what it produced. */
     readonly memo: CreditMemo | null | undefined;
     readonly pending: boolean;
+    /** The refusal of the last attempt, drawn inside the dialog ({@link DialogFailure}). */
+    readonly error?: unknown;
     readonly onClose: () => void;
     readonly onConfirm: () => void;
     readonly testID?: string | undefined;
@@ -70,6 +103,7 @@ export function CancelSubscriptionDialog({
     balance,
     memo,
     pending,
+    error,
     onClose,
     onConfirm,
     testID = 'subscription-cancel',
@@ -145,6 +179,8 @@ export function CancelSubscriptionDialog({
                         <Text tone="secondary" variant="caption" testID={`${testID}-manual`}>
                             {t('commerce:cancel.manualSettlement')}
                         </Text>
+
+                        <DialogFailure error={error} testID={`${testID}-failure`} />
                     </>
                 ) : memo === null ? (
                     <Callout
@@ -184,6 +220,8 @@ export interface WeekdayEditorDialogProps {
     readonly balance: SubscriptionBalance | undefined;
     readonly selected: readonly number[];
     readonly pending: boolean;
+    /** The refusal of the last attempt, drawn inside the dialog ({@link DialogFailure}). */
+    readonly error?: unknown;
     readonly onChange: (weekdays: readonly number[]) => void;
     readonly onClose: () => void;
     readonly onConfirm: () => void;
@@ -214,6 +252,7 @@ export function WeekdayEditorDialog({
     balance,
     selected,
     pending,
+    error,
     onChange,
     onClose,
     onConfirm,
@@ -293,6 +332,8 @@ export function WeekdayEditorDialog({
                         count: balance?.changeCutoffHours ?? quote?.changeCutoffHours ?? 24,
                     })}
                 />
+
+                <DialogFailure error={error} testID={`${testID}-failure`} />
             </Stack>
         </Dialog>
     );
@@ -312,6 +353,8 @@ export interface MealChoicesDialogProps {
     readonly current: readonly SubscriptionMealChoice[];
     readonly slotCode: string;
     readonly pending: boolean;
+    /** The refusal of the last attempt, drawn inside the dialog ({@link DialogFailure}). */
+    readonly error?: unknown;
     readonly onClose: () => void;
     readonly onConfirm: (mealId: MealId) => void;
     readonly testID?: string | undefined;
@@ -340,6 +383,7 @@ export function MealChoicesDialog({
     current,
     slotCode,
     pending,
+    error,
     onClose,
     onConfirm,
     testID = 'subscription-choices',
@@ -414,6 +458,8 @@ export function MealChoicesDialog({
                     title={t('commerce:choices.cutOffTitle')}
                     body={t('commerce:choices.cutOffBody')}
                 />
+
+                <DialogFailure error={error} testID={`${testID}-failure`} />
             </Stack>
         </Dialog>
     );

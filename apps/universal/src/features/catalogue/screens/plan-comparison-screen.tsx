@@ -11,6 +11,8 @@ import { Text as RNText, View } from 'react-native';
 
 import { usePlanComparisonQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
+import { withQuery } from '../../../navigation/return-to.ts';
+import { useNavigateUp } from '../../../navigation/use-return-to.ts';
 import { Eyebrow } from '../../../ui/eyebrow.tsx';
 import { ListingHeader } from '../../../ui/listing-header.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
@@ -40,6 +42,11 @@ import { cheapestVariant } from '../plan-catalogue.ts';
  * **A row nobody publishes is not drawn.** Macro ranges are optional on a plan; a row of dashes in
  * every column tells the reader nothing, so it is left out. A row where *some* plan publishes the
  * figure keeps a dash for the others — there the absence is the difference.
+ *
+ * **"Back to the plans" means back.** `/plans` keeps its compare tray in `?compare=` and its kitchen
+ * chip in `?kitchen=`; the comparison is opened with both (`?plans=&kitchen=`) and returns both, by
+ * Back when `/plans` is the entry underneath and by opening it with them otherwise. It used to push a
+ * bare `/plans`, which emptied the tray the person had just filled (browse-05).
  */
 
 interface ComparisonRow {
@@ -80,8 +87,9 @@ function macroRange(
 export function PlanComparisonScreen() {
     const { t } = useTranslation();
     const router = useRouter();
+    const navigateUp = useNavigateUp();
     const formatter = useFormatter();
-    const params = useLocalSearchParams<{ plans?: string }>();
+    const params = useLocalSearchParams<{ plans?: string; kitchen?: string }>();
 
     const planIds = useMemo<readonly SubscriptionPlanId[]>(() => {
         const parameter: string | string[] | undefined = params.plans;
@@ -190,14 +198,22 @@ export function PlanComparisonScreen() {
     ];
     const rows = allRows.filter((row) => plans.some((plan) => row.value(plan) !== null));
 
+    // `/plans` as the person left it: the selection that opened this page, and their kitchen chip.
+    const kitchenParameter: string | string[] | undefined = params.kitchen;
+    const plansHref = withQuery('/plans', {
+        kitchen: Array.isArray(kitchenParameter) ? kitchenParameter[0] : kitchenParameter,
+        compare: planIds.map(String).join(','),
+    });
+    const backToPlans = () => {
+        navigateUp(plansHref);
+    };
+
     const back = (
         <Button
             testID="plan-comparison-back"
             variant="quiet"
             label={t('catalogue:compare.backToPlans')}
-            onPress={() => {
-                router.push('/plans');
-            }}
+            onPress={backToPlans}
         />
     );
 
@@ -209,9 +225,8 @@ export function PlanComparisonScreen() {
                     {
                         key: 'plans',
                         label: t('catalogue:nav.plans'),
-                        onPress: () => {
-                            router.push('/plans');
-                        },
+                        testID: 'plan-comparison-crumb-plans',
+                        onPress: backToPlans,
                     },
                     { key: 'compare', label: t('catalogue:nav.compare') },
                 ]}

@@ -1182,6 +1182,44 @@ describe('sale — the slots the address zone offers', () => {
         );
     });
 
+    it('shows a slot that is already over today but will not let it be chosen', async () => {
+        // 11:00 — Breakfast (08:00–10:00) has ended, Lunch (12:00–14:00) is still to come.
+        jest.useFakeTimers({
+            now: new Date(2026, 9, 14, 11, 0),
+            doNotFake: [
+                'hrtime',
+                'nextTick',
+                'performance',
+                'queueMicrotask',
+                'requestAnimationFrame',
+                'cancelAnimationFrame',
+                'requestIdleCallback',
+                'cancelIdleCallback',
+                'setImmediate',
+                'clearImmediate',
+                'setInterval',
+                'clearInterval',
+                'setTimeout',
+                'clearTimeout',
+            ],
+        });
+        await renderSale();
+        await tapMeal();
+        await chooseKind('pickup');
+        await untilVisible('kitchen-order-desk-sale-slot-morning');
+
+        const breakfast = screen.getByTestId('kitchen-order-desk-sale-slot-morning');
+        expect(breakfast.props.accessibilityState).toEqual(
+            expect.objectContaining({ disabled: true, checked: false }),
+        );
+
+        fireEvent.press(breakfast);
+        await settle();
+        expect(
+            screen.getByTestId('kitchen-order-desk-sale-slot-midday').props.accessibilityState,
+        ).toEqual(expect.objectContaining({ checked: true, disabled: false }));
+    });
+
     it('keeps every slot on a collection, where no zone applies', async () => {
         await renderSale();
         await tapMeal();

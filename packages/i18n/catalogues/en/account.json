@@ -74,7 +74,6 @@
         "save": "Save changes",
         "cancel": "Cancel",
         "saved": "Changes saved.",
-        "manageAddresses": "Manage addresses",
         "emailLabel": "Email",
         "mobileLabel": "Mobile",
         "slotLabel": "Default slot",
@@ -85,7 +84,10 @@
         "dietsEyebrow": "Dietary preferences · applied to recommendations",
         "dietsUnavailable": "Dietary preferences are kept on your customer account, which is not set up yet.",
         "allergiesNone": "Allergies: none declared.",
-        "allergiesDeclared": "Allergies: {{list}}."
+        "allergiesDeclared": "Allergies: {{list}}.",
+        "securityTitle": "Sign-in and security",
+        "changePassword": "Change password",
+        "devices": "Devices"
     },
     "privacy": {
         "title": "Privacy",
@@ -150,7 +152,6 @@
         "verifiedToast": "Mobile number confirmed."
     },
     "addresses": {
-        "title": "Delivery addresses",
         "subtitle": "Where your orders go.",
         "add": "Add an address",
         "edit": "Edit address",
@@ -367,7 +368,8 @@
         "closedBody": "Everything we could delete has been deleted.",
         "signedOutNote": "You have been signed out. This device no longer holds a session.",
         "optOutDoneTitle": "Marketing stopped",
-        "optOutDoneBody": "We will not send you marketing again. Your account and everything in it is untouched."
+        "optOutDoneBody": "We will not send you marketing again. Your account and everything in it is untouched.",
+        "keepAccount": "Keep my account"
     },
     "favorites": {
         "empty": "No favorites yet",

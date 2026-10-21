@@ -443,7 +443,8 @@ final class SeedTestAccountsCommand extends Command
                 $window->forceFill(['starts_at' => $startsAt, 'ends_at' => $endsAt, 'weekdays' => [], 'display_order' => $displayOrder]);
             }
 
-            $window->forceFill(['name_en' => $nameEn, 'name_ar' => $nameAr, 'is_active' => true])->save();
+            // Restoring a test window un-archives it too: an archived window must be inactive.
+            $window->forceFill(['name_en' => $nameEn, 'name_ar' => $nameAr, 'is_active' => true, 'archived_at' => null])->save();
         }
     }
 

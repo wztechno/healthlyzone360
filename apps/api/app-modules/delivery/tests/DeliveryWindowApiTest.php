@@ -154,6 +154,33 @@ it('refuses a duplicate code inside the organisation and allows it in another', 
     ], DeliveryWorld::headers($b))->assertStatus(201);
 });
 
+it('refuses a name with no letter or number in it', function (): void {
+    // "." passed `required` and was saved as a window's name in both
+    // languages, leaving a chip nobody could read.
+    $this->postJson('/api/v1/catalogue/delivery-windows', [
+        'code' => 'dot',
+        'name_en' => '.',
+        'name_ar' => '.',
+    ], $this->headers)
+        ->assertStatus(422)
+        ->assertJsonStructure(['error' => ['details' => ['fields' => ['name_en', 'name_ar']]]]);
+
+    $window = DeliveryWindow::factory()->create(['organisation_id' => $this->a->organisation->getKey(), 'code' => 'morning']);
+
+    $this->patchJson('/api/v1/catalogue/delivery-windows/'.$window->getKey(), [
+        'name_en' => ' - ',
+    ], $this->headers)
+        ->assertStatus(422)
+        ->assertJsonStructure(['error' => ['details' => ['fields' => ['name_en']]]]);
+
+    // Any script counts, and digits do too.
+    $this->patchJson('/api/v1/catalogue/delivery-windows/'.$window->getKey(), [
+        'name_en' => 'Slot 2',
+        'name_ar' => 'غداء',
+    ], $this->headers)
+        ->assertOk();
+});
+
 it('renames a window with no If-Match at all', function (): void {
     // Precondition-free: these rows carry no lock_version, and the concurrency
     // contract applies only to resources that do.

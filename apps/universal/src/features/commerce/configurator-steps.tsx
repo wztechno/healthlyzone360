@@ -1,4 +1,5 @@
 import {
+    Button,
     Callout,
     Checkbox,
     Chip,
@@ -27,8 +28,6 @@ import { MedicalDisclaimer } from '../../safety/medical-disclaimer.tsx';
 import { PillChip } from '../../ui/pill-chip.tsx';
 import { formatMoney, weekdayKey } from '../marketplace/format.ts';
 import { formatAddress, toDeliveryAddress } from './address.ts';
-import type { AddressErrors, AddressField } from './address.ts';
-import { AddressForm } from './address-form.tsx';
 import { OptionCard } from './checkout-frame.tsx';
 import {
     combinationKey,
@@ -309,41 +308,49 @@ export interface DeliveryStepProps {
     readonly plan: SubscriptionPlan;
     readonly state: ConfiguratorState;
     readonly patch: StepPatch;
-    /**
-     * Address edits go through their own handler rather than through `patch`, and the difference is
-     * not cosmetic: `patch` composes a whole new address from the *rendered* state, so two field
-     * changes inside one React batch would both start from the same snapshot and the second would
-     * discard the first. This one updates a single field against the latest edits.
-     */
-    readonly onAddressField: (field: AddressField, value: string) => void;
     readonly allowedWeekdays: readonly number[] | null;
     readonly areaStatus: DeliveryAreaStatus;
     readonly servedAreas: readonly string[];
-    readonly addressErrors: AddressErrors;
     /** Allergens this kitchen declares on its own menu, plus anything the profile already excludes. */
     readonly allergenOptions: readonly AllergenCode[];
     readonly storedAllergens: readonly AllergenCode[];
     readonly showIssues: boolean;
-    readonly savedAddresses?: readonly CustomerAddress[] | undefined;
-    readonly addressId?: string | null | undefined;
-    readonly onAddressIdChange?: ((id: string | null) => void) | undefined;
+    readonly savedAddresses: readonly CustomerAddress[];
+    readonly addressId: string | null;
+    readonly onAddressIdChange: (id: string | null) => void;
+    /**
+     * Opens the address editor, which saves the address and comes back to this step with it chosen.
+     * The screen persists the set-up before it leaves, so nothing on the way here is lost.
+     */
+    readonly onAddAddress: () => void;
 }
 
+/**
+ * ② Delivery.
+ *
+ * ## The address is chosen, never typed
+ *
+ * A subscription is placed against a saved address's identifier and nothing else (D-084), so the
+ * address question is a pick from the address book plus "Add a delivery address" — which opens the
+ * address editor and returns here with the new entry selected. There used to be an inline form for
+ * somebody with nothing saved; it validated, the address went nowhere, and Subscribe was refused
+ * every time with no way forward (plans-02). An account with no address now sees the one action
+ * that fixes it, in the place it is needed.
+ */
 export function DeliveryStep({
     plan,
     state,
     patch,
-    onAddressField,
     allowedWeekdays,
     areaStatus,
     servedAreas,
-    addressErrors,
     allergenOptions,
     storedAllergens,
     showIssues,
     savedAddresses,
     addressId,
     onAddressIdChange,
+    onAddAddress,
 }: DeliveryStepProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -359,9 +366,8 @@ export function DeliveryStep({
             : nextAllowedDate(state.startDate, allowed);
 
     const change = diffAllergens(storedAllergens, state.excludeAllergens);
-    const hasSaved = savedAddresses !== undefined && savedAddresses.length > 0;
-    const area =
-        savedAddresses?.find((entry) => entry.id === addressId)?.areaName ?? state.address.area;
+    const hasSaved = savedAddresses.length > 0;
+    const area = savedAddresses.find((entry) => entry.id === addressId)?.areaName ?? '';
 
     const toggle = <T,>(list: readonly T[], value: T, on: boolean): T[] =>
         on ? [...list, value] : list.filter((each) => each !== value);
@@ -471,10 +477,8 @@ export function DeliveryStep({
                         testID="configurator-address-picker"
                         label={t('commerce:configurator.delivery.addressTitle')}
                         labelHidden
-                        value={addressId ?? null}
-                        onChange={(next) => {
-                            onAddressIdChange?.(next);
-                        }}
+                        value={addressId}
+                        onChange={onAddressIdChange}
                         options={savedAddresses.map((entry) => ({
                             value: entry.id,
                             label: [entry.label, entry.line1, entry.areaName]
@@ -486,17 +490,21 @@ export function DeliveryStep({
                             ? { error: t('commerce:validation.required') }
                             : {})}
                     />
-                ) : (
-                    <AddressForm
-                        testID="configurator-address-form"
-                        values={state.address}
-                        errors={showIssues ? addressErrors : {}}
-                        onChange={onAddressField}
-                    />
-                )}
-                {hasSaved && addressId === null ? null : (
+                ) : null}
+                {addressId === null ? null : (
                     <AreaStatus status={areaStatus} area={area} servedAreas={servedAreas} />
                 )}
+                {/* A bordered button when there is nothing to pick from — it is then the step's
+                    only way on; beside the picker it is the quieter second choice. */}
+                <View className="self-start">
+                    <Button
+                        testID="configurator-add-address"
+                        variant={hasSaved ? 'quiet' : 'secondary'}
+                        size="sm"
+                        label={t('commerce:configurator.delivery.addAddress')}
+                        onPress={onAddAddress}
+                    />
+                </View>
             </Row>
 
             {plan.dietClassifications.length === 0 ? null : (

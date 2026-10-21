@@ -19,6 +19,7 @@ import type {
 } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
+import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
 import { testMeResponse } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
@@ -45,14 +46,20 @@ import { SubscriptionsScreen } from './screens/subscriptions-screen.tsx';
  * not author rejects with `StubNotConfiguredError` naming the surface.
  */
 
-jest.mock('expo-router', () => ({
-    __esModule: true,
-    useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
-    usePathname: () => '/customer/subscriptions',
-    useLocalSearchParams: () => ({}),
-    Redirect: () => null,
-    Link: () => null,
-}));
+/** The shared customer-suite router mock (`testing/expo-router-mock.ts`); no case here navigates. */
+jest.mock('expo-router', () =>
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../../testing/expo-router-mock.ts').createExpoRouterMock({
+        pathname: '/customer/subscriptions',
+    }),
+);
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const routerMock = require('expo-router') as ExpoRouterMock;
+
+beforeEach(() => {
+    routerMock.__reset();
+});
 
 const SUBSCRIPTION_ID = '01935f6d-0000-7000-8000-0000000005b1' as SubscriptionId;
 const PLAN_ID = '01935f6d-0000-7000-8000-0000000000a1' as SubscriptionPlanId;
@@ -772,9 +779,10 @@ describe('the 24-hour cut-off', () => {
             fireEvent.press(screen.getByTestId('subscription-weekdays-confirm'));
         });
 
-        // The rejection is rendered rather than swallowed, in the server's own words.
+        // The rejection is rendered rather than swallowed, in the server's own words — inside the
+        // editor that is still open, not on the page behind its backdrop.
         await waitFor(() => {
-            expect(screen.getByTestId('subscription-detail-error')).toHaveTextContent(
+            expect(screen.getByTestId('subscription-weekdays-failure')).toHaveTextContent(
                 /That change would touch a delivery inside the 24-hour cut-off\./,
             );
         });

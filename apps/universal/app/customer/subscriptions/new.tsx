@@ -3,11 +3,13 @@ import { useLocalSearchParams } from 'expo-router';
 import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
 
 /**
- * `/customer/subscriptions/new?plan={plan}&variant={variant}` — the eight-step configurator.
+ * `/customer/subscriptions/new?plan={plan}&variant={variant}` — the three-step configurator.
  *
  * A static segment sitting beside `[subscription].tsx`: Expo Router prefers the static match, so
  * `new` is never read as a subscription identifier. Both parameters are validated in the screen, so
- * a hand-typed link produces the designed not-found state rather than a repository failure.
+ * a hand-typed link produces the designed not-found state rather than a repository failure. The
+ * screen reads its own `?step=` and `?address=` (and a changed `?variant=`) from the query, so a
+ * `setParams` reaches it without passing through here.
  */
 const SubscriptionConfiguratorScreen = lazyScreen(
     'subscription-configurator-loading',

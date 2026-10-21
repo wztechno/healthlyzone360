@@ -344,3 +344,54 @@ it('filters the consumption exception list on a resolved flag spelled as a word'
     $this->getJson('/api/v1/catalogue/inventory/consumption-exceptions?resolved=banana', $this->headers)
         ->assertStatus(422);
 });
+
+/*
+| The Stock gaps cards counted the page in hand — 25 unresolved beside a home
+| tile saying 84. The count endpoint now totals both states, so the cards can.
+*/
+it('totals unresolved and resolved exceptions, not just a page of them', function (): void {
+    foreach (range(1, 30) as $ignored) {
+        OrderConsumptionException::query()->create([
+            'organisation_id' => $this->tenant->organisation->getKey(),
+            'order_id' => (string) Str::uuid(),
+            'reason_code' => 'no_recipe_version',
+        ]);
+    }
+    foreach (range(1, 2) as $ignored) {
+        OrderConsumptionException::query()->create([
+            'organisation_id' => $this->tenant->organisation->getKey(),
+            'order_id' => (string) Str::uuid(),
+            'reason_code' => 'no_stock_item',
+            'resolved_at' => now(),
+        ]);
+    }
+
+    $this->getJson('/api/v1/catalogue/inventory/consumption-exceptions/unresolved-count', $this->headers)
+        ->assertOk()
+        // More than one page of 25: the total, not the page.
+        ->assertJsonPath('data.count', 30)
+        ->assertJsonPath('data.resolved_count', 2);
+});
+
+it('pages the exception list by number, with its totals, for the shared pager', function (): void {
+    foreach (range(1, 20) as $ignored) {
+        OrderConsumptionException::query()->create([
+            'organisation_id' => $this->tenant->organisation->getKey(),
+            'order_id' => (string) Str::uuid(),
+            'reason_code' => 'no_recipe_version',
+        ]);
+    }
+
+    $this->getJson('/api/v1/catalogue/inventory/consumption-exceptions?resolved=false&page=2&per_page=18', $this->headers)
+        ->assertOk()
+        ->assertJsonCount(2, 'data.exceptions')
+        ->assertJsonPath('meta.page', 2)
+        ->assertJsonPath('meta.total_count', 20)
+        ->assertJsonPath('meta.total_pages', 2);
+
+    // Without `page`, the cursor walk is exactly as before.
+    $this->getJson('/api/v1/catalogue/inventory/consumption-exceptions?resolved=false', $this->headers)
+        ->assertOk()
+        ->assertJsonCount(20, 'data.exceptions')
+        ->assertJsonPath('meta.has_more', false);
+});

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8391 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8401 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -351,7 +351,6 @@ export interface NamespaceKeys {
     | 'addresses.save'
     | 'addresses.savedToast'
     | 'addresses.subtitle'
-    | 'addresses.title'
     | 'checklist.blocked'
     | 'checklist.cannotActivate'
     | 'checklist.outstanding'
@@ -393,6 +392,7 @@ export interface NamespaceKeys {
     | 'closure.finish'
     | 'closure.irreversibleBody'
     | 'closure.irreversibleTitle'
+    | 'closure.keepAccount'
     | 'closure.next'
     | 'closure.noChallenge'
     | 'closure.noteHint'
@@ -591,13 +591,14 @@ export interface NamespaceKeys {
     | 'profile.allergiesNone'
     | 'profile.answerAllergies'
     | 'profile.cancel'
+    | 'profile.changePassword'
+    | 'profile.devices'
     | 'profile.dietsEyebrow'
     | 'profile.dietsLocked'
     | 'profile.dietsUnavailable'
     | 'profile.editAllergies'
     | 'profile.emailLabel'
     | 'profile.listSeparator'
-    | 'profile.manageAddresses'
     | 'profile.mobileLabel'
     | 'profile.nameLabel'
     | 'profile.noPhone'
@@ -606,6 +607,7 @@ export interface NamespaceKeys {
     | 'profile.phoneVerify'
     | 'profile.save'
     | 'profile.saved'
+    | 'profile.securityTitle'
     | 'profile.slotLabel'
     | 'profile.slotUnset'
     | 'profile.title'
@@ -5248,6 +5250,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.nothingNeededBody'
     | 'ops.supplyOrders.nothingNeededTitle'
     | 'ops.supplyOrders.onHand'
+    | 'ops.supplyOrders.onOrder'
     | 'ops.supplyOrders.order'
     | 'ops.supplyOrders.orderAnyway'
     | 'ops.supplyOrders.ordersCaption'
@@ -6395,6 +6398,13 @@ export interface NamespaceKeys {
     | 'windows.activeHint'
     | 'windows.activeLabel'
     | 'windows.add'
+    | 'windows.archive'
+    | 'windows.archiveBody'
+    | 'windows.archiveConfirm'
+    | 'windows.archiveFailed'
+    | 'windows.archiveLabel'
+    | 'windows.archiveTitle'
+    | 'windows.archivedToast'
     | 'windows.capacityColumn'
     | 'windows.capacityHint'
     | 'windows.capacityInvalid'
@@ -8771,7 +8781,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:addresses.save',
   'account:addresses.savedToast',
   'account:addresses.subtitle',
-  'account:addresses.title',
   'account:checklist.blocked',
   'account:checklist.cannotActivate',
   'account:checklist.outstanding',
@@ -8813,6 +8822,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:closure.finish',
   'account:closure.irreversibleBody',
   'account:closure.irreversibleTitle',
+  'account:closure.keepAccount',
   'account:closure.next',
   'account:closure.noChallenge',
   'account:closure.noteHint',
@@ -9011,13 +9021,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:profile.allergiesNone',
   'account:profile.answerAllergies',
   'account:profile.cancel',
+  'account:profile.changePassword',
+  'account:profile.devices',
   'account:profile.dietsEyebrow',
   'account:profile.dietsLocked',
   'account:profile.dietsUnavailable',
   'account:profile.editAllergies',
   'account:profile.emailLabel',
   'account:profile.listSeparator',
-  'account:profile.manageAddresses',
   'account:profile.mobileLabel',
   'account:profile.nameLabel',
   'account:profile.noPhone',
@@ -9026,6 +9037,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:profile.phoneVerify',
   'account:profile.save',
   'account:profile.saved',
+  'account:profile.securityTitle',
   'account:profile.slotLabel',
   'account:profile.slotUnset',
   'account:profile.title',
@@ -13657,6 +13669,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.nothingNeededBody',
   'kitchen:ops.supplyOrders.nothingNeededTitle',
   'kitchen:ops.supplyOrders.onHand',
+  'kitchen:ops.supplyOrders.onOrder',
   'kitchen:ops.supplyOrders.order',
   'kitchen:ops.supplyOrders.orderAnyway',
   'kitchen:ops.supplyOrders.ordersCaption',
@@ -14804,6 +14817,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:windows.activeHint',
   'kitchen:windows.activeLabel',
   'kitchen:windows.add',
+  'kitchen:windows.archive',
+  'kitchen:windows.archiveBody',
+  'kitchen:windows.archiveConfirm',
+  'kitchen:windows.archiveFailed',
+  'kitchen:windows.archiveLabel',
+  'kitchen:windows.archiveTitle',
+  'kitchen:windows.archivedToast',
   'kitchen:windows.capacityColumn',
   'kitchen:windows.capacityHint',
   'kitchen:windows.capacityInvalid',

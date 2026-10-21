@@ -212,6 +212,10 @@ export function withFulfilmentType(
  * The default never lands on a slot already over: `overToday` names the windows that have ended
  * today, and on today the default skips them — to the next one, or to tomorrow's default when every
  * window today has closed. A Lunch slot picked at 9:50 PM made the order "Past due" on arrival.
+ *
+ * Nor does a stated slot survive once it is over on today: the chips refuse an ended slot, and one
+ * chosen before the day changed back to today, or before the clock passed its end, falls to the
+ * default like any slot the kitchen does not offer.
  */
 export function scheduleFor(
     state: SaleState,
@@ -223,7 +227,8 @@ export function scheduleFor(
 
     const date = state.requestedDeliveryDate ?? today;
     const stated = state.deliveryWindowCode;
-    if (stated !== null && offeredCodes.includes(stated)) {
+    const statedOver = stated !== null && date === today && overToday.has(stated);
+    if (stated !== null && offeredCodes.includes(stated) && !statedOver) {
         return { requestedDeliveryDate: date, deliveryWindowCode: stated };
     }
 
@@ -237,10 +242,25 @@ export function scheduleFor(
     if (open.length > 0 || offeredCodes.length === 0) {
         return { requestedDeliveryDate: date, deliveryWindowCode: preferred(open) };
     }
-    // Every window today is over, and the agent did not choose the day: tomorrow, at the default.
-    return state.requestedDeliveryDate === null
-        ? { requestedDeliveryDate: nextIsoDate(today), deliveryWindowCode: preferred(offeredCodes) }
-        : { requestedDeliveryDate: date, deliveryWindowCode: preferred(offeredCodes) };
+    // Every window today is over: tomorrow, at the default. Today has no slot left to cook for, so
+    // that holds even when the agent chose today before the last window closed.
+    return {
+        requestedDeliveryDate: nextIsoDate(today),
+        deliveryWindowCode: preferred(offeredCodes),
+    };
+}
+
+/**
+ * The first day a slotted sale can still be placed for: today while any offered window is still
+ * open, else tomorrow. The date picker's floor, so it never offers a day with no slot left.
+ */
+export function firstOpenDay(
+    today: string,
+    offeredCodes: readonly string[],
+    overToday: ReadonlySet<string>,
+): string {
+    const anyOpen = offeredCodes.length === 0 || offeredCodes.some((code) => !overToday.has(code));
+    return anyOpen ? today : nextIsoDate(today);
 }
 
 /** The calendar day after an ISO `YYYY-MM-DD`, computed in UTC so no zone shifts it. */

@@ -15,6 +15,8 @@ import {
     useSubscriptionBalanceQuery,
 } from '../../data/commerce-hooks.ts';
 import { toFailure } from '../../data/hooks.ts';
+import { withReturnTo } from '../../navigation/return-to.ts';
+import { useCurrentHref } from '../../navigation/use-return-to.ts';
 import { usePrototypeAction } from '../../prototype/index.ts';
 import { Eyebrow } from '../../ui/eyebrow.tsx';
 import { canPauseOrSkip, canResume } from '../commerce/state-badge.tsx';
@@ -44,10 +46,27 @@ import { InfoNote, SubtleButton } from './plan-controls.tsx';
  * (`POST /subscriptions/{id}/skip` takes a date), so the button skips the next one. "Pause" pauses
  * until resumed, and on a paused plan the same place offers "Resume". Each asks first — a skip
  * cannot be undone from here — and a refusal (inside the cut-off, say) is reported as the server
- * worded it. "Set dietary rules" opens the allergy and diet profile every plan is matched against.
+ * worded it. "Set dietary rules" opens the allergy and diet profile every plan is matched against,
+ * carrying this page as `?returnTo=` so saving the rules comes back here rather than ending on a
+ * profile page with no way out (plans-15).
  */
 export interface PlanSubscriberPanelProps {
     readonly subscription: Subscription;
+}
+
+/** States in which a subscription still delivers, or will again — the plan a person is "on". */
+const LIVE_STATES: ReadonlySet<Subscription['state']> = new Set([
+    'active',
+    'paused',
+    'skipped_today',
+]);
+
+/**
+ * Whether a subscription is one a person currently holds. The plan list marks its card "Current" and
+ * the plan page offers "Manage plan" by this one rule, so the two never disagree about it.
+ */
+export function isLiveSubscription(subscription: Subscription): boolean {
+    return LIVE_STATES.has(subscription.state);
 }
 
 /** A Monday, so `REFERENCE_MONDAY + (n − 1)` is ISO weekday `n` for the weekday-name formatter. */
@@ -117,6 +136,7 @@ export function PlanSubscriberPanel({ subscription }: PlanSubscriberPanelProps) 
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
+    const here = useCurrentHref();
     const toast = useToast();
     const prototype = usePrototypeAction();
     const { atLeast } = useBreakpoint();
@@ -251,7 +271,7 @@ export function PlanSubscriberPanel({ subscription }: PlanSubscriberPanelProps) 
                     size="sm"
                     label={t('catalogue:plans.subscriber.dietaryRules')}
                     onPress={() => {
-                        router.push('/customer/account/allergies' as never);
+                        router.push(withReturnTo('/customer/account/allergies', here) as never);
                     }}
                 />
             </View>

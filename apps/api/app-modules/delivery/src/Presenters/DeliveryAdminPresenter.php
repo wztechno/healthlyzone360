@@ -92,6 +92,7 @@ final class DeliveryAdminPresenter
      *     weekdays: list<int>,
      *     display_order: int,
      *     is_active: bool,
+     *     archived_at: string|null,
      *     delivery_zone_ids: list<string>,
      *     created_at: string|null,
      *     updated_at: string|null
@@ -113,6 +114,7 @@ final class DeliveryAdminPresenter
             'weekdays' => $window->weekdays,
             'display_order' => $window->display_order,
             'is_active' => $window->is_active,
+            'archived_at' => $window->archived_at?->toIso8601String(),
             'delivery_zone_ids' => $zoneIds,
             'created_at' => $window->created_at?->toIso8601String(),
             'updated_at' => $window->updated_at?->toIso8601String(),

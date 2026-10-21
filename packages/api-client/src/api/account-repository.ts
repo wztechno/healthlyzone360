@@ -272,15 +272,18 @@ export function mapConsent(wire: WireConsent): ConsentState {
 
 /**
  * Where a person goes to deal with a blocker. Client-side routing, deliberately: the server knows
- * *what* is in the way, the application knows *which screen* resolves it. The mock world keeps its
- * own copy of this table (`../mock/account/closure.ts`) — the two must name the same screens.
+ * *what* is in the way, the application knows *which screen* resolves it.
+ *
+ * Orders and subscriptions are sections of the account page. `/customer/orders` has only the
+ * `[order]` child, so a bare link to it was a not-found page; `/customer/subscriptions` only
+ * redirects to the section. The wizard adds `?returnTo=` the checks step to each.
  */
 const CLOSURE_RESOLVE_HREFS: Readonly<Record<ClosureBlockerCode, string | null>> = {
-    open_orders: '/customer/orders',
-    active_subscriptions: '/customer/subscriptions',
+    open_orders: '/customer/account?section=orders',
+    active_subscriptions: '/customer/account?section=subscriptions',
     organisation_memberships: null,
     pending_b2b_signatures: '/apply/agreement',
-    unsettled_credit_memos: '/customer/subscriptions',
+    unsettled_credit_memos: '/customer/account?section=subscriptions',
     wallet_balance: null,
     payment_methods: null,
 };

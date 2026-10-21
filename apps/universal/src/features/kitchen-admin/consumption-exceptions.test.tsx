@@ -125,4 +125,40 @@ describe('consumption exceptions at desk width', () => {
             expect(calls[calls.length - 1]?.[0]).not.toHaveProperty('resolved');
         });
     });
+    it('shows whole totals on its cards and pages with the shared numbered pager', async () => {
+        // 84 open gaps across five pages of 18 — the case that read "25" before.
+        const harness = await renderStubScreen(<ConsumptionExceptionsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    listConsumptionExceptions: async () => ({
+                        items: Array.from({ length: 18 }, (_, index) =>
+                            exception({ id: `exception-${String(index + 1)}` }),
+                        ),
+                        nextCursor: null,
+                        hasMore: true,
+                        totalCount: 84,
+                    }),
+                    countConsumptionExceptions: async () => ({ unresolved: 84, resolved: 3 }),
+                },
+            },
+        });
+        const list = harness.repositories.kitchenOps.listConsumptionExceptions;
+
+        await untilVisible('kitchen-consumption-exceptions-pagination');
+        expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, perPage: 18 }));
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('kitchen-consumption-exceptions-summary-unresolved'),
+            ).toHaveTextContent(/84/);
+        });
+        expect(
+            screen.getByTestId('kitchen-consumption-exceptions-summary-resolved'),
+        ).toHaveTextContent(/3/);
+        expect(
+            screen.getByTestId('kitchen-consumption-exceptions-summary-shown'),
+        ).toHaveTextContent(/18.*84/);
+        // One pager: the old cursor buttons are gone.
+        expect(screen.queryByTestId('kitchen-consumption-exceptions-next')).toBeNull();
+    });
 });

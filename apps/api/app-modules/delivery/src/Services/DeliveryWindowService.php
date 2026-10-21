@@ -6,9 +6,11 @@ namespace Healthy360\Delivery\Services;
 
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Delivery\Models\DeliveryWindow;
+use Healthy360\Delivery\Models\DeliveryZoneWindow;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\TenantContext;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The named delivery slots a kitchen offers.
@@ -106,6 +108,8 @@ final readonly class DeliveryWindowService
      */
     public function update(DeliveryWindow $window, array $attributes): DeliveryWindow
     {
+        $this->assertNotArchived($window);
+
         if (array_key_exists('code', $attributes)) {
             throw $this->invalid('code', 'A delivery window code is fixed when the window is created. Rename the window instead.');
         }
@@ -270,6 +274,63 @@ final readonly class DeliveryWindowService
         $trimmed = trim($value);
 
         return $trimmed === '' ? null : $trimmed;
+    }
+
+    /**
+     * Take a window off the kitchen's list and out of every zone.
+     *
+     * Not a delete: past orders and subscriptions name their window by code,
+     * and they stay explainable. The window is switched off in the same write
+     * (a CHECK requires it), so every reader that already skips inactive
+     * windows skips this one. Its zone assignments are released, because a zone
+     * still listing a window nobody can see is a zone nobody can tidy.
+     *
+     * @throws ApiException
+     */
+    public function archive(DeliveryWindow $window): DeliveryWindow
+    {
+        $this->assertNotArchived($window);
+
+        $released = DeliveryZoneWindow::withoutTenancy()
+            ->where('delivery_window_id', $window->getKey())
+            ->count();
+
+        DB::transaction(function () use ($window): void {
+            $window->is_active = false;
+            $window->archived_at = now()->toImmutable();
+            $window->save();
+
+            DeliveryZoneWindow::withoutTenancy()
+                ->where('delivery_window_id', $window->getKey())
+                ->delete();
+        });
+
+        $this->audit->record(
+            'catalogue.delivery_window_archived',
+            actorUserId: $this->context->userId(),
+            subjectType: 'delivery_window',
+            subjectId: (string) $window->getKey(),
+            metadata: ['released_zone_count' => $released],
+        );
+
+        return $window;
+    }
+
+    /**
+     * An archived window is finished with: editing it — switching it back on
+     * above all — would bring back a slot every zone has already let go of.
+     *
+     * @throws ApiException
+     */
+    private function assertNotArchived(DeliveryWindow $window): void
+    {
+        if ($window->isArchived()) {
+            throw new ApiException(
+                ErrorCode::ResourceConflict,
+                'This delivery window is archived and cannot be changed.',
+                ['archived_at' => $window->archived_at?->toIso8601String()],
+            );
+        }
     }
 
     private function invalid(string $field, string $message): ApiException

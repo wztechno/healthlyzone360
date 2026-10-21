@@ -92,13 +92,8 @@ export const CONSUMER_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
         area: 'customer',
         badge: 'cart',
     },
-    {
-        key: 'profile',
-        labelKey: 'marketplace:consumer.nav.profile',
-        href: '/profile',
-        icon: 'user',
-        area: 'auth',
-    },
+    // No `profile` entry. It pointed at the staff workspace's `/profile`, nothing rendered it, and a
+    // customer's profile, password and devices are the account page's Profile section.
 ];
 
 /** The public marketplace's top-level destinations. */

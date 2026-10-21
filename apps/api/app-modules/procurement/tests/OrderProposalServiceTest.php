@@ -9,10 +9,13 @@ use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
+use Healthy360\Procurement\Enums\PurchaseOrderStatus;
 use Healthy360\Procurement\Models\Supplier;
 use Healthy360\Procurement\Models\SupplierStockItem;
+use Healthy360\Procurement\Services\PurchaseOrderService;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
+use Healthy360\Tenancy\TenantContext;
 
 /*
 |--------------------------------------------------------------------------
@@ -451,4 +454,67 @@ it('keeps one branch out of another branch\'s proposal and one kitchen out of an
         '/api/v1/catalogue/procurement/supply-needs/count?'.http_build_query(['branch_id' => $stranger->branchId]),
         $this->headers,
     )->assertStatus(422);
+});
+
+it('counts what open orders still have to deliver, and restocks to par only after it', function (): void {
+    $organisationId = $this->world->organisationId;
+    $supplier = proposalSupplier($organisationId, 'SUP-OPEN', 'Bekaa Fresh Produce');
+
+    // Two on the shelf, par twelve: ten short.
+    $rice = proposalStockItem($organisationId, 'RIC-2', 'Rice');
+    proposalLevel($organisationId, $this->world->branchId, $rice, '2.0000', '5.0000', '12.0000');
+    proposalLink($organisationId, $supplier, $rice, true);
+
+    // Zero on the shelf, par ten, and already ordered in full.
+    $oil = proposalStockItem($organisationId, 'OIL-2', 'Olive oil');
+    proposalLevel($organisationId, $this->world->branchId, $oil, '0.0000', '2.0000', '10.0000');
+    proposalLink($organisationId, $supplier, $oil, true);
+
+    app(TenantContext::class)->setOrganisation((string) $this->world->user->getKey(), $organisationId);
+    $orders = app(PurchaseOrderService::class);
+    // A draft for four of the rice and all the oil, and an issued order for three more rice.
+    $draft = $orders->createBatch($organisationId, $this->world->branchId, [[
+        'supplier_id' => (string) $supplier->getKey(),
+        'lines' => [
+            ['stock_item_id' => (string) $rice->getKey(), 'quantity' => '4'],
+            ['stock_item_id' => (string) $oil->getKey(), 'quantity' => '10'],
+        ],
+    ]])[0];
+    $issued = $orders->issue($orders->createBatch($organisationId, $this->world->branchId, [[
+        'supplier_id' => (string) $supplier->getKey(),
+        'lines' => [['stock_item_id' => (string) $rice->getKey(), 'quantity' => '3']],
+    ]])[0]);
+    // A cancelled order is not on its way, and does not count.
+    $cancelled = $orders->createBatch($organisationId, $this->world->branchId, [[
+        'supplier_id' => (string) $supplier->getKey(),
+        'lines' => [['stock_item_id' => (string) $rice->getKey(), 'quantity' => '50']],
+    ]])[0];
+    $cancelled->forceFill(['status' => PurchaseOrderStatus::Cancelled->value, 'cancelled_at' => now()])->save();
+    app(TenantContext::class)->clear();
+
+    $response = ($this->proposal)()->assertOk();
+    $rows = collect($response->json('data.items'))->keyBy('item_code');
+
+    // 12 par - 2 on hand - 7 on order = 3 still to buy.
+    expect($rows['RIC-2']['on_order_quantity'])->toBe('7.0000')
+        ->and($rows['RIC-2']['suggested_quantity'])->toBe('3.0000')
+        ->and(array_column($rows['RIC-2']['open_orders'], 'number'))->toBe([$draft->number, $issued->number])
+        ->and(array_column($rows['RIC-2']['open_orders'], 'status'))->toBe(['draft', 'issued'])
+        // Fully covered: nothing to suggest, so a second Create would not draft it again.
+        ->and($rows['OIL-2']['on_order_quantity'])->toBe('10.0000')
+        ->and($rows['OIL-2']['suggested_quantity'])->toBeNull()
+        ->and($rows['OIL-2']['suggested_quantity_basis'])->toBe('none');
+
+    $response->assertJsonPath('meta.on_order_item_count', 2);
+});
+
+it('reports nothing on order for a shelf no open order names', function (): void {
+    $rice = proposalStockItem($this->world->organisationId, 'RIC-3', 'Rice');
+    proposalLevel($this->world->organisationId, $this->world->branchId, $rice, '2.0000', '5.0000', '10.0000');
+
+    ($this->proposal)()->assertOk()
+        ->assertJsonPath('data.items.0.on_order_quantity', '0.0000')
+        ->assertJsonPath('data.items.0.open_orders', [])
+        ->assertJsonPath('data.items.0.suggested_quantity', '8.0000')
+        ->assertJsonPath('meta.on_order_item_count', 0);
 });

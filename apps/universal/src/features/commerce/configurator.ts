@@ -1,4 +1,5 @@
 import type {
+    CustomerAddress,
     PlanVariant,
     SubscriptionConfiguration,
     SubscriptionPlan,
@@ -13,7 +14,7 @@ import type {
 } from '@healthy360/domain-types';
 import type { NutritionConstraint } from '@healthy360/nutrition';
 
-import { EMPTY_ADDRESS, isAddressComplete } from './address.ts';
+import { EMPTY_ADDRESS } from './address.ts';
 import type { AddressValues } from './address.ts';
 import type { DeliveryAreaStatus } from './delivery.ts';
 import { DEFAULT_SLOT_CODE, isDeliverySlotCode } from './delivery.ts';
@@ -294,6 +295,11 @@ export interface ConfiguratorState {
     readonly startDate: string | null;
     readonly deliveryWeekdays: readonly number[];
     readonly slotCode: string;
+    /**
+     * The saved address the delivery step chose, in form shape ({@link savedAddressValues}), so the
+     * configuration and the review read it like any other choice. Never typed in: placement takes
+     * a saved address's identifier and nothing else (D-084).
+     */
     readonly address: AddressValues;
     readonly dietClassifications: readonly DietClassification[];
     readonly excludeAllergens: readonly AllergenCode[];
@@ -353,10 +359,14 @@ export interface StepContext {
     readonly allowedWeekdays: readonly number[] | null;
     readonly areaStatus: DeliveryAreaStatus;
     /**
-     * Whether a saved address-book entry is selected. A saved address satisfies the address
-     * requirement by itself (D-084: delivery resolves from the address book, not a typed street
-     * line — the same rule the checkout applies), so the typed-fields validation only gates the
-     * hand-entered path.
+     * Whether a saved address-book entry is selected — the only way the address requirement is met.
+     *
+     * There used to be a second way: with nothing saved, the step drew an inline address form and
+     * accepted it once every field was filled in. Nothing ever saved that address, and
+     * `createSubscription` takes only a saved address's identifier (D-084: delivery resolves zone,
+     * window and fee from the address book, the rule the checkout follows), so a new account passed
+     * all three steps and was refused at Subscribe every time, with no way to add one (plans-02).
+     * The step now offers "Add a delivery address", which saves one and comes back with it chosen.
      */
     readonly hasSavedAddress: boolean;
     readonly earliestStartDate: string;
@@ -414,12 +424,7 @@ function deliveryIssues(state: ConfiguratorState, context: StepContext): StepIss
 
     if (!isDeliverySlotCode(state.slotCode)) issues.push('commerce:configurator.issues.slot');
 
-    if (
-        !context.hasSavedAddress &&
-        !isAddressComplete(state.address, (key) => context.translate(key))
-    ) {
-        issues.push('commerce:configurator.issues.address');
-    }
+    if (!context.hasSavedAddress) issues.push('commerce:configurator.issues.address');
 
     // The two SUB-02 checks. `unserved` is a hard stop: there is no acknowledgement that makes a
     // kitchen deliver somewhere it does not deliver, and offering one would sell an unfulfillable
@@ -460,6 +465,26 @@ export function firstIncompleteStep(
 }
 
 /* ── the request ─────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * A saved address in the form shape the configuration is built from.
+ *
+ * The address book carries no city or country — the area it names is a gazetteer entry the server
+ * resolves — so both are left empty, exactly as the subscription's own address change sends them.
+ * The identifier travels beside the configuration as `addressId`; this is only what the review and
+ * the preview describe.
+ */
+export function savedAddressValues(entry: CustomerAddress): AddressValues {
+    return {
+        label: entry.label,
+        line1: entry.line1,
+        line2: entry.line2 ?? '',
+        area: entry.areaName,
+        city: '',
+        countryCode: '',
+        instructions: entry.notes ?? '',
+    };
+}
 
 /**
  * The configuration a preview or a creation is made from.

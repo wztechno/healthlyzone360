@@ -15,7 +15,7 @@ import type {
 } from '@healthy360/domain-types';
 
 import type { LocalisedText } from './kitchen-admin.ts';
-import type { CursorPage, CursorPageRequest } from './pagination.ts';
+import type { CursorPage, CursorPageRequest, OffsetPageRequest } from './pagination.ts';
 
 /**
  * The kitchen ops contract (O1–O4): inventory, receipts-only procurement, production and quality
@@ -474,6 +474,22 @@ export interface OrderProposalItem {
      */
     readonly suggestedSupplierId: SupplierId | null;
     readonly unassignedReason: UnassignedReason | null;
+    /**
+     * What this branch's open supply orders (draft, issued, part-received) still have to deliver of
+     * this shelf — a decimal string, `"0.0000"` when none. `suggestedQuantity` already restocks to par
+     * after it, so a shelf its open orders cover has no suggestion.
+     */
+    readonly onOrderQuantity: string;
+    /** The open orders behind {@link onOrderQuantity}, oldest first. */
+    readonly openOrders: readonly OrderProposalOpenOrder[];
+}
+
+/** An open supply order that already carries a proposal row's shelf. */
+export interface OrderProposalOpenOrder {
+    readonly id: PurchaseOrderId;
+    /** `PO-…`, what the kitchen calls it. */
+    readonly number: string;
+    readonly status: PurchaseOrderStatus;
 }
 
 /**
@@ -1568,7 +1584,7 @@ export interface ConsumptionException {
 }
 
 /** Resolution-state and date filters over the consumption-exception list, plus the cursor. */
-export interface ConsumptionExceptionFilter extends CursorPageRequest {
+export interface ConsumptionExceptionFilter extends CursorPageRequest, OffsetPageRequest {
     /** `true` for resolved only, `false` for still-open only; omit for both. */
     readonly resolved?: boolean | undefined;
     /** Inclusive lower bound on when the exception was raised, as `YYYY-MM-DD`. */
@@ -1578,6 +1594,12 @@ export interface ConsumptionExceptionFilter extends CursorPageRequest {
 }
 
 /** Optionally records why an exception is being marked handled. */
+/** Unresolved and resolved consumption exceptions in scope — whole totals, not a page. */
+export interface ConsumptionExceptionTotals {
+    readonly unresolved: number;
+    readonly resolved: number;
+}
+
 export interface ResolveConsumptionExceptionRequest {
     readonly note?: string | null | undefined;
 }
@@ -2218,6 +2240,11 @@ export interface KitchenOpsRepository {
      * or the whole organisation when none is set — the count the hub badge and review KPI read.
      */
     countUnresolvedConsumptionExceptions(): Promise<number>;
+    /**
+     * Both totals under the same scope — what the Stock gaps cards show. The list is cursor-paged
+     * and carries no total, so counting its rows counted only the page in hand.
+     */
+    countConsumptionExceptions(): Promise<ConsumptionExceptionTotals>;
     /** Marks one exception handled, returning the settled row. Idempotent. Needs `inventory.manage_organisation`. */
     resolveConsumptionException(
         exceptionId: string,

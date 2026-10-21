@@ -270,7 +270,10 @@ const MEAL_LOOKUP_TTL_MS = 60_000;
 
 export function createApiCartSurface(transport: Transport): ApiCartSurface {
     let sessionChannelCode = DEFAULT_CART_CHANNEL_CODE;
-    const meals = new Map<string, { readonly at: number; readonly meal: ReturnType<typeof fetchMeal> }>();
+    const meals = new Map<
+        string,
+        { readonly at: number; readonly meal: ReturnType<typeof fetchMeal> }
+    >();
 
     const fresh = (mealId: string) => {
         const known = meals.get(mealId);
@@ -313,7 +316,9 @@ export function createApiCartSurface(transport: Transport): ApiCartSurface {
                 batch.then(
                     (wires) => {
                         const wire = wires.find((candidate) => candidate.id === mealId);
-                        return wire === undefined ? fetchMeal(transport, mealId) : toMeal(wire, mealId);
+                        return wire === undefined
+                            ? fetchMeal(transport, mealId)
+                            : toMeal(wire, mealId);
                     },
                     () => fetchMeal(transport, mealId),
                 ),

@@ -148,6 +148,9 @@ export interface DeliveryWindowMessages {
     readonly endBeforeStart: string;
 }
 
+/** Some letter or digit, in any script — what separates a name from punctuation. */
+const NAMED = /[\p{L}\p{N}]/u;
+
 /**
  * What is wrong with each window, keyed by row.
  *
@@ -164,7 +167,9 @@ export function windowErrors(
     const errors = new Map<string, string>();
 
     for (const row of rows) {
-        if (row.label.en.trim() === '') {
+        // A name needs a letter or a digit: "." passed a not-empty check and was saved as a
+        // window's name in both languages.
+        if (!NAMED.test(row.label.en)) {
             errors.set(row.key, messages.labelRequired);
             continue;
         }

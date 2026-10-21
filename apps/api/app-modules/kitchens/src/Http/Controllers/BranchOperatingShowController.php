@@ -45,7 +45,7 @@ final class BranchOperatingShowController
 
         return ApiResponse::data(
             array_map(fn (BranchOpeningHour $day): array => $this->presenter->day($day), $week),
-            $this->presenter->meta($week),
+            $this->presenter->meta($week, $this->operating->timezone()),
         );
     }
 }
