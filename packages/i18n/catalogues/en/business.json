@@ -307,7 +307,15 @@
         "window": "Delivery window",
         "refusedTitle": "The order could not be placed",
         "placedTitle": "Order {{order}} placed",
-        "placedBody": "The kitchen has it on its calendar for {{date}}."
+        "placedBody": "The kitchen has it on its calendar for {{date}}.",
+        "totalPerDelivery": "Quoted total per delivery",
+        "repeat": "Repeat every week for",
+        "repeatHint_one": "One order, on {{weekday}}.",
+        "repeatHint_other": "{{count}} orders, one every {{weekday}}, each at the quoted prices.",
+        "weeks_one": "{{count}} week",
+        "weeks_other": "{{count}} weeks",
+        "placedRunTitle_one": "Order {{order}} placed",
+        "placedRunTitle_other": "{{count}} weekly orders placed, starting with {{order}}"
     },
     "decline": {
         "title": "Decline {{reference}}",

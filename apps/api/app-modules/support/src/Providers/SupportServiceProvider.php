@@ -20,4 +20,11 @@ class SupportServiceProvider extends ServiceProvider
         // requests in long-lived workers (Octane, queue workers).
         $this->app->scoped(CorrelationContext::class);
     }
+
+    public function boot(): void
+    {
+        // The shared operational notice (`NoticeMessage`): the API registers no
+        // application view path, so module templates resolve by namespace.
+        $this->loadViewsFrom(__DIR__.'/../../resources/views', 'support');
+    }
 }

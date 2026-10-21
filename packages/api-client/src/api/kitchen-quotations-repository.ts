@@ -103,6 +103,10 @@ export function mapKitchenQuotation(wire: WireQuotation): KitchenQuotation {
         contactEmail: wire.contact_email ?? null,
         orderId: wire.order_id ?? null,
         orderNumber: wire.order_number ?? null,
+        orders: (wire.orders ?? []).map((order) => ({
+            orderNumber: order.order_number,
+            deliveryDate: order.delivery_date,
+        })),
         declineReason: wire.decline_reason,
         submittedAt: wire.submitted_at,
         quotedAt: wire.quoted_at,

@@ -11594,6 +11594,14 @@ export type Quotation = {
      */
     order_number: string | null;
     /**
+     * Every order the acceptance placed, in delivery order — one, or one a week for a repeating quotation. Empty until accepted.
+     */
+    orders: Array<{
+        order_id: Uuid;
+        order_number: string | null;
+        delivery_date: string;
+    }>;
+    /**
      * Set only when the buyer declined, and only when they gave one.
      */
     decline_reason: string | null;
@@ -11707,6 +11715,14 @@ export type AcceptQuotationRequest = {
      * A window the address's zone offers.
      */
     delivery_window_code: string;
+    /**
+     * A repeating quotation's run: one order a week for this many weeks,
+     * the first on `requested_date`, all at the quoted prices and placed
+     * together (a refused week refuses the run). Above 1 is a `422` on a
+     * quotation that was for one delivery.
+     *
+     */
+    repeat_weeks?: number | null;
 };
 
 export type DeclineQuotationRequest = {

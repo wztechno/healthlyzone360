@@ -124,6 +124,11 @@ export interface KitchenQuotation {
     /** The order the buyer's acceptance placed. */
     readonly orderId: string | null;
     readonly orderNumber: string | null;
+    /** Every order the acceptance placed, in delivery order — one a week for a repeating quotation. */
+    readonly orders: readonly {
+        readonly orderNumber: string | null;
+        readonly deliveryDate: string;
+    }[];
     /** Set only when the buyer declined, and only when they gave one. */
     readonly declineReason: string | null;
     readonly submittedAt: IsoDateTime | null;

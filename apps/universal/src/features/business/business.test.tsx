@@ -274,6 +274,7 @@ const SUBMITTED_QUOTATION: Quotation = {
     lockVersion: 2,
     orderId: null,
     orderNumber: null,
+    orders: [],
 };
 
 /** Priced, so it carries a total and offers accept/decline. */
@@ -304,6 +305,7 @@ const QUOTED_QUOTATION: Quotation = {
     lockVersion: 2,
     orderId: null,
     orderNumber: null,
+    orders: [],
 };
 
 function kitchen(id: KitchenId, name: string, slug: string): Kitchen {
@@ -454,6 +456,7 @@ function businessWorld(seed: Partial<WorldSeed> = {}): BusinessWorld {
                     lockVersion: 1,
                     orderId: null,
                     orderNumber: null,
+                    orders: [],
                 };
                 quotations.push(filed);
                 return filed;
@@ -1121,6 +1124,46 @@ describe('quotation list', () => {
 
         // `quotationExport` is unavailable, so there is no document control to press.
         expect(screen.queryAllByTestId('prototype-action')).toEqual([]);
+    });
+
+    it('accepts a repeating quotation as a weekly run, four weeks to begin with', async () => {
+        const repeating: Quotation = { ...QUOTED_QUOTATION, recurring: true };
+        const world = businessWorld({ quotations: [SUBMITTED_QUOTATION, repeating] });
+        const { repositories } = await renderStubScreen(<QuotationsScreen />, {
+            session: buyerSession(),
+            repositories: world.overrides,
+        });
+
+        await fireEvent.press(await screen.findByTestId(`quotation-${repeating.reference}-accept`));
+        await waitFor(() => {
+            expect(screen.getByTestId('quotation-accept-weeks')).toBeTruthy();
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId('quotation-accept-confirm')).toBeEnabled();
+        });
+        await fireEvent.press(screen.getByTestId('quotation-accept-confirm'));
+
+        await waitFor(() => {
+            expect(repositories.business.acceptQuotation).toHaveBeenCalledWith(
+                expect.objectContaining({ quotationId: repeating.id, repeatWeeks: 4 }),
+            );
+        });
+    });
+
+    it('offers no weekly run on a quotation for one delivery', async () => {
+        const world = businessWorld();
+        await renderStubScreen(<QuotationsScreen />, {
+            session: buyerSession(),
+            repositories: world.overrides,
+        });
+
+        await fireEvent.press(
+            await screen.findByTestId(`quotation-${QUOTED_QUOTATION.reference}-accept`),
+        );
+        await waitFor(() => {
+            expect(screen.getByTestId('quotation-accept-dialog')).toBeTruthy();
+        });
+        expect(screen.queryByTestId('quotation-accept-weeks')).toBeNull();
     });
 });
 

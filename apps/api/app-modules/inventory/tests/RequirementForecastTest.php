@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
+use Healthy360\AccessControl\Models\MembershipRole;
+use Healthy360\AccessControl\Models\Permission;
+use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\PlanMenuEntry;
@@ -11,6 +14,7 @@ use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
+use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\Inventory\Models\StockReservation;
 use Healthy360\Inventory\Models\StockSufficiencyCheck;
 use Healthy360\Inventory\Services\RequirementForecast;
@@ -33,7 +37,9 @@ use Healthy360\Subscriptions\Models\Subscription;
 use Healthy360\Subscriptions\Models\SubscriptionDelivery;
 use Healthy360\Subscriptions\Models\SubscriptionMealChoice;
 use Healthy360\Subscriptions\Tests\Fixtures\SubscriptionWorld;
+use Healthy360\Support\Mail\NoticeMessage;
 use Healthy360\Tenancy\TenantContext;
+use Illuminate\Support\Facades\Mail;
 
 /*
 |--------------------------------------------------------------------------
@@ -338,7 +344,34 @@ it('never counts a cancelled order', function (): void {
     expect(($this->week)()->requirements)->toBe([]);
 });
 
-it('counts a fulfilled order, because a fulfilled order still ate its ingredients', function (): void {
+it('does not count a line whose stock was already deducted at confirmation', function (): void {
+    [$onion, $onionShelf] = ($this->shelf)('sku-onion', $this->kg);
+    $roast = ($this->meal)('Roast', $onion, '2', $this->kg);
+    ($this->level)($onionShelf, '92.0000');
+
+    // Confirmed: its 8 kg already came off the shelf (100 -> 92), and the ledger says so.
+    $confirmed = ($this->order)($this->thursday, [[$roast, '4.0000']], OrderStatus::Confirmed);
+    $line = OrderLine::query()->where('order_id', $confirmed->getKey())->sole();
+    StockMovement::withoutTenancy()->create([
+        'organisation_id' => $this->organisationId,
+        'branch_id' => $this->branchId,
+        'stock_item_id' => (string) $onionShelf->getKey(),
+        'quantity_delta' => '-8.0000',
+        'reason' => 'consume',
+        'reference_type' => 'order',
+        'reference_id' => (string) $confirmed->getKey(),
+        'order_line_id' => (string) $line->getKey(),
+    ]);
+
+    // Still to be confirmed: nothing has come off for it yet.
+    ($this->order)($this->thursday, [[$roast, '1.0000']]);
+
+    // Only the unconfirmed order's 2 kg is still to come off the 92 on the shelf.
+    expect(($this->row)(($this->week)(), 'sku-onion')['required'])->toBe('2.000000')
+        ->and(($this->row)(($this->week)(), 'sku-onion')['short'])->toBe('0.0000');
+});
+
+it('still counts a fulfilled order nothing was deducted for', function (): void {
     [$onion, $onionShelf] = ($this->shelf)('sku-onion', $this->kg);
     $roast = ($this->meal)('Roast', $onion, '2', $this->kg);
     ($this->level)($onionShelf, '100.0000');
@@ -776,7 +809,22 @@ it('records what the weekly check found short, one row for the branch that keeps
     // Thursday's order needs 8 kg; the shelf holds 1.
     ($this->order)($this->thursday, [[$roast, '4.0000']]);
 
+    Mail::fake();
+    // The kitchen user may read the stock, so it is who the weekly notice goes to.
+    $roleId = MembershipRole::withoutTenancy()->where('organisation_id', $this->organisationId)->value('role_id');
+    $permissionId = Permission::query()->where('code', 'inventory.view_organisation')->sole()->getKey();
+    if (! RolePermission::withoutTenancy()->where('role_id', $roleId)->where('permission_id', $permissionId)->exists()) {
+        RolePermission::factory()->create([
+            'organisation_id' => $this->organisationId,
+            'role_id' => $roleId,
+            'permission_id' => $permissionId,
+        ]);
+    }
+
     $checked = app(StockSufficiencyCheckRunner::class)->run($this->monday->addHours(5));
+
+    Mail::assertQueued(NoticeMessage::class, fn (NoticeMessage $mail): bool => $mail->kind === 'stock_shortfall'
+        && collect($mail->lines)->contains(fn (string $line): bool => str_contains($line, 'Shelf sku-onion')));
 
     $check = StockSufficiencyCheck::withoutTenancy()->where('branch_id', $this->branchId)->sole();
     $onionRow = collect($check->shortfalls)->firstWhere('code', 'sku-onion');

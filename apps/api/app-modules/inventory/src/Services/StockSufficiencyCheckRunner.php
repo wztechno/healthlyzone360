@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Healthy360\Inventory\Services;
 
+use App\Services\NoticeRecipients;
 use Carbon\CarbonImmutable;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockSufficiencyCheck;
+use Healthy360\Support\Mail\NoticeMessage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 /**
  * The weekly stock check: for every branch that keeps a shelf, the buy list
@@ -31,7 +35,13 @@ final readonly class StockSufficiencyCheckRunner
     /** The days a weekly check looks ahead, today included. */
     public const int WINDOW_DAYS = 7;
 
-    public function __construct(private RequirementForecast $forecast) {}
+    /** How many short items the mail names before it says "and N more". */
+    private const int MAILED = 10;
+
+    public function __construct(
+        private RequirementForecast $forecast,
+        private NoticeRecipients $recipients,
+    ) {}
 
     /**
      * @return int the number of branches checked
@@ -85,6 +95,55 @@ final readonly class StockSufficiencyCheckRunner
         ], $short);
         $check->save();
 
+        if ($check->short_count > 0) {
+            $this->mail($check);
+        }
+
         return $check;
+    }
+
+    /**
+     * Tell the kitchen (2026-10-21): the members who may read the stock get the
+     * shortfalls and a link to the buy list. Only when something is short — a
+     * weekly "all fine" mail is the kind people learn to delete unread.
+     */
+    private function mail(StockSufficiencyCheck $check): void
+    {
+        $url = rtrim((string) config('app.frontend_url'), '/').'/kitchen/order-desk/requirements';
+
+        foreach ($this->recipients->holding($check->organisation_id, 'inventory.view_organisation') as $recipient) {
+            $locale = $recipient['locale'];
+            $lines = array_map(static fn (array $row): string => __('notices.stock.line', [
+                'name' => $row['name_en'],
+                'short' => rtrim(rtrim((string) $row['short'], '0'), '.'),
+                'buy' => rtrim(rtrim((string) $row['suggested_buy'], '0'), '.'),
+                'unit' => $row['unit_code'] ?? '',
+            ], $locale), array_slice($check->shortfalls, 0, self::MAILED));
+
+            if (count($check->shortfalls) > self::MAILED) {
+                $lines[] = __('notices.stock.more', ['count' => count($check->shortfalls) - self::MAILED], $locale);
+            }
+
+            if ($check->not_computable_days > 0) {
+                $lines[] = trans_choice('notices.stock.holes', $check->not_computable_days, ['count' => $check->not_computable_days], $locale);
+            }
+
+            try {
+                Mail::to($recipient['email'])->queue(new NoticeMessage(
+                    'stock_shortfall',
+                    trans_choice('notices.stock.heading', $check->short_count, [
+                        'count' => $check->short_count,
+                        'from' => $check->window_from->toDateString(),
+                        'to' => $check->window_to->toDateString(),
+                    ], $locale),
+                    array_values($lines),
+                    __('notices.stock.action', [], $locale),
+                    $url,
+                    $locale,
+                ));
+            } catch (Throwable $e) {
+                report($e);
+            }
+        }
     }
 }

@@ -7778,6 +7778,11 @@ export const zQuotation = z.object({
     contact_email: z.string().max(190).nullable(),
     order_id: zUuid.nullable(),
     order_number: z.string().nullable(),
+    orders: z.array(z.object({
+        order_id: zUuid,
+        order_number: z.string().nullable(),
+        delivery_date: z.iso.date()
+    })),
     decline_reason: z.string().max(2000).nullable(),
     submitted_at: z.iso.datetime({ offset: true }).nullable(),
     quoted_at: z.iso.datetime({ offset: true }).nullable(),
@@ -7829,7 +7834,8 @@ export const zUpdateQuotationRequest = z.object({
 export const zAcceptQuotationRequest = z.object({
     customer_address_id: zUuid,
     requested_date: z.iso.date(),
-    delivery_window_code: z.string().max(40)
+    delivery_window_code: z.string().max(40),
+    repeat_weeks: z.int().gte(1).lte(12).nullish()
 });
 
 export const zDeclineQuotationRequest = z.object({

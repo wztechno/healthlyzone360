@@ -397,9 +397,16 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                                 tone="success"
                                 icon="check"
                                 role="status"
-                                title={t('business:accept.placedTitle', {
-                                    order: viewing.orderNumber,
-                                })}
+                                title={
+                                    viewing.orders.length > 1
+                                        ? t('business:accept.placedRunTitle', {
+                                              count: viewing.orders.length,
+                                              order: viewing.orderNumber,
+                                          })
+                                        : t('business:accept.placedTitle', {
+                                              order: viewing.orderNumber,
+                                          })
+                                }
                                 body={
                                     viewing.requestedDeliveryDate === null
                                         ? undefined

@@ -35,6 +35,10 @@ import { formatMoney } from '../marketplace/format.ts';
  * a refusal comes back listing every reason, worded as checkout words them, and the quotation stays
  * `quoted` so the buyer can change a field and try again.
  */
+/** A repeating quotation's run, to begin with, and at most — the server's own limit. */
+const DEFAULT_WEEKS = 4;
+const MAX_WEEKS = 12;
+
 export function AcceptQuotationDialog({
     quotation,
     kitchenId,
@@ -69,6 +73,14 @@ export function AcceptQuotationDialog({
     const [chosenSlot, setSlot] = useState<string | null>(null);
     const slotCode = chosenSlot ?? defaultSlotCode(slots);
 
+    /*
+     * A repeating quotation places one order a week, starting on the day above, for as many weeks
+     * as are chosen here — four to begin with, a month of deliveries. A one-off places one.
+     */
+    const [weeks, setWeeks] = useState<number>(quotation.recurring ? DEFAULT_WEEKS : 1);
+    const weekday =
+        date === '' ? '' : formatter.formatDate(`${date}T12:00:00Z`, { weekday: 'long' });
+
     const failure = toFailure(accept.error);
     const reasons = failure?.code === 'order.placement_refused' ? failure.reasons : [];
     const ready = addressId !== null && slotCode !== null && date !== '';
@@ -84,6 +96,7 @@ export function AcceptQuotationDialog({
                     requestedDate: date,
                     deliveryWindowCode: slotCode,
                 },
+                ...(quotation.recurring && weeks > 1 ? { repeatWeeks: weeks } : {}),
             },
             { onSuccess: onAccepted },
         );
@@ -117,7 +130,11 @@ export function AcceptQuotationDialog({
             <View className="z-auto flex-col gap-base">
                 {quotation.requestedTotal === null ? null : (
                     <View className="flex-row items-baseline justify-between gap-tight rounded bg-surface-sunken px-tight py-tight">
-                        <Text variant="label">{t('business:accept.total')}</Text>
+                        <Text variant="label">
+                            {quotation.recurring && weeks > 1
+                                ? t('business:accept.totalPerDelivery')
+                                : t('business:accept.total')}
+                        </Text>
                         <Text
                             variant="section"
                             className="tabular-nums"
@@ -155,6 +172,28 @@ export function AcceptQuotationDialog({
                         ? { error: t('business:accept.noAddress') }
                         : {})}
                 />
+
+                {quotation.recurring ? (
+                    <Select
+                        testID="quotation-accept-weeks"
+                        label={t('business:accept.repeat')}
+                        hint={
+                            weeks > 1
+                                ? t('business:accept.repeatHint', { count: weeks, weekday })
+                                : undefined
+                        }
+                        options={Array.from({ length: MAX_WEEKS }, (_, index) => index + 1).map(
+                            (count) => ({
+                                value: String(count),
+                                label: t('business:accept.weeks', { count }),
+                            }),
+                        )}
+                        value={String(weeks)}
+                        onChange={(next) => {
+                            setWeeks(Number(next));
+                        }}
+                    />
+                ) : null}
 
                 <Select
                     testID="quotation-accept-window"

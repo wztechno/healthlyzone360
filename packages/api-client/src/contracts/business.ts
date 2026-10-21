@@ -127,6 +127,15 @@ export interface Quotation {
     /** The order accepting placed, once accepted. */
     readonly orderId: string | null;
     readonly orderNumber: string | null;
+    /** Every order the acceptance placed, in delivery order — one a week for a repeating quotation. */
+    readonly orders: readonly QuotationPlacedOrder[];
+}
+
+export interface QuotationPlacedOrder {
+    readonly orderId: string;
+    readonly orderNumber: string | null;
+    /** `YYYY-MM-DD`. */
+    readonly deliveryDate: string;
 }
 
 /** Where and when an accepted quotation is delivered — the order it places needs all three. */
@@ -141,6 +150,8 @@ export interface AcceptQuotationRequest {
     readonly quotationId: QuotationId;
     readonly lockVersion: number;
     readonly delivery: QuotationDelivery;
+    /** A repeating quotation's run: one order a week for this many weeks (1–12). */
+    readonly repeatWeeks?: number | undefined;
 }
 
 export interface DeclineQuotationRequest {

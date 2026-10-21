@@ -79,6 +79,7 @@ function quotation(ordinal: number, state: QuotationState): Quotation {
         lockVersion: 0,
         orderId: null,
         orderNumber: null,
+        orders: [],
     };
 }
 

@@ -40,15 +40,25 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  * **Branch** is left to the zone, exactly as a B2B basket leaves it: the cart a
  * corporate buyer checks out carries no branch either.
  *
- * Idempotent on the quotation: a retried acceptance answers with the order
- * the first one placed instead of placing a second.
+ * **A repeating quotation** places one order a week for `$weeks` weeks —
+ * the same weekday, address and window, each at the quoted prices (owner,
+ * 2026-10-21). All or nothing: they are placed inside the acceptance's
+ * transaction, so a week the kitchen refuses (a cut-off, a closed window)
+ * unwinds the whole run and the buyer is told which reason, not left with a
+ * schedule that has holes in it.
+ *
+ * Idempotent per delivery: a retried acceptance answers with the orders the
+ * first one placed instead of placing a second run.
  */
 final readonly class QuotationOrderPlacer
 {
     public function __construct(private OrderPlacementService $placement) {}
 
+    /** The longest run a repeating quotation may place at once. */
+    public const int MAX_WEEKS = 12;
+
     /**
-     * @return string the placed order's id
+     * @return list<array{order_id: string, delivery_date: CarbonImmutable}> one per week, in order
      *
      * @throws PlacementRefused|ApiException
      */
@@ -59,7 +69,8 @@ final readonly class QuotationOrderPlacer
         CustomerAddress $address,
         CarbonImmutable $deliveryDate,
         string $deliveryWindowCode,
-    ): string {
+        int $weeks = 1,
+    ): array {
         $lines = QuotationLine::withoutTenancy()
             ->where('quotation_id', $quotation->getKey())
             ->orderBy('line_number')
@@ -78,22 +89,31 @@ final readonly class QuotationOrderPlacer
             );
         }
 
-        $result = $this->placement->placeComposed(
-            new ComposedPlacement(
-                account: $buyer,
-                address: $address,
-                organisationId: $kitchenOrganisationId,
-                salesChannelId: $channelId,
-                branchId: null,
-                currencyCode: $quotation->currency_code,
-                lines: $composed,
-                deliveryWindowCode: $deliveryWindowCode,
-                requestedDate: $deliveryDate,
-            ),
-            'quotation:'.$quotation->getKey(),
-        );
+        $placed = [];
 
-        return (string) $result->order->getKey();
+        foreach (range(0, max(1, min($weeks, self::MAX_WEEKS)) - 1) as $week) {
+            $date = $deliveryDate->addWeeks($week);
+
+            $result = $this->placement->placeComposed(
+                new ComposedPlacement(
+                    account: $buyer,
+                    address: $address,
+                    organisationId: $kitchenOrganisationId,
+                    salesChannelId: $channelId,
+                    branchId: null,
+                    currencyCode: $quotation->currency_code,
+                    lines: $composed,
+                    deliveryWindowCode: $deliveryWindowCode,
+                    requestedDate: $date,
+                ),
+                // The first week keeps the key a single delivery always had.
+                $week === 0 ? 'quotation:'.$quotation->getKey() : 'quotation:'.$quotation->getKey().':'.($week + 1),
+            );
+
+            $placed[] = ['order_id' => (string) $result->order->getKey(), 'delivery_date' => $date];
+        }
+
+        return $placed;
     }
 
     /**

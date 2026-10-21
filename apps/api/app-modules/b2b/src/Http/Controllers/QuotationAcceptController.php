@@ -63,6 +63,16 @@ final class QuotationAcceptController
             );
         }
 
+        $weeks = (int) ($delivery['repeat_weeks'] ?? 1);
+
+        if ($weeks > 1 && ! $record->recurring) {
+            throw new ApiException(
+                ErrorCode::ValidationFailed,
+                'This quotation is for one delivery; only a repeating one can be scheduled weekly.',
+                ['fields' => ['repeat_weeks' => ['This quotation is for one delivery; only a repeating one can be scheduled weekly.']]],
+            );
+        }
+
         $kitchenId = (string) $record->programme()->firstOrFail()->kitchen_organisation_id;
         $date = CarbonImmutable::createFromFormat('!Y-m-d', $delivery['requested_date']) ?: CarbonImmutable::today();
 
@@ -70,7 +80,7 @@ final class QuotationAcceptController
             $record,
             $actor,
             $expected,
-            fn (): string => $this->orders->place($record, $kitchenId, $buyer, $address, $date, $delivery['delivery_window_code']),
+            fn (): array => $this->orders->place($record, $kitchenId, $buyer, $address, $date, $delivery['delivery_window_code'], $weeks),
         );
 
         return ApiResponse::data(['quotation' => $this->presenter->quotation($accepted)])

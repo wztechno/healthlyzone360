@@ -40328,6 +40328,7 @@ components:
         - contact_email
         - order_id
         - order_number
+        - orders
         - decline_reason
         - submitted_at
         - quoted_at
@@ -40392,6 +40393,20 @@ components:
         order_number:
           type: [string, 'null']
           description: That order's human-readable number.
+        orders:
+          type: array
+          description: Every order the acceptance placed, in delivery order — one, or one a week for a repeating quotation. Empty until accepted.
+          items:
+            type: object
+            required: [order_id, order_number, delivery_date]
+            properties:
+              order_id:
+                $ref: '#/components/schemas/Uuid'
+              order_number:
+                type: [string, 'null']
+              delivery_date:
+                type: string
+                format: date
         decline_reason:
           type: [string, 'null']
           maxLength: 2000
@@ -40550,6 +40565,15 @@ components:
           type: string
           maxLength: 40
           description: A window the address's zone offers.
+        repeat_weeks:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 12
+          description: |
+            A repeating quotation's run: one order a week for this many weeks,
+            the first on `requested_date`, all at the quoted prices and placed
+            together (a refused week refuses the run). Above 1 is a `422` on a
+            quotation that was for one delivery.
       additionalProperties: false
 
     DeclineQuotationRequest:

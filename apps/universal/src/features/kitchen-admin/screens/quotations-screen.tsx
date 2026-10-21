@@ -815,7 +815,16 @@ function requestFields(
                   {
                       key: 'order',
                       label: t('kitchen:ops.quotations.order'),
-                      value: quotation.orderNumber,
+                      // A repeating quotation placed a run: every order, with its day.
+                      value:
+                          quotation.orders.length > 1
+                              ? quotation.orders
+                                    .map(
+                                        (order) =>
+                                            `${order.orderNumber ?? '—'} (${formatter.formatDate(order.deliveryDate)})`,
+                                    )
+                                    .join(', ')
+                              : quotation.orderNumber,
                       mono: true,
                   },
               ]),

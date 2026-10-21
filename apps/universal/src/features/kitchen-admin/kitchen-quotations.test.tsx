@@ -82,6 +82,7 @@ function quotation(overrides: Partial<KitchenQuotation> = {}): KitchenQuotation 
         contactEmail: null,
         orderId: null,
         orderNumber: null,
+        orders: [],
         declineReason: null,
         submittedAt: '2026-08-10T09:00:00Z',
         quotedAt: null,

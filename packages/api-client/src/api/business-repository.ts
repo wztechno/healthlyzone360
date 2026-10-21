@@ -81,6 +81,11 @@ interface WireQuotation {
     readonly contact_email?: string | null;
     readonly order_id?: string | null;
     readonly order_number?: string | null;
+    readonly orders?: readonly {
+        readonly order_id: string;
+        readonly order_number: string | null;
+        readonly delivery_date: string;
+    }[];
     readonly decline_reason: string | null;
     readonly submitted_at: string | null;
     readonly quoted_at: string | null;
@@ -244,6 +249,11 @@ function mapQuotation(wire: WireQuotation): Quotation {
         lockVersion: wire.lock_version,
         orderId: wire.order_id ?? null,
         orderNumber: wire.order_number ?? null,
+        orders: (wire.orders ?? []).map((order) => ({
+            orderId: order.order_id,
+            orderNumber: order.order_number,
+            deliveryDate: order.delivery_date,
+        })),
         requestedAt: (wire.submitted_at ?? wire.created_at ?? '') as Quotation['requestedAt'],
         respondedAt:
             wire.quoted_at === null && wire.decided_at === null
@@ -456,6 +466,9 @@ export function createApiBusinessRepository(transport: Transport): ApiBusinessRe
                     customer_address_id: request.delivery.customerAddressId,
                     requested_date: request.delivery.requestedDate,
                     delivery_window_code: request.delivery.deliveryWindowCode,
+                    ...(request.repeatWeeks === undefined || request.repeatWeeks <= 1
+                        ? {}
+                        : { repeat_weeks: request.repeatWeeks }),
                 },
             });
             return mapQuotation(accepted.quotation);

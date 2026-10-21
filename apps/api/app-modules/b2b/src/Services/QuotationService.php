@@ -11,6 +11,7 @@ use Healthy360\B2b\Enums\QuotationStatus;
 use Healthy360\B2b\Models\CorporateProgramme;
 use Healthy360\B2b\Models\Quotation;
 use Healthy360\B2b\Models\QuotationLine;
+use Healthy360\B2b\Models\QuotationOrder;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Pricing\Models\PriceList;
@@ -41,6 +42,7 @@ final readonly class QuotationService
     public function __construct(
         private AuditRecorder $audit,
         private IdentifierService $identifiers,
+        private QuotationNotices $notices,
     ) {}
 
     /**
@@ -161,10 +163,14 @@ final readonly class QuotationService
             );
         }
 
-        return $this->transition($quotation, QuotationStatus::Submitted, $actor, [
+        $submitted = $this->transition($quotation, QuotationStatus::Submitted, $actor, [
             'submitted_at' => now(),
             'submitted_by' => (string) $actor->getKey(),
         ], $expectedLockVersion, ['line_count' => $lineCount]);
+
+        $this->notices->submitted($submitted);
+
+        return $submitted;
     }
 
     /**
@@ -247,11 +253,15 @@ final readonly class QuotationService
                 ]);
             }
 
-            return $this->transition($quotation, QuotationStatus::Quoted, $actor, [
+            $quoted = $this->transition($quotation, QuotationStatus::Quoted, $actor, [
                 'quoted_at' => $now,
                 'quoted_by' => (string) $actor->getKey(),
                 'expires_at' => $now->addDays(7),
             ], $expectedLockVersion, ['line_count' => $lines->count()]);
+
+            $this->notices->quoted($quoted);
+
+            return $quoted;
         });
     }
 
@@ -269,7 +279,10 @@ final readonly class QuotationService
      * The state is checked before anything is placed, so accepting a
      * quotation that is not `quoted` is the usual 409 and never an order.
      *
-     * @param  (\Closure(): string)|null  $placeOrder  null only for callers that record a decision without scheduling it
+     * A repeating quotation places a run of weekly orders; every one is
+     * recorded in `quotation_orders` and `order_id` names the first.
+     *
+     * @param  (\Closure(): list<array{order_id: string, delivery_date: CarbonImmutable}>)|null  $placeOrder  null only for callers that record a decision without scheduling it
      *
      * @throws ApiException
      */
@@ -279,13 +292,28 @@ final readonly class QuotationService
         $this->assertCanBecome($quotation, QuotationStatus::Accepted);
 
         return DB::transaction(function () use ($quotation, $actor, $expectedLockVersion, $placeOrder): Quotation {
-            $orderId = $placeOrder === null ? null : $placeOrder();
+            $placed = $placeOrder === null ? [] : $placeOrder();
+            $orderId = $placed[0]['order_id'] ?? null;
 
-            return $this->transition($quotation, QuotationStatus::Accepted, $actor, [
+            $accepted = $this->transition($quotation, QuotationStatus::Accepted, $actor, [
                 'decided_at' => now(),
                 'decided_by' => (string) $actor->getKey(),
                 'order_id' => $orderId,
-            ], $expectedLockVersion, $orderId === null ? [] : ['order_id' => $orderId]);
+            ], $expectedLockVersion, $orderId === null ? [] : ['order_id' => $orderId, 'orders_placed' => count($placed)]);
+
+            foreach ($placed as $index => $run) {
+                $row = new QuotationOrder;
+                $row->organisation_id = $quotation->organisation_id;
+                $row->quotation_id = (string) $quotation->getKey();
+                $row->order_id = $run['order_id'];
+                $row->sequence = $index + 1;
+                $row->delivery_date = $run['delivery_date'];
+                $row->save();
+            }
+
+            $this->notices->accepted($accepted);
+
+            return $accepted;
         });
     }
 
@@ -298,11 +326,15 @@ final readonly class QuotationService
     {
         $this->assertNotPastExpiry($quotation);
 
-        return $this->transition($quotation, QuotationStatus::Declined, $actor, [
+        $declined = $this->transition($quotation, QuotationStatus::Declined, $actor, [
             'decided_at' => now(),
             'decided_by' => (string) $actor->getKey(),
             'decline_reason' => $this->trimmedOrNull($reason),
         ], $expectedLockVersion);
+
+        $this->notices->declined($declined);
+
+        return $declined;
     }
 
     /**

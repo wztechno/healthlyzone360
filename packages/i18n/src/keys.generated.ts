@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8386 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8391 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1154,10 +1154,15 @@ export interface NamespaceKeys {
     | 'accept.date'
     | 'accept.noAddress'
     | 'accept.placedBody'
+    | 'accept.placedRunTitle'
     | 'accept.placedTitle'
     | 'accept.refusedTitle'
+    | 'accept.repeat'
+    | 'accept.repeatHint'
     | 'accept.title'
     | 'accept.total'
+    | 'accept.totalPerDelivery'
+    | 'accept.weeks'
     | 'accept.window'
     | 'builder.add'
     | 'builder.addNamed'
@@ -9566,10 +9571,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:accept.date',
   'business:accept.noAddress',
   'business:accept.placedBody',
+  'business:accept.placedRunTitle',
   'business:accept.placedTitle',
   'business:accept.refusedTitle',
+  'business:accept.repeat',
+  'business:accept.repeatHint',
   'business:accept.title',
   'business:accept.total',
+  'business:accept.totalPerDelivery',
+  'business:accept.weeks',
   'business:accept.window',
   'business:builder.add',
   'business:builder.addNamed',

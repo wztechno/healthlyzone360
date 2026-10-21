@@ -257,6 +257,7 @@ export type {
     Quotation,
     QuotationFilter,
     QuotationDelivery,
+    QuotationPlacedOrder,
     AcceptQuotationRequest,
     DeclineQuotationRequest,
     QuotationLine,

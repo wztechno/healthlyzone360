@@ -73,6 +73,35 @@ class CatalogueItemPackVariant extends BaseModel implements OrganisationScoped
     }
 
     /**
+     * `sizeOf()` for many variants in one query.
+     *
+     * @param  list<string>  $variantIds
+     * @return array<string, array{size: string, unit: string}> variant id → size; a variant with no pack row is absent
+     */
+    public static function sizesOf(array $variantIds): array
+    {
+        if ($variantIds === []) {
+            return [];
+        }
+
+        $sizes = [];
+
+        foreach (self::withoutTenancy()->with('unit')->whereIn('catalogue_item_variant_id', array_values(array_unique($variantIds)))->get() as $pack) {
+            if (! $pack->unit instanceof MeasurementUnit) {
+                continue;
+            }
+
+            $quantity = (string) $pack->pack_quantity;
+            $sizes[(string) $pack->getKey()] = [
+                'size' => str_contains($quantity, '.') ? rtrim(rtrim($quantity, '0'), '.') : $quantity,
+                'unit' => $pack->unit->code,
+            ];
+        }
+
+        return $sizes;
+    }
+
+    /**
      * The size a buyer is paying for when a price quotes this variant — `0.3`
      * `kg` for a 300 g bottle — or null for an item-level price or a variant
      * with no pack row. Public by classification, so safe for any surface that
