@@ -393,8 +393,8 @@ final readonly class OrderProposalService
 
             if ($row['par_level'] !== null) {
                 $suggested = $this->suggestedQuantity(
-                    bcadd((string) $row['quantity_on_hand'], $onOrder['quantity'], self::SCALE),
-                    (string) $row['par_level'],
+                    bcadd($this->decimal((string) $row['quantity_on_hand']), $onOrder['quantity'], self::SCALE),
+                    $this->decimal((string) $row['par_level']),
                 );
                 $row['suggested_quantity'] = $suggested;
                 $row['suggested_quantity_basis'] = $suggested === null ? 'none' : 'par';

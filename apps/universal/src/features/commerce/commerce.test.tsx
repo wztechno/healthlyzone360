@@ -3182,9 +3182,7 @@ describe('SubscriptionConfiguratorScreen — its place survives leaving it', () 
             screen.getByTestId('configurator-slot-evening').props.accessibilityState,
         ).toMatchObject({ checked: true });
         // Written as it is made, so leaving now loses nothing.
-        expect(configuratorDrafts.read(configuratorDraftKey(PLAN_PARAM))?.slotCode).toBe(
-            'evening',
-        );
+        expect(configuratorDrafts.read(configuratorDraftKey(PLAN_PARAM))?.slotCode).toBe('evening');
 
         // A detour, Back or a refresh unmounts the screen; the new one finds the window chosen.
         await first.view.unmount();
@@ -3259,7 +3257,12 @@ describe('SubscriptionConfiguratorScreen — its place survives leaving it', () 
                     lifecycle: 'provisional',
                     canActivate: false,
                     items: [
-                        { step: 'verify_email', complete: true, required: true, blockedReason: null },
+                        {
+                            step: 'verify_email',
+                            complete: true,
+                            required: true,
+                            blockedReason: null,
+                        },
                         {
                             step: 'dietary_profile',
                             complete: false,

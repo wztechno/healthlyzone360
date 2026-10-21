@@ -109,8 +109,7 @@ export function PlansScreen() {
     // Only asked for a signed-in person: the list is theirs, and an anonymous request is a 401.
     const subscriptions = useSubscriptionsQuery(me !== null);
     const liveSubscription = useMemo<Subscription | undefined>(
-        () =>
-            (subscriptions.data?.items ?? []).find(isLiveSubscription),
+        () => (subscriptions.data?.items ?? []).find(isLiveSubscription),
         [subscriptions.data],
     );
     const openSubscription = useCallback(

@@ -138,10 +138,7 @@ export function parseConfiguratorEdits(raw: unknown): ConfiguratorEdits | null {
     } = {};
 
     const duration = value['duration'];
-    if (
-        typeof duration === 'string' &&
-        (PLAN_DURATIONS as readonly string[]).includes(duration)
-    ) {
+    if (typeof duration === 'string' && (PLAN_DURATIONS as readonly string[]).includes(duration)) {
         edits.duration = duration as PlanDuration;
     }
     if (typeof value['startDate'] === 'string') edits.startDate = value['startDate'];

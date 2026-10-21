@@ -121,7 +121,8 @@ export interface SubscriptionDetailScreenProps {
     readonly subscriptionId: string | undefined;
 }
 
-type DialogKey = 'pause' | 'resume' | 'skip' | 'address' | 'slot' | 'weekdays' | 'choices' | 'cancel';
+type DialogKey =
+    'pause' | 'resume' | 'skip' | 'address' | 'slot' | 'weekdays' | 'choices' | 'cancel';
 type OpenDialog = DialogKey | null;
 
 const ACCOUNT_HREF = '/customer/account';

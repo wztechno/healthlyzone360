@@ -76,7 +76,7 @@ final readonly class QuotationOrderPlacer
             ->orderBy('line_number')
             ->get();
 
-        $channelId = $this->channelFor($kitchenOrganisationId, (string) ($lines->first()?->catalogue_item_id ?? ''));
+        $channelId = $this->channelFor($kitchenOrganisationId, (string) ($lines->first()->catalogue_item_id ?? ''));
 
         $composed = [];
 
