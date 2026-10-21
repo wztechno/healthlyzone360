@@ -58,6 +58,18 @@ describe('kitchen nav', () => {
         expect(sections[0]?.items.map((item) => item.key)).toEqual(['team', 'roles']);
     });
 
+    it('shows the customer book under access to whoever may read customer contacts', () => {
+        const desk: AccessState = {
+            ...managerState,
+            permissions: new Set(['order.view_customer_contact_organisation']),
+        };
+
+        const sections = kitchenNavSections(desk);
+
+        expect(sections.map((section) => section.group)).toEqual(['access']);
+        expect(sections[0]?.items.map((item) => item.key)).toEqual(['customers']);
+    });
+
     it('marks list and editor paths active for the same family', () => {
         expect(isKitchenNavActive('/kitchen', '/kitchen')).toBe(true);
         expect(isKitchenNavActive('/kitchen/ingredients', '/kitchen')).toBe(false);

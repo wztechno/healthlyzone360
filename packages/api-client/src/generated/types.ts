@@ -8946,6 +8946,111 @@ export type OrderDeskQuoteEnvelope = {
     meta: Meta;
 };
 
+export type KitchenCustomerContact = {
+    channel: 'phone' | 'email';
+    /**
+     * E.164 for a phone, lower-cased for an email, as stored.
+     */
+    value: string;
+    label: string | null;
+    is_primary: boolean;
+    verified: boolean;
+};
+
+/**
+ * A customer as the kitchen's customer book lists them. Order figures are
+ * this kitchen's own, never another's.
+ *
+ */
+export type KitchenCustomer = {
+    id: Uuid;
+    account_number: string;
+    account_type: 'b2c' | 'b2b' | 'guest';
+    /**
+     * Null on an anonymised account.
+     */
+    display_name: string | null;
+    status: 'provisional' | 'active' | 'suspended' | 'closed';
+    primary_phone: string | null;
+    primary_email: string | null;
+    order_count: number;
+    last_ordered_at: string | null;
+};
+
+export type KitchenCustomerAddress = {
+    id: Uuid;
+    address_type: 'delivery' | 'billing';
+    label: string | null;
+    line_one: string | null;
+    line_two: string | null;
+    building: string | null;
+    floor: string | null;
+    apartment: string | null;
+    directions: string | null;
+    postal_code: string | null;
+    is_default: boolean;
+    area_name_en: string | null;
+    area_name_ar: string | null;
+};
+
+export type KitchenCustomerCompanyContact = {
+    role: 'primary' | 'billing' | 'operations' | 'signatory';
+    name: string;
+    title: string | null;
+    email: string | null;
+    phone: string | null;
+};
+
+/**
+ * The buying organisation, and the company record from its approved B2B
+ * application when one was provisioned from it (otherwise those fields are
+ * null). Contacts purged at offboarding are left out.
+ *
+ */
+export type KitchenCustomerCompany = {
+    organisation_name: string | null;
+    legal_name: string | null;
+    legal_name_ar: string | null;
+    trading_name: string | null;
+    business_type: string | null;
+    commercial_registration_number: string | null;
+    tax_registration_number: string | null;
+    signatory_name: string | null;
+    signatory_title: string | null;
+    signatory_email: string | null;
+    signatory_phone: string | null;
+    contacts: Array<KitchenCustomerCompanyContact>;
+};
+
+export type KitchenCustomerDetail = KitchenCustomer & {
+    origin: 'self_service' | 'guest' | 'b2b_provisioning' | 'staff' | 'import';
+    preferred_language_code: string | null;
+    created_at: string | null;
+    contacts: Array<KitchenCustomerContact>;
+    addresses: Array<KitchenCustomerAddress>;
+    company: KitchenCustomerCompany | null;
+};
+
+export type KitchenCustomersEnvelope = {
+    data: Array<KitchenCustomer>;
+    meta: Meta & {
+        count: number;
+        /**
+         * Every customer matching the request, not just those returned.
+         */
+        total: number;
+        /**
+         * True when `total` exceeds the rows returned; narrow with `query`.
+         */
+        truncated: boolean;
+    };
+};
+
+export type KitchenCustomerEnvelope = {
+    data: KitchenCustomerDetail;
+    meta: Meta;
+};
+
 /**
  * A customer as the order desk sees them: enough to pick the right one out
  * of a list of five, and nothing more.
@@ -30702,6 +30807,127 @@ export type PlaceOrderDeskOrderResponses = {
 };
 
 export type PlaceOrderDeskOrderResponse = PlaceOrderDeskOrderResponses[keyof PlaceOrderDeskOrderResponses];
+
+export type ListKitchenCustomersData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * A name fragment, or a telephone number in E.164.
+         */
+        query?: string;
+        type?: 'b2c' | 'b2b' | 'guest';
+    };
+    url: '/catalogue/customers';
+};
+
+export type ListKitchenCustomersErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListKitchenCustomersError = ListKitchenCustomersErrors[keyof ListKitchenCustomersErrors];
+
+export type ListKitchenCustomersResponses = {
+    /**
+     * This kitchen's customers, most recent first, capped.
+     */
+    200: KitchenCustomersEnvelope;
+};
+
+export type ListKitchenCustomersResponse = ListKitchenCustomersResponses[keyof ListKitchenCustomersResponses];
+
+export type GetKitchenCustomerData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The customer account, as returned by the customer book.
+         */
+        account: string;
+    };
+    query?: never;
+    url: '/catalogue/customers/{account}';
+};
+
+export type GetKitchenCustomerErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetKitchenCustomerError = GetKitchenCustomerErrors[keyof GetKitchenCustomerErrors];
+
+export type GetKitchenCustomerResponses = {
+    /**
+     * The customer record.
+     */
+    200: KitchenCustomerEnvelope;
+};
+
+export type GetKitchenCustomerResponse = GetKitchenCustomerResponses[keyof GetKitchenCustomerResponses];
 
 export type SearchOrderDeskCustomersData = {
     body?: never;

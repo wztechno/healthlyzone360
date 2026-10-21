@@ -10,6 +10,7 @@ import type { FoodRepository } from './foods.ts';
 import type { KitchenAdminRepository } from './kitchen-admin.ts';
 import type { KitchenOpsRepository } from './kitchen-ops.ts';
 import type { KitchenOrdersRepository } from './kitchen-orders.ts';
+import type { KitchenCustomersRepository } from './kitchen-customers.ts';
 import type { KitchenQuotationsRepository } from './kitchen-quotations.ts';
 import type { MarketplaceRepository } from './marketplace.ts';
 import type { NutritionRepository } from './nutrition.ts';
@@ -651,6 +652,20 @@ export type {
     DriverJobTrackingStatus,
 } from './driver-jobs.ts';
 
+export { KITCHEN_CUSTOMER_TYPES } from './kitchen-customers.ts';
+export type {
+    KitchenCustomer,
+    KitchenCustomerAddress,
+    KitchenCustomerCompany,
+    KitchenCustomerCompanyContact,
+    KitchenCustomerContact,
+    KitchenCustomerDetail,
+    KitchenCustomerFilter,
+    KitchenCustomerList,
+    KitchenCustomersRepository,
+    KitchenCustomerType,
+} from './kitchen-customers.ts';
+
 export { KITCHEN_QUOTATION_STATUSES } from './kitchen-quotations.ts';
 export type {
     KitchenQuotation,
@@ -1030,6 +1045,12 @@ export interface Repositories {
      * invalidation should never cross between them. See `./kitchen-quotations.ts`'s header.
      */
     readonly kitchenQuotations: KitchenQuotationsRepository;
+
+    /**
+     * The kitchen's customer book: a read-only reference list and record. Wider than the desk's
+     * customer shape on purpose — see `./kitchen-customers.ts`'s header.
+     */
+    readonly kitchenCustomers: KitchenCustomersRepository;
 
     /**
      * One driver's run sheet, and the stamp that closes a job.

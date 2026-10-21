@@ -65,6 +65,8 @@ export { ReceiveDeliveryScreen } from './receive-delivery-screen.tsx';
 export { RecipesScreen } from './recipes-screen.tsx';
 export { ReviewScreen } from './review-screen.tsx';
 export { StockScreen } from './stock-screen.tsx';
+export { CustomerDetailScreen } from './customer-detail-screen.tsx';
+export { CustomersScreen } from './customers-screen.tsx';
 export { SupplierDetailScreen } from './supplier-detail-screen.tsx';
 export { SuppliersScreen } from './suppliers-screen.tsx';
 export { TeamScreen } from './team-screen.tsx';

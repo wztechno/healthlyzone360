@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Orders\OrderDesk\Services;
 
 use Healthy360\Customers\Enums\CustomerAccountOrigin;
+use Healthy360\Customers\Enums\CustomerAccountType;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Identity\Enums\ContactChannel;
 use Healthy360\Identity\Exceptions\InvalidContactValue;
@@ -101,6 +102,14 @@ final class DeskCustomerDirectory
      */
     public const int MAX_ROWS = 20;
 
+    /**
+     * The most rows the customer book returns, with the true total beside them.
+     *
+     * ponytail: a hard cap rather than paging; add a cursor when a kitchen's
+     * book routinely outgrows it and "search to narrow" stops being an answer.
+     */
+    public const int BROWSE_LIMIT = 200;
+
     public function __construct(private readonly ContactValueNormaliser $normaliser) {}
 
     /**
@@ -158,6 +167,144 @@ final class DeskCustomerDirectory
             ->whereKey($account->getKey())
             ->where(fn (Builder $scope): Builder => $this->applyScope($scope, $organisationId))
             ->exists();
+    }
+
+    /**
+     * Whether this kitchen's customer **book** may show this account — the
+     * browse rule, which is the desk rule plus arm (c), asked about one row.
+     *
+     * Not a substitute for `isInScope()`. The desk's write endpoints ask that
+     * one, and must keep asking it: a corporate programme admits the buyer's
+     * account to the kitchen's reference page, not to the desk's power to change
+     * that buyer's telephone number or add a street to their address book.
+     */
+    public function isBrowsable(string $organisationId, CustomerAccount $account): bool
+    {
+        return CustomerAccount::query()
+            ->whereKey($account->getKey())
+            ->where(fn (Builder $scope): Builder => $this->applyBrowseScope($scope, $organisationId))
+            ->exists();
+    }
+
+    /**
+     * The kitchen's customer book: every account the browse rule admits,
+     * optionally narrowed by a query and an account type.
+     *
+     * Unlike `search()` there is no minimum query length — this is the page
+     * whose purpose *is* the list, behind the same contact permission the queue
+     * and the search sit behind. Each row carries this kitchen's own order count
+     * and last order time as selected columns, never another kitchen's.
+     *
+     * Most recent customer first: `last_ordered_at` descending with the never-
+     * ordered at the bottom, then newest account, then the identifier so equal
+     * rows hold their places between two identical requests.
+     *
+     * @return array{rows: list<CustomerAccount>, total: int}
+     */
+    public function browse(string $organisationId, ?string $query, ?CustomerAccountType $type, int $limit = self::BROWSE_LIMIT): array
+    {
+        $scoped = CustomerAccount::query()
+            ->when(
+                $query !== null && trim($query) !== '',
+                fn (Builder $matched): Builder => $matched->where(fn (Builder $match): Builder => $this->applyMatch($match, (string) $query)),
+            )
+            ->when($type !== null, fn (Builder $typed): Builder => $typed->where('customer_accounts.account_type', $type?->value))
+            ->where(fn (Builder $scope): Builder => $this->applyBrowseScope($scope, $organisationId));
+
+        $total = (clone $scoped)->count();
+
+        $accounts = [];
+
+        $rows = $scoped
+            ->select('customer_accounts.*')
+            ->selectRaw(
+                '(SELECT count(*) FROM orders o WHERE o.customer_account_id = customer_accounts.id AND o.organisation_id = ?) as order_count',
+                [$organisationId],
+            )
+            ->selectRaw(
+                '(SELECT max(o.placed_at) FROM orders o WHERE o.customer_account_id = customer_accounts.id AND o.organisation_id = ?) as last_ordered_at',
+                [$organisationId],
+            )
+            ->orderByRaw('last_ordered_at desc nulls last')
+            ->orderByDesc('customer_accounts.created_at')
+            ->orderBy('customer_accounts.id')
+            ->limit($limit)
+            ->get();
+
+        foreach ($rows as $row) {
+            $accounts[] = $row;
+        }
+
+        return ['rows' => $accounts, 'total' => $total];
+    }
+
+    /**
+     * Every live contact point of these accounts, on both ownership arms, keyed
+     * by account — primary first, then phone before email, then oldest.
+     *
+     * Both arms for the reason the class docblock gives: a guest's or a desk
+     * caller's number hangs off the account, a registered customer's off their
+     * user. Retired rows are history, not a way to reach anybody, and are left
+     * out.
+     *
+     * @param  list<CustomerAccount>  $accounts
+     * @return array<string, list<array{channel: string, value: string, label: string|null, is_primary: bool, verified: bool}>>
+     */
+    public function contactPointsFor(array $accounts): array
+    {
+        if ($accounts === []) {
+            return [];
+        }
+
+        $accountIds = [];
+        $accountsByUser = [];
+
+        foreach ($accounts as $account) {
+            $id = (string) $account->getKey();
+            $accountIds[] = $id;
+
+            if ($account->user_id !== null) {
+                $accountsByUser[(string) $account->user_id][] = $id;
+            }
+        }
+
+        $rows = DB::table('contact_points')
+            ->select(['customer_account_id', 'user_id', 'channel', 'value_normalised', 'label', 'is_primary', 'verified_at'])
+            ->whereNull('retired_at')
+            ->where(function (QueryBuilder $owner) use ($accountIds, $accountsByUser): void {
+                $owner->whereIn('customer_account_id', $accountIds);
+
+                if ($accountsByUser !== []) {
+                    $owner->orWhereIn('user_id', array_keys($accountsByUser));
+                }
+            })
+            ->orderByDesc('is_primary')
+            ->orderByRaw("CASE channel WHEN 'phone' THEN 0 ELSE 1 END")
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+
+        $contacts = [];
+
+        foreach ($rows as $row) {
+            $contact = [
+                'channel' => (string) $row->channel,
+                'value' => (string) $row->value_normalised,
+                'label' => $row->label === null ? null : (string) $row->label,
+                'is_primary' => (bool) $row->is_primary,
+                'verified' => $row->verified_at !== null,
+            ];
+
+            $owners = $row->customer_account_id !== null
+                ? [(string) $row->customer_account_id]
+                : $accountsByUser[(string) $row->user_id] ?? [];
+
+            foreach ($owners as $accountId) {
+                $contacts[$accountId][] = $contact;
+            }
+        }
+
+        return $contacts;
     }
 
     /**
@@ -293,6 +440,36 @@ final class DeskCustomerDirectory
                             // customers are not the kitchen's to read on the
                             // strength of a membership that no longer works.
                             ->where('organisation_memberships.status', MembershipStatus::Active->value);
+                    });
+            });
+    }
+
+    /**
+     * The browse rule: (a) or (b), **or (c)** — the account's buying
+     * organisation holds a corporate programme with this kitchen.
+     *
+     * Read-only by construction. Only `browse()` and `isBrowsable()` use it; the
+     * desk search and the desk's writes stay on `applyScope()`, so a programme
+     * client who has never ordered is in the kitchen's book without becoming
+     * somebody the desk may rewrite. The read side of `customer_accounts`' row
+     * policy carries the matching fifth arm (2026_10_21_000301); its write side
+     * does not.
+     *
+     * @param  Builder<CustomerAccount>  $query
+     * @return Builder<CustomerAccount>
+     */
+    private function applyBrowseScope(Builder $query, string $organisationId): Builder
+    {
+        return $query
+            ->where(fn (Builder $desk): Builder => $this->applyScope($desk, $organisationId))
+            ->orWhere(function (Builder $programme) use ($organisationId): void {
+                $programme
+                    ->whereNotNull('customer_accounts.organisation_id')
+                    ->whereExists(function (QueryBuilder $held) use ($organisationId): void {
+                        $held->select(DB::raw('1'))
+                            ->from('corporate_programmes')
+                            ->whereColumn('corporate_programmes.organisation_id', 'customer_accounts.organisation_id')
+                            ->where('corporate_programmes.kitchen_organisation_id', $organisationId);
                     });
             });
     }

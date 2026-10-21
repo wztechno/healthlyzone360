@@ -13188,6 +13188,105 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/customers:
+    get:
+      operationId: listKitchenCustomers
+      tags: [Order desk]
+      summary: The kitchen's customer book
+      description: |
+        A read-only reference list of this kitchen's customers — consumers,
+        corporate buyers and guests — with their primary contact and this
+        kitchen's own order figures.
+
+        An account is listed when this organisation holds an order against it,
+        when it was written down by a user holding an active membership of this
+        organisation (the desk search's two arms), **or** when its buying
+        organisation holds a corporate programme with this kitchen. The third arm
+        is read-only: the desk's write operations keep the two-arm rule.
+
+        `query` matches the display name as a substring and the telephone number
+        exactly after normalisation, as the desk search does, with no minimum
+        length. Most recently ordering customers first; at most 200 rows, with
+        the true `total` and `truncated` beside them.
+
+        Requires `order.view_customer_contact_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: query
+          in: query
+          required: false
+          description: A name fragment, or a telephone number in E.164.
+          schema:
+            type: string
+            maxLength: 60
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [b2c, b2b, guest]
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: This kitchen's customers, most recent first, capped.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenCustomersEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/customers/{account}:
+    get:
+      operationId: getKitchenCustomer
+      tags: [Order desk]
+      summary: One customer in the kitchen's book
+      description: |
+        Contacts on both ownership arms (retired ones left out), every saved
+        address, and for a corporate buyer the company record and named contacts
+        from its approved application.
+
+        An account outside the book's rule is `404`, never `403`, so the
+        operation cannot confirm that an identifier exists.
+
+        Requires `order.view_customer_contact_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: account
+          in: path
+          required: true
+          description: The customer account, as returned by the customer book.
+          schema:
+            type: string
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The customer record.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenCustomerEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/order-desk/customers:
     get:
       operationId: searchOrderDeskCustomers
@@ -36985,6 +37084,198 @@ components:
           properties:
             quote:
               $ref: '#/components/schemas/OrderDeskQuote'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    KitchenCustomerContact:
+      type: object
+      required: [channel, value, label, is_primary, verified]
+      properties:
+        channel:
+          type: string
+          enum: [phone, email]
+        value:
+          type: string
+          description: E.164 for a phone, lower-cased for an email, as stored.
+        label:
+          type: [string, 'null']
+        is_primary:
+          type: boolean
+        verified:
+          type: boolean
+
+    KitchenCustomer:
+      type: object
+      required: [id, account_number, account_type, display_name, status, primary_phone, primary_email, order_count, last_ordered_at]
+      description: |
+        A customer as the kitchen's customer book lists them. Order figures are
+        this kitchen's own, never another's.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        account_number:
+          type: string
+        account_type:
+          type: string
+          enum: [b2c, b2b, guest]
+        display_name:
+          type: [string, 'null']
+          description: Null on an anonymised account.
+        status:
+          type: string
+          enum: [provisional, active, suspended, closed]
+        primary_phone:
+          type: [string, 'null']
+        primary_email:
+          type: [string, 'null']
+        order_count:
+          type: integer
+          minimum: 0
+        last_ordered_at:
+          type: [string, 'null']
+          format: date-time
+
+    KitchenCustomerAddress:
+      type: object
+      required: [id, address_type, label, line_one, line_two, building, floor, apartment, directions, postal_code, is_default, area_name_en, area_name_ar]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        address_type:
+          type: string
+          enum: [delivery, billing]
+        label:
+          type: [string, 'null']
+        line_one:
+          type: [string, 'null']
+        line_two:
+          type: [string, 'null']
+        building:
+          type: [string, 'null']
+        floor:
+          type: [string, 'null']
+        apartment:
+          type: [string, 'null']
+        directions:
+          type: [string, 'null']
+        postal_code:
+          type: [string, 'null']
+        is_default:
+          type: boolean
+        area_name_en:
+          type: [string, 'null']
+        area_name_ar:
+          type: [string, 'null']
+
+    KitchenCustomerCompanyContact:
+      type: object
+      required: [role, name, title, email, phone]
+      properties:
+        role:
+          type: string
+          enum: [primary, billing, operations, signatory]
+        name:
+          type: string
+        title:
+          type: [string, 'null']
+        email:
+          type: [string, 'null']
+        phone:
+          type: [string, 'null']
+
+    KitchenCustomerCompany:
+      type: object
+      required: [organisation_name, legal_name, legal_name_ar, trading_name, business_type, commercial_registration_number, tax_registration_number, signatory_name, signatory_title, signatory_email, signatory_phone, contacts]
+      description: |
+        The buying organisation, and the company record from its approved B2B
+        application when one was provisioned from it (otherwise those fields are
+        null). Contacts purged at offboarding are left out.
+      properties:
+        organisation_name:
+          type: [string, 'null']
+        legal_name:
+          type: [string, 'null']
+        legal_name_ar:
+          type: [string, 'null']
+        trading_name:
+          type: [string, 'null']
+        business_type:
+          type: [string, 'null']
+        commercial_registration_number:
+          type: [string, 'null']
+        tax_registration_number:
+          type: [string, 'null']
+        signatory_name:
+          type: [string, 'null']
+        signatory_title:
+          type: [string, 'null']
+        signatory_email:
+          type: [string, 'null']
+        signatory_phone:
+          type: [string, 'null']
+        contacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/KitchenCustomerCompanyContact'
+
+    KitchenCustomerDetail:
+      allOf:
+        - $ref: '#/components/schemas/KitchenCustomer'
+        - type: object
+          required: [origin, preferred_language_code, created_at, contacts, addresses, company]
+          properties:
+            origin:
+              type: string
+              enum: [self_service, guest, b2b_provisioning, staff, import]
+            preferred_language_code:
+              type: [string, 'null']
+            created_at:
+              type: [string, 'null']
+              format: date-time
+            contacts:
+              type: array
+              items:
+                $ref: '#/components/schemas/KitchenCustomerContact'
+            addresses:
+              type: array
+              items:
+                $ref: '#/components/schemas/KitchenCustomerAddress'
+            company:
+              oneOf:
+                - $ref: '#/components/schemas/KitchenCustomerCompany'
+                - type: 'null'
+
+    KitchenCustomersEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/KitchenCustomer'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required: [count, total, truncated]
+              properties:
+                count:
+                  type: integer
+                  minimum: 0
+                total:
+                  type: integer
+                  minimum: 0
+                  description: Every customer matching the request, not just those returned.
+                truncated:
+                  type: boolean
+                  description: True when `total` exceeds the rows returned; narrow with `query`.
+
+    KitchenCustomerEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/KitchenCustomerDetail'
         meta:
           $ref: '#/components/schemas/Meta'
 
