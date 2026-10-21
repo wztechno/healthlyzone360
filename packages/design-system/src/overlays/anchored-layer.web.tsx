@@ -36,6 +36,13 @@ export const PANEL_IS_LIFTED = true;
 /** The 4px gap between trigger and panel — `mt-1`, which the in-place panel uses. */
 const GAP = 4;
 
+/**
+ * One above react-native-web's `Modal` (9999 in `ModalAnimation`), which `Dialog` and `Drawer` are
+ * built on and which also mounts on `body`. At `z-tooltip` (500) a Select opened inside a dialog
+ * listed its options under the dialog's backdrop, where none of them could be picked.
+ */
+const ABOVE_MODAL_Z_INDEX = 10000;
+
 interface Placement {
     readonly top: number;
     readonly left?: number;
@@ -105,8 +112,9 @@ export function AnchoredLayer({ anchorRef, align, children }: AnchoredLayerProps
         <div
             ref={layerRef}
             dir={placement?.direction}
-            className="fixed z-tooltip flex flex-col"
+            className="fixed flex flex-col"
             style={{
+                zIndex: ABOVE_MODAL_Z_INDEX,
                 top: placement?.top ?? 0,
                 left: placement?.left,
                 right: placement?.right,
