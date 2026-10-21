@@ -309,7 +309,7 @@ describe('kitchen quotations', () => {
         ).toHaveTextContent('Test meal 2');
         expect(screen.queryByText('test-catalogue-item-1')).toBeNull();
         expect(screen.getByText('Test programme')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-quotations-detail-total')).toHaveTextContent(
+        expect(screen.getByTestId('kitchen-quotations-detail-summary-total')).toHaveTextContent(
             'Not priced yet',
         );
     });

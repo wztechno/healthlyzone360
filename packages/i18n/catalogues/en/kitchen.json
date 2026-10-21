@@ -245,7 +245,11 @@
             "statAwaitingCaption": "waiting on your prices",
             "statQuotedCaption": "sent, awaiting the buyer",
             "viewKind": "Quotation",
-            "sendRule": "Every line needs a price. Zero is accepted; empty is not."
+            "backToQuotations": "Back to quotations",
+            "detailSubtitle": "{{programme}} · submitted {{date}}",
+            "summaryTitle": "This quotation",
+            "lineCount_one": "{{count}} line",
+            "lineCount_other": "{{count}} lines"
         },
         "stock": {
             "metrics": {
