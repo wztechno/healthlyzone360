@@ -152,17 +152,29 @@ function ProductionDesk() {
                 ),
             });
         };
+        // A refused edge used to leave the row as it was with nothing said.
+        const onError = (error: unknown) => {
+            toast.show({
+                testID: 'kitchen-production-desk-advance-failed-toast',
+                tone: 'danger',
+                message: `${t(
+                    edge === 'confirm'
+                        ? 'kitchen:ops.production.confirmFailedTitle'
+                        : 'kitchen:ops.production.startFailedTitle',
+                )}. ${toFailure(error)?.message ?? ''}`.trim(),
+            });
+        };
         const onSettled = () => {
             setPendingId(null);
         };
 
         if (edge === 'confirm') {
-            confirmBatch.mutate(variables, { onSuccess, onSettled });
+            confirmBatch.mutate(variables, { onSuccess, onError, onSettled });
 
             return;
         }
 
-        startBatch.mutate(variables, { onSuccess, onSettled });
+        startBatch.mutate(variables, { onSuccess, onError, onSettled });
     };
 
     const makesLabel = (row: ProductionOrder) =>

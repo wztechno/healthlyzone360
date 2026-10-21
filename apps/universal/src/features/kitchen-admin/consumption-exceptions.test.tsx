@@ -1,3 +1,4 @@
+import { apiFailure } from '@healthy360/api-client/contracts';
 import type { ConsumptionException, CursorPage } from '@healthy360/api-client/contracts';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Dimensions } from 'react-native';
@@ -160,5 +161,43 @@ describe('consumption exceptions at desk width', () => {
         ).toHaveTextContent(/18.*84/);
         // One pager: the old cursor buttons are gone.
         expect(screen.queryByTestId('kitchen-consumption-exceptions-next')).toBeNull();
+    });
+
+    /*
+     * Retry used to say nothing either way: a 500 left the row as it was, and so did a retry that
+     * ran but still could not deduct. Each now says which it was.
+     */
+    it('says when a retry still could not deduct, and when it failed outright', async () => {
+        let attempt = 0;
+        await renderStubScreen(<ConsumptionExceptionsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    listConsumptionExceptions: async () => pageOf([exception()]),
+                    retryConsumptionException: async () => {
+                        attempt += 1;
+                        if (attempt === 1) return exception();
+                        throw apiFailure('server', { message: 'The server could not run it.' });
+                    },
+                },
+            },
+        });
+
+        await untilVisible('kitchen-exception-exception-1-retry');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-exception-exception-1-retry'));
+        });
+        await untilVisible('kitchen-exception-retried-toast');
+        expect(screen.getByTestId('kitchen-exception-retried-toast')).toHaveTextContent(
+            /0148 still could not be deducted/,
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-exception-exception-1-retry'));
+        });
+        await untilVisible('kitchen-exception-action-failed-toast');
+        expect(screen.getByTestId('kitchen-exception-action-failed-toast')).toHaveTextContent(
+            /The server could not run it\./,
+        );
     });
 });

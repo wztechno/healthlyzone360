@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8418 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8423 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4148,6 +4148,7 @@ export interface NamespaceKeys {
     | 'ops.costReport.window.flaggedNote'
     | 'ops.costReport.window.kind'
     | 'ops.costReport.window.openLedger'
+    | 'ops.exceptions.actionFailedToast'
     | 'ops.exceptions.chip'
     | 'ops.exceptions.clearBadge'
     | 'ops.exceptions.columnBranch'
@@ -4185,6 +4186,8 @@ export interface NamespaceKeys {
     | 'ops.exceptions.resolvedBadge'
     | 'ops.exceptions.resolvedToast'
     | 'ops.exceptions.retry'
+    | 'ops.exceptions.retryDeductedToast'
+    | 'ops.exceptions.retryStillOpenToast'
     | 'ops.exceptions.statResolvedCaption'
     | 'ops.exceptions.statShownCaption'
     | 'ops.exceptions.statUnit'
@@ -4512,6 +4515,7 @@ export interface NamespaceKeys {
     | 'ops.production.completedToast'
     | 'ops.production.completedUnvaluedToast'
     | 'ops.production.confirm'
+    | 'ops.production.confirmFailedTitle'
     | 'ops.production.confirmedAtLabel'
     | 'ops.production.confirmedToast'
     | 'ops.production.consumedHeading'
@@ -4636,6 +4640,7 @@ export interface NamespaceKeys {
     | 'ops.production.shortNone'
     | 'ops.production.shortSome'
     | 'ops.production.start'
+    | 'ops.production.startFailedTitle'
     | 'ops.production.startedAtLabel'
     | 'ops.production.startedToast'
     | 'ops.production.statCompletedCaption'
@@ -12584,6 +12589,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.window.flaggedNote',
   'kitchen:ops.costReport.window.kind',
   'kitchen:ops.costReport.window.openLedger',
+  'kitchen:ops.exceptions.actionFailedToast',
   'kitchen:ops.exceptions.chip',
   'kitchen:ops.exceptions.clearBadge',
   'kitchen:ops.exceptions.columnBranch',
@@ -12621,6 +12627,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.resolvedBadge',
   'kitchen:ops.exceptions.resolvedToast',
   'kitchen:ops.exceptions.retry',
+  'kitchen:ops.exceptions.retryDeductedToast',
+  'kitchen:ops.exceptions.retryStillOpenToast',
   'kitchen:ops.exceptions.statResolvedCaption',
   'kitchen:ops.exceptions.statShownCaption',
   'kitchen:ops.exceptions.statUnit',
@@ -12948,6 +12956,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.completedToast',
   'kitchen:ops.production.completedUnvaluedToast',
   'kitchen:ops.production.confirm',
+  'kitchen:ops.production.confirmFailedTitle',
   'kitchen:ops.production.confirmedAtLabel',
   'kitchen:ops.production.confirmedToast',
   'kitchen:ops.production.consumedHeading',
@@ -13072,6 +13081,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.shortNone',
   'kitchen:ops.production.shortSome',
   'kitchen:ops.production.start',
+  'kitchen:ops.production.startFailedTitle',
   'kitchen:ops.production.startedAtLabel',
   'kitchen:ops.production.startedToast',
   'kitchen:ops.production.statCompletedCaption',

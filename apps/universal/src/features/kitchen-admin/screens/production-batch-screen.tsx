@@ -242,6 +242,8 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
         if (edge === null) return;
 
         const variables = { productionOrderId: batch.id, lockVersion: batch.lockVersion };
+        confirmBatch.reset();
+        startBatch.reset();
         const onSuccess = settled(
             edge === 'confirm'
                 ? 'kitchen:ops.production.confirmedToast'
@@ -260,6 +262,10 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
     const settlementFailure =
         settlement === 'abandon' ? toFailure(abandonBatch.error) : toFailure(completeBatch.error);
     const cancelFailure = toFailure(cancelBatch.error);
+    // A refused Confirm or Start used to leave the batch as it was with nothing said — a recipe
+    // line with no quantity answered 422 and the button simply did nothing.
+    const confirmFailure = toFailure(confirmBatch.error);
+    const startFailure = toFailure(startBatch.error);
 
     const figure = (value: string | null, unitCode: string | null = null): string =>
         ledgerQuantity(
@@ -377,6 +383,20 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                     </Inline>
                 }
             />
+
+            {confirmFailure === null && startFailure === null ? null : (
+                <Callout
+                    testID="kitchen-production-batch-advance-error"
+                    tone="danger"
+                    role="alert"
+                    title={t(
+                        confirmFailure === null
+                            ? 'kitchen:ops.production.startFailedTitle'
+                            : 'kitchen:ops.production.confirmFailedTitle',
+                    )}
+                    body={(confirmFailure ?? startFailure)?.message}
+                />
+            )}
 
             {batch.isExpired ? (
                 <Callout

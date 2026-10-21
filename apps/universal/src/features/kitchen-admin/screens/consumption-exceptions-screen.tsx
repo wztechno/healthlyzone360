@@ -138,9 +138,32 @@ function ConsumptionExceptions() {
         setViewing(null);
     };
 
+    /** A refused write said nothing at all — a 500 on Retry left the row exactly as it was. */
+    const showFailure = (error: unknown) => {
+        toast.show({
+            testID: 'kitchen-exception-action-failed-toast',
+            tone: 'danger',
+            message: toFailure(error)?.message ?? t('kitchen:ops.exceptions.actionFailedToast'),
+        });
+    };
+
     const runRetry = (row: ConsumptionException) => {
         setPendingId(row.id);
         retry.mutate(row.id, {
+            // A retry that still cannot deduct leaves the row where it was, so say which it was.
+            onSuccess: (result) => {
+                toast.show({
+                    testID: 'kitchen-exception-retried-toast',
+                    tone: result.resolved ? 'success' : 'warning',
+                    message: t(
+                        result.resolved
+                            ? 'kitchen:ops.exceptions.retryDeductedToast'
+                            : 'kitchen:ops.exceptions.retryStillOpenToast',
+                        { order: orderLabel(row) },
+                    ),
+                });
+            },
+            onError: showFailure,
             onSettled: () => {
                 setPendingId(null);
             },
@@ -165,6 +188,7 @@ function ConsumptionExceptions() {
                         }),
                     });
                 },
+                onError: showFailure,
                 onSettled: () => {
                     setPendingId(null);
                 },

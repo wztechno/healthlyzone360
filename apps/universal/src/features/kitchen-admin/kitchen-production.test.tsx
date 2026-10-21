@@ -1,3 +1,4 @@
+import { apiFailure } from '@healthy360/api-client/contracts';
 import type {
     CompleteProductionOrderRequest,
     ProductionOrder,
@@ -269,6 +270,56 @@ describe('the production desk queue', () => {
 });
 
 describe('one batch', () => {
+    /*
+     * A recipe line with no quantity makes the server refuse Confirm (422). The button used to do
+     * nothing visible — on the batch page and on the desk alike.
+     */
+    const recipeHoleRefusal = () =>
+        jest.fn(async (): Promise<ProductionOrderDetail> => {
+            throw apiFailure('server', {
+                message: 'Part of this recipe could not be turned into a quantity.',
+            });
+        });
+
+    it('says on the batch why it could not be confirmed', async () => {
+        await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    getProductionOrder: async () => detail(),
+                    confirmProductionOrder: recipeHoleRefusal(),
+                },
+            },
+        });
+
+        fireEvent.press(await screen.findByTestId('kitchen-production-batch-confirm'));
+        const notice = await screen.findByTestId('kitchen-production-batch-advance-error');
+        expect(notice).toHaveTextContent(/The batch was not confirmed/);
+        expect(notice).toHaveTextContent(/could not be turned into a quantity/);
+    });
+
+    it('says on the desk why a batch could not be confirmed', async () => {
+        await renderStubScreen(<ProductionDeskScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    listProductionOrders: async () => page([batch({ lockVersion: 4 })]),
+                    confirmProductionOrder: recipeHoleRefusal(),
+                },
+            },
+        });
+
+        const trigger = `kitchen-production-desk-table-row-${BATCH_ID}-actions-trigger`;
+        await waitFor(() => {
+            expect(screen.getByTestId(trigger)).toBeTruthy();
+        });
+        fireEvent.press(screen.getByTestId(trigger));
+        fireEvent.press(await screen.findByTestId(`kitchen-production-batch-${BATCH_ID}-confirm`));
+        expect(
+            await screen.findByTestId('kitchen-production-desk-advance-failed-toast'),
+        ).toHaveTextContent(/The batch was not confirmed\. Part of this recipe/);
+    });
+
     it('shows a draft its live plan, holes and all', async () => {
         await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
             session: kitchenManagerSession(),
