@@ -3719,6 +3719,7 @@ export interface NamespaceKeys {
     | 'forms.issueUnit'
     | 'forms.itemsPerPack'
     | 'forms.itemsPerUnit'
+    | 'forms.menuListing'
     | 'forms.noFigures'
     | 'forms.nutritionTitle'
     | 'forms.pack'
@@ -3955,7 +3956,6 @@ export interface NamespaceKeys {
     | 'meals.retiredTitle'
     | 'meals.retiredToast'
     | 'meals.sectionDetails'
-    | 'meals.sectionIdentity'
     | 'meals.sectionMargin'
     | 'meals.sectionProduction'
     | 'meals.sectionRecipe'
@@ -12160,6 +12160,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:forms.issueUnit',
   'kitchen:forms.itemsPerPack',
   'kitchen:forms.itemsPerUnit',
+  'kitchen:forms.menuListing',
   'kitchen:forms.noFigures',
   'kitchen:forms.nutritionTitle',
   'kitchen:forms.pack',
@@ -12396,7 +12397,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.retiredTitle',
   'kitchen:meals.retiredToast',
   'kitchen:meals.sectionDetails',
-  'kitchen:meals.sectionIdentity',
   'kitchen:meals.sectionMargin',
   'kitchen:meals.sectionProduction',
   'kitchen:meals.sectionRecipe',

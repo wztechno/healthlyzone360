@@ -3314,7 +3314,6 @@
         "viewKind": "Meal",
         "viewVisibility": "Customer visibility",
         "notVisibleToConsumers": "Not on the menu",
-        "sectionIdentity": "Identity",
         "sectionWhen": "Where it sits in the day",
         "gateTitle": "Before you can publish",
         "gateCheckName": "Name in both languages",
@@ -4084,6 +4083,7 @@
     },
     "forms": {
         "description": "Description",
+        "menuListing": "Menu listing",
         "image": "Image",
         "imagePick": "Choose an image",
         "imageRemove": "Remove image",

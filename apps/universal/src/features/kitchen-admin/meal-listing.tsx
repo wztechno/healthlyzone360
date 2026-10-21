@@ -955,7 +955,9 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                     variant="card"
                     first
                     testID="kitchen-meal-details"
-                    title={t('kitchen:meals.sectionIdentity')}
+                    // Not "Identity": the recipe's own first card is called that, and this one is
+                    // what the customer reads — a different name and record.
+                    title={t('kitchen:forms.menuListing')}
                 >
                     <Stack space="md">
                         <BilingualField
