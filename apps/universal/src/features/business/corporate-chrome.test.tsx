@@ -73,6 +73,12 @@ function quotation(ordinal: number, state: QuotationState): Quotation {
         requestedAt: '2026-09-01T09:00:00Z' as Quotation['requestedAt'],
         respondedAt: null,
         expiresAt: null,
+        contactName: null,
+        contactEmail: null,
+        declineReason: null,
+        lockVersion: 0,
+        orderId: null,
+        orderNumber: null,
     };
 }
 

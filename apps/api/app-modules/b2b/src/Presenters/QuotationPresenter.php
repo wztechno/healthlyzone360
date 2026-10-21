@@ -8,6 +8,8 @@ use Healthy360\B2b\Models\CorporateProgramme;
 use Healthy360\B2b\Models\Quotation;
 use Healthy360\B2b\Models\QuotationLine;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Orders\Models\Order;
+use Healthy360\Organisations\Models\Organisation;
 use Illuminate\Support\Collection;
 
 /**
@@ -39,10 +41,17 @@ final class QuotationPresenter
      *     corporate_programme_id: string,
      *     programme_name_en: string|null,
      *     programme_name_ar: string|null,
+     *     buyer_name: string|null,
      *     reference: string,
      *     status: string,
      *     currency_code: string,
      *     notes: string|null,
+     *     requested_delivery_date: string|null,
+     *     recurring: bool,
+     *     contact_name: string|null,
+     *     contact_email: string|null,
+     *     order_id: string|null,
+     *     order_number: string|null,
      *     decline_reason: string|null,
      *     submitted_at: string|null,
      *     quoted_at: string|null,
@@ -66,10 +75,20 @@ final class QuotationPresenter
             'corporate_programme_id' => $quotation->corporate_programme_id,
             'programme_name_en' => $programme['name_en'] ?? null,
             'programme_name_ar' => $programme['name_ar'] ?? null,
+            // Who the kitchen is quoting for, by the same sideways read as the programme.
+            'buyer_name' => Organisation::query()->whereKey($quotation->organisation_id)->value('name'),
             'reference' => $quotation->reference,
             'status' => $quotation->status->value,
             'currency_code' => $quotation->currency_code,
             'notes' => $quotation->notes,
+            'requested_delivery_date' => $quotation->requested_delivery_date?->toDateString(),
+            'recurring' => (bool) $quotation->recurring,
+            'contact_name' => $quotation->contact_name,
+            'contact_email' => $quotation->contact_email,
+            'order_id' => $quotation->order_id,
+            'order_number' => $quotation->order_id === null
+                ? null
+                : Order::query()->whereKey($quotation->order_id)->value('order_number'),
             'decline_reason' => $quotation->decline_reason,
             'submitted_at' => $quotation->submitted_at?->toIso8601String(),
             'quoted_at' => $quotation->quoted_at?->toIso8601String(),

@@ -170,6 +170,17 @@ function Quotations() {
             ),
         },
         {
+            key: 'buyer',
+            role: 'meta',
+            label: t('kitchen:ops.quotations.buyer'),
+            width: 200,
+            grow: true,
+            priority: 90,
+            value: (row) => row.buyerName ?? t('kitchen:common.notRecorded'),
+            sort: (left, right, direction) =>
+                compareText(left.buyerName ?? '', right.buyerName ?? '', direction),
+        },
+        {
             key: 'currency',
             role: 'meta',
             label: t('kitchen:ops.quotations.columnCurrency'),
@@ -718,6 +729,15 @@ function requestFields(
     const date = (value: string | null) =>
         value === null ? t('kitchen:common.notRecorded') : formatter.formatDate(value);
     return [
+        ...(quotation.buyerName === null
+            ? []
+            : [
+                  {
+                      key: 'buyer',
+                      label: t('kitchen:ops.quotations.buyer'),
+                      value: quotation.buyerName,
+                  },
+              ]),
         {
             key: 'programme',
             label: t('kitchen:ops.quotations.programme'),
@@ -766,9 +786,52 @@ function requestFields(
                   },
               ]),
         {
+            key: 'requested-delivery',
+            label: t('kitchen:ops.quotations.requestedDelivery'),
+            value: date(quotation.requestedDeliveryDate),
+            mono: true,
+        },
+        {
+            key: 'schedule',
+            label: t('kitchen:ops.quotations.schedule'),
+            value: quotation.recurring
+                ? t('kitchen:ops.quotations.recurring')
+                : t('kitchen:ops.quotations.oneOff'),
+        },
+        ...(quotation.contactName === null && quotation.contactEmail === null
+            ? []
+            : [
+                  {
+                      key: 'contact',
+                      label: t('kitchen:ops.quotations.contact'),
+                      value: [quotation.contactName, quotation.contactEmail]
+                          .filter((part): part is string => part !== null)
+                          .join(' · '),
+                  },
+              ]),
+        ...(quotation.orderNumber === null
+            ? []
+            : [
+                  {
+                      key: 'order',
+                      label: t('kitchen:ops.quotations.order'),
+                      value: quotation.orderNumber,
+                      mono: true,
+                  },
+              ]),
+        {
             key: 'notes',
             label: t('kitchen:ops.quotations.notes'),
             value: quotation.notes ?? t('kitchen:ops.quotations.noNotes'),
         },
+        ...(quotation.declineReason === null
+            ? []
+            : [
+                  {
+                      key: 'decline-reason',
+                      label: t('kitchen:ops.quotations.declineReason'),
+                      value: quotation.declineReason,
+                  },
+              ]),
     ];
 }

@@ -5872,6 +5872,36 @@ export const zOrderDeskRequirementsEnvelope = z.object({
     }))
 });
 
+export const zStockSufficiencyShortfall = z.object({
+    stock_item_id: zUuid,
+    code: z.string(),
+    name_en: z.string(),
+    unit_code: z.string().nullable(),
+    required: z.string(),
+    available: z.string(),
+    short: z.string(),
+    suggested_buy: z.string()
+});
+
+export const zStockSufficiencyCheck = z.object({
+    id: zUuid,
+    branch_id: zUuid,
+    window_from: z.iso.date(),
+    window_to: z.iso.date(),
+    checked_at: z.iso.datetime({ offset: true }),
+    requirement_count: z.int(),
+    short_count: z.int(),
+    not_computable_days: z.int(),
+    shortfalls: z.array(zStockSufficiencyShortfall)
+});
+
+export const zOrderDeskWeeklyCheckEnvelope = z.object({
+    data: z.object({
+        check: zStockSufficiencyCheck.nullable()
+    }),
+    meta: zMeta
+});
+
 export const zOrderDeskShortfallCountEnvelope = z.object({
     data: z.object({
         shortfall_count: z.int().gte(0).nullable(),
@@ -7737,10 +7767,17 @@ export const zQuotation = z.object({
     corporate_programme_id: zUuid,
     programme_name_en: z.string().nullable(),
     programme_name_ar: z.string().nullable(),
+    buyer_name: z.string().nullable(),
     reference: z.string(),
     status: zQuotationStatus,
     currency_code: zCurrencyCode,
     notes: z.string().max(2000).nullable(),
+    requested_delivery_date: z.iso.date().nullable(),
+    recurring: z.boolean(),
+    contact_name: z.string().max(120).nullable(),
+    contact_email: z.string().max(190).nullable(),
+    order_id: zUuid.nullable(),
+    order_number: z.string().nullable(),
     decline_reason: z.string().max(2000).nullable(),
     submitted_at: z.iso.datetime({ offset: true }).nullable(),
     quoted_at: z.iso.datetime({ offset: true }).nullable(),
@@ -7773,12 +7810,26 @@ export const zQuotationLineInput = z.object({
 
 export const zCreateQuotationRequest = z.object({
     notes: z.string().max(2000).nullish(),
+    requested_delivery_date: z.iso.date().nullish(),
+    recurring: z.boolean().optional(),
+    contact_name: z.string().max(120).nullish(),
+    contact_email: z.email().max(190).nullish(),
     lines: z.array(zQuotationLineInput).min(1).nullish()
 });
 
 export const zUpdateQuotationRequest = z.object({
     notes: z.string().max(2000).nullish(),
+    requested_delivery_date: z.iso.date().nullish(),
+    recurring: z.boolean().optional(),
+    contact_name: z.string().max(120).nullish(),
+    contact_email: z.email().max(190).nullish(),
     lines: z.array(zQuotationLineInput).nullish()
+});
+
+export const zAcceptQuotationRequest = z.object({
+    customer_address_id: zUuid,
+    requested_date: z.iso.date(),
+    delivery_window_code: z.string().max(40)
 });
 
 export const zDeclineQuotationRequest = z.object({
@@ -7800,6 +7851,8 @@ export const zQuoteQuotationRequest = z.object({
 export const zB2bCatalogueItem = z.object({
     id: zUuid,
     name: z.string(),
+    description: z.string().nullable(),
+    image_placeholder_id: z.string(),
     item_type: zCatalogueItemType,
     seller_organisation_id: zUuid,
     sales_channel_id: zUuid,
@@ -12410,6 +12463,7 @@ export const zListMarketplaceMealsHeaders = z.object({
 export const zListMarketplaceMealsQuery = z.object({
     query: z.string().max(120).optional(),
     kitchen_ids: z.string().optional(),
+    ids: z.string().optional(),
     category_slug: z.string().optional(),
     item_types: z.string().optional(),
     diet_classifications: z.string().optional(),
@@ -13809,6 +13863,20 @@ export const zGetOrderDeskShortfallCountQuery = z.object({
  */
 export const zGetOrderDeskShortfallCountResponse = zOrderDeskShortfallCountEnvelope;
 
+export const zGetOrderDeskWeeklyCheckHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderDeskWeeklyCheckQuery = z.object({
+    branch_id: zUuid.optional()
+});
+
+/**
+ * The latest check, or null.
+ */
+export const zGetOrderDeskWeeklyCheckResponse = zOrderDeskWeeklyCheckEnvelope;
+
 export const zListOrderDeskDeliveryWindowsHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
@@ -14556,6 +14624,8 @@ export const zSubmitQuotationPath = z.object({
  * The submitted quotation.
  */
 export const zSubmitQuotationResponse = zQuotationEnvelope;
+
+export const zAcceptQuotationBody = zAcceptQuotationRequest;
 
 export const zAcceptQuotationHeaders = z.object({
     'X-Organisation-Id': zUuid,

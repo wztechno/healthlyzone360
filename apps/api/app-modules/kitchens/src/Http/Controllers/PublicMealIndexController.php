@@ -25,6 +25,12 @@ use Illuminate\Http\Request;
  * `MarketplaceMeals` documents. Filter with `item_types=meal`, `product`, or
  * both (comma-separated); omit the parameter to receive both kinds.
  *
+ * **`ids` fetches named meals in one request** — a basket's lines, which carry
+ * an item id and nothing to draw it with. The cart contract promises never to
+ * carry an amount, so the basket asks the catalogue for all of its lines at
+ * once rather than one `GET /marketplace/meals/{meal}` per line. An id that is
+ * not on sale is simply absent, exactly as it is from an unfiltered page.
+ *
  * **`exclude_allergens` is an exclusion, never an inclusion.** A person filters
  * by what they must avoid, and the two are not symmetrical: "show me dishes
  * with peanuts" is a preference, "never show me dishes with peanuts" is a
@@ -64,6 +70,16 @@ final class PublicMealIndexController
 
         if ($kitchenIds !== null) {
             $query->whereIn('organisation_id', $kitchenIds);
+        }
+
+        $ids = $this->listParameter($request, 'ids', CursorPage::MAX_LIMIT);
+
+        if ($ids !== null) {
+            if (preg_grep('/^[0-9a-f-]{36}$/i', $ids, PREG_GREP_INVERT) !== []) {
+                throw $this->invalid('ids', 'Every id must be a UUID.');
+            }
+
+            $query->whereIn('catalogue_items.id', $ids);
         }
 
         $categorySlug = $this->stringParameter($request, 'category_slug');

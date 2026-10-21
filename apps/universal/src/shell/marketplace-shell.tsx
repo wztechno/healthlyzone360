@@ -37,6 +37,7 @@ import { availableWorkspaceAreas } from '../navigation/items.ts';
 import { withQuery } from '../navigation/return-to.ts';
 import { useCurrentHref, useGoToAuth } from '../navigation/use-return-to.ts';
 import { useOnlineStatus } from '../online/online-status.tsx';
+import { isBusinessCustomer } from '../session/machine.ts';
 import { useAccessState, useSession } from '../session/session-provider.tsx';
 import { LocaleToggle } from './locale-toggle.tsx';
 import { ThemeToggle } from './theme-toggle.tsx';
@@ -175,7 +176,7 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
     const goToAuthWith = useGoToAuth();
     const { locale, setLocale } = useLocale();
     const { state: connectivity } = useOnlineStatus();
-    const { phase } = useSession();
+    const { phase, me } = useSession();
     const accessState = useAccessState();
     const signedIn = phase !== 'anonymous' && phase !== 'restoring';
     // Count only while signed in: `getCart` opens a basket lazily, and an anonymous visit must not
@@ -221,6 +222,7 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
         [pathname, router],
     );
 
+    const businessCustomer = isBusinessCustomer(me?.memberships ?? []);
     const navigation = useMemo<readonly NavigationItem[]>(
         () =>
             marketplaceNavigation()
@@ -236,8 +238,30 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                     onPress: () => {
                         navigateTo(item.href);
                     },
-                })),
-        [navigateTo, pathname, t],
+                }))
+                .concat(
+                    /*
+                     * Business customers only: the way from the shop to the corporate area, where
+                     * they order at their wholesale prices. A destination rather than an icon, so
+                     * it is labelled in the bar and still reachable from the phone menu, where the
+                     * bar has no room. `/workspace` picks the organisation first when none is.
+                     */
+                    businessCustomer
+                        ? [
+                              {
+                                  key: 'workspaces',
+                                  label: t('marketplace:nav.workspaces'),
+                                  icon: 'layoutGrid' as const,
+                                  active: false,
+                                  testID: 'marketplace-workspaces',
+                                  onPress: () => {
+                                      router.push('/workspace' as never);
+                                  },
+                              },
+                          ]
+                        : [],
+                ),
+        [businessCustomer, navigateTo, pathname, router, t],
     );
 
     /*

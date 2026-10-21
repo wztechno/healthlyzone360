@@ -42,7 +42,12 @@ import { forgetQueries, lastQuery, rememberQuery } from '../../navigation/last-q
 import { withReturnTo } from '../../navigation/return-to.ts';
 import { ConsumerShell } from '../../shell/consumer-shell.tsx';
 import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
-import { kitchenManagerSession, testMeResponse } from '../../testing/session-fixtures.ts';
+import {
+    kitchenManagerSession,
+    testMembership,
+    testMeResponse,
+    testOrganisation,
+} from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { clearPendingAdd, readPendingAdd, writePendingAdd } from '../commerce/pending-add.ts';
@@ -1983,6 +1988,29 @@ describe('ConsumerShell', () => {
         expect(screen.getByTestId('theme-toggle')).toBeTruthy();
         // A plain customer has no staff workspace, so no staff profile icon.
         expect(screen.queryByTestId('marketplace-staff-profile')).toBeNull();
+        expect(screen.queryByTestId('marketplace-workspaces')).toBeNull();
+    });
+
+    it('gives a business customer a Workspaces link, before any organisation is chosen', async () => {
+        await renderStubScreen(
+            <ConsumerShell unguarded>
+                <></>
+            </ConsumerShell>,
+            {
+                session: testMeResponse({
+                    memberships: [
+                        testMembership({
+                            organisation: testOrganisation({ type: 'corporate_customer' }),
+                        }),
+                    ],
+                }),
+            },
+        );
+
+        // Jest's window is a phone's, so the destination is behind the menu button.
+        await fireEvent.press(await screen.findByTestId('marketplace-shell-menu'));
+        await fireEvent.press(await screen.findByTestId('marketplace-workspaces'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/workspace');
     });
 
     it('gives staff a second icon, to their staff profile', async () => {
@@ -1995,6 +2023,9 @@ describe('ConsumerShell', () => {
 
         await fireEvent.press(await screen.findByTestId('marketplace-staff-profile'));
         expect(routerMock.__push).toHaveBeenCalledWith('/profile');
+        // Kitchen staff are not business customers.
+        await fireEvent.press(screen.getByTestId('marketplace-shell-menu'));
+        expect(screen.queryByTestId('marketplace-workspaces')).toBeNull();
         expect(screen.queryByTestId('prototype-notice')).toBeNull();
     });
 });

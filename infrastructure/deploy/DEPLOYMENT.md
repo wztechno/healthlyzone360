@@ -135,6 +135,7 @@ anything else is served the web bundle.
 | `bootstrap-droplet.sh` | **On droplet, once.** Docker, swap, firewall |
 | `Dockerfile` | API image — code baked in, Composer at build time |
 | `php.ini` | Deployed PHP settings (opcache without timestamp validation) |
+| `php-fpm.conf` | Worker pool: 10 workers per stack (the image default is 5) |
 | `compose.yaml` | The seven services and their volumes |
 | `nginx.conf` | Same-origin routing, Horizon block, 404 handling |
 | `dynamic-routes.conf` | **Generated** by `package.sh` — 30 rules, see §7 |

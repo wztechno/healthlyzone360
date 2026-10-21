@@ -15,6 +15,8 @@ import type {
     CatalogueItem,
     CatalogueItemKind,
     CorporateProgramme,
+    AcceptQuotationRequest,
+    DeclineQuotationRequest,
     Quotation,
     QuotationFilter,
     QuotationLine,
@@ -73,6 +75,12 @@ interface WireQuotation {
     readonly status: string;
     readonly currency_code: string;
     readonly notes: string | null;
+    readonly requested_delivery_date?: string | null;
+    readonly recurring?: boolean;
+    readonly contact_name?: string | null;
+    readonly contact_email?: string | null;
+    readonly order_id?: string | null;
+    readonly order_number?: string | null;
     readonly decline_reason: string | null;
     readonly submitted_at: string | null;
     readonly quoted_at: string | null;
@@ -87,6 +95,9 @@ interface WireQuotation {
 interface WireB2bCatalogueItem {
     readonly id: string;
     readonly name: string;
+    /** Optional: an API older than the photo fields sends neither. */
+    readonly description?: string | null;
+    readonly image_placeholder_id?: string;
     readonly item_type: string;
     readonly seller_organisation_id: string;
     readonly sales_channel_id: string;
@@ -135,7 +146,7 @@ function mapCatalogueItem(
         programmeId,
         kind,
         name: wire.name,
-        description: '',
+        description: wire.description ?? '',
         kitchenId: KitchenId.unsafe(wire.seller_organisation_id),
         mealId: kind === 'meal' ? MealId.unsafe(wire.id) : null,
         planId: kind === 'meal_plan' ? SubscriptionPlanId.unsafe(wire.id) : null,
@@ -148,7 +159,7 @@ function mapCatalogueItem(
         deliveryWeekdays: [],
         channels: ['b2b'],
         supportsRecurringOrder: false,
-        imagePlaceholderId: '',
+        imagePlaceholderId: wire.image_placeholder_id ?? '',
     };
 }
 
@@ -224,9 +235,15 @@ function mapQuotation(wire: WireQuotation): Quotation {
         reference: wire.reference,
         lines,
         requestedTotal,
-        requestedDeliveryDate: null,
-        recurring: false,
+        requestedDeliveryDate: wire.requested_delivery_date ?? null,
+        recurring: wire.recurring ?? false,
         note: wire.notes,
+        contactName: wire.contact_name ?? null,
+        contactEmail: wire.contact_email ?? null,
+        declineReason: wire.decline_reason,
+        lockVersion: wire.lock_version,
+        orderId: wire.order_id ?? null,
+        orderNumber: wire.order_number ?? null,
         requestedAt: (wire.submitted_at ?? wire.created_at ?? '') as Quotation['requestedAt'],
         respondedAt:
             wire.quoted_at === null && wire.decided_at === null
@@ -352,22 +369,17 @@ export function createApiBusinessRepository(transport: Transport): ApiBusinessRe
         },
 
         async requestQuotation(request: RequestQuotationRequest): Promise<Quotation> {
-            const notes = [
-                request.note?.trim() || null,
-                `Contact: ${request.contactName} <${request.contactEmail}>`,
-                request.requestedDeliveryDate === undefined
-                    ? null
-                    : `Requested delivery: ${request.requestedDeliveryDate}`,
-                request.recurring === true ? 'Recurring: yes' : null,
-            ]
-                .filter((part): part is string => part !== null && part !== '')
-                .join('\n');
+            const note = request.note?.trim() ?? '';
 
             const created = await transport.request<{ readonly quotation: WireQuotation }>({
                 method: 'POST',
                 path: `/b2b/programmes/${pathSegment(String(request.programmeId))}/quotations`,
                 body: {
-                    notes: notes === '' ? null : notes,
+                    notes: note === '' ? null : note,
+                    requested_delivery_date: request.requestedDeliveryDate ?? null,
+                    recurring: request.recurring === true,
+                    contact_name: request.contactName,
+                    contact_email: request.contactEmail,
                     lines: request.lines.map((line) => ({
                         catalogue_item_id: line.catalogueItemId,
                         quantity: line.quantity,
@@ -433,23 +445,29 @@ export function createApiBusinessRepository(transport: Transport): ApiBusinessRe
             return paginateClient(items, filter ?? {});
         },
 
-        async acceptQuotation(quotationId: QuotationId): Promise<Quotation> {
-            const current = await fetchQuotation(String(quotationId));
+        // Both send the version the buyer was shown, never a fresh read of it: re-reading the
+        // lock just before posting would accept a price the kitchen changed a moment ago.
+        async acceptQuotation(request: AcceptQuotationRequest): Promise<Quotation> {
             const accepted = await transport.request<{ readonly quotation: WireQuotation }>({
                 method: 'POST',
-                path: `/b2b/quotations/${pathSegment(String(quotationId))}/accept`,
-                headers: ifMatch(current.lock_version),
+                path: `/b2b/quotations/${pathSegment(String(request.quotationId))}/accept`,
+                headers: ifMatch(request.lockVersion),
+                body: {
+                    customer_address_id: request.delivery.customerAddressId,
+                    requested_date: request.delivery.requestedDate,
+                    delivery_window_code: request.delivery.deliveryWindowCode,
+                },
             });
             return mapQuotation(accepted.quotation);
         },
 
-        async declineQuotation(quotationId: QuotationId, reason?: string): Promise<Quotation> {
-            const current = await fetchQuotation(String(quotationId));
+        async declineQuotation(request: DeclineQuotationRequest): Promise<Quotation> {
+            const reason = request.reason?.trim() ?? '';
             const declined = await transport.request<{ readonly quotation: WireQuotation }>({
                 method: 'POST',
-                path: `/b2b/quotations/${pathSegment(String(quotationId))}/decline`,
-                headers: ifMatch(current.lock_version),
-                body: reason === undefined || reason.trim() === '' ? {} : { reason: reason.trim() },
+                path: `/b2b/quotations/${pathSegment(String(request.quotationId))}/decline`,
+                headers: ifMatch(request.lockVersion),
+                body: reason === '' ? {} : { reason },
             });
             return mapQuotation(declined.quotation);
         },
