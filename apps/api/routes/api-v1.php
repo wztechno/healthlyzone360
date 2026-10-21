@@ -324,6 +324,7 @@ use Healthy360\Recipes\Http\Controllers\RecipeVersionRetireController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionShowController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionStoreController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionUpdateController;
+use Healthy360\Subscriptions\Http\Controllers\AllergenConflictIndexController;
 use Healthy360\Subscriptions\Http\Controllers\KitchenSubscriptionScheduleController;
 use Healthy360\Subscriptions\Http\Controllers\MySubscriptionDeliveryIndexController;
 use Healthy360\Subscriptions\Http\Controllers\MySubscriptionIndexController;
@@ -876,6 +877,8 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
 
         Route::get('/subscriptions/quote', SubscriptionQuoteController::class)
             ->name('subscriptions.quote');
+
+        Route::get('/me/allergen-conflicts', AllergenConflictIndexController::class)->name('me.allergen-conflicts.index');
 
         Route::get('/me/subscriptions', MySubscriptionIndexController::class)->name('me.subscriptions.index');
         Route::get('/me/subscriptions/{subscription}', MySubscriptionShowController::class)->name('me.subscriptions.show');

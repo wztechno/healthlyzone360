@@ -64,15 +64,19 @@ class StoreOrderRequest extends FormRequest
             'customer_address_id' => ['required', 'uuid'],
             'delivery_window_code' => ['nullable', 'string', 'max:40'],
             'requested_delivery_date' => ['nullable', 'date_format:Y-m-d'],
+            // The customer saw the basket's allergen conflicts and chose to
+            // order anyway. Absent means no: placement refuses
+            // `allergen_conflict` until it is said.
+            'acknowledge_allergen_conflicts' => ['sometimes', 'boolean'],
         ];
     }
 
     /**
-     * @return array{cart_id: string, customer_address_id: string, delivery_window_code?: string|null, requested_delivery_date?: string|null}
+     * @return array{cart_id: string, customer_address_id: string, delivery_window_code?: string|null, requested_delivery_date?: string|null, acknowledge_allergen_conflicts?: bool}
      */
     public function payload(): array
     {
-        /** @var array{cart_id: string, customer_address_id: string, delivery_window_code?: string|null, requested_delivery_date?: string|null} $validated */
+        /** @var array{cart_id: string, customer_address_id: string, delivery_window_code?: string|null, requested_delivery_date?: string|null, acknowledge_allergen_conflicts?: bool} $validated */
         $validated = $this->validated();
 
         return $validated;

@@ -5049,6 +5049,17 @@ export type PlaceOrderRequest = {
      *
      */
     requested_delivery_date?: string | null;
+    /**
+     * The customer saw the basket's allergen conflicts
+     * (`allergen_conflicts` on the preview) and chose to order anyway.
+     * Absent or false, placement refuses `allergen_conflict` — one reason
+     * per clashing meal, carrying `catalogue_item_id`, `cause` (the
+     * `AllergenConflict.reason`) and `allergen_codes` — re-checked against
+     * the declarations as they stand at placement, not as the preview saw
+     * them.
+     *
+     */
+    acknowledge_allergen_conflicts?: boolean;
 };
 
 /**
@@ -5110,7 +5121,7 @@ export type CheckoutPreview = {
      * vocabulary `409 order.placement_refused` uses at placement:
      * `cart_empty`, `address_missing`, `address_not_deliverable`,
      * `area_not_served`, `zone_suspended`, `currency_mismatch`,
-     * `window_not_offered`, plus the line-probe vocabulary. Deduplicated — three lines refused for the
+     * `window_not_offered`, `allergen_conflict`, plus the line-probe vocabulary. Deduplicated — three lines refused for the
      * same reason read as one fact, not three repeats of it.
      *
      */
@@ -5123,6 +5134,37 @@ export type CheckoutPreview = {
      *
      */
     offered_window_codes: Array<string> | null;
+    /**
+     * The basket's meals that clash with the buyer's declared allergies,
+     * one per meal. Non-empty exactly when `warnings` carries
+     * `allergen_conflict`. Always sent; optional so a client also reads
+     * a server from before it was added.
+     *
+     */
+    allergen_conflicts?: Array<AllergenConflict>;
+};
+
+export type AllergenConflict = {
+    catalogue_item_id: Uuid;
+    /**
+     * `allergen_declared` — a declared allergen is on the meal's label.
+     * `excluded` — an ingredient the customer excluded is on its list.
+     * `unassessed` — the meal has no allergen information and the
+     * customer has declared something.
+     *
+     */
+    reason: 'allergen_declared' | 'excluded' | 'unassessed';
+    /**
+     * The declared allergens on the label; filled only for `allergen_declared`.
+     */
+    allergen_codes: Array<string>;
+};
+
+export type AllergenConflictsEnvelope = {
+    data: {
+        conflicts: Array<AllergenConflict>;
+    };
+    meta: Meta;
 };
 
 export type CheckoutPreviewEnvelope = {
@@ -39845,6 +39887,56 @@ export type QuoteSubscriptionResponses = {
 };
 
 export type QuoteSubscriptionResponse = QuoteSubscriptionResponses[keyof QuoteSubscriptionResponses];
+
+export type ListMyAllergenConflictsData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * Up to fifty meal ids, comma-separated.
+         */
+        meal_ids: string;
+    };
+    url: '/me/allergen-conflicts';
+};
+
+export type ListMyAllergenConflictsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListMyAllergenConflictsError = ListMyAllergenConflictsErrors[keyof ListMyAllergenConflictsErrors];
+
+export type ListMyAllergenConflictsResponses = {
+    /**
+     * The meals among those asked about that clash with the customer's declarations.
+     */
+    200: AllergenConflictsEnvelope;
+};
+
+export type ListMyAllergenConflictsResponse = ListMyAllergenConflictsResponses[keyof ListMyAllergenConflictsResponses];
 
 export type ListMySubscriptionsData = {
     body?: never;

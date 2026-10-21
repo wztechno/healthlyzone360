@@ -8,6 +8,7 @@ import { Text as RNText, View } from 'react-native';
 
 import { EntityImage, MediaChip } from '../../media/entity-image.tsx';
 import { BrowseCard } from '../../ui/browse-card.tsx';
+import { YourAllergens } from '../commerce/my-allergens.tsx';
 
 import { formatMoney, nutrientValue } from './format.ts';
 import { PackSuffix } from './pack-suffix.tsx';
@@ -158,6 +159,7 @@ export function MealCard({ meal, onPress, onAdd, testID }: MealCardProps) {
              * the meal's own page, which is where somebody deciding whether they can safely eat
              * something reads rather than guesses.
              */}
+            <YourAllergens allergens={meal.allergens} testID={`${resolvedTestID}-your-allergens`} />
             {hasAllergens ? (
                 <View className="flex-row items-center gap-2">
                     <View className="h-1.5 w-1.5 rounded-full bg-warning" />

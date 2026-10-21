@@ -219,6 +219,9 @@ export function createApiOrderPlacement(
                     request.deliveryDate === undefined || request.deliveryDate === ''
                         ? null
                         : request.deliveryDate,
+                ...(request.acknowledgeAllergenConflicts === true
+                    ? { acknowledge_allergen_conflicts: true }
+                    : {}),
             },
         });
 

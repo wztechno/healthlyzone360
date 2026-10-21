@@ -31,6 +31,7 @@ import { formatAddress, toDeliveryAddress } from './address.ts';
 import { OptionCard } from './checkout-frame.tsx';
 import {
     combinationKey,
+    FIRST_WEEK_DAYS,
     configuredDeliveryDates,
     diffAllergens,
     discountedTotalMinorUnits,
@@ -44,6 +45,12 @@ import type { ConfiguratorState, ConfiguratorStep } from './configurator.ts';
 import { earliestStartDate, isoWeekday, nextAllowedDate } from './dates.ts';
 import { DELIVERY_SLOTS } from './delivery.ts';
 import type { DeliveryAreaStatus } from './delivery.ts';
+import {
+    YourAllergens,
+    clashingAllergens,
+    useAllergenNames,
+    useMyAllergenCodes,
+} from './my-allergens.tsx';
 import { PriceSummary } from './price-summary.tsx';
 import { CardPanel, SummaryCard } from './summary-card.tsx';
 import type { PriceRow } from './price-summary.tsx';
@@ -682,6 +689,12 @@ export interface ReviewStepProps {
     /** The saved address chosen on the delivery step, when one was. */
     readonly savedAddress: CustomerAddress | undefined;
     readonly menu: readonly MarketplaceMeal[];
+    /**
+     * The plan lets a subscriber choose their meals (`allowsFreeSelection` on the quote). Off, the
+     * first-week picker is not drawn: the server refuses choices on such a plan, and a picker whose
+     * answers go nowhere would be a promise the kitchen does not make.
+     */
+    readonly freeSelection: boolean;
     readonly onEdit: (step: ConfiguratorStep) => void;
 }
 
@@ -692,6 +705,7 @@ export function ReviewStep({
     preview,
     savedAddress,
     menu,
+    freeSelection,
     onEdit,
 }: ReviewStepProps) {
     const { t } = useTranslation();
@@ -828,36 +842,38 @@ export function ReviewStep({
                 />
             ))}
 
-            <CardPanel className="gap-0 py-2">
-                <Pressable
-                    testID="configurator-meals-toggle"
-                    role="button"
-                    accessibilityRole="button"
-                    aria-expanded={mealsOpen}
-                    accessibilityState={{ expanded: mealsOpen }}
-                    aria-controls="configurator-meals"
-                    onPress={() => {
-                        setMealsOpen((open) => !open);
-                    }}
-                    className="min-h-touch flex-row items-center justify-between gap-3"
-                >
-                    <RNText className="text-base font-semibold text-content-primary text-start">
-                        {t('commerce:configurator.meals.title')}
-                    </RNText>
-                    <Icon
-                        name={mealsOpen ? 'chevronUp' : 'chevronDown'}
-                        size="sm"
-                        className="text-content-secondary"
-                    />
-                </Pressable>
-                <Collapse
-                    open={mealsOpen}
-                    nativeID="configurator-meals"
-                    testID="configurator-meals"
-                >
-                    <FirstWeekMeals plan={plan} state={state} patch={patch} menu={menu} />
-                </Collapse>
-            </CardPanel>
+            {freeSelection ? (
+                <CardPanel className="gap-0 py-2">
+                    <Pressable
+                        testID="configurator-meals-toggle"
+                        role="button"
+                        accessibilityRole="button"
+                        aria-expanded={mealsOpen}
+                        accessibilityState={{ expanded: mealsOpen }}
+                        aria-controls="configurator-meals"
+                        onPress={() => {
+                            setMealsOpen((open) => !open);
+                        }}
+                        className="min-h-touch flex-row items-center justify-between gap-3"
+                    >
+                        <RNText className="text-base font-semibold text-content-primary text-start">
+                            {t('commerce:configurator.meals.title')}
+                        </RNText>
+                        <Icon
+                            name={mealsOpen ? 'chevronUp' : 'chevronDown'}
+                            size="sm"
+                            className="text-content-secondary"
+                        />
+                    </Pressable>
+                    <Collapse
+                        open={mealsOpen}
+                        nativeID="configurator-meals"
+                        testID="configurator-meals"
+                    >
+                        <FirstWeekMeals plan={plan} state={state} patch={patch} menu={menu} />
+                    </Collapse>
+                </CardPanel>
+            ) : null}
 
             <MedicalDisclaimer context={t('commerce:configurator.disclaimerContext')} />
         </View>
@@ -891,9 +907,6 @@ export function TermsAcknowledgement({
     );
 }
 
-/** How many delivery days the first-week picker shows: one week, the rotation the kitchen publishes. */
-const SAMPLE_DAYS = 7;
-
 /** The first week's meals, one picker per delivery day. Optional: untouched, the plan's rotation. */
 function FirstWeekMeals({
     plan,
@@ -908,8 +921,22 @@ function FirstWeekMeals({
 }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
-    const dates = configuredDeliveryDates(state).slice(0, SAMPLE_DAYS);
+    const myAllergens = useMyAllergenCodes();
+    const allergenNames = useAllergenNames();
+    const dates = configuredDeliveryDates(state).slice(0, FIRST_WEEK_DAYS);
     const swappable = menu.length > 0;
+
+    /** An option names the clash before it is picked, so the list itself warns. */
+    const optionLabel = (meal: MarketplaceMeal): string => {
+        const clashing = clashingAllergens(meal.allergens, myAllergens);
+        return clashing.length === 0
+            ? meal.name
+            : t('commerce:myAllergens.option', {
+                  meal: meal.name,
+                  count: clashing.length,
+                  allergens: allergenNames(clashing),
+              });
+    };
 
     /** The default meal for a slot: the plan's own sample list, rotated. */
     const defaultMealId = (index: number): MealId | null =>
@@ -961,7 +988,7 @@ function FirstWeekMeals({
                                     }}
                                     options={menu.map((meal) => ({
                                         value: String(meal.id),
-                                        label: meal.name,
+                                        label: optionLabel(meal),
                                     }))}
                                 />
                             ) : (
@@ -972,6 +999,11 @@ function FirstWeekMeals({
                                     {nameFor(mealId)}
                                 </RNText>
                             )}
+                            <YourAllergens
+                                allergens={menu.find((meal) => meal.id === mealId)?.allergens}
+                                testID={`configurator-meal-${date}-your-allergens`}
+                                className="mt-1"
+                            />
                         </View>
                     </View>
                 );

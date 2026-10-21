@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
+import { YourAllergens } from '../../commerce/my-allergens.tsx';
 import { formatMoney, nutrientValue } from '../format.ts';
 import { PackSuffix } from '../pack-suffix.tsx';
 
@@ -178,6 +179,8 @@ export function HomeMealCard({ meal, tag, onOpen, onAdd, testID }: HomeMealCardP
                         </RNText>
                     ))}
                 </View>
+
+                <YourAllergens allergens={meal.allergens} testID={`${id}-your-allergens`} />
 
                 <View className="flex-row items-center justify-between gap-2.5 border-t border-stroke-subtle pt-3">
                     <RNText

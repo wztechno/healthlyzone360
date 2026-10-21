@@ -2696,6 +2696,65 @@ describe('CheckoutScreen — the slots the address zone offers', () => {
     });
 });
 
+describe('CheckoutScreen — a basket that crosses the person’s allergies', () => {
+    it('warns, asks once more at Place order, and then places it — it is never blocked', async () => {
+        const basket = basketOf(1);
+        const clashing = basket.cart.items[0];
+        if (clashing === undefined) throw new Error('The basket needs a line.');
+
+        const harness = await renderCheckout(basket, {
+            addresses: [HOME_ADDRESS],
+            commerce: {
+                previewCheckout: async (
+                    request: PreviewCheckoutRequest,
+                ): Promise<CheckoutPreview> => ({
+                    ...checkoutPreview(basket.cart, request),
+                    warnings: ['checkout.allergen_conflict'],
+                    allergenConflicts: [
+                        { mealId: clashing.mealId, reason: 'unassessed', allergenCodes: [] },
+                    ],
+                }),
+                placeOrder: async (request: PlaceOrderRequest): Promise<PlacedOrder> =>
+                    placedOrderFrom(basket.cart, request),
+            },
+        });
+
+        await act(async () => {
+            await kitchenServed;
+        });
+        await fireEvent.press(await screen.findByTestId('checkout-address-picker-trigger'));
+        await fireEvent.press(
+            await screen.findByTestId(`checkout-address-picker-option-${HOME_ADDRESS.id}`),
+        );
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-review'));
+        });
+
+        expect(await screen.findByTestId('checkout-allergen-conflict')).toBeTruthy();
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('checkout-place-order').props.accessibilityState,
+            ).toMatchObject({ disabled: false });
+        });
+
+        // The first press asks rather than places.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-place-order'));
+        });
+        expect(await screen.findByText('Order meals with your allergens?')).toBeTruthy();
+        expect(harness.repositories.commerce.placeOrder).not.toHaveBeenCalled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('checkout-allergen-confirm-place'));
+        });
+        await waitFor(() => {
+            expect(harness.repositories.commerce.placeOrder).toHaveBeenCalledWith(
+                expect.objectContaining({ acknowledgeAllergenConflicts: true }),
+            );
+        });
+    });
+});
+
 /* ══ screens: the configurator ═════════════════════════════════════════════════════════════════ */
 
 interface ConfiguratorOptions {
@@ -3076,6 +3135,177 @@ describe('SubscriptionConfiguratorScreen', () => {
         });
         expect(harness.repositories.commerce.createSubscription).not.toHaveBeenCalled();
         expect(routerMock.__replace).not.toHaveBeenCalled();
+    }, 30_000);
+
+    it('draws no meal picker on a plan that does not allow choosing meals', async () => {
+        const harness = await renderConfigurator(
+            { planId: String(PLAN.id) },
+            {
+                addresses: [HOME_ADDRESS],
+                commerce: { createSubscription: async () => testSubscription() },
+            },
+        );
+
+        await walkToReviewStep();
+
+        expect(screen.queryByTestId('configurator-meals-toggle')).toBeNull();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge-control'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-create'));
+        });
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith(
+                `/customer/subscriptions/${String(SUBSCRIPTION_ID)}?created=1`,
+            );
+        });
+        expect(harness.repositories.commerce.setSubscriptionMealChoices).not.toHaveBeenCalled();
+    }, 30_000);
+
+    /** Open the first-week picker and choose `meal` for its first day; answers that day. */
+    async function pickFirstDay(meal: MarketplaceMeal): Promise<string> {
+        await waitFor(() => {
+            expect(screen.getByTestId('configurator-meals-toggle')).toBeTruthy();
+        });
+        await fireEvent.press(screen.getByTestId('configurator-meals-toggle'));
+        const selects = await screen.findAllByTestId(
+            /^configurator-meal-\d{4}-\d{2}-\d{2}-select$/,
+        );
+        const select = selects[0]?.props.testID as string;
+        await fireEvent.press(screen.getByTestId(`${select}-trigger`));
+        await fireEvent.press(await screen.findByTestId(`${select}-option-${String(meal.id)}`));
+        return select.slice('configurator-meal-'.length, -'-select'.length);
+    }
+
+    it('sends the first week’s picks once the subscription exists, one day at a time', async () => {
+        const created = testSubscription({ state: 'active' });
+        const picked = MENU_MEALS[2] as MarketplaceMeal;
+        const harness = await renderConfigurator(
+            { planId: String(PLAN.id) },
+            {
+                addresses: [HOME_ADDRESS],
+                quote: testQuote({ allowsFreeSelection: true }),
+                commerce: {
+                    createSubscription: async () => created,
+                    setSubscriptionMealChoices: async () => [],
+                },
+            },
+        );
+
+        await walkToReviewStep();
+        const firstDay = await pickFirstDay(picked);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge-control'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-create'));
+        });
+
+        await waitFor(
+            () => {
+                expect(routerMock.__replace).toHaveBeenCalledWith(
+                    `/customer/subscriptions/${String(created.id)}?created=1`,
+                );
+            },
+            { timeout: 5000 },
+        );
+
+        // `POST /subscriptions` carries no meals: the picks follow it, each day its own replace,
+        // under the lunch slot the kitchen's own default would otherwise fill.
+        const choices = harness.repositories.commerce
+            .setSubscriptionMealChoices as unknown as jest.Mock;
+        const days = choices.mock.calls.map(
+            (call) => call[1] as { date: string; choices: { slot: string; mealId: string }[] },
+        );
+        expect(choices.mock.calls.every((call) => call[0] === created.id)).toBe(true);
+        expect(days.length).toBeGreaterThan(1);
+        expect(days.length).toBeLessThanOrEqual(7);
+        expect(days[0]).toEqual({
+            date: firstDay,
+            choices: [{ slot: 'lunch', mealId: picked.id }],
+        });
+        expect(days.flatMap((day) => day.choices.map((choice) => choice.slot))).toEqual(
+            days.map(() => 'lunch'),
+        );
+        // Creation came first; a choice cannot name a subscription that does not exist yet.
+        const createdAt = (harness.repositories.commerce.createSubscription as unknown as jest.Mock)
+            .mock.invocationCallOrder[0] as number;
+        expect(choices.mock.invocationCallOrder[0]).toBeGreaterThan(createdAt);
+    }, 30_000);
+
+    it('sends nothing when the picker was never touched', async () => {
+        const harness = await renderConfigurator(
+            { planId: String(PLAN.id) },
+            {
+                addresses: [HOME_ADDRESS],
+                quote: testQuote({ allowsFreeSelection: true }),
+                commerce: {
+                    createSubscription: async () => testSubscription(),
+                    setSubscriptionMealChoices: async () => [],
+                },
+            },
+        );
+
+        await walkToReviewStep();
+        await waitFor(() => {
+            expect(screen.getByTestId('configurator-meals-toggle')).toBeTruthy();
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge-control'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-create'));
+        });
+
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith(
+                `/customer/subscriptions/${String(SUBSCRIPTION_ID)}?created=1`,
+            );
+        });
+        expect(harness.repositories.commerce.setSubscriptionMealChoices).not.toHaveBeenCalled();
+    }, 30_000);
+
+    it('carries refused picks to the new subscription rather than dropping them quietly', async () => {
+        const created = testSubscription({ state: 'active' });
+        let calls = 0;
+        await renderConfigurator(
+            { planId: String(PLAN.id) },
+            {
+                addresses: [HOME_ADDRESS],
+                quote: testQuote({ allowsFreeSelection: true }),
+                commerce: {
+                    createSubscription: async () => created,
+                    // The first day is refused; the rest go through.
+                    setSubscriptionMealChoices: async () => {
+                        calls += 1;
+                        if (calls === 1) throw new ApiError(apiFailure('network'));
+                        return [];
+                    },
+                },
+            },
+        );
+
+        await walkToReviewStep();
+        await pickFirstDay(MENU_MEALS[0] as MarketplaceMeal);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge-control'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-create'));
+        });
+
+        // Still the subscription's page — it exists, and the set-up could only make a second one —
+        // told how many picks did not land.
+        await waitFor(
+            () => {
+                expect(routerMock.__replace).toHaveBeenCalledWith(
+                    `/customer/subscriptions/${String(created.id)}?created=1&unsavedMeals=1`,
+                );
+            },
+            { timeout: 5000 },
+        );
     }, 30_000);
 });
 

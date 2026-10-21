@@ -1551,7 +1551,9 @@ function ProductEditor({
                     first
                     variant="card"
                     testID="kitchen-product-details"
-                    title={t('kitchen:forms.description')}
+                    // On a recipe's Selling tab this is the customer-facing listing, not a second
+                    // copy of the recipe's own Description tab — so it says so.
+                    title={t(embedded ? 'kitchen:forms.menuListing' : 'kitchen:forms.description')}
                 >
                     {embedded ? (
                         identityFields

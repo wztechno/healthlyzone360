@@ -3339,7 +3339,8 @@ export const zPlaceOrderRequest = z.object({
     cart_id: zUuid,
     customer_address_id: zUuid,
     delivery_window_code: z.string().max(40).nullish(),
-    requested_delivery_date: z.iso.date().nullish()
+    requested_delivery_date: z.iso.date().nullish(),
+    acknowledge_allergen_conflicts: z.boolean().optional()
 });
 
 /**
@@ -3353,6 +3354,16 @@ export const zPreviewCheckoutRequest = z.object({
     customer_address_id: z.uuid().nullish(),
     delivery_window_code: z.string().max(40).nullish(),
     requested_delivery_date: z.iso.date().nullish()
+});
+
+export const zAllergenConflict = z.object({
+    catalogue_item_id: zUuid,
+    reason: z.enum([
+        'allergen_declared',
+        'excluded',
+        'unassessed'
+    ]),
+    allergen_codes: z.array(z.string())
 });
 
 /**
@@ -3374,7 +3385,15 @@ export const zCheckoutPreview = z.object({
     total_minor: z.int(),
     line_count: z.int().gte(0),
     warnings: z.array(z.string()),
-    offered_window_codes: z.array(z.string()).nullable()
+    offered_window_codes: z.array(z.string()).nullable(),
+    allergen_conflicts: z.array(zAllergenConflict).optional()
+});
+
+export const zAllergenConflictsEnvelope = z.object({
+    data: z.object({
+        conflicts: z.array(zAllergenConflict)
+    }),
+    meta: zMeta
 });
 
 export const zCheckoutPreviewEnvelope = z.object({
@@ -15821,6 +15840,19 @@ export const zQuoteSubscriptionQuery = z.object({
  * The current quote for this configuration on this run.
  */
 export const zQuoteSubscriptionResponse = zPlanQuoteEnvelope;
+
+export const zListMyAllergenConflictsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListMyAllergenConflictsQuery = z.object({
+    meal_ids: z.string()
+});
+
+/**
+ * The meals among those asked about that clash with the customer's declarations.
+ */
+export const zListMyAllergenConflictsResponse = zAllergenConflictsEnvelope;
 
 export const zListMySubscriptionsHeaders = z.object({
     'Accept-Language': z.string().optional(),

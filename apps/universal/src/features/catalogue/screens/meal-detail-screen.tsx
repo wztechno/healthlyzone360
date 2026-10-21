@@ -27,6 +27,7 @@ import { usePrototypeAction } from '../../../prototype/index.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { useFailureMessage } from '../../../screens/form-helpers.ts';
 import { Eyebrow } from '../../../ui/eyebrow.tsx';
+import { YourAllergens } from '../../commerce/my-allergens.tsx';
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { formatMoney, formatPackSize } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
@@ -543,6 +544,11 @@ function MealInfoColumn({
                         {allergens}
                     </RNText>
                 </View>
+                <YourAllergens
+                    allergens={item.allergens}
+                    testID="meal-detail-your-allergens"
+                    className="mt-2"
+                />
             </View>
 
             <View
