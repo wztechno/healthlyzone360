@@ -126,6 +126,10 @@ function receipt(
             costCurrencyCode: null,
             costedAt: null,
             valuationPendingFx: false,
+            gtin: null,
+            supplierLot: null,
+            expiresOn: null,
+            bestBeforeOn: null,
         })),
     };
 }

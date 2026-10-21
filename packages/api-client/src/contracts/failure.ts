@@ -199,6 +199,11 @@ export const API_FAILURE_CODES = [
     'offboarding.refused',
     'offboarding.settlement_outstanding',
     'record_export.unavailable',
+    // Ingredient barcodes (2026-10-21). `barcode.invalid` carries `details.reason` — the scan
+    // screens word each refusal differently (a weighed-item label is not a typo) — and
+    // `barcode.taken` names the ingredient already holding the code.
+    'barcode.invalid',
+    'barcode.taken',
     'allergens.provider_unavailable',
     'nutrition.provider_unavailable',
     'nutrition.provider_configuration',
@@ -267,6 +272,8 @@ type SimpleFailureCode = Exclude<
     | 'closure.refused'
     | 'offboarding.refused'
     | 'offboarding.settlement_outstanding'
+    | 'barcode.invalid'
+    | 'barcode.taken'
 >;
 
 export type ApiFailure =
@@ -384,6 +391,21 @@ export type ApiFailure =
            * guessing game played against the server.
            */
           readonly blockers: readonly string[];
+      })
+    | (ApiFailureBase & {
+          readonly code: 'barcode.invalid';
+          /**
+           * `unreadable`, `check_digit`, `variable_measure`, `reserved` or `not_a_product_code`;
+           * `''` when unstated.
+           */
+          readonly reason: string;
+      })
+    | (ApiFailureBase & {
+          readonly code: 'barcode.taken';
+          /** The ingredient already holding the code in this kitchen, when the server named it. */
+          readonly ingredientId: string | null;
+          readonly nameEn: string | null;
+          readonly nameAr: string | null;
       });
 
 /** Codes where retrying the same request unchanged is pointless or harmful. */
@@ -447,6 +469,9 @@ const NEVER_RETRYABLE: ReadonlySet<ApiFailureCode> = new Set<ApiFailureCode>([
     'offboarding.refused',
     'offboarding.settlement_outstanding',
     'record_export.unavailable',
+    // A code's digits do not change between attempts, and nor does who holds it.
+    'barcode.invalid',
+    'barcode.taken',
     // Retrying cannot conjure an endpoint that has not been built.
     'prototype.not_implemented',
 ]);
@@ -529,6 +554,8 @@ const FALLBACK_MESSAGES: Readonly<Record<ApiFailureCode, string>> = {
     'offboarding.settlement_outstanding':
         'Settlement is not resolved, so this cannot be signed off.',
     'record_export.unavailable': 'This bundle is not available to download.',
+    'barcode.invalid': 'This barcode cannot be used here.',
+    'barcode.taken': 'This barcode already belongs to another ingredient.',
     network: 'Healthy360 could not be reached.',
     server: 'Something went wrong on our side.',
     'prototype.not_implemented':
@@ -725,6 +752,31 @@ export function subscriptionRefusedFailure(
         code,
         reasons,
         message: options.message ?? FALLBACK_MESSAGES[code],
+        correlationId: options.correlationId ?? null,
+        retryable: options.retryable ?? false,
+    };
+}
+
+/** A barcode that cannot be used as asked; `reason` says why (ingredient barcodes). */
+export function barcodeInvalidFailure(reason: string, options: FailureOptions = {}): ApiFailure {
+    return {
+        code: 'barcode.invalid',
+        reason,
+        message: options.message ?? FALLBACK_MESSAGES['barcode.invalid'],
+        correlationId: options.correlationId ?? null,
+        retryable: options.retryable ?? false,
+    };
+}
+
+/** A barcode another ingredient in this kitchen already holds, naming the holder. */
+export function barcodeTakenFailure(
+    holder: { ingredientId: string | null; nameEn: string | null; nameAr: string | null },
+    options: FailureOptions = {},
+): ApiFailure {
+    return {
+        code: 'barcode.taken',
+        ...holder,
+        message: options.message ?? FALLBACK_MESSAGES['barcode.taken'],
         correlationId: options.correlationId ?? null,
         retryable: options.retryable ?? false,
     };

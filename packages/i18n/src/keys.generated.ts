@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8401 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8465 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2572,6 +2572,8 @@ export interface NamespaceKeys {
     | 'failure.b2b_documents_incomplete'
     | 'failure.b2b_quotation_state_invalid'
     | 'failure.b2b_signatory_required'
+    | 'failure.barcode_invalid'
+    | 'failure.barcode_taken'
     | 'failure.cart_line_refused'
     | 'failure.closure_refused'
     | 'failure.contact_already_in_use'
@@ -3036,6 +3038,68 @@ export interface NamespaceKeys {
     | 'availability.sectionServiceDays'
     | 'availability.sectionTitle'
     | 'availability.servingHeader'
+    | 'barcodes.add'
+    | 'barcodes.backToIngredient'
+    | 'barcodes.bestBeforeLabel'
+    | 'barcodes.camera'
+    | 'barcodes.cameraAllow'
+    | 'barcodes.cameraAsk'
+    | 'barcodes.cameraBlocked'
+    | 'barcodes.cameraTitle'
+    | 'barcodes.codeLabel'
+    | 'barcodes.codePlaceholder'
+    | 'barcodes.columnLot'
+    | 'barcodes.description'
+    | 'barcodes.empty'
+    | 'barcodes.expiresLabel'
+    | 'barcodes.expiresShort'
+    | 'barcodes.generate'
+    | 'barcodes.hideLots'
+    | 'barcodes.issueLotCheck'
+    | 'barcodes.issueLotUnreadable'
+    | 'barcodes.keptApart'
+    | 'barcodes.labelLoadError'
+    | 'barcodes.labelNone'
+    | 'barcodes.labelNotFound'
+    | 'barcodes.lineTitle'
+    | 'barcodes.linkBody'
+    | 'barcodes.linkCancel'
+    | 'barcodes.linkSave'
+    | 'barcodes.linkShelf'
+    | 'barcodes.linkTitle'
+    | 'barcodes.lotCheckNeeded'
+    | 'barcodes.lotChecked'
+    | 'barcodes.lotFilterLabel'
+    | 'barcodes.lotFilterPlaceholder'
+    | 'barcodes.lotLabel'
+    | 'barcodes.lotPlaceholder'
+    | 'barcodes.lotShort'
+    | 'barcodes.lotUnreadable'
+    | 'barcodes.lotUnverified'
+    | 'barcodes.noShelf'
+    | 'barcodes.originSupplier'
+    | 'barcodes.originSystem'
+    | 'barcodes.packLabel'
+    | 'barcodes.packPlaceholder'
+    | 'barcodes.packSize'
+    | 'barcodes.packUnitLabel'
+    | 'barcodes.printLabel'
+    | 'barcodes.refused.check_digit'
+    | 'barcodes.refused.not_a_product_code'
+    | 'barcodes.refused.reserved'
+    | 'barcodes.refused.unreadable'
+    | 'barcodes.refused.variable_measure'
+    | 'barcodes.refusedTitle'
+    | 'barcodes.remove'
+    | 'barcodes.retired'
+    | 'barcodes.scanLabel'
+    | 'barcodes.scanPlaceholder'
+    | 'barcodes.scannedProduct'
+    | 'barcodes.showLots'
+    | 'barcodes.taken'
+    | 'barcodes.title'
+    | 'barcodes.typeQuantity'
+    | 'barcodes.unknown'
     | 'bilingual.arabicLabel'
     | 'bilingual.arabicShort'
     | 'bilingual.copyFromEnglish'
@@ -10994,6 +11058,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:failure.b2b_documents_incomplete',
   'errors:failure.b2b_quotation_state_invalid',
   'errors:failure.b2b_signatory_required',
+  'errors:failure.barcode_invalid',
+  'errors:failure.barcode_taken',
   'errors:failure.cart_line_refused',
   'errors:failure.closure_refused',
   'errors:failure.contact_already_in_use',
@@ -11455,6 +11521,68 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:availability.sectionServiceDays',
   'kitchen:availability.sectionTitle',
   'kitchen:availability.servingHeader',
+  'kitchen:barcodes.add',
+  'kitchen:barcodes.backToIngredient',
+  'kitchen:barcodes.bestBeforeLabel',
+  'kitchen:barcodes.camera',
+  'kitchen:barcodes.cameraAllow',
+  'kitchen:barcodes.cameraAsk',
+  'kitchen:barcodes.cameraBlocked',
+  'kitchen:barcodes.cameraTitle',
+  'kitchen:barcodes.codeLabel',
+  'kitchen:barcodes.codePlaceholder',
+  'kitchen:barcodes.columnLot',
+  'kitchen:barcodes.description',
+  'kitchen:barcodes.empty',
+  'kitchen:barcodes.expiresLabel',
+  'kitchen:barcodes.expiresShort',
+  'kitchen:barcodes.generate',
+  'kitchen:barcodes.hideLots',
+  'kitchen:barcodes.issueLotCheck',
+  'kitchen:barcodes.issueLotUnreadable',
+  'kitchen:barcodes.keptApart',
+  'kitchen:barcodes.labelLoadError',
+  'kitchen:barcodes.labelNone',
+  'kitchen:barcodes.labelNotFound',
+  'kitchen:barcodes.lineTitle',
+  'kitchen:barcodes.linkBody',
+  'kitchen:barcodes.linkCancel',
+  'kitchen:barcodes.linkSave',
+  'kitchen:barcodes.linkShelf',
+  'kitchen:barcodes.linkTitle',
+  'kitchen:barcodes.lotCheckNeeded',
+  'kitchen:barcodes.lotChecked',
+  'kitchen:barcodes.lotFilterLabel',
+  'kitchen:barcodes.lotFilterPlaceholder',
+  'kitchen:barcodes.lotLabel',
+  'kitchen:barcodes.lotPlaceholder',
+  'kitchen:barcodes.lotShort',
+  'kitchen:barcodes.lotUnreadable',
+  'kitchen:barcodes.lotUnverified',
+  'kitchen:barcodes.noShelf',
+  'kitchen:barcodes.originSupplier',
+  'kitchen:barcodes.originSystem',
+  'kitchen:barcodes.packLabel',
+  'kitchen:barcodes.packPlaceholder',
+  'kitchen:barcodes.packSize',
+  'kitchen:barcodes.packUnitLabel',
+  'kitchen:barcodes.printLabel',
+  'kitchen:barcodes.refused.check_digit',
+  'kitchen:barcodes.refused.not_a_product_code',
+  'kitchen:barcodes.refused.reserved',
+  'kitchen:barcodes.refused.unreadable',
+  'kitchen:barcodes.refused.variable_measure',
+  'kitchen:barcodes.refusedTitle',
+  'kitchen:barcodes.remove',
+  'kitchen:barcodes.retired',
+  'kitchen:barcodes.scanLabel',
+  'kitchen:barcodes.scanPlaceholder',
+  'kitchen:barcodes.scannedProduct',
+  'kitchen:barcodes.showLots',
+  'kitchen:barcodes.taken',
+  'kitchen:barcodes.title',
+  'kitchen:barcodes.typeQuantity',
+  'kitchen:barcodes.unknown',
   'kitchen:bilingual.arabicLabel',
   'kitchen:bilingual.arabicShort',
   'kitchen:bilingual.copyFromEnglish',

@@ -69,6 +69,9 @@ export const FAILURE_MESSAGE_KEYS: Readonly<Record<ApiFailure['code'], string>> 
     'offboarding.refused': 'errors:failure.offboarding_refused',
     'offboarding.settlement_outstanding': 'errors:failure.offboarding_settlement_outstanding',
     'record_export.unavailable': 'errors:failure.record_export_unavailable',
+    // Ingredient barcodes. The scan screens word each reason themselves; this is the last resort.
+    'barcode.invalid': 'errors:failure.barcode_invalid',
+    'barcode.taken': 'errors:failure.barcode_taken',
     // Raised by every prototype API repository. The record is exhaustive over `ApiFailure['code']`,
     // so a new failure code cannot be added upstream without this table being updated — which is
     // exactly the point of typing it that way.

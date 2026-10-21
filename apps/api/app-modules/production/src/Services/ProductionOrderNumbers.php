@@ -7,6 +7,7 @@ namespace Healthy360\Production\Services;
 use Carbon\CarbonImmutable;
 use Healthy360\Procurement\Services\PurchaseOrderNumbers;
 use Healthy360\Production\Models\ProductionOrder;
+use Healthy360\Support\Identifiers\Gs1;
 use Illuminate\Support\Facades\DB;
 use Random\RandomException;
 use RuntimeException;
@@ -73,16 +74,6 @@ class ProductionOrderNumbers
 
     /** Three sequence digits — see {@see lot()} for the ceiling. */
     private const int LOT_SEQUENCE_CEILING = 999;
-
-    /** ASCII 29, the GS1 group separator a scanner sends in place of FNC1. */
-    private const string GROUP_SEPARATOR = "\x1D";
-
-    /**
-     * The fixed-length GS1 AIs a label may carry ahead of the lot, and their
-     * data lengths: GTIN, and the production, packaging, best-before and expiry
-     * dates. Anything else ends the parse as unrecognised.
-     */
-    private const array FIXED_LENGTH_AIS = ['01' => 14, '11' => 6, '13' => 6, '15' => 6, '17' => 6];
 
     /**
      * A reference free within this organisation, as far as a read can tell.
@@ -166,16 +157,11 @@ class ProductionOrderNumbers
      * Weights 3, 1, 3, … from the **right**, so the same function serves any
      * length. It catches every single mistyped digit and most adjacent swaps,
      * which is exactly the mistake a person copying a lot off a tray makes.
+     * {@see Gs1::checkDigit()} owns it now; this keeps the old call sites.
      */
     public static function checkDigit(string $digits): int
     {
-        $sum = 0;
-
-        foreach (array_reverse(str_split($digits)) as $index => $digit) {
-            $sum += (int) $digit * ($index % 2 === 0 ? 3 : 1);
-        }
-
-        return (10 - $sum % 10) % 10;
+        return Gs1::checkDigit($digits);
     }
 
     /**
@@ -205,8 +191,9 @@ class ProductionOrderNumbers
      *    hold. A wrong digit is null rather than the nearest batch.
      * 3. A GS1 element string, as a scanner in keyboard mode sends it (with or
      *    without the `]C1` symbology prefix, with an ASCII 29 separator or none)
-     *    or as it is printed under the bars, in parentheses. The (10) lot inside
-     *    it is validated like (2). An AI this kitchen never prints is null.
+     *    or as it is printed under the bars, in parentheses — read by
+     *    {@see Gs1::parse()}. The (10) lot inside it is validated like (2), so a
+     *    lot that swallowed a dropped separator's tail fails its check.
      */
     public static function lookupKey(string $code): ?string
     {
@@ -222,45 +209,9 @@ class ProductionOrderNumbers
             return self::validLot($digits);
         }
 
-        if (str_starts_with($code, ']C1')) {
-            $code = substr($code, 3);
-        }
+        $lot = Gs1::parse($code)?->lot();
 
-        // Each "(" opens an AI, which in the raw form is where a separator would
-        // sit; the leading one is noise.
-        $code = ltrim(str_replace(['(', ')'], [self::GROUP_SEPARATOR, ''], $code), self::GROUP_SEPARATOR);
-        $position = 0;
-
-        while ($position < strlen($code)) {
-            $ai = substr($code, $position, 2);
-
-            if ($ai === '10') {
-                $end = strpos($code, self::GROUP_SEPARATOR, $position + 2);
-                $lot = $end === false ? substr($code, $position + 2) : substr($code, $position + 2, $end - $position - 2);
-
-                return self::validLot($lot);
-            }
-
-            $length = self::FIXED_LENGTH_AIS[$ai] ?? null;
-
-            if ($length === null) {
-                return null;
-            }
-
-            $value = substr($code, $position + 2, $length);
-
-            if (strlen($value) !== $length || ! ctype_digit($value)) {
-                return null;
-            }
-
-            $position += 2 + $length;
-
-            if (($code[$position] ?? '') === self::GROUP_SEPARATOR) {
-                $position++;
-            }
-        }
-
-        return null;
+        return $lot === null ? null : self::validLot($lot);
     }
 
     private static function validLot(string $lot): ?string

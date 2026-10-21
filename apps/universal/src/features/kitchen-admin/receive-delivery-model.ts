@@ -32,10 +32,243 @@ import { trimDecimal } from './format.ts';
  * receiving guard has already answered, and the two would eventually disagree about a delivery
  * quoted per kilogram against a shelf counted in grams. This module compares against the server's
  * figure and nothing else.
+ *
+ * ## Scanning (ingredient barcodes, plan §8)
+ *
+ * A scan adds one pack to a row, and records off the pack what arrived: the product's GTIN, the
+ * supplier lot and its two dates. The rules are here, generic over both screens' rows, so the
+ * market-purchase form and the receive-against-order form count a scan the same way:
+ *
+ * 1. a scan-counted row on that shelf (and order line) with the **identical** GTIN, lot, expiry and
+ *    best-before takes one more pack;
+ * 2. otherwise, against an order, the line's **untouched prefill** is converted — its quantity
+ *    becomes one pack, the outstanding figure is dropped rather than added to;
+ * 3. otherwise a new scan-counted row is added, copying the order line, its unit and its price;
+ * 4. a quantity somebody **typed** is never edited by a scan — the scan lands on its own row and
+ *    the grouped check below flags any double count;
+ * 5. a lot that matches with different dates is a new row, and says so.
+ *
+ * One pack is the code's pack size only when its unit **equals** the row's unit — the client has
+ * no unit ratios and never converts. Otherwise the row is left empty for a person to type.
  */
 
+/** Where a row's quantity came from: the order's outstanding prefill, a person, or a scanner. */
+export type QuantitySource = 'prefill' | 'typed' | 'scanned';
+
+/** What a scan writes on a row beside its quantity — the same fields on both screens' rows. */
+export interface ScanTrace {
+    /** The product scanned, fourteen digits. */
+    readonly gtin?: string | null | undefined;
+    readonly supplierLot?: string | undefined;
+    /** `YYYY-MM-DD`, GS1 (17). */
+    readonly expiresOn?: string | undefined;
+    /** `YYYY-MM-DD`, GS1 (15). */
+    readonly bestBeforeOn?: string | undefined;
+    readonly quantitySource?: QuantitySource | undefined;
+    /**
+     * The lot was read to the end of a scan with no separator, so where it ends is not proven
+     * (plan §5). The row cannot post until a person ticks {@link lotConfirmed} or edits the lot.
+     */
+    readonly lotUnverified?: boolean | undefined;
+    readonly lotConfirmed?: boolean | undefined;
+}
+
+/** The part of a row a scan reads: its key, its shelf, its order line and its quantity. */
+export interface ScannableDraft extends ScanTrace {
+    readonly key: string;
+    readonly stockItemId: string | null;
+    readonly purchaseOrderLineId?: string | null | undefined;
+    readonly quantity: string;
+    /** What the order line still had to come, in its own unit — read, never recomputed. */
+    readonly outstandingQuantity?: string | undefined;
+}
+
+/** One scan, resolved to the shelf it lands on. */
+export interface ScannedPack {
+    readonly stockItemId: string;
+    readonly gtin: string;
+    readonly supplierLot: string | null;
+    readonly expiresOn: string | null;
+    readonly bestBeforeOn: string | null;
+    readonly boundaryVerified: boolean;
+    /** One scan of the code, when the code has a pack size. */
+    readonly packQuantity: string | null;
+    readonly packUnitCode: string | null;
+}
+
+export interface ScanPlacement<Draft> {
+    readonly drafts: readonly Draft[];
+    /** The row the scan landed on. */
+    readonly key: string;
+    /** The pack could not be counted — no pack size, or another unit — so the quantity is a person's. */
+    readonly needsQuantity: boolean;
+    /** The same lot arrived with other dates and was kept on its own row. */
+    readonly keptApart: boolean;
+}
+
+function scanTrace(scan: ScannedPack): Required<Omit<ScanTrace, 'quantitySource'>> {
+    return {
+        gtin: scan.gtin,
+        supplierLot: scan.supplierLot ?? '',
+        expiresOn: scan.expiresOn ?? '',
+        bestBeforeOn: scan.bestBeforeOn ?? '',
+        // Any field read to the end of a separator-free scan — the lot, or a serial that swallowed
+        // it — needs a person to look at the pack before the line posts.
+        lotUnverified: !scan.boundaryVerified,
+        lotConfirmed: false,
+    };
+}
+
+function sameProductAndLot(draft: ScanTrace, scan: ScannedPack): boolean {
+    return (
+        (draft.gtin ?? null) === scan.gtin && (draft.supplierLot ?? '') === (scan.supplierLot ?? '')
+    );
+}
+
+function sameTrace(draft: ScanTrace, scan: ScannedPack): boolean {
+    return (
+        sameProductAndLot(draft, scan) &&
+        (draft.expiresOn ?? '') === (scan.expiresOn ?? '') &&
+        (draft.bestBeforeOn ?? '') === (scan.bestBeforeOn ?? '')
+    );
+}
+
+/** Four places, as the columns hold, without a binary-fraction tail. */
+function addQuantities(left: string, right: string): string {
+    return trimDecimal(((readQuantity(left) ?? 0) + Number(right)).toFixed(4));
+}
+
+/**
+ * Lands one scan on the rows (the rules in this module's header). `create` builds the base of a new
+ * row: from `template` — the order line's own row, carrying its line, unit and price — or, with no
+ * template, a fresh row for the shelf.
+ */
+export function applyScan<Draft extends ScannableDraft>(
+    drafts: readonly Draft[],
+    scan: ScannedPack,
+    options: {
+        readonly orderMode: boolean;
+        /** The unit code a row's quantity is in. */
+        readonly unitOf: (draft: Draft) => string | null;
+        readonly create: (template: Draft | null) => Draft;
+    },
+): ScanPlacement<Draft> {
+    const onShelf = drafts.filter((draft) => draft.stockItemId === scan.stockItemId);
+    const template = options.orderMode
+        ? (onShelf.find((draft) => (draft.purchaseOrderLineId ?? null) !== null) ?? null)
+        : null;
+    const lineId = template?.purchaseOrderLineId ?? null;
+    const candidates = onShelf.filter(
+        (draft) => !options.orderMode || (draft.purchaseOrderLineId ?? null) === lineId,
+    );
+    const packFits = (draft: Draft): boolean =>
+        scan.packQuantity !== null &&
+        scan.packUnitCode !== null &&
+        scan.packUnitCode === options.unitOf(draft);
+    const onePack = scan.packQuantity === null ? '' : trimDecimal(scan.packQuantity);
+    const replace = (next: Draft): readonly Draft[] =>
+        drafts.map((draft) => (draft.key === next.key ? next : draft));
+
+    const match = candidates.find(
+        (draft) => draft.quantitySource === 'scanned' && sameTrace(draft, scan),
+    );
+    if (match !== undefined) {
+        if (!packFits(match)) {
+            return { drafts, key: match.key, needsQuantity: true, keptApart: false };
+        }
+        const next: Draft = { ...match, quantity: addQuantities(match.quantity, onePack) };
+        return { drafts: replace(next), key: match.key, needsQuantity: false, keptApart: false };
+    }
+
+    const prefill = options.orderMode
+        ? candidates.find(
+              (draft) =>
+                  draft.quantitySource === 'prefill' &&
+                  (draft.gtin ?? null) === null &&
+                  (draft.supplierLot ?? '') === '' &&
+                  (draft.expiresOn ?? '') === '' &&
+                  (draft.bestBeforeOn ?? '') === '',
+          )
+        : undefined;
+    if (prefill !== undefined) {
+        const fits = packFits(prefill);
+        const next: Draft = {
+            ...prefill,
+            ...scanTrace(scan),
+            quantitySource: 'scanned',
+            quantity: fits ? onePack : '',
+        };
+        return { drafts: replace(next), key: next.key, needsQuantity: !fits, keptApart: false };
+    }
+
+    const keptApart = candidates.some(
+        (draft) => draft.quantitySource === 'scanned' && sameProductAndLot(draft, scan),
+    );
+    const base = options.create(template);
+    const fits = packFits(base);
+    const created: Draft = {
+        ...base,
+        ...scanTrace(scan),
+        quantitySource: 'scanned',
+        quantity: fits ? onePack : '',
+    };
+    return { drafts: [...drafts, created], key: created.key, needsQuantity: !fits, keptApart };
+}
+
+/** GS1 AI (10): at most 20 characters of the GS1 set — what the server accepts. Blank is fine. */
+export function lotIsReadable(lot: string | undefined): boolean {
+    return /^[!"%&'()*+,\-./0-9:;<=>?A-Z_a-z]{0,20}$/.test((lot ?? '').trim());
+}
+
+/** A lot that still needs a person to say it was read right. */
+export function lotCheckPending(line: ScanTrace): boolean {
+    return line.lotUnverified === true && line.lotConfirmed !== true;
+}
+
+/** The traceability a row sends, each field only when it is set. */
+export function traceInput(line: ScanTrace): {
+    readonly gtin?: string;
+    readonly supplierLot?: string;
+    readonly expiresOn?: string;
+    readonly bestBeforeOn?: string;
+} {
+    const set = (value: string | null | undefined): string | null =>
+        value === null || value === undefined || value.trim() === '' ? null : value.trim();
+    const gtin = set(line.gtin);
+    const supplierLot = set(line.supplierLot);
+    const expiresOn = set(line.expiresOn);
+    const bestBeforeOn = set(line.bestBeforeOn);
+
+    return {
+        ...(gtin === null ? {} : { gtin }),
+        ...(supplierLot === null ? {} : { supplierLot }),
+        ...(expiresOn === null ? {} : { expiresOn }),
+        ...(bestBeforeOn === null ? {} : { bestBeforeOn }),
+    };
+}
+
+/**
+ * Each order line's rows summed, all in the line's own unit. Two lots of 5 against 10 outstanding is
+ * ten, which is neither short nor over; comparing row by row would call both rows short.
+ */
+export function orderLineTotals(
+    lines: readonly ScannableDraft[],
+): ReadonlyMap<string, { readonly received: number; readonly outstanding: number }> {
+    const totals = new Map<string, { received: number; outstanding: number }>();
+    for (const line of lines) {
+        const id = line.purchaseOrderLineId ?? null;
+        if (id === null) continue;
+        const current = totals.get(id);
+        totals.set(id, {
+            received: (current?.received ?? 0) + (readQuantity(line.quantity) ?? 0),
+            outstanding: Number(line.outstandingQuantity ?? '0'),
+        });
+    }
+    return totals;
+}
+
 /** One row of the receive form, before it becomes a request line. */
-export interface ReceiveLineDraft {
+export interface ReceiveLineDraft extends ScannableDraft {
     /** `null` for an unplanned extra item — something on the van nobody ordered (§4). */
     readonly purchaseOrderLineId: string | null;
     readonly stockItemId: string;
@@ -82,6 +315,8 @@ export interface ReceiveReadiness {
     readonly hasOverReceipt: boolean;
     /** At least one row is delivering less than its outstanding quantity. */
     readonly hasShortfall: boolean;
+    /** At least one scanned lot is waiting for a person to confirm it was read right. */
+    readonly needsLotCheck: boolean;
     /** At least one row was added by hand and belongs to no ordered line (§4). */
     readonly hasUnplannedLine: boolean;
     /** A note is required — for an over-receipt, or for an unplanned item. */
@@ -113,18 +348,34 @@ export function readAmount(raw: string): number | null {
     return Number(trimmed);
 }
 
-/** Whether one row is delivering more than the order still has outstanding. */
-export function exceedsOutstanding(line: ReceiveLineDraft): boolean {
-    if (line.purchaseOrderLineId === null) return false;
-    const quantity = readQuantity(line.quantity);
-    if (quantity === null) return false;
-    return quantity > Number(line.outstandingQuantity);
+/** Rounded to the four places the columns hold, so a sum of decimals compares honestly. */
+function fourPlaces(value: number): number {
+    return Math.round(value * 10_000) / 10_000;
 }
 
-/** Whether one row is delivering less than the order still has outstanding. */
-export function fallsShort(line: ReceiveLineDraft): boolean {
-    if (line.purchaseOrderLineId === null) return false;
-    return (readQuantity(line.quantity) ?? 0) < Number(line.outstandingQuantity);
+/**
+ * Whether a row's order line is receiving more than it still has outstanding — summed over every
+ * row on that line (`lines`), since a second lot is a second row of the same line.
+ */
+export function exceedsOutstanding(
+    line: ScannableDraft,
+    lines: readonly ScannableDraft[] = [line],
+): boolean {
+    const id = line.purchaseOrderLineId ?? null;
+    if (id === null) return false;
+    const total = orderLineTotals(lines).get(id);
+    return total !== undefined && fourPlaces(total.received) > fourPlaces(total.outstanding);
+}
+
+/** Whether a row's order line is receiving less than it still has outstanding, summed over its rows. */
+export function fallsShort(
+    line: ScannableDraft,
+    lines: readonly ScannableDraft[] = [line],
+): boolean {
+    const id = line.purchaseOrderLineId ?? null;
+    if (id === null) return false;
+    const total = orderLineTotals(lines).get(id);
+    return total !== undefined && fourPlaces(total.received) < fourPlaces(total.outstanding);
 }
 
 /**
@@ -136,6 +387,7 @@ export function fallsShort(line: ReceiveLineDraft): boolean {
  */
 export function initialLines(order: ReceivableOrder): readonly ReceiveLineDraft[] {
     return order.lines.map((line: ReceivableOrderLine) => ({
+        key: `order-line-${line.purchaseOrderLineId}`,
         purchaseOrderLineId: line.purchaseOrderLineId,
         stockItemId: String(line.stockItemId),
         itemLabel: `${line.itemCode} — ${line.itemNameEn}`,
@@ -145,6 +397,7 @@ export function initialLines(order: ReceivableOrder): readonly ReceiveLineDraft[
         outstandingQuantity: trimDecimal(line.outstandingQuantity),
         quantity: Number(line.outstandingQuantity) > 0 ? trimDecimal(line.outstandingQuantity) : '',
         unitPrice: '',
+        quantitySource: 'prefill' as const,
     }));
 }
 
@@ -155,8 +408,11 @@ export function readiness(
     againstOrder: boolean,
 ): ReceiveReadiness {
     const delivered = lines.filter((line) => (readQuantity(line.quantity) ?? 0) > 0);
-    const hasOverReceipt = lines.some(exceedsOutstanding);
-    const hasShortfall = lines.some(fallsShort);
+    const hasOverReceipt = lines.some((line) => exceedsOutstanding(line, lines));
+    const hasShortfall = lines.some((line) => fallsShort(line, lines));
+    // Only rows that will post: a row left at nothing is dropped from the request anyway.
+    const needsLotCheck = delivered.some(lotCheckPending);
+    const everyLotReadable = delivered.every((line) => lotIsReadable(line.supplierLot));
     const hasUnplannedLine = againstOrder && delivered.some((l) => l.purchaseOrderLineId === null);
 
     const noteBlank = confirmations.varianceNote.trim() === '';
@@ -178,6 +434,7 @@ export function readiness(
         skippedLineCount: lines.length - delivered.length,
         hasOverReceipt,
         hasShortfall,
+        needsLotCheck,
         hasUnplannedLine,
         needsVarianceNote,
         needsCloseShortReason,
@@ -185,8 +442,10 @@ export function readiness(
             delivered.length > 0 &&
             everyQuantityReadable &&
             everyPriceReadable &&
+            everyLotReadable &&
             !needsVarianceNote &&
             !needsCloseShortReason &&
+            !needsLotCheck &&
             (!hasOverReceipt || confirmations.overReceiptConfirmed),
     };
 }
@@ -233,6 +492,7 @@ export function toReceiptPayload(
             ...(price === null
                 ? {}
                 : { unitPriceAmount: price, costCurrencyCode: context.currencyCode }),
+            ...traceInput(line),
         });
     }
 

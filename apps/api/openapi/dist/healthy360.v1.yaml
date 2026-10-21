@@ -1670,7 +1670,11 @@ paths:
         - name: query
           in: query
           required: false
-          description: Case-insensitive substring match over both names and every alias.
+          description: |
+            Case-insensitive substring match over both names and every alias.
+            A term that reads as a GTIN (any form a scanner sends) also matches
+            the ingredients holding that barcode in this kitchen, so the search
+            box works with a keyboard-wedge scanner.
           schema:
             type: string
             maxLength: 160
@@ -2482,6 +2486,233 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/ingredients/{ingredient}/barcodes:
+    get:
+      operationId: listIngredientBarcodes
+      tags:
+        - Kitchen catalogue
+      summary: The barcodes this kitchen has linked to an ingredient
+      description: |
+        Producer's codes (`origin: supplier`) and the kitchen code
+        (`origin: system`, at most one), oldest first. The rows are the
+        kitchen's own, so a platform-library ingredient has them too.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/IngredientPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The barcodes of this ingredient.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IngredientBarcode'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: addIngredientBarcode
+      tags:
+        - Kitchen catalogue
+      summary: Link a producer's barcode, or make a kitchen barcode
+      description: |
+        **`origin: supplier`** links the code on a pack: EAN-8, UPC-A, EAN-13 or
+        a GTIN-14 case code, typed or scanned in any form a scanner produces
+        (AIM prefix, GS1 element string, the printed `(01)…` line, a GS1 Digital
+        Link). It is stored as fourteen digits with its check digit verified.
+        A code another ingredient in this kitchen already holds is
+        `409 barcode.taken`, naming the holder.
+
+        **`origin: system`** makes the ingredient's kitchen code — a GS1
+        Restricted Circulation Number, `04` + a counter + check digit, printed
+        as EAN-13. Idempotent: an ingredient that already has one gets it back
+        with `200`. A number once issued is never reissued, even after its row
+        is deleted, because a printed label outlives its row.
+
+        `pack_quantity` is "one scan = this much". Its unit defaults to the
+        ingredient's default unit, and must be that unit or convert to it; a
+        package unit (bag, can, pack) is refused.
+
+        `422 barcode.invalid` carries `details.reason`: `unreadable`,
+        `check_digit`, `variable_measure` (a weighed-item or price label —
+        GTIN-13 prefixes 02 and 20–29, GTIN-14 indicator 9), `reserved` (the
+        `04` kitchen range offered as a producer's code) or
+        `not_a_product_code` (a scan with no GTIN in it).
+
+        Requires `catalogue.manage_organisation`, and refused for a kitchen the
+        platform has suspended.
+      parameters:
+        - $ref: '#/components/parameters/IngredientPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddIngredientBarcodeRequest'
+      responses:
+        '200':
+          description: The ingredient already had its kitchen code; this is it.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngredientBarcodeEnvelope'
+        '201':
+          description: The barcode was linked or made.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngredientBarcodeEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/BarcodeConflict'
+        '422':
+          $ref: '#/components/responses/BarcodeRefused'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/ingredients/{ingredient}/barcodes/{barcode}:
+    delete:
+      operationId: removeIngredientBarcode
+      tags:
+        - Kitchen catalogue
+      summary: Remove a barcode
+      description: |
+        A real, audited delete. Moving a code to another ingredient is a remove
+        and a re-add. A removed kitchen code's number is never issued again, so
+        a label still on a tub scans as a kitchen code with no link.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/IngredientPath'
+        - name: barcode
+          in: path
+          required: true
+          description: The barcode identifier.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '204':
+          description: The barcode was removed.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/ingredient-barcodes/scan:
+    get:
+      operationId: scanIngredientBarcode
+      tags:
+        - Kitchen inventory & production
+      summary: What a scan says, and which ingredient holds it
+      description: |
+        Reads a scan in any form (bare digits, AIM prefix, GS1-128 or
+        DataMatrix element string, the printed `(01)…` line, a GS1 Digital
+        Link) and answers its GTIN, the supplier lot `(10)`, the expiry `(17)`
+        and best-before `(15)`, and the link that holds the GTIN in this
+        kitchen.
+
+        `boundary_verified` is false when a variable-length field (a lot) was
+        read to the end of a scan that carried no separator: GS1's literal
+        reading, which a dropped separator would also produce. The parser never
+        splits such a field on a guess; the screen asks a person to check it.
+
+        A readable code nobody has linked is `200` with `link: null`;
+        `origin_hint: system` then says it is a kitchen label that is no longer
+        in use. An unreadable or refused code is `422 barcode.invalid` — a
+        weighed-item label among them.
+
+        Requires `inventory.view_organisation`.
+      parameters:
+        - name: code
+          in: query
+          required: true
+          description: The raw scan, as the scanner or camera produced it.
+          schema:
+            type: string
+            maxLength: 512
+        - name: symbology
+          in: query
+          required: false
+          description: |
+            The camera's symbol type (`ean13`, `upc_e`, `datamatrix`, …). With
+            `upc_e`, eight digits are expanded to the UPC-A they stand for. A
+            keyboard-wedge scanner sends none.
+          schema:
+            type: string
+            maxLength: 32
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The scan, read.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - scan
+                    properties:
+                      scan:
+                        $ref: '#/components/schemas/IngredientBarcodeScan'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/BarcodeRefused'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /catalogue/ingredient-categories:
@@ -9390,6 +9621,52 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/ingredient-barcodes:
+    post:
+      operationId: linkIngredientBarcodeAtReceiving
+      tags:
+        - Kitchen inventory & production
+      summary: Link a producer's barcode while receiving
+      description: |
+        The dock's route to the same write as `addIngredientBarcode`: a receiver
+        who scans a code nobody has linked links it on the spot, without leaving
+        the receive screen (owner, 2026-10-21). Producer's codes only — `origin`
+        may be omitted and can only be `supplier` — and no removal. Every link is
+        audited.
+
+        Requires `inventory.manage_organisation`, and refused for a kitchen the
+        platform has suspended.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkIngredientBarcodeAtReceivingRequest'
+      responses:
+        '201':
+          description: The barcode was linked.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngredientBarcodeEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/BarcodeConflict'
+        '422':
+          $ref: '#/components/responses/BarcodeRefused'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/inventory/counts:
     post:
       operationId: recordStockCount
@@ -10442,8 +10719,18 @@ paths:
         is always null in v1 (O2): there is no purchase-order surface yet
         to have created one.
 
+        `supplier_lot` answers the recall question — which deliveries brought
+        lot X — as an exact match on any of a receipt's lines.
+
         Requires `inventory.view_organisation`.
       parameters:
+        - name: supplier_lot
+          in: query
+          required: false
+          description: Only receipts with a line carrying exactly this supplier lot.
+          schema:
+            type: string
+            maxLength: 20
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
@@ -23470,6 +23757,46 @@ components:
               details:
                 current_lock_version: 4
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    BarcodeConflict:
+      description: |
+        `barcode.taken` — another ingredient in this kitchen already holds this
+        code. `details` names it (`ingredient_id`, `name_en`, `name_ar`).
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: barcode.taken
+              message: This barcode is already linked to an ingredient in this kitchen.
+              details:
+                ingredient_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+                name_en: Olive oil
+                name_ar: زيت زيتون
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    BarcodeRefused:
+      description: |
+        `barcode.invalid` — the code cannot be used as asked, and
+        `details.reason` says why: `unreadable`, `check_digit`,
+        `variable_measure`, `reserved` or `not_a_product_code`. The message
+        says what to do instead. A malformed body is `validation.failed`.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: barcode.invalid
+              message: This is a weighed-item or price label, and its number changes with every pack. Pick the item and type the weight instead.
+              details:
+                reason: variable_measure
+              correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
     PurchaseOrderConflict:
       description: |
         The order's own state refuses the change (§3.5, §6). `details.reason`
@@ -24398,6 +24725,8 @@ components:
         - production.plan_refused
         - production.consumption_recorded
         - unit.conversion_unsupported
+        - barcode.taken
+        - barcode.invalid
         - access.self_lockout
         - rate_limit.exceeded
         - server.internal_error
@@ -25407,6 +25736,212 @@ components:
               $ref: '#/components/schemas/AdminIngredient'
         meta:
           $ref: '#/components/schemas/Meta'
+    IngredientBarcode:
+      type: object
+      required:
+        - id
+        - ingredient_id
+        - gtin
+        - origin
+        - pack_quantity
+        - pack_unit_code
+        - created_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        ingredient_id:
+          $ref: '#/components/schemas/Uuid'
+        gtin:
+          type: string
+          pattern: ^[0-9]{14}$
+          description: |
+            GTIN-14 normal form, left-zero-padded. A display drops one leading
+            zero to show a 13-digit code.
+        origin:
+          type: string
+          enum:
+            - supplier
+            - system
+          description: |
+            `supplier` — the producer's code, printed on the pack. `system` — a
+            kitchen code, a GS1 Restricted Circulation Number with prefix 04.
+        pack_quantity:
+          type:
+            - string
+            - 'null'
+          description: One scan of this code is this much of `pack_unit_code`. A decimal string.
+        pack_unit_code:
+          type:
+            - string
+            - 'null'
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    IngredientBarcodeEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - barcode
+          properties:
+            barcode:
+              $ref: '#/components/schemas/IngredientBarcode'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    AddIngredientBarcodeRequest:
+      type: object
+      required:
+        - origin
+      properties:
+        origin:
+          type: string
+          enum:
+            - supplier
+            - system
+        code:
+          type: string
+          maxLength: 512
+          description: The scan or typed digits. Required for `supplier`, refused for `system`.
+        symbology:
+          type:
+            - string
+            - 'null'
+          maxLength: 32
+          description: The camera's symbol type; `upc_e` expands eight digits to UPC-A.
+        pack_quantity:
+          type:
+            - number
+            - string
+            - 'null'
+          description: One scan = this much. Greater than zero.
+        pack_unit_code:
+          type:
+            - string
+            - 'null'
+          description: Defaults to the ingredient's default unit.
+      additionalProperties: false
+    LinkIngredientBarcodeAtReceivingRequest:
+      type: object
+      required:
+        - ingredient_id
+        - code
+      properties:
+        ingredient_id:
+          $ref: '#/components/schemas/Uuid'
+        origin:
+          type:
+            - string
+            - 'null'
+          enum:
+            - supplier
+            - null
+        code:
+          type: string
+          maxLength: 512
+        symbology:
+          type:
+            - string
+            - 'null'
+          maxLength: 32
+        pack_quantity:
+          type:
+            - number
+            - string
+            - 'null'
+        pack_unit_code:
+          type:
+            - string
+            - 'null'
+      additionalProperties: false
+    IngredientBarcodeScan:
+      type: object
+      required:
+        - gtin
+        - supplier_lot
+        - expires_on
+        - best_before_on
+        - boundary_verified
+        - origin_hint
+        - link
+      properties:
+        gtin:
+          type: string
+          pattern: ^[0-9]{14}$
+        supplier_lot:
+          type:
+            - string
+            - 'null'
+          maxLength: 20
+          description: AI (10), when the scan carried one.
+        expires_on:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: AI (17). A `00` day is the last day of the month.
+        best_before_on:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: AI (15), kept apart from the expiry.
+        boundary_verified:
+          type: boolean
+          description: |
+            False when a variable-length field was read to the end of a scan with
+            no separator, so its end is not proven. Ask a person to check the lot.
+        origin_hint:
+          type: string
+          enum:
+            - supplier
+            - system
+          description: '`system` for the 04 kitchen range, read off the number alone.'
+        link:
+          oneOf:
+            - $ref: '#/components/schemas/IngredientBarcodeLink'
+            - type: 'null'
+    IngredientBarcodeLink:
+      type: object
+      required:
+        - id
+        - ingredient_id
+        - name_en
+        - name_ar
+        - origin
+        - pack_quantity
+        - pack_unit_code
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        ingredient_id:
+          $ref: '#/components/schemas/Uuid'
+        name_en:
+          type:
+            - string
+            - 'null'
+        name_ar:
+          type:
+            - string
+            - 'null'
+        origin:
+          type: string
+          enum:
+            - supplier
+            - system
+        pack_quantity:
+          type:
+            - string
+            - 'null'
+        pack_unit_code:
+          type:
+            - string
+            - 'null'
     IngredientAlias:
       type: object
       required:
@@ -35518,6 +36053,10 @@ components:
         - cost_currency_code
         - costed_at
         - valuation_pending_fx
+        - gtin
+        - supplier_lot
+        - expires_on
+        - best_before_on
       description: |
         The money fields (INV1.1) are served as `null` when the reader lacks
         `inventory.view_costs_organisation` — see `GoodsReceipt.costs_redacted`.
@@ -35573,6 +36112,32 @@ components:
             be blended into the ingredient's valuation currency (§3.6). Physical
             receiving is never lost to a currency, and no exchange rate is ever
             invented; a later accounting phase may resolve it.
+        gtin:
+          type:
+            - string
+            - 'null'
+          pattern: ^[0-9]{14}$
+          description: |
+            The product scanned at receiving, GTIN-14 normal form (ingredient
+            barcodes). Several brands can map to one shelf, so it is kept per line.
+        supplier_lot:
+          type:
+            - string
+            - 'null'
+          maxLength: 20
+          description: GS1 AI (10), as the pack or the receiver gave it.
+        expires_on:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: GS1 AI (17), or typed.
+        best_before_on:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: GS1 AI (15), or typed — kept apart from the expiry.
       additionalProperties: false
     GoodsReceipt:
       type: object
@@ -36112,6 +36677,28 @@ components:
           type: string
           minLength: 3
           maxLength: 3
+        gtin:
+          type:
+            - string
+            - 'null'
+          pattern: ^[0-9]{14}$
+          description: The scanned product; its check digit must hold.
+        supplier_lot:
+          type:
+            - string
+            - 'null'
+          maxLength: 20
+          description: GS1 AI (10) — at most 20 characters of the GS1 character set.
+        expires_on:
+          type:
+            - string
+            - 'null'
+          format: date
+        best_before_on:
+          type:
+            - string
+            - 'null'
+          format: date
       additionalProperties: false
     PostGoodsReceiptRequest:
       type: object
@@ -36295,6 +36882,10 @@ components:
         - cost_currency_code
         - valuation_pending_fx
         - costs_redacted
+        - gtin
+        - supplier_lot
+        - expires_on
+        - best_before_on
       description: One purchases-ledger row — a receipt line with its date, supplier and item (INV1.1).
       properties:
         id:
@@ -36369,6 +36960,32 @@ components:
             never redacted.
         costs_redacted:
           type: boolean
+        gtin:
+          type:
+            - string
+            - 'null'
+          pattern: ^[0-9]{14}$
+          description: |
+            The product scanned at receiving, GTIN-14 normal form (ingredient
+            barcodes). Several brands can map to one shelf, so it is kept per line.
+        supplier_lot:
+          type:
+            - string
+            - 'null'
+          maxLength: 20
+          description: GS1 AI (10), as the pack or the receiver gave it.
+        expires_on:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: GS1 AI (17), or typed.
+        best_before_on:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: GS1 AI (15), or typed — kept apart from the expiry.
       additionalProperties: false
     PurchasesLedgerCollection:
       type: object
