@@ -12,7 +12,6 @@ import { useLocale } from '@healthy360/i18n';
 import { isMeasureUnit } from '@healthy360/nutrition';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
 
 import { toFailure } from '../../data/hooks.ts';
 import {
@@ -21,7 +20,7 @@ import {
 } from '../../data/kitchen-ops-hooks.ts';
 import { barcodeFailureText, shelfForIngredient, unlinkedScanMessage } from './barcode-scan.ts';
 import { CameraScanButton } from './camera-scan-button.tsx';
-import { unitShortKey, unitsInDimension } from './format.ts';
+import { unitShortKey } from './format.ts';
 import type { ScannedPack } from './receive-delivery-model.ts';
 
 /**
@@ -88,27 +87,26 @@ export function ReceiveScanBar({ testID, stockItems, onScanned, notice }: Receiv
 
     return (
         <Stack space="xs" testID={testID}>
-            <View className="z-auto flex-row flex-wrap items-end gap-tight">
-                <TextInputField
-                    testID={`${testID}-code`}
-                    id={`${testID}-code`}
-                    size="sm"
-                    label={t('kitchen:barcodes.scanLabel')}
-                    placeholder={t('kitchen:barcodes.scanPlaceholder')}
-                    value={code}
-                    autoCorrect={false}
-                    autoCapitalize="none"
-                    blurOnSubmit={false}
-                    onChangeText={setCode}
-                    onSubmitEditing={() => {
-                        // Cleared on submit, not on the answer: a scanner's next read must not land
-                        // on the tail of this one while it is still being looked up.
-                        setCode('');
-                        run({ data: code, symbology: null });
-                    }}
-                />
-                <CameraScanButton testID={`${testID}-camera`} onScan={run} />
-            </View>
+            <TextInputField
+                testID={`${testID}-code`}
+                id={`${testID}-code`}
+                size="sm"
+                className="w-field"
+                label={t('kitchen:barcodes.scanLabel')}
+                placeholder={t('kitchen:barcodes.scanPlaceholder')}
+                value={code}
+                autoCorrect={false}
+                autoCapitalize="none"
+                blurOnSubmit={false}
+                onChangeText={setCode}
+                onSubmitEditing={() => {
+                    // Cleared on submit, not on the answer: a scanner's next read must not land
+                    // on the tail of this one while it is still being looked up.
+                    setCode('');
+                    run({ data: code, symbology: null });
+                }}
+                trailing={<CameraScanButton testID={`${testID}-camera`} onScan={run} />}
+            />
             {shown === null ? null : (
                 <Callout testID={`${testID}-message`} role="alert" tone="warning" title={shown} />
             )}
@@ -156,12 +154,11 @@ function LinkBarcodeDialog({
     );
     const [shelfId, setShelfId] = useState<string | null>(null);
     const [packQuantity, setPackQuantity] = useState('');
-    const [packUnit, setPackUnit] = useState<string | null>(null);
     const [failure, setFailure] = useState<ApiFailure | null>(null);
 
     const shelf = shelves.find((item) => String(item.id) === shelfId) ?? null;
-    const shelfUnit = shelf !== null && isMeasureUnit(shelf.unitCode) ? shelf.unitCode : null;
-    const unit = packUnit ?? shelfUnit;
+    // A pack is counted in its shelf's unit — the only unit a receipt line adds it to.
+    const unit = shelf !== null && isMeasureUnit(shelf.unitCode) ? shelf.unitCode : null;
     const quantity = Number(packQuantity);
 
     const save = () => {
@@ -222,38 +219,18 @@ function LinkBarcodeDialog({
                         label: `${item.code} — ${item.nameEn}`,
                     }))}
                     value={shelfId}
-                    onChange={(next) => {
-                        setShelfId(next);
-                        setPackUnit(null);
-                    }}
+                    onChange={setShelfId}
                 />
-                <View className="z-auto flex-row flex-wrap items-end gap-tight">
-                    <QuantityInput
-                        testID={`${testID}-pack`}
-                        id={`${testID}-pack`}
-                        size="sm"
-                        label={t('kitchen:barcodes.packLabel')}
-                        placeholder={t('kitchen:barcodes.packPlaceholder')}
-                        {...(unit === null || !isMeasureUnit(unit)
-                            ? {}
-                            : { unit: t(unitShortKey(unit)) })}
-                        value={packQuantity}
-                        onChangeText={setPackQuantity}
-                    />
-                    {shelfUnit === null ? null : (
-                        <Select
-                            testID={`${testID}-pack-unit`}
-                            id={`${testID}-pack-unit`}
-                            label={t('kitchen:barcodes.packUnitLabel')}
-                            options={unitsInDimension(shelfUnit).map((option) => ({
-                                value: option,
-                                label: t(unitShortKey(option)),
-                            }))}
-                            value={unit}
-                            onChange={setPackUnit}
-                        />
-                    )}
-                </View>
+                <QuantityInput
+                    testID={`${testID}-pack`}
+                    id={`${testID}-pack`}
+                    size="sm"
+                    label={t('kitchen:barcodes.packLabel')}
+                    placeholder={t('kitchen:barcodes.packPlaceholder')}
+                    {...(unit === null ? {} : { unit: t(unitShortKey(unit)) })}
+                    value={packQuantity}
+                    onChangeText={setPackQuantity}
+                />
                 {failure === null ? null : (
                     <Callout
                         testID={`${testID}-error`}

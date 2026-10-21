@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8453 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8454 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3054,6 +3054,7 @@ export interface NamespaceKeys {
     | 'barcodes.generate'
     | 'barcodes.hideLots'
     | 'barcodes.issueLotCheck'
+    | 'barcodes.issueLotUnreadable'
     | 'barcodes.keptApart'
     | 'barcodes.labelLoadError'
     | 'barcodes.labelNone'
@@ -3071,6 +3072,7 @@ export interface NamespaceKeys {
     | 'barcodes.lotLabel'
     | 'barcodes.lotPlaceholder'
     | 'barcodes.lotShort'
+    | 'barcodes.lotUnreadable'
     | 'barcodes.lotUnverified'
     | 'barcodes.noShelf'
     | 'barcodes.originSupplier'
@@ -3078,7 +3080,6 @@ export interface NamespaceKeys {
     | 'barcodes.packLabel'
     | 'barcodes.packPlaceholder'
     | 'barcodes.packSize'
-    | 'barcodes.packUnitLabel'
     | 'barcodes.printLabel'
     | 'barcodes.refused.check_digit'
     | 'barcodes.refused.not_a_product_code'
@@ -11525,6 +11526,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:barcodes.generate',
   'kitchen:barcodes.hideLots',
   'kitchen:barcodes.issueLotCheck',
+  'kitchen:barcodes.issueLotUnreadable',
   'kitchen:barcodes.keptApart',
   'kitchen:barcodes.labelLoadError',
   'kitchen:barcodes.labelNone',
@@ -11542,6 +11544,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:barcodes.lotLabel',
   'kitchen:barcodes.lotPlaceholder',
   'kitchen:barcodes.lotShort',
+  'kitchen:barcodes.lotUnreadable',
   'kitchen:barcodes.lotUnverified',
   'kitchen:barcodes.noShelf',
   'kitchen:barcodes.originSupplier',
@@ -11549,7 +11552,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:barcodes.packLabel',
   'kitchen:barcodes.packPlaceholder',
   'kitchen:barcodes.packSize',
-  'kitchen:barcodes.packUnitLabel',
   'kitchen:barcodes.printLabel',
   'kitchen:barcodes.refused.check_digit',
   'kitchen:barcodes.refused.not_a_product_code',
