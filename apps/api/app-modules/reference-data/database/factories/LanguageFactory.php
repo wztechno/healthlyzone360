@@ -18,12 +18,26 @@ class LanguageFactory extends Factory
     public function definition(): array
     {
         return [
-            'code' => fake()->unique()->languageCode(),
+            'code' => fn (): string => $this->unusedCode(),
             'name_en' => fake()->word(),
             'name_native' => fake()->word(),
             'direction' => 'ltr',
             'is_active' => false,
         ];
+    }
+
+    /**
+     * A code no row holds yet. Faker's uniqueness only knows what it handed out,
+     * not what a seeder already inserted, so a test that seeds languages and then
+     * builds one (a user profile does) would otherwise hit "ar" now and then.
+     */
+    private function unusedCode(): string
+    {
+        do {
+            $code = fake()->unique()->languageCode();
+        } while (Language::query()->whereKey($code)->exists());
+
+        return $code;
     }
 
     public function rtl(): static
