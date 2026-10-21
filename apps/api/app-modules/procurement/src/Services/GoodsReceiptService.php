@@ -90,7 +90,11 @@ use RuntimeException;
  *     unit_id: string|null,
  *     unit_price_amount: numeric-string|null,
  *     line_total_amount: numeric-string|null,
- *     cost_currency_code: string|null
+ *     cost_currency_code: string|null,
+ *     gtin: string|null,
+ *     supplier_lot: string|null,
+ *     expires_on: string|null,
+ *     best_before_on: string|null
  * }
  */
 final readonly class GoodsReceiptService
@@ -233,6 +237,10 @@ final readonly class GoodsReceiptService
                     'unit_price_amount' => $line['unit_price_amount'],
                     'line_total_amount' => $line['line_total_amount'],
                     'cost_currency_code' => $line['unit_price_amount'] === null ? null : $line['cost_currency_code'],
+                    'gtin' => $line['gtin'],
+                    'supplier_lot' => $line['supplier_lot'],
+                    'expires_on' => $line['expires_on'],
+                    'best_before_on' => $line['best_before_on'],
                 ]);
 
                 $this->inventory->recordMovement(
@@ -484,6 +492,12 @@ final readonly class GoodsReceiptService
                 'unit_price_amount' => $unitPrice,
                 'line_total_amount' => $unitPrice === null ? null : $this->roundMoney(bcmul($quantity, $unitPrice, 12)),
                 'cost_currency_code' => $unitPrice === null ? null : $currencyCode,
+                // What was scanned or typed off the pack (plan §4.3) — carried
+                // through untouched, so two lots of one item stay two lines.
+                'gtin' => isset($line['gtin']) ? (string) $line['gtin'] : null,
+                'supplier_lot' => isset($line['supplier_lot']) ? (string) $line['supplier_lot'] : null,
+                'expires_on' => isset($line['expires_on']) ? (string) $line['expires_on'] : null,
+                'best_before_on' => isset($line['best_before_on']) ? (string) $line['best_before_on'] : null,
             ];
         }
 

@@ -20,7 +20,7 @@ import {
 import { PurchaseOrderId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Gate } from '../../../access/gate.tsx';
@@ -28,11 +28,14 @@ import { toFailure } from '../../../data/hooks.ts';
 import {
     usePostGoodsReceiptMutation,
     useReceivableOrdersQuery,
+    useStockItemsQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { INVENTORY_MANAGE_PERMISSION } from '../entity-registry.ts';
 import { EditorFrame } from '../editor-frame.tsx';
+import { focusField } from '../field-focus.ts';
 import {
+    applyScan,
     exceedsOutstanding,
     initialLines,
     readiness,
@@ -43,7 +46,10 @@ import type {
     ReceiveConfirmations,
     ReceiveHeaderDraft,
     ReceiveLineDraft,
+    ScannedPack,
 } from '../receive-delivery-model.ts';
+import { ReceiveLineTrace } from '../receive-line-trace.tsx';
+import { ReceiveScanBar } from '../receive-scan-bar.tsx';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -130,9 +136,17 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
         },
     });
     const postReceipt = usePostGoodsReceiptMutation();
+    const stockItems = useStockItemsQuery();
+    /** What the last scan's placement has to say — a lot kept apart, a pack left to type. */
+    const [scanNotice, setScanNotice] = useState<string | null>(null);
 
     const [selectedOrderId, setSelectedOrderId] = useState<string | null>(order ?? null);
     const [lines, setLines] = useState<readonly ReceiveLineDraft[]>([]);
+    /** The rows a scan builds on — ahead of the render when two scans answer in one tick. */
+    const latestLines = useRef(lines);
+    useEffect(() => {
+        latestLines.current = lines;
+    }, [lines]);
     const [chargesOpen, setChargesOpen] = useState(false);
     const [confirming, setConfirming] = useState(false);
 
@@ -203,6 +217,48 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
         setLines((current) =>
             current.map((line, position) => (position === index ? { ...line, ...patch } : line)),
         );
+    }
+
+    /** A scan lands on a row by the shared rules (`applyScan`); an item nobody ordered is unplanned. */
+    function placeScan(pack: ScannedPack) {
+        const current = latestLines.current;
+        const placed = applyScan(current, pack, {
+            orderMode: true,
+            unitOf: (line) => line.unitCode,
+            create: (template) => {
+                const key = `scan-${String(current.length)}-${String(Date.now())}`;
+                if (template !== null) return { ...template, key };
+                const item = (stockItems.data ?? []).find(
+                    (candidate) => String(candidate.id) === pack.stockItemId,
+                );
+                return {
+                    key,
+                    purchaseOrderLineId: null,
+                    stockItemId: pack.stockItemId,
+                    itemLabel:
+                        item === undefined ? pack.stockItemId : `${item.code} — ${item.nameEn}`,
+                    unitCode: item?.unitCode ?? '',
+                    unitId: null,
+                    orderedQuantity: '0',
+                    outstandingQuantity: '0',
+                    quantity: '',
+                    unitPrice: '',
+                };
+            },
+        });
+        latestLines.current = placed.drafts;
+        setLines(placed.drafts);
+        setScanNotice(
+            placed.keptApart
+                ? t('kitchen:barcodes.keptApart')
+                : placed.needsQuantity
+                  ? t('kitchen:barcodes.typeQuantity')
+                  : null,
+        );
+        if (placed.needsQuantity) {
+            const index = placed.drafts.findIndex((line) => line.key === placed.key);
+            focusField(`kitchen-receive-line-${String(index)}-quantity`);
+        }
     }
 
     function submit() {
@@ -411,10 +467,16 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                     testID="kitchen-receive-lines-section"
                                     title={t('kitchen:ops.receiving.linesTitle')}
                                 >
+                                    <ReceiveScanBar
+                                        testID="kitchen-receive-scan"
+                                        stockItems={stockItems.data ?? []}
+                                        onScanned={placeScan}
+                                        notice={scanNotice}
+                                    />
                                     <Stack space="sm" testID="kitchen-receive-lines">
                                         {lines.map((line, index) => (
                                             <Stack
-                                                key={line.purchaseOrderLineId ?? line.stockItemId}
+                                                key={line.key}
                                                 space="xs"
                                                 testID={`kitchen-receive-line-${String(index)}`}
                                             >
@@ -438,6 +500,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                 <Inline space="sm" align="start" wrap>
                                                     <TextInputField
                                                         testID={`kitchen-receive-line-${String(index)}-quantity`}
+                                                        id={`kitchen-receive-line-${String(index)}-quantity`}
                                                         label={t(
                                                             'kitchen:ops.receiving.fieldLineQuantity',
                                                             { unit: line.unitCode },
@@ -448,7 +511,12 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                         value={line.quantity}
                                                         keyboardType="decimal-pad"
                                                         onChangeText={(next) => {
-                                                            patchLine(index, { quantity: next });
+                                                            // A typed quantity is a person's, and no
+                                                            // scan edits it from here on.
+                                                            patchLine(index, {
+                                                                quantity: next,
+                                                                quantitySource: 'typed',
+                                                            });
                                                         }}
                                                         className="min-w-[140px]"
                                                     />
@@ -478,7 +546,14 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                         className="min-w-[140px]"
                                                     />
                                                 </Inline>
-                                                {exceedsOutstanding(line) ? (
+                                                <ReceiveLineTrace
+                                                    testID={`kitchen-receive-line-${String(index)}-trace`}
+                                                    trace={line}
+                                                    onChange={(patch) => {
+                                                        patchLine(index, patch);
+                                                    }}
+                                                />
+                                                {exceedsOutstanding(line, lines) ? (
                                                     <Text
                                                         tone="danger"
                                                         variant="caption"
@@ -496,6 +571,14 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                             </Stack>
                                         ))}
                                     </Stack>
+
+                                    {state.needsLotCheck ? (
+                                        <Callout
+                                            tone="warning"
+                                            testID="kitchen-receive-lot-check"
+                                            title={t('kitchen:barcodes.lotCheckNeeded')}
+                                        />
+                                    ) : null}
 
                                     {state.hasOverReceipt ? (
                                         <Callout

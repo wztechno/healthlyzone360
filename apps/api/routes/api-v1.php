@@ -178,6 +178,10 @@ use Healthy360\Ingredients\Http\Controllers\IngredientAllergenConfirmController;
 use Healthy360\Ingredients\Http\Controllers\IngredientAllergenIndexController;
 use Healthy360\Ingredients\Http\Controllers\IngredientAllergenReplaceController;
 use Healthy360\Ingredients\Http\Controllers\IngredientArchiveController;
+use Healthy360\Ingredients\Http\Controllers\IngredientBarcodeDestroyController;
+use Healthy360\Ingredients\Http\Controllers\IngredientBarcodeIndexController;
+use Healthy360\Ingredients\Http\Controllers\IngredientBarcodeScanController;
+use Healthy360\Ingredients\Http\Controllers\IngredientBarcodeStoreController;
 use Healthy360\Ingredients\Http\Controllers\IngredientCategoryIndexController;
 use Healthy360\Ingredients\Http\Controllers\IngredientCategoryStoreController;
 use Healthy360\Ingredients\Http\Controllers\IngredientCategoryUpdateController;
@@ -989,6 +993,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/ingredients/{ingredient}', IngredientShowController::class)->name('catalogue.ingredients.show');
                 Route::get('/ingredients/{ingredient}/allergens', IngredientAllergenIndexController::class)->name('catalogue.ingredients.allergens.index');
                 Route::get('/ingredients/{ingredient}/aliases', IngredientAliasIndexController::class)->name('catalogue.ingredients.aliases.index');
+                Route::get('/ingredients/{ingredient}/barcodes', IngredientBarcodeIndexController::class)->name('catalogue.ingredients.barcodes.index');
                 Route::get('/ingredient-categories', IngredientCategoryIndexController::class)->name('catalogue.ingredient-categories.index');
 
                 /*
@@ -1035,6 +1040,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                     ->defaults('subject', 'ingredient')
                     ->name('catalogue.ingredients.photo.destroy');
                 Route::delete('/ingredients/{ingredient}/aliases/{alias}', IngredientAliasDestroyController::class)->name('catalogue.ingredients.aliases.destroy');
+
+                // Barcodes (2026-10-21). The row is the kitchen's own, so these work on a
+                // platform ingredient too. The dock's link is a second route to the same
+                // store controller, under the inventory code below.
+                Route::post('/ingredients/{ingredient}/barcodes', IngredientBarcodeStoreController::class)->name('catalogue.ingredients.barcodes.store');
+                Route::delete('/ingredients/{ingredient}/barcodes/{barcode}', IngredientBarcodeDestroyController::class)->name('catalogue.ingredients.barcodes.destroy');
 
                 Route::post('/ingredient-categories', IngredientCategoryStoreController::class)->name('catalogue.ingredient-categories.store');
                 Route::patch('/ingredient-categories/{category}', IngredientCategoryUpdateController::class)->name('catalogue.ingredient-categories.update');
@@ -1568,6 +1579,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/inventory/low-stock-count', StockLowStockCountController::class)->name('catalogue.inventory.low-stock-count');
                 Route::get('/inventory/consumption-exceptions', ConsumptionExceptionIndexController::class)->name('catalogue.inventory.consumption-exceptions.index');
                 Route::get('/inventory/consumption-exceptions/unresolved-count', ConsumptionExceptionCountController::class)->name('catalogue.inventory.consumption-exceptions.count');
+
+                // What a scan says and which ingredient holds it — for the people
+                // receiving and counting stock. A sibling of `/ingredients`, so it can
+                // never be read as `{ingredient}`.
+                Route::get('/ingredient-barcodes/scan', IngredientBarcodeScanController::class)->name('catalogue.ingredient-barcodes.scan');
                 Route::get('/procurement/suppliers', SupplierIndexController::class)->name('catalogue.procurement.suppliers.index');
 
                 /*
@@ -1611,6 +1627,13 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/inventory/adjustments', StockAdjustController::class)->name('catalogue.inventory.adjustments.store');
                 Route::post('/inventory/waste', StockWasteController::class)->name('catalogue.inventory.waste.store');
                 Route::post('/inventory/counts', StockCountController::class)->name('catalogue.inventory.counts.store');
+
+                // A receiver links a code nobody has linked yet, at the dock (owner,
+                // 2026-10-21): producer's codes only, no removal, audited. `org.trading`
+                // because it changes the catalogue's identifiers, like the route it mirrors.
+                Route::post('/inventory/ingredient-barcodes', IngredientBarcodeStoreController::class)
+                    ->middleware('org.trading')
+                    ->name('catalogue.inventory.ingredient-barcodes.store');
                 Route::patch('/inventory/threshold', StockThresholdController::class)->name('catalogue.inventory.threshold.update');
                 Route::post('/inventory/consumption-exceptions/{exception}/resolve', ConsumptionExceptionResolveController::class)->name('catalogue.inventory.consumption-exceptions.resolve');
                 Route::post('/inventory/consumption-exceptions/{exception}/retry', ConsumptionExceptionRetryController::class)->name('catalogue.inventory.consumption-exceptions.retry');

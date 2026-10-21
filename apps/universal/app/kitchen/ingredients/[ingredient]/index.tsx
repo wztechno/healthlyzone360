@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
+import { lazyScreen } from '../../../../src/shell/lazy-screen.tsx';
 
 /**
  * `/kitchen/ingredients/{ingredient}` — the record editor.
@@ -13,7 +13,8 @@ import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
 const IngredientEditScreen = lazyScreen(
     'kitchen-ingredient-editor-loading',
     async () =>
-        (await import('../../../src/features/kitchen-admin/screens/index.ts')).IngredientEditScreen,
+        (await import('../../../../src/features/kitchen-admin/screens/index.ts'))
+            .IngredientEditScreen,
 );
 
 export default function KitchenIngredientEditor() {

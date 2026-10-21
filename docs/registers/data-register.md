@@ -262,6 +262,23 @@ through `GoodsReceiptService` and lets the publisher derive the prices from them
 is written only by `ReservationService` on a production confirm; tests create claims through that
 path rather than as raw rows.
 
+## Ingredient barcodes (2026-10-21)
+
+Two tables and four columns, and **no new PostgreSQL policy** — ADR-0007, recorded in the migration's
+docblock: both tables carry `organisation_id` and are read through `BelongsToOrganisation`, and their
+parents (`ingredients`, `stock_items`) are application-scoped too, so RLS on these children alone would
+protect nothing the parents leave open. The `RlsTest` pin does not move.
+
+| Table | Cluster | Classification | PII | Isolation strategy | Notes |
+|---|---|---|---|---|---|
+| ingredient_barcodes | Kitchen catalogue | Internal | No | `org-rls` (app-scope) | One code a kitchen scans for an ingredient (D-149). `gtin` is the GTIN-14 normal form, `UNIQUE (organisation_id, gtin)`; `origin` is `supplier` (the producer's code) or `system` (a kitchen code, RCN prefix 04 — `CHECK ((origin = 'system') = (gtin LIKE '004%'))`), at most one `system` row per ingredient. `ingredient_id` may name a **platform** ingredient: the row is the kitchen's own. `pack_quantity` + `pack_unit_id` are "one scan = this much", both or neither, stored as entered. Not moved by a fork (D-154) |
+| ingredient_barcode_counters | Kitchen catalogue | Internal | No | `org-rls` (app-scope; written only by the mint statement) | One row per organisation, `last_value` only ever climbs (D-150), so a deleted kitchen code's number is never issued again |
+| goods_receipt_lines (extended: `gtin`, `supplier_lot`, `expires_on`, `best_before_on`) | Procurement | Internal | No | unchanged (reached through `goods_receipts`) | "One step back" traceability (D-153): the product scanned (GTIN-14, CHECK 14 digits), the supplier lot (GS1 AI 10, ≤ 20 characters of the GS1 set, indexed for the recall filter), the expiry (AI 17) and the best-before (AI 15), kept as two fields. Warehouse facts, never redacted by the cost permission |
+
+**Data loading**: no seeder writes a barcode or a counter. A code is a statement that a kitchen
+stocks this product, and the counter's value is exactly the set of labels it has printed; both are
+written through `IngredientBarcodeService`, which tests use too.
+
 ## Standing conventions
 
 - UUIDv7 primary keys, application-generated via the central identifier service; ISO-code PKs for stable reference tables (Plan §8).

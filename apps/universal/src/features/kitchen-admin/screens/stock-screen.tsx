@@ -1,4 +1,9 @@
-import type { ItemLatestPurchase, StockItem, StockLevel } from '@healthy360/api-client/contracts';
+import type {
+    BarcodeScan,
+    ItemLatestPurchase,
+    StockItem,
+    StockLevel,
+} from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -17,7 +22,7 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { BadgeTone, MenuItem } from '@healthy360/design-system';
-import { useFormatter } from '@healthy360/i18n';
+import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
@@ -31,6 +36,7 @@ import {
     useRecordStockAdjustmentMutation,
     useRecordStockCountMutation,
     useRecordStockWasteMutation,
+    useResolveBarcodeScan,
     useSetStockThresholdMutation,
     useStockItemsQuery,
     useStockLevelsQuery,
@@ -43,6 +49,7 @@ import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
+import { barcodeFailureText, shelfForIngredient, unlinkedScanMessage } from '../barcode-scan.ts';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
 import {
@@ -206,6 +213,10 @@ function Stock() {
     });
     const [viewing, setViewing] = useState<StockRow | null>(null);
     const [editing, setEditing] = useState<StockRow | null>(null);
+    const { locale } = useLocale();
+    const resolveScan = useResolveBarcodeScan();
+    /** What the last scan came to, when it came to nothing — an unknown code, a retired label. */
+    const [scanMessage, setScanMessage] = useState<string | null>(null);
 
     const levelByItem = useMemo(() => {
         const byItem = new Map<string, StockLevel>();
@@ -518,6 +529,48 @@ function Stock() {
         setEditing(row);
     };
 
+    /**
+     * A scan opens its shelf (ingredient barcodes, plan §8): the stock item backed by the linked
+     * ingredient, its own shelf first, in the count/waste/adjust editor — or in the read-only view
+     * for somebody who may not move stock. Enter in the search is also how a name search ends, so a
+     * typed term that does not read as a code at all is left to filter quietly.
+     */
+    const openScan = (scan: BarcodeScan, typed: boolean) => {
+        const data = scan.data.trim();
+        if (data === '') return;
+        setScanMessage(null);
+
+        resolveScan({ data, symbology: scan.symbology }).then(
+            (result) => {
+                if (result.link === null) {
+                    setScanMessage(unlinkedScanMessage(t, result));
+                    return;
+                }
+                const item = shelfForIngredient(items.data ?? [], result.link.ingredientId);
+                if (item === undefined) {
+                    setScanMessage(t('kitchen:barcodes.noShelf'));
+                    return;
+                }
+                const level = levelByItem.get(String(item.id)) ?? null;
+                const row: StockRow = { item, level, state: levelState(level) };
+                setQuery('');
+                if (canManage) openEditor(row);
+                else setViewing(row);
+            },
+            (error: unknown) => {
+                const failure = toFailure(error);
+                if (
+                    typed &&
+                    failure?.code === 'barcode.invalid' &&
+                    failure.reason === 'unreadable'
+                ) {
+                    return;
+                }
+                setScanMessage(barcodeFailureText(t, failure, locale));
+            },
+        );
+    };
+
     const openHistory = (row: StockRow) => {
         router.push(`/kitchen/purchases-ledger?item=${String(row.item.id)}` as never);
     };
@@ -697,6 +750,12 @@ function Stock() {
                     setQuery(next);
                     resetPage();
                 }}
+                onSearchSubmit={() => {
+                    openScan({ data: query, symbology: null }, true);
+                }}
+                onScan={(scan) => {
+                    openScan(scan, false);
+                }}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t('kitchen:ops.stock.searchPlaceholder')}
                 statusLabel={t('kitchen:ops.stock.levelLabel')}
@@ -725,6 +784,15 @@ function Stock() {
             >
                 <ColumnPicker {...controls.picker} />
             </CatalogueToolbar>
+
+            {scanMessage === null ? null : (
+                <Callout
+                    testID="kitchen-stock-scan-message"
+                    role="alert"
+                    tone="warning"
+                    title={scanMessage}
+                />
+            )}
 
             {pending ? (
                 <TableSkeleton testID="kitchen-stock-loading" partTestID="kitchen-stock" />

@@ -61,7 +61,7 @@ modules:
   - name: Support
     status: active
     phase: 1
-    description: Cross-cutting primitives — UUIDv7 identifier service, base classes, shared contracts; also the InterNACHI Modular spike module.
+    description: Cross-cutting primitives — UUIDv7 identifier service, the GS1 identifier parser (GTINs, element strings, Digital Link), base classes, shared contracts; also the InterNACHI Modular spike module.
     depends_on: []
 
   - name: ReferenceData
@@ -184,7 +184,7 @@ modules:
   - name: Ingredients
     status: foundation
     phase: 2
-    description: Ingredient master database (platform library plus tenant rows), categories, aliases, allergen mappings, designation resolution.
+    description: Ingredient master database (platform library plus tenant rows), categories, aliases, barcodes (producer GTINs and kitchen codes, with scan resolution), allergen mappings, designation resolution.
     depends_on: [Support, ReferenceData, Organisations, Tenancy, AccessControl, Audit, Allergens]
 
   # Graduation bar (Allergens): the public class list is served and switched,

@@ -24,7 +24,7 @@ export type Meta = {
  * `Healthy360\Support\Api\ErrorCode`; a Pest test asserts the two agree.
  *
  */
-export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'cart.channel_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'b2b.quotation_state_invalid' | 'b2b.quotation_empty' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'payment.refund_exceeds_capture' | 'inventory.insufficient_stock' | 'production.state_invalid' | 'production.plan_refused' | 'production.consumption_recorded' | 'unit.conversion_unsupported' | 'access.self_lockout' | 'rate_limit.exceeded' | 'server.internal_error' | 'allergens.provider_unavailable' | 'nutrition.provider_unavailable' | 'nutrition.provider_configuration';
+export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'cart.channel_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'b2b.quotation_state_invalid' | 'b2b.quotation_empty' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'payment.refund_exceeds_capture' | 'inventory.insufficient_stock' | 'production.state_invalid' | 'production.plan_refused' | 'production.consumption_recorded' | 'unit.conversion_unsupported' | 'barcode.taken' | 'barcode.invalid' | 'access.self_lockout' | 'rate_limit.exceeded' | 'server.internal_error' | 'allergens.provider_unavailable' | 'nutrition.provider_unavailable' | 'nutrition.provider_configuration';
 
 export type Error = {
     code: ErrorCode;
@@ -614,6 +614,102 @@ export type IngredientEnvelope = {
         ingredient: AdminIngredient;
     };
     meta: Meta;
+};
+
+export type IngredientBarcode = {
+    id: Uuid;
+    ingredient_id: Uuid;
+    /**
+     * GTIN-14 normal form, left-zero-padded. A display drops one leading
+     * zero to show a 13-digit code.
+     *
+     */
+    gtin: string;
+    /**
+     * `supplier` — the producer's code, printed on the pack. `system` — a
+     * kitchen code, a GS1 Restricted Circulation Number with prefix 04.
+     *
+     */
+    origin: 'supplier' | 'system';
+    /**
+     * One scan of this code is this much of `pack_unit_code`. A decimal string.
+     */
+    pack_quantity: string | null;
+    pack_unit_code: string | null;
+    created_at: string | null;
+};
+
+export type IngredientBarcodeEnvelope = {
+    data: {
+        barcode: IngredientBarcode;
+    };
+    meta: Meta;
+};
+
+export type AddIngredientBarcodeRequest = {
+    origin: 'supplier' | 'system';
+    /**
+     * The scan or typed digits. Required for `supplier`, refused for `system`.
+     */
+    code?: string;
+    /**
+     * The camera's symbol type; `upc_e` expands eight digits to UPC-A.
+     */
+    symbology?: string | null;
+    /**
+     * One scan = this much. Greater than zero.
+     */
+    pack_quantity?: number | string | null;
+    /**
+     * Defaults to the ingredient's default unit.
+     */
+    pack_unit_code?: string | null;
+};
+
+export type LinkIngredientBarcodeAtReceivingRequest = {
+    ingredient_id: Uuid;
+    origin?: 'supplier' | null;
+    code: string;
+    symbology?: string | null;
+    pack_quantity?: number | string | null;
+    pack_unit_code?: string | null;
+};
+
+export type IngredientBarcodeScan = {
+    gtin: string;
+    /**
+     * AI (10), when the scan carried one.
+     */
+    supplier_lot: string | null;
+    /**
+     * AI (17). A `00` day is the last day of the month.
+     */
+    expires_on: string | null;
+    /**
+     * AI (15), kept apart from the expiry.
+     */
+    best_before_on: string | null;
+    /**
+     * False when a variable-length field was read to the end of a scan with
+     * no separator, so its end is not proven. Ask a person to check the lot.
+     *
+     */
+    boundary_verified: boolean;
+    /**
+     * `system` for the 04 kitchen range, read off the number alone.
+     */
+    origin_hint: 'supplier' | 'system';
+    link: IngredientBarcodeLink | null;
+};
+
+export type IngredientBarcodeLink = {
+    id: Uuid;
+    ingredient_id: Uuid;
+    name_en: string | null;
+    name_ar: string | null;
+    origin: 'supplier' | 'system';
+    pack_quantity: string | null;
+    pack_unit_code: string | null;
 };
 
 export type IngredientAlias = {
@@ -6491,6 +6587,24 @@ export type GoodsReceiptLine = {
      *
      */
     valuation_pending_fx: boolean;
+    /**
+     * The product scanned at receiving, GTIN-14 normal form (ingredient
+     * barcodes). Several brands can map to one shelf, so it is kept per line.
+     *
+     */
+    gtin: string | null;
+    /**
+     * GS1 AI (10), as the pack or the receiver gave it.
+     */
+    supplier_lot: string | null;
+    /**
+     * GS1 AI (17), or typed.
+     */
+    expires_on: string | null;
+    /**
+     * GS1 AI (15), or typed — kept apart from the expiry.
+     */
+    best_before_on: string | null;
 };
 
 /**
@@ -6772,6 +6886,16 @@ export type GoodsReceiptLineInput = {
      */
     unit_price_amount?: number;
     cost_currency_code?: string;
+    /**
+     * The scanned product; its check digit must hold.
+     */
+    gtin?: string | null;
+    /**
+     * GS1 AI (10) — at most 20 characters of the GS1 character set.
+     */
+    supplier_lot?: string | null;
+    expires_on?: string | null;
+    best_before_on?: string | null;
 };
 
 /**
@@ -6911,6 +7035,24 @@ export type PurchasesLedgerLine = {
      */
     valuation_pending_fx: boolean;
     costs_redacted: boolean;
+    /**
+     * The product scanned at receiving, GTIN-14 normal form (ingredient
+     * barcodes). Several brands can map to one shelf, so it is kept per line.
+     *
+     */
+    gtin: string | null;
+    /**
+     * GS1 AI (10), as the pack or the receiver gave it.
+     */
+    supplier_lot: string | null;
+    /**
+     * GS1 AI (17), or typed.
+     */
+    expires_on: string | null;
+    /**
+     * GS1 AI (15), or typed — kept apart from the expiry.
+     */
+    best_before_on: string | null;
 };
 
 export type PurchasesLedgerCollection = {
@@ -15925,6 +16067,10 @@ export type ListIngredientsData = {
         per_page?: number;
         /**
          * Case-insensitive substring match over both names and every alias.
+         * A term that reads as a GTIN (any form a scanner sends) also matches
+         * the ingredients holding that barcode in this kitchen, so the search
+         * box works with a keyboard-wedge scanner.
+         *
          */
         query?: string;
         /**
@@ -16999,6 +17145,287 @@ export type RemoveIngredientAliasResponses = {
 };
 
 export type RemoveIngredientAliasResponse = RemoveIngredientAliasResponses[keyof RemoveIngredientAliasResponses];
+
+export type ListIngredientBarcodesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The ingredient identifier.
+         */
+        ingredient: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/ingredients/{ingredient}/barcodes';
+};
+
+export type ListIngredientBarcodesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListIngredientBarcodesError = ListIngredientBarcodesErrors[keyof ListIngredientBarcodesErrors];
+
+export type ListIngredientBarcodesResponses = {
+    /**
+     * The barcodes of this ingredient.
+     */
+    200: {
+        data: Array<IngredientBarcode>;
+        meta: Meta;
+    };
+};
+
+export type ListIngredientBarcodesResponse = ListIngredientBarcodesResponses[keyof ListIngredientBarcodesResponses];
+
+export type AddIngredientBarcodeData = {
+    body: AddIngredientBarcodeRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The ingredient identifier.
+         */
+        ingredient: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/ingredients/{ingredient}/barcodes';
+};
+
+export type AddIngredientBarcodeErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * `barcode.taken` — another ingredient in this kitchen already holds this
+     * code. `details` names it (`ingredient_id`, `name_en`, `name_ar`).
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * `barcode.invalid` — the code cannot be used as asked, and
+     * `details.reason` says why: `unreadable`, `check_digit`,
+     * `variable_measure`, `reserved` or `not_a_product_code`. The message
+     * says what to do instead. A malformed body is `validation.failed`.
+     *
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type AddIngredientBarcodeError = AddIngredientBarcodeErrors[keyof AddIngredientBarcodeErrors];
+
+export type AddIngredientBarcodeResponses = {
+    /**
+     * The ingredient already had its kitchen code; this is it.
+     */
+    200: IngredientBarcodeEnvelope;
+    /**
+     * The barcode was linked or made.
+     */
+    201: IngredientBarcodeEnvelope;
+};
+
+export type AddIngredientBarcodeResponse = AddIngredientBarcodeResponses[keyof AddIngredientBarcodeResponses];
+
+export type RemoveIngredientBarcodeData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The ingredient identifier.
+         */
+        ingredient: Uuid;
+        /**
+         * The barcode identifier.
+         */
+        barcode: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/ingredients/{ingredient}/barcodes/{barcode}';
+};
+
+export type RemoveIngredientBarcodeErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RemoveIngredientBarcodeError = RemoveIngredientBarcodeErrors[keyof RemoveIngredientBarcodeErrors];
+
+export type RemoveIngredientBarcodeResponses = {
+    /**
+     * The barcode was removed.
+     */
+    204: void;
+};
+
+export type RemoveIngredientBarcodeResponse = RemoveIngredientBarcodeResponses[keyof RemoveIngredientBarcodeResponses];
+
+export type ScanIngredientBarcodeData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The raw scan, as the scanner or camera produced it.
+         */
+        code: string;
+        /**
+         * The camera's symbol type (`ean13`, `upc_e`, `datamatrix`, …). With
+         * `upc_e`, eight digits are expanded to the UPC-A they stand for. A
+         * keyboard-wedge scanner sends none.
+         *
+         */
+        symbology?: string;
+    };
+    url: '/catalogue/ingredient-barcodes/scan';
+};
+
+export type ScanIngredientBarcodeErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * `barcode.invalid` — the code cannot be used as asked, and
+     * `details.reason` says why: `unreadable`, `check_digit`,
+     * `variable_measure`, `reserved` or `not_a_product_code`. The message
+     * says what to do instead. A malformed body is `validation.failed`.
+     *
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ScanIngredientBarcodeError = ScanIngredientBarcodeErrors[keyof ScanIngredientBarcodeErrors];
+
+export type ScanIngredientBarcodeResponses = {
+    /**
+     * The scan, read.
+     */
+    200: {
+        data: {
+            scan: IngredientBarcodeScan;
+        };
+        meta: Meta;
+    };
+};
+
+export type ScanIngredientBarcodeResponse = ScanIngredientBarcodeResponses[keyof ScanIngredientBarcodeResponses];
 
 export type ListIngredientCategoriesData = {
     body?: never;
@@ -25733,6 +26160,75 @@ export type RecordStockWasteResponses = {
 
 export type RecordStockWasteResponse = RecordStockWasteResponses[keyof RecordStockWasteResponses];
 
+export type LinkIngredientBarcodeAtReceivingData = {
+    body: LinkIngredientBarcodeAtReceivingRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/inventory/ingredient-barcodes';
+};
+
+export type LinkIngredientBarcodeAtReceivingErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * `barcode.taken` — another ingredient in this kitchen already holds this
+     * code. `details` names it (`ingredient_id`, `name_en`, `name_ar`).
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * `barcode.invalid` — the code cannot be used as asked, and
+     * `details.reason` says why: `unreadable`, `check_digit`,
+     * `variable_measure`, `reserved` or `not_a_product_code`. The message
+     * says what to do instead. A malformed body is `validation.failed`.
+     *
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type LinkIngredientBarcodeAtReceivingError = LinkIngredientBarcodeAtReceivingErrors[keyof LinkIngredientBarcodeAtReceivingErrors];
+
+export type LinkIngredientBarcodeAtReceivingResponses = {
+    /**
+     * The barcode was linked.
+     */
+    201: IngredientBarcodeEnvelope;
+};
+
+export type LinkIngredientBarcodeAtReceivingResponse = LinkIngredientBarcodeAtReceivingResponses[keyof LinkIngredientBarcodeAtReceivingResponses];
+
 export type RecordStockCountData = {
     body: StockCountRequest;
     headers: {
@@ -27138,7 +27634,12 @@ export type ListGoodsReceiptsData = {
         'X-Client-Request-Id'?: string;
     };
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Only receipts with a line carrying exactly this supplier lot.
+         */
+        supplier_lot?: string;
+    };
     url: '/catalogue/procurement/goods-receipts';
 };
 

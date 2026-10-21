@@ -105,6 +105,7 @@ import {
 import { ImageSlot } from '../image-slot.tsx';
 import { AllergenReferencePicker } from '../allergen-reference-picker.tsx';
 import { IngredientAllergenEditor } from '../ingredient-allergen-editor.tsx';
+import { IngredientBarcodesSection } from '../ingredient-barcodes-section.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
@@ -2459,6 +2460,19 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                             />
                         )}
                     </FormSection>
+                )}
+
+                {/*
+                 * ── barcodes ─ the kitchen's own rows, written on the spot rather than by Save, so
+                 * a platform record and packaging have them too. A saved record only: a code needs
+                 * an ingredient to point at.
+                 */}
+                {parsed === null ? null : (
+                    <IngredientBarcodesSection
+                        ingredientId={parsed}
+                        defaultUnit={details.measurementUnit}
+                        canManage={canManage}
+                    />
                 )}
             </View>
 

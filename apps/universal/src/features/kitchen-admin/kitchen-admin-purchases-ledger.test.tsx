@@ -114,6 +114,10 @@ function ledgerLine(overrides: Partial<PurchaseLedgerLine> = {}): PurchaseLedger
         costCurrencyCode: 'USD',
         valuationPendingFx: false,
         costsRedacted: false,
+        gtin: null,
+        supplierLot: null,
+        expiresOn: null,
+        bestBeforeOn: null,
         ...overrides,
     };
 }

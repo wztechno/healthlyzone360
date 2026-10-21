@@ -1,6 +1,8 @@
 import type { ApiFailure, SubscriptionRefusal, ValidationFields } from '../contracts/failure.ts';
 import {
     apiFailure,
+    barcodeInvalidFailure,
+    barcodeTakenFailure,
     closureRefusedFailure,
     conflictFailure,
     offboardingRefusedFailure,
@@ -390,6 +392,25 @@ export function mapErrorEnvelope(body: unknown, context: ErrorEnvelopeContext): 
         });
     }
 
+    if (code === 'barcode.invalid') {
+        return barcodeInvalidFailure(readDetailString(details, 'reason'), {
+            message,
+            correlationId,
+        });
+    }
+
+    if (code === 'barcode.taken') {
+        const name = (key: string): string | null => readDetailString(details, key) || null;
+        return barcodeTakenFailure(
+            {
+                ingredientId: name('ingredient_id'),
+                nameEn: name('name_en'),
+                nameAr: name('name_ar'),
+            },
+            { message, correlationId },
+        );
+    }
+
     if (code === 'closure.refused') {
         return closureRefusedFailure(readDetailString(details, 'reason'), {
             message,
@@ -514,6 +535,8 @@ export const WIRE_ERROR_CODES: readonly ErrorCode[] = [
     'offboarding.refused',
     'offboarding.settlement_outstanding',
     'record_export.unavailable',
+    'barcode.taken',
+    'barcode.invalid',
     'rate_limit.exceeded',
     'server.internal_error',
 ];

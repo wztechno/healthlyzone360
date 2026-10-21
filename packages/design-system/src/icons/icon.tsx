@@ -214,6 +214,8 @@ export const DRAWN_ICON_FALLBACKS = {
     monitorSmartphone: 'device',
     smartphone: 'device',
     swatchBook: 'prototype',
+    // Ingredient barcodes: the camera scan control. Lucide's `scan-barcode`.
+    scanBarcode: 'search',
 } as const satisfies Readonly<Record<string, IconGlyphName>>;
 export type DrawnIconName = keyof typeof DRAWN_ICON_FALLBACKS;
 

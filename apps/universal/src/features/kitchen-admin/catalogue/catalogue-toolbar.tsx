@@ -1,6 +1,9 @@
+import type { BarcodeScan } from '@healthy360/api-client/contracts';
 import { SearchInput, SegmentedControl } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
+
+import { CameraScanButton } from '../camera-scan-button.tsx';
 
 /**
  * The Catalogue's toolbar: **one** 28px row, and two controls on it, centred.
@@ -78,6 +81,11 @@ export interface CatalogueToolbarProps<Status extends string = string> {
      * because what is typed is a code.
      */
     readonly onSearchSubmit?: (() => void) | undefined;
+    /**
+     * A camera scan (ingredient barcodes): draws the camera button beside the search, and hands its
+     * read to the same path a keyboard-wedge scan takes through {@link onSearchSubmit}.
+     */
+    readonly onScan?: ((scan: BarcodeScan) => void) | undefined;
 
     /**
      * Single-select status segments, "All" first. Omit both this and `status` for an entity with no
@@ -108,6 +116,7 @@ export function CatalogueToolbar<Status extends string = string>({
     searchLabel,
     searchPlaceholder,
     onSearchSubmit,
+    onScan,
     statusSegments,
     status,
     onStatusChange,
@@ -182,6 +191,10 @@ export function CatalogueToolbar<Status extends string = string>({
                         testID={`${testID}-search`}
                     />
                 </View>
+
+                {onScan === undefined ? null : (
+                    <CameraScanButton testID={`${testID}-camera`} onScan={onScan} />
+                )}
 
                 {showStatus ? (
                     <SegmentedControl

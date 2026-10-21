@@ -26,7 +26,7 @@ import type { FormIssueItem, SelectOption } from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, View } from 'react-native';
 
@@ -41,6 +41,15 @@ import {
     useStockItemsQuery,
     useSuppliersQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
+import {
+    applyScan,
+    exceedsOutstanding,
+    lotCheckPending,
+    lotIsReadable,
+} from '../receive-delivery-model.ts';
+import type { ScannedPack } from '../receive-delivery-model.ts';
+import { ReceiveLineTrace } from '../receive-line-trace.tsx';
+import { ReceiveScanBar } from '../receive-scan-bar.tsx';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
@@ -256,7 +265,20 @@ function PostReceipt() {
     const [newSupplierEmail, setNewSupplierEmail] = useState('');
     const [newSupplierPhone, setNewSupplierPhone] = useState('');
 
+    /** What the last scan's placement has to say — a lot kept apart, a pack left to type. */
+    const [scanNotice, setScanNotice] = useState<string | null>(null);
+    /** Lots and dates: shown once a row has any, until somebody folds them away. */
+    const [showTrace, setShowTrace] = useState<boolean | null>(null);
+
     const lines = orderMode ? orderLines : marketLines;
+    const traceOpen =
+        showTrace ??
+        lines.some((line) => (line.gtin ?? null) !== null || (line.supplierLot ?? '') !== '');
+    /** The rows a scan builds on — ahead of the render when two scans answer in one tick. */
+    const latestLines = useRef(lines);
+    useEffect(() => {
+        latestLines.current = lines;
+    }, [lines]);
     const setLines = orderMode ? setOrderLines : setMarketLines;
     const referenceData = reference.data ?? null;
 
@@ -479,6 +501,47 @@ function PostReceipt() {
         };
     }
 
+    /**
+     * A scan lands on a row by the rules both receive screens share (`applyScan`): against an order
+     * it converts the line's untouched prefill, otherwise it counts onto its own row. A pack is
+     * added only when its unit is the row's unit.
+     */
+    function placeScan(pack: ScannedPack) {
+        // The blank row a market purchase opens on is a place to type, not a line: a scan that
+        // left it behind would leave a row Post refuses as missing its item.
+        const filled = latestLines.current.filter(
+            (line) => line.stockItemId !== null || line.quantity.trim() !== '',
+        );
+        const placed = applyScan(filled, pack, {
+            orderMode,
+            unitOf: (line) => unitCodeFor(line.stockItemId, line.unitId ?? null),
+            create: (template) => {
+                const key = `${LINES_ID}-scan-${String(filled.length)}-${String(Date.now())}`;
+                return template !== null
+                    ? { ...template, key }
+                    : {
+                          key,
+                          stockItemId: pack.stockItemId,
+                          quantity: '',
+                          unitId: defaultUnitIdForItem(pack.stockItemId),
+                          unitPrice: '',
+                      };
+            },
+        });
+        latestLines.current = placed.drafts;
+        edited(setLines)(placed.drafts);
+        setScanNotice(
+            placed.keptApart
+                ? t('kitchen:barcodes.keptApart')
+                : placed.needsQuantity
+                  ? t('kitchen:barcodes.typeQuantity')
+                  : null,
+        );
+        if (placed.needsQuantity) {
+            focusField(stockItemLineFieldId(LINES_ID, placed.key, 'quantity'));
+        }
+    }
+
     /** The order's still-to-come lines as rows, each tied to its order line. */
     function linesFromOrder(next: ReceivableOrder): readonly StockItemLineDraft[] {
         return next.lines
@@ -491,6 +554,7 @@ function PostReceipt() {
                 unitPrice: '',
                 purchaseOrderLineId: line.purchaseOrderLineId,
                 outstandingQuantity: line.outstandingQuantity,
+                quantitySource: 'prefill' as const,
             }));
     }
 
@@ -507,13 +571,9 @@ function PostReceipt() {
 
     // What an order delivery has to say out loud (§3.5): more than was outstanding, or an item that
     // was never on the order.
-    const overLines = orderMode
-        ? lines.filter(
-              (line) =>
-                  line.purchaseOrderLineId != null &&
-                  (readQuantity(line.quantity) ?? 0) > Number(line.outstandingQuantity ?? '0'),
-          )
-        : [];
+    // Summed per order line: a second lot of one line is a second row, and two lots of 5 against 10
+    // outstanding is neither short nor over.
+    const overLines = orderMode ? lines.filter((line) => exceedsOutstanding(line, lines)) : [];
     const hasOverReceipt = overLines.length > 0;
     const hasUnplannedLine =
         orderMode &&
@@ -588,6 +648,21 @@ function PostReceipt() {
                 fieldId: stockItemLineFieldId(LINES_ID, line.key, field),
             });
         }
+    });
+    lines.forEach((line, index) => {
+        if (!lotIsReadable(line.supplierLot)) {
+            issues.push({
+                key: `lot-unreadable-${line.key}`,
+                label: t('kitchen:barcodes.issueLotUnreadable', { line: index + 1 }),
+                fieldId: `kitchen-procurement-post-trace-${line.key}-lot`,
+            });
+        }
+        if (!lotCheckPending(line)) return;
+        issues.push({
+            key: `lot-${line.key}`,
+            label: t('kitchen:barcodes.issueLotCheck', { line: index + 1 }),
+            fieldId: `kitchen-procurement-post-trace-${line.key}-lot-checked`,
+        });
     });
     if (receivedInFuture) {
         issues.push({ key: 'date', label: t('kitchen:ops.procurement.issueDateFuture') });
@@ -779,6 +854,11 @@ function PostReceipt() {
                               unitPriceAmount: line.unitPriceAmount,
                               costCurrencyCode: line.costCurrencyCode,
                           }),
+                    // What was scanned or typed off the pack, each only when set.
+                    ...(line.gtin === undefined ? {} : { gtin: line.gtin }),
+                    ...(line.supplierLot === undefined ? {} : { supplierLot: line.supplierLot }),
+                    ...(line.expiresOn === undefined ? {} : { expiresOn: line.expiresOn }),
+                    ...(line.bestBeforeOn === undefined ? {} : { bestBeforeOn: line.bestBeforeOn }),
                 })),
             },
             {
@@ -1114,6 +1194,12 @@ function PostReceipt() {
                             }
                         >
                             <Stack space="md">
+                                <ReceiveScanBar
+                                    testID="kitchen-procurement-post-scan"
+                                    stockItems={stockItems.data ?? []}
+                                    onScanned={placeScan}
+                                    notice={scanNotice}
+                                />
                                 <StockItemLineEditor
                                     testID={LINES_ID}
                                     lines={lines}
@@ -1148,6 +1234,55 @@ function PostReceipt() {
                                     priceNoteFor={priceNoteFor}
                                     issues={shownLineIssues}
                                 />
+
+                                {/*
+                                 * Lots and dates (ingredient barcodes): filled by a scan, or typed off
+                                 * the pack. Folded away until a row has any, because most market
+                                 * purchases carry none.
+                                 */}
+                                {lines.some((line) => line.stockItemId !== null) ? (
+                                    <Stack space="sm" testID="kitchen-procurement-post-trace">
+                                        <Button
+                                            testID="kitchen-procurement-post-trace-toggle"
+                                            variant="ghost"
+                                            size="sm"
+                                            label={t(
+                                                traceOpen
+                                                    ? 'kitchen:barcodes.hideLots'
+                                                    : 'kitchen:barcodes.showLots',
+                                            )}
+                                            onPress={() => {
+                                                setShowTrace(!traceOpen);
+                                            }}
+                                        />
+                                        {traceOpen
+                                            ? lines.map((line, index) =>
+                                                  line.stockItemId === null ? null : (
+                                                      <ReceiveLineTrace
+                                                          key={line.key}
+                                                          testID={`kitchen-procurement-post-trace-${line.key}`}
+                                                          title={t('kitchen:barcodes.lineTitle', {
+                                                              line: index + 1,
+                                                              item:
+                                                                  itemById.get(line.stockItemId)
+                                                                      ?.name ?? '',
+                                                          })}
+                                                          trace={line}
+                                                          onChange={(patch) => {
+                                                              edited(setLines)(
+                                                                  lines.map((row) =>
+                                                                      row.key === line.key
+                                                                          ? { ...row, ...patch }
+                                                                          : row,
+                                                                  ),
+                                                              );
+                                                          }}
+                                                      />
+                                                  ),
+                                              )
+                                            : null}
+                                    </Stack>
+                                ) : null}
 
                                 {/*
                                  * §3.5: an over-receipt takes a confirmation *and* a note — one

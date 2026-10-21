@@ -113,21 +113,27 @@ function barsPath(modules: readonly boolean[]): string {
     return path;
 }
 
-export interface Gs1BarcodeProps {
-    /** The human-readable element string, e.g. `(11)260925(17)260930(10)2609250077`. */
-    readonly value: string;
+export interface ModuleBarsProps {
+    /** One entry per module, `true` for bar, quiet zones included. */
+    readonly modules: readonly boolean[];
+    /** Printed width of one module, in millimetres. */
+    readonly moduleMm: number;
+    /** Printed height of the bars, in millimetres. */
+    readonly heightMm: number;
 }
 
-export function Gs1Barcode({ value }: Gs1BarcodeProps) {
+/**
+ * Modules drawn as one SVG `<path>` at a printed size — what every symbology here shares (the
+ * GS1-128 batch label, the EAN-13 kitchen code). Web only; native renders nothing.
+ */
+export function ModuleBars({ modules, moduleMm, heightMm }: ModuleBarsProps) {
     if (Platform.OS !== 'web') return null;
-
-    const modules = gs1128Modules(value);
 
     return createElement(
         'svg',
         {
-            width: `${String(modules.length * MODULE_MM)}mm`,
-            height: `${String(BAR_HEIGHT_MM)}mm`,
+            width: `${String(modules.length * moduleMm)}mm`,
+            height: `${String(heightMm)}mm`,
             viewBox: `0 0 ${String(modules.length)} 1`,
             preserveAspectRatio: 'none',
             shapeRendering: 'crispEdges',
@@ -136,5 +142,18 @@ export function Gs1Barcode({ value }: Gs1BarcodeProps) {
             style: { display: 'block' },
         },
         createElement('path', { d: barsPath(modules) }),
+    );
+}
+
+export interface Gs1BarcodeProps {
+    /** The human-readable element string, e.g. `(11)260925(17)260930(10)2609250077`. */
+    readonly value: string;
+}
+
+export function Gs1Barcode({ value }: Gs1BarcodeProps) {
+    if (Platform.OS !== 'web') return null;
+
+    return (
+        <ModuleBars modules={gs1128Modules(value)} moduleMm={MODULE_MM} heightMm={BAR_HEIGHT_MM} />
     );
 }

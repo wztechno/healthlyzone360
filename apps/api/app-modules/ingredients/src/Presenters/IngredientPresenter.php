@@ -9,9 +9,12 @@ use Healthy360\Catalogues\Services\RecordPhotoService;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAlias;
 use Healthy360\Ingredients\Models\IngredientAllergen;
+use Healthy360\Ingredients\Models\IngredientBarcode;
 use Healthy360\Ingredients\Models\IngredientCategory;
 use Healthy360\Ingredients\Services\AllergenMappingService;
 use Healthy360\Ingredients\Services\IngredientCatalogueService;
+use Healthy360\Support\Identifiers\Gs1;
+use Healthy360\Support\Identifiers\Gs1Scan;
 
 /**
  * The administrative wire shapes of the ingredient catalogue.
@@ -242,6 +245,52 @@ final class IngredientPresenter
             'locale' => $alias->locale,
             'source_system' => $alias->source_system,
             'source_ref' => $alias->source_ref,
+        ];
+    }
+
+    /**
+     * @return array{id: string, ingredient_id: string, gtin: string, origin: string, pack_quantity: string|null, pack_unit_code: string|null, created_at: string|null}
+     */
+    public function barcode(IngredientBarcode $barcode): array
+    {
+        return [
+            'id' => (string) $barcode->getKey(),
+            'ingredient_id' => $barcode->ingredient_id,
+            'gtin' => $barcode->gtin,
+            'origin' => $barcode->origin,
+            'pack_quantity' => $barcode->pack_quantity === null ? null : (string) $barcode->pack_quantity,
+            'pack_unit_code' => $barcode->packUnit?->code,
+            'created_at' => $barcode->created_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * What a scan said, and the link that holds its GTIN in this kitchen.
+     * `origin_hint` reads the number alone — `system` for the `04` kitchen range —
+     * so a deleted kitchen label still says what it was.
+     *
+     * @return array<string, mixed>
+     */
+    public function scan(Gs1Scan $scan, ?IngredientBarcode $link): array
+    {
+        return [
+            'gtin' => $scan->gtin,
+            'supplier_lot' => $scan->lot(),
+            'expires_on' => $scan->expiresOn()?->toDateString(),
+            'best_before_on' => $scan->bestBeforeOn()?->toDateString(),
+            'boundary_verified' => $scan->boundaryVerified,
+            'origin_hint' => $scan->gtin !== null && Gs1::isRestrictedCirculation($scan->gtin)
+                ? IngredientBarcode::ORIGIN_SYSTEM
+                : IngredientBarcode::ORIGIN_SUPPLIER,
+            'link' => $link === null ? null : [
+                'id' => (string) $link->getKey(),
+                'ingredient_id' => $link->ingredient_id,
+                'name_en' => $link->ingredient?->name_en,
+                'name_ar' => $link->ingredient?->name_ar,
+                'origin' => $link->origin,
+                'pack_quantity' => $link->pack_quantity === null ? null : (string) $link->pack_quantity,
+                'pack_unit_code' => $link->packUnit?->code,
+            ],
         ];
     }
 

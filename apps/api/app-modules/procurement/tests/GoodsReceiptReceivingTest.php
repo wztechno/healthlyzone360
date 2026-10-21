@@ -669,3 +669,87 @@ it('marks a receipt partial when one line is priced and another is not', functio
 
     expect($receipt->cost_status)->toBe('partial');
 });
+
+/* ── traceability off the pack (ingredient barcodes, plan §4.3) ──────────── */
+
+it('keeps two lots and two brands of one order line as separate lines, and sums them', function (): void {
+    $world = receivingWorld('two-lots@kitchen.test');
+    $order = issuedOrder($world, '10');
+    $line = orderLineId($order);
+    $this->actingAs($world->tenant->user);
+
+    $receiptId = $this->postJson('/api/v1/catalogue/procurement/goods-receipts', [
+        'branch_id' => $world->branchId,
+        'supplier_id' => $world->supplierId,
+        'purchase_order_id' => (string) $order->getKey(),
+        'lines' => [
+            ['stock_item_id' => $world->itemId, 'purchase_order_line_id' => $line, 'quantity' => 4,
+                'gtin' => '04006381333931', 'supplier_lot' => 'L1', 'expires_on' => '2026-12-31', 'best_before_on' => '2026-11-30'],
+            ['stock_item_id' => $world->itemId, 'purchase_order_line_id' => $line, 'quantity' => 3,
+                'gtin' => '04006381333931', 'supplier_lot' => 'L2', 'expires_on' => '2027-01-31'],
+            ['stock_item_id' => $world->itemId, 'purchase_order_line_id' => $line, 'quantity' => 3,
+                'gtin' => '00036000291452', 'supplier_lot' => 'L1'],
+        ],
+    ], $world->headers)->assertCreated()->json('data.goods_receipt.id');
+
+    $lines = collect($this->getJson('/api/v1/catalogue/procurement/goods-receipts/'.$receiptId, $world->headers)
+        ->assertOk()
+        ->json('data.goods_receipt.lines'))
+        ->map(fn (array $row): array => array_intersect_key($row, array_flip(['quantity', 'gtin', 'supplier_lot', 'expires_on', 'best_before_on'])))
+        ->sortBy(['gtin', 'supplier_lot'])
+        ->values()
+        ->all();
+
+    expect($lines)->toBe([
+        ['quantity' => '3.0000', 'gtin' => '00036000291452', 'supplier_lot' => 'L1', 'expires_on' => null, 'best_before_on' => null],
+        ['quantity' => '4.0000', 'gtin' => '04006381333931', 'supplier_lot' => 'L1', 'expires_on' => '2026-12-31', 'best_before_on' => '2026-11-30'],
+        ['quantity' => '3.0000', 'gtin' => '04006381333931', 'supplier_lot' => 'L2', 'expires_on' => '2027-01-31', 'best_before_on' => null],
+    ]);
+
+    // Three lines, one order line, ten of ten: received in full, not over.
+    expect(PurchaseOrder::withoutTenancy()->whereKey($order->getKey())->sole()->status)->toBe(PurchaseOrderStatus::Received);
+
+    // The ledger carries them too.
+    $this->getJson('/api/v1/catalogue/procurement/purchases-ledger', $world->headers)
+        ->assertOk()
+        ->assertJsonFragment(['supplier_lot' => 'L2', 'expires_on' => '2027-01-31']);
+});
+
+it('refuses a GTIN whose check digit fails and a lot GS1 cannot carry', function (array $trace): void {
+    $world = receivingWorld('bad-trace@kitchen.test');
+    $this->actingAs($world->tenant->user);
+
+    $this->postJson('/api/v1/catalogue/procurement/goods-receipts', [
+        'branch_id' => $world->branchId,
+        'lines' => [['stock_item_id' => $world->itemId, 'quantity' => 1] + $trace],
+    ], $world->headers)
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed');
+})->with([
+    'a wrong check digit' => [['gtin' => '04006381333932']],
+    'thirteen digits' => [['gtin' => '4006381333931']],
+    'a lot over twenty characters' => [['supplier_lot' => str_repeat('A', 21)]],
+    'a lot with a space' => [['supplier_lot' => 'L 1']],
+    'a date that is not one' => [['expires_on' => '2026-02-30']],
+    'a date with a time on it' => [['best_before_on' => '2026-12-31 10:00:00']],
+]);
+
+it('answers which deliveries brought a supplier lot', function (): void {
+    $world = receivingWorld('recall@kitchen.test');
+    $this->actingAs($world->tenant->user);
+    $post = fn (string $lot): string => $this->postJson('/api/v1/catalogue/procurement/goods-receipts', [
+        'branch_id' => $world->branchId,
+        'lines' => [['stock_item_id' => $world->itemId, 'quantity' => 1, 'supplier_lot' => $lot]],
+    ], $world->headers)->assertCreated()->json('data.goods_receipt.id');
+
+    $first = $post('LOT-A');
+    $post('LOT-B');
+
+    $ids = collect($this->getJson('/api/v1/catalogue/procurement/goods-receipts?supplier_lot=LOT-A', $world->headers)
+        ->assertOk()
+        ->json('data.goods_receipts'))
+        ->pluck('id')
+        ->all();
+
+    expect($ids)->toBe([$first]);
+});

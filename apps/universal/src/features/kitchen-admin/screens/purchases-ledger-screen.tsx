@@ -362,6 +362,21 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
             ),
         },
         {
+            // What arrived, off the pack (ingredient barcodes): the supplier lot, read for a recall.
+            key: 'lot',
+            label: t('kitchen:barcodes.columnLot'),
+            width: 120,
+            priority: 40,
+            value: (row) => row.supplierLot ?? '',
+            sort: (left, right, direction) =>
+                compareText(left.supplierLot ?? '', right.supplierLot ?? '', direction),
+            render: (row) => (
+                <Text variant="mono" testID={`kitchen-ledger-${row.id}-lot`}>
+                    {row.supplierLot ?? '—'}
+                </Text>
+            ),
+        },
+        {
             key: 'unitPrice',
             role: 'metric',
             label: t('kitchen:ops.ledger.columnUnitPrice'),
@@ -501,6 +516,34 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                         label: t('kitchen:ops.ledger.columnQuantity'),
                         value: formatter.formatNumber(Number(viewing.quantity)),
                         mono: true,
+                    },
+                    {
+                        key: 'lot',
+                        label: t('kitchen:barcodes.columnLot'),
+                        value: viewing.supplierLot ?? '—',
+                        mono: true,
+                    },
+                    {
+                        key: 'expiresOn',
+                        label: t('kitchen:barcodes.expiresLabel'),
+                        value:
+                            viewing.expiresOn === null
+                                ? '—'
+                                : formatter.formatDate(viewing.expiresOn, {
+                                      dateStyle: 'medium',
+                                      timeZone: 'UTC',
+                                  }),
+                    },
+                    {
+                        key: 'bestBeforeOn',
+                        label: t('kitchen:barcodes.bestBeforeLabel'),
+                        value:
+                            viewing.bestBeforeOn === null
+                                ? '—'
+                                : formatter.formatDate(viewing.bestBeforeOn, {
+                                      dateStyle: 'medium',
+                                      timeZone: 'UTC',
+                                  }),
                     },
                     {
                         key: 'unitPrice',

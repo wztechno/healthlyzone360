@@ -118,6 +118,8 @@ describe('the failure vocabulary', () => {
             'offboarding.refused',
             'offboarding.settlement_outstanding',
             'record_export.unavailable',
+            'barcode.invalid',
+            'barcode.taken',
             'allergens.provider_unavailable',
             'nutrition.provider_unavailable',
             'nutrition.provider_configuration',

@@ -39,6 +39,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $cost_currency_code
  * @property CarbonImmutable|null $costed_at null means the costing path has not run for this line (§3.6)
  * @property bool $valuation_pending_fx
+ * @property string|null $gtin the product scanned at receiving, fourteen digits
+ * @property string|null $supplier_lot GS1 AI (10)
+ * @property CarbonImmutable|null $expires_on GS1 AI (17)
+ * @property CarbonImmutable|null $best_before_on GS1 AI (15)
  * @property CarbonImmutable|null $created_at
  * @property-read GoodsReceipt|null $goodsReceipt
  * @property-read StockItem|null $stockItem
@@ -53,6 +57,8 @@ class GoodsReceiptLine extends BaseModel
             'line_total_amount' => 'decimal:6',
             'costed_at' => 'immutable_datetime',
             'valuation_pending_fx' => 'boolean',
+            'expires_on' => 'immutable_date',
+            'best_before_on' => 'immutable_date',
         ];
     }
 

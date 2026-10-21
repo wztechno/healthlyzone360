@@ -2447,7 +2447,8 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
              * The same toolbar on a laptop's page, with a filter of the entity's own and the row's
              * actions. Narrowed to 640px so the break is visible: the search and the filters wrap
              * inside their zone, and New keeps the end of the first line — it is never the control
-             * left on a line of its own.
+             * left on a line of its own. `onScan` adds the camera button beside the search
+             * (ingredient barcodes).
              */}
             <Stack space="xs">
                 <Text variant="section" tone="secondary">
@@ -2458,6 +2459,9 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         testID={id('toolbar-narrow')}
                         search={toolbarSearch}
                         onSearchChange={setToolbarSearch}
+                        onScan={(scan) => {
+                            setToolbarSearch(scan.data);
+                        }}
                         searchLabel="Search the catalogue"
                         searchPlaceholder="Search ingredients"
                         statusLabel="Status"
