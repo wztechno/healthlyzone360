@@ -630,11 +630,17 @@ export function useForkIngredientMutation(): UseMutationResult<
 > {
     const repositories = useRepositories();
     const onWritten = useIngredientWriteEffects();
+    const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (ingredientId: IngredientId) =>
             repositories.kitchenAdmin.forkIngredient(ingredientId),
-        onSuccess: onWritten,
+        onSuccess: (fork) => {
+            onWritten(fork);
+            // A fork leaves the barcodes on the source, but a cached scan may still name a row the
+            // list now hides behind the fork — ask again rather than answer from before.
+            queryClient.removeQueries({ queryKey: queryKeys.kitchenOps.ingredientBarcodeScans() });
+        },
     });
 }
 

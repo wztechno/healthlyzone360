@@ -10,6 +10,8 @@ export {
     ApiError,
     apiFailure,
     asApiFailure,
+    barcodeInvalidFailure,
+    barcodeTakenFailure,
     conflictFailure,
     createMemoryTokenStore,
     createTokenListeners,

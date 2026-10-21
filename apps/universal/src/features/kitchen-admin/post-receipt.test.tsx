@@ -1,12 +1,21 @@
-import { ApiError, validationFailure } from '@healthy360/api-client';
+import { ApiError, barcodeInvalidFailure, validationFailure } from '@healthy360/api-client';
 import type {
+    BarcodeScan,
+    IngredientBarcodeScan,
     ItemLatestPurchase,
+    LinkIngredientBarcodeRequest,
     PostGoodsReceiptRequest,
     ProcurementReference,
     ReceivableOrder,
     StockItem,
 } from '@healthy360/api-client/contracts';
-import { GoodsReceiptId, PurchaseOrderId, StockItemId, SupplierId } from '@healthy360/domain-types';
+import {
+    GoodsReceiptId,
+    IngredientId,
+    PurchaseOrderId,
+    StockItemId,
+    SupplierId,
+} from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { TEST_BRANCH_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
@@ -466,5 +475,211 @@ describe('post a goods receipt — a delivery against an order', () => {
                 { stockItemId: QUINOA, quantity: 20, purchaseOrderLineId: 'po-line-quinoa' },
             ],
         });
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Scanning a delivery (ingredient barcodes)
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('post a goods receipt — scanning', () => {
+    const CHICKEN_INGREDIENT = IngredientId.unsafe('01935f6d-0000-7000-8000-0000000000f1');
+    const EAN = '4006381333931';
+    const SCAN = 'kitchen-procurement-post-scan';
+
+    function scanned(overrides: Partial<IngredientBarcodeScan> = {}): IngredientBarcodeScan {
+        return {
+            gtin: `0${EAN}`,
+            supplierLot: 'LOT1',
+            expiresOn: '2026-12-31',
+            bestBeforeOn: null,
+            boundaryVerified: true,
+            originHint: 'supplier',
+            link: {
+                id: 'barcode-1',
+                ingredientId: CHICKEN_INGREDIENT,
+                nameEn: 'Chicken breast, fresh',
+                nameAr: null,
+                origin: 'supplier',
+                packQuantity: '5.0000',
+                packUnitCode: 'kg',
+            },
+            ...overrides,
+        };
+    }
+
+    function scanningWorld(
+        posted: PostGoodsReceiptRequest[],
+        linked: LinkIngredientBarcodeRequest[] = [],
+    ) {
+        const base = world(posted);
+        let linkedYet = false;
+        return {
+            kitchenOps: {
+                ...base.kitchenOps,
+                listStockItems: async () =>
+                    STOCK_ITEMS.map((item) =>
+                        item.id === CHICKEN ? { ...item, ingredientId: CHICKEN_INGREDIENT } : item,
+                    ),
+                scanIngredientBarcode: async (scan: BarcodeScan) => {
+                    switch (scan.data) {
+                        case EAN:
+                            return scanned();
+                        case 'SECOND-LOT':
+                            return scanned({ supplierLot: 'LOT2' });
+                        case 'LOOSE':
+                            return scanned({
+                                supplierLot: 'LOT4217261130',
+                                expiresOn: null,
+                                boundaryVerified: false,
+                            });
+                        case '96385074':
+                            return linkedYet
+                                ? scanned({
+                                      gtin: '00000096385074',
+                                      supplierLot: null,
+                                      expiresOn: null,
+                                  })
+                                : scanned({
+                                      gtin: '00000096385074',
+                                      supplierLot: null,
+                                      link: null,
+                                  });
+                        default:
+                            throw new ApiError(barcodeInvalidFailure('variable_measure'));
+                    }
+                },
+                linkIngredientBarcodeAtReceiving: async (request: LinkIngredientBarcodeRequest) => {
+                    linked.push(request);
+                    linkedYet = true;
+                    return {
+                        id: 'barcode-2',
+                        ingredientId: request.ingredientId,
+                        gtin: '00000096385074',
+                        origin: 'supplier' as const,
+                        packQuantity: null,
+                        packUnitCode: null,
+                        createdAt: null,
+                    };
+                },
+            },
+        };
+    }
+
+    async function scan(code: string) {
+        await type(`${SCAN}-code-input`, code);
+        await act(async () => {
+            fireEvent(screen.getByTestId(`${SCAN}-code-input`), 'submitEditing');
+        });
+    }
+
+    async function openOrder() {
+        await untilVisible('kitchen-post-receipt-arrival-order');
+        await press('kitchen-post-receipt-arrival-order');
+        await untilVisible('kitchen-procurement-post-order');
+        await choose('kitchen-procurement-post-order', String(ORDER));
+        await untilVisible(`${LINES}-row-order-line-po-line-chicken-quantity`);
+    }
+
+    it('replaces the prefill on the first scan, counts packs, and splits a second lot', async () => {
+        const posted: PostGoodsReceiptRequest[] = [];
+        await renderStubScreen(<PostReceiptScreen />, {
+            session: kitchenManagerSession(),
+            repositories: scanningWorld(posted),
+        });
+        await openOrder();
+        const chickenRow = `${LINES}-row-order-line-po-line-chicken`;
+        expect(screen.getByTestId(`${chickenRow}-quantity-input`).props.value).toBe('24');
+
+        // One pack of 5 kg — the outstanding 24 is dropped, never added to.
+        await scan(EAN);
+        await waitFor(() => {
+            expect(screen.getByTestId(`${chickenRow}-quantity-input`).props.value).toBe('5');
+        });
+        await scan(EAN);
+        await waitFor(() => {
+            expect(screen.getByTestId(`${chickenRow}-quantity-input`).props.value).toBe('10');
+        });
+
+        // A second lot is its own line on the same order line.
+        await scan('SECOND-LOT');
+        await waitFor(() => {
+            expect(screen.getByDisplayValue('LOT2')).toBeTruthy();
+        });
+
+        // 10 + 5 of 24 is short, not over: no confirmation is asked for.
+        expect(screen.queryByTestId('kitchen-procurement-post-variance')).toBeNull();
+        await press('kitchen-procurement-post-confirm');
+        await waitFor(() => {
+            expect(posted).toHaveLength(1);
+        });
+        expect(posted[0]?.lines).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    stockItemId: CHICKEN,
+                    quantity: 10,
+                    purchaseOrderLineId: 'po-line-chicken',
+                    gtin: `0${EAN}`,
+                    supplierLot: 'LOT1',
+                    expiresOn: '2026-12-31',
+                }),
+                expect.objectContaining({
+                    stockItemId: CHICKEN,
+                    quantity: 5,
+                    purchaseOrderLineId: 'po-line-chicken',
+                    supplierLot: 'LOT2',
+                }),
+            ]),
+        );
+    });
+
+    it('holds an unverified lot back until it is ticked', async () => {
+        const posted: PostGoodsReceiptRequest[] = [];
+        await renderStubScreen(<PostReceiptScreen />, {
+            session: kitchenManagerSession(),
+            repositories: scanningWorld(posted),
+        });
+        await openOrder();
+
+        await scan('LOOSE');
+        await untilVisible('kitchen-procurement-post-trace-order-line-po-line-chicken-lot-checked');
+        await press('kitchen-procurement-post-confirm');
+        await untilVisible('kitchen-post-receipt-screen-issues-errors');
+        expect(screen.getByText('Line 1 — check the lot')).toBeTruthy();
+        expect(posted).toHaveLength(0);
+
+        await press(
+            'kitchen-procurement-post-trace-order-line-po-line-chicken-lot-checked-control',
+        );
+        await press('kitchen-procurement-post-confirm');
+        await waitFor(() => {
+            expect(posted).toHaveLength(1);
+        });
+        expect(posted[0]?.lines[0]).toMatchObject({ supplierLot: 'LOT4217261130' });
+    });
+
+    it('links an unknown code at the dock and counts it, and refuses a weighed-item label', async () => {
+        const linked: LinkIngredientBarcodeRequest[] = [];
+        await renderStubScreen(<PostReceiptScreen />, {
+            session: kitchenManagerSession(),
+            repositories: scanningWorld([], linked),
+        });
+        await untilVisible(`${SCAN}-code-input`);
+
+        await scan('2012345678903');
+        await untilVisible(`${SCAN}-message`);
+        expect(screen.getByText(/weighed-item or price label/)).toBeTruthy();
+
+        await scan('96385074');
+        await untilVisible(`${SCAN}-link`);
+        await choose(`${SCAN}-link-shelf`, String(CHICKEN));
+        await press(`${SCAN}-link-save`);
+        await waitFor(() => {
+            expect(linked).toEqual([
+                expect.objectContaining({ ingredientId: CHICKEN_INGREDIENT, code: '96385074' }),
+            ]);
+        });
+        // The scan ran again and landed: the chicken shelf now has a row of its own.
+        await untilVisible('kitchen-procurement-post-trace');
     });
 });

@@ -36,6 +36,12 @@ import type {
     ReceivableOrderLine,
     ItemLatestPurchase,
     KitchenOpsRepository,
+    AddIngredientBarcodeRequest,
+    BarcodeScan,
+    GoodsReceiptFilter,
+    IngredientBarcode,
+    IngredientBarcodeScan,
+    LinkIngredientBarcodeRequest,
     LastPurchase,
     MonthlyCostReportFilter,
     MonthlyCostReportRow,
@@ -97,6 +103,8 @@ import type {
     GoodsReceipt as WireGoodsReceipt,
     GoodsReceiptDetail as WireGoodsReceiptDetail,
     GoodsReceiptLine as WireGoodsReceiptLine,
+    IngredientBarcode as WireIngredientBarcode,
+    IngredientBarcodeScan as WireIngredientBarcodeScan,
     ItemLatestPurchase as WireItemLatestPurchase,
     LastPurchase as WireLastPurchase,
     MonthlyCostReportRow as WireMonthlyCostReportRow,
@@ -536,6 +544,65 @@ function mapGoodsReceiptLine(line: WireGoodsReceiptLine): GoodsReceiptLine {
         // somebody's attention is not the same question as what it cost.
         costedAt: line.costed_at,
         valuationPendingFx: line.valuation_pending_fx,
+        gtin: line.gtin,
+        supplierLot: line.supplier_lot,
+        expiresOn: line.expires_on,
+        bestBeforeOn: line.best_before_on,
+    };
+}
+
+function mapIngredientBarcode(wire: WireIngredientBarcode): IngredientBarcode {
+    return {
+        id: wire.id,
+        ingredientId: IngredientId.unsafe(wire.ingredient_id),
+        gtin: wire.gtin,
+        origin: wire.origin,
+        packQuantity: wire.pack_quantity,
+        packUnitCode: wire.pack_unit_code,
+        createdAt: wire.created_at,
+    };
+}
+
+function mapIngredientBarcodeScan(wire: WireIngredientBarcodeScan): IngredientBarcodeScan {
+    const link = wire.link;
+    return {
+        gtin: wire.gtin,
+        supplierLot: wire.supplier_lot,
+        expiresOn: wire.expires_on,
+        bestBeforeOn: wire.best_before_on,
+        boundaryVerified: wire.boundary_verified,
+        originHint: wire.origin_hint,
+        link:
+            link === null
+                ? null
+                : {
+                      id: link.id,
+                      ingredientId: IngredientId.unsafe(link.ingredient_id),
+                      nameEn: link.name_en,
+                      nameAr: link.name_ar,
+                      origin: link.origin,
+                      packQuantity: link.pack_quantity,
+                      packUnitCode: link.pack_unit_code,
+                  },
+    };
+}
+
+/** The symbology and pack size of a barcode write, in the wire's names, absent keys left absent. */
+function barcodePackBody(request: {
+    readonly symbology?: string | null | undefined;
+    readonly packQuantity?: number | null | undefined;
+    readonly packUnitCode?: string | null | undefined;
+}): Record<string, unknown> {
+    return {
+        ...(request.symbology === undefined || request.symbology === null
+            ? {}
+            : { symbology: request.symbology }),
+        ...(request.packQuantity === undefined || request.packQuantity === null
+            ? {}
+            : { pack_quantity: request.packQuantity }),
+        ...(request.packUnitCode === undefined || request.packUnitCode === null
+            ? {}
+            : { pack_unit_code: request.packUnitCode }),
     };
 }
 
@@ -670,6 +737,10 @@ function mapPurchaseLedgerLine(wire: WirePurchaseLedgerLine): PurchaseLedgerLine
         costCurrencyCode: wire.cost_currency_code,
         valuationPendingFx: wire.valuation_pending_fx,
         costsRedacted: wire.costs_redacted,
+        gtin: wire.gtin,
+        supplierLot: wire.supplier_lot,
+        expiresOn: wire.expires_on,
+        bestBeforeOn: wire.best_before_on,
     };
 }
 
@@ -1024,6 +1095,65 @@ const LATEST_PURCHASE_BATCH = 50;
 
 export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsRepository {
     return {
+        async listIngredientBarcodes(ingredientId): Promise<readonly IngredientBarcode[]> {
+            const envelope = await transport.requestEnvelope<readonly WireIngredientBarcode[]>({
+                method: 'GET',
+                path: `/catalogue/ingredients/${encodeURIComponent(String(ingredientId))}/barcodes`,
+            });
+            return envelope.data.map(mapIngredientBarcode);
+        },
+
+        async addIngredientBarcode(
+            ingredientId,
+            request: AddIngredientBarcodeRequest,
+        ): Promise<IngredientBarcode> {
+            const envelope = await transport.requestEnvelope<{
+                readonly barcode: WireIngredientBarcode;
+            }>({
+                method: 'POST',
+                path: `/catalogue/ingredients/${encodeURIComponent(String(ingredientId))}/barcodes`,
+                body: {
+                    origin: request.origin,
+                    ...(request.code === undefined ? {} : { code: request.code }),
+                    ...barcodePackBody(request),
+                },
+            });
+            return mapIngredientBarcode(envelope.data.barcode);
+        },
+
+        async removeIngredientBarcode(ingredientId, barcodeId): Promise<void> {
+            await transport.requestVoid({
+                method: 'DELETE',
+                path: `/catalogue/ingredients/${encodeURIComponent(String(ingredientId))}/barcodes/${encodeURIComponent(barcodeId)}`,
+            });
+        },
+
+        async linkIngredientBarcodeAtReceiving(
+            request: LinkIngredientBarcodeRequest,
+        ): Promise<IngredientBarcode> {
+            const envelope = await transport.requestEnvelope<{
+                readonly barcode: WireIngredientBarcode;
+            }>({
+                method: 'POST',
+                path: '/catalogue/inventory/ingredient-barcodes',
+                body: {
+                    ingredient_id: String(request.ingredientId),
+                    code: request.code,
+                    ...barcodePackBody(request),
+                },
+            });
+            return mapIngredientBarcode(envelope.data.barcode);
+        },
+
+        async scanIngredientBarcode(scan: BarcodeScan): Promise<IngredientBarcodeScan> {
+            const params = new URLSearchParams({ code: scan.data });
+            if (scan.symbology !== null) params.set('symbology', scan.symbology);
+            const envelope = await transport.requestEnvelope<{
+                readonly scan: WireIngredientBarcodeScan;
+            }>({ method: 'GET', path: `/catalogue/ingredient-barcodes/scan?${params.toString()}` });
+            return mapIngredientBarcodeScan(envelope.data.scan);
+        },
+
         async listStockItems(): Promise<readonly StockItem[]> {
             const envelope = await transport.requestEnvelope<{
                 readonly stock_items: readonly WireStockItem[];
@@ -1431,10 +1561,14 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             return mapProcurementReference(envelope.data);
         },
 
-        async listGoodsReceipts(): Promise<readonly GoodsReceipt[]> {
+        async listGoodsReceipts(filter: GoodsReceiptFilter = {}): Promise<readonly GoodsReceipt[]> {
+            const query =
+                filter.supplierLot === undefined || filter.supplierLot === ''
+                    ? ''
+                    : `?${new URLSearchParams({ supplier_lot: filter.supplierLot }).toString()}`;
             const envelope = await transport.requestEnvelope<{
                 readonly goods_receipts: readonly WireGoodsReceipt[];
-            }>({ method: 'GET', path: '/catalogue/procurement/goods-receipts' });
+            }>({ method: 'GET', path: `/catalogue/procurement/goods-receipts${query}` });
             return envelope.data.goods_receipts.map(mapGoodsReceipt);
         },
 
@@ -1527,6 +1661,18 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                         ...(line.costCurrencyCode === undefined || line.costCurrencyCode === null
                             ? {}
                             : { cost_currency_code: line.costCurrencyCode }),
+                        ...(line.gtin === undefined || line.gtin === null
+                            ? {}
+                            : { gtin: line.gtin }),
+                        ...(line.supplierLot === undefined || line.supplierLot === null
+                            ? {}
+                            : { supplier_lot: line.supplierLot }),
+                        ...(line.expiresOn === undefined || line.expiresOn === null
+                            ? {}
+                            : { expires_on: line.expiresOn }),
+                        ...(line.bestBeforeOn === undefined || line.bestBeforeOn === null
+                            ? {}
+                            : { best_before_on: line.bestBeforeOn }),
                     })),
                 },
             });

@@ -15,6 +15,9 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { traceInput } from './receive-delivery-model.ts';
+import type { ScanTrace } from './receive-delivery-model.ts';
+
 /**
  * One draft row in a repeatable stock-item-and-quantity list — a goods receipt line. `key` is a
  * client-only identity for React's list reconciliation; it never reaches the wire
@@ -22,7 +25,7 @@ import { View } from 'react-native';
  *
  * `unitPrice` is captured only where `withCost` is set (INV1.1).
  */
-export interface StockItemLineDraft {
+export interface StockItemLineDraft extends ScanTrace {
     readonly key: string;
     readonly stockItemId: string | null;
     readonly quantity: string;
@@ -320,7 +323,8 @@ export function StockItemLineEditor({
                             ? {}
                             : { error: issues.get(line.key)?.quantity })}
                         onChangeText={(value) => {
-                            updateLine(line.key, { quantity: value });
+                            // A typed quantity is a person's: no scan edits it from here on.
+                            updateLine(line.key, { quantity: value, quantitySource: 'typed' });
                         }}
                     />,
                     issueNote(line, 'quantity'),
@@ -554,6 +558,10 @@ export function stockItemLinesToReceiptInputs(
     purchaseOrderLineId?: string;
     unitPriceAmount?: number;
     costCurrencyCode?: string;
+    gtin?: string;
+    supplierLot?: string;
+    expiresOn?: string;
+    bestBeforeOn?: string;
 }[] {
     return lines
         .filter((line) => line.stockItemId !== null && line.quantity.trim() !== '')
@@ -569,6 +577,7 @@ export function stockItemLinesToReceiptInputs(
                 ...(unitId === null ? {} : { unitId }),
                 ...(orderLineId === null ? {} : { purchaseOrderLineId: orderLineId }),
                 ...(priced ? { unitPriceAmount: price, costCurrencyCode: currencyCode } : {}),
+                ...traceInput(line),
             };
         });
 }

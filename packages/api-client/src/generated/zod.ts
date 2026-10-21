@@ -76,6 +76,8 @@ export const zErrorCode = z.enum([
     'production.plan_refused',
     'production.consumption_recorded',
     'unit.conversion_unsupported',
+    'barcode.taken',
+    'barcode.invalid',
     'access.self_lockout',
     'rate_limit.exceeded',
     'server.internal_error',
@@ -348,6 +350,66 @@ export const zIngredientNutrientAmount = z.object({
 export const zIngredientNutritionPer100g = z.object({
     basis: z.enum(['per_100g']),
     amounts: z.array(zIngredientNutrientAmount).max(20)
+});
+
+export const zIngredientBarcode = z.object({
+    id: zUuid,
+    ingredient_id: zUuid,
+    gtin: z.string().regex(/^[0-9]{14}$/),
+    origin: z.enum(['supplier', 'system']),
+    pack_quantity: z.string().nullable(),
+    pack_unit_code: z.string().nullable(),
+    created_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zIngredientBarcodeEnvelope = z.object({
+    data: z.object({
+        barcode: zIngredientBarcode
+    }),
+    meta: zMeta
+});
+
+export const zAddIngredientBarcodeRequest = z.object({
+    origin: z.enum(['supplier', 'system']),
+    code: z.string().max(512).optional(),
+    symbology: z.string().max(32).nullish(),
+    pack_quantity: z.union([
+        z.number(),
+        z.string()
+    ]).nullish(),
+    pack_unit_code: z.string().nullish()
+});
+
+export const zLinkIngredientBarcodeAtReceivingRequest = z.object({
+    ingredient_id: zUuid,
+    origin: z.enum(['supplier']).nullish(),
+    code: z.string().max(512),
+    symbology: z.string().max(32).nullish(),
+    pack_quantity: z.union([
+        z.number(),
+        z.string()
+    ]).nullish(),
+    pack_unit_code: z.string().nullish()
+});
+
+export const zIngredientBarcodeLink = z.object({
+    id: zUuid,
+    ingredient_id: zUuid,
+    name_en: z.string().nullable(),
+    name_ar: z.string().nullable(),
+    origin: z.enum(['supplier', 'system']),
+    pack_quantity: z.string().nullable(),
+    pack_unit_code: z.string().nullable()
+});
+
+export const zIngredientBarcodeScan = z.object({
+    gtin: z.string().regex(/^[0-9]{14}$/),
+    supplier_lot: z.string().max(20).nullable(),
+    expires_on: z.iso.date().nullable(),
+    best_before_on: z.iso.date().nullable(),
+    boundary_verified: z.boolean(),
+    origin_hint: z.enum(['supplier', 'system']),
+    link: zIngredientBarcodeLink.nullable()
 });
 
 export const zIngredientAlias = z.object({
@@ -4266,7 +4328,11 @@ export const zGoodsReceiptLine = z.object({
     line_total_amount: z.string().nullable(),
     cost_currency_code: z.string().nullable(),
     costed_at: z.iso.datetime({ offset: true }).nullable(),
-    valuation_pending_fx: z.boolean()
+    valuation_pending_fx: z.boolean(),
+    gtin: z.string().regex(/^[0-9]{14}$/).nullable(),
+    supplier_lot: z.string().max(20).nullable(),
+    expires_on: z.iso.date().nullable(),
+    best_before_on: z.iso.date().nullable()
 });
 
 /**
@@ -4528,7 +4594,11 @@ export const zGoodsReceiptLineInput = z.object({
     quantity: z.number().gt(0),
     unit_id: zUuid.optional(),
     unit_price_amount: z.number().gte(0).optional(),
-    cost_currency_code: z.string().length(3).optional()
+    cost_currency_code: z.string().length(3).optional(),
+    gtin: z.string().regex(/^[0-9]{14}$/).nullish(),
+    supplier_lot: z.string().max(20).nullish(),
+    expires_on: z.iso.date().nullish(),
+    best_before_on: z.iso.date().nullish()
 });
 
 /**
@@ -4596,7 +4666,11 @@ export const zPurchasesLedgerLine = z.object({
     line_total_amount: z.string().nullable(),
     cost_currency_code: z.string().nullable(),
     valuation_pending_fx: z.boolean(),
-    costs_redacted: z.boolean()
+    costs_redacted: z.boolean(),
+    gtin: z.string().regex(/^[0-9]{14}$/).nullable(),
+    supplier_lot: z.string().max(20).nullable(),
+    expires_on: z.iso.date().nullable(),
+    best_before_on: z.iso.date().nullable()
 });
 
 export const zPurchasesLedgerCollection = z.object({
@@ -10681,6 +10755,74 @@ export const zRemoveIngredientAliasPath = z.object({
  */
 export const zRemoveIngredientAliasResponse = z.void();
 
+export const zListIngredientBarcodesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListIngredientBarcodesPath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * The barcodes of this ingredient.
+ */
+export const zListIngredientBarcodesResponse = z.object({
+    data: z.array(zIngredientBarcode),
+    meta: zMeta
+});
+
+export const zAddIngredientBarcodeBody = zAddIngredientBarcodeRequest;
+
+export const zAddIngredientBarcodeHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zAddIngredientBarcodePath = z.object({
+    ingredient: zUuid
+});
+
+/**
+ * The ingredient already had its kitchen code; this is it.
+ */
+export const zAddIngredientBarcodeResponse = zIngredientBarcodeEnvelope;
+
+export const zRemoveIngredientBarcodeHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRemoveIngredientBarcodePath = z.object({
+    ingredient: zUuid,
+    barcode: zUuid
+});
+
+/**
+ * The barcode was removed.
+ */
+export const zRemoveIngredientBarcodeResponse = z.void();
+
+export const zScanIngredientBarcodeHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zScanIngredientBarcodeQuery = z.object({
+    code: z.string().max(512),
+    symbology: z.string().max(32).optional()
+});
+
+/**
+ * The scan, read.
+ */
+export const zScanIngredientBarcodeResponse = z.object({
+    data: z.object({
+        scan: zIngredientBarcodeScan
+    }),
+    meta: zMeta
+});
+
 export const zListIngredientCategoriesHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
@@ -12728,6 +12870,18 @@ export const zRecordStockWasteHeaders = z.object({
  */
 export const zRecordStockWasteResponse = zStockMovementEnvelope;
 
+export const zLinkIngredientBarcodeAtReceivingBody = zLinkIngredientBarcodeAtReceivingRequest;
+
+export const zLinkIngredientBarcodeAtReceivingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The barcode was linked.
+ */
+export const zLinkIngredientBarcodeAtReceivingResponse = zIngredientBarcodeEnvelope;
+
 export const zRecordStockCountBody = zStockCountRequest;
 
 export const zRecordStockCountHeaders = z.object({
@@ -13011,6 +13165,10 @@ export const zGetProcurementReferenceResponse = zProcurementReferenceEnvelope;
 export const zListGoodsReceiptsHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListGoodsReceiptsQuery = z.object({
+    supplier_lot: z.string().max(20).optional()
 });
 
 /**

@@ -195,6 +195,7 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
      kitchen-supply-print-toolbar                             →  the print screen's own controls
      kitchen-supply-print-sheets                              →  the box holding one sheet per order
      kitchen-production-label-toolbar / -sheets               →  the batch label screen, the same way
+     kitchen-ingredient-label-toolbar / -sheets               →  the kitchen-code label, on the same stock
 
    ## One sheet is a child of the sheets box, not a prefix match
 
@@ -249,7 +250,9 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
     [data-testid='kitchen-supply-print-screen'],
     [data-testid='kitchen-supply-print-sheets'],
     [data-testid='kitchen-production-label-screen'],
-    [data-testid='kitchen-production-label-sheets'] {
+    [data-testid='kitchen-production-label-sheets'],
+    [data-testid='kitchen-ingredient-label-screen'],
+    [data-testid='kitchen-ingredient-label-sheets'] {
         display: block !important;
         height: auto !important;
         max-height: none !important;
@@ -267,7 +270,8 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
        the boxes within it, flatten them all to `display: block` and take every gap on the page
        with it. */
     body :has([data-testid='kitchen-supply-print-sheets']),
-    body :has([data-testid='kitchen-production-label-sheets']) {
+    body :has([data-testid='kitchen-production-label-sheets']),
+    body :has([data-testid='kitchen-ingredient-label-sheets']) {
         display: block !important;
         height: auto !important;
         max-height: none !important;
@@ -288,7 +292,8 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
     [data-testid='toast-region-polite'],
     [data-testid='toast-region-assertive'],
     [data-testid='kitchen-supply-print-toolbar'],
-    [data-testid='kitchen-production-label-toolbar'] {
+    [data-testid='kitchen-production-label-toolbar'],
+    [data-testid='kitchen-ingredient-label-toolbar'] {
         display: none !important;
     }
 
@@ -326,7 +331,9 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
     [data-testid='kitchen-supply-print-sheets'] > [data-testid^='kitchen-supply-print-sheet-'],
     [data-testid='kitchen-supply-print-sheets'] > [data-testid^='kitchen-supply-print-sheet-'] *,
     [data-testid='kitchen-production-label-sheets'],
-    [data-testid='kitchen-production-label-sheets'] * {
+    [data-testid='kitchen-production-label-sheets'] *,
+    [data-testid='kitchen-ingredient-label-sheets'],
+    [data-testid='kitchen-ingredient-label-sheets'] * {
         color: #000 !important;
         background-color: transparent !important;
         background-image: none !important;
@@ -346,13 +353,18 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
        clipped, never spill onto a second label. A **child** selector for the same reason as the
        supply-order sheets: every id inside a copy shares its prefix (`…-copy-1-dates`). The sheets
        box holds nothing but copies, so the last child is the only break that is not printed. */
-    #root [data-testid='kitchen-production-label-sheets'] {
+    #root [data-testid='kitchen-production-label-sheets'],
+    #root [data-testid='kitchen-ingredient-label-sheets'] {
         gap: 0 !important;
     }
 
+    /* The kitchen-code label shares the stock: one name line, 26 mm of bars, the digits. */
     #root
         [data-testid='kitchen-production-label-sheets']
-        > [data-testid^='kitchen-production-label-copy-'] {
+        > [data-testid^='kitchen-production-label-copy-'],
+    #root
+        [data-testid='kitchen-ingredient-label-sheets']
+        > [data-testid^='kitchen-ingredient-label-copy-'] {
         page: production-label;
         break-after: page;
         page-break-after: always; /* Legacy alias — Safari and older WebKit ignore `break-after`. */
@@ -369,7 +381,10 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
 
     #root
         [data-testid='kitchen-production-label-sheets']
-        > [data-testid^='kitchen-production-label-copy-']:last-child {
+        > [data-testid^='kitchen-production-label-copy-']:last-child,
+    #root
+        [data-testid='kitchen-ingredient-label-sheets']
+        > [data-testid^='kitchen-ingredient-label-copy-']:last-child {
         break-after: auto;
         page-break-after: auto;
     }
@@ -378,6 +393,10 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
     #root
         [data-testid='kitchen-production-label-sheets']
         > [data-testid^='kitchen-production-label-copy-']
+        *,
+    #root
+        [data-testid='kitchen-ingredient-label-sheets']
+        > [data-testid^='kitchen-ingredient-label-copy-']
         * {
         font-size: 7pt !important;
         line-height: 1.2 !important;

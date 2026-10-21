@@ -223,6 +223,11 @@ function IngredientsList() {
                 testID="kitchen-ingredients-toolbar"
                 search={list.query}
                 onSearchChange={list.setQuery}
+                // A camera read goes into the search box: the server matches a code there as well
+                // as a name, which is also how a keyboard-wedge scan already works.
+                onScan={(scan) => {
+                    list.setQuery(scan.data);
+                }}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t('kitchen:toolbar.searchIngredients')}
                 statusLabel={t('kitchen:toolbar.statusLabel')}

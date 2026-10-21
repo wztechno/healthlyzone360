@@ -416,6 +416,25 @@ enum ErrorCode: string
     case UnitConversionUnsupported = 'unit.conversion_unsupported';
 
     /**
+     * A barcode is already linked to an ingredient in this kitchen (ingredient
+     * barcodes, 2026-10-21). Within a kitchen a code means exactly one
+     * ingredient, so a second link is refused rather than moved — moving one is
+     * a deliberate remove and re-add. `details` names the holder
+     * (`ingredient_id`, `name_en`, `name_ar`) so the screen can say where the
+     * code already lives.
+     */
+    case BarcodeTaken = 'barcode.taken';
+
+    /**
+     * A scanned or typed code cannot be used as asked. `details.reason` is one
+     * of `unreadable`, `check_digit`, `variable_measure` (a weighed-item or price
+     * label, whose digits change from pack to pack), `reserved` (the `04`
+     * kitchen-code range, offered as a producer's code) or `not_a_product_code`
+     * (a scan with no GTIN in it). The message says what to do instead.
+     */
+    case BarcodeInvalid = 'barcode.invalid';
+
+    /**
      * An access change was refused because it would have locked the caller out
      * of the console they are standing in (AA1) — removing
      * `role.manage_organisation` from the only role they hold, or ending or
@@ -485,6 +504,7 @@ enum ErrorCode: string
             self::InventoryInsufficientStock,
             self::ProductionStateInvalid,
             self::ProductionConsumptionRecorded,
+            self::BarcodeTaken,
             self::AccessSelfLockout => 409,
             self::RequestPreconditionRequired => 428,
             self::AuthCsrfTokenMismatch => 419,
@@ -500,6 +520,7 @@ enum ErrorCode: string
             self::B2bDocumentsIncomplete,
             self::B2bQuotationEmpty,
             self::UnitConversionUnsupported,
+            self::BarcodeInvalid,
             self::ProductionPlanRefused => 422,
             self::RateLimitExceeded,
             self::OtpAttemptsExceeded,
@@ -571,6 +592,8 @@ enum ErrorCode: string
             self::ProductionPlanRefused => 'This batch cannot be planned as asked.',
             self::ProductionConsumptionRecorded => 'This batch has already taken stock off a shelf, so it cannot be cancelled. Abandon it instead.',
             self::UnitConversionUnsupported => 'These measurement units cannot be converted between.',
+            self::BarcodeTaken => 'This barcode is already linked to an ingredient in this kitchen.',
+            self::BarcodeInvalid => 'This barcode cannot be used here.',
             self::AccessSelfLockout => 'This change would remove your own access to the administration console.',
             self::RateLimitExceeded => 'Too many requests. Please retry later.',
             self::ServerInternalError => 'An unexpected error occurred. The correlation identifier can be quoted to support.',

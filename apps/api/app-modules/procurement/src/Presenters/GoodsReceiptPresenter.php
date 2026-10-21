@@ -181,7 +181,7 @@ final class GoodsReceiptPresenter
             'cost_currency_code' => $showCosts ? $line->cost_currency_code : null,
             'valuation_pending_fx' => $line->valuation_pending_fx,
             'costs_redacted' => ! $showCosts,
-        ];
+        ] + $this->traceability($line);
     }
 
     /**
@@ -202,6 +202,22 @@ final class GoodsReceiptPresenter
             // somebody's attention is not the same question as what it cost.
             'costed_at' => $line->costed_at?->toIso8601String(),
             'valuation_pending_fx' => $line->valuation_pending_fx,
+        ] + $this->traceability($line);
+    }
+
+    /**
+     * What arrived, off the pack: the scanned product, its supplier lot and its
+     * two GS1 dates. Warehouse facts, never redacted.
+     *
+     * @return array{gtin: string|null, supplier_lot: string|null, expires_on: string|null, best_before_on: string|null}
+     */
+    private function traceability(GoodsReceiptLine $line): array
+    {
+        return [
+            'gtin' => $line->gtin,
+            'supplier_lot' => $line->supplier_lot,
+            'expires_on' => $line->expires_on?->toDateString(),
+            'best_before_on' => $line->best_before_on?->toDateString(),
         ];
     }
 

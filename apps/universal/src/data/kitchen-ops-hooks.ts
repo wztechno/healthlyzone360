@@ -1,4 +1,10 @@
 import type {
+    AddIngredientBarcodeRequest,
+    BarcodeScan,
+    GoodsReceiptFilter,
+    IngredientBarcode,
+    IngredientBarcodeScan,
+    LinkIngredientBarcodeRequest,
     CompleteProductionOrderRequest,
     CompleteReceiptPricesRequest,
     ConsumptionException,
@@ -59,6 +65,7 @@ import type { CursorPage } from '@healthy360/api-client/contracts';
 import type {
     BranchId,
     GoodsReceiptId,
+    IngredientId,
     ProductionOrderId,
     PurchaseOrderId,
     QualityCheckId,
@@ -68,6 +75,7 @@ import type {
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
+import { useMeQuery } from './hooks.ts';
 import { queryKeys } from './query-keys.ts';
 import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
 
@@ -652,18 +660,120 @@ export function useCancelPurchaseOrderMutation(): UseMutationResult<
     });
 }
 
-/** The most recent fifty goods receipts, newest first. */
-export function useGoodsReceiptsQuery(enabled = true): UseQueryResult<readonly GoodsReceipt[]> {
+/**
+ * The most recent fifty goods receipts, newest first. `filter.supplierLot` narrows them to the
+ * deliveries that brought one lot — the recall question.
+ */
+export function useGoodsReceiptsQuery(
+    enabled = true,
+    filter: GoodsReceiptFilter = {},
+): UseQueryResult<readonly GoodsReceipt[]> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
-        queryKey: queryKeys.kitchenOps.goodsReceipts(),
+        queryKey: queryKeys.kitchenOps.goodsReceipts(filter),
         enabled: enabled && repositories !== null,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
-            return repositories.kitchenOps.listGoodsReceipts();
+            return repositories.kitchenOps.listGoodsReceipts(filter);
         },
     });
+}
+
+/* ── Ingredient barcodes (2026-10-21) ─────────────────────────────────────── */
+
+/** After a barcode write: re-read the ingredient's list and forget every cached scan. */
+function useBarcodeWriteEffects(): (ingredientId: IngredientId) => void {
+    const queryClient = useQueryClient();
+    return (ingredientId) => {
+        void queryClient.invalidateQueries({
+            queryKey: queryKeys.kitchenOps.ingredientBarcodes(ingredientId),
+        });
+        queryClient.removeQueries({ queryKey: queryKeys.kitchenOps.ingredientBarcodeScans() });
+    };
+}
+
+/** An ingredient's barcodes in this kitchen. Disabled until there is an ingredient. */
+export function useIngredientBarcodesQuery(
+    ingredientId: IngredientId | null,
+): UseQueryResult<readonly IngredientBarcode[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.ingredientBarcodes(ingredientId ?? ('' as IngredientId)),
+        enabled: ingredientId !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (ingredientId === null) throw new Error('An ingredient is required.');
+            return repositories.kitchenOps.listIngredientBarcodes(ingredientId);
+        },
+    });
+}
+
+/** Link a producer's code, or make the kitchen code. */
+export function useAddIngredientBarcodeMutation(
+    ingredientId: IngredientId,
+): UseMutationResult<IngredientBarcode, unknown, AddIngredientBarcodeRequest> {
+    const repositories = useRepositories();
+    const onWritten = useBarcodeWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: AddIngredientBarcodeRequest) =>
+            repositories.kitchenOps.addIngredientBarcode(ingredientId, request),
+        onSuccess: () => onWritten(ingredientId),
+    });
+}
+
+export function useRemoveIngredientBarcodeMutation(
+    ingredientId: IngredientId,
+): UseMutationResult<void, unknown, string> {
+    const repositories = useRepositories();
+    const onWritten = useBarcodeWriteEffects();
+
+    return useMutation({
+        mutationFn: (barcodeId: string) =>
+            repositories.kitchenOps.removeIngredientBarcode(ingredientId, barcodeId),
+        onSuccess: () => onWritten(ingredientId),
+    });
+}
+
+/** The dock's link — a receiver links a code nobody has linked yet. */
+export function useLinkIngredientBarcodeMutation(): UseMutationResult<
+    IngredientBarcode,
+    unknown,
+    LinkIngredientBarcodeRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useBarcodeWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: LinkIngredientBarcodeRequest) =>
+            repositories.kitchenOps.linkIngredientBarcodeAtReceiving(request),
+        onSuccess: (barcode) => onWritten(barcode.ingredientId),
+    });
+}
+
+/**
+ * Resolves a scan, through the cache: a scan is a question asked on Enter, not a view kept on
+ * screen, so it is fetched imperatively rather than observed. Repeats of the same raw scan answer
+ * from the cache for five minutes, which is what keeps a run of identical cases under the API's
+ * throttle. Rejects with `barcode.invalid` for a code that cannot be used.
+ */
+export function useResolveBarcodeScan(): (scan: BarcodeScan) => Promise<IngredientBarcodeScan> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+    const organisationId = useMeQuery().data?.activeContext?.organisationId ?? '';
+
+    return (scan) =>
+        queryClient.fetchQuery({
+            queryKey: queryKeys.kitchenOps.ingredientBarcodeScan(
+                String(organisationId),
+                scan.data,
+                scan.symbology,
+            ),
+            queryFn: () => repositories.kitchenOps.scanIngredientBarcode(scan),
+            staleTime: 5 * 60 * 1000,
+        });
 }
 
 /**

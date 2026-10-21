@@ -7,16 +7,23 @@ import {
     receiptCostStatusTone,
 } from './ops-format.ts';
 import {
+    applyScan,
     exceedsOutstanding,
     fallsShort,
     initialLines,
+    lotIsReadable,
     readAmount,
     readQuantity,
     readiness,
     toReceiptPayload,
     todayIsoDate,
 } from './receive-delivery-model.ts';
-import type { ReceiveConfirmations, ReceiveHeaderDraft } from './receive-delivery-model.ts';
+import type {
+    ReceiveConfirmations,
+    ReceiveHeaderDraft,
+    ReceiveLineDraft,
+    ScannedPack,
+} from './receive-delivery-model.ts';
 
 /*
  * The receive form's arithmetic (SUP5, §4).
@@ -205,6 +212,7 @@ describe('unplanned items', () => {
         const lines = [
             { ...initialLines(order())[0]!, quantity: '6' },
             {
+                key: 'extra',
                 purchaseOrderLineId: null,
                 stockItemId: '01935f6d-0000-7000-8000-0000000000i9',
                 itemLabel: 'PKG-1 — Boxes',
@@ -319,5 +327,211 @@ describe('receiving capabilities and badges', () => {
 
         expect(receiptCostStatusKey('unpriced')).toBe('kitchen:ops.receiving.costStatus.unpriced');
         expect(receiptCostStatusKey('complete')).toBe('kitchen:ops.receiving.costStatus.complete');
+    });
+});
+
+describe('scanning a delivery (ingredient barcodes)', () => {
+    const FLOUR = '01935f6d-0000-7000-8000-0000000000i1';
+
+    function pack(overrides: Partial<ScannedPack> = {}): ScannedPack {
+        return {
+            stockItemId: FLOUR,
+            gtin: '04006381333931',
+            supplierLot: 'L1',
+            expiresOn: '2026-12-31',
+            bestBeforeOn: null,
+            boundaryVerified: true,
+            packQuantity: '2.0000',
+            packUnitCode: 'kg',
+            ...overrides,
+        };
+    }
+
+    let created = 0;
+    function options(orderMode = true) {
+        return {
+            orderMode,
+            unitOf: (line: ReceiveLineDraft) => line.unitCode,
+            create: (template: ReceiveLineDraft | null): ReceiveLineDraft => {
+                created += 1;
+                const base = template ?? initialLines(order())[0];
+                if (base === undefined) throw new Error('fixture');
+                return {
+                    ...base,
+                    purchaseOrderLineId: template === null ? null : base.purchaseOrderLineId,
+                    key: `new-${String(created)}`,
+                };
+            },
+        };
+    }
+
+    it('converts an untouched prefill on the first scan rather than adding to it', () => {
+        const placed = applyScan(initialLines(order()), pack(), options());
+
+        expect(placed.drafts).toHaveLength(2);
+        expect(placed.drafts[0]).toMatchObject({
+            purchaseOrderLineId: 'line-1',
+            quantity: '2',
+            quantitySource: 'scanned',
+            gtin: '04006381333931',
+            supplierLot: 'L1',
+            expiresOn: '2026-12-31',
+        });
+        expect(placed.needsQuantity).toBe(false);
+    });
+
+    it('adds a pack to a scan-counted row with the identical product, lot and dates', () => {
+        const first = applyScan(initialLines(order()), pack(), options());
+        const second = applyScan(first.drafts, pack(), options());
+
+        expect(second.drafts).toHaveLength(2);
+        expect(second.drafts[0]?.quantity).toBe('4');
+    });
+
+    it('never edits a quantity somebody typed; the scan lands on its own row', () => {
+        const [flour, sugar] = initialLines(order());
+        if (flour === undefined || sugar === undefined) throw new Error('fixture');
+        const typed = [{ ...flour, quantity: '3', quantitySource: 'typed' as const }, sugar];
+
+        const placed = applyScan(typed, pack(), options());
+
+        expect(placed.drafts).toHaveLength(3);
+        expect(placed.drafts[0]?.quantity).toBe('3');
+        expect(placed.drafts[2]).toMatchObject({
+            purchaseOrderLineId: 'line-1',
+            quantity: '2',
+            quantitySource: 'scanned',
+        });
+        // Typed 3 and scanned 2 on one line of 6: still short, and the grouped check says so.
+        expect(readiness(placed.drafts, NO_CONFIRMATIONS, true).hasShortfall).toBe(true);
+    });
+
+    it('keeps a different lot, product or date on a new row, and says when only the date differs', () => {
+        let drafts = applyScan(initialLines(order()), pack(), options()).drafts;
+
+        drafts = applyScan(drafts, pack({ supplierLot: 'L2' }), options()).drafts;
+        expect(drafts).toHaveLength(3);
+
+        drafts = applyScan(drafts, pack({ gtin: '00036000291452' }), options()).drafts;
+        expect(drafts).toHaveLength(4);
+
+        const sameLotOtherDate = applyScan(drafts, pack({ expiresOn: '2027-01-31' }), options());
+        expect(sameLotOtherDate.drafts).toHaveLength(5);
+        expect(sameLotOtherDate.keptApart).toBe(true);
+    });
+
+    it('leaves the quantity for a person when the pack is in another unit or has no size', () => {
+        const grams = applyScan(
+            initialLines(order()),
+            pack({ packUnitCode: 'g', packQuantity: '500' }),
+            options(),
+        );
+        expect(grams.drafts[0]).toMatchObject({ quantity: '', quantitySource: 'scanned' });
+        expect(grams.needsQuantity).toBe(true);
+
+        const noSize = applyScan(
+            [],
+            pack({ packQuantity: null, packUnitCode: null }),
+            options(false),
+        );
+        expect(noSize.drafts[0]?.quantity).toBe('');
+        expect(noSize.needsQuantity).toBe(true);
+    });
+
+    it('sums an order line: two lots of 3 against 6 outstanding is neither short nor over', () => {
+        const [flour, sugar] = initialLines(order());
+        if (flour === undefined || sugar === undefined) throw new Error('fixture');
+        const lot = (key: string, quantity: string, supplierLot: string): ReceiveLineDraft => ({
+            ...flour,
+            key,
+            quantity,
+            supplierLot,
+            quantitySource: 'scanned',
+        });
+
+        const even = readiness(
+            [lot('a', '3', 'L1'), lot('b', '3', 'L2'), sugar],
+            NO_CONFIRMATIONS,
+            true,
+        );
+        expect(even.hasShortfall).toBe(false);
+        expect(even.hasOverReceipt).toBe(false);
+
+        const over = [lot('a', '4', 'L1'), lot('b', '4', 'L2'), sugar];
+        expect(readiness(over, NO_CONFIRMATIONS, true).hasOverReceipt).toBe(true);
+        expect(exceedsOutstanding(over[0]!, over)).toBe(true);
+    });
+
+    it('holds back an unverified lot until somebody confirms it', () => {
+        const placed = applyScan(
+            initialLines(order()),
+            pack({ boundaryVerified: false }),
+            options(),
+        );
+        expect(placed.drafts[0]).toMatchObject({ lotUnverified: true, lotConfirmed: false });
+
+        const blocked = readiness(placed.drafts, NO_CONFIRMATIONS, true);
+        expect(blocked.needsLotCheck).toBe(true);
+        expect(blocked.canSubmit).toBe(false);
+
+        const confirmed = placed.drafts.map((line, index) =>
+            index === 0 ? { ...line, lotConfirmed: true } : line,
+        );
+        expect(readiness(confirmed, NO_CONFIRMATIONS, true).canSubmit).toBe(true);
+    });
+
+    it('holds back a separator-free scan even when it carried no lot, but not a row that will not post', () => {
+        // (01)…(21)SER(10)LOT with the separators dropped: the serial swallows the lot.
+        const placed = applyScan(
+            initialLines(order()),
+            pack({ supplierLot: null, boundaryVerified: false }),
+            options(),
+        );
+        expect(placed.drafts[0]).toMatchObject({ lotUnverified: true, supplierLot: '' });
+        expect(readiness(placed.drafts, NO_CONFIRMATIONS, true).needsLotCheck).toBe(true);
+
+        // Left at nothing, the row is not posted, so it does not hold the post back.
+        const abandoned = placed.drafts.map((line, index) =>
+            index === 0 ? { ...line, quantity: '' } : line,
+        );
+        expect(readiness(abandoned, NO_CONFIRMATIONS, true).needsLotCheck).toBe(false);
+    });
+
+    it('never converts a prefill somebody has typed a date on', () => {
+        const [flour, sugar] = initialLines(order());
+        if (flour === undefined || sugar === undefined) throw new Error('fixture');
+        const dated = [{ ...flour, expiresOn: '2027-03-31' }, sugar];
+
+        const placed = applyScan(dated, pack(), options());
+
+        expect(placed.drafts[0]).toMatchObject({ quantity: '6', expiresOn: '2027-03-31' });
+        expect(placed.drafts).toHaveLength(3);
+    });
+
+    it('accepts only lots the GS1 set can carry', () => {
+        expect(lotIsReadable('')).toBe(true);
+        expect(lotIsReadable('L-26/09.A')).toBe(true);
+        expect(lotIsReadable('L 26')).toBe(false);
+        expect(lotIsReadable('A'.repeat(21))).toBe(false);
+    });
+
+    it('sends what was scanned on the line', () => {
+        const placed = applyScan(initialLines(order()), pack(), options());
+        const payload = toReceiptPayload(placed.drafts, {
+            branchId: BRANCH,
+            supplierId: String(SUPPLIER),
+            purchaseOrderId: String(ORDER),
+            currencyCode: 'USD',
+            header: HEADER,
+            confirmations: NO_CONFIRMATIONS,
+        });
+
+        expect(payload.lines[0]).toMatchObject({
+            quantity: 2,
+            gtin: '04006381333931',
+            supplierLot: 'L1',
+            expiresOn: '2026-12-31',
+        });
+        expect(payload.lines[0]).not.toHaveProperty('bestBeforeOn');
     });
 });

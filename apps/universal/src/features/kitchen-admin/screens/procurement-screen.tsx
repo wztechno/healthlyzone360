@@ -8,6 +8,7 @@ import {
     Stack,
     TableSkeleton,
     Text,
+    TextInputField,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
@@ -90,7 +91,17 @@ function Procurement() {
     const canManage = useCan(INVENTORY_MANAGE_PERMISSION);
     const canViewCosts = useCan(INVENTORY_VIEW_COSTS_PERMISSION);
 
-    const receipts = useGoodsReceiptsQuery();
+    /**
+     * The recall question (ingredient barcodes): which deliveries brought a lot. Asked of the server,
+     * on Enter — the list in hand is only the latest fifty, and a recall is exactly the case where
+     * the delivery is older than that.
+     */
+    const [lot, setLot] = useState('');
+    const [appliedLot, setAppliedLot] = useState('');
+    const receipts = useGoodsReceiptsQuery(
+        true,
+        appliedLot === '' ? {} : { supplierLot: appliedLot },
+    );
     const stockItems = useStockItemsQuery();
 
     // The list's own state: search and the price segment filter the receipts in hand (the endpoint
@@ -336,6 +347,17 @@ function Procurement() {
                                 {formatter.formatNumber(Number(line.quantity))} ×{' '}
                                 {stockItemLabelById.get(String(line.stockItemId)) ??
                                     line.stockItemId}
+                                {line.supplierLot === null
+                                    ? ''
+                                    : ` · ${t('kitchen:barcodes.lotShort', { lot: line.supplierLot })}`}
+                                {line.expiresOn === null
+                                    ? ''
+                                    : ` · ${t('kitchen:barcodes.expiresShort', {
+                                          date: formatter.formatDate(line.expiresOn, {
+                                              dateStyle: 'medium',
+                                              timeZone: 'UTC',
+                                          }),
+                                      })}`}
                             </Text>
                         ))}
                     </Stack>
@@ -383,6 +405,29 @@ function Procurement() {
                     setPriceStatus(next);
                     setViewing(null);
                 }}
+                filters={
+                    <TextInputField
+                        testID="kitchen-procurement-lot-filter"
+                        id="kitchen-procurement-lot-filter"
+                        size="sm"
+                        label={t('kitchen:barcodes.lotFilterLabel')}
+                        labelHidden
+                        placeholder={t('kitchen:barcodes.lotFilterPlaceholder')}
+                        value={lot}
+                        maxLength={20}
+                        autoCorrect={false}
+                        autoCapitalize="none"
+                        onChangeText={(next) => {
+                            setLot(next);
+                            // Emptied, the list goes back to the latest fifty at once.
+                            if (next.trim() === '') setAppliedLot('');
+                        }}
+                        onSubmitEditing={() => {
+                            setAppliedLot(lot.trim());
+                            setViewing(null);
+                        }}
+                    />
+                }
             >
                 <ColumnPicker {...controls.picker} />
                 {/*

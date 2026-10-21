@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Healthy360\Procurement\Http\Controllers;
 
+use Closure;
 use Healthy360\Procurement\Services\GoodsReceiptService;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Support\Identifiers\Gs1;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -115,6 +117,21 @@ final class GoodsReceiptStoreController
                 'size:3',
                 Rule::exists('currencies', 'code'),
             ],
+            // Traceability off the pack (ingredient barcodes, plan §4.3): the
+            // scanned product, its lot and its two GS1 dates.
+            'lines.*.gtin' => [
+                'nullable',
+                'string',
+                'size:14',
+                static function (string $attribute, mixed $value, Closure $fail): void {
+                    if (! is_string($value) || Gs1::parse($value)?->gtin !== $value) {
+                        $fail('The :attribute must be a fourteen-digit GTIN whose check digit holds.');
+                    }
+                },
+            ],
+            'lines.*.supplier_lot' => ['nullable', 'string', 'max:20', 'regex:'.Gs1::CSET_82],
+            'lines.*.expires_on' => ['nullable', 'date_format:Y-m-d'],
+            'lines.*.best_before_on' => ['nullable', 'date_format:Y-m-d'],
         ]);
 
         $receipt = $receipts->post(

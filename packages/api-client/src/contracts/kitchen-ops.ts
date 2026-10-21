@@ -887,7 +887,7 @@ export const RECEIPT_COST_STATUSES = ['unpriced', 'partial', 'complete'] as cons
  */
 export type ReceiptCostStatus = (typeof RECEIPT_COST_STATUSES)[number];
 
-export interface GoodsReceiptLine {
+export interface GoodsReceiptLine extends ReceiptLineTraceability {
     /** The line's own identifier — what price completion names when it fills in a missing figure. */
     readonly id: string;
     readonly stockItemId: StockItemId;
@@ -919,6 +919,21 @@ export interface GoodsReceiptLine {
      * line is honestly incomplete rather than quietly wrong.
      */
     readonly valuationPendingFx: boolean;
+}
+
+/**
+ * What arrived, off the pack (ingredient barcodes, plan §4.3) — on every receipt line and ledger row.
+ * Warehouse facts, never redacted.
+ */
+export interface ReceiptLineTraceability {
+    /** The product scanned at receiving, fourteen digits; `null` when nothing was scanned. */
+    readonly gtin: string | null;
+    /** GS1 AI (10), as the pack or the receiver gave it. */
+    readonly supplierLot: string | null;
+    /** GS1 AI (17), `YYYY-MM-DD`. */
+    readonly expiresOn: string | null;
+    /** GS1 AI (15), `YYYY-MM-DD` — kept apart from the expiry. */
+    readonly bestBeforeOn: string | null;
 }
 
 export interface GoodsReceipt {
@@ -1111,6 +1126,12 @@ export interface GoodsReceiptLineInput {
     /** Major-unit price per {@link unitId}. A priced line needs a `unitId` and a `costCurrencyCode`. */
     readonly unitPriceAmount?: number | null | undefined;
     readonly costCurrencyCode?: string | null | undefined;
+    /** The scanned product, fourteen digits; its check digit must hold. */
+    readonly gtin?: string | null | undefined;
+    /** GS1 AI (10): at most 20 characters of the GS1 character set. */
+    readonly supplierLot?: string | null | undefined;
+    readonly expiresOn?: string | null | undefined;
+    readonly bestBeforeOn?: string | null | undefined;
 }
 
 export interface PostGoodsReceiptRequest {
@@ -1184,7 +1205,7 @@ export interface GoodsReceiptResult {
  * `inventory.view_costs_organisation`, so the money is always present here (unlike the receipts
  * list, which redacts it for readers without that code).
  */
-export interface PurchaseLedgerLine {
+export interface PurchaseLedgerLine extends ReceiptLineTraceability {
     readonly id: string;
     readonly goodsReceiptId: GoodsReceiptId;
     readonly receivedAt: IsoDateTime | null;
@@ -2140,8 +2161,11 @@ export interface KitchenOpsRepository {
      * `inventory.view_organisation`.
      */
     getProcurementReference(): Promise<ProcurementReference>;
-    /** The most recent fifty receipts, newest first. Costs redacted without the cost permission. */
-    listGoodsReceipts(): Promise<readonly GoodsReceipt[]>;
+    /**
+     * The most recent fifty receipts, newest first. Costs redacted without the cost permission.
+     * `supplierLot` answers the recall question — which deliveries brought that lot.
+     */
+    listGoodsReceipts(filter?: GoodsReceiptFilter): Promise<readonly GoodsReceipt[]>;
     /**
      * One receipt with the order it settled, its cost status and its variance (SUP5).
      *
@@ -2197,6 +2221,35 @@ export interface KitchenOpsRepository {
      * period-end one. Needs `inventory.view_costs_organisation`.
      */
     getInventoryValue(): Promise<InventoryValue>;
+
+    /**
+     * An ingredient's barcodes in this kitchen (ingredient barcodes, 2026-10-21) — producer's codes
+     * and at most one kitchen code. Needs `catalogue.view_organisation`.
+     */
+    listIngredientBarcodes(ingredientId: IngredientId): Promise<readonly IngredientBarcode[]>;
+    /**
+     * Link a producer's code, or make the kitchen code (idempotent). Refused with `barcode.taken`
+     * (naming the holder) or `barcode.invalid` (with its reason). Needs
+     * `catalogue.manage_organisation`.
+     */
+    addIngredientBarcode(
+        ingredientId: IngredientId,
+        request: AddIngredientBarcodeRequest,
+    ): Promise<IngredientBarcode>;
+    removeIngredientBarcode(ingredientId: IngredientId, barcodeId: string): Promise<void>;
+    /**
+     * The dock's link: a receiver links a producer's code nobody has linked yet, without leaving the
+     * receive screen. Needs `inventory.manage_organisation`.
+     */
+    linkIngredientBarcodeAtReceiving(
+        request: LinkIngredientBarcodeRequest,
+    ): Promise<IngredientBarcode>;
+    /**
+     * What a scan says and which ingredient holds it. A readable code nobody has linked resolves with
+     * `link: null`; an unreadable or refused one rejects with `barcode.invalid`. Needs
+     * `inventory.view_organisation`.
+     */
+    scanIngredientBarcode(scan: BarcodeScan): Promise<IngredientBarcodeScan>;
 
     /**
      * Batches that finished without a cost the report can trust (PROD1) — the queue behind the
@@ -2313,4 +2366,86 @@ export interface KitchenOpsRepository {
     createQualityCheck(request: CreateQualityCheckRequest): Promise<QualityCheckResult>;
     holdQualityCheck(qualityCheckId: QualityCheckId): Promise<QualityCheckResult>;
     releaseQualityCheck(qualityCheckId: QualityCheckId): Promise<QualityCheckResult>;
+}
+
+/* ── Ingredient barcodes (2026-10-21, docs/requirements/ingredient-barcodes-plan.md) ── */
+
+export interface GoodsReceiptFilter {
+    /** Only receipts with a line carrying exactly this supplier lot — the recall question. */
+    readonly supplierLot?: string | undefined;
+}
+
+/** `supplier` — the producer's code on the pack. `system` — a kitchen code (GS1 RCN prefix 04). */
+export type IngredientBarcodeOrigin = 'supplier' | 'system';
+
+export interface IngredientBarcode {
+    readonly id: string;
+    readonly ingredientId: IngredientId;
+    /** GTIN-14 normal form; {@link formatGtin} shows it. */
+    readonly gtin: string;
+    readonly origin: IngredientBarcodeOrigin;
+    /** One scan of this code is this much of {@link packUnitCode}, a decimal string — or `null`. */
+    readonly packQuantity: string | null;
+    readonly packUnitCode: string | null;
+    readonly createdAt: IsoDateTime | null;
+}
+
+export interface AddIngredientBarcodeRequest {
+    readonly origin: IngredientBarcodeOrigin;
+    /** The scan or typed digits. Required for `supplier`, never sent for `system`. */
+    readonly code?: string | undefined;
+    readonly symbology?: string | null | undefined;
+    readonly packQuantity?: number | null | undefined;
+    /** Defaults server-side to the ingredient's default unit. */
+    readonly packUnitCode?: string | null | undefined;
+}
+
+export interface LinkIngredientBarcodeRequest {
+    readonly ingredientId: IngredientId;
+    readonly code: string;
+    readonly symbology?: string | null | undefined;
+    readonly packQuantity?: number | null | undefined;
+    readonly packUnitCode?: string | null | undefined;
+}
+
+/**
+ * One scan as a scanner produced it. A keyboard-wedge scanner sends no symbology; the camera sends
+ * its symbol type (`ean13`, `upc_e`, …), which is how the server knows to expand UPC-E.
+ */
+export interface BarcodeScan {
+    readonly data: string;
+    readonly symbology: string | null;
+}
+
+export interface IngredientBarcodeLink {
+    readonly id: string;
+    readonly ingredientId: IngredientId;
+    readonly nameEn: string | null;
+    readonly nameAr: string | null;
+    readonly origin: IngredientBarcodeOrigin;
+    readonly packQuantity: string | null;
+    readonly packUnitCode: string | null;
+}
+
+export interface IngredientBarcodeScan {
+    readonly gtin: string;
+    readonly supplierLot: string | null;
+    readonly expiresOn: string | null;
+    readonly bestBeforeOn: string | null;
+    /**
+     * `false` when a lot was read to the end of a scan with no separator, so its end is not proven.
+     * The receive screen asks a person to check it before the line can post.
+     */
+    readonly boundaryVerified: boolean;
+    /** `system` for the 04 kitchen range, read off the number — so a retired label still says so. */
+    readonly originHint: IngredientBarcodeOrigin;
+    readonly link: IngredientBarcodeLink | null;
+}
+
+/**
+ * A GTIN-14 as people read it: thirteen digits, the leading padding zero dropped. A case code
+ * (indicator 1–8) keeps all fourteen.
+ */
+export function formatGtin(gtin: string): string {
+    return gtin.length === 14 && gtin.startsWith('0') ? gtin.slice(1) : gtin;
 }

@@ -444,7 +444,23 @@ export const queryKeys = {
         suppliers: (filter: object = {}) => ['kitchenOps', 'suppliers', filter] as const,
         supplier: (supplierId: SupplierId) => ['kitchenOps', 'supplier', supplierId] as const,
         procurementReference: () => ['kitchenOps', 'procurement-reference'] as const,
-        goodsReceipts: () => ['kitchenOps', 'goods-receipts'] as const,
+        goodsReceipts: (filter: object = {}) => ['kitchenOps', 'goods-receipts', filter] as const,
+        /** An ingredient's barcodes (ingredient barcodes, 2026-10-21). */
+        ingredientBarcodes: (ingredientId: IngredientId) =>
+            ['kitchenOps', 'ingredient-barcodes', ingredientId] as const,
+        /**
+         * Every cached scan resolution. Linking, removing, making a kitchen code and forking an
+         * ingredient clear this prefix, because each can change what a code resolves to.
+         */
+        ingredientBarcodeScans: () => ['kitchenOps', 'ingredient-barcode-scan'] as const,
+        /**
+         * One scan, resolved — keyed by organisation, the **raw** scan and its symbology, never by
+         * the GTIN alone: the lot and the dates live in the raw scan, so two cases of one product
+         * from two lots are two answers. The cache is what keeps thirty identical cases scanned in
+         * a row under the API's 60-a-minute throttle.
+         */
+        ingredientBarcodeScan: (organisationId: string, raw: string, symbology: string | null) =>
+            ['kitchenOps', 'ingredient-barcode-scan', organisationId, raw, symbology] as const,
         /**
          * The latest purchase of a specific set of shelves (SUP2).
          *

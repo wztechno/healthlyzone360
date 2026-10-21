@@ -14,6 +14,7 @@ use Healthy360\Support\Api\CursorPage;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Support\Api\OffsetPage;
+use Healthy360\Support\Identifiers\Gs1;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -443,7 +444,7 @@ final class IngredientIndexController
     }
 
     /**
-     * Matches names and aliases. `ILIKE` with an escaped needle, not a
+     * Matches names, aliases and barcodes. `ILIKE` with an escaped needle, not a
      * regular expression and not a full-text index: the catalogue is small,
      * and a substring search a cook can predict beats a clever one they
      * cannot.
@@ -460,7 +461,12 @@ final class IngredientIndexController
 
         $needle = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], mb_strtolower(trim($term))).'%';
 
-        $query->where(function (Builder $scoped) use ($needle): void {
+        // A scanner types into the same box: a term that reads as a GTIN also
+        // matches the ingredients holding that code in this kitchen.
+        $gtin = Gs1::parse($term)?->gtin;
+        $organisationId = $this->context->organisationId();
+
+        $query->where(function (Builder $scoped) use ($needle, $gtin, $organisationId): void {
             $scoped->whereRaw('lower(name_en) like ?', [$needle])
                 ->orWhereRaw('lower(name_ar) like ?', [$needle])
                 ->orWhereExists(function ($alias) use ($needle): void {
@@ -468,6 +474,15 @@ final class IngredientIndexController
                         ->whereColumn('ingredient_aliases.ingredient_id', 'ingredients.id')
                         ->whereRaw('ingredient_aliases.alias_normalised like ?', [$needle]);
                 });
+
+            if ($gtin !== null && $organisationId !== null) {
+                $scoped->orWhereExists(function ($barcode) use ($gtin, $organisationId): void {
+                    $barcode->from('ingredient_barcodes')
+                        ->whereColumn('ingredient_barcodes.ingredient_id', 'ingredients.id')
+                        ->where('ingredient_barcodes.organisation_id', $organisationId)
+                        ->where('ingredient_barcodes.gtin', $gtin);
+                });
+            }
         });
     }
 }

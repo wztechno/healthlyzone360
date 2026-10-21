@@ -73,7 +73,9 @@
         "record_export_unavailable": "This bundle is not available to download yet. Check back once it is ready.",
         "nutrition_provider_unavailable": "Nutrition lookup is temporarily unavailable. Try later.",
         "nutrition_provider_configuration": "Ask an administrator to configure nutrition lookup.",
-        "allergens_provider_unavailable": "This provider is temporarily unavailable or rate limited. Try again later."
+        "allergens_provider_unavailable": "This provider is temporarily unavailable or rate limited. Try again later.",
+        "barcode_invalid": "This barcode cannot be used here.",
+        "barcode_taken": "This barcode already belongs to another ingredient."
     },
     "orderRefusal": {
         "account_not_ready": "Your account setup is not finished yet. Complete the outstanding steps and try again.",
