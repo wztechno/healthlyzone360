@@ -12,7 +12,6 @@ import {
     EmptyState,
     ErrorState,
     FormSection,
-    Icon,
     RecordSkeleton,
     RecordWindowFieldGrid,
     TableSkeleton,
@@ -26,7 +25,7 @@ import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -39,7 +38,7 @@ import { formatMoney } from '../../marketplace/format.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
+import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
@@ -59,6 +58,8 @@ import {
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { RecordFormOpening } from '../record-form-opening.tsx';
+import { RecordSummaryAside } from '../record-summary-aside.tsx';
 
 /**
  * `/kitchen/quotations` — what corporate buyers have asked this kitchen to price (B4), as
@@ -98,6 +99,20 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  * The same is what makes every header honest in memory: Reference and Submitted sort, Currency and
  * Status filter, and all four act on the whole queue because the whole queue is what was answered.
  */
+
+/** The summary's fixed track, and the least the cards beside it keep before it drops under them. */
+const ASIDE_WIDTH = 300;
+const FORM_MIN_WIDTH = 620;
+const COLUMN_GAP = 16;
+
+/** The `requestFields` the request card shows; the rest live in the summary or their own card. */
+const REQUEST_CARD_FIELDS: ReadonlySet<string> = new Set([
+    'buyer',
+    'contact',
+    'requested-delivery',
+    'schedule',
+    'order',
+]);
 
 const NO_QUOTATIONS: readonly KitchenQuotation[] = [];
 const NO_LINES: readonly KitchenQuotationLine[] = [];
@@ -449,7 +464,23 @@ function Quotations() {
     );
 }
 
-/** The pricing page: the request, the lines with their price inputs, the totals and Send. */
+/**
+ * The pricing page, laid out as the supply order page is: the record-form opening with Back and
+ * Send in it, the cards down the page, and beside them a sticky summary of the request.
+ *
+ * ```
+ * Quotation H360-Q-0012  AWAITING A PRICE            [ Back to quotations ] [ Send prices ]
+ * Test employee meals · submitted 20 Oct 2026
+ * ┌ LINES  6 lines ───────────────────────────────┐  ┌ THIS QUOTATION ──────────┐
+ * │ Line           Quantity  Unit price  Total    │  │ Programme   Employee ... │
+ * └───────────────────────────────────────────────┘  │ Currency             USD │
+ * ┌ THE REQUEST ──────────────────────────────────┐  │ Total            $56.00  │
+ * │ Buyer · Reply to · Delivery · Schedule · Order│  │ Timeline                 │
+ * └───────────────────────────────────────────────┘  └──────────────────────────┘
+ * ┌ BUYER'S NOTE ─────────────────────────────────┐
+ * └───────────────────────────────────────────────┘
+ * ```
+ */
 function QuotationPricing({
     id,
     onBack,
@@ -469,6 +500,7 @@ function QuotationPricing({
     const [prices, setPrices] = useState<Readonly<Record<string, string>>>({});
     const detail = useKitchenQuotationQuery(id);
     const quote = useQuoteQuotationMutation();
+    const port = useCataloguePort();
 
     const quotation = detail.data ?? null;
     const lines: readonly KitchenQuotationLine[] = quotation?.lines ?? NO_LINES;
@@ -541,106 +573,188 @@ function QuotationPricing({
         );
     }
 
+    const backButton = (
+        <Button
+            testID="kitchen-quotations-back"
+            variant="secondary"
+            label={t('kitchen:ops.quotations.backToQuotations')}
+            onPress={onBack}
+        />
+    );
+
+    if (detail.isPending || detailFailure !== null || quotation === null) {
+        return (
+            <Cascade space="md" testID="kitchen-quotations-screen">
+                <View className="flex-row">{backButton}</View>
+                {detail.isPending ? (
+                    <RecordSkeleton testID="kitchen-quotations-detail-loading" tiles={0} rows={4} />
+                ) : detailFailure !== null ? (
+                    <ErrorState
+                        testID="kitchen-quotations-detail-error"
+                        title={t('kitchen:ops.quotations.detailLoadErrorTitle')}
+                        failure={detailFailure}
+                        onRetry={() => {
+                            void detail.refetch();
+                        }}
+                        retrying={detail.isFetching}
+                    />
+                ) : null}
+            </Cascade>
+        );
+    }
+
+    const date = (value: string) => formatter.formatDate(value, { dateStyle: 'medium' });
+    const programme =
+        quotation.programmeName === null
+            ? String(quotation.programmeId)
+            : displayName(quotation.programmeName, locale).value;
+    const sideBySide = port.width >= ASIDE_WIDTH + FORM_MIN_WIDTH + COLUMN_GAP;
+    // Programme, currency and the dates are in the summary and the note has its own card, so the
+    // request card keeps who asked and the delivery they asked for.
+    const requestCard = requestFields(quotation, t, formatter, locale).filter((field) =>
+        REQUEST_CARD_FIELDS.has(field.key),
+    );
+    // Where it stands, oldest first; a step that has not happened is left out rather than dashed.
+    const timeline = [
+        {
+            key: 'submitted-at',
+            label: t('kitchen:ops.quotations.submittedAt'),
+            at: quotation.submittedAt,
+        },
+        { key: 'quoted-at', label: t('kitchen:ops.quotations.quotedAt'), at: quotation.quotedAt },
+        {
+            key: 'decided-at',
+            label: t('kitchen:ops.quotations.decidedAt'),
+            at: quotation.decidedAt,
+        },
+        {
+            key: 'expires-at',
+            label: t('kitchen:ops.quotations.expiresAt'),
+            at: quotation.expiresAt,
+        },
+    ];
+
     return (
         <Cascade space="md" testID="kitchen-quotations-screen">
-            <View className="flex-row">
-                <Button
-                    testID="kitchen-quotations-back"
-                    variant="ghost"
-                    size="sm"
-                    iconStart={<Icon name="chevronStart" size="sm" />}
-                    label={t('kitchen:common.back')}
-                    onPress={onBack}
-                />
-            </View>
-
-            {detail.isPending ? (
-                <RecordSkeleton testID="kitchen-quotations-detail-loading" tiles={0} rows={4} />
-            ) : detailFailure !== null ? (
-                <ErrorState
-                    testID="kitchen-quotations-detail-error"
-                    title={t('kitchen:ops.quotations.detailLoadErrorTitle')}
-                    failure={detailFailure}
-                    onRetry={() => {
-                        void detail.refetch();
-                    }}
-                    retrying={detail.isFetching}
-                />
-            ) : quotation === null ? null : (
-                <Cascade space="md" testID="kitchen-quotations-detail-body">
-                    <CataloguePageHeader
-                        testID="kitchen-quotations-detail-header"
-                        title={t('kitchen:ops.quotations.detailTitle', {
-                            reference: quotation.reference,
-                        })}
-                        titleAside={
-                            <Badge
-                                testID="kitchen-quotations-detail-status"
-                                tone={kitchenQuotationStatusTone(quotation.status)}
-                                label={t(kitchenQuotationStatusKey(quotation.status))}
-                            />
-                        }
+            {/* The way back first and the commit last; the summary beside the cards repeats neither. */}
+            <RecordFormOpening
+                testID="kitchen-quotations-detail"
+                title={t('kitchen:ops.quotations.detailTitle', { reference: quotation.reference })}
+                dirty={false}
+                badges={
+                    <Badge
+                        variant="label"
+                        testID="kitchen-quotations-detail-status"
+                        tone={kitchenQuotationStatusTone(quotation.status)}
+                        label={t(kitchenQuotationStatusKey(quotation.status))}
                     />
+                }
+                details={
+                    <Text
+                        variant="caption"
+                        tone="secondary"
+                        testID="kitchen-quotations-detail-subtitle"
+                    >
+                        {t('kitchen:ops.quotations.detailSubtitle', {
+                            programme,
+                            date:
+                                quotation.submittedAt === null
+                                    ? t('kitchen:common.notRecorded')
+                                    : date(quotation.submittedAt),
+                        })}
+                    </Text>
+                }
+                actions={
+                    <>
+                        {backButton}
+                        {editable ? (
+                            <Button
+                                testID="kitchen-quotations-send"
+                                label={t('kitchen:ops.quotations.send')}
+                                loading={quote.isPending}
+                                disabled={quote.isPending || parsedPrices === null}
+                                onPress={submitPrices}
+                            />
+                        ) : null}
+                    </>
+                }
+            />
 
-                    {editable ? (
-                        <Callout
-                            testID="kitchen-quotations-price-guidance"
-                            tone="info"
-                            title={t('kitchen:ops.quotations.guidanceTitle')}
-                            body={t('kitchen:ops.quotations.guidanceBody', { currency })}
-                        />
-                    ) : null}
+            {editable ? (
+                <Callout
+                    testID="kitchen-quotations-price-guidance"
+                    tone="info"
+                    title={t('kitchen:ops.quotations.guidanceTitle')}
+                    body={t('kitchen:ops.quotations.guidanceBody', { currency })}
+                />
+            ) : null}
 
-                    {quoteFailure === null ? null : isConflict || isStale ? (
-                        <Callout
-                            testID="kitchen-quotations-conflict"
-                            tone="warning"
-                            role="alert"
-                            title={t(
-                                isStale
-                                    ? 'kitchen:ops.quotations.staleTitle'
-                                    : 'kitchen:ops.quotations.conflictTitle',
-                            )}
-                            body={t(
-                                isStale
-                                    ? 'kitchen:ops.quotations.staleBody'
-                                    : 'kitchen:ops.quotations.conflictBody',
-                            )}
-                            actions={
-                                <Button
-                                    testID="kitchen-quotations-conflict-refresh"
-                                    size="sm"
-                                    variant="secondary"
-                                    label={t('kitchen:ops.quotations.conflictRefresh')}
-                                    loading={detail.isFetching}
-                                    onPress={() => {
-                                        quote.reset();
-                                        void detail.refetch();
-                                        onListChanged();
-                                    }}
-                                />
-                            }
-                        />
-                    ) : (
-                        <Text testID="kitchen-quotations-action-error" tone="danger">
-                            {quoteFailure.message}
-                        </Text>
+            {quoteFailure === null ? null : isConflict || isStale ? (
+                <Callout
+                    testID="kitchen-quotations-conflict"
+                    tone="warning"
+                    role="alert"
+                    title={t(
+                        isStale
+                            ? 'kitchen:ops.quotations.staleTitle'
+                            : 'kitchen:ops.quotations.conflictTitle',
                     )}
+                    body={t(
+                        isStale
+                            ? 'kitchen:ops.quotations.staleBody'
+                            : 'kitchen:ops.quotations.conflictBody',
+                    )}
+                    actions={
+                        <Button
+                            testID="kitchen-quotations-conflict-refresh"
+                            size="sm"
+                            variant="secondary"
+                            label={t('kitchen:ops.quotations.conflictRefresh')}
+                            loading={detail.isFetching}
+                            onPress={() => {
+                                quote.reset();
+                                void detail.refetch();
+                                onListChanged();
+                            }}
+                        />
+                    }
+                />
+            ) : (
+                <Callout
+                    testID="kitchen-quotations-action-error"
+                    tone="danger"
+                    role="alert"
+                    title={t('kitchen:editor.saveError')}
+                    body={quoteFailure.message}
+                />
+            )}
 
+            <View
+                ref={Platform.OS === 'web' ? port.ref : undefined}
+                onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
+                className={
+                    sideBySide ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
+                }
+            >
+                {/* The cards are the row's filler beside the fixed summary. */}
+                <View
+                    testID="kitchen-quotations-detail-body"
+                    className="z-auto min-w-0 flex-1 flex-col gap-base"
+                >
                     <FormSection
                         first
-                        title={t('kitchen:ops.quotations.requestHeading')}
-                        testID="kitchen-quotations-detail-request"
-                    >
-                        <RecordWindowFieldGrid
-                            testID="kitchen-quotations-detail"
-                            fields={requestFields(quotation, t, formatter, locale)}
-                        />
-                    </FormSection>
-
-                    <FormSection
+                        variant="card"
                         title={t('kitchen:ops.quotations.linesHeading')}
                         testID="kitchen-quotations-detail-lines-section"
+                        aside={
+                            <Text
+                                variant="caption"
+                                tone="secondary"
+                                testID="kitchen-quotations-detail-line-count"
+                            >
+                                {t('kitchen:ops.quotations.lineCount', { count: lines.length })}
+                            </Text>
+                        }
                         actions={
                             lines.length === 0 ? undefined : (
                                 <ColumnPicker {...lineControls.picker} />
@@ -658,32 +772,42 @@ function QuotationPricing({
                                 columns={lineControls.columns}
                                 rows={lineControls.rows}
                                 rowKey={(line) => line.id}
+                                density="sm"
                                 rowActionsLabel={t('kitchen:list.rowActions')}
                             />
                         )}
-                        <View
-                            testID="kitchen-quotations-detail-totals"
-                            className="flex-row items-baseline justify-end gap-snug border-t border-stroke-subtle pt-tight"
+                    </FormSection>
+
+                    <FormSection
+                        first
+                        variant="card"
+                        title={t('kitchen:ops.quotations.requestHeading')}
+                        testID="kitchen-quotations-detail-request"
+                    >
+                        <RecordWindowFieldGrid
+                            testID="kitchen-quotations-detail-request-fields"
+                            fields={requestCard}
+                        />
+                    </FormSection>
+
+                    <FormSection
+                        first
+                        variant="card"
+                        title={t('kitchen:ops.quotations.notes')}
+                        testID="kitchen-quotations-detail-notes"
+                    >
+                        <Text
+                            tone={quotation.notes === null ? 'secondary' : 'primary'}
+                            testID="kitchen-quotations-detail-notes-text"
                         >
-                            <Text variant="micro" tone="secondary">
-                                {t('kitchen:ops.quotations.total')}
-                            </Text>
-                            {/* `null` is not zero: a partly priced set has no total. */}
-                            <Text
-                                variant="strong"
-                                tone={total === null ? 'danger' : 'brand'}
-                                className="tabular-nums"
-                                testID="kitchen-quotations-detail-total"
-                            >
-                                {total === null
-                                    ? t('kitchen:ops.quotations.notPricedYet')
-                                    : formatMoney(formatter, { amount: total, currency })}
-                            </Text>
-                        </View>
+                            {quotation.notes ?? t('kitchen:ops.quotations.noNotes')}
+                        </Text>
                     </FormSection>
 
                     {quotation.declineReason === null ? null : (
                         <FormSection
+                            first
+                            variant="card"
                             title={t('kitchen:ops.quotations.declineHeading')}
                             testID="kitchen-quotations-detail-decline"
                         >
@@ -692,23 +816,60 @@ function QuotationPricing({
                             </Text>
                         </FormSection>
                     )}
+                </View>
 
-                    {editable ? (
-                        <View className="flex-row flex-wrap items-center justify-end gap-snug border-t border-stroke-subtle pt-snug">
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:ops.quotations.sendRule')}
-                            </Text>
-                            <Button
-                                testID="kitchen-quotations-send"
-                                label={t('kitchen:ops.quotations.send')}
-                                loading={quote.isPending}
-                                disabled={quote.isPending || parsedPrices === null}
-                                onPress={submitPrices}
-                            />
-                        </View>
-                    ) : null}
-                </Cascade>
-            )}
+                {/*
+                 * The request in a few facts, its total and where it stands. While pricing, the
+                 * total follows what is typed; `null` is not zero — a partly priced set has none.
+                 */}
+                <RecordSummaryAside
+                    testID="kitchen-quotations-detail-summary"
+                    title={t('kitchen:ops.quotations.summaryTitle')}
+                    width={sideBySide ? ASIDE_WIDTH : null}
+                    rows={[
+                        {
+                            key: 'programme',
+                            label: t('kitchen:ops.quotations.programme'),
+                            value: programme,
+                        },
+                        {
+                            key: 'currency',
+                            label: t('kitchen:ops.quotations.currency'),
+                            value: quotation.currencyCode,
+                        },
+                        {
+                            key: 'lines',
+                            label: t('kitchen:ops.quotations.linesHeading'),
+                            value: formatter.formatNumber(lines.length),
+                        },
+                    ]}
+                    total={{
+                        label: t('kitchen:ops.quotations.total'),
+                        value:
+                            total === null
+                                ? t('kitchen:ops.quotations.notPricedYet')
+                                : formatMoney(formatter, { amount: total, currency }),
+                    }}
+                    list={{
+                        title: t('kitchen:ops.quotations.timelineHeading'),
+                        empty: t('kitchen:common.notRecorded'),
+                        testID: 'kitchen-quotations-detail-timeline',
+                        emptyTestID: 'kitchen-quotations-detail-timeline-empty',
+                        items: timeline.flatMap((entry) =>
+                            entry.at === null
+                                ? []
+                                : [
+                                      {
+                                          key: entry.key,
+                                          testID: `kitchen-quotations-detail-timeline-${entry.key}`,
+                                          name: entry.label,
+                                          value: date(entry.at),
+                                      },
+                                  ],
+                        ),
+                    }}
+                />
+            </View>
         </Cascade>
     );
 }

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8415 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8418 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4787,6 +4787,7 @@ export interface NamespaceKeys {
     | 'ops.qc.summaryTitle'
     | 'ops.qc.title'
     | 'ops.qc.viewKind'
+    | 'ops.quotations.backToQuotations'
     | 'ops.quotations.buyer'
     | 'ops.quotations.caption'
     | 'ops.quotations.clearFilter'
@@ -4804,6 +4805,7 @@ export interface NamespaceKeys {
     | 'ops.quotations.declineHeading'
     | 'ops.quotations.declineReason'
     | 'ops.quotations.detailLoadErrorTitle'
+    | 'ops.quotations.detailSubtitle'
     | 'ops.quotations.detailTitle'
     | 'ops.quotations.emptyBody'
     | 'ops.quotations.emptyTitle'
@@ -4818,6 +4820,7 @@ export interface NamespaceKeys {
     | 'ops.quotations.guidanceBody'
     | 'ops.quotations.guidanceTitle'
     | 'ops.quotations.lineColumn'
+    | 'ops.quotations.lineCount'
     | 'ops.quotations.lineNotPriced'
     | 'ops.quotations.linePriceHint'
     | 'ops.quotations.linePriceInvalid'
@@ -4846,7 +4849,6 @@ export interface NamespaceKeys {
     | 'ops.quotations.requestedDelivery'
     | 'ops.quotations.schedule'
     | 'ops.quotations.send'
-    | 'ops.quotations.sendRule'
     | 'ops.quotations.staleBody'
     | 'ops.quotations.staleTitle'
     | 'ops.quotations.statAwaitingCaption'
@@ -4859,6 +4861,7 @@ export interface NamespaceKeys {
     | 'ops.quotations.status.submitted'
     | 'ops.quotations.submittedAt'
     | 'ops.quotations.subtitle'
+    | 'ops.quotations.summaryTitle'
     | 'ops.quotations.timelineHeading'
     | 'ops.quotations.title'
     | 'ops.quotations.total'
@@ -13220,6 +13223,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.qc.summaryTitle',
   'kitchen:ops.qc.title',
   'kitchen:ops.qc.viewKind',
+  'kitchen:ops.quotations.backToQuotations',
   'kitchen:ops.quotations.buyer',
   'kitchen:ops.quotations.caption',
   'kitchen:ops.quotations.clearFilter',
@@ -13237,6 +13241,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.declineHeading',
   'kitchen:ops.quotations.declineReason',
   'kitchen:ops.quotations.detailLoadErrorTitle',
+  'kitchen:ops.quotations.detailSubtitle',
   'kitchen:ops.quotations.detailTitle',
   'kitchen:ops.quotations.emptyBody',
   'kitchen:ops.quotations.emptyTitle',
@@ -13251,6 +13256,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.guidanceBody',
   'kitchen:ops.quotations.guidanceTitle',
   'kitchen:ops.quotations.lineColumn',
+  'kitchen:ops.quotations.lineCount',
   'kitchen:ops.quotations.lineNotPriced',
   'kitchen:ops.quotations.linePriceHint',
   'kitchen:ops.quotations.linePriceInvalid',
@@ -13279,7 +13285,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.requestedDelivery',
   'kitchen:ops.quotations.schedule',
   'kitchen:ops.quotations.send',
-  'kitchen:ops.quotations.sendRule',
   'kitchen:ops.quotations.staleBody',
   'kitchen:ops.quotations.staleTitle',
   'kitchen:ops.quotations.statAwaitingCaption',
@@ -13292,6 +13297,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.status.submitted',
   'kitchen:ops.quotations.submittedAt',
   'kitchen:ops.quotations.subtitle',
+  'kitchen:ops.quotations.summaryTitle',
   'kitchen:ops.quotations.timelineHeading',
   'kitchen:ops.quotations.title',
   'kitchen:ops.quotations.total',
