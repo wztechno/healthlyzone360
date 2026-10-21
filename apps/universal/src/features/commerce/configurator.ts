@@ -1,6 +1,7 @@
 import type {
     CustomerAddress,
     PlanVariant,
+    SetSubscriptionMealChoicesRequest,
     SubscriptionConfiguration,
     SubscriptionPlan,
 } from '@healthy360/api-client/contracts';
@@ -526,4 +527,40 @@ export function toConfiguration(
 export function configuredDeliveryDates(state: ConfiguratorState): readonly string[] {
     if (state.startDate === null) return [];
     return deliveryDatesFor(state.startDate, state.deliveryWeekdays, weeksFor(state.duration));
+}
+
+/** How many delivery days the first-week picker covers: one week, the rotation the kitchen publishes. */
+export const FIRST_WEEK_DAYS = 7;
+
+/**
+ * The meal slot a first-week pick is sent under.
+ *
+ * The picker offers one dish per day, and the public plan does not publish its menu's slots. Lunch
+ * is the sitting every meals-per-day count includes, so a pick there takes the place of the
+ * kitchen's lunch rather than arriving beside it; a snacks-only band has no lunch to replace.
+ */
+export function firstWeekChoiceSlot(variant: PlanVariant | null): string {
+    return variant !== null && variant.mealsPerDay === 0 && variant.snacksPerDay > 0
+        ? 'snack'
+        : 'lunch';
+}
+
+/**
+ * One `PUT …/choices` per day the person picked a dish for in the first week.
+ *
+ * Nothing when they never opened the picker: the plan's own rotation is what they agreed to, and
+ * sending its defaults back as choices would pin the kitchen's menu as though the person chose it.
+ */
+export function firstWeekChoices(
+    state: ConfiguratorState,
+    variant: PlanVariant | null,
+): readonly SetSubscriptionMealChoicesRequest[] {
+    if (state.selectedMealIds.length === 0) return [];
+    const slot = firstWeekChoiceSlot(variant);
+    return configuredDeliveryDates(state)
+        .slice(0, FIRST_WEEK_DAYS)
+        .flatMap((date, index) => {
+            const mealId = state.selectedMealIds[index];
+            return mealId === undefined ? [] : [{ date, choices: [{ slot, mealId }] }];
+        });
 }

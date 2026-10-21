@@ -15,6 +15,7 @@ use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Services\ZoneResolver;
 use Healthy360\Delivery\Services\ZoneWindowService;
+use Healthy360\Orders\Contracts\BuyerAllergenCheck;
 
 /**
  * "What would this basket cost, right now, delivered where?" — a query that
@@ -55,6 +56,7 @@ final readonly class CheckoutPreviewService
         private ZoneResolver $zones,
         private ZoneWindowService $zoneWindows,
         private SellerContext $seller,
+        private BuyerAllergenCheck $allergens,
     ) {}
 
     /**
@@ -87,6 +89,14 @@ final readonly class CheckoutPreviewService
                 [$fee, $zoneWarnings, $zone] = $this->deliveryFee($cart, $address);
                 $warnings = [...$warnings, ...$zoneWarnings];
 
+                // The rule placement refuses by, run here so the basket can
+                // say which meals clash before the customer reaches the button.
+                $conflicts = $this->allergenConflicts($cart, $lines);
+
+                if ($conflicts !== []) {
+                    $warnings[] = 'allergen_conflict';
+                }
+
                 // The slots this address may pick, so a client filters its
                 // picker by the same rule placement refuses by. Null when no
                 // zone resolved — there is nothing to offer, not "nothing".
@@ -108,6 +118,7 @@ final readonly class CheckoutPreviewService
                     // of it.
                     warnings: array_values(array_unique($warnings)),
                     offeredWindowCodes: $offered,
+                    allergenConflicts: $conflicts,
                 );
             },
         );
@@ -168,6 +179,26 @@ final readonly class CheckoutPreviewService
         }
 
         return [$subtotal, $warnings];
+    }
+
+    /**
+     * The basket's meals that clash with the buyer's declared allergies.
+     *
+     * @param  list<CartItem>  $lines
+     * @return list<array{catalogue_item_id: string, reason: string, allergen_codes: list<string>}>
+     */
+    private function allergenConflicts(Cart $cart, array $lines): array
+    {
+        $buyer = CustomerAccount::query()->whereKey($cart->customer_account_id)->first();
+
+        if (! $buyer instanceof CustomerAccount || $lines === []) {
+            return [];
+        }
+
+        return $this->allergens->conflicts(
+            $buyer,
+            array_map(static fn (CartItem $line): string => $line->catalogue_item_id, $lines),
+        );
     }
 
     /**

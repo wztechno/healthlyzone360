@@ -7,6 +7,7 @@ use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Allergens\Models\Allergen;
 use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\PlanMenuEntry;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Ingredients\Models\Ingredient;
@@ -32,6 +33,7 @@ use Healthy360\Subscriptions\Services\GenerationService;
 use Healthy360\Subscriptions\Services\SubscriptionService;
 use Healthy360\Subscriptions\Tests\Fixtures\SubscriptionWorld;
 use Healthy360\Tenancy\TenantContext;
+use Healthy360\Tenancy\Tests\Fixtures\RuntimeRole;
 
 /*
 |--------------------------------------------------------------------------
@@ -414,6 +416,47 @@ it('leaves a slot the customer chose alone, and fills only the ones they did not
 
     expect($items)->toContain((string) $customersChoice->getKey())
         ->and($items)->not->toContain((string) $kitchensChoice->getKey());
+});
+
+it('puts the customer’s dish on the kitchen’s order under row-level security, as the scheduler runs it', function (): void {
+    // Every other test here connects as the schema owner and so bypasses RLS.
+    // The scheduler does not: it runs as the runtime role with no tenant
+    // context, and before generation ran as the kitchen it read no row for the
+    // customer and skipped the day `customer_record_unreadable`. This customer
+    // has never placed an ordinary order, so only the subscriber arm admits them.
+    $customersChoice = ($this->dish)('Customer lunch');
+
+    $subscription = $this->subscriptions->create(SubscriptionWorld::request($this->world));
+    $date = $subscription->next_generation_date;
+
+    ($this->publishMenu)([[1, 'lunch', ($this->dish)('Kitchen lunch')]], $date);
+
+    SubscriptionMealChoice::query()->create([
+        'subscription_id' => $subscription->getKey(),
+        'organisation_id' => $subscription->organisation_id,
+        'delivery_date' => $date,
+        'slot' => 'lunch',
+        'sequence' => 1,
+        'catalogue_item_id' => $customersChoice->getKey(),
+        'source' => MealChoiceSource::Customer,
+    ]);
+
+    // And as a plan built in the admin: listed on no channel, since the plan
+    // editor has no writer for channel rows.
+    ChannelCatalogueItem::withoutTenancy()
+        ->where('catalogue_item_id', $this->world->plan->getKey())
+        ->delete();
+
+    app(TenantContext::class)->clear();
+    CarbonImmutable::setTestNow(CarbonImmutable::now()->addDay());
+
+    RuntimeRole::context();
+    $tally = RuntimeRole::run(fn (): array => $this->generation->tick());
+
+    expect($tally['generated'])->toBe(1)
+        ->and($tally['skipped'])->toBe(0)
+        ->and(Order::query()->sole()->lines()->pluck('catalogue_item_id')->all())
+        ->toContain((string) $customersChoice->getKey());
 });
 
 /*

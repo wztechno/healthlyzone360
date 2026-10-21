@@ -35,7 +35,8 @@
         "unknown": "The kitchen sent a note we do not recognise yet ({{code}}). Nothing is wrong with your order; please mention it if you contact us.",
         "checkout_empty_cart": "There is nothing in the basket to price.",
         "checkout_address_missing": "No delivery address has been chosen yet. Choose or add one so we can price delivery.",
-        "planner_allergen_conflict": "Something in this basket declares an allergen you have asked us to exclude. Please check every dish before ordering.",
+        "checkout_allergen_conflict": "Something in this basket is on your allergy list. Please check every dish before ordering.",
+        "subscription_allergen_conflict": "A meal you picked is on your allergy list. The kitchen will swap it for a safe one.",
         "subscription_no_delivery_days": "No delivery days have been chosen, so this subscription would never deliver.",
         "subscription_delivery_day_unavailable": "This plan does not deliver on one of the days you chose.",
         "subscription_unknown_slot": "That delivery window is not one this kitchen offers.",
@@ -260,6 +261,9 @@
         },
         "successTitle": "Your subscription is set up",
         "successBody": "{{plan}} is now on your account.",
+        "mealsUnsavedTitle_one": "{{count}} meal pick wasn't saved",
+        "mealsUnsavedTitle_other": "{{count}} meal picks weren't saved",
+        "mealsUnsavedBody": "Those days get the kitchen's menu. You can choose again below.",
         "titleFor": "Set up {{plan}}",
         "edit": "Edit",
         "review": {
@@ -442,5 +446,18 @@
         "body": "Your basket has meals from {{kitchen}}. A basket holds one kitchen's meals.",
         "keep": "Keep my basket",
         "replace": "Start a new basket"
+    },
+    "myAllergens": {
+        "badge": "On your allergy list: {{allergens}}",
+        "dialogTitle": "On your allergy list",
+        "dialogBody": "{{meal}} contains something on your allergy list: {{allergens}}.",
+        "dialogBodyUnnamed": "This meal contains something on your allergy list: {{allergens}}.",
+        "addAnyway": "Add anyway",
+        "checkoutTitle": "On your allergy list",
+        "checkoutBody": "These meals contain something on your allergy list: {{meals}}.",
+        "option": "{{meal}} (on your allergy list: {{allergens}})",
+        "confirmTitle": "Order meals with your allergens?",
+        "placeAnyway": "Place order anyway",
+        "mealWithAllergens": "{{meal}} ({{allergens}})"
     }
 }

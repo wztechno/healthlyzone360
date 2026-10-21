@@ -9,10 +9,11 @@ import {
 import type {
     CustomerAddress,
     MarketplaceMeal,
+    SetSubscriptionMealChoicesRequest,
     SubscriptionRefusal,
 } from '@healthy360/api-client/contracts';
-import { SubscriptionPlanId } from '@healthy360/domain-types';
-import type { AllergenCode, PlanVariantId } from '@healthy360/domain-types';
+import { AllergenCode, SubscriptionPlanId } from '@healthy360/domain-types';
+import type { PlanVariantId, SubscriptionId } from '@healthy360/domain-types';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -24,7 +25,9 @@ import {
     toFailure,
     useAllowedDeliveryWeekdaysQuery,
     useCreateSubscriptionMutation,
+    useSetSubscriptionMealChoicesMutation,
     useSubscriptionPreviewQuery,
+    useSubscriptionQuoteQuery,
 } from '../../../data/commerce-hooks.ts';
 import { useAccountChecklistQuery, useAddressesQuery } from '../../../data/account-hooks.ts';
 import { useCurrentTargetsQuery, useKitchenQuery } from '../../../data/marketplace-hooks.ts';
@@ -61,6 +64,7 @@ import {
     CONFIGURATOR_STEPS,
     combinationKey,
     firstIncompleteStep,
+    firstWeekChoices,
     initialConfiguratorState,
     isStepReachable,
     mealCombinations,
@@ -79,6 +83,7 @@ import type { ConfiguratorState, ConfiguratorStep, StepContext } from '../config
 import { earliestStartDate } from '../dates.ts';
 import { servedAreas } from '../delivery.ts';
 import type { DeliveryAreaStatus } from '../delivery.ts';
+import { useMyAllergenCodes } from '../my-allergens.tsx';
 import { PlanSetupSummary } from '../plan-setup-summary.tsx';
 
 /**
@@ -239,9 +244,19 @@ export function SubscriptionConfiguratorScreen({
         [router, setEdits, setTermsAcknowledged],
     );
 
+    // "Leave out" starts from what the person already told us: the allergies on their profile,
+    // and any their nutrition targets carry. The profile is the one checkout and generation read.
+    const profileAllergens = useMyAllergenCodes();
     const storedAllergens = useMemo(
-        () => storedAllergenCodes(targets.data?.result.request.constraints),
-        [targets.data],
+        () => [
+            ...new Set([
+                ...profileAllergens
+                    .map((code) => AllergenCode.safeParse(code))
+                    .filter((code): code is AllergenCode => code !== null),
+                ...storedAllergenCodes(targets.data?.result.request.constraints),
+            ]),
+        ],
+        [profileAllergens, targets.data],
     );
 
     const storedDiets = useMemo(
@@ -379,6 +394,18 @@ export function SubscriptionConfiguratorScreen({
     const create = useCreateSubscriptionMutation();
     const createFailure = toFailure(create.error);
 
+    // Whether the plan lets a subscriber choose meals at all — the quote's answer, from the same
+    // cache entry the weekday probe and the preview read. Unknown counts as no: the picker appears
+    // once the server has said yes, rather than being withdrawn after somebody has used it.
+    const quote = useSubscriptionQuoteQuery(
+        item === undefined || state === null || state.variantId === null || step !== 'review'
+            ? null
+            : { planId: item.id, variantId: state.variantId, duration: state.duration },
+    );
+    const freeSelection = quote.data?.allowsFreeSelection === true;
+    const setMealChoices = useSetSubscriptionMealChoicesMutation();
+    const [savingChoices, setSavingChoices] = useState(false);
+
     /*
      * Account set-up the server still needs, read before step one rather than discovered at
      * Subscribe: one row per required step, each opening the screen that does it and coming back
@@ -458,9 +485,25 @@ export function SubscriptionConfiguratorScreen({
         router.setParams({ step: undefined, address: undefined } as never);
     };
 
+    /**
+     * The first week's picks, sent once the subscription exists — `POST /subscriptions` carries no
+     * meals; choosing is its own write, `PUT …/choices`, one day at a time. Each day stands alone:
+     * one refused (inside the cut-off, not a delivery day after all) does not lose the others, and
+     * the count of refused days goes to the new subscription's page, which says so.
+     */
+    const sendFirstWeekChoices = async (
+        subscriptionId: SubscriptionId,
+        days: readonly SetSubscriptionMealChoicesRequest[],
+    ): Promise<number> => {
+        const results = await Promise.allSettled(
+            days.map((request) => setMealChoices.mutateAsync({ subscriptionId, request })),
+        );
+        return results.filter((result) => result.status === 'rejected').length;
+    };
+
     const onCreate = () => {
         if (state === null || item === undefined || context === null) return;
-        if (setupSteps.length > 0) return;
+        if (setupSteps.length > 0 || savingChoices) return;
         if (validateConfiguratorStep('review', state, context).length > 0) {
             setShowIssues(true);
             return;
@@ -470,6 +513,7 @@ export function SubscriptionConfiguratorScreen({
             setShowIssues(true);
             return;
         }
+        const picks = freeSelection ? firstWeekChoices(state, variant) : [];
         create.mutate(
             {
                 configuration: request,
@@ -477,13 +521,19 @@ export function SubscriptionConfiguratorScreen({
                 ...(addressId === null ? {} : { addressId }),
             },
             {
-                onSuccess: (subscription) => {
+                onSuccess: async (subscription) => {
                     configuratorDrafts.clear(draftKey);
+                    let refused = 0;
+                    if (picks.length > 0) {
+                        setSavingChoices(true);
+                        refused = await sendFirstWeekChoices(subscription.id, picks);
+                    }
                     // Replaces the set-up: the new subscription has a URL of its own, a refresh
                     // shows it, and Back is not a second chance to create it (plans-04).
                     router.replace(
                         withQuery(`/customer/subscriptions/${String(subscription.id)}`, {
                             created: '1',
+                            ...(refused === 0 ? {} : { unsavedMeals: String(refused) }),
                         }) as never,
                     );
                 },
@@ -672,6 +722,7 @@ export function SubscriptionConfiguratorScreen({
                                         preview={preview.data}
                                         savedAddress={savedAddress}
                                         menu={menu}
+                                        freeSelection={freeSelection}
                                         onEdit={goTo}
                                     />
                                 </QueryStates>
@@ -732,7 +783,9 @@ export function SubscriptionConfiguratorScreen({
                                 // days, stored allergies, the address book): a step taken before
                                 // they arrive could be judged unreachable a moment later and
                                 // silently put back.
-                                actionLoading={step === 'review' ? create.isPending : !settled}
+                                actionLoading={
+                                    step === 'review' ? create.isPending || savingChoices : !settled
+                                }
                                 actionDisabled={step === 'review' && setupSteps.length > 0}
                                 {...(step === 'review' && setupSteps.length > 0
                                     ? {

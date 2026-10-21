@@ -2,6 +2,7 @@ import {
     Button,
     Callout,
     DateField,
+    Dialog,
     FAILURE_MESSAGE_KEYS,
     Icon,
     Inline,
@@ -74,7 +75,13 @@ import {
     deliverySlotsForKitchen,
     offeredSlots,
 } from '../delivery.ts';
-import { displayableWarnings, isCriticalWarning, warningMessageKey } from '../warnings.ts';
+import { useAllergenNames } from '../my-allergens.tsx';
+import {
+    ALLERGEN_CONFLICT_WARNING,
+    displayableWarnings,
+    isCriticalWarning,
+    warningMessageKey,
+} from '../warnings.ts';
 
 /**
  * `/customer/checkout` — one-off order checkout against a saved address, in HealthZone's
@@ -191,6 +198,29 @@ export function CheckoutScreen() {
 
     const preview = useCheckoutPreviewQuery(previewRequest);
     const quotation: CheckoutPreview | undefined = preview.data;
+
+    /*
+     * Meals that cross the person's allergies, by the server's rule. They may still be ordered —
+     * often they are for somebody else — so the order is never blocked: the page says so, and Place
+     * order asks once more before sending. The server checks again at placement, against the
+     * allergies as they stand then, and refuses until it hears the person was asked.
+     */
+    const allergenConflicts = quotation?.allergenConflicts ?? [];
+    const allergenNames = useAllergenNames();
+    const clashingMeals = (basket?.items ?? []).flatMap((item) => {
+        const conflict = allergenConflicts.find((candidate) => candidate.mealId === item.mealId);
+        if (conflict === undefined) return [];
+        return [
+            conflict.allergenCodes.length === 0
+                ? item.name
+                : t('commerce:myAllergens.mealWithAllergens', {
+                      meal: item.name,
+                      allergens: allergenNames(conflict.allergenCodes),
+                  }),
+        ];
+    });
+    const clashingList = clashingMeals.join(t('marketplace:common.listSeparator'));
+    const [allergenConfirmOpen, setAllergenConfirmOpen] = useState(false);
 
     /*
      * Only the slots the address's zone offers: placement refuses any other (`window_not_offered`).
@@ -409,14 +439,19 @@ export function CheckoutScreen() {
               }
             : null;
 
-    const onPlace = () => {
+    const onPlace = (allergensConfirmed = false) => {
         if (basket === undefined || committed === null) return;
+        if (allergenConflicts.length > 0 && !allergensConfirmed) {
+            setAllergenConfirmOpen(true);
+            return;
+        }
         placeOrder.mutate(
             {
                 cartId: basket.id,
                 addressId: committed.addressId,
                 slotCode: committed.slotCode,
                 deliveryDate: committed.deliveryDate,
+                ...(allergenConflicts.length > 0 ? { acknowledgeAllergenConflicts: true } : {}),
             },
             {
                 onSuccess: (order) => {
@@ -435,6 +470,10 @@ export function CheckoutScreen() {
                     // A setup refusal means the checklist read earlier is out of date.
                     void queryClient.invalidateQueries({
                         queryKey: queryKeys.account.checklist(),
+                    });
+                    // So does the preview, when the refusal was an allergy changed since it ran.
+                    void queryClient.invalidateQueries({
+                        queryKey: ['commerce', 'checkout', 'preview'],
                     });
                 },
             },
@@ -743,6 +782,59 @@ export function CheckoutScreen() {
                     </View>
                 )}
 
+                {allergenConflicts.length === 0 ? null : (
+                    <View className="mt-6">
+                        <Callout
+                            testID="checkout-allergen-conflict"
+                            role="alert"
+                            tone="danger"
+                            icon="warning"
+                            title={t('commerce:myAllergens.checkoutTitle')}
+                            body={
+                                clashingMeals.length === 0
+                                    ? t('commerce:warnings.checkout_allergen_conflict')
+                                    : t('commerce:myAllergens.checkoutBody', {
+                                          meals: clashingList,
+                                      })
+                            }
+                        />
+                    </View>
+                )}
+
+                <Dialog
+                    testID="checkout-allergen-confirm"
+                    open={allergenConfirmOpen}
+                    onClose={() => {
+                        setAllergenConfirmOpen(false);
+                    }}
+                    title={t('commerce:myAllergens.confirmTitle')}
+                    description={
+                        clashingMeals.length === 0
+                            ? t('commerce:warnings.checkout_allergen_conflict')
+                            : t('commerce:myAllergens.checkoutBody', { meals: clashingList })
+                    }
+                    actions={
+                        <>
+                            <Button
+                                testID="checkout-allergen-confirm-cancel"
+                                variant="secondary"
+                                label={t('common:action.cancel')}
+                                onPress={() => {
+                                    setAllergenConfirmOpen(false);
+                                }}
+                            />
+                            <Button
+                                testID="checkout-allergen-confirm-place"
+                                label={t('commerce:myAllergens.placeAnyway')}
+                                onPress={() => {
+                                    setAllergenConfirmOpen(false);
+                                    onPlace(true);
+                                }}
+                            />
+                        </>
+                    }
+                />
+
                 <View className="mt-6 flex-row gap-2.5">
                     <Button
                         testID="checkout-edit"
@@ -771,7 +863,9 @@ export function CheckoutScreen() {
                             loading={placeOrder.isPending}
                             // No confirmed total, no placement; nor while account steps are left.
                             disabled={quotation === undefined || setupSteps.length > 0}
-                            onPress={onPlace}
+                            onPress={() => {
+                                onPlace();
+                            }}
                         />
                     </View>
                 </View>
@@ -828,17 +922,20 @@ export function CheckoutScreen() {
                                 total={quotation.total}
                                 rule
                             />
-                            {displayableWarnings(quotation.warnings).map((code) => (
-                                <Callout
-                                    key={code}
-                                    testID={`checkout-warning-${code.replace(/\./g, '-')}`}
-                                    role={isCriticalWarning(code) ? 'alert' : 'note'}
-                                    tone={isCriticalWarning(code) ? 'danger' : 'warning'}
-                                    icon="warning"
-                                    title={t('commerce:warnings.title')}
-                                    body={t(warningMessageKey(code), { code })}
-                                />
-                            ))}
+                            {/* The allergen one is said beside Place order, which asks about it. */}
+                            {displayableWarnings(quotation.warnings)
+                                .filter((code) => code !== ALLERGEN_CONFLICT_WARNING)
+                                .map((code) => (
+                                    <Callout
+                                        key={code}
+                                        testID={`checkout-warning-${code.replace(/\./g, '-')}`}
+                                        role={isCriticalWarning(code) ? 'alert' : 'note'}
+                                        tone={isCriticalWarning(code) ? 'danger' : 'warning'}
+                                        icon="warning"
+                                        title={t('commerce:warnings.title')}
+                                        body={t(warningMessageKey(code), { code })}
+                                    />
+                                ))}
                         </View>
                     )}
                 </QueryStates>

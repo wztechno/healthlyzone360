@@ -90,6 +90,17 @@ export interface PriceLine {
     readonly amount: Money;
 }
 
+/**
+ * A meal that clashes with the customer's declared allergies, by the server's rule — the one
+ * subscription generation enforces. `allergen_declared` names the allergens; `excluded` is an
+ * ingredient the customer excluded; `unassessed` is a meal with no allergen information at all.
+ */
+export interface AllergenConflict {
+    readonly mealId: MealId;
+    readonly reason: 'allergen_declared' | 'excluded' | 'unassessed';
+    readonly allergenCodes: readonly string[];
+}
+
 export interface CheckoutPreview {
     readonly cartId: CartId;
     readonly lines: readonly PriceLine[];
@@ -104,6 +115,8 @@ export interface CheckoutPreview {
      * serving zone — no filtering applies then; `[]` is a zone that offers no slot at all.
      */
     readonly offeredWindowCodes: readonly string[] | null;
+    /** The basket's meals that clash with the buyer's allergies. Absent from a world without the rule. */
+    readonly allergenConflicts?: readonly AllergenConflict[] | undefined;
     /** Always `true` in the prototype: no payment method is ever attached. */
     readonly paymentDeferred: true;
 }
@@ -152,6 +165,8 @@ export interface SubscriptionPreview {
     readonly lastDeliveryDate: string;
     readonly deliveryCount: number;
     readonly warnings: readonly string[];
+    /** The picked meals that clash with the customer's allergies. Absent when none were picked. */
+    readonly allergenConflicts?: readonly AllergenConflict[] | undefined;
     readonly paymentDeferred: true;
 }
 
@@ -607,6 +622,11 @@ export interface PlaceOrderRequest {
     readonly slotCode?: string | undefined;
     /** `YYYY-MM-DD`. Absent means the earliest the kitchen can manage. */
     readonly deliveryDate?: string | undefined;
+    /**
+     * The person saw the basket's allergen conflicts and chose to order anyway. Without it the
+     * server refuses `allergen_conflict`, re-checked against the allergies as they stand now.
+     */
+    readonly acknowledgeAllergenConflicts?: boolean | undefined;
 }
 
 export const ORDER_STATES = [

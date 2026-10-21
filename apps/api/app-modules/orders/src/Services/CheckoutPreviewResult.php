@@ -25,6 +25,7 @@ final readonly class CheckoutPreviewResult
     /**
      * @param  list<string>  $warnings  the stable reason vocabulary this preview reports rather than refuses on — see `CheckoutPreviewService`
      * @param  list<string>|null  $offeredWindowCodes  the window codes the resolved zone offers; null when no zone resolved
+     * @param  list<array{catalogue_item_id: string, reason: string, allergen_codes: list<string>}>  $allergenConflicts  the basket's meals that clash with the buyer's declared allergies
      */
     public function __construct(
         public string $cartId,
@@ -35,5 +36,6 @@ final readonly class CheckoutPreviewResult
         public int $lineCount,
         public array $warnings,
         public ?array $offeredWindowCodes = null,
+        public array $allergenConflicts = [],
     ) {}
 }

@@ -377,12 +377,14 @@ export function useAllowedDeliveryWeekdaysQuery(
     return useQuery({
         queryKey: queryKeys.commerce.subscriptionQuote(request ?? {}),
         enabled: repositories !== null && request !== null,
-        queryFn: async (): Promise<readonly number[]> => {
+        // The cache holds the whole quote, as `useSubscriptionQuoteQuery` stores it; only the read is
+        // narrowed. Storing the weekdays alone under the quote's key handed the other hook an array.
+        queryFn: (): Promise<SubscriptionQuote> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (request === null) throw new Error('No plan to quote.');
-            const quote = await repositories.commerce.getSubscriptionQuote(request);
-            return quote.availableWeekdays;
+            return repositories.commerce.getSubscriptionQuote(request);
         },
+        select: (quote): readonly number[] => quote.availableWeekdays,
     });
 }
 

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8401 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8415 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2135,6 +2135,8 @@ export interface NamespaceKeys {
     | 'configurator.meals.selectLabel'
     | 'configurator.meals.title'
     | 'configurator.meals.unknown'
+    | 'configurator.mealsUnsavedBody'
+    | 'configurator.mealsUnsavedTitle'
     | 'configurator.next'
     | 'configurator.notFoundBody'
     | 'configurator.notFoundTitle'
@@ -2192,6 +2194,17 @@ export interface NamespaceKeys {
     | 'durations.1w'
     | 'durations.2w'
     | 'durations.4w'
+    | 'myAllergens.addAnyway'
+    | 'myAllergens.badge'
+    | 'myAllergens.checkoutBody'
+    | 'myAllergens.checkoutTitle'
+    | 'myAllergens.confirmTitle'
+    | 'myAllergens.dialogBody'
+    | 'myAllergens.dialogBodyUnnamed'
+    | 'myAllergens.dialogTitle'
+    | 'myAllergens.mealWithAllergens'
+    | 'myAllergens.option'
+    | 'myAllergens.placeAnyway'
     | 'slots.evening'
     | 'slots.midday'
     | 'slots.morning'
@@ -2283,9 +2296,10 @@ export interface NamespaceKeys {
     | 'validation.required'
     | 'validation.tooLong'
     | 'warnings.checkout_address_missing'
+    | 'warnings.checkout_allergen_conflict'
     | 'warnings.checkout_empty_cart'
     | 'warnings.checkout_window_not_offered'
-    | 'warnings.planner_allergen_conflict'
+    | 'warnings.subscription_allergen_conflict'
     | 'warnings.subscription_delivery_day_unavailable'
     | 'warnings.subscription_no_delivery_days'
     | 'warnings.subscription_unknown_slot'
@@ -10560,6 +10574,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.meals.selectLabel',
   'commerce:configurator.meals.title',
   'commerce:configurator.meals.unknown',
+  'commerce:configurator.mealsUnsavedBody',
+  'commerce:configurator.mealsUnsavedTitle',
   'commerce:configurator.next',
   'commerce:configurator.notFoundBody',
   'commerce:configurator.notFoundTitle',
@@ -10617,6 +10633,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:durations.1w',
   'commerce:durations.2w',
   'commerce:durations.4w',
+  'commerce:myAllergens.addAnyway',
+  'commerce:myAllergens.badge',
+  'commerce:myAllergens.checkoutBody',
+  'commerce:myAllergens.checkoutTitle',
+  'commerce:myAllergens.confirmTitle',
+  'commerce:myAllergens.dialogBody',
+  'commerce:myAllergens.dialogBodyUnnamed',
+  'commerce:myAllergens.dialogTitle',
+  'commerce:myAllergens.mealWithAllergens',
+  'commerce:myAllergens.option',
+  'commerce:myAllergens.placeAnyway',
   'commerce:slots.evening',
   'commerce:slots.midday',
   'commerce:slots.morning',
@@ -10708,9 +10735,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:validation.required',
   'commerce:validation.tooLong',
   'commerce:warnings.checkout_address_missing',
+  'commerce:warnings.checkout_allergen_conflict',
   'commerce:warnings.checkout_empty_cart',
   'commerce:warnings.checkout_window_not_offered',
-  'commerce:warnings.planner_allergen_conflict',
+  'commerce:warnings.subscription_allergen_conflict',
   'commerce:warnings.subscription_delivery_day_unavailable',
   'commerce:warnings.subscription_no_delivery_days',
   'commerce:warnings.subscription_unknown_slot',

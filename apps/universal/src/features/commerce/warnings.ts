@@ -19,7 +19,10 @@ export const CHECKOUT_EMPTY_CART = 'checkout.empty_cart';
 export const CHECKOUT_ADDRESS_MISSING = 'checkout.address_missing';
 /** The chosen slot is not one the address's delivery zone offers. */
 export const CHECKOUT_WINDOW_NOT_OFFERED = 'checkout.window_not_offered';
-export const ALLERGEN_CONFLICT_WARNING = 'planner.allergen_conflict';
+/** `allergen_conflict` — a meal in the basket crosses the buyer's declared allergies. */
+export const ALLERGEN_CONFLICT_WARNING = 'checkout.allergen_conflict';
+/** A picked meal crosses the person's allergies; generation would swap it for a safe one. */
+export const SUBSCRIPTION_ALLERGEN_CONFLICT = 'subscription.allergen_conflict';
 export const SUBSCRIPTION_NO_DELIVERY_DAYS = 'subscription.no_delivery_days';
 export const SUBSCRIPTION_DAY_UNAVAILABLE = 'subscription.delivery_day_unavailable';
 export const SUBSCRIPTION_UNKNOWN_SLOT = 'subscription.unknown_slot';
@@ -29,13 +32,17 @@ const KNOWN: ReadonlySet<string> = new Set([
     CHECKOUT_ADDRESS_MISSING,
     CHECKOUT_WINDOW_NOT_OFFERED,
     ALLERGEN_CONFLICT_WARNING,
+    SUBSCRIPTION_ALLERGEN_CONFLICT,
     SUBSCRIPTION_NO_DELIVERY_DAYS,
     SUBSCRIPTION_DAY_UNAVAILABLE,
     SUBSCRIPTION_UNKNOWN_SLOT,
 ]);
 
 /** Warnings that are a safety matter rather than an inconvenience, and get an alert tone. */
-const CRITICAL: ReadonlySet<string> = new Set([ALLERGEN_CONFLICT_WARNING]);
+const CRITICAL: ReadonlySet<string> = new Set([
+    ALLERGEN_CONFLICT_WARNING,
+    SUBSCRIPTION_ALLERGEN_CONFLICT,
+]);
 
 export function isKnownWarning(code: string): boolean {
     return KNOWN.has(code);

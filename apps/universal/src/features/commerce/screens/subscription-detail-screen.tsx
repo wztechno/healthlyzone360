@@ -103,6 +103,9 @@ import {
  * - `?created=1` — the set-up replaced itself with this page once the subscription existed, and the
  *   confirmation is said here, where a refresh still finds it (plans-04). Dismissing it takes the
  *   flag off the entry.
+ * - `?unsavedMeals={n}` — beside `created`: that many of the first week's picks were refused by
+ *   `PUT …/choices` after the subscription was made. Said here rather than on the set-up, which is
+ *   gone by then and could only offer to create the subscription a second time.
  * - `?dialog=address&address={id}` — the way back from "Add a new address" in the address dialog.
  *   The page is a sibling in the customer `<Slot/>`, so the detour unmounted it; the dialog opens
  *   again on the address just saved, and both parameters are taken off the entry (plans-06).
@@ -143,8 +146,14 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
-    const params = useLocalSearchParams<{ created?: string; dialog?: string; address?: string }>();
+    const params = useLocalSearchParams<{
+        created?: string;
+        unsavedMeals?: string;
+        dialog?: string;
+        address?: string;
+    }>();
     const justCreated = single(params.created) === '1';
+    const unsavedMeals = Number.parseInt(single(params.unsavedMeals) ?? '', 10);
     const requestedDialog = single(params.dialog) === 'address' ? 'address' : null;
     const requestedAddress = single(params.address);
 
@@ -493,6 +502,30 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                         label={t('common:action.dismiss')}
                                         onPress={() => {
                                             router.setParams({ created: undefined } as never);
+                                        }}
+                                    />
+                                }
+                            />
+                        ) : null}
+
+                        {unsavedMeals > 0 ? (
+                            <Callout
+                                testID="subscription-meals-unsaved"
+                                role="alert"
+                                tone="warning"
+                                icon="warning"
+                                title={t('commerce:configurator.mealsUnsavedTitle', {
+                                    count: unsavedMeals,
+                                })}
+                                body={t('commerce:configurator.mealsUnsavedBody')}
+                                actions={
+                                    <Button
+                                        testID="subscription-meals-unsaved-dismiss"
+                                        variant="quiet"
+                                        size="sm"
+                                        label={t('common:action.dismiss')}
+                                        onPress={() => {
+                                            router.setParams({ unsavedMeals: undefined } as never);
                                         }}
                                     />
                                 }

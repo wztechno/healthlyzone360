@@ -20763,6 +20763,53 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /me/allergen-conflicts:
+    get:
+      operationId: listMyAllergenConflicts
+      tags:
+        - Subscriptions
+      summary: Which of these meals clash with my declared allergies
+      description: |
+        The verdict checkout and subscription generation reach for the same
+        meal, by the same rule: a declared allergen on the meal's label (any
+        containment, any severity), an excluded ingredient on its list, or no
+        allergen information at all for a customer who has declared something.
+
+        A subscription carries no meals when it is created, so there is no
+        placement to refuse — generation swaps an unsafe pick at the change
+        cut-off. This is what a configurator's Review step asks so the customer
+        hears about it before subscribing.
+
+        Safe meals are left out of `conflicts`; an empty list means every meal
+        asked about is safe for this customer.
+      parameters:
+        - name: meal_ids
+          in: query
+          required: true
+          description: Up to fifty meal ids, comma-separated.
+          schema:
+            type: string
+            examples:
+              - 01a08514-85ff-73fe-a03c-0b33180109fe
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The meals among those asked about that clash with the customer's declarations.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllergenConflictsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /me/subscriptions:
     get:
       operationId: listMySubscriptions
@@ -33163,6 +33210,16 @@ components:
             The day asked for. Wins over a day the basket's lines name, and a
             disagreement is `mixed_delivery_dates` rather than a silent
             preference: this phase's order carries exactly one delivery date.
+        acknowledge_allergen_conflicts:
+          type: boolean
+          description: |
+            The customer saw the basket's allergen conflicts
+            (`allergen_conflicts` on the preview) and chose to order anyway.
+            Absent or false, placement refuses `allergen_conflict` — one reason
+            per clashing meal, carrying `catalogue_item_id`, `cause` (the
+            `AllergenConflict.reason`) and `allergen_codes` — re-checked against
+            the declarations as they stand at placement, not as the preview saw
+            them.
       additionalProperties: false
       description: |
         Four fields, and none of them is a price. Every amount is decided during
@@ -33259,7 +33316,7 @@ components:
             vocabulary `409 order.placement_refused` uses at placement:
             `cart_empty`, `address_missing`, `address_not_deliverable`,
             `area_not_served`, `zone_suspended`, `currency_mismatch`,
-            `window_not_offered`, plus the line-probe vocabulary. Deduplicated — three lines refused for the
+            `window_not_offered`, `allergen_conflict`, plus the line-probe vocabulary. Deduplicated — three lines refused for the
             same reason read as one fact, not three repeats of it.
         offered_window_codes:
           type:
@@ -33272,7 +33329,59 @@ components:
             and active, in display order. A picker shows only these; placement
             refuses any other with `window_not_offered`. Null when no zone
             resolved (no address, or an area not served).
+        allergen_conflicts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AllergenConflict'
+          description: |
+            The basket's meals that clash with the buyer's declared allergies,
+            one per meal. Non-empty exactly when `warnings` carries
+            `allergen_conflict`. Always sent; optional so a client also reads
+            a server from before it was added.
       additionalProperties: false
+    AllergenConflict:
+      type: object
+      required:
+        - catalogue_item_id
+        - reason
+        - allergen_codes
+      properties:
+        catalogue_item_id:
+          $ref: '#/components/schemas/Uuid'
+        reason:
+          type: string
+          enum:
+            - allergen_declared
+            - excluded
+            - unassessed
+          description: |
+            `allergen_declared` — a declared allergen is on the meal's label.
+            `excluded` — an ingredient the customer excluded is on its list.
+            `unassessed` — the meal has no allergen information and the
+            customer has declared something.
+        allergen_codes:
+          type: array
+          items:
+            type: string
+          description: The declared allergens on the label; filled only for `allergen_declared`.
+      additionalProperties: false
+    AllergenConflictsEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - conflicts
+          properties:
+            conflicts:
+              type: array
+              items:
+                $ref: '#/components/schemas/AllergenConflict'
+        meta:
+          $ref: '#/components/schemas/Meta'
     CheckoutPreviewEnvelope:
       type: object
       required:

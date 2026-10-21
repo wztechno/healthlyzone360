@@ -7,6 +7,7 @@ import { Text as RNText, View } from 'react-native';
 import { useMealQuery } from '../../data/catalogue-hooks.ts';
 import { EntityImage } from '../../media/entity-image.tsx';
 import { TextLink } from './checkout-frame.tsx';
+import { YourAllergens } from './my-allergens.tsx';
 
 /**
  * One basket line, as HealthZone's `cart` draws it: the 88px photograph, the name with its line
@@ -90,6 +91,12 @@ export function CartLine({ item, priceText, busy, onQuantity, onRemove, onOpen }
                 >
                     {t('commerce:cart.noChanges')}
                 </RNText>
+
+                <YourAllergens
+                    allergens={item.allergens}
+                    testID={`${testID}-your-allergens`}
+                    className="mt-1"
+                />
 
                 <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-2">
                     <LineQuantity
