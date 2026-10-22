@@ -405,6 +405,16 @@ export type AdminIngredient = {
     nutrition_source?: {
         [key: string]: unknown;
     } | null;
+    /**
+     * Set while a quick-added row owes a confirmed nutrition reference;
+     * `suggestion` is the server-checked USDA candidate, or null.
+     *
+     */
+    pending_nutrition?: {
+        suggestion: {
+            [key: string]: unknown;
+        } | null;
+    } | null;
     allergen_review_required?: boolean;
     allergen_review_token?: string;
     allergens_reviewed_by?: string | null;
@@ -874,6 +884,15 @@ export type CreateIngredientRequest = {
     nutrition_reference?: string;
     nutrition_reference_hash?: string;
     nutrition_reference_confirmed?: true;
+    /**
+     * Quick add — create a food row owing its nutrition reference. Prohibits `nutrition_reference`.
+     */
+    nutrition_pending?: true;
+    /**
+     * The assistant's pick, kept as an unconfirmed suggestion. Only with `nutrition_pending`.
+     */
+    nutrition_suggestion?: string;
+    nutrition_suggestion_hash?: string;
     name_en: string;
     /**
      * Falls back to the English name when absent.

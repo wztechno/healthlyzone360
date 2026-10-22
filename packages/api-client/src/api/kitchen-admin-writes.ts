@@ -850,6 +850,19 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                               allergen_reference_confirmed: request.allergenReference.confirmed,
                           }),
                     ...referenceFields(request.nutritionReference),
+                    ...(request.nutritionPending === undefined
+                        ? {}
+                        : {
+                              nutrition_pending: true,
+                              ...(request.nutritionPending.suggestion === null
+                                  ? {}
+                                  : {
+                                        nutrition_suggestion:
+                                            request.nutritionPending.suggestion.ref,
+                                        nutrition_suggestion_hash:
+                                            request.nutritionPending.suggestion.sourceHash,
+                                    }),
+                          }),
                     ...priceFields(request.b2bPrice, request.b2cPrice, request.unitPrice),
                     ...(await packagingFields(
                         request.purchasePrice,

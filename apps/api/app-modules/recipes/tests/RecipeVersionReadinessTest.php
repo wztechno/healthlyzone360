@@ -194,6 +194,29 @@ it('reports and refuses a quarantined ingredient identically', function (): void
     expect(publishRefusalCodes($recipeId, $this->headers, 1))->toBe(['ingredient_requires_review']);
 });
 
+it('reports and refuses a line ingredient that still owes its nutrition reference identically', function (): void {
+    // Mapped, so `allergen_unmapped` stays out of the way: this is about the quick add's marker.
+    $sumac = RecipeWorld::mappedIngredient($this->kitchen->organisation, 'Sumac', 'sesame');
+
+    Ingredient::withoutTenancy()->whereKey($sumac->getKey())->update([
+        'pending_nutrition' => json_encode(['suggestion' => null]),
+    ]);
+
+    $recipeId = readinessRecipe($this->headers, 'Fattoush');
+
+    $this->putJson("/api/v1/catalogue/recipes/{$recipeId}/versions/1/lines", [
+        'lines' => [['ingredient_id' => (string) $sumac->getKey(), 'quantity' => 5, 'unit_id' => $this->grams]],
+    ], $this->headers + ['If-Match' => '"0"'])->assertOk();
+
+    [$publishable, $reasons] = readinessOf($recipeId, $this->headers);
+
+    expect($publishable)->toBeFalse()
+        ->and(collect($reasons)->pluck('code')->all())->toBe(['ingredient_nutrition_pending'])
+        ->and($reasons[0]['context']['ingredient_ids'])->toBe([(string) $sumac->getKey()]);
+
+    expect(publishRefusalCodes($recipeId, $this->headers, 1))->toBe(['ingredient_nutrition_pending']);
+});
+
 it('reports an unassessed ingredient as a reason, where publication raises its own code', function (): void {
     $mystery = RecipeWorld::unmappedIngredient($this->kitchen->organisation, 'Spice Blend');
     $recipeId = readinessRecipe($this->headers, 'Mystery Rub');

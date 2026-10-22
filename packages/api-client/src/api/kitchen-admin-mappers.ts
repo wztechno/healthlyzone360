@@ -33,6 +33,7 @@ import type {
     IngredientAdmin,
     IngredientAllergenMapping,
     IngredientCategoryAdmin,
+    NutritionReferenceCandidate,
     ItemChannelOffer,
     ItemChannelPrices,
     PackagingBasis,
@@ -383,6 +384,14 @@ export function mapIngredientAdmin(
         allergens: options?.allergens ?? (wire.allergens ?? []).map(mapIngredientAllergenMapping),
         allergensAssessedClear: wire.verification_status === 'verified',
         nutritionSource: wire.nutrition_source ?? null,
+        pendingNutrition:
+            wire.pending_nutrition == null
+                ? null
+                : {
+                      suggestion:
+                          (wire.pending_nutrition
+                              .suggestion as NutritionReferenceCandidate | null) ?? null,
+                  },
         allergenReviewRequired: wire.allergen_review_required ?? false,
         allergenReviewToken: wire.allergen_review_token ?? null,
         dietClassifications: [],

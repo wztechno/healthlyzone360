@@ -1288,8 +1288,22 @@ function RecipeEditor({
                 }),
             );
         }
+        // The server's `ingredient_nutrition_pending`, said before the press rather than after.
+        // From `library`, which resolves every line by id: a quick-added row is rarely on page one.
+        const owed = new Set(
+            data.currentVersion.lines
+                .map((line) => library.find((entry) => entry.id === line.ingredientId))
+                .filter((entry): entry is IngredientAdmin => entry?.pendingNutrition != null),
+        );
+        for (const entry of owed) {
+            reasons.push(
+                t('kitchen:publish.blockNutritionPending', {
+                    name: displayName(entry.name, locale).value,
+                }),
+            );
+        }
         return reasons;
-    }, [data, anyDirty, ingredients, locale, t]);
+    }, [data, anyDirty, ingredients, library, locale, t]);
 
     const unmappedIngredients = useMemo(() => {
         if (data === null || data === undefined) return [] as readonly IngredientAdmin[];
@@ -2392,6 +2406,34 @@ function RecipeEditor({
                             onChange={(next) => {
                                 setLinesDraft(next);
                                 markDirty('lines');
+                            }}
+                            onIngredientCreated={(ingredient, needsDetails) => {
+                                const name = displayName(ingredient.name, locale).value;
+                                // Not blocking, and kept until dismissed: its link is the route to
+                                // the confirmation this recipe's publication now waits on, and a
+                                // timed toast was gone before a cook had read it.
+                                toast.show({
+                                    testID: 'kitchen-recipe-quick-add-toast',
+                                    tone: needsDetails ? 'warning' : 'info',
+                                    durationMs: 0,
+                                    message: t(
+                                        needsDetails
+                                            ? 'kitchen:recipes.quickAddNeedsDetailsToast'
+                                            : 'kitchen:recipes.quickAddCreatedToast',
+                                        { name },
+                                    ),
+                                    action: {
+                                        testID: 'kitchen-recipe-quick-add-review',
+                                        label: t('kitchen:recipes.quickAddReview'),
+                                        onPress: () => {
+                                            guard.intercept(() => {
+                                                router.push(
+                                                    `/kitchen/ingredients/${String(ingredient.id)}` as never,
+                                                );
+                                            });
+                                        },
+                                    },
+                                });
                             }}
                         />
                     </FormSection>

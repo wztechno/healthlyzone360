@@ -400,6 +400,14 @@ export interface SetRecordPhotoRequest {
 
 export interface IngredientAdmin {
     readonly nutritionSource?: Readonly<Record<string, unknown>> | null;
+    /**
+     * Set while a row added from the recipe editor still owes a confirmed nutrition reference —
+     * a recipe built on it cannot publish. `suggestion` is the assistant's USDA pick, checked by
+     * the server, for the cook to confirm; `null` when there was none.
+     */
+    readonly pendingNutrition?: {
+        readonly suggestion: NutritionReferenceCandidate | null;
+    } | null;
     readonly allergenReviewRequired?: boolean;
     readonly allergenReviewToken?: string | null;
     readonly id: IngredientId;
@@ -715,6 +723,13 @@ export type IngredientReferenceSeries = 'ING-' | 'PKG-';
 export interface CreateIngredientRequest {
     readonly allergenReference?: AllergenReferenceSelection | undefined;
     readonly nutritionReference?: NutritionReferenceSelection | undefined;
+    /**
+     * The recipe editor's quick add, in place of {@link nutritionReference}: the row is created
+     * owing its reference, with the assistant's pick kept as an unconfirmed suggestion. A name the
+     * kitchen already has answers 409 with the existing rows rather than creating a second one.
+     */
+    readonly nutritionPending?:
+        { readonly suggestion: Omit<NutritionReferenceSelection, 'confirmed'> | null } | undefined;
     readonly name: LocalisedText;
     readonly categoryCode: string;
     /** Must be a child of `categoryCode`; the server refuses a leaf from another branch. */

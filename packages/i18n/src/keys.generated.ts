@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8568 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8583 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3648,6 +3648,8 @@ export interface NamespaceKeys {
     | 'editor.next'
     | 'editor.notFoundBody'
     | 'editor.notFoundTitle'
+    | 'editor.pendingNutritionBody'
+    | 'editor.pendingNutritionTitle'
     | 'editor.platformLibraryBody'
     | 'editor.platformLibraryTitle'
     | 'editor.previous'
@@ -6068,6 +6070,7 @@ export interface NamespaceKeys {
     | 'publish.blockIngredientState'
     | 'publish.blockName'
     | 'publish.blockNoLines'
+    | 'publish.blockNutritionPending'
     | 'publish.blockUnsaved'
     | 'publish.blockedTitle'
     | 'publish.body'
@@ -6231,6 +6234,18 @@ export interface NamespaceKeys {
     | 'recipes.publishChecksTitle'
     | 'recipes.quantityProduced'
     | 'recipes.quarantined'
+    | 'recipes.quickAdd'
+    | 'recipes.quickAddAnyway'
+    | 'recipes.quickAddCancel'
+    | 'recipes.quickAddCreatedToast'
+    | 'recipes.quickAddDuplicatesTitle'
+    | 'recipes.quickAddExistingTitle'
+    | 'recipes.quickAddExists'
+    | 'recipes.quickAddFailed'
+    | 'recipes.quickAddHint'
+    | 'recipes.quickAddNeedsDetailsToast'
+    | 'recipes.quickAddReview'
+    | 'recipes.quickAddUse'
     | 'recipes.recipeCount'
     | 'recipes.removeLine'
     | 'recipes.restricted'
@@ -12234,6 +12249,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:editor.next',
   'kitchen:editor.notFoundBody',
   'kitchen:editor.notFoundTitle',
+  'kitchen:editor.pendingNutritionBody',
+  'kitchen:editor.pendingNutritionTitle',
   'kitchen:editor.platformLibraryBody',
   'kitchen:editor.platformLibraryTitle',
   'kitchen:editor.previous',
@@ -14654,6 +14671,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:publish.blockIngredientState',
   'kitchen:publish.blockName',
   'kitchen:publish.blockNoLines',
+  'kitchen:publish.blockNutritionPending',
   'kitchen:publish.blockUnsaved',
   'kitchen:publish.blockedTitle',
   'kitchen:publish.body',
@@ -14817,6 +14835,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.publishChecksTitle',
   'kitchen:recipes.quantityProduced',
   'kitchen:recipes.quarantined',
+  'kitchen:recipes.quickAdd',
+  'kitchen:recipes.quickAddAnyway',
+  'kitchen:recipes.quickAddCancel',
+  'kitchen:recipes.quickAddCreatedToast',
+  'kitchen:recipes.quickAddDuplicatesTitle',
+  'kitchen:recipes.quickAddExistingTitle',
+  'kitchen:recipes.quickAddExists',
+  'kitchen:recipes.quickAddFailed',
+  'kitchen:recipes.quickAddHint',
+  'kitchen:recipes.quickAddNeedsDetailsToast',
+  'kitchen:recipes.quickAddReview',
+  'kitchen:recipes.quickAddUse',
   'kitchen:recipes.recipeCount',
   'kitchen:recipes.removeLine',
   'kitchen:recipes.restricted',

@@ -119,8 +119,12 @@ final readonly class IngredientAssistService
             ));
     }
 
-    /** @return Collection<int, Ingredient> */
-    private function existingMatches(string $nameEn): Collection
+    /**
+     * Also the quick add's duplicate check, so a name the form would call a match is never created.
+     *
+     * @return Collection<int, Ingredient>
+     */
+    public function existingMatches(string $nameEn): Collection
     {
         $normalised = IngredientAlias::normalise($nameEn);
 
@@ -238,7 +242,7 @@ final readonly class IngredientAssistService
     }
 
     /** @return array{id: string, name: array{en: string, ar: string}, is_platform: bool} */
-    private function reference(Ingredient $row): array
+    public function reference(Ingredient $row): array
     {
         return [
             'id' => (string) $row->id,

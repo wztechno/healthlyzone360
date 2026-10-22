@@ -479,6 +479,9 @@ export const zIngredientAllergenMapping = z.object({
  */
 export const zAdminIngredient = z.object({
     nutrition_source: z.record(z.string(), z.unknown()).nullish(),
+    pending_nutrition: z.object({
+        suggestion: z.record(z.string(), z.unknown()).nullable()
+    }).nullish(),
     allergen_review_required: z.boolean().optional(),
     allergen_review_token: z.string().regex(/^[a-f0-9]{64}$/).optional(),
     allergens_reviewed_by: z.string().nullish(),
@@ -618,6 +621,9 @@ export const zCreateIngredientRequest = z.object({
     nutrition_reference: z.string().max(40).regex(/^usda:[0-9]+$/).optional(),
     nutrition_reference_hash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
     nutrition_reference_confirmed: z.literal(true).optional(),
+    nutrition_pending: z.literal(true).optional(),
+    nutrition_suggestion: z.string().max(40).regex(/^usda:[0-9]+$/).optional(),
+    nutrition_suggestion_hash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
     name_en: z.string().max(255),
     name_ar: z.string().max(255).nullish(),
     slug: z.string().max(110).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullish(),

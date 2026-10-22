@@ -13,6 +13,8 @@ final readonly class NutritionReferenceService
 
     public const array REQUIRED_NUTRIENTS = ['energy', 'protein', 'carbohydrate', 'fat', 'fibre', 'sugars', 'sodium'];
 
+    private const string SELECT_AND_CONFIRM = 'Select a USDA reference and confirm its purchased preparation state.';
+
     private const array NUMBERS = [
         'energy' => ['208', '958', '957'], 'protein' => ['203'], 'carbohydrate' => ['205'],
         'fat' => ['204'], 'fibre' => ['291'], 'sugars' => ['269', '269.3'],
@@ -29,8 +31,21 @@ final readonly class NutritionReferenceService
 
     public function resolve(string $ref, string $hash, bool $confirmed, bool $fresh = false): NutritionReference
     {
-        if (! preg_match('/^usda:([0-9]+)$/D', $ref, $matches) || ! $confirmed) {
-            throw new ReferenceUnsuitable(['Select a USDA reference and confirm its purchased preparation state.']);
+        if (! $confirmed) {
+            throw new ReferenceUnsuitable([self::SELECT_AND_CONFIRM]);
+        }
+
+        return $this->suggestion($ref, $hash, $fresh);
+    }
+
+    /**
+     * The same checks as {@see resolve()} short of the cook's confirmation: a pick to show as a
+     * suggestion, never figures to save.
+     */
+    public function suggestion(string $ref, string $hash, bool $fresh = false): NutritionReference
+    {
+        if (! preg_match('/^usda:([0-9]+)$/D', $ref, $matches)) {
+            throw new ReferenceUnsuitable([self::SELECT_AND_CONFIRM]);
         }
         $reference = $this->map($this->provider->fetch($matches[1], $fresh));
         if ($reference->candidate['ref'] !== $ref) {

@@ -11,7 +11,9 @@ import type {
     CursorPage,
     IngredientAdmin,
     IngredientAdminFilter,
+    IngredientAssistSuggestion,
     MealAdmin,
+    NutritionReferenceCandidate,
     ProductAdmin,
     RecipeAdmin,
     RecipeAdminFilter,
@@ -4219,5 +4221,395 @@ describe('the technical sheet', () => {
             screen.queryByTestId('kitchen-recipe-technical-sheet-packaging-per-unit'),
         ).toBeNull();
         expect(screen.queryByTestId('kitchen-recipe-technical-sheet-cost-all-in')).toBeNull();
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Adding an ingredient from the line picker
+ *
+ * A typed name the library does not have gets an Add beside the picker. The assistant runs first;
+ * an exact match is offered instead of created, possible duplicates are shown before anything is
+ * written, and otherwise the row is created in the background owing its confirmed nutrition
+ * reference and lands on the line.
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('adding an ingredient from the line picker', () => {
+    const QUICK_ADD = 'kitchen-recipe-lines-table-quick-add';
+    const ROW_NAMES = /^kitchen-recipe-lines-table-row-.+-name$/;
+
+    const SUMAC_MATCH: NutritionReferenceCandidate = {
+        ref: 'usda:777',
+        provider: 'usda',
+        label: 'Spices, sumac, ground',
+        brand: null,
+        data_type: 'SR Legacy',
+        nutrition_per_100g: {
+            basis: 'per_100g',
+            amounts: [{ nutrient_id: 'energy', unit: 'kcal', value: 239 }],
+        },
+        suitable: true,
+        reasons: [],
+        missing_nutrients: [],
+        source_hash: 'b'.repeat(64),
+        retrieved_at: '2026-10-22T00:00:00Z',
+    };
+
+    function assistAnswer(
+        overrides: Partial<IngredientAssistSuggestion> = {},
+    ): IngredientAssistSuggestion {
+        return {
+            existingMatches: [],
+            possibleDuplicates: [],
+            nameAr: 'سماق',
+            categoryCode: 'spices',
+            subcategoryCode: 'spices-ground',
+            nutrition: {
+                candidates: [SUMAC_MATCH],
+                pick: 0,
+                relation: 'same',
+                reason: 'Ground sumac.',
+            },
+            unavailable: [],
+            ...overrides,
+        };
+    }
+
+    /** The listing with the picker's search honoured: Add appears only when it finds nothing. */
+    function searchableListing(
+        rows: readonly IngredientAdmin[],
+    ): (filter?: IngredientAdminFilter) => Promise<CursorPage<IngredientAdmin>> {
+        return async (filter) => {
+            const term = filter?.query?.toLowerCase();
+            return page(
+                term === undefined
+                    ? rows
+                    : rows.filter((row) => row.name.en.toLowerCase().includes(term)),
+            );
+        };
+    }
+
+    async function typeInPicker(text: string) {
+        await act(async () => {
+            fireEvent(screen.getByTestId(LINE_PICKER_INPUT), 'focus');
+            fireEvent.changeText(screen.getByTestId(LINE_PICKER_INPUT), text);
+        });
+    }
+
+    async function pressQuickAdd() {
+        await untilVisible(QUICK_ADD);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(QUICK_ADD));
+        });
+    }
+
+    function stored(ordinal: number, lines: readonly RecipeLine[] = []) {
+        return recipe({
+            ordinal,
+            name: 'Fattoush',
+            currentVersion: recipeVersion({ recipeOrdinal: ordinal, overrides: { lines } }),
+        });
+    }
+
+    it('creates the name in the background on a new recipe, links it on the line and says where to verify it', async () => {
+        const sumac = ingredient(7, {
+            name: { en: 'Sumac', ar: 'سماق' },
+            categoryCode: 'spices',
+            pendingNutrition: { suggestion: SUMAC_MATCH },
+        });
+
+        const { repositories } = await renderStubScreen(<RecipeEditScreen recipe="new" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listIngredients: searchableListing(LIBRARY),
+                    nextReference: async () => 'RC-0010',
+                    assistIngredient: async () => assistAnswer(),
+                    createIngredient: async () => sumac,
+                    getIngredient: ingredientShow([...LIBRARY, sumac]),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-name-en-input');
+        await openTab('production');
+        await untilVisible(LINE_PICKER_INPUT);
+        await typeInPicker('Sumac');
+        await pressQuickAdd();
+
+        await untilVisible('kitchen-recipe-quick-add-toast');
+        expect(repositories.kitchenAdmin.assistIngredient).toHaveBeenCalledWith('Sumac');
+        // Everything the assistant could fill, the pick kept as a suggestion — never confirmed.
+        expect(repositories.kitchenAdmin.createIngredient).toHaveBeenCalledWith({
+            name: { en: 'Sumac', ar: 'سماق' },
+            categoryCode: 'spices',
+            subcategoryCode: 'spices-ground',
+            measurementUnit: 'g',
+            nutritionPending: { suggestion: { ref: 'usda:777', sourceHash: 'b'.repeat(64) } },
+        });
+        await waitFor(() => {
+            expect(screen.getAllByTestId(ROW_NAMES)[0]).toHaveTextContent('Sumac');
+        });
+        expect(screen.getByTestId('kitchen-recipe-quick-add-toast')).toHaveTextContent(
+            /created from AI suggestions/,
+        );
+
+        // The link goes through the unsaved guard: the recipe holding the new line is not saved.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-quick-add-review'));
+        });
+        await untilVisible('kitchen-recipe-editor-screen-unsaved-dialog');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-unsaved-discard'));
+        });
+        await waitFor(() => {
+            expect(routerMock.__push).toHaveBeenCalledWith(
+                `/kitchen/ingredients/${String(sumac.id)}`,
+            );
+        });
+    });
+
+    it('offers the existing row for an exact match and never creates a second', async () => {
+        const pita = ingredient(8, { name: { en: 'Pita', ar: 'خبز عربي' } });
+        const record = stored(1);
+
+        const { repositories } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(record.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => record),
+                        listIngredients: searchableListing(LIBRARY),
+                        assistIngredient: async () =>
+                            assistAnswer({
+                                existingMatches: [
+                                    {
+                                        id: pita.id,
+                                        name: pita.name,
+                                        isPlatform: true,
+                                        reason: null,
+                                    },
+                                ],
+                            }),
+                        createIngredient: async () => pita,
+                        getIngredient: ingredientShow([...LIBRARY, pita]),
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+        await untilVisible(LINE_PICKER_INPUT);
+        await typeInPicker('Pita');
+        await pressQuickAdd();
+
+        await untilVisible(`${QUICK_ADD}-existing`);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${QUICK_ADD}-use-${String(pita.id)}`));
+        });
+
+        await waitFor(() => {
+            expect(screen.getAllByTestId(ROW_NAMES)[0]).toHaveTextContent('Pita');
+        });
+        expect(repositories.kitchenAdmin.createIngredient).not.toHaveBeenCalled();
+        expect(screen.queryByTestId('kitchen-recipe-quick-add-toast')).toBeNull();
+    });
+
+    it('shows possible duplicates before creating, and never sends a pick the assistant calls a different food', async () => {
+        const zaytoun = ingredient(9, { name: { en: 'Zaytoun', ar: 'زيتون' } });
+        const record = stored(2);
+
+        const { repositories } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(record.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => record),
+                        listIngredients: searchableListing(LIBRARY),
+                        assistIngredient: async () =>
+                            assistAnswer({
+                                nameAr: 'زيتون',
+                                possibleDuplicates: [
+                                    {
+                                        id: UNMAPPED_INGREDIENT.id,
+                                        name: UNMAPPED_INGREDIENT.name,
+                                        isPlatform: false,
+                                        reason: 'Both are olive products.',
+                                    },
+                                ],
+                                nutrition: {
+                                    candidates: [SUMAC_MATCH],
+                                    pick: 0,
+                                    relation: 'different',
+                                    reason: null,
+                                },
+                            }),
+                        createIngredient: async () => zaytoun,
+                        getIngredient: ingredientShow([...LIBRARY, zaytoun]),
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+        await untilVisible(LINE_PICKER_INPUT);
+        await typeInPicker('Zaytoun');
+        await pressQuickAdd();
+
+        await untilVisible(`${QUICK_ADD}-duplicates`);
+        expect(screen.getByTestId(`${QUICK_ADD}-duplicates`)).toHaveTextContent(
+            /Both are olive products/,
+        );
+        expect(repositories.kitchenAdmin.createIngredient).not.toHaveBeenCalled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${QUICK_ADD}-anyway`));
+        });
+
+        await untilVisible('kitchen-recipe-quick-add-toast');
+        expect(repositories.kitchenAdmin.createIngredient).toHaveBeenCalledWith(
+            expect.objectContaining({ nutritionPending: { suggestion: null } }),
+        );
+    });
+
+    const assistantDown: readonly (readonly [string, () => Promise<IngredientAssistSuggestion>])[] =
+        [
+            [
+                'reports itself unavailable',
+                async () =>
+                    assistAnswer({
+                        nameAr: null,
+                        categoryCode: null,
+                        subcategoryCode: null,
+                        nutrition: null,
+                        unavailable: ['assistant', 'nutrition'],
+                    }),
+            ],
+            ['does not answer at all', async () => throwFailure(apiFailure('server'))],
+        ];
+
+    it.each(assistantDown)(
+        'still adds the name, English only and marked as needing details, when the assistant %s',
+        async (_label, assistIngredient) => {
+            const bare = ingredient(6, {
+                name: { en: 'Mahlab', ar: '' },
+                pendingNutrition: { suggestion: null },
+            });
+            const record = stored(3);
+
+            const { repositories } = await renderStubScreen(
+                <RecipeEditScreen recipe={String(record.id)} />,
+                {
+                    session: kitchenManagerSession(),
+                    repositories: {
+                        kitchenAdmin: {
+                            ...editorReads(() => record),
+                            listIngredients: searchableListing(LIBRARY),
+                            assistIngredient,
+                            createIngredient: async () => bare,
+                            getIngredient: ingredientShow([...LIBRARY, bare]),
+                        },
+                    },
+                },
+            );
+
+            await untilVisible('kitchen-recipe-editor-screen-header');
+            await openTab('production');
+            await untilVisible(LINE_PICKER_INPUT);
+            await typeInPicker('Mahlab');
+            await pressQuickAdd();
+
+            await untilVisible('kitchen-recipe-quick-add-toast');
+            expect(repositories.kitchenAdmin.createIngredient).toHaveBeenCalledWith({
+                name: { en: 'Mahlab', ar: '' },
+                categoryCode: '',
+                measurementUnit: 'g',
+                nutritionPending: { suggestion: null },
+            });
+            expect(screen.getByTestId('kitchen-recipe-quick-add-toast')).toHaveTextContent(
+                /English name only/,
+            );
+        },
+    );
+
+    it('adds no line when the server says the name exists after all', async () => {
+        const record = stored(4);
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => record),
+                    listIngredients: searchableListing(LIBRARY),
+                    assistIngredient: async () => assistAnswer(),
+                    createIngredient: async () => throwFailure(conflictFailure()),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+        await untilVisible(LINE_PICKER_INPUT);
+        await typeInPicker('Sumac');
+        await pressQuickAdd();
+
+        await untilVisible(`${QUICK_ADD}-exists`);
+        expect(screen.queryAllByTestId(ROW_NAMES)).toHaveLength(0);
+        expect(screen.queryByTestId('kitchen-recipe-quick-add-toast')).toBeNull();
+    });
+
+    it('offers no Add while the search finds something', async () => {
+        const record = stored(5);
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => record),
+                    listIngredients: searchableListing(LIBRARY),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+        await untilVisible(LINE_PICKER_INPUT);
+        await typeInPicker('Burghul');
+
+        await untilVisible(`${LINE_PICKER}-option-${String(MAPPED_INGREDIENT.id)}`);
+        expect(screen.queryByTestId(QUICK_ADD)).toBeNull();
+    });
+
+    it('names a line ingredient that still owes its nutrition reference in the publish dialog', async () => {
+        const owed = ingredient(4, {
+            name: { en: 'Sumac', ar: 'سماق' },
+            pendingNutrition: { suggestion: null },
+        });
+        const record = stored(6, [line(owed)]);
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => record),
+                    getIngredient: ingredientShow([...LIBRARY, owed]),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('sheet');
+        await untilVisible('kitchen-recipe-publish');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-publish'));
+        });
+
+        await untilVisible('kitchen-recipe-publish-blocked');
+        expect(screen.getByTestId('kitchen-recipe-publish-blocked')).toHaveTextContent(
+            /Sumac still needs its nutrition reference confirmed/,
+        );
     });
 });

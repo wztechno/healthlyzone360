@@ -2043,6 +2043,17 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     body={t('kitchen:allergens.quarantineBody')}
                 />
             ) : null}
+            {/* Added from the recipe editor: AI-filled and owing its confirmed reference. */}
+            {data?.pendingNutrition == null ? null : (
+                <Callout
+                    testID="kitchen-ingredient-pending-nutrition"
+                    role="note"
+                    tone="warning"
+                    icon="sparkle"
+                    title={t('kitchen:editor.pendingNutritionTitle')}
+                    body={t('kitchen:editor.pendingNutritionBody')}
+                />
+            )}
             {saveFailure === null || (server.isValidation && server.unplaced === null) ? null : (
                 <Callout
                     testID="kitchen-ingredient-save-error"
@@ -2554,7 +2565,21 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                                 ? referenceDraft.candidate
                                                 : undefined
                                         }
-                                        suggestion={assistForName?.nutrition ?? undefined}
+                                        suggestion={
+                                            assistForName?.nutrition ??
+                                            // The quick add's stored pick, offered — never chosen —
+                                            // so saving anything else here is not held behind it.
+                                            (data?.pendingNutrition?.suggestion == null
+                                                ? undefined
+                                                : {
+                                                      candidates: [
+                                                          data.pendingNutrition.suggestion,
+                                                      ],
+                                                      pick: 0,
+                                                      relation: null,
+                                                      reason: null,
+                                                  })
+                                        }
                                         onRename={isCreating ? renameForReference : undefined}
                                         onChange={(selection, candidate) => {
                                             setReferenceDraft({

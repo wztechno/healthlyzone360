@@ -149,6 +149,8 @@ final class IngredientPresenter
             'capacity_unit_code' => $ingredient->relationLoaded('capacityUnit') ? $ingredient->capacityUnit?->code : null,
             'nutrition_per_100g' => $ingredient->nutrition_per_100g,
             'nutrition_source' => $ingredient->nutrition_source,
+            // Non-null while a row added from the recipe editor still owes a confirmed reference.
+            'pending_nutrition' => $ingredient->pending_nutrition,
             'allergen_review_required' => $ingredient->allergen_review_required,
             'allergens_reviewed_by' => $ingredient->allergens_reviewed_by,
             'allergens_reviewed_at' => $ingredient->allergens_reviewed_at?->toIso8601String(),

@@ -2942,3 +2942,47 @@ describe('the ingredient assistant', () => {
         );
     });
 });
+
+describe('a row added from the recipe editor', () => {
+    it('says it is AI-filled and owed, and offers the stored pick without choosing it', async () => {
+        const record = ingredient(31, {
+            name: { en: 'Sumac', ar: 'سماق' },
+            pendingNutrition: { suggestion: USDA_CANDIDATE },
+        });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => [record]),
+                    getIngredient: async () => record,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-pending-nutrition');
+
+        // Listed for the cook to select and confirm — no search needed, and nothing preselected,
+        // so saving a price on this page is not held behind a confirmation nobody asked for.
+        await openIngredientStep('nutrition');
+        await untilVisible('nutrition-reference-select-usda:12345');
+        expect(screen.queryByTestId('nutrition-reference-confirm-control')).toBeNull();
+    });
+
+    it('draws no notice on a row that owes nothing', async () => {
+        const record = ingredient(32, { pendingNutrition: null });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => [record]),
+                    getIngredient: async () => record,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-name-en-input');
+        expect(screen.queryByTestId('kitchen-ingredient-pending-nutrition')).toBeNull();
+    });
+});

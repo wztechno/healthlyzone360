@@ -238,6 +238,14 @@ class StoreIngredientRequest extends FormRequest
             ...self::priceRules(),
             ...self::packagingRules(),
             ...self::referenceRules(),
+            /*
+             * The recipe editor's quick add: a food row created with nobody there to confirm a
+             * nutrition reference. It lands owing one (`pending_nutrition`), holding the
+             * assistant's pick as a suggestion the cook confirms later — never as figures.
+             */
+            'nutrition_pending' => ['sometimes', 'accepted', 'prohibits:nutrition_reference'],
+            'nutrition_suggestion' => ['prohibited_unless:nutrition_pending,true', 'required_with:nutrition_suggestion_hash', 'string', 'regex:/^usda:[0-9]+$/D', 'max:40'],
+            'nutrition_suggestion_hash' => ['required_with:nutrition_suggestion', 'string', 'regex:/^[a-f0-9]{64}$/D'],
             'allergen_reference_token' => ['required_with:allergen_reference_confirmed', 'string', 'max:30000'],
             'allergen_reference_confirmed' => ['required_with:allergen_reference_token', 'boolean', function (string $attribute, mixed $value, Closure $fail): void {
                 if ($value !== true && $value !== 1 && $value !== '1') {
