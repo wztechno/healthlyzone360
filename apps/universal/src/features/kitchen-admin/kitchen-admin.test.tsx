@@ -1943,6 +1943,41 @@ describe('nutrition per 100 g', () => {
         });
     });
 
+    it('draws the selected match’s figures before the save', async () => {
+        const record = ingredient(22, { per100g: per100gFacts() });
+
+        const { repositories } = await renderStubScreen(
+            <IngredientEditScreen ingredient={String(record.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [record]),
+                        getIngredient: async () => record,
+                        searchNutritionReferences: async () => [USDA_CANDIDATE],
+                    },
+                },
+            },
+        );
+
+        await openIngredientStep('nutrition');
+        await untilVisible('kitchen-ingredient-nutrition-grid-figure-energy-value');
+        expect(
+            screen.getByTestId('kitchen-ingredient-nutrition-grid-figure-energy-value'),
+        ).toHaveTextContent(/^53/);
+
+        await selectUsdaReference();
+
+        // The candidate's 100 kcal, and an em dash where it carries no figure — not the old 53.
+        expect(
+            screen.getByTestId('kitchen-ingredient-nutrition-grid-figure-energy-value'),
+        ).toHaveTextContent(/^100/);
+        expect(
+            screen.getByTestId('kitchen-ingredient-nutrition-grid-figure-protein-value'),
+        ).toHaveTextContent('—');
+        expect(repositories.kitchenAdmin.updateIngredient).not.toHaveBeenCalled();
+    });
+
     it('offers no inputs on a record whose figures a published recipe derives', async () => {
         const record = ingredient(23, {
             per100g: per100gFacts(),

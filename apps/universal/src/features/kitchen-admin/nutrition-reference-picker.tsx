@@ -41,7 +41,11 @@ export function NutritionReferencePicker({
 }: {
     readonly name: string;
     readonly value: NutritionReferenceSelection | undefined;
-    readonly onChange: (value: NutritionReferenceSelection | undefined) => void;
+    /** `candidate` is the chosen match, so the screen can draw its figures before the save. */
+    readonly onChange: (
+        value: NutritionReferenceSelection | undefined,
+        candidate?: NutritionReferenceCandidate,
+    ) => void;
 }) {
     const { t } = useTranslation();
     const [query, setQuery] = useState(name);
@@ -49,7 +53,10 @@ export function NutritionReferencePicker({
     const failure = toFailure(search.error);
 
     const choose = (candidate: NutritionReferenceCandidate) =>
-        onChange({ ref: candidate.ref, sourceHash: candidate.source_hash, confirmed: false });
+        onChange(
+            { ref: candidate.ref, sourceHash: candidate.source_hash, confirmed: false },
+            candidate,
+        );
     const run = () => {
         if (query.trim().length >= 2 && !search.isPending) search.mutate(query.trim());
     };
@@ -186,7 +193,7 @@ export function NutritionReferencePicker({
                     testID="nutrition-reference-confirm"
                     label={t('kitchen:nutritionLookup.confirmPreparation')}
                     checked={value.confirmed}
-                    onChange={(confirmed) => onChange({ ...value, confirmed })}
+                    onChange={(confirmed) => onChange({ ...value, confirmed }, chosen)}
                 />
             )}
         </Stack>

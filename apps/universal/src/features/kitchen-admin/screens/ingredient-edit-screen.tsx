@@ -1,4 +1,5 @@
 import type {
+    NutritionReferenceCandidate,
     NutritionReferenceSelection,
     AllergenReferenceSelection,
 } from '@healthy360/api-client/contracts';
@@ -42,8 +43,8 @@ import { isCurrencyCode } from '@healthy360/domain-types';
 import type { CurrencyCode } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
-import { coreNutrientDefinition, findAmount } from '@healthy360/nutrition';
-import type { MeasureUnit, NutritionFacts } from '@healthy360/nutrition';
+import { coreNutrientDefinition } from '@healthy360/nutrition';
+import type { MeasureUnit } from '@healthy360/nutrition';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -406,7 +407,7 @@ function positiveNumberOf(raw: string): number | null {
  * words.
  */
 function nutrientFigures(
-    facts: NutritionFacts | null,
+    amounts: readonly { readonly nutrientId: string; readonly value: number }[] | null,
     t: TFunction,
     formatter: Formatter,
 ): readonly DerivedFigure[] {
@@ -414,7 +415,7 @@ function nutrientFigures(
         const definition = coreNutrientDefinition(field.id);
         if (definition === null) return [];
 
-        const amount = facts === null ? null : findAmount(facts, field.id);
+        const amount = amounts?.find((entry) => entry.nutrientId === field.id) ?? null;
 
         return [
             {
@@ -609,6 +610,8 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const [referenceDraft, setReferenceDraft] = useState<{
         readonly name: string;
         readonly selection: NutritionReferenceSelection | undefined;
+        /** The chosen match, whose figures the cards draw until the save returns the record's. */
+        readonly candidate?: NutritionReferenceCandidate | undefined;
     }>({ name: '', selection: undefined });
     const [allergenDraft, setAllergenDraft] = useState<{
         readonly name: string;
@@ -1490,7 +1493,19 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
             fieldId: 'kitchen-ingredient-capacity',
         },
     });
-    const figures = nutrientFigures(data?.per100g ?? null, t, formatter);
+    // The chosen match's figures until the save returns the record's own — otherwise the cards
+    // would sit empty (or show the old reference) while a selection is pending.
+    const preview =
+        nutritionReference === undefined
+            ? undefined
+            : referenceDraft.candidate?.nutrition_per_100g;
+    const figures = nutrientFigures(
+        preview?.amounts.map((amount) => ({ nutrientId: amount.nutrient_id, value: amount.value })) ??
+            data?.per100g?.amounts ??
+            null,
+        t,
+        formatter,
+    );
 
     // Creating, the reference is the one the save is about to assign rather than one the record
     // carries. Empty while the read is in flight, and empty if it fails: better a blank than a
@@ -1563,7 +1578,8 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
             ? packPriceValue / itemsPerPack
             : null;
 
-    const nutritionEmpty = nutritionEditable && (data?.per100g ?? null) === null;
+    const nutritionEmpty =
+        nutritionEditable && (data?.per100g ?? null) === null && preview === undefined;
     const allergens = data?.allergens ?? [];
     /** Checked, and carries nothing — the one empty set that is a claim rather than a gap. */
     const allergenFree = allergens.length === 0 && data?.allergensAssessedClear === true;
@@ -2333,8 +2349,12 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                         key={`${String(data?.id ?? 'new')}:${details.name.en}`}
                                         name={details.name.en}
                                         value={nutritionReference}
-                                        onChange={(selection) => {
-                                            setReferenceDraft({ name: details.name.en, selection });
+                                        onChange={(selection, candidate) => {
+                                            setReferenceDraft({
+                                                name: details.name.en,
+                                                selection,
+                                                candidate,
+                                            });
                                             setDetailsDirty(true);
                                             guard.markDirty();
                                         }}
