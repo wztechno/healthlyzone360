@@ -9,6 +9,7 @@ use Healthy360\Inventory\Presenters\OrderConsumptionExceptionPresenter;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\CursorPage;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Support\Api\OffsetPage;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -65,6 +66,30 @@ final class ConsumptionExceptionIndexController
 
         if (isset($validated['to'])) {
             $query->where('created_at', '<=', $validated['to']);
+        }
+
+        /*
+        | Numbered pages when asked (`page`), so the Stock gaps page uses the
+        | admin's one pager like every other list. The OffsetPage exception
+        | (docs/api/conventions.md) is extended here knowingly: an exception
+        | raised mid-browse can shift a row by one, which matters far less
+        | than a page that could only go Next. Cursor walking is untouched.
+        */
+        $requestedPage = OffsetPage::page($request);
+
+        if ($requestedPage !== null) {
+            $perPage = OffsetPage::perPage($request);
+            $total = $query->toBase()->getCountForPagination();
+
+            OffsetPage::assertWithinRange($requestedPage, $perPage, $total);
+            OffsetPage::constrain($query, $requestedPage, $perPage, newestFirst: true);
+
+            $rows = $query->get();
+
+            return ApiResponse::data(
+                ['exceptions' => $this->presenter->collection($rows)],
+                OffsetPage::meta($rows, $requestedPage, $perPage, $total),
+            );
         }
 
         $limit = CursorPage::limit($request);

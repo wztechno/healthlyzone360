@@ -3,6 +3,7 @@ import type { Money } from '@healthy360/domain-types';
 
 import type {
     AddCartItemRequest,
+    AllergenConflict,
     Cart,
     CartItem,
     CheckoutPreview,
@@ -13,6 +14,7 @@ import type {
 } from '../contracts/commerce.ts';
 import { ApiError, apiFailure, validationFailure } from '../contracts/failure.ts';
 import type {
+    AllergenConflict as WireAllergenConflict,
     Cart as WireCart,
     CartLine as WireCartLine,
     CheckoutPreview as WireCheckoutPreview,
@@ -228,6 +230,15 @@ function mapPreviewWarning(code: string): string {
     return code === WIRE_CART_EMPTY ? 'checkout.empty_cart' : `checkout.${code}`;
 }
 
+/** One meal the server's allergen rule flagged for this customer — checkout and subscriptions alike. */
+export function mapAllergenConflict(wire: WireAllergenConflict): AllergenConflict {
+    return {
+        mealId: MealId.unsafe(wire.catalogue_item_id),
+        reason: wire.reason,
+        allergenCodes: wire.allergen_codes,
+    };
+}
+
 function mapCheckoutPreview(
     wire: WireCheckoutPreview,
     request: PreviewCheckoutRequest,
@@ -252,6 +263,7 @@ function mapCheckoutPreview(
         earliestDeliveryDate: request.deliveryDate ?? null,
         warnings: wire.warnings.map(mapPreviewWarning),
         offeredWindowCodes: wire.offered_window_codes ?? null,
+        allergenConflicts: (wire.allergen_conflicts ?? []).map(mapAllergenConflict),
         paymentDeferred: true,
     };
 }
@@ -270,7 +282,10 @@ const MEAL_LOOKUP_TTL_MS = 60_000;
 
 export function createApiCartSurface(transport: Transport): ApiCartSurface {
     let sessionChannelCode = DEFAULT_CART_CHANNEL_CODE;
-    const meals = new Map<string, { readonly at: number; readonly meal: ReturnType<typeof fetchMeal> }>();
+    const meals = new Map<
+        string,
+        { readonly at: number; readonly meal: ReturnType<typeof fetchMeal> }
+    >();
 
     const fresh = (mealId: string) => {
         const known = meals.get(mealId);
@@ -313,7 +328,9 @@ export function createApiCartSurface(transport: Transport): ApiCartSurface {
                 batch.then(
                     (wires) => {
                         const wire = wires.find((candidate) => candidate.id === mealId);
-                        return wire === undefined ? fetchMeal(transport, mealId) : toMeal(wire, mealId);
+                        return wire === undefined
+                            ? fetchMeal(transport, mealId)
+                            : toMeal(wire, mealId);
                     },
                     () => fetchMeal(transport, mealId),
                 ),

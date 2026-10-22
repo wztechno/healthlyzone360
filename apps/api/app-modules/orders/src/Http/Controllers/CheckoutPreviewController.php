@@ -77,6 +77,7 @@ final class CheckoutPreviewController
                 'line_count' => $result->lineCount,
                 'warnings' => $result->warnings,
                 'offered_window_codes' => $result->offeredWindowCodes,
+                'allergen_conflicts' => $result->allergenConflicts,
             ],
         ]);
     }

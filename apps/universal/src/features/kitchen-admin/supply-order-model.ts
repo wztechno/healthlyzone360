@@ -142,13 +142,18 @@ export type SupplyOrderChoices = Readonly<Record<string, SupplyOrderRowChoice>>;
  *
  * The server's four-place padding is dropped — `8.0000` opens as `8` — because forty boxes of
  * trailing zeros is noise, and the trimmed string is the same number.
+ *
+ * One exception to ordering on: a shelf that open orders already restock to par (it has open orders
+ * and no suggestion left) opens **not ordering**. Opening it ticked is how pressing Create a second
+ * time drafted the same order again for every supplier.
  */
 export function initialChoice(row: OrderProposalItem): SupplyOrderRowChoice {
     const suggested = row.suggestedQuantity ?? '';
+    const coveredByOpenOrders = row.openOrders.length > 0 && row.suggestedQuantity === null;
     return {
         quantity: trimDecimal(suggested),
         supplierId: row.suggestedSupplierId,
-        ordering: true,
+        ordering: !coveredByOpenOrders,
     };
 }
 

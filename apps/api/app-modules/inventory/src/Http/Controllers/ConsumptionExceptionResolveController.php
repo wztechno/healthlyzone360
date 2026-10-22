@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Healthy360\Inventory\Http\Controllers;
 
 use Healthy360\Audit\Services\AuditRecorder;
-use Healthy360\Inventory\Models\OrderConsumptionException;
 use Healthy360\Inventory\Presenters\OrderConsumptionExceptionPresenter;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Tenancy\TenantContext;
@@ -21,12 +20,14 @@ use Illuminate\Http\Request;
  *
  * Idempotent: resolving an already-resolved exception changes nothing and returns
  * the row as it stands, rather than overwriting who first settled it. The
- * `{exception}` binding is org-scoped by the model's own tenancy, so an exception
+ * `{exception}` is resolved against the caller's organisation, so an exception
  * from another organisation is a 404. Requires `inventory.manage_organisation`;
  * audited.
  */
 final class ConsumptionExceptionResolveController
 {
+    use ResolvesConsumptionException;
+
     public function __construct(
         private readonly OrderConsumptionExceptionPresenter $presenter,
         private readonly AuditRecorder $audit,
@@ -34,12 +35,14 @@ final class ConsumptionExceptionResolveController
 
     public function __invoke(
         Request $request,
-        OrderConsumptionException $exception,
+        string $exception,
         TenantContext $context,
     ): JsonResponse {
         $validated = $request->validate([
             'note' => ['nullable', 'string', 'max:500'],
         ]);
+
+        $exception = $this->resolveException($exception, $context);
 
         if ($exception->resolved_at === null) {
             $exception->resolved_at = now();

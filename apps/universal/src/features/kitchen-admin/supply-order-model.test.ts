@@ -1,5 +1,5 @@
 import type { OrderProposalItem } from '@healthy360/api-client/contracts';
-import { BranchId, StockItemId, SupplierId } from '@healthy360/domain-types';
+import { BranchId, PurchaseOrderId, StockItemId, SupplierId } from '@healthy360/domain-types';
 
 import {
     buildGroups,
@@ -66,6 +66,8 @@ function row(ordinal: number, overrides: Partial<OrderProposalItem> = {}): Order
         supplierOptions: [],
         suggestedSupplierId: null,
         unassignedReason: null,
+        onOrderQuantity: '0.0000',
+        openOrders: [],
         ...overrides,
     };
 }
@@ -115,6 +117,37 @@ describe('initialChoices', () => {
             supplierId: supplierId(1),
             ordering: true,
         });
+    });
+
+    it('opens a shelf its open orders already cover as not ordering', () => {
+        const openOrder = {
+            id: PurchaseOrderId.unsafe('0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e7001'),
+            number: 'PO-CE9EXBGM',
+            status: 'draft' as const,
+        };
+
+        // Covered to par: no suggestion left, so a second Create must not draft it again.
+        expect(
+            initialChoice(
+                row(1, {
+                    suggestedQuantity: null,
+                    onOrderQuantity: '10.0000',
+                    openOrders: [openOrder],
+                }),
+            ).ordering,
+        ).toBe(false);
+        // Partly covered: the rest is still suggested, and ordered.
+        expect(
+            initialChoice(
+                row(1, {
+                    suggestedQuantity: '3.0000',
+                    onOrderQuantity: '7.0000',
+                    openOrders: [openOrder],
+                }),
+            ),
+        ).toEqual(expect.objectContaining({ quantity: '3', ordering: true }));
+        // No open orders and no par: still on, waiting for a human number.
+        expect(initialChoice(row(1, { suggestedQuantity: null })).ordering).toBe(true);
     });
 
     it('drops the padding zeros, never a significant one', () => {

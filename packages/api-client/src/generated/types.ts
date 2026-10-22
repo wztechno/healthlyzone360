@@ -4569,9 +4569,16 @@ export type DeliveryWindow = {
     weekdays: Array<number>;
     display_order: number;
     /**
-     * The only withdrawal there is. No DELETE exists.
+     * Switched off — the reversible withdrawal. No DELETE exists.
      */
     is_active: boolean;
+    /**
+     * When the window was archived, or null. An archived window is always
+     * inactive, in no zone, and cannot be changed; it is still served so
+     * the orders and subscriptions that name it stay explainable.
+     *
+     */
+    archived_at?: string | null;
     /**
      * The zones this window is assigned to, ordered by zone code. A
      * window in no zone is offered nowhere; a newly created window starts
@@ -4636,6 +4643,10 @@ export type BranchOperatingDay = {
 export type BranchOperatingEnvelope = {
     data: Array<BranchOperatingDay>;
     meta: Meta & {
+        /**
+         * The branch's IANA zone (`organisation_branches.timezone`). Every time in the week is a clock face read in it.
+         */
+        timezone: string;
         configured_weekdays?: Array<number>;
         open_day_count?: number;
         /**
@@ -5038,6 +5049,17 @@ export type PlaceOrderRequest = {
      *
      */
     requested_delivery_date?: string | null;
+    /**
+     * The customer saw the basket's allergen conflicts
+     * (`allergen_conflicts` on the preview) and chose to order anyway.
+     * Absent or false, placement refuses `allergen_conflict` — one reason
+     * per clashing meal, carrying `catalogue_item_id`, `cause` (the
+     * `AllergenConflict.reason`) and `allergen_codes` — re-checked against
+     * the declarations as they stand at placement, not as the preview saw
+     * them.
+     *
+     */
+    acknowledge_allergen_conflicts?: boolean;
 };
 
 /**
@@ -5099,7 +5121,7 @@ export type CheckoutPreview = {
      * vocabulary `409 order.placement_refused` uses at placement:
      * `cart_empty`, `address_missing`, `address_not_deliverable`,
      * `area_not_served`, `zone_suspended`, `currency_mismatch`,
-     * `window_not_offered`, plus the line-probe vocabulary. Deduplicated — three lines refused for the
+     * `window_not_offered`, `allergen_conflict`, plus the line-probe vocabulary. Deduplicated — three lines refused for the
      * same reason read as one fact, not three repeats of it.
      *
      */
@@ -5112,6 +5134,37 @@ export type CheckoutPreview = {
      *
      */
     offered_window_codes: Array<string> | null;
+    /**
+     * The basket's meals that clash with the buyer's declared allergies,
+     * one per meal. Non-empty exactly when `warnings` carries
+     * `allergen_conflict`. Always sent; optional so a client also reads
+     * a server from before it was added.
+     *
+     */
+    allergen_conflicts?: Array<AllergenConflict>;
+};
+
+export type AllergenConflict = {
+    catalogue_item_id: Uuid;
+    /**
+     * `allergen_declared` — a declared allergen is on the meal's label.
+     * `excluded` — an ingredient the customer excluded is on its list.
+     * `unassessed` — the meal has no allergen information and the
+     * customer has declared something.
+     *
+     */
+    reason: 'allergen_declared' | 'excluded' | 'unassessed';
+    /**
+     * The declared allergens on the label; filled only for `allergen_declared`.
+     */
+    allergen_codes: Array<string>;
+};
+
+export type AllergenConflictsEnvelope = {
+    data: {
+        conflicts: Array<AllergenConflict>;
+    };
+    meta: Meta;
 };
 
 export type CheckoutPreviewEnvelope = {
@@ -5864,6 +5917,24 @@ export type OrderProposalItem = {
      *
      */
     unassigned_reason: 'no_supplier' | 'suppliers_archived' | null;
+    /**
+     * What this branch's open supply orders (draft, issued or
+     * part-received) still have to deliver of this shelf, in its unit. A
+     * part-received order counts only its remainder. `suggested_quantity`
+     * restocks to par after this, so a shelf already covered by open
+     * orders gets no suggestion — which is what stops a second Create
+     * from drafting the same order again.
+     *
+     */
+    on_order_quantity: string;
+    /**
+     * The open orders behind `on_order_quantity`, oldest first.
+     */
+    open_orders: Array<{
+        id: Uuid;
+        number: string;
+        status: PurchaseOrderStatus;
+    }>;
 };
 
 /**
@@ -7499,7 +7570,7 @@ export type ConsumptionExceptionCollection = {
     data: {
         exceptions: Array<ConsumptionException>;
     };
-    meta: PaginationMeta;
+    meta: PaginatedOrNumberedMeta;
 };
 
 export type ConsumptionExceptionEnvelope = {
@@ -7515,6 +7586,10 @@ export type ConsumptionExceptionCountEnvelope = {
          * How many consumption exceptions are unresolved in scope.
          */
         count: number;
+        /**
+         * How many have been marked handled, under the same scope — so the Stock gaps page can total both states rather than count the page in hand.
+         */
+        resolved_count: number;
     };
     meta: Meta;
 };
@@ -24634,6 +24709,14 @@ export type UpdateDeliveryWindowErrors = {
      */
     404: ErrorEnvelope;
     /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
      * The submitted data is invalid.
      */
     422: ErrorEnvelope;
@@ -24653,6 +24736,74 @@ export type UpdateDeliveryWindowResponses = {
 };
 
 export type UpdateDeliveryWindowResponse = UpdateDeliveryWindowResponses[keyof UpdateDeliveryWindowResponses];
+
+export type ArchiveDeliveryWindowData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery window identifier, or its `code`.
+         */
+        window: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/delivery-windows/{window}/archive';
+};
+
+export type ArchiveDeliveryWindowErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ArchiveDeliveryWindowError = ArchiveDeliveryWindowErrors[keyof ArchiveDeliveryWindowErrors];
+
+export type ArchiveDeliveryWindowResponses = {
+    /**
+     * The archived window, in no zone.
+     */
+    200: DeliveryWindowEnvelope;
+};
+
+export type ArchiveDeliveryWindowResponse = ArchiveDeliveryWindowResponses[keyof ArchiveDeliveryWindowResponses];
 
 export type GetBranchOperatingData = {
     body?: never;
@@ -28460,6 +28611,27 @@ export type ListConsumptionExceptionsData = {
          *
          */
         cursor?: string;
+        /**
+         * Ask for a numbered page instead of walking the cursor. 1-based.
+         *
+         * Only the kitchen catalogue accepts this — see `docs/api/conventions.md`
+         * for why offset is safe on these five collections and on nothing else.
+         * Sending it switches the response `meta` to `NumberedPaginationMeta`;
+         * omitting it leaves the keyset behaviour exactly as it was, so a client
+         * that has never heard of `page` is unaffected.
+         *
+         * A page past the last is `400 request.invalid`, not an empty list. Page
+         * 1 of an empty collection is not: that is a legitimate empty answer.
+         *
+         */
+        page?: number;
+        /**
+         * Page size for a numbered page. A synonym for `limit`, accepted so a
+         * client does not have to change which word it sends when it starts
+         * asking for pages; `per_page` wins if both are present.
+         *
+         */
+        per_page?: number;
     };
     url: '/catalogue/inventory/consumption-exceptions';
 };
@@ -28493,7 +28665,7 @@ export type ListConsumptionExceptionsError = ListConsumptionExceptionsErrors[key
 
 export type ListConsumptionExceptionsResponses = {
     /**
-     * A page of consumption exceptions, newest first.
+     * A page of consumption exceptions, newest first. With `page`, numbered — `meta` then carries `total_count` and `total_pages`.
      */
     200: ConsumptionExceptionCollection;
 };
@@ -39941,6 +40113,56 @@ export type QuoteSubscriptionResponses = {
 };
 
 export type QuoteSubscriptionResponse = QuoteSubscriptionResponses[keyof QuoteSubscriptionResponses];
+
+export type ListMyAllergenConflictsData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * Up to fifty meal ids, comma-separated.
+         */
+        meal_ids: string;
+    };
+    url: '/me/allergen-conflicts';
+};
+
+export type ListMyAllergenConflictsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListMyAllergenConflictsError = ListMyAllergenConflictsErrors[keyof ListMyAllergenConflictsErrors];
+
+export type ListMyAllergenConflictsResponses = {
+    /**
+     * The meals among those asked about that clash with the customer's declarations.
+     */
+    200: AllergenConflictsEnvelope;
+};
+
+export type ListMyAllergenConflictsResponse = ListMyAllergenConflictsResponses[keyof ListMyAllergenConflictsResponses];
 
 export type ListMySubscriptionsData = {
     body?: never;

@@ -344,3 +344,108 @@ it('filters the consumption exception list on a resolved flag spelled as a word'
     $this->getJson('/api/v1/catalogue/inventory/consumption-exceptions?resolved=banana', $this->headers)
         ->assertStatus(422);
 });
+
+/*
+| The Stock gaps cards counted the page in hand — 25 unresolved beside a home
+| tile saying 84. The count endpoint now totals both states, so the cards can.
+*/
+it('totals unresolved and resolved exceptions, not just a page of them', function (): void {
+    foreach (range(1, 30) as $ignored) {
+        OrderConsumptionException::query()->create([
+            'organisation_id' => $this->tenant->organisation->getKey(),
+            'order_id' => (string) Str::uuid(),
+            'reason_code' => 'no_recipe_version',
+        ]);
+    }
+    foreach (range(1, 2) as $ignored) {
+        OrderConsumptionException::query()->create([
+            'organisation_id' => $this->tenant->organisation->getKey(),
+            'order_id' => (string) Str::uuid(),
+            'reason_code' => 'no_stock_item',
+            'resolved_at' => now(),
+        ]);
+    }
+
+    $this->getJson('/api/v1/catalogue/inventory/consumption-exceptions/unresolved-count', $this->headers)
+        ->assertOk()
+        // More than one page of 25: the total, not the page.
+        ->assertJsonPath('data.count', 30)
+        ->assertJsonPath('data.resolved_count', 2);
+});
+
+it('pages the exception list by number, with its totals, for the shared pager', function (): void {
+    foreach (range(1, 20) as $ignored) {
+        OrderConsumptionException::query()->create([
+            'organisation_id' => $this->tenant->organisation->getKey(),
+            'order_id' => (string) Str::uuid(),
+            'reason_code' => 'no_recipe_version',
+        ]);
+    }
+
+    $this->getJson('/api/v1/catalogue/inventory/consumption-exceptions?resolved=false&page=2&per_page=18', $this->headers)
+        ->assertOk()
+        ->assertJsonCount(2, 'data.exceptions')
+        ->assertJsonPath('meta.page', 2)
+        ->assertJsonPath('meta.total_count', 20)
+        ->assertJsonPath('meta.total_pages', 2);
+
+    // Without `page`, the cursor walk is exactly as before.
+    $this->getJson('/api/v1/catalogue/inventory/consumption-exceptions?resolved=false', $this->headers)
+        ->assertOk()
+        ->assertJsonCount(20, 'data.exceptions')
+        ->assertJsonPath('meta.has_more', false);
+});
+
+/*
+| Retry and Resolve took the exception by implicit route-model binding, which
+| Laravel substitutes before the tenant context exists, so the organisation scope
+| threw `MissingTenantContext` and both buttons answered 500 on dev. These go
+| through the HTTP door the client uses, which the service-level tests never did.
+*/
+it('resolves a consumption exception through the endpoint', function (): void {
+    $exception = OrderConsumptionException::query()->create([
+        'organisation_id' => $this->tenant->organisation->getKey(),
+        'order_id' => (string) Str::uuid(),
+        'reason_code' => 'insufficient_stock',
+    ]);
+
+    $this->postJson('/api/v1/catalogue/inventory/consumption-exceptions/'.$exception->getKey().'/resolve', [
+        'note' => 'Counted by hand.',
+    ], $this->headers)
+        ->assertOk()
+        ->assertJsonPath('data.exception.id', (string) $exception->getKey())
+        ->assertJsonPath('data.exception.resolved', true);
+});
+
+it('retries a consumption exception through the endpoint', function (): void {
+    // An order that no longer exists is the shortest honest retry: it runs, finds
+    // nothing to deduct against, and says so on the row instead of failing.
+    $exception = OrderConsumptionException::query()->create([
+        'organisation_id' => $this->tenant->organisation->getKey(),
+        'order_id' => (string) Str::uuid(),
+        'reason_code' => 'insufficient_stock',
+    ]);
+
+    $this->postJson('/api/v1/catalogue/inventory/consumption-exceptions/'.$exception->getKey().'/retry', [], $this->headers)
+        ->assertOk()
+        ->assertJsonPath('data.exception.id', (string) $exception->getKey())
+        ->assertJsonPath('data.exception.resolved', false);
+
+    expect($exception->refresh()->detail)->toBe('Retry could not run: the order no longer exists.');
+});
+
+it('answers 404 for another organisation\'s consumption exception', function (): void {
+    $other = PricingWorld::kitchen('other@kitchen.test');
+    $foreign = OrderConsumptionException::withoutTenancy()->create([
+        'organisation_id' => $other->organisation->getKey(),
+        'order_id' => (string) Str::uuid(),
+        'reason_code' => 'insufficient_stock',
+    ]);
+
+    $this->postJson('/api/v1/catalogue/inventory/consumption-exceptions/'.$foreign->getKey().'/retry', [], $this->headers)
+        ->assertNotFound();
+    $this->postJson('/api/v1/catalogue/inventory/consumption-exceptions/'.$foreign->getKey().'/resolve', [], $this->headers)
+        ->assertNotFound();
+
+    expect($foreign->refresh()->resolved_at)->toBeNull();
+});

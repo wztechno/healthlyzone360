@@ -452,7 +452,7 @@ final class DeskCustomerDirectory
      * desk search and the desk's writes stay on `applyScope()`, so a programme
      * client who has never ordered is in the kitchen's book without becoming
      * somebody the desk may rewrite. The read side of `customer_accounts`' row
-     * policy carries the matching fifth arm (2026_10_21_000301); its write side
+     * policy carries the matching sixth arm (2026_10_22_000101); its write side
      * does not.
      *
      * @param  Builder<CustomerAccount>  $query

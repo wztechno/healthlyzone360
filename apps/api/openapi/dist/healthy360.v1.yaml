@@ -8190,8 +8190,49 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/delivery-windows/{window}/archive:
+    post:
+      operationId: archiveDeliveryWindow
+      tags:
+        - Delivery
+      summary: Archive a delivery slot
+      description: |
+        Terminal, and still not a delete. The window is switched off, released
+        from every zone that offered it, and leaves the kitchen's list; the
+        orders and subscriptions that already name it stay explainable.
+        Switching a window off (`is_active: false`) remains the reversible way
+        to stop offering it.
+
+        **Precondition-free**, as the PATCH is. Archiving an archived window is
+        `409`, and so is any later PATCH of it.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/DeliveryWindowPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The archived window, in no zone.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryWindowEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /kitchen/branch-operating:
@@ -11541,10 +11582,12 @@ paths:
           description: Only exceptions raised on or before this date.
         - $ref: '#/components/parameters/CursorLimit'
         - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PerPage'
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
-          description: A page of consumption exceptions, newest first.
+          description: A page of consumption exceptions, newest first. With `page`, numbered — `meta` then carries `total_count` and `total_pages`.
           headers:
             X-Correlation-Id:
               $ref: '#/components/headers/XCorrelationId'
@@ -21105,6 +21148,53 @@ paths:
           $ref: '#/components/responses/EmailUnverified'
         '409':
           $ref: '#/components/responses/SubscriptionRefused'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /me/allergen-conflicts:
+    get:
+      operationId: listMyAllergenConflicts
+      tags:
+        - Subscriptions
+      summary: Which of these meals clash with my declared allergies
+      description: |
+        The verdict checkout and subscription generation reach for the same
+        meal, by the same rule: a declared allergen on the meal's label (any
+        containment, any severity), an excluded ingredient on its list, or no
+        allergen information at all for a customer who has declared something.
+
+        A subscription carries no meals when it is created, so there is no
+        placement to refuse — generation swaps an unsafe pick at the change
+        cut-off. This is what a configurator's Review step asks so the customer
+        hears about it before subscribing.
+
+        Safe meals are left out of `conflicts`; an empty list means every meal
+        asked about is safe for this customer.
+      parameters:
+        - name: meal_ids
+          in: query
+          required: true
+          description: Up to fifty meal ids, comma-separated.
+          schema:
+            type: string
+            examples:
+              - 01a08514-85ff-73fe-a03c-0b33180109fe
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The meals among those asked about that clash with the customer's declarations.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllergenConflictsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '429':
@@ -32952,7 +33042,16 @@ components:
           type: integer
         is_active:
           type: boolean
-          description: The only withdrawal there is. No DELETE exists.
+          description: Switched off — the reversible withdrawal. No DELETE exists.
+        archived_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: |
+            When the window was archived, or null. An archived window is always
+            inactive, in no zone, and cannot be changed; it is still served so
+            the orders and subscriptions that name it stay explainable.
         delivery_zone_ids:
           type: array
           description: |
@@ -33073,7 +33172,14 @@ components:
           allOf:
             - $ref: '#/components/schemas/Meta'
             - type: object
+              required:
+                - timezone
               properties:
+                timezone:
+                  type: string
+                  maxLength: 64
+                  description: The branch's IANA zone (`organisation_branches.timezone`). Every time in the week is a clock face read in it.
+                  example: Asia/Beirut
                 configured_weekdays:
                   type: array
                   maxItems: 7
@@ -33741,6 +33847,16 @@ components:
             The day asked for. Wins over a day the basket's lines name, and a
             disagreement is `mixed_delivery_dates` rather than a silent
             preference: this phase's order carries exactly one delivery date.
+        acknowledge_allergen_conflicts:
+          type: boolean
+          description: |
+            The customer saw the basket's allergen conflicts
+            (`allergen_conflicts` on the preview) and chose to order anyway.
+            Absent or false, placement refuses `allergen_conflict` — one reason
+            per clashing meal, carrying `catalogue_item_id`, `cause` (the
+            `AllergenConflict.reason`) and `allergen_codes` — re-checked against
+            the declarations as they stand at placement, not as the preview saw
+            them.
       additionalProperties: false
       description: |
         Four fields, and none of them is a price. Every amount is decided during
@@ -33837,7 +33953,7 @@ components:
             vocabulary `409 order.placement_refused` uses at placement:
             `cart_empty`, `address_missing`, `address_not_deliverable`,
             `area_not_served`, `zone_suspended`, `currency_mismatch`,
-            `window_not_offered`, plus the line-probe vocabulary. Deduplicated — three lines refused for the
+            `window_not_offered`, `allergen_conflict`, plus the line-probe vocabulary. Deduplicated — three lines refused for the
             same reason read as one fact, not three repeats of it.
         offered_window_codes:
           type:
@@ -33850,7 +33966,59 @@ components:
             and active, in display order. A picker shows only these; placement
             refuses any other with `window_not_offered`. Null when no zone
             resolved (no address, or an area not served).
+        allergen_conflicts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AllergenConflict'
+          description: |
+            The basket's meals that clash with the buyer's declared allergies,
+            one per meal. Non-empty exactly when `warnings` carries
+            `allergen_conflict`. Always sent; optional so a client also reads
+            a server from before it was added.
       additionalProperties: false
+    AllergenConflict:
+      type: object
+      required:
+        - catalogue_item_id
+        - reason
+        - allergen_codes
+      properties:
+        catalogue_item_id:
+          $ref: '#/components/schemas/Uuid'
+        reason:
+          type: string
+          enum:
+            - allergen_declared
+            - excluded
+            - unassessed
+          description: |
+            `allergen_declared` — a declared allergen is on the meal's label.
+            `excluded` — an ingredient the customer excluded is on its list.
+            `unassessed` — the meal has no allergen information and the
+            customer has declared something.
+        allergen_codes:
+          type: array
+          items:
+            type: string
+          description: The declared allergens on the label; filled only for `allergen_declared`.
+      additionalProperties: false
+    AllergenConflictsEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - conflicts
+          properties:
+            conflicts:
+              type: array
+              items:
+                $ref: '#/components/schemas/AllergenConflict'
+        meta:
+          $ref: '#/components/schemas/Meta'
     CheckoutPreviewEnvelope:
       type: object
       required:
@@ -34941,6 +35109,8 @@ components:
         - supplier_options
         - suggested_supplier_id
         - unassigned_reason
+        - on_order_quantity
+        - open_orders
       description: |
         One row of the supply-order builder (SUP3).
 
@@ -35040,6 +35210,32 @@ components:
             was ever linked. `suppliers_archived`: links exist and every one of
             them is archived, which is a different problem with a different fix.
             Null whenever at least one active option exists.
+        on_order_quantity:
+          type: string
+          description: |
+            What this branch's open supply orders (draft, issued or
+            part-received) still have to deliver of this shelf, in its unit. A
+            part-received order counts only its remainder. `suggested_quantity`
+            restocks to par after this, so a shelf already covered by open
+            orders gets no suggestion — which is what stops a second Create
+            from drafting the same order again.
+        open_orders:
+          type: array
+          description: The open orders behind `on_order_quantity`, oldest first.
+          items:
+            type: object
+            required:
+              - id
+              - number
+              - status
+            properties:
+              id:
+                $ref: '#/components/schemas/Uuid'
+              number:
+                type: string
+              status:
+                $ref: '#/components/schemas/PurchaseOrderStatus'
+            additionalProperties: false
       additionalProperties: false
     OrderProposalCollection:
       type: object
@@ -37833,7 +38029,7 @@ components:
               items:
                 $ref: '#/components/schemas/ConsumptionException'
         meta:
-          $ref: '#/components/schemas/PaginationMeta'
+          $ref: '#/components/schemas/PaginatedOrNumberedMeta'
     ConsumptionExceptionEnvelope:
       type: object
       required:
@@ -37859,11 +38055,16 @@ components:
           type: object
           required:
             - count
+            - resolved_count
           properties:
             count:
               type: integer
               minimum: 0
               description: How many consumption exceptions are unresolved in scope.
+            resolved_count:
+              type: integer
+              minimum: 0
+              description: How many have been marked handled, under the same scope — so the Stock gaps page can total both states rather than count the page in hand.
         meta:
           $ref: '#/components/schemas/Meta'
     ResolveConsumptionExceptionRequest:

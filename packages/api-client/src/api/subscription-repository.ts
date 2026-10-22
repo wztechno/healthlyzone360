@@ -55,6 +55,7 @@ import {
 import type { ApiFailure } from '../contracts/failure.ts';
 import type { CursorPage } from '../contracts/pagination.ts';
 import type {
+    AllergenConflictsEnvelope,
     CreditMemo as WireCreditMemo,
     PlanQuoteEnvelope,
     SubscriptionAddressRef,
@@ -68,6 +69,7 @@ import type {
     SubscriptionStatus as WireStatus,
     Subscription as WireSubscription,
 } from '../generated/types.ts';
+import { mapAllergenConflict } from './cart-repository.ts';
 import { generateRequestId } from './config.ts';
 import type { Transport } from './transport.ts';
 
@@ -823,13 +825,37 @@ export function createApiSubscriptionReads(transport: Transport): ApiSubscriptio
         async previewSubscription(
             configuration: SubscriptionConfiguration,
         ): Promise<SubscriptionPreview> {
-            const quote = await this.getSubscriptionQuote({
-                planId: configuration.planId,
-                variantId: configuration.variantId,
-                duration: configuration.duration,
-            });
+            const mealIds = [...new Set(configuration.selectedMealIds.map(String))];
 
-            return previewFromQuote(configuration, quote);
+            const [quote, conflicts] = await Promise.all([
+                this.getSubscriptionQuote({
+                    planId: configuration.planId,
+                    variantId: configuration.variantId,
+                    duration: configuration.duration,
+                }),
+                // The rule generation swaps a pick by, asked before the person subscribes so they
+                // hear about it rather than finding a different dish on the day.
+                mealIds.length === 0
+                    ? Promise.resolve([])
+                    : transport
+                          .request<AllergenConflictsEnvelope['data']>({
+                              method: 'GET',
+                              path: `/me/allergen-conflicts?meal_ids=${mealIds.map(encodeURIComponent).join(',')}`,
+                          })
+                          .then((data) => data.conflicts.map(mapAllergenConflict))
+                          // A price is still worth showing when this one read fails; generation
+                          // applies the rule regardless at the change cut-off.
+                          .catch(() => []),
+            ]);
+
+            const preview = previewFromQuote(configuration, quote);
+            if (conflicts.length === 0) return preview;
+
+            return {
+                ...preview,
+                warnings: [...preview.warnings, 'subscription.allergen_conflict'],
+                allergenConflicts: conflicts,
+            };
         },
     };
 }

@@ -783,7 +783,10 @@ describe('AccountScreen — profile', () => {
         await fireEvent.press(await screen.findByTestId('account-tab-addresses'));
         expect(await screen.findByTestId('account-addresses-title')).toHaveTextContent('Addresses');
         await fireEvent.press(await screen.findByTestId('account-addresses-add'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/addresses/new');
+        // Opened with this section as the return, so saving lands back on Addresses.
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            withReturnTo('/customer/account/addresses/new', '/customer/account?section=addresses'),
+        );
 
         // Privacy has no section of its own: it sits under the notification switches.
         await fireEvent.press(screen.getByTestId('account-tab-notifications'));
@@ -791,6 +794,186 @@ describe('AccountScreen — profile', () => {
         expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/consents');
         await fireEvent.press(screen.getByTestId('account-privacy-close'));
         expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/close/reason');
+    });
+
+    it('offers Change password and Devices, each coming back to the profile', async () => {
+        await renderStubScreen(<AccountScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getOverview: async () => overview(active),
+                    getDietaryProfile: async () => dietaryProfile(),
+                },
+                verification: { listContactPoints: async () => [] },
+                commerce: { listMyOrders: async () => NO_ORDERS },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('account-tab-profile'));
+        expect(await screen.findByTestId('account-profile-security')).toHaveTextContent(
+            /Sign-in and security/,
+        );
+
+        await fireEvent.press(screen.getByTestId('account-profile-change-password'));
+        expect(routerMock.__push).toHaveBeenLastCalledWith(
+            withReturnTo('/change-password', '/customer/account?section=profile'),
+        );
+        await fireEvent.press(await screen.findByTestId('account-profile-devices'));
+        expect(routerMock.__push).toHaveBeenLastCalledWith(
+            withReturnTo('/devices', '/customer/account?section=profile'),
+        );
+    });
+});
+
+describe('AccountScreen — the section is the URL’s', () => {
+    const active = checklist([step('verify_email', true, true)], {
+        lifecycle: 'active',
+        canActivate: true,
+    });
+
+    it('writes a tab change into the URL without stacking an entry', async () => {
+        await renderStubScreen(<AccountScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: { getOverview: async () => overview(active) },
+                commerce: { listMyOrders: async () => NO_ORDERS },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('account-tab-payments'));
+        expect(routerMock.__router.setParams).toHaveBeenCalledWith({ section: 'payments' });
+        expect(routerMock.__push).not.toHaveBeenCalled();
+        expect(await screen.findByTestId('account-payments')).toBeTruthy();
+    });
+
+    it('opens the section the URL names, and follows it when it changes', async () => {
+        routerMock.__set({ params: { section: 'addresses' } });
+        await renderStubScreen(<AccountScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getOverview: async () => overview(active),
+                    listAddresses: async () => [],
+                },
+                commerce: { listMyOrders: async () => NO_ORDERS },
+            },
+        });
+
+        expect(await screen.findByTestId('account-addresses-title')).toBeTruthy();
+
+        // A link to another section, pressed while the page is open.
+        await act(() => {
+            routerMock.__set({ params: { section: 'payments' } });
+        });
+        expect(await screen.findByTestId('account-payments')).toBeTruthy();
+        expect(screen.queryByTestId('account-addresses')).toBeNull();
+    });
+
+    it('sends a setup step back to the section that was open', async () => {
+        routerMock.__set({ params: { section: 'payments' } });
+        await renderStubScreen(<AccountScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getOverview: async () =>
+                        overview(checklist([step('add_address', false, true)])),
+                },
+                commerce: { listMyOrders: async () => NO_ORDERS },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('account-step-add_address-open'));
+        const opened = routerMock.__push.mock.calls.at(-1)?.[0] as string;
+        expect(pathnameOf(opened)).toBe('/customer/account/addresses/new');
+        expect(queryOf(opened).returnTo).toBe(
+            encodeURIComponent('/customer/account?section=payments'),
+        );
+    });
+
+    it('offers the way back when another flow opened it as a detour', async () => {
+        routerMock.__set({ params: { section: 'orders' } });
+        await renderStubScreen(<AccountScreen returnTo="/customer/account/close/checks" />, {
+            session: testMeResponse(),
+            repositories: {
+                account: { getOverview: async () => overview(active) },
+                commerce: { listMyOrders: async () => NO_ORDERS },
+            },
+        });
+
+        expect(await screen.findByTestId('account-return-up')).toHaveTextContent(/Close account/);
+        await fireEvent.press(screen.getByTestId('account-return-up'));
+        expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(
+            '/customer/account/close/checks',
+        );
+    });
+});
+
+describe('AccountScreen — addresses', () => {
+    const active = checklist([step('verify_email', true, true)], {
+        lifecycle: 'active',
+        canActivate: true,
+    });
+
+    function address(overrides: Partial<CustomerAddress> = {}): CustomerAddress {
+        return {
+            id: 'address-1',
+            label: 'Office',
+            areaId: 'area-1' as ServiceAreaId,
+            areaName: 'Hamra',
+            line1: 'Hamra Street',
+            line2: null,
+            building: null,
+            floor: null,
+            notes: null,
+            isDefault: false,
+            isDeliverable: true,
+            ...overrides,
+        };
+    }
+
+    it('edits and removes in the section, with no separate list to go to', async () => {
+        let book: readonly CustomerAddress[] = [address()];
+        const { repositories } = await renderStubScreen(<AccountScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getOverview: async () => overview(active),
+                    listAddresses: async () => book,
+                    removeAddress: async ({ addressId }) => {
+                        book = book.filter((entry) => entry.id !== addressId);
+                    },
+                },
+                commerce: { listMyOrders: async () => NO_ORDERS },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('account-tab-addresses'));
+        expect(await screen.findByTestId('account-address-address-1')).toBeTruthy();
+        expect(screen.queryByTestId('account-addresses-manage')).toBeNull();
+
+        await fireEvent.press(screen.getByTestId('account-address-address-1-edit'));
+        expect(routerMock.__push).toHaveBeenLastCalledWith(
+            withReturnTo(
+                '/customer/account/addresses/address-1',
+                '/customer/account?section=addresses',
+            ),
+        );
+
+        // Remove asks first, naming the address.
+        await fireEvent.press(screen.getByTestId('account-address-address-1-remove'));
+        expect(await screen.findByTestId('account-addresses-remove-dialog')).toHaveTextContent(
+            /Office/,
+        );
+        await fireEvent.press(screen.getByTestId('account-addresses-remove-confirm'));
+
+        await waitFor(() => {
+            expect(repositories.account.removeAddress).toHaveBeenCalledWith({
+                addressId: 'address-1',
+            });
+        });
+        await waitFor(() => {
+            expect(screen.queryByTestId('account-address-address-1')).toBeNull();
+        });
     });
 });
 

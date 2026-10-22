@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
+import { YourAllergens } from '../../commerce/my-allergens.tsx';
 import { allergenKey, formatMoney, nutrientValue } from '../format.ts';
 import { PackSuffix } from '../pack-suffix.tsx';
 
@@ -146,6 +147,11 @@ export function StorefrontMealRow({ meal, onOpen, onAdd, testID }: StorefrontMea
                             })}
                         </RNText>
                     )}
+
+                    <YourAllergens
+                        allergens={meal.allergens}
+                        testID={`${resolvedTestID}-your-allergens`}
+                    />
 
                     <View className="mt-auto flex-row items-center justify-between gap-2 pt-1.5">
                         <RNText

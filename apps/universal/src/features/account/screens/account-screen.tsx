@@ -4,6 +4,7 @@ import {
     Button,
     Callout,
     Checkbox,
+    Dialog,
     EmptyState,
     Icon,
     Tabs,
@@ -20,17 +21,22 @@ import {
     useAccountOverviewQuery,
     useAddressesQuery,
     useConsentsQuery,
+    useRemoveAddressMutation,
     useSetConsentMutation,
     toFailure,
 } from '../../../data/account-hooks.ts';
 import { useLogoutMutation } from '../../../data/hooks.ts';
+import { withReturnTo } from '../../../navigation/return-to.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { Eyebrow } from '../../../ui/eyebrow.tsx';
+import { SubpageTrail } from '../../../ui/subpage-trail.tsx';
 import { SubscriptionsScreen } from '../../commerce/screens/subscriptions-screen.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { AccountSetupPanel } from '../account-setup-steps.tsx';
 import { ACCOUNT_CARD, PanelTitle } from '../account-card.tsx';
 import { AccountOrdersPanel } from '../account-orders-panel.tsx';
 import { AccountProfilePanel } from '../account-profile-panel.tsx';
+import { clearClosureDraft } from './closure-wizard-screen.tsx';
 
 /**
  * `/customer/account` — the HealthZone `account` screen: "Your account", a 220px side nav, one
@@ -72,8 +78,30 @@ import { AccountProfilePanel } from '../account-profile-panel.tsx';
  *
  * Wide, the side nav is a 220px sticky column beside the panel; below `lg` it becomes a tab row
  * above it, because a 220px column on a phone is a third of the screen spent on navigation.
- * `?section=` opens a named section, which is how the order page's "back to your orders" returns to
- * the history; the old `setup` and `privacy` names still land somewhere sensible.
+ *
+ * ## The open section is the URL's
+ *
+ * `?section=` names the open section, and switching writes it back with `setParams`. Every
+ * `/customer/*` page is a sibling in one `<Slot/>`, so opening an address, an order or a subscription
+ * unmounts this page — a section held only in `useState` came back as Orders after every Back,
+ * refresh and "Back to your account". In the URL it survives all three, and the sub-pages' own
+ * fallbacks (`/customer/account?section=addresses`, `?section=profile`, …) land where they came
+ * from. `setParams` replaces the entry, so flicking through the tabs never fills Back with them. The
+ * section also follows the URL while the page is mounted — a link to another section pressed from
+ * here — adjusted during render, as the storefront's tabs are. The old `setup` and `privacy` names
+ * still land somewhere sensible.
+ *
+ * ## Opened as a detour
+ *
+ * The closure wizard's "Sort this out" opens the orders or the subscriptions here with
+ * `?returnTo=` the checks step. While there is one, a "Back to …" link sits above the title, and it
+ * travels with every step this page opens, so the chain is not cut by a stop at an address.
+ *
+ * ## The address book is all here
+ *
+ * List, add, edit and remove. Remove used to live on a separate list page — the same list, one
+ * button more — reached through "Manage addresses", with no way back from it. That page is now a
+ * redirect to this section.
  *
  * ## Marketing lives here rather than on the consents screen
  *
@@ -100,10 +128,16 @@ const LEGACY_SECTIONS: Readonly<Record<string, Section>> = {
     privacy: 'notifications',
 };
 
-function sectionFrom(value: string | undefined): Section | null {
-    if (value === undefined) return null;
-    if ((SECTIONS as readonly string[]).includes(value)) return value as Section;
-    return LEGACY_SECTIONS[value] ?? null;
+function sectionFrom(value: string | string[] | undefined): Section | null {
+    const first = Array.isArray(value) ? value[0] : value;
+    if (first === undefined) return null;
+    if ((SECTIONS as readonly string[]).includes(first)) return first as Section;
+    return LEGACY_SECTIONS[first] ?? null;
+}
+
+/** This page, open on `section` — what a step it opens comes back to. */
+export function accountSectionHref(section: Section): string {
+    return `/customer/account?section=${section}`;
 }
 
 /** Optional consents whose key names a marketing channel. The rest belong to the consents screen. */
@@ -215,9 +249,12 @@ function SignOutButton() {
 function SetupNotice({
     items,
     canActivate,
+    returnTo,
 }: {
     readonly items: readonly AccountChecklistItem[];
     readonly canActivate: boolean;
+    /** This page as it is open now, so finishing a step comes back to the same section. */
+    readonly returnTo: string;
 }) {
     const { t } = useTranslation();
     const outstanding = items.filter((item) => item.required && !item.complete);
@@ -235,6 +272,7 @@ function SetupNotice({
                 blockedReason: item.blockedReason,
             }))}
             stepsTestID="account-step"
+            returnTo={returnTo}
         />
     );
 }
@@ -264,18 +302,42 @@ function FavoritesPanel() {
     );
 }
 
-function AddressesPanel() {
+/**
+ * The address book: list, add, edit and remove, all in the one card.
+ *
+ * The editor is opened with this section as its `?returnTo=`, so saving or cancelling lands back on
+ * Addresses rather than on whatever section the page would default to.
+ *
+ * ## Removal asks first, and names the address
+ *
+ * `removeAddress` is not reversible and there is no undo behind it, so the confirmation names the
+ * address rather than asking "are you sure?" about an unnamed thing — a person with a Home and an
+ * Office needs to know which one the dialog is about.
+ */
+function AddressesPanel({ here }: { readonly here: string }) {
     const { t } = useTranslation();
     const router = useRouter();
     const addresses = useAddressesQuery();
+    const remove = useRemoveAddressMutation();
     const items = addresses.data ?? [];
+    const removeFailure = toFailure(remove.error);
+
+    /** The address the confirmation is about. `null` closes the dialog. */
+    const [pendingRemoval, setPendingRemoval] = useState<{
+        readonly id: string;
+        readonly label: string;
+    } | null>(null);
+
+    const openEditor = (address: string) => {
+        router.push(withReturnTo(`/customer/account/addresses/${address}`, here) as never);
+    };
 
     const addButton = (
         <Button
             testID="account-addresses-add"
             label={t('account:addresses.add')}
             onPress={() => {
-                router.push('/customer/account/addresses/new' as never);
+                openEditor('new');
             }}
         />
     );
@@ -283,6 +345,15 @@ function AddressesPanel() {
     return (
         <View testID="account-addresses" className={`${ACCOUNT_CARD} p-6`}>
             <PanelTitle testID="account-addresses-title">{t('account:nav.addresses')}</PanelTitle>
+            {removeFailure === null ? null : (
+                <Callout
+                    testID="account-addresses-remove-error"
+                    role="alert"
+                    tone="danger"
+                    title={removeFailure.message}
+                    className="mt-4"
+                />
+            )}
             <View className="mt-4">
                 <QueryStates
                     query={addresses}
@@ -327,33 +398,75 @@ function AddressesPanel() {
                                             .join(t('account:addresses.partSeparator'))}
                                     </RNText>
                                 </View>
-                                <Button
-                                    testID={`account-address-${address.id}-edit`}
-                                    size="sm"
-                                    variant="quiet"
-                                    label={t('account:addresses.edit')}
-                                    onPress={() => {
-                                        router.push(
-                                            `/customer/account/addresses/${address.id}` as never,
-                                        );
-                                    }}
-                                />
+                                <View className="flex-row flex-wrap gap-1">
+                                    <Button
+                                        testID={`account-address-${address.id}-edit`}
+                                        size="sm"
+                                        variant="quiet"
+                                        label={t('account:addresses.edit')}
+                                        onPress={() => {
+                                            openEditor(address.id);
+                                        }}
+                                    />
+                                    <Button
+                                        testID={`account-address-${address.id}-remove`}
+                                        size="sm"
+                                        variant="quiet"
+                                        label={t('account:addresses.remove')}
+                                        onPress={() => {
+                                            setPendingRemoval({
+                                                id: address.id,
+                                                label: address.label,
+                                            });
+                                        }}
+                                    />
+                                </View>
                             </View>
                         ))}
                     </View>
-                    <View className="mt-6 flex-row flex-wrap gap-2.5">
-                        {addButton}
+                    <View className="mt-6 flex-row flex-wrap gap-2.5">{addButton}</View>
+                </QueryStates>
+            </View>
+
+            <Dialog
+                testID="account-addresses-remove-dialog"
+                open={pendingRemoval !== null}
+                title={t('account:addresses.removeTitle')}
+                description={t('account:addresses.removeBody', {
+                    label: pendingRemoval?.label ?? '',
+                })}
+                onClose={() => {
+                    setPendingRemoval(null);
+                }}
+                actions={
+                    <View className="flex-row flex-wrap gap-2.5">
                         <Button
-                            testID="account-addresses-manage"
+                            testID="account-addresses-remove-cancel"
                             variant="quiet"
-                            label={t('account:profile.manageAddresses')}
+                            label={t('common:action.cancel')}
                             onPress={() => {
-                                router.push('/customer/account/addresses' as never);
+                                setPendingRemoval(null);
+                            }}
+                        />
+                        <Button
+                            testID="account-addresses-remove-confirm"
+                            // Destructive, so `danger`: the dialog's other option is "keep my
+                            // address", and a destructive action must not wear the primary fill.
+                            variant="danger"
+                            label={t('account:addresses.remove')}
+                            loading={remove.isPending}
+                            onPress={() => {
+                                if (pendingRemoval === null) return;
+                                remove.mutate(pendingRemoval.id, {
+                                    onSuccess: () => {
+                                        setPendingRemoval(null);
+                                    },
+                                });
                             }}
                         />
                     </View>
-                </QueryStates>
-            </View>
+                }
+            />
         </View>
     );
 }
@@ -448,6 +561,9 @@ function NotificationsPanel() {
                         variant="quiet"
                         label={t('account:privacy.closeAccount')}
                         onPress={() => {
+                            // A fresh start: whatever an abandoned attempt left in the tab is not
+                            // this person's answer today.
+                            clearClosureDraft();
                             router.push('/customer/account/close/reason' as never);
                         }}
                     />
@@ -457,13 +573,35 @@ function NotificationsPanel() {
     );
 }
 
-export function AccountScreen() {
+export interface AccountScreenProps {
+    /** The route's `?returnTo=` — set when another flow opened a section as a detour. */
+    readonly returnTo?: string | undefined;
+}
+
+export function AccountScreen({ returnTo }: AccountScreenProps) {
     const { t } = useTranslation();
+    const router = useRouter();
     const { atLeast } = useBreakpoint();
     const wide = atLeast('lg');
     const overview = useAccountOverviewQuery();
     const params = useLocalSearchParams<{ section?: string }>();
-    const [section, setSection] = useState<Section>(sectionFrom(params.section) ?? 'orders');
+    const back = useReturnTo(returnTo, '/customer/account');
+
+    // The URL's section, followed during render (not in an effect) so a link to another section
+    // pressed while this page is open never paints a frame of the old one.
+    const requested: Section = sectionFrom(params.section) ?? 'orders';
+    const [section, setSection] = useState<Section>(requested);
+    const [followed, setFollowed] = useState<Section>(requested);
+    if (followed !== requested) {
+        setFollowed(requested);
+        setSection(requested);
+    }
+    const openSection = (next: Section) => {
+        setSection(next);
+        router.setParams({ section: next });
+    };
+    /** This page as it is open now, carrying its own return on to whatever it opens. */
+    const here = back.carry(accountSectionHref(section));
 
     const checklist = overview.data?.checklist ?? null;
     const items: readonly SectionItem[] = SECTIONS.map((value) => ({
@@ -476,7 +614,11 @@ export function AccountScreen() {
     const panel = (
         <View testID="account-panel" className="z-auto min-w-0 flex-1 flex-col gap-4">
             {checklist === null ? null : (
-                <SetupNotice items={checklist.items} canActivate={checklist.canActivate} />
+                <SetupNotice
+                    items={checklist.items}
+                    canActivate={checklist.canActivate}
+                    returnTo={here}
+                />
             )}
 
             {section === 'orders' ? <AccountOrdersPanel /> : null}
@@ -484,7 +626,7 @@ export function AccountScreen() {
             {section === 'favorites' ? <FavoritesPanel /> : null}
             {/* Not gated on the overview: the card's details come from the session. */}
             {section === 'profile' ? <AccountProfilePanel /> : null}
-            {section === 'addresses' ? <AddressesPanel /> : null}
+            {section === 'addresses' ? <AddressesPanel here={here} /> : null}
             {section === 'payments' ? <PaymentsPanel /> : null}
             {section === 'notifications' ? <NotificationsPanel /> : null}
         </View>
@@ -493,6 +635,15 @@ export function AccountScreen() {
     return (
         // The design's measure: an 1100px section less its 28px gutters, centred in the shell.
         <View testID="account-screen" className="w-full max-w-[1044px] flex-col self-center">
+            {back.returnTo === null ? null : (
+                <View className="mb-3">
+                    <SubpageTrail
+                        back={back}
+                        current={t('account:title')}
+                        testID="account-return"
+                    />
+                </View>
+            )}
             <RNText
                 testID="account-title"
                 accessibilityRole="header"
@@ -509,7 +660,7 @@ export function AccountScreen() {
                         label={navLabel}
                         items={items}
                         value={section}
-                        onChange={setSection}
+                        onChange={openSection}
                         footer={<SignOutButton />}
                     />
                     {panel}
@@ -525,7 +676,7 @@ export function AccountScreen() {
                             testID: item.testID,
                         }))}
                         value={section}
-                        onChange={setSection}
+                        onChange={openSection}
                     />
                     {panel}
                     <View className="items-start border-t border-stroke-subtle pt-4">

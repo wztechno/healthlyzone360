@@ -7,6 +7,9 @@ namespace Healthy360\Procurement\Services;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Services\InventoryService;
+use Healthy360\Procurement\Enums\PurchaseOrderStatus;
+use Healthy360\Procurement\Models\PurchaseOrder;
+use Healthy360\Procurement\Models\PurchaseOrderLine;
 use Healthy360\Procurement\Models\Supplier;
 use Healthy360\Procurement\Models\SupplierStockItem;
 use Illuminate\Support\Collection;
@@ -69,7 +72,10 @@ final readonly class OrderProposalService
      */
     private const int SCALE = 4;
 
-    public function __construct(private SupplyNeedsQuery $needs) {}
+    public function __construct(
+        private SupplyNeedsQuery $needs,
+        private ReceivedQuantityQuery $received,
+    ) {}
 
     /**
      * The branch's proposal, queue first and requested rows after.
@@ -108,7 +114,7 @@ final readonly class OrderProposalService
             ->merge($this->requestedRows($branchId, $requestedStockItemIds, $queue))
             ->values();
 
-        $items = $this->withSuppliers($ordered);
+        $items = $this->withOpenOrders($this->withSuppliers($ordered), $branchId);
 
         return [
             'items' => $items,
@@ -123,6 +129,7 @@ final readonly class OrderProposalService
                 'low_stock_count' => $this->countWhere($items, 'origin', 'low_stock'),
                 'unassigned_count' => count(array_filter($items, static fn (array $row): bool => $row['unassigned_reason'] !== null)),
                 'requested_item_count' => $this->countWhere($items, 'origin', 'requested'),
+                'on_order_item_count' => count(array_filter($items, static fn (array $row): bool => $row['open_orders'] !== [])),
             ],
         ];
     }
@@ -292,7 +299,109 @@ final readonly class OrderProposalService
             'supplier_options' => [],
             'suggested_supplier_id' => null,
             'unassigned_reason' => null,
+            // Filled by withOpenOrders().
+            'on_order_quantity' => bcadd('0', '0', self::SCALE),
+            'open_orders' => [],
         ];
+    }
+
+    /**
+     * What is already on its way: every open supply order at this branch —
+     * draft, issued or part-received — that has a line for the row's shelf.
+     *
+     * Without it the builder proposed the same shortage every time it was
+     * opened, and a kitchen that pressed Create twice had two identical drafts
+     * per supplier. `on_order_quantity` is what those orders still have to
+     * deliver (a part-received order counts only its remainder), and the
+     * suggestion restocks to par **after** it, so a shelf whose open orders
+     * already reach par gets no suggestion at all.
+     *
+     * @param  list<array<string, mixed>>  $items
+     * @return list<array<string, mixed>>
+     */
+    private function withOpenOrders(array $items, string $branchId): array
+    {
+        $stockItemIds = array_values(array_unique(array_filter(array_map(
+            static fn (array $row): mixed => $row['stock_item_id'],
+            $items,
+        ))));
+
+        if ($stockItemIds === []) {
+            return $items;
+        }
+
+        /** @var Collection<string, PurchaseOrder> $orders */
+        $orders = PurchaseOrder::query()
+            ->where('branch_id', $branchId)
+            ->whereIn('status', [
+                PurchaseOrderStatus::Draft->value,
+                PurchaseOrderStatus::Issued->value,
+                PurchaseOrderStatus::PartiallyReceived->value,
+            ])
+            ->whereHas('lines', static fn ($lines) => $lines->whereIn('stock_item_id', $stockItemIds))
+            ->orderBy('created_at')
+            ->get()
+            ->keyBy(static fn (PurchaseOrder $order): string => (string) $order->getKey());
+
+        if ($orders->isEmpty()) {
+            return $items;
+        }
+
+        $progress = $this->received->progressForOrders(array_values($orders->keys()->all()));
+
+        /** @var Collection<int, PurchaseOrderLine> $lines */
+        $lines = PurchaseOrderLine::query()
+            ->whereIn('purchase_order_id', $orders->keys()->all())
+            ->whereIn('stock_item_id', $stockItemIds)
+            ->get();
+
+        /** @var array<string, array{quantity: numeric-string, orders: list<array{id: string, number: string, status: string}>}> $byItem */
+        $byItem = [];
+
+        foreach ($lines as $line) {
+            $outstanding = $progress[(string) $line->getKey()]['outstanding'] ?? null;
+
+            if ($outstanding === null || bccomp($outstanding, '0', self::SCALE) <= 0) {
+                continue;
+            }
+
+            $order = $orders->get((string) $line->purchase_order_id);
+
+            if ($order === null) {
+                continue;
+            }
+
+            $key = (string) $line->stock_item_id;
+            $byItem[$key] ??= ['quantity' => bcadd('0', '0', self::SCALE), 'orders' => []];
+            $byItem[$key]['quantity'] = bcadd($byItem[$key]['quantity'], $outstanding, self::SCALE);
+            $byItem[$key]['orders'][] = [
+                'id' => (string) $order->getKey(),
+                'number' => $order->number,
+                'status' => $order->status->value,
+            ];
+        }
+
+        return array_map(function (array $row) use ($byItem): array {
+            $onOrder = $byItem[(string) $row['stock_item_id']] ?? null;
+
+            if ($onOrder === null) {
+                return $row;
+            }
+
+            $row['on_order_quantity'] = $onOrder['quantity'];
+            $row['open_orders'] = $onOrder['orders'];
+
+            if ($row['par_level'] !== null) {
+                $suggested = $this->suggestedQuantity(
+                    bcadd($this->decimal((string) $row['quantity_on_hand']), $onOrder['quantity'], self::SCALE),
+                    $this->decimal((string) $row['par_level']),
+                );
+                $row['suggested_quantity'] = $suggested;
+                $row['suggested_quantity_basis'] = $suggested === null ? 'none' : 'par';
+            }
+
+            return $row;
+        }, $items);
     }
 
     /**

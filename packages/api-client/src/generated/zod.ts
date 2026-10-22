@@ -2981,6 +2981,7 @@ export const zDeliveryWindow = z.object({
     weekdays: z.array(z.int().gte(1).lte(7)).max(7),
     display_order: z.int(),
     is_active: z.boolean(),
+    archived_at: z.iso.datetime({ offset: true }).nullish(),
     delivery_zone_ids: z.array(zUuid),
     created_at: z.iso.datetime({ offset: true }).nullish(),
     updated_at: z.iso.datetime({ offset: true }).nullish()
@@ -3020,6 +3021,7 @@ export const zBranchOperatingDay = z.object({
 export const zBranchOperatingEnvelope = z.object({
     data: z.array(zBranchOperatingDay).max(7),
     meta: zMeta.and(z.object({
+        timezone: z.string().max(64),
         configured_weekdays: z.array(z.int().gte(1).lte(7)).max(7).optional(),
         open_day_count: z.int().gte(0).lte(7).optional(),
         is_complete: z.boolean().optional()
@@ -3337,7 +3339,8 @@ export const zPlaceOrderRequest = z.object({
     cart_id: zUuid,
     customer_address_id: zUuid,
     delivery_window_code: z.string().max(40).nullish(),
-    requested_delivery_date: z.iso.date().nullish()
+    requested_delivery_date: z.iso.date().nullish(),
+    acknowledge_allergen_conflicts: z.boolean().optional()
 });
 
 /**
@@ -3351,6 +3354,16 @@ export const zPreviewCheckoutRequest = z.object({
     customer_address_id: z.uuid().nullish(),
     delivery_window_code: z.string().max(40).nullish(),
     requested_delivery_date: z.iso.date().nullish()
+});
+
+export const zAllergenConflict = z.object({
+    catalogue_item_id: zUuid,
+    reason: z.enum([
+        'allergen_declared',
+        'excluded',
+        'unassessed'
+    ]),
+    allergen_codes: z.array(z.string())
 });
 
 /**
@@ -3372,7 +3385,15 @@ export const zCheckoutPreview = z.object({
     total_minor: z.int(),
     line_count: z.int().gte(0),
     warnings: z.array(z.string()),
-    offered_window_codes: z.array(z.string()).nullable()
+    offered_window_codes: z.array(z.string()).nullable(),
+    allergen_conflicts: z.array(zAllergenConflict).optional()
+});
+
+export const zAllergenConflictsEnvelope = z.object({
+    data: z.object({
+        conflicts: z.array(zAllergenConflict)
+    }),
+    meta: zMeta
 });
 
 export const zCheckoutPreviewEnvelope = z.object({
@@ -3780,6 +3801,38 @@ export const zSupplierOption = z.object({
 });
 
 /**
+ * Where an order has got to (§3.5). `draft → issued →
+ * partially_received → received`, with `cancelled` reachable from the two
+ * states in which nothing has arrived yet.
+ *
+ * **`issued`, never `sent`** (§2). Phase 1 dispatches nothing through any
+ * channel — a person presses Issue, the lines freeze, and they print the
+ * sheet and hand it over. Calling that `sent` would claim an event the
+ * system did not perform.
+ *
+ * `partially_received` and `received` are reached by **posting a goods
+ * receipt**, never by an action of their own: the quantities received are
+ * summed per order line and the status is whatever that sum says it is.
+ * There is no "mark as received" action and there must not be one — it
+ * would let an order claim a delivery that never turned up. The one
+ * apparent exception proves the rule: closing a short delivery still goes
+ * through a receipt, and what the flag adds is a reason for writing off the
+ * remainder rather than a status change of its own.
+ *
+ * `received` and `cancelled` are terminal: a delivery that turned out wrong
+ * is a receipt correction or a return, which are different objects with
+ * different quantities attached.
+ *
+ */
+export const zPurchaseOrderStatus = z.enum([
+    'draft',
+    'issued',
+    'partially_received',
+    'received',
+    'cancelled'
+]);
+
+/**
  * One row of the supply-order builder (SUP3).
  *
  * `is_out_of_stock` and `is_low` are independent readings of the numbers
@@ -3816,7 +3869,13 @@ export const zOrderProposalItem = z.object({
     suggested_quantity_basis: z.enum(['par', 'none']),
     supplier_options: z.array(zSupplierOption),
     suggested_supplier_id: zUuid.nullable(),
-    unassigned_reason: z.enum(['no_supplier', 'suppliers_archived']).nullable()
+    unassigned_reason: z.enum(['no_supplier', 'suppliers_archived']).nullable(),
+    on_order_quantity: z.string(),
+    open_orders: z.array(z.object({
+        id: zUuid,
+        number: z.string(),
+        status: zPurchaseOrderStatus
+    }))
 });
 
 /**
@@ -3832,38 +3891,6 @@ export const zOrderProposalCollection = z.object({
     }),
     meta: zMeta
 });
-
-/**
- * Where an order has got to (§3.5). `draft → issued →
- * partially_received → received`, with `cancelled` reachable from the two
- * states in which nothing has arrived yet.
- *
- * **`issued`, never `sent`** (§2). Phase 1 dispatches nothing through any
- * channel — a person presses Issue, the lines freeze, and they print the
- * sheet and hand it over. Calling that `sent` would claim an event the
- * system did not perform.
- *
- * `partially_received` and `received` are reached by **posting a goods
- * receipt**, never by an action of their own: the quantities received are
- * summed per order line and the status is whatever that sum says it is.
- * There is no "mark as received" action and there must not be one — it
- * would let an order claim a delivery that never turned up. The one
- * apparent exception proves the rule: closing a short delivery still goes
- * through a receipt, and what the flag adds is a reason for writing off the
- * remainder rather than a status change of its own.
- *
- * `received` and `cancelled` are terminal: a delivery that turned out wrong
- * is a receipt correction or a return, which are different objects with
- * different quantities attached.
- *
- */
-export const zPurchaseOrderStatus = z.enum([
-    'draft',
-    'issued',
-    'partially_received',
-    'received',
-    'cancelled'
-]);
 
 /**
  * One requested shelf, as the document says it (§3.5).
@@ -4996,7 +5023,7 @@ export const zConsumptionExceptionCollection = z.object({
     data: z.object({
         exceptions: z.array(zConsumptionException)
     }),
-    meta: zPaginationMeta
+    meta: zPaginatedOrNumberedMeta
 });
 
 export const zConsumptionExceptionEnvelope = z.object({
@@ -5008,7 +5035,8 @@ export const zConsumptionExceptionEnvelope = z.object({
 
 export const zConsumptionExceptionCountEnvelope = z.object({
     data: z.object({
-        count: z.int().gte(0)
+        count: z.int().gte(0),
+        resolved_count: z.int().gte(0)
     }),
     meta: zMeta
 });
@@ -12640,6 +12668,23 @@ export const zUpdateDeliveryWindowPath = z.object({
  */
 export const zUpdateDeliveryWindowResponse = zDeliveryWindowEnvelope;
 
+export const zArchiveDeliveryWindowHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zArchiveDeliveryWindowPath = z.object({
+    window: z.union([
+        zUuid,
+        z.string().max(30).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The archived window, in no zone.
+ */
+export const zArchiveDeliveryWindowResponse = zDeliveryWindowEnvelope;
+
 export const zGetBranchOperatingHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Branch-Id': zUuid,
@@ -13472,11 +13517,13 @@ export const zListConsumptionExceptionsQuery = z.object({
     from: z.iso.date().optional(),
     to: z.iso.date().optional(),
     limit: z.int().gte(1).lte(100).optional().default(25),
-    cursor: z.string().max(200).optional()
+    cursor: z.string().max(200).optional(),
+    page: z.int().gte(1).optional(),
+    per_page: z.int().gte(1).lte(100).optional().default(25)
 });
 
 /**
- * A page of consumption exceptions, newest first.
+ * A page of consumption exceptions, newest first. With `page`, numbered — `meta` then carries `total_count` and `total_pages`.
  */
 export const zListConsumptionExceptionsResponse = zConsumptionExceptionCollection;
 
@@ -15939,6 +15986,19 @@ export const zQuoteSubscriptionQuery = z.object({
  * The current quote for this configuration on this run.
  */
 export const zQuoteSubscriptionResponse = zPlanQuoteEnvelope;
+
+export const zListMyAllergenConflictsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListMyAllergenConflictsQuery = z.object({
+    meal_ids: z.string()
+});
+
+/**
+ * The meals among those asked about that clash with the customer's declarations.
+ */
+export const zListMyAllergenConflictsResponse = zAllergenConflictsEnvelope;
 
 export const zListMySubscriptionsHeaders = z.object({
     'Accept-Language': z.string().optional(),

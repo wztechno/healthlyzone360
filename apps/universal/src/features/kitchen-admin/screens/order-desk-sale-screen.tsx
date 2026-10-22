@@ -78,6 +78,7 @@ import {
     needsCustomer,
     paymentMethodsFor,
     saleShortfall,
+    firstOpenDay,
     offeredDeskWindows,
     windowsOverAt,
     scheduleFor,
@@ -351,12 +352,10 @@ function Sale() {
     const offeredCodes =
         state.fulfilmentType === 'delivery' ? (quote?.offeredWindowCodes ?? null) : null;
     const windowList = offeredDeskWindows(windows.data ?? [], offeredCodes);
-    const schedule = scheduleFor(
-        state,
-        todayIso(),
-        windowList.map((window) => window.code),
-        windowsOverAt(windowList),
-    );
+    const today = todayIso();
+    const windowCodes = windowList.map((window) => window.code);
+    const overToday = windowsOverAt(windowList);
+    const schedule = scheduleFor(state, today, windowCodes, overToday);
 
     function onPlace() {
         const lines = toWire(state.lines);
@@ -515,6 +514,8 @@ function Sale() {
                             windows={windowList}
                             zoneOffersNone={offeredCodes !== null && windowList.length === 0}
                             schedule={schedule}
+                            ended={schedule.requestedDeliveryDate === today ? overToday : new Set()}
+                            firstDay={firstOpenDay(today, windowCodes, overToday)}
                             onSchedule={(next) => {
                                 update({ ...state, ...next });
                             }}
@@ -649,6 +650,8 @@ function WhenSection({
     windows,
     zoneOffersNone,
     schedule,
+    ended,
+    firstDay,
     onSchedule,
     drivers,
     driverUserId,
@@ -658,6 +661,13 @@ function WhenSection({
     /** The address's zone offers none of the kitchen's windows — a different sentence from "none set up". */
     readonly zoneOffersNone: boolean;
     readonly schedule: NonNullable<ReturnType<typeof scheduleFor>>;
+    /**
+     * The slots already over on the chosen day — today's, by their end time. Shown but not
+     * choosable: at 3 PM only Snack and Dinner can still be cooked for today.
+     */
+    readonly ended: ReadonlySet<string>;
+    /** The earliest day the picker offers: tomorrow once every slot today is over. */
+    readonly firstDay: string;
     readonly onSchedule: (
         next: Pick<SaleState, 'requestedDeliveryDate' | 'deliveryWindowCode'>,
     ) => void;
@@ -690,7 +700,7 @@ function WhenSection({
                         // past the foot of the column and has to be scrolled to.
                         side="above"
                         value={schedule.requestedDeliveryDate}
-                        min={todayIso()}
+                        min={firstDay}
                         onChange={(requestedDeliveryDate) => {
                             onSchedule({
                                 requestedDeliveryDate,
@@ -743,6 +753,7 @@ function WhenSection({
                     >
                         {windows.map((window) => {
                             const selected = schedule.deliveryWindowCode === window.code;
+                            const over = ended.has(window.code);
                             const name = locale.startsWith('ar') ? window.nameAr : window.nameEn;
                             const hours =
                                 window.startsAt === null || window.endsAt === null
@@ -758,7 +769,9 @@ function WhenSection({
                                     role="radio"
                                     accessibilityRole="radio"
                                     aria-checked={selected}
-                                    accessibilityState={{ checked: selected }}
+                                    aria-disabled={over}
+                                    accessibilityState={{ checked: selected, disabled: over }}
+                                    disabled={over}
                                     aria-label={hours === null ? name : `${name}. ${hours}`}
                                     onPress={() => {
                                         onSchedule({
@@ -767,9 +780,11 @@ function WhenSection({
                                         });
                                     }}
                                     className={
-                                        selected
-                                            ? 'h-control-md flex-row items-center gap-hair rounded-sm border border-surface-brand bg-surface-brand-subtle px-control-sm'
-                                            : 'h-control-md flex-row items-center gap-hair rounded-sm border border-stroke bg-surface-raised px-control-sm web:hover:border-surface-brand'
+                                        over
+                                            ? 'h-control-md flex-row items-center gap-hair rounded-sm border border-stroke-subtle bg-surface-sunken px-control-sm opacity-60'
+                                            : selected
+                                              ? 'h-control-md flex-row items-center gap-hair rounded-sm border border-surface-brand bg-surface-brand-subtle px-control-sm'
+                                              : 'h-control-md flex-row items-center gap-hair rounded-sm border border-stroke bg-surface-raised px-control-sm web:hover:border-surface-brand'
                                     }
                                 >
                                     <Text variant="label" numberOfLines={1}>

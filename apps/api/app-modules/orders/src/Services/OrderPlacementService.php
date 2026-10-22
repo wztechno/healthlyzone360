@@ -10,6 +10,7 @@ use Healthy360\Cart\Models\Cart;
 use Healthy360\Cart\Models\CartItem;
 use Healthy360\Cart\Services\CartService;
 use Healthy360\Cart\Services\LineProbe;
+use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
 use Healthy360\Catalogues\Models\SalesChannel;
@@ -22,6 +23,7 @@ use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Services\ZoneResolver;
 use Healthy360\Delivery\Services\ZoneWindowService;
+use Healthy360\Orders\Contracts\BuyerAllergenCheck;
 use Healthy360\Orders\Contracts\OrderSchedulingLookup;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Enums\OrderStatus;
@@ -187,6 +189,7 @@ final readonly class OrderPlacementService
         private TenantContext $context,
         private BuyerAgreementLookup $agreements,
         private OrganisationTradingGuard $trading,
+        private BuyerAllergenCheck $allergenCheck,
     ) {}
 
     /**
@@ -195,6 +198,7 @@ final readonly class OrderPlacementService
      * @param  string|null  $deliveryWindowCode  the slot the customer chose, as the window's own code
      * @param  CarbonImmutable|null  $requestedDate  the day asked for; taken from the lines when they name one
      * @param  string|null  $idempotencyKey  the client's replay key, when it sent one
+     * @param  bool  $allergenConflictsAcknowledged  the customer saw the basket's allergen conflicts and chose to order anyway
      *
      * @throws PlacementRefused|ApiException
      */
@@ -204,6 +208,7 @@ final readonly class OrderPlacementService
         ?string $deliveryWindowCode = null,
         ?CarbonImmutable $requestedDate = null,
         ?string $idempotencyKey = null,
+        bool $allergenConflictsAcknowledged = false,
     ): PlacementResult {
         $account = $this->accountOf($cart);
 
@@ -213,6 +218,7 @@ final readonly class OrderPlacementService
             'address_id' => (string) $address->getKey(),
             'delivery_window' => $deliveryWindowCode,
             'requested_date' => $requestedDate?->toDateString(),
+            'allergen_conflicts_acknowledged' => $allergenConflictsAcknowledged,
         ]);
 
         // Exactly one subject, which is what the table's CHECK now demands: a
@@ -226,7 +232,7 @@ final readonly class OrderPlacementService
             fn (): Order => $this->seller->during(
                 $cart->organisation_id,
                 $cart->branch_id,
-                fn (): Order => $this->placeNow($cart, $account, $address, $deliveryWindowCode, $requestedDate),
+                fn (): Order => $this->placeNow($cart, $account, $address, $deliveryWindowCode, $requestedDate, $allergenConflictsAcknowledged),
             ),
         );
 
@@ -569,6 +575,7 @@ final readonly class OrderPlacementService
         CustomerAddress $address,
         ?string $deliveryWindowCode,
         ?CarbonImmutable $requestedDate,
+        bool $allergenConflictsAcknowledged = false,
     ): Order {
         $now = CarbonImmutable::now();
         $reasons = [];
@@ -598,6 +605,20 @@ final readonly class OrderPlacementService
 
         $reasons = [...$reasons, ...$this->eligibility->outstanding($account)];
         $reasons = [...$reasons, ...$this->addressReasons($cart->customer_account_id, $address)];
+
+        // Read at placement, not trusted from the preview: allergies changed
+        // on another device since the basket was filled are caught here.
+        if (! $allergenConflictsAcknowledged) {
+            foreach ($this->allergenCheck->conflicts($account, array_map(static fn (CartItem $line): string => $line->catalogue_item_id, $lines)) as $conflict) {
+                // `cause` carries the rule's own word for it, since `reason` names the refusal.
+                $reasons[] = [
+                    'reason' => 'allergen_conflict',
+                    'catalogue_item_id' => $conflict['catalogue_item_id'],
+                    'cause' => $conflict['reason'],
+                    'allergen_codes' => $conflict['allergen_codes'],
+                ];
+            }
+        }
 
         $effectiveDate = $this->effectiveDate($lines, $requestedDate, $reasons);
 
@@ -903,12 +924,21 @@ final readonly class OrderPlacementService
                 $placement->account,
             );
 
-            $blocking = $override === null
-                ? $result->refusals
-                : array_values(array_filter(
-                    $result->refusals,
-                    static fn (array $refusal): bool => ! in_array($refusal['reason'] ?? null, ['unpriced', 'currency_mismatch'], true),
-                ));
+            // A grandfathered line answers price and currency itself. A
+            // subscription's own plan line answers channel availability too:
+            // plans carry no channel rows (the plan editor has no writer for
+            // them, and the storefront sells a plan on publication alone), and
+            // the subscription is proof it was bought from the plan's own page.
+            $waived = $override === null
+                ? []
+                : ($result->item?->item_type === CatalogueItemType::SubscriptionPlan
+                    ? ['unpriced', 'currency_mismatch', 'channel_unavailable']
+                    : ['unpriced', 'currency_mismatch']);
+
+            $blocking = array_values(array_filter(
+                $result->refusals,
+                static fn (array $refusal): bool => ! in_array($refusal['reason'] ?? null, $waived, true),
+            ));
 
             if ($override !== null && $override->currencyCode !== $placement->currencyCode) {
                 $blocking[] = [

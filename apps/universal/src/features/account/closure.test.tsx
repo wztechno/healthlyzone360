@@ -10,12 +10,16 @@ import {
     CLOSURE_BLOCKER_CODES,
     otpInvalidFailure,
 } from '@healthy360/api-client/contracts';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { useLocalSearchParams, usePathname } from 'expo-router';
 
+import { queryKeys } from '../../data/query-keys.ts';
+import { withReturnTo } from '../../navigation/return-to.ts';
+import { clearAllSessionDrafts } from '../../navigation/session-draft.ts';
+import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
 import { testMeResponse } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { AccountClosedScreen } from './screens/account-closed-screen.tsx';
 import { ClosureWizardScreen } from './screens/closure-wizard-screen.tsx';
 import type { ClosureStep } from './screens/closure-wizard-screen.tsx';
 
@@ -46,46 +50,48 @@ import type { ClosureStep } from './screens/closure-wizard-screen.tsx';
  *
  * The wizard moves between steps by pushing a route, so a test that mocked `push` into a black hole
  * could never assert what the *next* step says — and "the marketing opt-out completes and lands on a
- * screen that does not claim the account is closed" is exactly the claim worth making. So the mocked
- * router feeds the pushed step back into a local wrapper that owns the `step` prop.
+ * screen that does not claim the account is closed" is exactly the claim worth making. So the shared
+ * router mock *follows* every call (`follow: true`), and the wrapper below reads the step and the
+ * `?scope=` back out of the mock's location, the way the route file reads them.
+ *
+ * ## Every step change remounts the wizard
+ *
+ * The wrapper keys the screen on the pathname. That is what the real `<Slot/>` does — each step is a
+ * new route entry, so the screen underneath is a new instance — and it is the behaviour that used to
+ * lose the reason between step one and step two. A suite whose wrapper kept one instance alive could
+ * never see that bug, and did not.
  */
-let navigate: ((step: string) => void) | null = null;
-
-jest.mock('expo-router', () => {
-    const push = jest.fn();
-    return {
-        __esModule: true,
-        useRouter: () => ({ push, replace: jest.fn(), setParams: jest.fn(), back: jest.fn() }),
-        usePathname: () => '/customer/account/close',
-        useLocalSearchParams: () => ({}),
-        Redirect: () => null,
-        Link: ({ children }: { children: ReactNode }) => children,
-        Slot: () => null,
-        Stack: () => null,
-        __push: push,
-    };
-});
+jest.mock('expo-router', () =>
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../../testing/expo-router-mock.ts').createExpoRouterMock({
+        pathname: '/customer/account/close/reason',
+        follow: true,
+    }),
+);
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const routerMock = require('expo-router') as { __push: jest.Mock };
+const routerMock = require('expo-router') as ExpoRouterMock;
 
-function Wizard({ start }: { readonly start: ClosureStep }) {
-    const [step, setStep] = useState<string>(start);
-    // In an effect, not during render: assigning the module-level hand-off while rendering is the
-    // reassignment the react-hooks rule rejects, and the router mock only navigates after mount.
-    useEffect(() => {
-        navigate = setStep;
-    }, [setStep]);
-    return <ClosureWizardScreen step={step} />;
+function RoutedWizard() {
+    const pathname = usePathname();
+    const { scope } = useLocalSearchParams<{ scope?: string }>();
+    const step = /^\/customer\/account\/close\/([^/]+)$/.exec(pathname)?.[1];
+    return <ClosureWizardScreen key={pathname} step={step} scope={scope} />;
+}
+
+/**
+ * The wizard opened on `start`, as a link to the step would open it. The location is set before
+ * the element is rendered, so the first frame is already on `start`.
+ */
+function wizard(start: ClosureStep, params: Readonly<Record<string, string>> = {}) {
+    routerMock.__set({ pathname: `/customer/account/close/${start}`, params });
+    return <RoutedWizard />;
 }
 
 beforeEach(() => {
-    navigate = null;
-    routerMock.__push.mockReset();
-    routerMock.__push.mockImplementation((href: unknown) => {
-        const match = /^\/customer\/account\/close\/(.+)$/.exec(String(href));
-        if (match !== null) navigate?.(match[1]!);
-    });
+    routerMock.__reset();
+    // The answers outlive the screen on purpose; they must not outlive the case.
+    clearAllSessionDrafts();
 });
 
 /* ══ authored entities ═════════════════════════════════════════════════════════════════════════ */
@@ -180,7 +186,7 @@ async function walkToChecks(reason = 'privacy_concerns'): Promise<void> {
 
 describe('the checks step keeps the four statuses apart', () => {
     it('draws a live subscription as blocking and refuses to start the closure', async () => {
-        await renderStubScreen(<Wizard start="checks" />, {
+        await renderStubScreen(wizard('checks'), {
             session: testMeResponse(),
             repositories: {
                 account: {
@@ -193,7 +199,7 @@ describe('the checks step keeps the four statuses apart', () => {
                                           status: 'blocking',
                                           count: 1,
                                           reason: 'subscriptions_live',
-                                          resolveHref: '/customer/subscriptions',
+                                          resolveHref: '/customer/account?section=subscriptions',
                                       })
                                     : entry,
                             ),
@@ -218,13 +224,19 @@ describe('the checks step keeps the four statuses apart', () => {
             true,
         );
 
-        // A blocker with somewhere to go offers the route the *client* owns.
+        // A blocker with somewhere to go offers the route the *client* owns — as a detour, with
+        // the way back to these checks.
         await fireEvent.press(screen.getByTestId('closure-blocker-active_subscriptions-resolve'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/customer/subscriptions');
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            withReturnTo(
+                '/customer/account?section=subscriptions',
+                '/customer/account/close/checks',
+            ),
+        );
     });
 
     it('says a check did not run rather than printing a tick beside it', async () => {
-        await renderStubScreen(<Wizard start="checks" />, {
+        await renderStubScreen(wizard('checks'), {
             session: testMeResponse(),
             repositories: {
                 account: {
@@ -279,7 +291,7 @@ describe('the checks step keeps the four statuses apart', () => {
             'pending_b2b_signatures',
         ];
 
-        await renderStubScreen(<Wizard start="checks" />, {
+        await renderStubScreen(wizard('checks'), {
             session: testMeResponse(),
             repositories: {
                 account: {
@@ -302,7 +314,8 @@ describe('the checks step keeps the four statuses apart', () => {
     });
 
     it('turns an unsettled credit memo into an advisory that never blocks', async () => {
-        await renderStubScreen(<Wizard start="checks" />, {
+        // Walked from the start: starting a closure needs the reason the first step records.
+        await renderStubScreen(wizard('reason'), {
             session: testMeResponse(),
             repositories: {
                 account: {
@@ -324,6 +337,7 @@ describe('the checks step keeps the four statuses apart', () => {
             },
         });
 
+        await walkToChecks();
         expect(
             await screen.findByTestId('closure-blocker-unsettled_credit_memos-status'),
         ).toHaveTextContent(/Worth knowing/);
@@ -347,7 +361,7 @@ describe('the checks step keeps the four statuses apart', () => {
     });
 
     it('names what survives the purge', async () => {
-        await renderStubScreen(<Wizard start="checks" />, {
+        await renderStubScreen(wizard('checks'), {
             session: testMeResponse(),
             repositories: {
                 account: {
@@ -380,7 +394,7 @@ describe('the checks step keeps the four statuses apart', () => {
 
 describe('the marketing short-circuit', () => {
     it('completes in one write, asks for no code, and is not stopped by a blocking check', async () => {
-        const { repositories } = await renderStubScreen(<Wizard start="reason" />, {
+        const { repositories } = await renderStubScreen(wizard('reason'), {
             session: testMeResponse(),
             repositories: {
                 account: {
@@ -394,7 +408,7 @@ describe('the marketing short-circuit', () => {
                                     status: 'blocking',
                                     count: 1,
                                     reason: 'subscriptions_live',
-                                    resolveHref: '/customer/subscriptions',
+                                    resolveHref: '/customer/account?section=subscriptions',
                                 }),
                             ],
                         }),
@@ -429,10 +443,174 @@ describe('the marketing short-circuit', () => {
         expect(repositories.account.requestClosure).toHaveBeenCalledTimes(1);
         // No step-up: nothing was destroyed, so there was nothing to prove.
         expect(repositories.account.verifyClosure).not.toHaveBeenCalled();
+
+        // The finished scope is in the URL — the write that produced it belonged to the step before
+        // — and the done step replaces it, so Back never offers to send it again.
+        expect(routerMock.__replace).toHaveBeenCalledWith(
+            '/customer/account/close/done?scope=marketing_opt_out',
+        );
+
+        // Finishing an opt-out goes back to the switches it came from, not to the home.
+        await fireEvent.press(screen.getByTestId('closure-done-home'));
+        expect(routerMock.__replace).toHaveBeenLastCalledWith(
+            '/customer/account?section=notifications',
+        );
     });
 
+    it('keeps the reason across the step change, which remounts the screen', async () => {
+        const { repositories } = await renderStubScreen(wizard('reason'), {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getClosurePreconditions: async () => preconditions(),
+                    getLiveClosureRequest: async () => null,
+                    requestClosure: async (request) =>
+                        ticket({
+                            scope: request.scope,
+                            reasonCode: request.reasonCode,
+                            status: 'completed',
+                            verificationRequired: false,
+                            completedAt: '2026-08-11T09:00:00.000Z',
+                        }),
+                },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('closure-reason-select-trigger'));
+        await fireEvent.press(
+            await screen.findByTestId('closure-reason-select-option-moving_away'),
+        );
+        await fireEvent.press(screen.getByTestId('closure-reason-next'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/close/scope');
+        await screen.findByTestId('closure-scope');
+
+        // The push already gave the scope step a new screen. Leave and come back to it as well — a
+        // detour, or a refresh — so nothing of the first screen can be what remembers.
+        await act(() => {
+            routerMock.__set({ pathname: '/customer/account', params: {} });
+        });
+        await act(() => {
+            routerMock.__set({ pathname: '/customer/account/close/scope' });
+        });
+
+        await fireEvent.press(await screen.findByTestId('closure-scope-next'));
+        expect(await screen.findByTestId('closure-done')).toBeTruthy();
+        expect(repositories.account.requestClosure).toHaveBeenCalledWith({
+            reasonCode: 'moving_away',
+            scope: 'marketing_opt_out',
+        });
+    });
+
+    it('renders the done step from its URL alone', async () => {
+        await renderStubScreen(wizard('done', { scope: 'marketing_opt_out' }), {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getClosurePreconditions: async () => preconditions(),
+                    getLiveClosureRequest: async () => null,
+                },
+            },
+        });
+
+        expect(await screen.findByTestId('closure-done-callout')).toHaveTextContent(
+            /Marketing stopped/,
+        );
+    });
+
+    it('starts over rather than claim an outcome when the done step names none', async () => {
+        await renderStubScreen(wizard('done'), {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getClosurePreconditions: async () => preconditions(),
+                    getLiveClosureRequest: async () => null,
+                },
+            },
+        });
+
+        expect(await screen.findByTestId('closure-reason')).toBeTruthy();
+        expect(screen.queryByTestId('closure-done')).toBeNull();
+    });
+});
+
+describe('the way out', () => {
+    it('offers Keep my account on every step, which forgets the answers and goes back', async () => {
+        await renderStubScreen(wizard('reason'), {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getClosurePreconditions: async () => preconditions(),
+                    getLiveClosureRequest: async () => null,
+                },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('closure-reason-select-trigger'));
+        await fireEvent.press(await screen.findByTestId('closure-reason-select-option-other'));
+        await fireEvent.press(screen.getByTestId('closure-reason-next'));
+
+        // Scope has both: the step before, and the way out.
+        expect(await screen.findByTestId('closure-scope-back')).toBeTruthy();
+        await fireEvent.press(screen.getByTestId('closure-scope-keep'));
+        expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(
+            '/customer/account?section=notifications',
+        );
+
+        // The reason went with it: opened again, the wizard starts blank.
+        await act(() => {
+            routerMock.__set({ pathname: '/customer/account/close/reason' });
+        });
+        expect(
+            (await screen.findByTestId('closure-reason-next')).props.accessibilityState.disabled,
+        ).toBe(true);
+    });
+
+    it('withdraws a request still in flight when the person keeps their account', async () => {
+        const live = ticket({ challenge: closureChallenge() });
+        const { repositories } = await renderStubScreen(wizard('verify'), {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getClosurePreconditions: async () => preconditions(),
+                    getLiveClosureRequest: async () => live,
+                    cancelClosure: async ({ ticketId }) =>
+                        ticket({ id: ticketId, status: 'cancelled' }),
+                },
+            },
+        });
+
+        await screen.findByTestId('closure-otp');
+        await fireEvent.press(screen.getByTestId('closure-verify-keep'));
+
+        await waitFor(() => {
+            expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(
+                '/customer/account?section=notifications',
+            );
+        });
+        expect(repositories.account.cancelClosure).toHaveBeenCalledWith({ ticketId: live.id });
+    });
+
+    it('steps back by replacing when the previous step is not underneath', async () => {
+        await renderStubScreen(wizard('checks'), {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getClosurePreconditions: async () => preconditions(),
+                    getLiveClosureRequest: async () => null,
+                },
+            },
+        });
+
+        // Opened directly — nothing to pop to.
+        await fireEvent.press(await screen.findByTestId('closure-checks-back'));
+        expect(routerMock.__replace).toHaveBeenCalledWith('/customer/account/close/scope');
+        expect(routerMock.__router.back).not.toHaveBeenCalled();
+    });
+});
+
+describe('the marketing short-circuit, in words', () => {
     it('says the account is untouched rather than closed, and carries the note that was typed', async () => {
-        const { repositories } = await renderStubScreen(<Wizard start="reason" />, {
+        const { repositories } = await renderStubScreen(wizard('reason'), {
             session: testMeResponse(),
             repositories: {
                 account: {
@@ -485,7 +663,7 @@ describe('a full closure', () => {
         // and something is by the time the request lands.
         let world = preconditions();
 
-        const { repositories } = await renderStubScreen(<Wizard start="reason" />, {
+        const { repositories } = await renderStubScreen(wizard('reason'), {
             session: testMeResponse(),
             repositories: {
                 account: {
@@ -500,7 +678,7 @@ describe('a full closure', () => {
                                           status: 'blocking',
                                           count: 2,
                                           reason: 'orders_in_flight',
-                                          resolveHref: '/customer/orders',
+                                          resolveHref: '/customer/account?section=orders',
                                       })
                                     : entry,
                             ),
@@ -544,20 +722,25 @@ describe('a full closure', () => {
 
     it('draws the step-up challenge that arrived with the ticket, fetching none of its own', async () => {
         const challenge = closureChallenge();
+        // The request the server holds once one is made — what the verify step, a new screen
+        // after the push, reads back.
+        let inFlight: ClosureTicket | null = null;
 
-        const { repositories } = await renderStubScreen(<Wizard start="reason" />, {
+        const { repositories } = await renderStubScreen(wizard('reason'), {
             session: testMeResponse(),
             repositories: {
                 account: {
                     getClosurePreconditions: async () => preconditions(),
-                    getLiveClosureRequest: async () => null,
-                    requestClosure: async (request) =>
-                        ticket({
+                    getLiveClosureRequest: async () => inFlight,
+                    requestClosure: async (request) => {
+                        inFlight = ticket({
                             reasonCode: request.reasonCode,
                             scope: request.scope,
                             verificationRequired: true,
                             challenge,
-                        }),
+                        });
+                        return inFlight;
+                    },
                 },
                 // `verification` is left entirely unstubbed on purpose: any attempt to issue or
                 // re-read a challenge would reject with StubNotConfiguredError and fail this test.
@@ -579,7 +762,7 @@ describe('a full closure', () => {
     });
 
     it('says so rather than drawing a dead panel when the verify step has no challenge', async () => {
-        await renderStubScreen(<Wizard start="verify" />, {
+        await renderStubScreen(wizard('verify'), {
             session: testMeResponse(),
             repositories: {
                 account: {
@@ -597,10 +780,10 @@ describe('a full closure', () => {
         expect(screen.getByTestId('closure-irreversible')).toHaveTextContent(/point of no return/);
     });
 
-    it('closes the account against the ticket the code belongs to, and says it signed you out', async () => {
+    it('closes the account against the ticket the code belongs to, and leaves for the public page first', async () => {
         const live = ticket({ challenge: closureChallenge() });
 
-        const { repositories } = await renderStubScreen(<Wizard start="verify" />, {
+        const { repositories, queryClient } = await renderStubScreen(wizard('verify'), {
             session: testMeResponse(),
             repositories: {
                 account: {
@@ -621,25 +804,47 @@ describe('a full closure', () => {
         });
 
         await fireEvent.changeText(await screen.findByTestId('closure-otp-code-input'), TEST_CODE);
+        const invalidate = jest.spyOn(queryClient, 'invalidateQueries');
         await fireEvent.press(screen.getByTestId('closure-otp-submit'));
 
-        expect(await screen.findByTestId('closure-done')).toBeTruthy();
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith('/account-closed');
+        });
         // Request-bound: the code proves this person asked for *this* closure.
         expect(repositories.account.verifyClosure).toHaveBeenCalledWith({
             ticketId: live.id,
             code: TEST_CODE,
         });
-        expect(screen.getByTestId('closure-done-callout')).toHaveTextContent(
+
+        // The session query hears about it only once the wizard has left the customer area — told
+        // first, the gate would have answered the done step with the sign-in page.
+        const meCalls = invalidate.mock.calls
+            .map((call, index) => ({ call, order: invalidate.mock.invocationCallOrder[index]! }))
+            .filter(
+                ({ call }) => JSON.stringify(call[0]?.queryKey) === JSON.stringify(queryKeys.me()),
+            );
+        expect(meCalls).toHaveLength(1);
+        expect(meCalls[0]!.order).toBeGreaterThan(
+            routerMock.__replace.mock.invocationCallOrder[0]!,
+        );
+    });
+
+    it('says the account is closed and the session is gone, on a page that needs neither', async () => {
+        await renderStubScreen(<AccountClosedScreen />);
+
+        expect(await screen.findByTestId('account-closed-title')).toHaveTextContent(
             /Your account is closed/,
         );
-        // Closing and signing out are one event, and the screen says the second half out loud.
-        expect(screen.getByTestId('closure-signed-out')).toHaveTextContent(/signed out/);
+        // Closing and signing out are one event, and the page says the second half out loud.
+        expect(screen.getByTestId('account-closed-signed-out')).toHaveTextContent(/signed out/);
+        await fireEvent.press(screen.getByTestId('account-closed-home'));
+        expect(routerMock.__replace).toHaveBeenCalledWith('/discover');
     });
 
     it('refuses a wrong code without closing anything', async () => {
         const live = ticket({ challenge: closureChallenge() });
 
-        await renderStubScreen(<Wizard start="verify" />, {
+        await renderStubScreen(wizard('verify'), {
             session: testMeResponse(),
             repositories: {
                 account: {
@@ -667,7 +872,7 @@ describe('a full closure', () => {
     });
 
     it('reports a second request refused while one is already in flight', async () => {
-        await renderStubScreen(<Wizard start="reason" />, {
+        await renderStubScreen(wizard('reason'), {
             session: testMeResponse(),
             repositories: {
                 account: {

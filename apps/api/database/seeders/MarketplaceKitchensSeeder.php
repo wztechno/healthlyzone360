@@ -598,6 +598,8 @@ class MarketplaceKitchensSeeder extends Seeder
                 'weekdays' => $fixture['weekdays'],
                 'display_order' => (int) $fixture['display_order'],
                 'is_active' => true,
+                // A restored demo window is un-archived too: archived implies inactive.
+                'archived_at' => null,
                 'created_by' => $owner->getKey(),
             ],
         );

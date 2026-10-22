@@ -528,6 +528,7 @@ export const queryKeys = {
         consumptionExceptions: (filter: object = {}) =>
             ['kitchenOps', 'consumption-exceptions', filter] as const,
         consumptionExceptionCount: () => ['kitchenOps', 'consumption-exception-count'] as const,
+        consumptionExceptionTotals: () => ['kitchenOps', 'consumption-exception-totals'] as const,
         /*
          * The desk queue is filtered (status, branch, page), so the filter is
          * inside the key: the open queue and the batch register are two

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8519 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8551 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -351,7 +351,6 @@ export interface NamespaceKeys {
     | 'addresses.save'
     | 'addresses.savedToast'
     | 'addresses.subtitle'
-    | 'addresses.title'
     | 'checklist.blocked'
     | 'checklist.cannotActivate'
     | 'checklist.outstanding'
@@ -393,6 +392,7 @@ export interface NamespaceKeys {
     | 'closure.finish'
     | 'closure.irreversibleBody'
     | 'closure.irreversibleTitle'
+    | 'closure.keepAccount'
     | 'closure.next'
     | 'closure.noChallenge'
     | 'closure.noteHint'
@@ -591,13 +591,14 @@ export interface NamespaceKeys {
     | 'profile.allergiesNone'
     | 'profile.answerAllergies'
     | 'profile.cancel'
+    | 'profile.changePassword'
+    | 'profile.devices'
     | 'profile.dietsEyebrow'
     | 'profile.dietsLocked'
     | 'profile.dietsUnavailable'
     | 'profile.editAllergies'
     | 'profile.emailLabel'
     | 'profile.listSeparator'
-    | 'profile.manageAddresses'
     | 'profile.mobileLabel'
     | 'profile.nameLabel'
     | 'profile.noPhone'
@@ -606,6 +607,7 @@ export interface NamespaceKeys {
     | 'profile.phoneVerify'
     | 'profile.save'
     | 'profile.saved'
+    | 'profile.securityTitle'
     | 'profile.slotLabel'
     | 'profile.slotUnset'
     | 'profile.title'
@@ -2133,6 +2135,8 @@ export interface NamespaceKeys {
     | 'configurator.meals.selectLabel'
     | 'configurator.meals.title'
     | 'configurator.meals.unknown'
+    | 'configurator.mealsUnsavedBody'
+    | 'configurator.mealsUnsavedTitle'
     | 'configurator.next'
     | 'configurator.notFoundBody'
     | 'configurator.notFoundTitle'
@@ -2190,6 +2194,17 @@ export interface NamespaceKeys {
     | 'durations.1w'
     | 'durations.2w'
     | 'durations.4w'
+    | 'myAllergens.addAnyway'
+    | 'myAllergens.badge'
+    | 'myAllergens.checkoutBody'
+    | 'myAllergens.checkoutTitle'
+    | 'myAllergens.confirmTitle'
+    | 'myAllergens.dialogBody'
+    | 'myAllergens.dialogBodyUnnamed'
+    | 'myAllergens.dialogTitle'
+    | 'myAllergens.mealWithAllergens'
+    | 'myAllergens.option'
+    | 'myAllergens.placeAnyway'
     | 'slots.evening'
     | 'slots.midday'
     | 'slots.morning'
@@ -2281,9 +2296,10 @@ export interface NamespaceKeys {
     | 'validation.required'
     | 'validation.tooLong'
     | 'warnings.checkout_address_missing'
+    | 'warnings.checkout_allergen_conflict'
     | 'warnings.checkout_empty_cart'
     | 'warnings.checkout_window_not_offered'
-    | 'warnings.planner_allergen_conflict'
+    | 'warnings.subscription_allergen_conflict'
     | 'warnings.subscription_delivery_day_unavailable'
     | 'warnings.subscription_no_delivery_days'
     | 'warnings.subscription_unknown_slot'
@@ -3768,6 +3784,7 @@ export interface NamespaceKeys {
     | 'forms.issueUnit'
     | 'forms.itemsPerPack'
     | 'forms.itemsPerUnit'
+    | 'forms.menuListing'
     | 'forms.noFigures'
     | 'forms.nutritionTitle'
     | 'forms.pack'
@@ -4004,7 +4021,6 @@ export interface NamespaceKeys {
     | 'meals.retiredTitle'
     | 'meals.retiredToast'
     | 'meals.sectionDetails'
-    | 'meals.sectionIdentity'
     | 'meals.sectionMargin'
     | 'meals.sectionProduction'
     | 'meals.sectionRecipe'
@@ -4260,6 +4276,7 @@ export interface NamespaceKeys {
     | 'ops.customers.typeB2c'
     | 'ops.customers.typeGuest'
     | 'ops.customers.viewKind'
+    | 'ops.exceptions.actionFailedToast'
     | 'ops.exceptions.chip'
     | 'ops.exceptions.clearBadge'
     | 'ops.exceptions.columnBranch'
@@ -4297,6 +4314,8 @@ export interface NamespaceKeys {
     | 'ops.exceptions.resolvedBadge'
     | 'ops.exceptions.resolvedToast'
     | 'ops.exceptions.retry'
+    | 'ops.exceptions.retryDeductedToast'
+    | 'ops.exceptions.retryStillOpenToast'
     | 'ops.exceptions.statResolvedCaption'
     | 'ops.exceptions.statShownCaption'
     | 'ops.exceptions.statUnit'
@@ -4624,6 +4643,7 @@ export interface NamespaceKeys {
     | 'ops.production.completedToast'
     | 'ops.production.completedUnvaluedToast'
     | 'ops.production.confirm'
+    | 'ops.production.confirmFailedTitle'
     | 'ops.production.confirmedAtLabel'
     | 'ops.production.confirmedToast'
     | 'ops.production.consumedHeading'
@@ -4748,6 +4768,7 @@ export interface NamespaceKeys {
     | 'ops.production.shortNone'
     | 'ops.production.shortSome'
     | 'ops.production.start'
+    | 'ops.production.startFailedTitle'
     | 'ops.production.startedAtLabel'
     | 'ops.production.startedToast'
     | 'ops.production.statCompletedCaption'
@@ -4899,6 +4920,7 @@ export interface NamespaceKeys {
     | 'ops.qc.summaryTitle'
     | 'ops.qc.title'
     | 'ops.qc.viewKind'
+    | 'ops.quotations.backToQuotations'
     | 'ops.quotations.buyer'
     | 'ops.quotations.caption'
     | 'ops.quotations.clearFilter'
@@ -4916,6 +4938,7 @@ export interface NamespaceKeys {
     | 'ops.quotations.declineHeading'
     | 'ops.quotations.declineReason'
     | 'ops.quotations.detailLoadErrorTitle'
+    | 'ops.quotations.detailSubtitle'
     | 'ops.quotations.detailTitle'
     | 'ops.quotations.emptyBody'
     | 'ops.quotations.emptyTitle'
@@ -4930,6 +4953,7 @@ export interface NamespaceKeys {
     | 'ops.quotations.guidanceBody'
     | 'ops.quotations.guidanceTitle'
     | 'ops.quotations.lineColumn'
+    | 'ops.quotations.lineCount'
     | 'ops.quotations.lineNotPriced'
     | 'ops.quotations.linePriceHint'
     | 'ops.quotations.linePriceInvalid'
@@ -4958,7 +4982,6 @@ export interface NamespaceKeys {
     | 'ops.quotations.requestedDelivery'
     | 'ops.quotations.schedule'
     | 'ops.quotations.send'
-    | 'ops.quotations.sendRule'
     | 'ops.quotations.staleBody'
     | 'ops.quotations.staleTitle'
     | 'ops.quotations.statAwaitingCaption'
@@ -4971,6 +4994,7 @@ export interface NamespaceKeys {
     | 'ops.quotations.status.submitted'
     | 'ops.quotations.submittedAt'
     | 'ops.quotations.subtitle'
+    | 'ops.quotations.summaryTitle'
     | 'ops.quotations.timelineHeading'
     | 'ops.quotations.title'
     | 'ops.quotations.total'
@@ -5376,6 +5400,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.nothingNeededBody'
     | 'ops.supplyOrders.nothingNeededTitle'
     | 'ops.supplyOrders.onHand'
+    | 'ops.supplyOrders.onOrder'
     | 'ops.supplyOrders.order'
     | 'ops.supplyOrders.orderAnyway'
     | 'ops.supplyOrders.ordersCaption'
@@ -6523,6 +6548,13 @@ export interface NamespaceKeys {
     | 'windows.activeHint'
     | 'windows.activeLabel'
     | 'windows.add'
+    | 'windows.archive'
+    | 'windows.archiveBody'
+    | 'windows.archiveConfirm'
+    | 'windows.archiveFailed'
+    | 'windows.archiveLabel'
+    | 'windows.archiveTitle'
+    | 'windows.archivedToast'
     | 'windows.capacityColumn'
     | 'windows.capacityHint'
     | 'windows.capacityInvalid'
@@ -8899,7 +8931,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:addresses.save',
   'account:addresses.savedToast',
   'account:addresses.subtitle',
-  'account:addresses.title',
   'account:checklist.blocked',
   'account:checklist.cannotActivate',
   'account:checklist.outstanding',
@@ -8941,6 +8972,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:closure.finish',
   'account:closure.irreversibleBody',
   'account:closure.irreversibleTitle',
+  'account:closure.keepAccount',
   'account:closure.next',
   'account:closure.noChallenge',
   'account:closure.noteHint',
@@ -9139,13 +9171,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:profile.allergiesNone',
   'account:profile.answerAllergies',
   'account:profile.cancel',
+  'account:profile.changePassword',
+  'account:profile.devices',
   'account:profile.dietsEyebrow',
   'account:profile.dietsLocked',
   'account:profile.dietsUnavailable',
   'account:profile.editAllergies',
   'account:profile.emailLabel',
   'account:profile.listSeparator',
-  'account:profile.manageAddresses',
   'account:profile.mobileLabel',
   'account:profile.nameLabel',
   'account:profile.noPhone',
@@ -9154,6 +9187,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:profile.phoneVerify',
   'account:profile.save',
   'account:profile.saved',
+  'account:profile.securityTitle',
   'account:profile.slotLabel',
   'account:profile.slotUnset',
   'account:profile.title',
@@ -10676,6 +10710,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.meals.selectLabel',
   'commerce:configurator.meals.title',
   'commerce:configurator.meals.unknown',
+  'commerce:configurator.mealsUnsavedBody',
+  'commerce:configurator.mealsUnsavedTitle',
   'commerce:configurator.next',
   'commerce:configurator.notFoundBody',
   'commerce:configurator.notFoundTitle',
@@ -10733,6 +10769,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:durations.1w',
   'commerce:durations.2w',
   'commerce:durations.4w',
+  'commerce:myAllergens.addAnyway',
+  'commerce:myAllergens.badge',
+  'commerce:myAllergens.checkoutBody',
+  'commerce:myAllergens.checkoutTitle',
+  'commerce:myAllergens.confirmTitle',
+  'commerce:myAllergens.dialogBody',
+  'commerce:myAllergens.dialogBodyUnnamed',
+  'commerce:myAllergens.dialogTitle',
+  'commerce:myAllergens.mealWithAllergens',
+  'commerce:myAllergens.option',
+  'commerce:myAllergens.placeAnyway',
   'commerce:slots.evening',
   'commerce:slots.midday',
   'commerce:slots.morning',
@@ -10824,9 +10871,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:validation.required',
   'commerce:validation.tooLong',
   'commerce:warnings.checkout_address_missing',
+  'commerce:warnings.checkout_allergen_conflict',
   'commerce:warnings.checkout_empty_cart',
   'commerce:warnings.checkout_window_not_offered',
-  'commerce:warnings.planner_allergen_conflict',
+  'commerce:warnings.subscription_allergen_conflict',
   'commerce:warnings.subscription_delivery_day_unavailable',
   'commerce:warnings.subscription_no_delivery_days',
   'commerce:warnings.subscription_unknown_slot',
@@ -12305,6 +12353,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:forms.issueUnit',
   'kitchen:forms.itemsPerPack',
   'kitchen:forms.itemsPerUnit',
+  'kitchen:forms.menuListing',
   'kitchen:forms.noFigures',
   'kitchen:forms.nutritionTitle',
   'kitchen:forms.pack',
@@ -12541,7 +12590,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:meals.retiredTitle',
   'kitchen:meals.retiredToast',
   'kitchen:meals.sectionDetails',
-  'kitchen:meals.sectionIdentity',
   'kitchen:meals.sectionMargin',
   'kitchen:meals.sectionProduction',
   'kitchen:meals.sectionRecipe',
@@ -12797,6 +12845,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.customers.typeB2c',
   'kitchen:ops.customers.typeGuest',
   'kitchen:ops.customers.viewKind',
+  'kitchen:ops.exceptions.actionFailedToast',
   'kitchen:ops.exceptions.chip',
   'kitchen:ops.exceptions.clearBadge',
   'kitchen:ops.exceptions.columnBranch',
@@ -12834,6 +12883,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.resolvedBadge',
   'kitchen:ops.exceptions.resolvedToast',
   'kitchen:ops.exceptions.retry',
+  'kitchen:ops.exceptions.retryDeductedToast',
+  'kitchen:ops.exceptions.retryStillOpenToast',
   'kitchen:ops.exceptions.statResolvedCaption',
   'kitchen:ops.exceptions.statShownCaption',
   'kitchen:ops.exceptions.statUnit',
@@ -13161,6 +13212,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.completedToast',
   'kitchen:ops.production.completedUnvaluedToast',
   'kitchen:ops.production.confirm',
+  'kitchen:ops.production.confirmFailedTitle',
   'kitchen:ops.production.confirmedAtLabel',
   'kitchen:ops.production.confirmedToast',
   'kitchen:ops.production.consumedHeading',
@@ -13285,6 +13337,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.shortNone',
   'kitchen:ops.production.shortSome',
   'kitchen:ops.production.start',
+  'kitchen:ops.production.startFailedTitle',
   'kitchen:ops.production.startedAtLabel',
   'kitchen:ops.production.startedToast',
   'kitchen:ops.production.statCompletedCaption',
@@ -13436,6 +13489,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.qc.summaryTitle',
   'kitchen:ops.qc.title',
   'kitchen:ops.qc.viewKind',
+  'kitchen:ops.quotations.backToQuotations',
   'kitchen:ops.quotations.buyer',
   'kitchen:ops.quotations.caption',
   'kitchen:ops.quotations.clearFilter',
@@ -13453,6 +13507,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.declineHeading',
   'kitchen:ops.quotations.declineReason',
   'kitchen:ops.quotations.detailLoadErrorTitle',
+  'kitchen:ops.quotations.detailSubtitle',
   'kitchen:ops.quotations.detailTitle',
   'kitchen:ops.quotations.emptyBody',
   'kitchen:ops.quotations.emptyTitle',
@@ -13467,6 +13522,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.guidanceBody',
   'kitchen:ops.quotations.guidanceTitle',
   'kitchen:ops.quotations.lineColumn',
+  'kitchen:ops.quotations.lineCount',
   'kitchen:ops.quotations.lineNotPriced',
   'kitchen:ops.quotations.linePriceHint',
   'kitchen:ops.quotations.linePriceInvalid',
@@ -13495,7 +13551,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.requestedDelivery',
   'kitchen:ops.quotations.schedule',
   'kitchen:ops.quotations.send',
-  'kitchen:ops.quotations.sendRule',
   'kitchen:ops.quotations.staleBody',
   'kitchen:ops.quotations.staleTitle',
   'kitchen:ops.quotations.statAwaitingCaption',
@@ -13508,6 +13563,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.status.submitted',
   'kitchen:ops.quotations.submittedAt',
   'kitchen:ops.quotations.subtitle',
+  'kitchen:ops.quotations.summaryTitle',
   'kitchen:ops.quotations.timelineHeading',
   'kitchen:ops.quotations.title',
   'kitchen:ops.quotations.total',
@@ -13913,6 +13969,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.nothingNeededBody',
   'kitchen:ops.supplyOrders.nothingNeededTitle',
   'kitchen:ops.supplyOrders.onHand',
+  'kitchen:ops.supplyOrders.onOrder',
   'kitchen:ops.supplyOrders.order',
   'kitchen:ops.supplyOrders.orderAnyway',
   'kitchen:ops.supplyOrders.ordersCaption',
@@ -15060,6 +15117,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:windows.activeHint',
   'kitchen:windows.activeLabel',
   'kitchen:windows.add',
+  'kitchen:windows.archive',
+  'kitchen:windows.archiveBody',
+  'kitchen:windows.archiveConfirm',
+  'kitchen:windows.archiveFailed',
+  'kitchen:windows.archiveLabel',
+  'kitchen:windows.archiveTitle',
+  'kitchen:windows.archivedToast',
   'kitchen:windows.capacityColumn',
   'kitchen:windows.capacityHint',
   'kitchen:windows.capacityInvalid',

@@ -1,11 +1,17 @@
-import { lazyScreen } from '../../../../src/shell/lazy-screen.tsx';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 
-/** `/customer/account/addresses` — every place this person's orders can go. */
-const AddressesScreen = lazyScreen(
-    'account-addresses-loading',
-    async () => (await import('../../../../src/features/account/screens/index.ts')).AddressesScreen,
-);
+import { withReturnTo } from '../../../../src/navigation/return-to.ts';
 
+/**
+ * `/customer/account/addresses` — the account page's Addresses section.
+ *
+ * This was a second address list whose only extra was Remove, reached through "Manage addresses"
+ * and with no way back. Remove lives in the section now, so old links and bookmarks forward there,
+ * carrying any `?returnTo=` they had.
+ */
 export default function CustomerAccountAddresses() {
-    return <AddressesScreen />;
+    const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
+    return (
+        <Redirect href={withReturnTo('/customer/account?section=addresses', returnTo) as never} />
+    );
 }

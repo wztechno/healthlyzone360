@@ -33,14 +33,28 @@ class StoreDeliveryWindowRequest extends FormRequest
     {
         return [
             'code' => ['required', 'string', 'max:30'],
-            'name_en' => ['required', 'string', 'max:255'],
-            'name_ar' => ['nullable', 'string', 'max:255'],
+            'name_en' => ['required', 'string', 'max:255', 'regex:/[\pL\pN]/u'],
+            'name_ar' => ['nullable', 'string', 'max:255', 'regex:/[\pL\pN]/u'],
             'starts_at' => ['nullable', 'date_format:H:i,H:i:s'],
             'ends_at' => ['nullable', 'date_format:H:i,H:i:s'],
             'weekdays' => ['nullable', 'array', 'max:7'],
             'weekdays.*' => ['integer', 'between:1,7'],
             'display_order' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
+        ];
+    }
+
+    /**
+     * A name needs a letter or a digit in some script: "." passed `required`
+     * and was saved as a window's name in both languages.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'name_en.regex' => 'A window name needs at least one letter or number, for example "Lunch".',
+            'name_ar.regex' => 'An Arabic window name needs at least one letter or number, for example "غداء".',
         ];
     }
 

@@ -23,6 +23,10 @@ use Illuminate\Http\JsonResponse;
  * branch of their own (they are per order/line), so the branch comes from the
  * order they point at.
  *
+ * `resolved_count` rides along, counted under the same scope, so the Stock gaps
+ * page can put true totals on both its cards. They used to count only the
+ * rows of the page in hand — 25 unresolved beside a home tile saying 84.
+ *
  * Requires `inventory.view_organisation`.
  */
 final class ConsumptionExceptionCountController
@@ -32,8 +36,7 @@ final class ConsumptionExceptionCountController
         $branchId = $context->branchId();
         $organisationId = $context->organisationId();
 
-        $count = OrderConsumptionException::query()
-            ->unresolved()
+        $scoped = fn () => OrderConsumptionException::query()
             ->when($branchId !== null, fn ($query) => $query->whereIn(
                 'order_id',
                 fn ($sub) => $sub
@@ -41,9 +44,11 @@ final class ConsumptionExceptionCountController
                     ->from('orders')
                     ->where('organisation_id', $organisationId)
                     ->where('branch_id', $branchId),
-            ))
-            ->count();
+            ));
 
-        return ApiResponse::data(['count' => $count]);
+        return ApiResponse::data([
+            'count' => $scoped()->unresolved()->count(),
+            'resolved_count' => $scoped()->whereNotNull('resolved_at')->count(),
+        ]);
     }
 }

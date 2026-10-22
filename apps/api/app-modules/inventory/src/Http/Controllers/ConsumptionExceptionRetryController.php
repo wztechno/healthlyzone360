@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Healthy360\Inventory\Http\Controllers;
 
 use Healthy360\Audit\Services\AuditRecorder;
-use Healthy360\Inventory\Models\OrderConsumptionException;
 use Healthy360\Inventory\Presenters\OrderConsumptionExceptionPresenter;
 use Healthy360\Inventory\Services\OrderConsumptionService;
 use Healthy360\Support\Api\ApiResponse;
@@ -31,6 +30,8 @@ use Illuminate\Http\JsonResponse;
  */
 final class ConsumptionExceptionRetryController
 {
+    use ResolvesConsumptionException;
+
     public function __construct(
         private readonly OrderConsumptionService $consumption,
         private readonly OrderConsumptionExceptionPresenter $presenter,
@@ -38,10 +39,10 @@ final class ConsumptionExceptionRetryController
     ) {}
 
     public function __invoke(
-        OrderConsumptionException $exception,
+        string $exception,
         TenantContext $context,
     ): JsonResponse {
-        $result = $this->consumption->retry($exception, $context->userId());
+        $result = $this->consumption->retry($this->resolveException($exception, $context), $context->userId());
 
         $this->audit->record(
             'inventory.consumption_exception_retried',

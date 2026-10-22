@@ -1955,7 +1955,6 @@ describe('navigation descriptors', () => {
             '/kitchens',
             '/meals',
             '/plans',
-            '/profile',
         ]);
     });
 });

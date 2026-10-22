@@ -61,6 +61,22 @@ it('replaces the whole week in one write', function (): void {
         ->assertJsonPath('data.0.order_cut_off_at', '18:00');
 });
 
+it('names the zone the week is read in', function (): void {
+    // Every time is a clock face in the branch's own zone. The screen printed
+    // "UTC" for a Beirut kitchen because the reply never said which.
+    $this->getJson('/api/v1/kitchen/branch-operating', $this->headers)
+        ->assertOk()
+        ->assertJsonPath('meta.timezone', 'Asia/Beirut');
+
+    $this->a->branch->forceFill(['timezone' => 'Asia/Dubai'])->save();
+
+    $this->putJson('/api/v1/kitchen/branch-operating', [
+        'days' => KitchenWorld::openWeek(),
+    ], $this->headers)
+        ->assertOk()
+        ->assertJsonPath('meta.timezone', 'Asia/Dubai');
+});
+
 it('stores a closed day as a row', function (): void {
     // The distinction the whole table exists for: "we are shut on Friday" is a
     // row with no times, and only that lets a checkout explain a refusal.

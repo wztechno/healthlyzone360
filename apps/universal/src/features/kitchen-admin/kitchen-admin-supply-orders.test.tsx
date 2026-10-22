@@ -175,6 +175,8 @@ function proposalRow(
         supplierOptions: [],
         suggestedSupplierId: null,
         unassignedReason: null,
+        onOrderQuantity: '0.0000',
+        openOrders: [],
         ...overrides,
     };
 }
@@ -508,6 +510,37 @@ describe('supply order builder', () => {
             `${supplyOrderRowTestId(String(OUT_ONLY.stockItemId))}-quantity-input`,
         );
         expect(manual.props.value).toBe('');
+    });
+
+    it('says what is already on order, and leaves a shelf its open orders cover unticked', async () => {
+        const covered = proposalRow(6, {
+            itemNameEn: 'Olive oil',
+            suggestedQuantity: null,
+            suggestedQuantityBasis: 'none',
+            onOrderQuantity: '10.0000',
+            openOrders: [
+                {
+                    id: PurchaseOrderId.unsafe('0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e7002'),
+                    number: 'PO-CE9EXBGM',
+                    status: 'draft',
+                },
+            ],
+        });
+
+        await renderStubScreen(<SupplyOrderBuilderScreen />, {
+            session: kitchenManagerSession(),
+            repositories: builderOverrides([LOW_ONLY, covered]),
+        });
+        await untilVisible('kitchen-supply-order-rows');
+
+        const coveredRow = supplyOrderRowTestId(String(covered.stockItemId));
+        expect(screen.getByTestId(`${coveredRow}-on-order`)).toHaveTextContent(/PO-CE9EXBGM/);
+        // Not ticked: pressing Create again must not draft the same order twice.
+        expect(screen.getByTestId(`${coveredRow}-quantity-input`)).toBeDisabled();
+        // A shelf with nothing on order shows no such line.
+        expect(
+            screen.queryByTestId(`${supplyOrderRowTestId(String(LOW_ONLY.stockItemId))}-on-order`),
+        ).toBeNull();
     });
 
     it('names a preferred supplier and asks for a choice when there is no preference', async () => {

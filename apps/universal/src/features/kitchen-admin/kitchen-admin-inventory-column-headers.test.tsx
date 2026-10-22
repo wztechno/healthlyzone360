@@ -323,6 +323,8 @@ function proposalRow(
         supplierOptions: [],
         suggestedSupplierId: null,
         unassignedReason: null,
+        onOrderQuantity: '0.0000',
+        openOrders: [],
         ...overrides,
     };
 }

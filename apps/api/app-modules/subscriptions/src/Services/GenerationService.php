@@ -26,6 +26,7 @@ use Healthy360\Subscriptions\Models\SubscriptionDelivery;
 use Healthy360\Subscriptions\Models\SubscriptionMealChoice;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Support\Identifiers\IdentifierService;
+use Healthy360\Tenancy\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
@@ -88,6 +89,7 @@ final readonly class GenerationService
         private SubscriptionJournal $journal,
         private PlanMenuService $menus,
         private IdentifierService $identifiers,
+        private TenantContext $context,
     ) {}
 
     /**
@@ -128,9 +130,49 @@ final readonly class GenerationService
      * kitchen that expected one, which is precisely the mass-creation the
      * incremental design exists to avoid.
      *
+     * **Run as the subscriber, at their kitchen** — the context a customer's
+     * own checkout runs in. The scheduler carries no tenant context, and the
+     * runtime role holds NOBYPASSRLS, so without one the customer's account,
+     * their consents and the dish's recipe version (where its allergen label
+     * lives) all read as no row at all: every day was skipped
+     * `customer_record_unreadable`, and placement would have refused
+     * `account_not_ready` for consents it could not see. The kitchen is set
+     * first, which the subscriber arm of `rls_customer_account_select` admits,
+     * to learn whose login the account is; then the subscriber's own user is
+     * added, which is what admits their consents. An account with no login (a
+     * staff-provisioned one) runs as the kitchen alone.
+     *
      * @return array{generated: int, skipped: int, completed: int}
      */
     public function advance(Subscription $subscription, CarbonImmutable $now): array
+    {
+        $previous = $this->context->toArray();
+
+        try {
+            $this->context->restore([
+                'user_id' => null,
+                'organisation_id' => $subscription->organisation_id,
+                'branch_id' => $subscription->branch_id,
+            ]);
+
+            $subscriber = CustomerAccount::query()->whereKey($subscription->customer_account_id)->value('user_id');
+
+            $this->context->restore([
+                'user_id' => is_string($subscriber) ? $subscriber : null,
+                'organisation_id' => $subscription->organisation_id,
+                'branch_id' => $subscription->branch_id,
+            ]);
+
+            return $this->advanceAsKitchen($subscription, $now);
+        } finally {
+            $this->context->restore($previous);
+        }
+    }
+
+    /**
+     * @return array{generated: int, skipped: int, completed: int}
+     */
+    private function advanceAsKitchen(Subscription $subscription, CarbonImmutable $now): array
     {
         $none = ['generated' => 0, 'skipped' => 0, 'completed' => 0];
 

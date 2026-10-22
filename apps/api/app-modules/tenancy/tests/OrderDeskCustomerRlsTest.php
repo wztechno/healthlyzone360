@@ -260,3 +260,18 @@ it('does not let a programme rewrite the buyer account', function (): void {
         ->and(CustomerAccount::query()->whereKey($client->getKey())->value('display_name'))
         ->toBe('Acme Foods SAL');
 });
+
+it('keeps every read arm when the policy is rewritten, the subscription arm included', function (): void {
+    // Each migration that touches this policy drops and recreates it whole, so
+    // a later file that forgets an earlier arm silently revokes it. The two
+    // 2026_10_21_000301 / 2026_10_22_000101 rewrites landed on separate
+    // branches; this pins the result.
+    $read = (string) DB::table('pg_policies')
+        ->where('tablename', 'customer_accounts')
+        ->where('policyname', 'rls_customer_account_select')
+        ->value('qual');
+
+    expect($read)->toContain('orders o')
+        ->and($read)->toContain('subscriptions s')
+        ->and($read)->toContain('corporate_programmes cp');
+});

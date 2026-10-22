@@ -16,6 +16,7 @@ import { useCurrentHref, useGoToAuth } from '../../navigation/use-return-to.ts';
 import { useFailureMessage } from '../../screens/form-helpers.ts';
 import { useSession } from '../../session/session-provider.tsx';
 import { recordResumeIntent } from '../marketplace/resume-intent.ts';
+import { clashingAllergens, useAllergenNames, useMyAllergenCodes } from './my-allergens.tsx';
 import { writePendingAdd } from './pending-add.ts';
 
 /**
@@ -78,6 +79,14 @@ import { writePendingAdd } from './pending-add.ts';
  * A surface that reports beside its own control passes `reportsInline` and reads `failure`. A
  * refusal the person can act on — the session ended, the address is not confirmed — is a toast with
  * the way forward on every surface, because an inline callout has nowhere to put a button.
+ *
+ * ## A meal that crosses the person's allergies is asked about first
+ *
+ * When the meal's allergens include one the person declared, Add opens "Contains your allergen"
+ * naming it, with Cancel and "Add anyway". It is a question, not a refusal: the person chose the
+ * dish, and checkout asks again — by the server's rule, against the allergies as they stand then.
+ * A pending add replayed after sign-in carries no allergens and is not asked about; the basket and
+ * checkout still are.
  */
 export interface UseBasketAddOptions {
     /**
@@ -95,12 +104,16 @@ export interface UseBasketAddOptions {
 }
 
 /**
- * What an add needs to know about a meal: which one, and whose. A `MarketplaceMeal` is one; so is a
- * pending add being replayed after a sign-in, which kept only these two.
+ * What an add needs to know about a meal: which one, and whose — and, when known, what it contains
+ * and what it is called, so a clash with the person's allergies can be asked about. A
+ * `MarketplaceMeal` is one; so is a pending add being replayed after a sign-in, which kept only the
+ * first two.
  */
 export interface BasketMeal {
     readonly id: MarketplaceMeal['id'];
     readonly kitchenId?: KitchenId | undefined;
+    readonly allergens?: readonly string[] | undefined;
+    readonly name?: string | undefined;
 }
 
 export interface BasketAdd {
@@ -197,6 +210,11 @@ interface Asked {
     readonly quantity: number;
 }
 
+interface AllergenAsk extends Asked {
+    /** The meal's allergens the person declared. */
+    readonly clashing: readonly string[];
+}
+
 interface Conflict extends Asked {
     /** The kitchen the basket already holds meals from, when the lines say. */
     readonly kitchenName: string | undefined;
@@ -216,10 +234,13 @@ export function useBasketAdd({
     const { phase } = useSession();
     const queryClient = useQueryClient();
     const addToBasket = useBasketAddMutation();
+    const myAllergens = useMyAllergenCodes();
+    const allergenNames = useAllergenNames();
 
     // The sign-in question, and the "Start a new basket?" one. Each holds the add it is about.
     const [asked, setAsked] = useState<Asked | null>(null);
     const [conflict, setConflict] = useState<Conflict | null>(null);
+    const [allergenAsk, setAllergenAsk] = useState<AllergenAsk | null>(null);
 
     /** Keep the add and go to authenticate, coming back to this page. */
     const authenticateFor = (
@@ -313,6 +334,16 @@ export function useBasketAdd({
         );
     };
 
+    /** Past every question about the person: the basket's kitchen, then the add. */
+    const proceed = (choice: Asked) => {
+        const cached = queryClient.getQueryData<Cart>(queryKeys.commerce.cart());
+        if (holdsAnotherKitchen(cached, choice.meal)) {
+            setConflict({ ...choice, kitchenName: cached?.items[0]?.kitchenName });
+            return;
+        }
+        commit(choice);
+    };
+
     const add = (meal: BasketMeal, quantity = 1) => {
         const choice: Asked = { meal, quantity };
         switch (phase) {
@@ -331,16 +362,59 @@ export function useBasketAdd({
                 break;
         }
 
-        const cached = queryClient.getQueryData<Cart>(queryKeys.commerce.cart());
-        if (holdsAnotherKitchen(cached, meal)) {
-            setConflict({ ...choice, kitchenName: cached?.items[0]?.kitchenName });
+        const clashing = clashingAllergens(meal.allergens, myAllergens);
+        if (clashing.length > 0) {
+            setAllergenAsk({ ...choice, clashing });
             return;
         }
-        commit(choice);
+        proceed(choice);
     };
 
     const dialog = (
         <>
+            <Dialog
+                testID={`${testID}-allergen-warning`}
+                open={allergenAsk !== null}
+                onClose={() => {
+                    setAllergenAsk(null);
+                }}
+                title={t('commerce:myAllergens.dialogTitle')}
+                {...(allergenAsk === null
+                    ? {}
+                    : {
+                          description: t(
+                              allergenAsk.meal.name === undefined
+                                  ? 'commerce:myAllergens.dialogBodyUnnamed'
+                                  : 'commerce:myAllergens.dialogBody',
+                              {
+                                  meal: allergenAsk.meal.name,
+                                  count: allergenAsk.clashing.length,
+                                  allergens: allergenNames(allergenAsk.clashing),
+                              },
+                          ),
+                      })}
+                actions={
+                    <>
+                        <Button
+                            testID={`${testID}-allergen-warning-cancel`}
+                            variant="secondary"
+                            label={t('common:action.cancel')}
+                            onPress={() => {
+                                setAllergenAsk(null);
+                            }}
+                        />
+                        <Button
+                            testID={`${testID}-allergen-warning-add`}
+                            label={t('commerce:myAllergens.addAnyway')}
+                            onPress={() => {
+                                if (allergenAsk === null) return;
+                                setAllergenAsk(null);
+                                proceed(allergenAsk);
+                            }}
+                        />
+                    </>
+                }
+            />
             <Dialog
                 testID={`${testID}-guest-entry-dialog`}
                 open={asked !== null}

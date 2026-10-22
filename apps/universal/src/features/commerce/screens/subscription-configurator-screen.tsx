@@ -1,26 +1,22 @@
 import {
     Button,
-    Callout,
-    Card,
     EmptyState,
     Icon,
-    Inline,
     Stack,
     StepProgress,
-    Text,
     useBreakpoint,
 } from '@healthy360/design-system';
 import type {
     CustomerAddress,
     MarketplaceMeal,
-    Subscription,
+    SetSubscriptionMealChoicesRequest,
     SubscriptionRefusal,
 } from '@healthy360/api-client/contracts';
-import { SubscriptionPlanId } from '@healthy360/domain-types';
-import type { AllergenCode, PlanVariantId } from '@healthy360/domain-types';
-import { useFormatter } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { AllergenCode, SubscriptionPlanId } from '@healthy360/domain-types';
+import type { PlanVariantId, SubscriptionId } from '@healthy360/domain-types';
+import { useQueryClient } from '@tanstack/react-query';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
 
@@ -29,18 +25,35 @@ import {
     toFailure,
     useAllowedDeliveryWeekdaysQuery,
     useCreateSubscriptionMutation,
+    useSetSubscriptionMealChoicesMutation,
     useSubscriptionPreviewQuery,
+    useSubscriptionQuoteQuery,
 } from '../../../data/commerce-hooks.ts';
-import { useAddressesQuery } from '../../../data/account-hooks.ts';
+import { useAccountChecklistQuery, useAddressesQuery } from '../../../data/account-hooks.ts';
 import { useCurrentTargetsQuery, useKitchenQuery } from '../../../data/marketplace-hooks.ts';
+import { queryKeys } from '../../../data/query-keys.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+import { useNavigateUp, usePreviousEntry } from '../../../navigation/use-return-to.ts';
 import { useValidationTranslate } from '../../../screens/form-helpers.ts';
-import { AccountSetupSteps, stepForRequirement } from '../../account/account-setup-steps.tsx';
+import {
+    AccountSetupPanel,
+    AccountSetupSteps,
+    stepForRequirement,
+} from '../../account/account-setup-steps.tsx';
 import type { AccountSetupStep } from '../../account/account-setup-steps.tsx';
 import { ListingHeader } from '../../../ui/listing-header.tsx';
-import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
-import { EMPTY_ADDRESS, toDeliveryAddress, validateAddress } from '../address.ts';
-import type { AddressField } from '../address.ts';
+import { EMPTY_ADDRESS, toDeliveryAddress } from '../address.ts';
+import {
+    CONFIGURATOR_PATH,
+    configuratorDraftKey,
+    configuratorDrafts,
+    configuratorHref,
+    configuratorStepOf,
+    editsOf,
+    readConfiguratorLocation,
+} from '../configurator-draft.ts';
+import type { ConfiguratorEdits } from '../configurator-draft.ts';
 import {
     DeliveryStep,
     PlanStep,
@@ -50,11 +63,14 @@ import {
 import {
     CONFIGURATOR_STEPS,
     combinationKey,
+    firstIncompleteStep,
+    firstWeekChoices,
     initialConfiguratorState,
     isStepReachable,
     mealCombinations,
     nextConfiguratorStep,
     previousConfiguratorStep,
+    savedAddressValues,
     stepPosition,
     storedAllergenCodes,
     storedDietClassifications,
@@ -65,9 +81,10 @@ import {
 } from '../configurator.ts';
 import type { ConfiguratorState, ConfiguratorStep, StepContext } from '../configurator.ts';
 import { earliestStartDate } from '../dates.ts';
-import { deliveryAreaStatus, servedAreas } from '../delivery.ts';
+import { servedAreas } from '../delivery.ts';
+import type { DeliveryAreaStatus } from '../delivery.ts';
+import { useMyAllergenCodes } from '../my-allergens.tsx';
 import { PlanSetupSummary } from '../plan-setup-summary.tsx';
-import { SubscriptionStateBadge } from '../state-badge.tsx';
 
 /**
  * `/customer/subscriptions/new?plan={id}` — setting up a subscription, in three steps.
@@ -92,21 +109,55 @@ import { SubscriptionStateBadge } from '../state-badge.tsx';
  * (`data/commerce-hooks.ts`). The allergen vocabulary is not published either, so the choices are
  * the union of what this kitchen declares on its own menu and what the person's profile already
  * excludes. Both are recorded as contract gaps rather than hard-coded lists.
+ *
+ * ## Nothing here lives only in component memory
+ *
+ * The customer area is one `<Slot/>`: adding an address, Back, a refresh or a crumb unmounts this
+ * screen, and it used to come back on step one with every choice gone (plans-03). The step, the band
+ * and the chosen address are in the URL (`?step=plan|delivery|review&variant=&address=`); the rest
+ * of the person's changes are in a session draft keyed by plan (`../configurator-draft.ts`). So
+ * Continue and Edit *push* a step — Back walks Review → Delivery → Plan — a detour comes back to the
+ * step it left with everything in place, and a refresh changes nothing.
+ *
+ * ## The account is checked before step one, not after step three
+ *
+ * The account checklist is read up front. The steps a new account still has to do are listed above
+ * the set-up, each opening the screen that does it and coming back here (`returnTo`), and Subscribe
+ * waits until none is left — the same rule the checkout's Place order follows. The server's refusal
+ * stays as the backstop for a race.
+ *
+ * ## Creating replaces the set-up
+ *
+ * A created subscription is `/customer/subscriptions/{id}?created=1`, reached by `replace`, so
+ * refresh shows the subscription and Back never offers a spent set-up ready to create a second one
+ * (plans-04).
  */
 
 export interface SubscriptionConfiguratorScreenProps {
     readonly planId: string | undefined;
+    /** The band the plan page was showing. `?variant=` wins once the person changes it here. */
     readonly variantId?: string | undefined;
 }
 
 export function SubscriptionConfiguratorScreen({
     planId,
-    variantId,
+    variantId: variantProp,
 }: SubscriptionConfiguratorScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
+    const queryClient = useQueryClient();
     const { atLeast } = useBreakpoint();
     const validationTranslate = useValidationTranslate();
+    const navigateUp = useNavigateUp();
+    const previous = usePreviousEntry();
+    const params = useLocalSearchParams();
+    // Memoised on the params so the compiler sees a frozen value: read inline, the location is a
+    // fresh object it cannot prove unmutated, and every memo below that reads the band bails out.
+    const location = useMemo(() => readConfiguratorLocation(params), [params]);
+    // The route hands `plan` and `variant` over as props; the query is read here as well, so a band
+    // chosen on the first step — a `setParams` — is seen without a remount.
+    const variantId = location.variant ?? variantProp;
+    const requestedStep: ConfiguratorStep = location.step ?? 'plan';
 
     const parsedPlanId = planId === undefined ? null : SubscriptionPlanId.safeParse(planId);
     const plan = usePlanQuery(parsedPlanId);
@@ -120,10 +171,8 @@ export function SubscriptionConfiguratorScreen({
     );
     const menu: readonly MarketplaceMeal[] = mealsFromPages(menuQuery.data?.pages);
 
-    const [step, setStep] = useState<ConfiguratorStep>('plan');
     const [showIssues, setShowIssues] = useState(false);
-    const [created, setCreated] = useState<Subscription | null>(null);
-    const [addressId, setAddressId] = useState<string | null>(null);
+    const [termsAcknowledged, setTermsAcknowledged] = useState(false);
 
     const addresses = useAddressesQuery();
     // Memoised rather than `?? []` inline: the fallback allocates a fresh array on every render,
@@ -132,6 +181,21 @@ export function SubscriptionConfiguratorScreen({
         () => addresses.data ?? [],
         [addresses.data],
     );
+    const checklist = useAccountChecklistQuery();
+
+    /*
+     * The address is the one in the URL while it is still in the book — the address editor comes
+     * back with `?address=<new id>` — else the default, else the only one there is: somebody with
+     * one address is never made to open a list of one to pick it. The checkout's rule (HA-22).
+     */
+    const addressId =
+        (location.address !== undefined &&
+        addressList.some((entry) => entry.id === location.address)
+            ? location.address
+            : null) ??
+        addressList.find((entry) => entry.isDefault)?.id ??
+        (addressList.length === 1 ? (addressList[0]?.id ?? null) : null);
+    const savedAddress = addressList.find((entry) => entry.id === addressId);
 
     /**
      * ## Defaults are derived, edits are held
@@ -145,30 +209,54 @@ export function SubscriptionConfiguratorScreen({
      * So the state is a **derivation**. `defaults` recomputes as the data arrives; `edits` holds
      * only what the person has actually changed, and wins. A weekday nobody has touched updates the
      * moment the probe answers; one they deselected stays deselected, because it is in `edits`.
+     *
+     * ## And the edits outlive the screen
+     *
+     * They start from this plan's session draft and are written back to it whenever the person
+     * changes something, so a detour, Back or a refresh finds them where they were left. Only a
+     * change the person made writes — opening the page over a restored draft does not renew its age.
      */
-    const [edits, setEdits] = useState<Partial<ConfiguratorState>>({});
-
-    const patch = useCallback((next: Partial<ConfiguratorState>) => {
-        setEdits((current) => ({ ...current, ...next }));
-    }, []);
+    const draftKey = configuratorDraftKey(planId ?? '');
+    const [edits, setEdits] = useState<ConfiguratorEdits>(
+        () => configuratorDrafts.read(draftKey) ?? {},
+    );
+    const changed = useRef(false);
+    useEffect(() => {
+        if (changed.current) configuratorDrafts.write(draftKey, edits);
+    }, [draftKey, edits]);
 
     /**
-     * One address field at a time, against the latest edits rather than the rendered snapshot.
-     *
-     * Typing into two fields inside a single React batch — which is exactly what a form fill does —
-     * would otherwise compose two new addresses from the same starting value and keep only the
-     * second. The base is `EMPTY_ADDRESS` because the configurator always starts from a blank one.
+     * One step's change, sent where it lives: the band to the URL (it is what the plan crumb and the
+     * plan page share), the terms tick to this mount only, the rest to the draft — merged against the
+     * latest edits rather than the rendered snapshot, so two changes in one batch both survive.
      */
-    const patchAddressField = useCallback((field: AddressField, value: string) => {
-        setEdits((current) => ({
-            ...current,
-            address: { ...(current.address ?? EMPTY_ADDRESS), [field]: value },
-        }));
-    }, []);
+    const patch = useCallback(
+        (next: Partial<ConfiguratorState>) => {
+            if (next.variantId !== undefined && next.variantId !== null) {
+                router.setParams({ variant: String(next.variantId) } as never);
+            }
+            if (next.termsAcknowledged !== undefined) setTermsAcknowledged(next.termsAcknowledged);
+            const draftPart = editsOf(next);
+            if (Object.keys(draftPart).length === 0) return;
+            changed.current = true;
+            setEdits((current) => ({ ...current, ...draftPart }));
+        },
+        [router, setEdits, setTermsAcknowledged],
+    );
 
+    // "Leave out" starts from what the person already told us: the allergies on their profile,
+    // and any their nutrition targets carry. The profile is the one checkout and generation read.
+    const profileAllergens = useMyAllergenCodes();
     const storedAllergens = useMemo(
-        () => storedAllergenCodes(targets.data?.result.request.constraints),
-        [targets.data],
+        () => [
+            ...new Set([
+                ...profileAllergens
+                    .map((code) => AllergenCode.safeParse(code))
+                    .filter((code): code is AllergenCode => code !== null),
+                ...storedAllergenCodes(targets.data?.result.request.constraints),
+            ]),
+        ],
+        [profileAllergens, targets.data],
     );
 
     const storedDiets = useMemo(
@@ -186,7 +274,7 @@ export function SubscriptionConfiguratorScreen({
 
     // A probe configuration exists as soon as the plan does. Its delivery weekdays are irrelevant —
     // the hook replaces them, one weekday at a time — and its query key is the plan and the variant,
-    // so typing an address does not re-run seven requests.
+    // so choosing an address or a window does not re-run seven requests.
     const probe = useMemo(() => {
         if (item === undefined) return null;
         const seed = initialConfiguratorState({
@@ -217,8 +305,19 @@ export function SubscriptionConfiguratorScreen({
     }, [item, storedAllergens, storedDiets, variantId, weekdays.data]);
 
     const state = useMemo<ConfiguratorState | null>(
-        () => (defaults === null ? null : { ...defaults, ...edits }),
-        [defaults, edits],
+        () =>
+            defaults === null
+                ? null
+                : {
+                      ...defaults,
+                      ...edits,
+                      termsAcknowledged,
+                      address:
+                          savedAddress === undefined
+                              ? EMPTY_ADDRESS
+                              : savedAddressValues(savedAddress),
+                  },
+        [defaults, edits, savedAddress, termsAcknowledged],
     );
 
     /* ── derived ─────────────────────────────────────────────────────────────────────────────── */
@@ -226,19 +325,11 @@ export function SubscriptionConfiguratorScreen({
     const variant =
         item === undefined || state === null ? null : variantById(item, state.variantId);
 
-    const addressErrors = useMemo(
-        () => (state === null ? {} : validateAddress(state.address, validationTranslate)),
-        [state, validationTranslate],
-    );
-
-    const savedAddress = addressList.find((entry) => entry.id === addressId);
-    const areaStatus = useMemo(() => {
-        // A saved address carries the server's own answer, computed against the published zone
-        // coverage — authoritative over any client-side comparison of area strings, whose
-        // granularities (gazetteer rows vs a zone's display label) need not match textually.
-        if (savedAddress !== undefined) return savedAddress.isDeliverable ? 'served' : 'unserved';
-        return deliveryAreaStatus(kitchen.data, state?.address.area ?? '');
-    }, [savedAddress, kitchen.data, state?.address.area]);
+    // A saved address carries the server's own answer, computed against the published zone
+    // coverage — authoritative over any client-side comparison of area strings, whose
+    // granularities (gazetteer rows vs a zone's display label) need not match textually.
+    const areaStatus: DeliveryAreaStatus =
+        savedAddress === undefined ? 'unknown' : savedAddress.isDeliverable ? 'served' : 'unserved';
 
     const areas = useMemo(() => servedAreas(kitchen.data), [kitchen.data]);
 
@@ -254,12 +345,41 @@ export function SubscriptionConfiguratorScreen({
             plan: item,
             allowedWeekdays,
             areaStatus,
-            hasSavedAddress: addressId !== null,
+            hasSavedAddress: savedAddress !== undefined,
             earliestStartDate: earliestStartDate(),
             storedAllergens,
             translate: (key: string) => validationTranslate(key),
         };
-    }, [addressId, allowedWeekdays, areaStatus, item, storedAllergens, validationTranslate]);
+    }, [allowedWeekdays, areaStatus, item, savedAddress, storedAllergens, validationTranslate]);
+
+    /*
+     * The step is `?step=`, honoured only while every step before it is satisfied. A link, a stale
+     * Back or an expired draft can name a step whose earlier answers are no longer there — Review
+     * with no address — and that entry is moved, in place, to the first step still unanswered.
+     *
+     * Only once what the rules read has *settled*: the plan, the weekdays it delivers on, the stored
+     * allergies, and an address book that is not fetching at all. Coming back from adding an
+     * address, the book is refetched on remount, and judging `?address=` against the copy from
+     * before the detour would throw the person off the step they were on.
+     */
+    const settled =
+        item !== undefined &&
+        weekdays.isFetched &&
+        targets.isFetched &&
+        addresses.isFetched &&
+        !addresses.isFetching;
+    const reachable =
+        state !== null && context !== null && isStepReachable(requestedStep, state, context);
+    const fallbackStep: ConfiguratorStep =
+        state === null || context === null
+            ? 'plan'
+            : (firstIncompleteStep(state, context) ?? requestedStep);
+    const step: ConfiguratorStep = reachable || !settled ? requestedStep : fallbackStep;
+    const strandedOn = settled && !reachable ? fallbackStep : null;
+    useEffect(() => {
+        if (strandedOn === null) return;
+        router.setParams({ step: strandedOn === 'plan' ? undefined : strandedOn } as never);
+    }, [router, strandedOn]);
 
     const issues =
         state === null || context === null ? [] : validateConfiguratorStep(step, state, context);
@@ -274,19 +394,70 @@ export function SubscriptionConfiguratorScreen({
     const create = useCreateSubscriptionMutation();
     const createFailure = toFailure(create.error);
 
+    // Whether the plan lets a subscriber choose meals at all — the quote's answer, from the same
+    // cache entry the weekday probe and the preview read. Unknown counts as no: the picker appears
+    // once the server has said yes, rather than being withdrawn after somebody has used it.
+    const quote = useSubscriptionQuoteQuery(
+        item === undefined || state === null || state.variantId === null || step !== 'review'
+            ? null
+            : { planId: item.id, variantId: state.variantId, duration: state.duration },
+    );
+    const freeSelection = quote.data?.allowsFreeSelection === true;
+    const setMealChoices = useSetSubscriptionMealChoicesMutation();
+    const [savingChoices, setSavingChoices] = useState(false);
+
+    /*
+     * Account set-up the server still needs, read before step one rather than discovered at
+     * Subscribe: one row per required step, each opening the screen that does it and coming back
+     * here. Subscribe waits until the list is empty — the checkout's rule.
+     */
+    const setupSteps: AccountSetupStep[] = [];
+    for (const entry of checklist.data?.items ?? []) {
+        if (!entry.required || entry.complete) continue;
+        setupSteps.push({
+            step: entry.step,
+            blockedReason: entry.blockedReason,
+            ...(entry.step === 'add_address' ? { hasAddress: addressList.length > 0 } : {}),
+        });
+    }
+
     /* ── navigation ──────────────────────────────────────────────────────────────────────────── */
 
-    const goTo = useCallback((target: ConfiguratorStep) => {
+    /** This set-up at a step, as it stands — what a step change pushes and a detour returns to. */
+    const hrefAt = (target: ConfiguratorStep, address: string | null = addressId): string =>
+        configuratorHref({
+            plan: planId,
+            variant: state?.variantId ?? variantId,
+            step: target,
+            address: address ?? undefined,
+        });
+    const here = hrefAt(step);
+
+    // A step of its own in history, so Back walks the steps rather than leaving the set-up.
+    const goTo = (target: ConfiguratorStep) => {
         setShowIssues(false);
-        setStep(target);
-    }, []);
+        router.push(hrefAt(target) as never);
+    };
 
-    const onBack = useCallback(() => {
+    const onBack = () => {
         const target = previousConfiguratorStep(step);
-        if (target !== null) goTo(target);
-    }, [goTo, step]);
+        if (target === null) return;
+        setShowIssues(false);
+        // Back when the step before is the entry underneath — the usual case, since Continue pushed
+        // this one; otherwise (a refresh, a link) the step is changed in place, so the in-card Back
+        // never leaves the set-up.
+        if (
+            previous !== null &&
+            previous.pathname === CONFIGURATOR_PATH &&
+            (configuratorStepOf(previous.params['step']) ?? 'plan') === target
+        ) {
+            router.back();
+        } else {
+            router.setParams({ step: target === 'plan' ? undefined : target } as never);
+        }
+    };
 
-    const onNext = useCallback(() => {
+    const onNext = () => {
         if (state === null || context === null) return;
         if (validateConfiguratorStep(step, state, context).length > 0) {
             setShowIssues(true);
@@ -294,10 +465,45 @@ export function SubscriptionConfiguratorScreen({
         }
         const target = nextConfiguratorStep(step);
         if (target !== null) goTo(target);
-    }, [context, goTo, state, step]);
+    };
 
-    const onCreate = useCallback(() => {
+    // The draft is written as each change is made, so leaving now loses nothing; the editor comes
+    // back to the delivery step with the new address in `?address=`.
+    const onAddAddress = () => {
+        router.push(
+            withReturnTo('/customer/account/addresses/new', hrefAt('delivery', null)) as never,
+        );
+    };
+
+    const hasDraft = Object.keys(edits).length > 0;
+    const startOver = () => {
+        configuratorDrafts.clear(draftKey);
+        changed.current = false;
+        setEdits({});
+        setTermsAcknowledged(false);
+        setShowIssues(false);
+        router.setParams({ step: undefined, address: undefined } as never);
+    };
+
+    /**
+     * The first week's picks, sent once the subscription exists — `POST /subscriptions` carries no
+     * meals; choosing is its own write, `PUT …/choices`, one day at a time. Each day stands alone:
+     * one refused (inside the cut-off, not a delivery day after all) does not lose the others, and
+     * the count of refused days goes to the new subscription's page, which says so.
+     */
+    const sendFirstWeekChoices = async (
+        subscriptionId: SubscriptionId,
+        days: readonly SetSubscriptionMealChoicesRequest[],
+    ): Promise<number> => {
+        const results = await Promise.allSettled(
+            days.map((request) => setMealChoices.mutateAsync({ subscriptionId, request })),
+        );
+        return results.filter((result) => result.status === 'rejected').length;
+    };
+
+    const onCreate = () => {
         if (state === null || item === undefined || context === null) return;
+        if (setupSteps.length > 0 || savingChoices) return;
         if (validateConfiguratorStep('review', state, context).length > 0) {
             setShowIssues(true);
             return;
@@ -307,15 +513,39 @@ export function SubscriptionConfiguratorScreen({
             setShowIssues(true);
             return;
         }
+        const picks = freeSelection ? firstWeekChoices(state, variant) : [];
         create.mutate(
             {
                 configuration: request,
                 acknowledgedTerms: state.termsAcknowledged,
                 ...(addressId === null ? {} : { addressId }),
             },
-            { onSuccess: setCreated },
+            {
+                onSuccess: async (subscription) => {
+                    configuratorDrafts.clear(draftKey);
+                    let refused = 0;
+                    if (picks.length > 0) {
+                        setSavingChoices(true);
+                        refused = await sendFirstWeekChoices(subscription.id, picks);
+                    }
+                    // Replaces the set-up: the new subscription has a URL of its own, a refresh
+                    // shows it, and Back is not a second chance to create it (plans-04).
+                    router.replace(
+                        withQuery(`/customer/subscriptions/${String(subscription.id)}`, {
+                            created: '1',
+                            ...(refused === 0 ? {} : { unsavedMeals: String(refused) }),
+                        }) as never,
+                    );
+                },
+                onError: () => {
+                    // A set-up refusal means the checklist read earlier is out of date.
+                    void queryClient.invalidateQueries({
+                        queryKey: queryKeys.account.checklist(),
+                    });
+                },
+            },
         );
-    }, [addressId, context, create, item, state]);
+    };
 
     /* ── render ──────────────────────────────────────────────────────────────────────────────── */
 
@@ -328,20 +558,6 @@ export function SubscriptionConfiguratorScreen({
             }}
         />
     );
-
-    if (created !== null) {
-        return (
-            <SubscriptionCreated
-                subscription={created}
-                onOpen={() => {
-                    router.replace(`/customer/subscriptions/${String(created.id)}` as never);
-                }}
-                onList={() => {
-                    router.replace('/customer/account?section=subscriptions' as never);
-                }}
-            />
-        );
-    }
 
     if (parsedPlanId === null) {
         return (
@@ -363,12 +579,14 @@ export function SubscriptionConfiguratorScreen({
         <View testID="configurator-screen" className="flex-col">
             <ListingHeader
                 testID="configurator-header"
+                // Up to the listing as the person left it, and to the plan on the band chosen here —
+                // not to a bare path that resets both (browse-05). The draft keeps the set-up.
                 breadcrumbs={[
                     {
                         key: 'plans',
                         label: t('catalogue:nav.plans'),
                         onPress: () => {
-                            router.push('/plans');
+                            navigateUp('/plans');
                         },
                     },
                     ...(item === undefined
@@ -378,7 +596,11 @@ export function SubscriptionConfiguratorScreen({
                                   key: 'plan',
                                   label: item.name,
                                   onPress: () => {
-                                      router.push(`/plans/${String(item.id)}` as never);
+                                      navigateUp(
+                                          withQuery(`/plans/${String(item.id)}`, {
+                                              variant: state?.variantId ?? variantId,
+                                          }),
+                                      );
                                   },
                               },
                           ]),
@@ -402,6 +624,20 @@ export function SubscriptionConfiguratorScreen({
                 {item === undefined || state === null ? null : (
                     <View className="mt-6 flex-col gap-8 lg:flex-row lg:items-start">
                         <View className="min-w-0 flex-col lg:flex-1">
+                            {setupSteps.length === 0 ? null : (
+                                <View className="mb-6">
+                                    <AccountSetupPanel
+                                        testID="configurator-setup-required"
+                                        title={t('commerce:configurator.setupTitle')}
+                                        body={t('commerce:configurator.setupBody', {
+                                            count: setupSteps.length,
+                                        })}
+                                        steps={setupSteps}
+                                        stepsTestID="configurator-setup-step"
+                                        returnTo={here}
+                                    />
+                                </View>
+                            )}
                             <View className="mb-2">
                                 <StepProgress
                                     testID="configurator-stepper"
@@ -455,17 +691,18 @@ export function SubscriptionConfiguratorScreen({
                                     plan={item}
                                     state={state}
                                     patch={patch}
-                                    onAddressField={patchAddressField}
                                     allowedWeekdays={allowedWeekdays}
                                     areaStatus={areaStatus}
                                     servedAreas={areas}
-                                    addressErrors={addressErrors}
                                     allergenOptions={allergenOptions}
                                     storedAllergens={storedAllergens}
                                     showIssues={showIssues}
                                     savedAddresses={addressList}
                                     addressId={addressId}
-                                    onAddressIdChange={setAddressId}
+                                    onAddressIdChange={(next) => {
+                                        router.setParams({ address: next ?? undefined } as never);
+                                    }}
+                                    onAddAddress={onAddAddress}
                                 />
                             ) : null}
 
@@ -485,19 +722,33 @@ export function SubscriptionConfiguratorScreen({
                                         preview={preview.data}
                                         savedAddress={savedAddress}
                                         menu={menu}
+                                        freeSelection={freeSelection}
                                         onEdit={goTo}
                                     />
                                 </QueryStates>
                             ) : null}
 
-                            {previousConfiguratorStep(step) === null ? null : (
-                                <View className="mt-5 self-start">
-                                    <Button
-                                        testID="configurator-back"
-                                        variant="quiet"
-                                        label={t('commerce:configurator.back')}
-                                        onPress={onBack}
-                                    />
+                            {previousConfiguratorStep(step) === null && !hasDraft ? null : (
+                                <View className="mt-5 flex-row flex-wrap items-center gap-2 self-start">
+                                    {previousConfiguratorStep(step) === null ? null : (
+                                        <Button
+                                            testID="configurator-back"
+                                            variant="quiet"
+                                            label={t('commerce:configurator.back')}
+                                            onPress={onBack}
+                                        />
+                                    )}
+                                    {/* Quiet, and only once there is something to discard: the
+                                        remembered choices are the point, and forgetting them is
+                                        the exception. */}
+                                    {hasDraft ? (
+                                        <Button
+                                            testID="configurator-start-over"
+                                            variant="quiet"
+                                            label={t('commerce:configurator.startOver')}
+                                            onPress={startOver}
+                                        />
+                                    ) : null}
                                 </View>
                             )}
                         </View>
@@ -528,7 +779,21 @@ export function SubscriptionConfiguratorScreen({
                                 actionTestID={
                                     step === 'review' ? 'configurator-create' : 'configurator-next'
                                 }
-                                actionLoading={step === 'review' && create.isPending}
+                                // Next waits for what the step rules read (the plan's delivery
+                                // days, stored allergies, the address book): a step taken before
+                                // they arrive could be judged unreachable a moment later and
+                                // silently put back.
+                                actionLoading={
+                                    step === 'review' ? create.isPending || savingChoices : !settled
+                                }
+                                actionDisabled={step === 'review' && setupSteps.length > 0}
+                                {...(step === 'review' && setupSteps.length > 0
+                                    ? {
+                                          actionHint: t(
+                                              'commerce:configurator.subscribeBlockedHint',
+                                          ),
+                                      }
+                                    : {})}
                                 onAction={step === 'review' ? onCreate : onNext}
                                 notice={
                                     <SetupNotice
@@ -539,6 +804,7 @@ export function SubscriptionConfiguratorScreen({
                                                 ? createFailure.reasons
                                                 : []
                                         }
+                                        returnTo={here}
                                     />
                                 }
                                 {...(step === 'review'
@@ -571,10 +837,13 @@ function SetupNotice({
     issues,
     failure,
     reasons,
+    returnTo,
 }: {
     readonly issues: readonly string[];
     readonly failure: string | null;
     readonly reasons: readonly SubscriptionRefusal[];
+    /** The set-up on its current step, which each account step comes back to. */
+    readonly returnTo: string;
 }) {
     const { t } = useTranslation();
     if (issues.length === 0 && failure === null) return null;
@@ -627,7 +896,11 @@ function SetupNotice({
                         </View>
                     ))}
                     {setupSteps.length === 0 ? null : (
-                        <AccountSetupSteps steps={setupSteps} testID="configurator-setup-step" />
+                        <AccountSetupSteps
+                            steps={setupSteps}
+                            returnTo={returnTo}
+                            testID="configurator-refusal-step"
+                        />
                     )}
                 </View>
             )}
@@ -644,76 +917,5 @@ function SetupNotice({
                 </View>
             ))}
         </View>
-    );
-}
-
-interface SubscriptionCreatedProps {
-    readonly subscription: Subscription;
-    readonly onOpen: () => void;
-    readonly onList: () => void;
-}
-
-/**
- * The success state.
- *
- * It reports the subscription's **actual** state rather than the word "confirmed": the repository
- * decides what a new subscription starts as, and a screen that hard-codes "active" would be wrong
- * the day a draft state is introduced.
- */
-function SubscriptionCreated({ subscription, onOpen, onList }: SubscriptionCreatedProps) {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
-
-    return (
-        <Stack space="lg" testID="configurator-success-screen">
-            <Callout
-                testID="configurator-success"
-                role="status"
-                tone="success"
-                icon="success"
-                title={t('commerce:configurator.successTitle')}
-                body={t('commerce:configurator.successBody', { plan: subscription.planName })}
-            />
-
-            <Card testID="configurator-success-summary" padding="md" tone="sunken">
-                <Stack space="sm">
-                    <Inline space="sm" align="center" justify="between">
-                        <Text variant="bodyStrong">{subscription.planName}</Text>
-                        <SubscriptionStateBadge
-                            state={subscription.state}
-                            testID="configurator-success-state"
-                        />
-                    </Inline>
-                    <Text testID="configurator-success-price">
-                        {t('commerce:subscriptions.weeklyPrice', {
-                            price: formatMoney(formatter, subscription.weeklyPrice),
-                        })}
-                    </Text>
-                    <Text tone="secondary" testID="configurator-success-next">
-                        {subscription.nextDeliveryDate === null
-                            ? t('commerce:subscriptions.noNextDelivery')
-                            : t('commerce:subscriptions.nextDelivery', {
-                                  date: formatter.formatDate(subscription.nextDeliveryDate, {
-                                      dateStyle: 'full',
-                                  }),
-                              })}
-                    </Text>
-                </Stack>
-            </Card>
-
-            <Inline space="sm" wrap testID="configurator-success-actions">
-                <Button
-                    testID="configurator-success-open"
-                    label={t('commerce:configurator.successOpen')}
-                    onPress={onOpen}
-                />
-                <Button
-                    testID="configurator-success-list"
-                    variant="secondary"
-                    label={t('commerce:configurator.successList')}
-                    onPress={onList}
-                />
-            </Inline>
-        </Stack>
     );
 }

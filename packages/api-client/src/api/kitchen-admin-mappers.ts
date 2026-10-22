@@ -1433,6 +1433,7 @@ export function mapDeliveryWindow(wire: WireDeliveryWindow): DeliveryWindow {
         endsAt: wire.ends_at ?? '00:00',
         capacity: null,
         isActive: wire.is_active,
+        archivedAt: wire.archived_at ?? null,
         zoneIds: (wire.delivery_zone_ids ?? []).map((id) => DeliveryZoneId.unsafe(id)),
     };
 }
@@ -1606,6 +1607,7 @@ export function mapPlanMenu(
 export function mapBranchOperating(
     branchId: KitchenBranchId,
     daysWire: readonly WireBranchOperatingDay[],
+    timeZone: string,
 ): BranchOperating {
     const byWeekday = new Map(daysWire.map((day) => [day.weekday, day]));
     const days: BranchOperatingDay[] = [];
@@ -1637,7 +1639,9 @@ export function mapBranchOperating(
             updatedAt: UNKNOWN_ISO_DATE_TIME,
             updatedByName: null,
         },
-        timeZone: 'UTC',
+        // The branch's own zone, from `meta.timezone`. It was a literal 'UTC' here, which told a
+        // Beirut kitchen its hours were three hours off.
+        timeZone,
         days,
     };
 }

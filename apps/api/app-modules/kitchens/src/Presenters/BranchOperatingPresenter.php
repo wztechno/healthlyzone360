@@ -48,14 +48,18 @@ final class BranchOperatingPresenter
     }
 
     /**
+     * `timezone` is the branch's IANA zone: every time in the week is a clock
+     * face read in it, so a screen that shows the week names it.
+     *
      * @param  list<BranchOpeningHour>  $week
-     * @return array{configured_weekdays: list<int>, open_day_count: int, is_complete: bool}
+     * @return array{timezone: string, configured_weekdays: list<int>, open_day_count: int, is_complete: bool}
      */
-    public function meta(array $week): array
+    public function meta(array $week, string $timezone): array
     {
         $weekdays = array_map(static fn (BranchOpeningHour $day): int => $day->weekday, $week);
 
         return [
+            'timezone' => $timezone,
             'configured_weekdays' => $weekdays,
             'open_day_count' => count(array_filter($week, static fn (BranchOpeningHour $day): bool => $day->isOpen())),
             'is_complete' => count($weekdays) === 7,

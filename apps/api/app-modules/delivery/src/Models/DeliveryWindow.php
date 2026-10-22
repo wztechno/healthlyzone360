@@ -39,6 +39,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property list<int> $weekdays
  * @property int $display_order
  * @property bool $is_active
+ * @property CarbonImmutable|null $archived_at
  * @property string|null $created_by
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
@@ -60,7 +61,17 @@ class DeliveryWindow extends BaseModel implements OrganisationScoped
             'weekdays' => 'array',
             'display_order' => 'integer',
             'is_active' => 'boolean',
+            'archived_at' => 'immutable_datetime',
         ];
+    }
+
+    /**
+     * Archived: off every list and every zone, kept only so what already names
+     * it stays explainable. Always inactive too (a CHECK holds it).
+     */
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null;
     }
 
     /**

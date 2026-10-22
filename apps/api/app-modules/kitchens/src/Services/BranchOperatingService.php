@@ -77,6 +77,22 @@ final readonly class BranchOperatingService
     }
 
     /**
+     * The IANA zone the current branch's times are read in
+     * (`organisation_branches.timezone`). Every time in the week is a clock
+     * face in this zone, so a screen showing the week must say which.
+     *
+     * @throws ApiException
+     */
+    public function timezone(): string
+    {
+        $branchId = $this->requireBranch();
+
+        return (string) OrganisationBranch::withoutTenancy()
+            ->whereKey($branchId)
+            ->value('timezone');
+    }
+
+    /**
      * Replace the whole week.
      *
      * @param  list<array<string, mixed>>  $days  as validated by the request; re-checked here because

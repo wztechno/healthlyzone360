@@ -1,5 +1,7 @@
 import type {
+    CustomerAddress,
     PlanVariant,
+    SetSubscriptionMealChoicesRequest,
     SubscriptionConfiguration,
     SubscriptionPlan,
 } from '@healthy360/api-client/contracts';
@@ -13,7 +15,7 @@ import type {
 } from '@healthy360/domain-types';
 import type { NutritionConstraint } from '@healthy360/nutrition';
 
-import { EMPTY_ADDRESS, isAddressComplete } from './address.ts';
+import { EMPTY_ADDRESS } from './address.ts';
 import type { AddressValues } from './address.ts';
 import type { DeliveryAreaStatus } from './delivery.ts';
 import { DEFAULT_SLOT_CODE, isDeliverySlotCode } from './delivery.ts';
@@ -294,6 +296,11 @@ export interface ConfiguratorState {
     readonly startDate: string | null;
     readonly deliveryWeekdays: readonly number[];
     readonly slotCode: string;
+    /**
+     * The saved address the delivery step chose, in form shape ({@link savedAddressValues}), so the
+     * configuration and the review read it like any other choice. Never typed in: placement takes
+     * a saved address's identifier and nothing else (D-084).
+     */
     readonly address: AddressValues;
     readonly dietClassifications: readonly DietClassification[];
     readonly excludeAllergens: readonly AllergenCode[];
@@ -353,10 +360,14 @@ export interface StepContext {
     readonly allowedWeekdays: readonly number[] | null;
     readonly areaStatus: DeliveryAreaStatus;
     /**
-     * Whether a saved address-book entry is selected. A saved address satisfies the address
-     * requirement by itself (D-084: delivery resolves from the address book, not a typed street
-     * line — the same rule the checkout applies), so the typed-fields validation only gates the
-     * hand-entered path.
+     * Whether a saved address-book entry is selected — the only way the address requirement is met.
+     *
+     * There used to be a second way: with nothing saved, the step drew an inline address form and
+     * accepted it once every field was filled in. Nothing ever saved that address, and
+     * `createSubscription` takes only a saved address's identifier (D-084: delivery resolves zone,
+     * window and fee from the address book, the rule the checkout follows), so a new account passed
+     * all three steps and was refused at Subscribe every time, with no way to add one (plans-02).
+     * The step now offers "Add a delivery address", which saves one and comes back with it chosen.
      */
     readonly hasSavedAddress: boolean;
     readonly earliestStartDate: string;
@@ -414,12 +425,7 @@ function deliveryIssues(state: ConfiguratorState, context: StepContext): StepIss
 
     if (!isDeliverySlotCode(state.slotCode)) issues.push('commerce:configurator.issues.slot');
 
-    if (
-        !context.hasSavedAddress &&
-        !isAddressComplete(state.address, (key) => context.translate(key))
-    ) {
-        issues.push('commerce:configurator.issues.address');
-    }
+    if (!context.hasSavedAddress) issues.push('commerce:configurator.issues.address');
 
     // The two SUB-02 checks. `unserved` is a hard stop: there is no acknowledgement that makes a
     // kitchen deliver somewhere it does not deliver, and offering one would sell an unfulfillable
@@ -462,6 +468,26 @@ export function firstIncompleteStep(
 /* ── the request ─────────────────────────────────────────────────────────────────────────────── */
 
 /**
+ * A saved address in the form shape the configuration is built from.
+ *
+ * The address book carries no city or country — the area it names is a gazetteer entry the server
+ * resolves — so both are left empty, exactly as the subscription's own address change sends them.
+ * The identifier travels beside the configuration as `addressId`; this is only what the review and
+ * the preview describe.
+ */
+export function savedAddressValues(entry: CustomerAddress): AddressValues {
+    return {
+        label: entry.label,
+        line1: entry.line1,
+        line2: entry.line2 ?? '',
+        area: entry.areaName,
+        city: '',
+        countryCode: '',
+        instructions: entry.notes ?? '',
+    };
+}
+
+/**
  * The configuration a preview or a creation is made from.
  *
  * `null` until it is genuinely complete. Sending a half-built configuration would produce a priced
@@ -501,4 +527,40 @@ export function toConfiguration(
 export function configuredDeliveryDates(state: ConfiguratorState): readonly string[] {
     if (state.startDate === null) return [];
     return deliveryDatesFor(state.startDate, state.deliveryWeekdays, weeksFor(state.duration));
+}
+
+/** How many delivery days the first-week picker covers: one week, the rotation the kitchen publishes. */
+export const FIRST_WEEK_DAYS = 7;
+
+/**
+ * The meal slot a first-week pick is sent under.
+ *
+ * The picker offers one dish per day, and the public plan does not publish its menu's slots. Lunch
+ * is the sitting every meals-per-day count includes, so a pick there takes the place of the
+ * kitchen's lunch rather than arriving beside it; a snacks-only band has no lunch to replace.
+ */
+export function firstWeekChoiceSlot(variant: PlanVariant | null): string {
+    return variant !== null && variant.mealsPerDay === 0 && variant.snacksPerDay > 0
+        ? 'snack'
+        : 'lunch';
+}
+
+/**
+ * One `PUT …/choices` per day the person picked a dish for in the first week.
+ *
+ * Nothing when they never opened the picker: the plan's own rotation is what they agreed to, and
+ * sending its defaults back as choices would pin the kitchen's menu as though the person chose it.
+ */
+export function firstWeekChoices(
+    state: ConfiguratorState,
+    variant: PlanVariant | null,
+): readonly SetSubscriptionMealChoicesRequest[] {
+    if (state.selectedMealIds.length === 0) return [];
+    const slot = firstWeekChoiceSlot(variant);
+    return configuredDeliveryDates(state)
+        .slice(0, FIRST_WEEK_DAYS)
+        .flatMap((date, index) => {
+            const mealId = state.selectedMealIds[index];
+            return mealId === undefined ? [] : [{ date, choices: [{ slot, mealId }] }];
+        });
 }

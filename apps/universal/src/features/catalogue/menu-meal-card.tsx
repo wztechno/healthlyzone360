@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
 import { EntityImage } from '../../media/entity-image.tsx';
+import { YourAllergens } from '../commerce/my-allergens.tsx';
 import { formatMoney } from '../marketplace/format.ts';
 import {
     cardFigureDigits,
@@ -183,6 +184,8 @@ export function MenuMealCard({ meal, onOpen, onAdd, testID }: MenuMealCardProps)
                         ))}
                     </View>
                 )}
+
+                <YourAllergens allergens={meal.allergens} testID={`${id}-your-allergens`} />
 
                 <View className="mt-auto flex-row items-center justify-between gap-3 pt-2.5">
                     <RNText

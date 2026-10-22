@@ -2076,7 +2076,8 @@ describe('PlanDetailScreen', () => {
         await waitFor(() => screen.getByTestId('plan-detail-configure'));
         await fireEvent.press(screen.getByTestId('plan-detail-configure'));
 
-        expect(routerMock.__push).toHaveBeenCalledWith('/sign-in');
+        // Carrying the set-up for this plan as the way back (plans.test.tsx pins the exact href).
+        expect(String(routerMock.__push.mock.calls.at(-1)?.[0])).toMatch(/^\/sign-in\?returnTo=/);
     });
 
     it('opens the configurator on the chosen variant for a signed-in visitor', async () => {

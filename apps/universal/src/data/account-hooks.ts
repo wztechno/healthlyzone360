@@ -524,14 +524,20 @@ function useClosureWrite<TVariables>(
                 queryKeys.account.closureRequest(),
                 ticket.status === 'completed' || ticket.status === 'cancelled' ? null : ticket,
             );
+            // A completed full closure has ended the session. Refetching the account now would
+            // only collect refusals, and refetching `me` here — before the wizard has left the
+            // customer area — let the customer gate send the person to sign-in instead of to the
+            // page that says their account is closed. So the account is only marked stale, and
+            // the wizard tells the session query itself, once it has navigated away.
+            const closed = ticket.status === 'completed' && ticket.scope === 'full';
+            const refetchType = closed ? 'none' : 'active';
             // The whole account root: closing withdraws consents, deletes addresses and contacts,
             // and flips the lifecycle. Invalidating one key would leave four screens stale.
-            await queryClient.invalidateQueries({ queryKey: queryKeys.account.all() });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.verification.all() });
-            // A completed full closure signs the person out. The session query has to notice.
-            if (ticket.status === 'completed' && ticket.scope === 'full') {
-                await queryClient.invalidateQueries({ queryKey: queryKeys.me() });
-            }
+            await queryClient.invalidateQueries({ queryKey: queryKeys.account.all(), refetchType });
+            await queryClient.invalidateQueries({
+                queryKey: queryKeys.verification.all(),
+                refetchType,
+            });
         },
     });
 }

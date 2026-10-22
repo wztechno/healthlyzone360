@@ -35,7 +35,8 @@
         "unknown": "أرسل المطبخ ملاحظة لا نعرفها بعد ({{code}}). لا يوجد خطأ في طلبك، لكن يرجى ذكرها إذا تواصلت معنا.",
         "checkout_empty_cart": "لا يوجد شيء في السلة لتسعيره.",
         "checkout_address_missing": "لم يتم اختيار عنوان توصيل بعد. اختر عنوانًا أو أضف واحدًا حتى نتمكن من تسعير التوصيل.",
-        "planner_allergen_conflict": "أحد الأصناف في هذه السلة يحتوي على مسبّب حساسية طلبت استبعاده. يرجى مراجعة كل طبق قبل الطلب.",
+        "checkout_allergen_conflict": "أحد الأصناف في هذه السلة مدرج في قائمة الحساسية لديك. يرجى مراجعة كل طبق قبل الطلب.",
+        "subscription_allergen_conflict": "إحدى الوجبات التي اخترتها مدرجة في قائمة الحساسية لديك. سيستبدلها المطبخ بوجبة آمنة.",
         "subscription_no_delivery_days": "لم يتم اختيار أي أيام توصيل، لذا لن يصل هذا الاشتراك أبدًا.",
         "subscription_delivery_day_unavailable": "هذه الخطة لا توصّل في أحد الأيام التي اخترتها.",
         "subscription_unknown_slot": "هذه الفترة الزمنية غير متاحة لدى هذا المطبخ.",
@@ -276,6 +277,13 @@
         },
         "successTitle": "تم إعداد اشتراكك",
         "successBody": "{{plan}} أصبحت الآن على حسابك.",
+        "mealsUnsavedTitle_zero": "لم يتعذّر حفظ أي وجبة",
+        "mealsUnsavedTitle_one": "تعذّر حفظ وجبة واحدة اخترتها",
+        "mealsUnsavedTitle_two": "تعذّر حفظ وجبتين اخترتهما",
+        "mealsUnsavedTitle_few": "تعذّر حفظ {{count}} وجبات اخترتها",
+        "mealsUnsavedTitle_many": "تعذّر حفظ {{count}} وجبة اخترتها",
+        "mealsUnsavedTitle_other": "تعذّر حفظ {{count}} وجبة اخترتها",
+        "mealsUnsavedBody": "ستصلك قائمة المطبخ في تلك الأيام. يمكنك الاختيار مجددًا أدناه.",
         "titleFor": "إعداد {{plan}}",
         "edit": "تعديل",
         "review": {
@@ -494,5 +502,18 @@
         "body": "في سلتك وجبات من {{kitchen}}. تضم السلة وجبات مطبخ واحد فقط.",
         "keep": "الإبقاء على سلتي",
         "replace": "بدء سلة جديدة"
+    },
+    "myAllergens": {
+        "badge": "في قائمة الحساسية لديك: {{allergens}}",
+        "dialogTitle": "في قائمة الحساسية لديك",
+        "dialogBody": "تحتوي {{meal}} على مكوّن من قائمة الحساسية لديك: {{allergens}}.",
+        "dialogBodyUnnamed": "تحتوي هذه الوجبة على مكوّن من قائمة الحساسية لديك: {{allergens}}.",
+        "addAnyway": "أضِفها على أي حال",
+        "checkoutTitle": "في قائمة الحساسية لديك",
+        "checkoutBody": "تحتوي هذه الوجبات على مكوّن من قائمة الحساسية لديك: {{meals}}.",
+        "option": "{{meal}} (في قائمة الحساسية لديك: {{allergens}})",
+        "confirmTitle": "هل تريد طلب وجبات تحتوي على مسبّبات الحساسية لديك؟",
+        "placeAnyway": "أكمل الطلب على أي حال",
+        "mealWithAllergens": "{{meal}} ({{allergens}})"
     }
 }

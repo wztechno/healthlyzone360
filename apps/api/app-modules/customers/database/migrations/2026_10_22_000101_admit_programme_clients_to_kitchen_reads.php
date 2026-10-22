@@ -11,12 +11,17 @@ use Illuminate\Support\Facades\DB;
  * The kitchen customer book (`GET /catalogue/customers`) lists, besides the
  * desk's two arms, every B2B account whose buying organisation holds a
  * `corporate_programmes` row with this kitchen. Such an account carries the
- * *buyer's* `organisation_id`, so a kitchen session matches none of the four
- * read arms 2026_08_16_003006 left — a programme client who has not ordered yet
- * would come back as no row at all in production, while every test passed,
- * because the suite connects as the schema owner.
+ * *buyer's* `organisation_id`, so a kitchen session matches none of the read
+ * arms before this one — a programme client who has not ordered yet would come
+ * back as no row at all in production, while every test passed, because the
+ * suite connects as the schema owner.
  *
- * **SELECT only, again.** The fifth arm admits the read; insert and update keep
+ * **It restates every arm before it.** The policy is dropped and recreated
+ * whole, so this file must carry 2026_10_21_000301's subscription arm too —
+ * leaving it out would silently take a kitchen's subscribers away from it. Any
+ * later migration that rewrites this policy must carry all six.
+ *
+ * **SELECT only, again.** The sixth arm admits the read; insert and update keep
  * their three arms, so holding a programme never lets a kitchen rewrite the
  * buyer's account. The app layer says the same thing:
  * `DeskCustomerDirectory::isInScope()`, which guards the desk's writes, does
@@ -43,8 +48,15 @@ return new class extends Migration
           AND o.organisation_id::text = current_setting('app.organisation_id', true)
     )";
 
+    /** The fifth arm, from 2026_10_21_000301, restated unchanged. */
+    private const string SUBSCRIPTION_HOLDER_MATCH = "EXISTS (
+        SELECT 1 FROM subscriptions s
+        WHERE s.customer_account_id = customer_accounts.id
+          AND s.organisation_id::text = current_setting('app.organisation_id', true)
+    )";
+
     /**
-     * The fifth arm: the account's buyer holds a programme with the kitchen on
+     * The sixth arm: the account's buyer holds a programme with the kitchen on
      * the session. `::text` on the column, for the reason the order arm gives.
      */
     private const string PROGRAMME_MATCH = "(organisation_id IS NOT NULL AND EXISTS (
@@ -55,16 +67,23 @@ return new class extends Migration
 
     public function up(): void
     {
-        $write = self::USER_MATCH.' OR '.self::ORGANISATION_MATCH.' OR '.self::GUEST_MATCH;
-
-        $this->replacePolicies($write.' OR '.self::ORDER_HOLDER_MATCH.' OR '.self::PROGRAMME_MATCH, $write);
+        $this->replacePolicies($this->readBefore().' OR '.self::PROGRAMME_MATCH, $this->write());
     }
 
     public function down(): void
     {
-        $write = self::USER_MATCH.' OR '.self::ORGANISATION_MATCH.' OR '.self::GUEST_MATCH;
+        $this->replacePolicies($this->readBefore(), $this->write());
+    }
 
-        $this->replacePolicies($write.' OR '.self::ORDER_HOLDER_MATCH, $write);
+    /** The five read arms 2026_10_21_000301 left. */
+    private function readBefore(): string
+    {
+        return $this->write().' OR '.self::ORDER_HOLDER_MATCH.' OR '.self::SUBSCRIPTION_HOLDER_MATCH;
+    }
+
+    private function write(): string
+    {
+        return self::USER_MATCH.' OR '.self::ORGANISATION_MATCH.' OR '.self::GUEST_MATCH;
     }
 
     /**

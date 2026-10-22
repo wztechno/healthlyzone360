@@ -157,6 +157,7 @@ export type ApiKitchenAdminWrites = Pick<
     | 'setZoneWindows'
     | 'createDeliveryWindow'
     | 'updateDeliveryWindow'
+    | 'archiveDeliveryWindow'
     | 'setBranchOperating'
 >;
 
@@ -2059,6 +2060,16 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 method: 'PATCH',
                 path: `/catalogue/delivery-windows/${encodeURIComponent(String(windowId))}`,
                 body: deliveryWindowWire(request),
+            });
+            return mapDeliveryWindow(envelope.data.delivery_window);
+        },
+
+        async archiveDeliveryWindow(windowId: DeliveryWindowId): Promise<DeliveryWindow> {
+            const envelope = await transport.requestEnvelope<{
+                readonly delivery_window: WireDeliveryWindow;
+            }>({
+                method: 'POST',
+                path: `/catalogue/delivery-windows/${encodeURIComponent(String(windowId))}/archive`,
             });
             return mapDeliveryWindow(envelope.data.delivery_window);
         },
