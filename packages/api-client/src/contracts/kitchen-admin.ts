@@ -319,6 +319,36 @@ export interface NutritionReferenceCandidate {
     readonly retrieved_at: string;
 }
 
+/** An ingredient the assistant points at: an exact match, or a possible duplicate with a reason. */
+export interface IngredientAssistReference {
+    readonly id: IngredientId;
+    readonly name: LocalisedText;
+    readonly isPlatform: boolean;
+    readonly reason: string | null;
+}
+
+/**
+ * What the new-ingredient form is told about a typed English name (`POST
+ * /catalogue/ingredients/assist`). Existing matches are found without AI; everything else is a
+ * model suggestion the server has already checked against the kitchen's own lists. `unavailable`
+ * names the parts that failed — the rest still arrive.
+ */
+export interface IngredientAssistSuggestion {
+    readonly existingMatches: readonly IngredientAssistReference[];
+    readonly possibleDuplicates: readonly IngredientAssistReference[];
+    readonly nameAr: string | null;
+    readonly categoryCode: string | null;
+    readonly subcategoryCode: string | null;
+    /** `null` only when the USDA lookup failed. */
+    readonly nutrition: {
+        readonly candidates: readonly NutritionReferenceCandidate[];
+        readonly pick: number | null;
+        readonly relation: 'same' | 'more_specific' | 'different' | null;
+        readonly reason: string | null;
+    } | null;
+    readonly unavailable: readonly ('assistant' | 'nutrition')[];
+}
+
 export interface ConfirmIngredientAllergensRequest {
     readonly reviewToken: string;
     readonly evidence: string;
@@ -2274,6 +2304,7 @@ export interface KitchenAdminRepository {
         request: ImportIngredientAllergenReferenceRequest,
     ): Promise<IngredientAdmin>;
     searchNutritionReferences(query: string): Promise<readonly NutritionReferenceCandidate[]>;
+    assistIngredient(nameEn: string): Promise<IngredientAssistSuggestion>;
     confirmIngredientAllergens(
         ingredientId: IngredientId,
         request: ConfirmIngredientAllergensRequest,

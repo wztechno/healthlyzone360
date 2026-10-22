@@ -4244,6 +4244,25 @@
         "clearSelection": "Clear selection",
         "missing": "Missing {{list}}"
     },
+    "assist": {
+        "title": "AI assistant",
+        "checking": "Checking the name…",
+        "rerun": "Run again",
+        "assistantUnavailable": "The AI assistant is unavailable. Fill in the fields yourself.",
+        "nutritionUnavailable": "Nutrition lookup is unavailable — search USDA below by hand.",
+        "arabicFilled": "Arabic name filled in by AI — check it before saving.",
+        "categorySuggested": "AI suggests: {{category}}",
+        "apply": "Apply",
+        "existingTitle": "Already in your ingredient list",
+        "existingMatch": "Same name: {{name}}",
+        "possibleDuplicate": "AI: possibly the same as {{name}}",
+        "open": "Open",
+        "relationMoreSpecific": "Does “{{match}}” describe the ingredient you purchase?",
+        "relationDifferent": "The closest USDA match, “{{match}}”, looks like a different food. Choose a result below or correct the name.",
+        "updateName": "Update ingredient name",
+        "chooseAnother": "Choose another result",
+        "aiPick": "AI suggestion"
+    },
     "allergenLookup": {
         "title": "Look up product allergens",
         "guidance": "Search Open Food Facts by product name or barcode. Check the purchased product label. Suggestions require a separate allergen review; missing data never means allergen-free.",

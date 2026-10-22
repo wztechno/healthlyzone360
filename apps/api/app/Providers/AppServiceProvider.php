@@ -81,6 +81,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('catalogue-import', fn (Request $request): Limit => Limit::perHour(5)
             ->by($this->importLimiterKey($request)));
 
+        // Each call spends a model request; a form fires one per new name, so this only bites a loop.
+        RateLimiter::for('ingredient-assist', fn (Request $request): Limit => Limit::perMinute(20)
+            ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
+
         /*
          * The token-scoped invitation read (`GET /api/v1/invitations/{token}`).
          *

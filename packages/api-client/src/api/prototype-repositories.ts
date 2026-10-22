@@ -743,6 +743,9 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     searchNutritionReferences() {
         return notImplemented(`GET ${BASE}/catalogue/ingredients/nutrition-references`);
     },
+    assistIngredient() {
+        return notImplemented(`POST ${BASE}/catalogue/ingredients/assist`);
+    },
     confirmIngredientAllergens() {
         return notImplemented(`POST ${BASE}/catalogue/ingredients/{ingredient}/allergens/confirm`);
     },

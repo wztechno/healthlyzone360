@@ -314,6 +314,8 @@ export type {
     ImportIngredientAllergenReferenceRequest,
     NutritionReferenceCandidate,
     NutritionReferenceSelection,
+    IngredientAssistReference,
+    IngredientAssistSuggestion,
     CreateMealRequest,
     CreatePlanRequest,
     CreateProductRequest,

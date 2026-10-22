@@ -1958,6 +1958,56 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '503':
           $ref: '#/components/responses/NutritionProviderFailure'
+  /catalogue/ingredients/assist:
+    post:
+      operationId: assistIngredient
+      tags:
+        - Kitchen catalogue
+      summary: Suggest Arabic name, category, duplicates and a nutrition match for a new ingredient name
+      description: |
+        Requires catalogue management permission. Writes nothing. Existing matches (exact English
+        name, Arabic name or alias) are found without AI; the Arabic name, category pair, possible
+        duplicates and nutrition pick come from a model and are validated against the caller's
+        own lists. Always 200 with whatever parts worked: `unavailable` names the parts that did
+        not (`assistant`, `nutrition`). `nutrition` is null only when the USDA lookup failed.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name_en
+              properties:
+                name_en:
+                  type: string
+                  minLength: 2
+                  maxLength: 150
+              additionalProperties: false
+      responses:
+        '200':
+          description: Suggestions for the new-ingredient form.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/IngredientAssistSuggestion'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/ingredients/{ingredient}/allergens/confirm:
     post:
       operationId: confirmIngredientAllergens
@@ -26409,6 +26459,104 @@ components:
         retrieved_at:
           type: string
           format: date-time
+      additionalProperties: false
+    IngredientAssistReference:
+      type: object
+      required:
+        - id
+        - name
+        - is_platform
+      properties:
+        id:
+          type: string
+        name:
+          type: object
+          required:
+            - en
+            - ar
+          properties:
+            en:
+              type: string
+            ar:
+              type: string
+          additionalProperties: false
+        is_platform:
+          type: boolean
+        reason:
+          type:
+            - string
+            - 'null'
+      additionalProperties: false
+    IngredientAssistSuggestion:
+      type: object
+      required:
+        - existing_matches
+        - possible_duplicates
+        - name_ar
+        - category_code
+        - subcategory_code
+        - nutrition
+        - unavailable
+      properties:
+        existing_matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/IngredientAssistReference'
+        possible_duplicates:
+          type: array
+          items:
+            $ref: '#/components/schemas/IngredientAssistReference'
+        name_ar:
+          type:
+            - string
+            - 'null'
+        category_code:
+          type:
+            - string
+            - 'null'
+        subcategory_code:
+          type:
+            - string
+            - 'null'
+        nutrition:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required:
+                - candidates
+                - pick
+                - relation
+                - reason
+              properties:
+                candidates:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/NutritionReferenceCandidate'
+                pick:
+                  type:
+                    - integer
+                    - 'null'
+                relation:
+                  type:
+                    - string
+                    - 'null'
+                  enum:
+                    - same
+                    - more_specific
+                    - different
+                    - null
+                reason:
+                  type:
+                    - string
+                    - 'null'
+              additionalProperties: false
+        unavailable:
+          type: array
+          items:
+            type: string
+            enum:
+              - assistant
+              - nutrition
       additionalProperties: false
     ConfirmIngredientAllergensRequest:
       type: object

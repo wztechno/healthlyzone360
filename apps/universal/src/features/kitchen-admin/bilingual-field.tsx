@@ -63,6 +63,7 @@ interface HalfProps {
     /** Renders a paragraph field instead of a single line. See the note on `BilingualFieldProps`. */
     readonly multiline?: boolean | undefined;
     readonly labelHidden?: boolean | undefined;
+    readonly onBlur?: (() => void) | undefined;
 }
 
 function BilingualHalf({
@@ -78,6 +79,7 @@ function BilingualHalf({
     disabled = false,
     multiline = false,
     labelHidden = false,
+    onBlur,
 }: HalfProps) {
     const [focused, setFocused] = useState(false);
     /*
@@ -139,6 +141,7 @@ function BilingualHalf({
                         }}
                         onBlur={() => {
                             setFocused(false);
+                            onBlur?.();
                         }}
                     />
                 </View>
@@ -210,6 +213,8 @@ export interface BilingualFieldProps extends GridSpanProps {
      * and an English example in the right-to-left box would show the reader the wrong script.
      */
     readonly placeholder?: { readonly en?: string; readonly ar?: string } | undefined;
+    /** Called when the English half loses focus — the ingredient form's assistant runs from it. */
+    readonly onEnglishBlur?: (() => void) | undefined;
     readonly testID: string;
 }
 
@@ -226,6 +231,7 @@ export function BilingualField({
     layout = 'stacked',
     labelHidden = false,
     placeholder,
+    onEnglishBlur,
     testID,
 }: BilingualFieldProps) {
     const { t } = useTranslation();
@@ -256,6 +262,7 @@ export function BilingualField({
                             onChange({ ...value, en: next });
                         }}
                         direction="ltr"
+                        onBlur={onEnglishBlur}
                         {...hintFor('en')}
                         required={requiredEnglish}
                         multiline={multiline}
@@ -305,6 +312,7 @@ export function BilingualField({
                             onChange({ ...value, en: next });
                         }}
                         direction="ltr"
+                        onBlur={onEnglishBlur}
                         {...hintFor('en')}
                         required={requiredEnglish}
                         multiline={multiline}
@@ -342,6 +350,7 @@ export function BilingualField({
                     onChange({ ...value, en: next });
                 }}
                 direction="ltr"
+                onBlur={onEnglishBlur}
                 {...hintFor('en')}
                 required={requiredEnglish}
                 multiline={multiline}

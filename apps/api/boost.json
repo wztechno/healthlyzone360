@@ -8,6 +8,7 @@
     "nightwatch": false,
     "sail": false,
     "skills": [
+        "ai-sdk-development",
         "infer-conventions",
         "fortify-development",
         "laravel-best-practices",

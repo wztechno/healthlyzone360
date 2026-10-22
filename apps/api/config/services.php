@@ -11,6 +11,11 @@ return [
         'budget' => (int) env('USDA_FDC_HOURLY_BUDGET', 900),
     ],
 
+    // The ingredient assistant's model. The key is laravel/ai's own `OPENAI_API_KEY`.
+    'openai' => [
+        'model' => env('OPENAI_MODEL', 'gpt-5.6-luna'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Third Party Services

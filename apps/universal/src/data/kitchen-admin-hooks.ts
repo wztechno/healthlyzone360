@@ -711,6 +711,14 @@ export function useNutritionReferenceSearch() {
     });
 }
 
+export function useIngredientAssist() {
+    const repositories = useRepositories();
+    return useMutation({
+        mutationFn: (nameEn: string) => repositories.kitchenAdmin.assistIngredient(nameEn),
+        retry: false,
+    });
+}
+
 export function useConfirmIngredientAllergensMutation() {
     const repositories = useRepositories();
     const queryClient = useQueryClient();

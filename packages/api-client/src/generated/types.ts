@@ -833,6 +833,31 @@ export type NutritionReferenceCandidate = {
     retrieved_at: string;
 };
 
+export type IngredientAssistReference = {
+    id: string;
+    name: {
+        en: string;
+        ar: string;
+    };
+    is_platform: boolean;
+    reason?: string | null;
+};
+
+export type IngredientAssistSuggestion = {
+    existing_matches: Array<IngredientAssistReference>;
+    possible_duplicates: Array<IngredientAssistReference>;
+    name_ar: string | null;
+    category_code: string | null;
+    subcategory_code: string | null;
+    nutrition: null | {
+        candidates: Array<NutritionReferenceCandidate>;
+        pick: number | null;
+        relation: 'same' | 'more_specific' | 'different' | null;
+        reason: string | null;
+    };
+    unavailable: Array<'assistant' | 'nutrition'>;
+};
+
 export type ConfirmIngredientAllergensRequest = {
     review_token: string;
     evidence: string;
@@ -16516,6 +16541,60 @@ export type SearchNutritionReferencesResponses = {
 };
 
 export type SearchNutritionReferencesResponse = SearchNutritionReferencesResponses[keyof SearchNutritionReferencesResponses];
+
+export type AssistIngredientData = {
+    body: {
+        name_en: string;
+    };
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/ingredients/assist';
+};
+
+export type AssistIngredientErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type AssistIngredientError = AssistIngredientErrors[keyof AssistIngredientErrors];
+
+export type AssistIngredientResponses = {
+    /**
+     * Suggestions for the new-ingredient form.
+     */
+    200: {
+        data: IngredientAssistSuggestion;
+        meta?: Meta;
+    };
+};
+
+export type AssistIngredientResponse = AssistIngredientResponses[keyof AssistIngredientResponses];
 
 export type ConfirmIngredientAllergensData = {
     body: ConfirmIngredientAllergensRequest;
