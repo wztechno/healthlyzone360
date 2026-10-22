@@ -86,6 +86,7 @@ export const QUERY_ROOTS = [
     'invitations',
     'driverJobs',
     'accessAdmin',
+    'kitchenCustomers',
 ] as const;
 export type QueryRoot = (typeof QUERY_ROOTS)[number];
 
@@ -703,6 +704,18 @@ export const queryKeys = {
         list: () => ['kitchenQuotations', 'list'] as const,
         quotation: (quotationId: QuotationId) =>
             ['kitchenQuotations', 'quotation', quotationId] as const,
+    },
+
+    /**
+     * ── kitchenCustomers: the kitchen's read-only customer book ─────────────────────────────────
+     *
+     * `list` carries the server filter (query and type) because both narrow on the server. **Never
+     * persisted**: contacts and addresses are personal data on a tablet the kitchen shares.
+     */
+    kitchenCustomers: {
+        all: () => ['kitchenCustomers'] as const,
+        list: (filter: QueryScope) => ['kitchenCustomers', 'list', filter] as const,
+        customer: (customerId: string) => ['kitchenCustomers', 'customer', customerId] as const,
     },
 
     /**

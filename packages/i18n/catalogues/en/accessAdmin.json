@@ -335,7 +335,7 @@
             "name": "Confirm, fulfil and cancel orders"
         },
         "order.view_customer_contact_organisation": {
-            "name": "See a caller’s name and number"
+            "name": "See customers’ contact details, addresses and company records"
         },
         "order.view_organisation": {
             "name": "See orders"

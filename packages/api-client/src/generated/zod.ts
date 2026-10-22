@@ -5845,6 +5845,119 @@ export const zOrderDeskQuoteEnvelope = z.object({
     meta: zMeta
 });
 
+export const zKitchenCustomerContact = z.object({
+    channel: z.enum(['phone', 'email']),
+    value: z.string(),
+    label: z.string().nullable(),
+    is_primary: z.boolean(),
+    verified: z.boolean()
+});
+
+/**
+ * A customer as the kitchen's customer book lists them. Order figures are
+ * this kitchen's own, never another's.
+ *
+ */
+export const zKitchenCustomer = z.object({
+    id: zUuid,
+    account_number: z.string(),
+    account_type: z.enum([
+        'b2c',
+        'b2b',
+        'guest'
+    ]),
+    display_name: z.string().nullable(),
+    status: z.enum([
+        'provisional',
+        'active',
+        'suspended',
+        'closed'
+    ]),
+    primary_phone: z.string().nullable(),
+    primary_email: z.string().nullable(),
+    order_count: z.int().gte(0),
+    last_ordered_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zKitchenCustomerAddress = z.object({
+    id: zUuid,
+    address_type: z.enum(['delivery', 'billing']),
+    label: z.string().nullable(),
+    line_one: z.string().nullable(),
+    line_two: z.string().nullable(),
+    building: z.string().nullable(),
+    floor: z.string().nullable(),
+    apartment: z.string().nullable(),
+    directions: z.string().nullable(),
+    postal_code: z.string().nullable(),
+    is_default: z.boolean(),
+    area_name_en: z.string().nullable(),
+    area_name_ar: z.string().nullable()
+});
+
+export const zKitchenCustomerCompanyContact = z.object({
+    role: z.enum([
+        'primary',
+        'billing',
+        'operations',
+        'signatory'
+    ]),
+    name: z.string(),
+    title: z.string().nullable(),
+    email: z.string().nullable(),
+    phone: z.string().nullable()
+});
+
+/**
+ * The buying organisation, and the company record from its approved B2B
+ * application when one was provisioned from it (otherwise those fields are
+ * null). Contacts purged at offboarding are left out.
+ *
+ */
+export const zKitchenCustomerCompany = z.object({
+    organisation_name: z.string().nullable(),
+    legal_name: z.string().nullable(),
+    legal_name_ar: z.string().nullable(),
+    trading_name: z.string().nullable(),
+    business_type: z.string().nullable(),
+    commercial_registration_number: z.string().nullable(),
+    tax_registration_number: z.string().nullable(),
+    signatory_name: z.string().nullable(),
+    signatory_title: z.string().nullable(),
+    signatory_email: z.string().nullable(),
+    signatory_phone: z.string().nullable(),
+    contacts: z.array(zKitchenCustomerCompanyContact)
+});
+
+export const zKitchenCustomerDetail = zKitchenCustomer.and(z.object({
+    origin: z.enum([
+        'self_service',
+        'guest',
+        'b2b_provisioning',
+        'staff',
+        'import'
+    ]),
+    preferred_language_code: z.string().nullable(),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    contacts: z.array(zKitchenCustomerContact),
+    addresses: z.array(zKitchenCustomerAddress),
+    company: zKitchenCustomerCompany.nullable()
+}));
+
+export const zKitchenCustomersEnvelope = z.object({
+    data: z.array(zKitchenCustomer),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0),
+        total: z.int().gte(0),
+        truncated: z.boolean()
+    }))
+});
+
+export const zKitchenCustomerEnvelope = z.object({
+    data: zKitchenCustomerDetail,
+    meta: zMeta
+});
+
 /**
  * A customer as the order desk sees them: enough to pick the right one out
  * of a list of five, and nothing more.
@@ -13856,6 +13969,39 @@ export const zPlaceOrderDeskOrderHeaders = z.object({
  *
  */
 export const zPlaceOrderDeskOrderResponse = zKitchenOrderEnvelope;
+
+export const zListKitchenCustomersHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListKitchenCustomersQuery = z.object({
+    query: z.string().max(60).optional(),
+    type: z.enum([
+        'b2c',
+        'b2b',
+        'guest'
+    ]).optional()
+});
+
+/**
+ * This kitchen's customers, most recent first, capped.
+ */
+export const zListKitchenCustomersResponse = zKitchenCustomersEnvelope;
+
+export const zGetKitchenCustomerHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetKitchenCustomerPath = z.object({
+    account: z.string()
+});
+
+/**
+ * The customer record.
+ */
+export const zGetKitchenCustomerResponse = zKitchenCustomerEnvelope;
 
 export const zSearchOrderDeskCustomersHeaders = z.object({
     'X-Organisation-Id': zUuid,

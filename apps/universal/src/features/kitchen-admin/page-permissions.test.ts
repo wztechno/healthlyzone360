@@ -149,7 +149,7 @@ describe('the grid', () => {
         const sections = pageSections(new Set());
 
         expect(sections.at(-1)?.group).toBe('access');
-        expect(familiesInGroup('access').map((f) => f.key)).toEqual(['team', 'roles']);
+        expect(familiesInGroup('access').map((f) => f.key)).toEqual(['team', 'roles', 'customers']);
     });
 });
 
@@ -204,12 +204,12 @@ describe('writing back', () => {
 describe('the codes no page can show', () => {
     it('never removes one', () => {
         // **The invariant.** A role edited entirely on the Pages tab keeps its publish rights, its
-        // customer-contact code and its own-scope six — none of which any row names.
+        // own-scope six — none of which any row names. (The customer-contact code used to be one;
+        // the customer book now names it, so a None on that row is meant to remove it.)
         const held = new Set([
             'catalogue.view_organisation',
             'recipe.publish_organisation',
             'plan.publish_organisation',
-            'order.view_customer_contact_organisation',
             'profile.update_own',
         ]);
 
@@ -220,7 +220,6 @@ describe('the codes no page can show', () => {
 
         expect(next.has('recipe.publish_organisation')).toBe(true);
         expect(next.has('plan.publish_organisation')).toBe(true);
-        expect(next.has('order.view_customer_contact_organisation')).toBe(true);
         expect(next.has('profile.update_own')).toBe(true);
         // And the one a page *does* name is gone, which is the other half of the claim.
         expect(next.has('catalogue.view_organisation')).toBe(false);

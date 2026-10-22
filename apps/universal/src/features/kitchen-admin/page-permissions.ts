@@ -34,8 +34,7 @@ import type { EntityFamily, EntityGroup, PageExtra } from './entity-registry.ts'
  * ```
  *
  * Pages owns exactly the codes the registry names and **never removes one it cannot express**. The
- * twenty-odd codes no page names — the publish codes, `order.view_customer_contact_organisation`,
- * the own-scope six — survive a save made entirely on this tab. {@link unmappedCodes} is what the
+ * twenty-odd codes no page names — the publish codes, the own-scope six — survive a save made entirely on this tab. {@link unmappedCodes} is what the
  * editor renders in its "not on any page" band so that they are visible rather than merely
  * preserved.
  */

@@ -65,6 +65,8 @@ export const DELIVERY_ZONE_MANAGE_PERMISSION = 'delivery_zone.manage_organisatio
  */
 export const ORDER_VIEW_PERMISSION = 'order.view_organisation';
 export const ORDER_MANAGE_PERMISSION = 'order.manage_organisation';
+/** Customers' contacts, addresses and company records: the desk's caller details and the customer book. */
+export const ORDER_VIEW_CUSTOMER_CONTACT_PERMISSION = 'order.view_customer_contact_organisation';
 
 /**
  * The batch desk's own three (PROD1), and deliberately not the inventory codes it used to borrow.
@@ -821,6 +823,22 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         href: '/kitchen/roles',
         permission: ROLE_VIEW_PERMISSION,
         managePermission: ROLE_MANAGE_PERMISSION,
+    },
+    {
+        key: 'customers',
+        // A reference book, not something this workspace writes: who this kitchen sells to, with
+        // their contacts and addresses. Editing a caller stays at the order desk.
+        kind: 'reference',
+        group: 'access',
+        nameKey: 'kitchen:families.customers.name',
+        descriptionKey: 'kitchen:families.customers.description',
+        // The organisations-and-people mark; `users` is the team's.
+        icon: 'building',
+        href: '/kitchen/customers',
+        // The desk's contact code, now naming a page. `null` manage keeps the role editor at
+        // None / View — there is nothing here to manage.
+        permission: ORDER_VIEW_CUSTOMER_CONTACT_PERMISSION,
+        managePermission: null,
     },
 ];
 

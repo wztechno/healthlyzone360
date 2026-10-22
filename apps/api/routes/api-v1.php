@@ -227,6 +227,8 @@ use Healthy360\Orders\Http\Controllers\MyOrderIndexController;
 use Healthy360\Orders\Http\Controllers\MyOrderShowController;
 use Healthy360\Orders\Http\Controllers\OrderPaymentReceiptStoreController;
 use Healthy360\Orders\Http\Controllers\OrderStoreController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\KitchenCustomerIndexController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\KitchenCustomerShowController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCalendarController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCashReportController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAddressStoreController;
@@ -2344,6 +2346,13 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::middleware('permission:order.view_customer_contact_organisation')->group(function (): void {
                 Route::get('/order-desk/customers', OrderDeskCustomerIndexController::class)
                     ->name('catalogue.order-desk.customers.index');
+
+                // The kitchen's customer book: a read-only reference list and
+                // record, wider than the desk search (see the controllers).
+                Route::get('/customers', KitchenCustomerIndexController::class)
+                    ->name('catalogue.customers.index');
+                Route::get('/customers/{account}', KitchenCustomerShowController::class)
+                    ->name('catalogue.customers.show');
             });
 
             Route::middleware('permission:customer.create_on_behalf_organisation')->group(function (): void {

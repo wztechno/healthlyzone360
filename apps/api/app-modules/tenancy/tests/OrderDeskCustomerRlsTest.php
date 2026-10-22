@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use Healthy360\B2b\Models\B2bAgreement;
+use Healthy360\B2b\Models\B2bApplication;
+use Healthy360\B2b\Models\CorporateProgramme;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Orders\Models\Order;
@@ -192,4 +195,83 @@ it('still fails closed when the session carries no organisation at all', functio
         ->count());
 
     expect($visible)->toBe(0);
+});
+
+/**
+ * A corporate buyer's account, holding a programme with `$kitchen` and no
+ * order anywhere — the shape only the fifth read arm admits.
+ */
+function deskRlsProgrammeClient(object $kitchen): CustomerAccount
+{
+    $buyer = Organisation::factory()->create();
+
+    $account = CustomerAccount::factory()->create([
+        'account_type' => 'b2b',
+        'user_id' => null,
+        'organisation_id' => $buyer->getKey(),
+        'origin' => 'b2b_provisioning',
+        'display_name' => 'Acme Foods SAL',
+    ]);
+
+    // The agreement's application in the buyer's own country: this file seeds
+    // no reference data, so the factory's default `LB` would not exist.
+    $application = B2bApplication::factory()->create(['country_code' => $buyer->country_code]);
+
+    CorporateProgramme::factory()->create([
+        'organisation_id' => $buyer->getKey(),
+        'kitchen_organisation_id' => $kitchen->organisation->getKey(),
+        'b2b_agreement_id' => B2bAgreement::factory()->create([
+            'b2b_application_id' => $application->getKey(),
+            'currency_code' => $buyer->default_currency_code,
+        ])->getKey(),
+    ]);
+
+    return $account;
+}
+
+it('lets a kitchen read a programme client that has never ordered, and only that kitchen', function (): void {
+    $client = deskRlsProgrammeClient($this->kitchen);
+
+    RuntimeRole::context((string) $this->kitchen->user->getKey(), (string) $this->kitchen->organisation->getKey());
+
+    expect(RuntimeRole::run(fn (): array => DB::table('customer_accounts')
+        ->where('id', $client->getKey())
+        ->pluck('display_name')
+        ->all()))->toBe(['Acme Foods SAL']);
+
+    RuntimeRole::context((string) $this->other->user->getKey(), (string) $this->other->organisation->getKey());
+
+    expect(RuntimeRole::run(fn (): array => DB::table('customer_accounts')
+        ->where('id', $client->getKey())
+        ->pluck('id')
+        ->all()))->toBe([]);
+});
+
+it('does not let a programme rewrite the buyer account', function (): void {
+    $client = deskRlsProgrammeClient($this->kitchen);
+
+    RuntimeRole::context((string) $this->kitchen->user->getKey(), (string) $this->kitchen->organisation->getKey());
+
+    $updated = RuntimeRole::run(fn (): int => DB::table('customer_accounts')
+        ->where('id', $client->getKey())
+        ->update(['display_name' => 'Rewritten']));
+
+    expect($updated)->toBe(0)
+        ->and(CustomerAccount::query()->whereKey($client->getKey())->value('display_name'))
+        ->toBe('Acme Foods SAL');
+});
+
+it('keeps every read arm when the policy is rewritten, the subscription arm included', function (): void {
+    // Each migration that touches this policy drops and recreates it whole, so
+    // a later file that forgets an earlier arm silently revokes it. The two
+    // 2026_10_21_000301 / 2026_10_22_000101 rewrites landed on separate
+    // branches; this pins the result.
+    $read = (string) DB::table('pg_policies')
+        ->where('tablename', 'customer_accounts')
+        ->where('policyname', 'rls_customer_account_select')
+        ->value('qual');
+
+    expect($read)->toContain('orders o')
+        ->and($read)->toContain('subscriptions s')
+        ->and($read)->toContain('corporate_programmes cp');
 });

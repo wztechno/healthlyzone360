@@ -236,7 +236,7 @@ final class PermissionRegistry
             // history and no account: a name and a telephone number, which is
             // the least somebody can be called back on. Widening it later would
             // be a new code, not a quiet extension of this one.
-            'order.view_customer_contact_organisation' => ['domain' => 'order', 'description' => "View the customer's name and telephone number on the order desk queue"],
+            'order.view_customer_contact_organisation' => ['domain' => 'order', 'description' => "View customers' names, contact details, saved addresses, account numbers and company records — the order desk queue and search, and the kitchen's customer book"],
 
             // C2 (order desk). A fourth order code, and the only one in the
             // domain that brings an order into existence. `order.manage_

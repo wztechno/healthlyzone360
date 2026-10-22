@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8486 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8551 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3661,6 +3661,8 @@ export interface NamespaceKeys {
     | 'families.consumptionExceptions.name'
     | 'families.costReport.description'
     | 'families.costReport.name'
+    | 'families.customers.description'
+    | 'families.customers.name'
     | 'families.deliveryWindows.description'
     | 'families.deliveryWindows.name'
     | 'families.deliveryZones.description'
@@ -4211,6 +4213,69 @@ export interface NamespaceKeys {
     | 'ops.costReport.window.flaggedNote'
     | 'ops.costReport.window.kind'
     | 'ops.costReport.window.openLedger'
+    | 'ops.customers.addressApartment'
+    | 'ops.customers.addressBilling'
+    | 'ops.customers.addressBuilding'
+    | 'ops.customers.addressDefault'
+    | 'ops.customers.addressDelivery'
+    | 'ops.customers.addressFloor'
+    | 'ops.customers.backToList'
+    | 'ops.customers.caption'
+    | 'ops.customers.channelEmail'
+    | 'ops.customers.channelPhone'
+    | 'ops.customers.columnEmail'
+    | 'ops.customers.columnLastOrder'
+    | 'ops.customers.columnName'
+    | 'ops.customers.columnOrders'
+    | 'ops.customers.columnPhone'
+    | 'ops.customers.columnType'
+    | 'ops.customers.companyBusinessType'
+    | 'ops.customers.companyCr'
+    | 'ops.customers.companyLegalName'
+    | 'ops.customers.companyOrganisation'
+    | 'ops.customers.companySignatory'
+    | 'ops.customers.companyTradingName'
+    | 'ops.customers.companyVat'
+    | 'ops.customers.contactPrimary'
+    | 'ops.customers.contactVerified'
+    | 'ops.customers.emptyBody'
+    | 'ops.customers.emptyTitle'
+    | 'ops.customers.fieldAccountNumber'
+    | 'ops.customers.fieldCustomerSince'
+    | 'ops.customers.fieldLastOrder'
+    | 'ops.customers.fieldOrders'
+    | 'ops.customers.fieldType'
+    | 'ops.customers.filteredEmptyBody'
+    | 'ops.customers.filteredEmptyTitle'
+    | 'ops.customers.neverOrdered'
+    | 'ops.customers.noAddresses'
+    | 'ops.customers.noCompanyRecord'
+    | 'ops.customers.noContacts'
+    | 'ops.customers.noName'
+    | 'ops.customers.notFoundBody'
+    | 'ops.customers.notFoundTitle'
+    | 'ops.customers.readOnlyNote'
+    | 'ops.customers.roleBilling'
+    | 'ops.customers.roleOperations'
+    | 'ops.customers.rolePrimary'
+    | 'ops.customers.roleSignatory'
+    | 'ops.customers.searchHint'
+    | 'ops.customers.searchLabel'
+    | 'ops.customers.sectionAddresses'
+    | 'ops.customers.sectionCompany'
+    | 'ops.customers.sectionCompanyContacts'
+    | 'ops.customers.sectionContacts'
+    | 'ops.customers.segmentAll'
+    | 'ops.customers.segmentLabel'
+    | 'ops.customers.statusActive'
+    | 'ops.customers.statusClosed'
+    | 'ops.customers.statusProvisional'
+    | 'ops.customers.statusSuspended'
+    | 'ops.customers.truncated'
+    | 'ops.customers.typeB2b'
+    | 'ops.customers.typeB2c'
+    | 'ops.customers.typeGuest'
+    | 'ops.customers.viewKind'
     | 'ops.exceptions.actionFailedToast'
     | 'ops.exceptions.chip'
     | 'ops.exceptions.clearBadge'
@@ -12165,6 +12230,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.consumptionExceptions.name',
   'kitchen:families.costReport.description',
   'kitchen:families.costReport.name',
+  'kitchen:families.customers.description',
+  'kitchen:families.customers.name',
   'kitchen:families.deliveryWindows.description',
   'kitchen:families.deliveryWindows.name',
   'kitchen:families.deliveryZones.description',
@@ -12715,6 +12782,69 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.window.flaggedNote',
   'kitchen:ops.costReport.window.kind',
   'kitchen:ops.costReport.window.openLedger',
+  'kitchen:ops.customers.addressApartment',
+  'kitchen:ops.customers.addressBilling',
+  'kitchen:ops.customers.addressBuilding',
+  'kitchen:ops.customers.addressDefault',
+  'kitchen:ops.customers.addressDelivery',
+  'kitchen:ops.customers.addressFloor',
+  'kitchen:ops.customers.backToList',
+  'kitchen:ops.customers.caption',
+  'kitchen:ops.customers.channelEmail',
+  'kitchen:ops.customers.channelPhone',
+  'kitchen:ops.customers.columnEmail',
+  'kitchen:ops.customers.columnLastOrder',
+  'kitchen:ops.customers.columnName',
+  'kitchen:ops.customers.columnOrders',
+  'kitchen:ops.customers.columnPhone',
+  'kitchen:ops.customers.columnType',
+  'kitchen:ops.customers.companyBusinessType',
+  'kitchen:ops.customers.companyCr',
+  'kitchen:ops.customers.companyLegalName',
+  'kitchen:ops.customers.companyOrganisation',
+  'kitchen:ops.customers.companySignatory',
+  'kitchen:ops.customers.companyTradingName',
+  'kitchen:ops.customers.companyVat',
+  'kitchen:ops.customers.contactPrimary',
+  'kitchen:ops.customers.contactVerified',
+  'kitchen:ops.customers.emptyBody',
+  'kitchen:ops.customers.emptyTitle',
+  'kitchen:ops.customers.fieldAccountNumber',
+  'kitchen:ops.customers.fieldCustomerSince',
+  'kitchen:ops.customers.fieldLastOrder',
+  'kitchen:ops.customers.fieldOrders',
+  'kitchen:ops.customers.fieldType',
+  'kitchen:ops.customers.filteredEmptyBody',
+  'kitchen:ops.customers.filteredEmptyTitle',
+  'kitchen:ops.customers.neverOrdered',
+  'kitchen:ops.customers.noAddresses',
+  'kitchen:ops.customers.noCompanyRecord',
+  'kitchen:ops.customers.noContacts',
+  'kitchen:ops.customers.noName',
+  'kitchen:ops.customers.notFoundBody',
+  'kitchen:ops.customers.notFoundTitle',
+  'kitchen:ops.customers.readOnlyNote',
+  'kitchen:ops.customers.roleBilling',
+  'kitchen:ops.customers.roleOperations',
+  'kitchen:ops.customers.rolePrimary',
+  'kitchen:ops.customers.roleSignatory',
+  'kitchen:ops.customers.searchHint',
+  'kitchen:ops.customers.searchLabel',
+  'kitchen:ops.customers.sectionAddresses',
+  'kitchen:ops.customers.sectionCompany',
+  'kitchen:ops.customers.sectionCompanyContacts',
+  'kitchen:ops.customers.sectionContacts',
+  'kitchen:ops.customers.segmentAll',
+  'kitchen:ops.customers.segmentLabel',
+  'kitchen:ops.customers.statusActive',
+  'kitchen:ops.customers.statusClosed',
+  'kitchen:ops.customers.statusProvisional',
+  'kitchen:ops.customers.statusSuspended',
+  'kitchen:ops.customers.truncated',
+  'kitchen:ops.customers.typeB2b',
+  'kitchen:ops.customers.typeB2c',
+  'kitchen:ops.customers.typeGuest',
+  'kitchen:ops.customers.viewKind',
   'kitchen:ops.exceptions.actionFailedToast',
   'kitchen:ops.exceptions.chip',
   'kitchen:ops.exceptions.clearBadge',
