@@ -7,7 +7,10 @@ namespace Healthy360\Verification\Jobs;
 use Healthy360\Verification\Enums\OtpChallengeStatus;
 use Healthy360\Verification\Models\OtpChallenge;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -28,7 +31,9 @@ use Illuminate\Support\Facades\Log;
  * prove which contact, when, and how often — so it is not kept indefinitely
  * because it might be useful. Seven days
  * (`verification.otp.retain_finished_days`) is long enough to investigate an
- * abuse report and short enough that this never becomes an archive.
+ * abuse report and short enough that this never becomes an archive. The one
+ * exception is a challenge another record still cites as signature evidence:
+ * that is kept as long as the record is (see `citations()`).
  *
  * Hourly, `withoutOverlapping` and `onOneServer` (routes/console.php): the
  * deletes are chunked, so two workers running at once would do the same work
@@ -62,11 +67,20 @@ final class PurgeExpiredOtpChallenges implements ShouldQueue
 
         $cutoff = now()->subDays(max(1, (int) config('verification.otp.retain_finished_days', 7)));
         $deleted = 0;
+        $citations = $this->citations();
 
         do {
             $batch = OtpChallenge::query()
                 ->whereNotNull('finished_at')
                 ->where('finished_at', '<', $cutoff)
+                ->where(function (Builder $query) use ($citations): void {
+                    foreach ($citations as $citation) {
+                        $query->whereNotExists(fn (QueryBuilder $cited): QueryBuilder => $cited
+                            ->selectRaw('1')
+                            ->from($citation->referencing_table)
+                            ->whereColumn("{$citation->referencing_table}.{$citation->referencing_column}", 'otp_challenges.id'));
+                    }
+                })
                 ->limit(self::CHUNK)
                 ->pluck('id')
                 ->all();
@@ -85,5 +99,27 @@ final class PurgeExpiredOtpChallenges implements ShouldQueue
             'deleted' => $deleted,
             'retain_days' => (int) config('verification.otp.retain_finished_days', 7),
         ]);
+    }
+
+    /**
+     * Every column elsewhere that cites a challenge as evidence.
+     *
+     * Read from the catalogue rather than listed here, because the citing
+     * tables belong to other modules: a signed B2B agreement and an offboarding
+     * sign-off both point at the challenge that proved their signatory present,
+     * `ON DELETE RESTRICT`, so the challenge lives as long as the record that
+     * cites it. A third such column is honoured without touching this job.
+     *
+     * @return list<object{referencing_table: string, referencing_column: string}>
+     */
+    private function citations(): array
+    {
+        /** @var list<object{referencing_table: string, referencing_column: string}> */
+        return DB::select(<<<'SQL'
+            SELECT c.conrelid::regclass::text AS referencing_table, a.attname AS referencing_column
+            FROM pg_constraint c
+            JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+            WHERE c.contype = 'f' AND c.confrelid = 'otp_challenges'::regclass
+            SQL);
     }
 }
