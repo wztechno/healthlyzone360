@@ -194,6 +194,7 @@ export const REPOSITORY_SURFACE = {
         'searchAllergenReferences',
         'importIngredientAllergenReference',
         'searchNutritionReferences',
+        'assistIngredient',
         'confirmIngredientAllergens',
         'archiveIngredient',
         'archiveProduct',

@@ -147,6 +147,22 @@ final readonly class RecipeVersionReadiness
                     'context' => ['ingredient_ids' => $quarantined],
                 ];
             }
+
+            $owed = Ingredient::withoutTenancy()
+                ->whereIn('id', $ingredientIds)
+                ->whereNotNull('pending_nutrition')
+                ->orderBy('id')
+                ->pluck('id')
+                ->map(static fn (mixed $id): string => (string) $id)
+                ->all();
+
+            if ($owed !== []) {
+                $reasons[] = [
+                    'code' => 'ingredient_nutrition_pending',
+                    'detail' => 'At least one line ingredient was added from the recipe editor and still owes a confirmed nutrition reference. The cook confirms its purchased preparation state on the ingredient before this formulation can publish.',
+                    'context' => ['ingredient_ids' => $owed],
+                ];
+            }
         }
 
         return $reasons;

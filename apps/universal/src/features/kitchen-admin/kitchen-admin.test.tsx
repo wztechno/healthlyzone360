@@ -1,5 +1,6 @@
 import type {
     AllergenReferenceCandidate,
+    IngredientAssistSuggestion,
     NutritionReferenceCandidate,
 } from '@healthy360/api-client/contracts';
 import { AllergenReferencePicker } from './allergen-reference-picker.tsx';
@@ -1943,6 +1944,41 @@ describe('nutrition per 100 g', () => {
         });
     });
 
+    it('draws the selected match’s figures before the save', async () => {
+        const record = ingredient(22, { per100g: per100gFacts() });
+
+        const { repositories } = await renderStubScreen(
+            <IngredientEditScreen ingredient={String(record.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [record]),
+                        getIngredient: async () => record,
+                        searchNutritionReferences: async () => [USDA_CANDIDATE],
+                    },
+                },
+            },
+        );
+
+        await openIngredientStep('nutrition');
+        await untilVisible('kitchen-ingredient-nutrition-grid-figure-energy-value');
+        expect(
+            screen.getByTestId('kitchen-ingredient-nutrition-grid-figure-energy-value'),
+        ).toHaveTextContent(/^53/);
+
+        await selectUsdaReference();
+
+        // The candidate's 100 kcal, and an em dash where it carries no figure — not the old 53.
+        expect(
+            screen.getByTestId('kitchen-ingredient-nutrition-grid-figure-energy-value'),
+        ).toHaveTextContent(/^100/);
+        expect(
+            screen.getByTestId('kitchen-ingredient-nutrition-grid-figure-protein-value'),
+        ).toHaveTextContent('—');
+        expect(repositories.kitchenAdmin.updateIngredient).not.toHaveBeenCalled();
+    });
+
     it('offers no inputs on a record whose figures a published recipe derives', async () => {
         const record = ingredient(23, {
             per100g: per100gFacts(),
@@ -2575,4 +2611,378 @@ it('includes acknowledged allergen suggestions when creating a new ingredient an
             }),
         ),
     );
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * The ingredient assistant
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('the ingredient assistant', () => {
+    const OTHER_CANDIDATE: NutritionReferenceCandidate = {
+        ...USDA_CANDIDATE,
+        ref: 'usda:999',
+        label: 'Bulgur, cooked',
+        source_hash: 'b'.repeat(64),
+    };
+
+    function suggestion(
+        overrides: Partial<IngredientAssistSuggestion> = {},
+    ): IngredientAssistSuggestion {
+        return {
+            existingMatches: [],
+            possibleDuplicates: [],
+            nameAr: 'برغل',
+            categoryCode: 'store-cupboard',
+            subcategoryCode: 'store-cupboard-grains',
+            nutrition: {
+                candidates: [USDA_CANDIDATE],
+                pick: 0,
+                relation: 'same',
+                reason: 'Plain.',
+            },
+            unavailable: [],
+            ...overrides,
+        };
+    }
+
+    async function openForm(
+        assistIngredient: (name: string) => Promise<IngredientAssistSuggestion>,
+    ) {
+        const rendered = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => []),
+                    assistIngredient,
+                    searchNutritionReferences: async () => [USDA_CANDIDATE],
+                },
+            },
+        });
+        await untilVisible('kitchen-ingredient-name-en-input');
+        return rendered;
+    }
+
+    async function typeName(name: string) {
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-ingredient-name-en-input'), name);
+        });
+    }
+
+    async function leaveName() {
+        await act(async () => {
+            fireEvent(screen.getByTestId('kitchen-ingredient-name-en-input'), 'blur');
+        });
+    }
+
+    it('runs once per name and fills the empty fields, marking the Arabic as AI', async () => {
+        const { repositories } = await openForm(async () => suggestion());
+
+        await typeName('Burghul');
+        await leaveName();
+        await leaveName();
+
+        await untilVisible('kitchen-ingredient-assist-arabic');
+        expect(repositories.kitchenAdmin.assistIngredient).toHaveBeenCalledTimes(1);
+        expect(repositories.kitchenAdmin.assistIngredient).toHaveBeenCalledWith('Burghul');
+        expect(screen.getByTestId('kitchen-ingredient-name-ar-input').props.value).toBe('برغل');
+        expect(screen.getByTestId('kitchen-ingredient-category-trigger')).toHaveTextContent(
+            /Store cupboard/,
+        );
+        expect(screen.getByTestId('kitchen-ingredient-subcategory-trigger')).toHaveTextContent(
+            /Grains/,
+        );
+        // Preselected but never confirmed: the preparation state is the cook's to state.
+        expect(screen.getByTestId('nutrition-reference-ai-pick')).toBeTruthy();
+        expect(screen.getByTestId('nutrition-reference-confirm-control')).not.toBeChecked();
+
+        // Editing the Arabic takes the AI marker away with it.
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-ingredient-name-ar-input'),
+                'برغل ناعم',
+            );
+        });
+        expect(screen.queryByTestId('kitchen-ingredient-assist-arabic')).toBeNull();
+    });
+
+    it('never overwrites Arabic the cook typed or a category they chose', async () => {
+        await openForm(async () =>
+            suggestion({ categoryCode: 'store-cupboard', subcategoryCode: null }),
+        );
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-ingredient-name-ar-input'), 'مكتوب');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-category-trigger'));
+        });
+        await untilVisible('kitchen-ingredient-category-option-store-cupboard');
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-ingredient-category-option-store-cupboard'),
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-subcategory-trigger'));
+        });
+        await untilVisible('kitchen-ingredient-subcategory-option-store-cupboard-grains');
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-ingredient-subcategory-option-store-cupboard-grains'),
+            );
+        });
+
+        await typeName('Burghul');
+        await leaveName();
+        await untilVisible('kitchen-ingredient-assist-ai');
+
+        expect(screen.getByTestId('kitchen-ingredient-name-ar-input').props.value).toBe('مكتوب');
+        expect(screen.queryByTestId('kitchen-ingredient-assist-arabic')).toBeNull();
+        expect(screen.getByTestId('kitchen-ingredient-subcategory-trigger')).toHaveTextContent(
+            /Grains/,
+        );
+    });
+
+    it('applies only the latest of two overlapping runs for the same name', async () => {
+        const pending: ((value: IngredientAssistSuggestion) => void)[] = [];
+        await openForm(
+            () =>
+                new Promise<IngredientAssistSuggestion>((resolve) => {
+                    pending.push(resolve);
+                }),
+        );
+
+        // Burghul → Bulgur → Burghul: the first and third runs share a name, so comparing names
+        // cannot tell the stale one from the fresh one.
+        for (const name of ['Burghul', 'Bulgur', 'Burghul']) {
+            await typeName(name);
+            await leaveName();
+        }
+        await waitFor(() => {
+            expect(pending).toHaveLength(3);
+        });
+
+        const duplicate = (reason: string) =>
+            suggestion({
+                possibleDuplicates: [
+                    {
+                        id: ingredient(5).id,
+                        name: { en: 'Bulgur wheat', ar: '' },
+                        isPlatform: false,
+                        reason,
+                    },
+                ],
+            });
+        await act(async () => {
+            pending[2]!(duplicate('Newest run.'));
+        });
+        await act(async () => {
+            pending[0]!(duplicate('Oldest run.'));
+        });
+
+        await untilVisible('kitchen-ingredient-assist-arabic');
+        expect(screen.getByText(/Newest run\./)).toBeTruthy();
+        expect(screen.queryByText(/Oldest run\./)).toBeNull();
+    });
+
+    it('does not replace a nutrition match the cook already chose', async () => {
+        let answer: (value: IngredientAssistSuggestion) => void = () => undefined;
+        await openForm(
+            () =>
+                new Promise<IngredientAssistSuggestion>((resolve) => {
+                    answer = resolve;
+                }),
+        );
+
+        await typeName('Burghul');
+        await leaveName();
+        await selectUsdaReference();
+
+        await act(async () => {
+            answer(
+                suggestion({
+                    nutrition: {
+                        candidates: [OTHER_CANDIDATE, USDA_CANDIDATE],
+                        pick: 0,
+                        relation: 'same',
+                        reason: null,
+                    },
+                }),
+            );
+        });
+
+        await untilVisible('kitchen-ingredient-assist-arabic');
+        expect(screen.getByTestId('nutrition-reference-usda:12345')).toBeTruthy();
+        expect(screen.queryByTestId('nutrition-reference-usda:999')).toBeNull();
+        expect(screen.getByTestId('nutrition-reference-confirm-control')).toBeChecked();
+    });
+
+    it('asks about extra detail, and keeps the choice unconfirmed across a rename', async () => {
+        await openForm(async () =>
+            suggestion({
+                nutrition: {
+                    candidates: [OTHER_CANDIDATE],
+                    pick: 0,
+                    relation: 'more_specific',
+                    reason: 'The match is cooked.',
+                },
+            }),
+        );
+
+        await typeName('Burghul');
+        await leaveName();
+        await untilVisible('nutrition-reference-relation-more_specific');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('nutrition-reference-confirm-control'));
+        });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('nutrition-reference-rename'));
+        });
+        await typeName('Burghul, cooked');
+
+        expect(screen.getByTestId('nutrition-reference-usda:999')).toBeTruthy();
+        expect(screen.getByTestId('nutrition-reference-confirm-control')).not.toBeChecked();
+    });
+
+    it('warns on a different food without preselecting it', async () => {
+        await openForm(async () =>
+            suggestion({
+                nutrition: {
+                    candidates: [OTHER_CANDIDATE, USDA_CANDIDATE],
+                    pick: 0,
+                    relation: 'different',
+                    reason: 'That is bulgur, not rice.',
+                },
+            }),
+        );
+
+        await typeName('Rice');
+        await leaveName();
+
+        await untilVisible('nutrition-reference-relation-different');
+        expect(screen.queryByTestId('nutrition-reference-confirm-control')).toBeNull();
+        expect(screen.getByTestId('nutrition-reference-select-usda:12345')).toBeTruthy();
+    });
+
+    it('lets its own earlier answer follow a rename, while the cook’s stays put', async () => {
+        await openForm(async (name) =>
+            name === 'Cilantro'
+                ? suggestion({ nameAr: 'كزبرة', subcategoryCode: null })
+                : suggestion({ nameAr: 'حمص', subcategoryCode: 'store-cupboard-grains' }),
+        );
+
+        await typeName('Cilantro');
+        await leaveName();
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-ingredient-name-ar-input').props.value).toBe(
+                'كزبرة',
+            );
+        });
+
+        await typeName('Chickpeas');
+        await leaveName();
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-ingredient-name-ar-input').props.value).toBe('حمص');
+        });
+        expect(screen.getByTestId('kitchen-ingredient-subcategory-trigger')).toHaveTextContent(
+            /Grains/,
+        );
+
+        // Once the cook edits it, it is theirs: the next answer leaves it alone.
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-ingredient-name-ar-input'), 'حمّص');
+        });
+        await typeName('Cilantro');
+        await leaveName();
+        // The answer has landed when the still-AI-owned category pair follows it (no leaf).
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('kitchen-ingredient-subcategory-trigger'),
+            ).not.toHaveTextContent(/Grains/);
+        });
+        expect(screen.getByTestId('kitchen-ingredient-name-ar-input').props.value).toBe('حمّص');
+    });
+
+    it('lists exact and possible duplicates, and says which parts were unavailable', async () => {
+        const existing = ingredient(4, { name: { en: 'Burghul', ar: 'برغل' } });
+        const similar = ingredient(5, { name: { en: 'Bulgur wheat', ar: '' } });
+        await openForm(async () =>
+            suggestion({
+                existingMatches: [
+                    { id: existing.id, name: existing.name, isPlatform: true, reason: null },
+                ],
+                possibleDuplicates: [
+                    {
+                        id: similar.id,
+                        name: similar.name,
+                        isPlatform: false,
+                        reason: 'Same grain.',
+                    },
+                ],
+                nutrition: null,
+                unavailable: ['nutrition'],
+            }),
+        );
+
+        await typeName('Burghul');
+        await leaveName();
+
+        await untilVisible('kitchen-ingredient-assist-existing');
+        expect(screen.getByTestId('kitchen-ingredient-assist-nutrition-unavailable')).toBeTruthy();
+        expect(screen.getByText(/Same grain\./)).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId(`kitchen-ingredient-assist-open-${String(similar.id)}`),
+            );
+        });
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            `/kitchen/ingredients/${String(similar.id)}`,
+        );
+    });
+});
+
+describe('a row added from the recipe editor', () => {
+    it('says it is AI-filled and owed, and offers the stored pick without choosing it', async () => {
+        const record = ingredient(31, {
+            name: { en: 'Sumac', ar: 'سماق' },
+            pendingNutrition: { suggestion: USDA_CANDIDATE },
+        });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => [record]),
+                    getIngredient: async () => record,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-pending-nutrition');
+
+        // Listed for the cook to select and confirm — no search needed, and nothing preselected,
+        // so saving a price on this page is not held behind a confirmation nobody asked for.
+        await openIngredientStep('nutrition');
+        await untilVisible('nutrition-reference-select-usda:12345');
+        expect(screen.queryByTestId('nutrition-reference-confirm-control')).toBeNull();
+    });
+
+    it('draws no notice on a row that owes nothing', async () => {
+        const record = ingredient(32, { pendingNutrition: null });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => [record]),
+                    getIngredient: async () => record,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-name-en-input');
+        expect(screen.queryByTestId('kitchen-ingredient-pending-nutrition')).toBeNull();
+    });
 });

@@ -282,7 +282,8 @@ export function SubscriptionConfiguratorScreen({
         const server = startFloor.data?.earliestStartDate ?? null;
         if (server !== null) return server;
         const floor = earliestStartDate(new Date(), cutoffHours);
-        const days = chosenWeekdays === undefined || chosenWeekdays.length === 0 ? null : chosenWeekdays;
+        const days =
+            chosenWeekdays === undefined || chosenWeekdays.length === 0 ? null : chosenWeekdays;
         return days === null ? floor : (nextAllowedDate(floor, days) ?? floor);
     }, [chosenWeekdays, cutoffHours, startFloor.data]);
 

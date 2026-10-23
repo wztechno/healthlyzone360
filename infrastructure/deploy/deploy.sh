@@ -231,17 +231,20 @@ MAIL_FROM_ADDRESS=$MAIL_FROM_ADDRESS
 MAIL_FROM_NAME="$MAIL_FROM_NAME"
 EOF
 
-# The ingredient reference lookups are opt-in per instance, the same bargain
-# Brevo takes above: put the key in this directory's write-once .env and it
-# reaches the container, leave it out and the instance uses the shipped
-# defaults in config/services.php.
+# The ingredient reference lookups and the ingredient assistant are opt-in per
+# instance, the same bargain Brevo takes above: put the key in this directory's
+# write-once .env and it reaches the container, leave it out and the instance
+# uses the shipped defaults in config/services.php. Without OPENAI_API_KEY the
+# new-ingredient form still works and simply reports the assistant unavailable.
 #
 # Written only when set, and that is the whole point. An empty line is not the
 # same as an absent one — `env()` hands back "" rather than the default, so
 # `USDA_FDC_HOURLY_BUDGET=` would floor the hourly budget at one request
-# instead of nine hundred, and `OPEN_FOOD_FACTS_USER_AGENT=` would send the
-# empty user agent that Open Food Facts asks callers not to send.
-for key in USDA_FDC_API_KEY USDA_FDC_HOURLY_BUDGET OPEN_FOOD_FACTS_USER_AGENT; do
+# instead of nine hundred, `OPEN_FOOD_FACTS_USER_AGENT=` would send the empty
+# user agent that Open Food Facts asks callers not to send, and `OPENAI_MODEL=`
+# would ask the provider for a model named "".
+for key in USDA_FDC_API_KEY USDA_FDC_HOURLY_BUDGET OPEN_FOOD_FACTS_USER_AGENT \
+           OPENAI_API_KEY OPENAI_MODEL; do
     value="$(envval "$key")"
     [ -n "$value" ] && printf '%s="%s"\n' "$key" "$value" >> .env.deploy
 done

@@ -72,6 +72,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  * @property array<string, mixed>|null $nutrition_source
+ * @property array{suggestion: array<string, mixed>|null}|null $pending_nutrition
  * @property bool $allergen_review_required
  * @property string|null $allergens_reviewed_by
  * @property CarbonImmutable|null $allergens_reviewed_at
@@ -97,6 +98,7 @@ class Ingredient extends BaseModel implements OrganisationScoped
     {
         return [
             'nutrition_source' => 'array',
+            'pending_nutrition' => 'array',
             'allergen_review_required' => 'boolean',
             'allergens_reviewed_at' => 'immutable_datetime',
             'availability_tier' => AvailabilityTier::class,

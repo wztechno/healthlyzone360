@@ -466,7 +466,12 @@ function testVariant(planOrdinal: number, index: number, name: string): PlanVari
 
 const DURATIONS: readonly PlanDurationOption[] = [
     { duration: '7d', days: 7, discountPercent: 0, totalPrice: { amount: 20000, currency: 'AED' } },
-    { duration: '28d', days: 28, discountPercent: 5, totalPrice: { amount: 76000, currency: 'AED' } },
+    {
+        duration: '28d',
+        days: 28,
+        discountPercent: 5,
+        totalPrice: { amount: 76000, currency: 'AED' },
+    },
     {
         duration: '84d',
         days: 84,

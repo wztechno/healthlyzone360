@@ -602,8 +602,7 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                                               t,
                                                               formatter.formatNumber,
                                                           ),
-                                                          price:
-                                                              durationTotal(shortestRun) ?? '—',
+                                                          price: durationTotal(shortestRun) ?? '—',
                                                       })}
                                             </Text>
                                             <Text tone="secondary" variant="caption">

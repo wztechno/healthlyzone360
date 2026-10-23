@@ -6,6 +6,7 @@ namespace Healthy360\Ingredients\Services;
 
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Ingredients\Allergens\AllergenReferenceService;
+use Healthy360\Ingredients\Assistant\IngredientAssistService;
 use Healthy360\Ingredients\Contracts\IngredientUsageRegistry;
 use Healthy360\Ingredients\Enums\AvailabilityTier;
 use Healthy360\Ingredients\Enums\IngredientStatus;
@@ -70,6 +71,7 @@ final readonly class IngredientCatalogueService
         private PackagingBranch $packaging,
         private AllergenReferenceService $allergenReferences,
         private AllergenMappingService $allergenMappings,
+        private IngredientAssistService $assistant,
     ) {}
 
     /**
@@ -105,17 +107,24 @@ final readonly class IngredientCatalogueService
      *     nutrition_reference_hash?: string,
      *     nutrition_reference_confirmed?: bool,
      *     allergen_reference_token?: string,
-     *     allergen_reference_confirmed?: bool
+     *     allergen_reference_confirmed?: bool,
+     *     nutrition_pending?: bool,
+     *     nutrition_suggestion?: string,
+     *     nutrition_suggestion_hash?: string
      * }  $attributes
      */
     public function createPublic(array $attributes): Ingredient
     {
-        $this->requireOrganisation();
+        $organisationId = $this->requireOrganisation();
+        $pending = filter_var($attributes['nutrition_pending'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $this->assertReferenceGate($attributes, null);
-        $facts = $this->resolveReferenceAttributes($attributes);
+        $facts = $pending ? ['pending_nutrition' => $this->pendingNutrition($attributes)] : $this->resolveReferenceAttributes($attributes);
         $allergenReference = isset($attributes['allergen_reference_token']) ? $this->allergenReferences->resolve($attributes['allergen_reference_token']) : null;
 
-        return DB::transaction(function () use ($facts, $attributes, $allergenReference): Ingredient {
+        return DB::transaction(function () use ($facts, $attributes, $allergenReference, $pending, $organisationId): Ingredient {
+            if ($pending) {
+                $this->assertNoExistingMatch($attributes['name_en'], $organisationId);
+            }
             $ingredient = $this->create($facts + $attributes);
             if ($allergenReference !== null) {
                 $ingredient = $this->allergenMappings->importReference($ingredient, $this->allergenMappings->reviewToken($ingredient), $allergenReference);
@@ -157,13 +166,57 @@ final readonly class IngredientCatalogueService
             $category = $attributes['ingredient_category_id'];
         }
         $isPackaging = in_array($category, $this->packaging->categoryIds(), true);
-        $hasReference = array_key_exists($resolved ? 'nutrition_source' : 'nutrition_reference', $attributes);
+        // A quick add owes its reference rather than carrying one: food may go ahead, packaging may not.
+        $hasReference = array_key_exists($resolved ? 'nutrition_source' : 'nutrition_reference', $attributes)
+            || filter_var($attributes['nutrition_pending'] ?? false, FILTER_VALIDATE_BOOLEAN);
         if ($isPackaging && ($hasReference || array_key_exists('allergen_reference_token', $attributes))) {
             throw new ReferenceUnsuitable(['Packaging cannot carry a food nutrition reference.']);
         }
         $wasPackaging = $ingredient !== null && in_array($ingredient->ingredient_category_id, $this->packaging->categoryIds(), true);
         if (! $isPackaging && ($ingredient === null || $wasPackaging) && ! $hasReference) {
             throw new ReferenceUnsuitable(['Select a suitable nutrition reference for this food ingredient.']);
+        }
+    }
+
+    /**
+     * The marker a quick add lands with: the assistant's USDA pick, re-fetched and checked here so
+     * the client's word is never stored, or null when there was none or it no longer checks out.
+     * It is only ever shown — the figures arrive when the cook confirms a reference.
+     *
+     * @param  array<string, mixed>  $attributes
+     * @return array{suggestion: array<string, mixed>|null}
+     */
+    private function pendingNutrition(array $attributes): array
+    {
+        if (! isset($attributes['nutrition_suggestion'])) {
+            return ['suggestion' => null];
+        }
+
+        try {
+            $reference = $this->references->suggestion((string) $attributes['nutrition_suggestion'], (string) ($attributes['nutrition_suggestion_hash'] ?? ''));
+        } catch (ApiException) {
+            // A changed, unsuitable or unreachable pick is no suggestion; the row still owes one.
+            return ['suggestion' => null];
+        }
+
+        return ['suggestion' => $reference->candidate];
+    }
+
+    /**
+     * A quick add never creates a second row for a name the kitchen already sees — its English
+     * name, Arabic name or alias. Serialised per name, so two Adds racing cannot both pass.
+     *
+     * @throws ApiException
+     */
+    private function assertNoExistingMatch(string $nameEn, string $organisationId): void
+    {
+        DB::select('select pg_advisory_xact_lock(hashtextextended(?, 0))', ['ingredient-quick-add:'.$organisationId.':'.IngredientAlias::normalise($nameEn)]);
+        $existing = $this->assistant->existingMatches($nameEn);
+
+        if ($existing->isNotEmpty()) {
+            throw new ApiException(ErrorCode::ResourceConflict, 'An ingredient with this name already exists.', [
+                'existing_matches' => $existing->map(fn (Ingredient $row): array => $this->assistant->reference($row))->values()->all(),
+            ]);
         }
     }
 
@@ -253,6 +306,7 @@ final readonly class IngredientCatalogueService
         $ingredient->grams_per_unit = $this->decimalOrNull($attributes['grams_per_unit'] ?? null);
         $ingredient->nutrition_per_100g = $attributes['nutrition_per_100g'] ?? null;
         $ingredient->nutrition_source = $attributes['nutrition_source'] ?? null;
+        $ingredient->pending_nutrition = $attributes['pending_nutrition'] ?? null;
         /*
          * A typed figure is a declaration unless the writer says otherwise.
          *
@@ -637,6 +691,15 @@ final readonly class IngredientCatalogueService
             if (! array_key_exists('nutrition_note', $changes)) {
                 $changes['nutrition_note'] = null;
             }
+        }
+
+        // A quick-added row stops owing its reference once a confirmed one lands, or once it is
+        // re-filed as packaging, which never carries one.
+        if ($ingredient->pending_nutrition !== null && (
+            is_array($changes['nutrition_source'] ?? null)
+            || in_array($changes['ingredient_category_id'] ?? null, $this->packaging->categoryIds(), true)
+        )) {
+            $changes['pending_nutrition'] = null;
         }
 
         /*

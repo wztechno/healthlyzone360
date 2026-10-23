@@ -807,6 +807,9 @@ final readonly class RecipeVersionService
      * these ingredients are platform rows — and the label is the food-safety
      * artefact. What is *not* acceptable is publishing a partial total, and
      * that is the withholding rule `RecipeNutritionService` already applies.
+     * The one exception is a row added from the recipe editor that still owes
+     * the reference its own create skipped (`ingredient_nutrition_pending`):
+     * that gap is the kitchen's, and the readiness reason holds it here.
      *
      * @throws ApiException
      */

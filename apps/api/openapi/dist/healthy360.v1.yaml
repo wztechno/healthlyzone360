@@ -1787,6 +1787,14 @@ paths:
         `verification_status`, `lock_version`, `organisation_id` and the
         source-provenance fields are all server-authored.
 
+        **Quick add** (`nutrition_pending: true`, food only): the recipe
+        editor's background create. No confirmed reference is needed; the row
+        lands with `pending_nutrition` set, holding the assistant's USDA pick
+        (re-fetched by the server) as a suggestion, and a recipe built on it
+        cannot publish until a confirmed reference clears the marker. A name
+        the kitchen already sees — English, Arabic or alias — answers `409`
+        with `details.existing_matches` instead of creating a second row.
+
         Requires `catalogue.manage_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -1958,6 +1966,56 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '503':
           $ref: '#/components/responses/NutritionProviderFailure'
+  /catalogue/ingredients/assist:
+    post:
+      operationId: assistIngredient
+      tags:
+        - Kitchen catalogue
+      summary: Suggest Arabic name, category, duplicates and a nutrition match for a new ingredient name
+      description: |
+        Requires catalogue management permission. Writes nothing. Existing matches (exact English
+        name, Arabic name or alias) are found without AI; the Arabic name, category pair, possible
+        duplicates and nutrition pick come from a model and are validated against the caller's
+        own lists. Always 200 with whatever parts worked: `unavailable` names the parts that did
+        not (`assistant`, `nutrition`). `nutrition` is null only when the USDA lookup failed.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name_en
+              properties:
+                name_en:
+                  type: string
+                  minLength: 2
+                  maxLength: 150
+              additionalProperties: false
+      responses:
+        '200':
+          description: Suggestions for the new-ingredient form.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/IngredientAssistSuggestion'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/ingredients/{ingredient}/allergens/confirm:
     post:
       operationId: confirmIngredientAllergens
@@ -4040,7 +4098,7 @@ paths:
 
         The vocabulary: `version_quarantined`, `version_not_a_draft`,
         `no_lines`, `line_quantity_missing`, `ingredient_requires_review`,
-        `allergen_unmapped`.
+        `ingredient_nutrition_pending`, `allergen_unmapped`.
 
         **`allergen_unmapped` is reported here as an ordinary reason** even
         though publication raises it under its own error code
@@ -25613,6 +25671,21 @@ components:
             - object
             - 'null'
           additionalProperties: true
+        pending_nutrition:
+          description: |
+            Set while a quick-added row owes a confirmed nutrition reference;
+            `suggestion` is the server-checked USDA candidate, or null.
+          type:
+            - object
+            - 'null'
+          required:
+            - suggestion
+          properties:
+            suggestion:
+              type:
+                - object
+                - 'null'
+              additionalProperties: true
         allergen_review_required:
           type: boolean
         allergen_review_token:
@@ -26437,6 +26510,104 @@ components:
           type: string
           format: date-time
       additionalProperties: false
+    IngredientAssistReference:
+      type: object
+      required:
+        - id
+        - name
+        - is_platform
+      properties:
+        id:
+          type: string
+        name:
+          type: object
+          required:
+            - en
+            - ar
+          properties:
+            en:
+              type: string
+            ar:
+              type: string
+          additionalProperties: false
+        is_platform:
+          type: boolean
+        reason:
+          type:
+            - string
+            - 'null'
+      additionalProperties: false
+    IngredientAssistSuggestion:
+      type: object
+      required:
+        - existing_matches
+        - possible_duplicates
+        - name_ar
+        - category_code
+        - subcategory_code
+        - nutrition
+        - unavailable
+      properties:
+        existing_matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/IngredientAssistReference'
+        possible_duplicates:
+          type: array
+          items:
+            $ref: '#/components/schemas/IngredientAssistReference'
+        name_ar:
+          type:
+            - string
+            - 'null'
+        category_code:
+          type:
+            - string
+            - 'null'
+        subcategory_code:
+          type:
+            - string
+            - 'null'
+        nutrition:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required:
+                - candidates
+                - pick
+                - relation
+                - reason
+              properties:
+                candidates:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/NutritionReferenceCandidate'
+                pick:
+                  type:
+                    - integer
+                    - 'null'
+                relation:
+                  type:
+                    - string
+                    - 'null'
+                  enum:
+                    - same
+                    - more_specific
+                    - different
+                    - null
+                reason:
+                  type:
+                    - string
+                    - 'null'
+              additionalProperties: false
+        unavailable:
+          type: array
+          items:
+            type: string
+            enum:
+              - assistant
+              - nutrition
+      additionalProperties: false
     ConfirmIngredientAllergensRequest:
       type: object
       required:
@@ -26477,6 +26648,11 @@ components:
         nutrition_reference_confirmed:
           - nutrition_reference
           - nutrition_reference_hash
+        nutrition_suggestion:
+          - nutrition_pending
+          - nutrition_suggestion_hash
+        nutrition_suggestion_hash:
+          - nutrition_suggestion
       properties:
         allergen_reference_token:
           type: string
@@ -26495,6 +26671,18 @@ components:
         nutrition_reference_confirmed:
           type: boolean
           const: true
+        nutrition_pending:
+          type: boolean
+          const: true
+          description: Quick add — create a food row owing its nutrition reference. Prohibits `nutrition_reference`.
+        nutrition_suggestion:
+          type: string
+          pattern: ^usda:[0-9]+$
+          maxLength: 40
+          description: The assistant's pick, kept as an unconfirmed suggestion. Only with `nutrition_pending`.
+        nutrition_suggestion_hash:
+          type: string
+          pattern: ^[a-f0-9]{64}$
         name_en:
           type: string
           maxLength: 255

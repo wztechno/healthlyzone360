@@ -1,4 +1,6 @@
 import type {
+    IngredientAssistSuggestion,
+    NutritionReferenceCandidate,
     NutritionReferenceSelection,
     AllergenReferenceSelection,
 } from '@healthy360/api-client/contracts';
@@ -42,8 +44,8 @@ import { isCurrencyCode } from '@healthy360/domain-types';
 import type { CurrencyCode } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
-import { coreNutrientDefinition, findAmount } from '@healthy360/nutrition';
-import type { MeasureUnit, NutritionFacts } from '@healthy360/nutrition';
+import { coreNutrientDefinition } from '@healthy360/nutrition';
+import type { MeasureUnit } from '@healthy360/nutrition';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -63,6 +65,7 @@ import {
     useAllergenClassesQuery,
     useCreateIngredientMutation,
     useForkIngredientMutation,
+    useIngredientAssist,
     useIngredientCategoriesQuery,
     useIngredientPageQuery,
     useIngredientQuery,
@@ -103,6 +106,7 @@ import {
     withoutMinus,
 } from '../format.ts';
 import { ImageSlot } from '../image-slot.tsx';
+import { IngredientAssistPanel } from '../ingredient-assist-panel.tsx';
 import { AllergenReferencePicker } from '../allergen-reference-picker.tsx';
 import { IngredientAllergenEditor } from '../ingredient-allergen-editor.tsx';
 import { IngredientBarcodesSection } from '../ingredient-barcodes-section.tsx';
@@ -406,7 +410,7 @@ function positiveNumberOf(raw: string): number | null {
  * words.
  */
 function nutrientFigures(
-    facts: NutritionFacts | null,
+    amounts: readonly { readonly nutrientId: string; readonly value: number }[] | null,
     t: TFunction,
     formatter: Formatter,
 ): readonly DerivedFigure[] {
@@ -414,7 +418,7 @@ function nutrientFigures(
         const definition = coreNutrientDefinition(field.id);
         if (definition === null) return [];
 
-        const amount = facts === null ? null : findAmount(facts, field.id);
+        const amount = amounts?.find((entry) => entry.nutrientId === field.id) ?? null;
 
         return [
             {
@@ -609,6 +613,8 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const [referenceDraft, setReferenceDraft] = useState<{
         readonly name: string;
         readonly selection: NutritionReferenceSelection | undefined;
+        /** The record behind `selection`, so the picker can draw it after a rename. */
+        readonly candidate?: NutritionReferenceCandidate | undefined;
     }>({ name: '', selection: undefined });
     const [allergenDraft, setAllergenDraft] = useState<{
         readonly name: string;
@@ -618,6 +624,42 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         allergenDraft.name === details.name.en ? allergenDraft.selection : undefined;
     const nutritionReference =
         referenceDraft.name === details.name.en ? referenceDraft.selection : undefined;
+
+    /*
+     * The ingredient assistant (new food records only), run when the English name loses focus.
+     *
+     * Only the latest request may apply — a sequence number, because two reruns for the same name
+     * can resolve out of order and comparing names cannot tell them apart. Even the latest applies
+     * a field only while that field is still the assistant's to fill: Arabic into an empty box,
+     * the category pair into an empty pair, a nutrition match where none is chosen. Nothing the
+     * cook typed or picked is ever replaced.
+     */
+    const assist = useIngredientAssist();
+    const assistSequence = useRef(0);
+    const assistedName = useRef<string | null>(null);
+    /** Set by "Update ingredient name": the next rename carries the nutrition choice, unconfirmed. */
+    const keepReferenceOnRename = useRef(false);
+    const latestDetails = useRef(details);
+    useEffect(() => {
+        latestDetails.current = details;
+    });
+    const [assisted, setAssisted] = useState<{
+        readonly name: string;
+        readonly result: IngredientAssistSuggestion;
+    } | null>(null);
+    /** What the assistant wrote into the Arabic box; the badge holds while the box still says it. */
+    const [arabicFromAi, setArabicFromAi] = useState<string | null>(null);
+    /**
+     * What the assistant last wrote, read at response time. A field still holding exactly that is
+     * the assistant's own answer for an earlier name, not the cook's, so the next answer replaces
+     * it — otherwise a rename from Cilantro to Chickpeas kept "كزبرة" and the herb category.
+     */
+    const aiFilled = useRef<{
+        arabic: string | null;
+        pair: { readonly categoryCode: string; readonly subcategoryCode: string } | null;
+    }>({ arabic: null, pair: null });
+    const assistForName =
+        assisted !== null && assisted.name === details.name.en.trim() ? assisted.result : undefined;
     const isPackaging = details.categoryCode.startsWith('packaging-disposables');
     const referenceRequired =
         !isPackaging &&
@@ -1490,7 +1532,20 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
             fieldId: 'kitchen-ingredient-capacity',
         },
     });
-    const figures = nutrientFigures(data?.per100g ?? null, t, formatter);
+    // The chosen match's figures until the save returns the record's own — otherwise the cards
+    // would sit empty (or show the old reference) while a selection is pending.
+    const preview =
+        nutritionReference === undefined ? undefined : referenceDraft.candidate?.nutrition_per_100g;
+    const figures = nutrientFigures(
+        preview?.amounts.map((amount) => ({
+            nutrientId: amount.nutrient_id,
+            value: amount.value,
+        })) ??
+            data?.per100g?.amounts ??
+            null,
+        t,
+        formatter,
+    );
 
     // Creating, the reference is the one the save is about to assign rather than one the record
     // carries. Empty while the read is in flight, and empty if it fails: better a blank than a
@@ -1539,12 +1594,155 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     /** One field of the draft, and the dirty flag with it — the shape every input below writes. */
     const edit = (patch: Partial<DetailsDraft>) => {
         if (patch.name !== undefined && patch.name.en !== details.name.en) {
-            setReferenceDraft({ name: patch.name.en, selection: undefined });
+            const carried =
+                keepReferenceOnRename.current && referenceDraft.name === details.name.en
+                    ? referenceDraft.selection
+                    : undefined;
+            setReferenceDraft(
+                carried === undefined
+                    ? { name: patch.name.en, selection: undefined }
+                    : {
+                          name: patch.name.en,
+                          selection: { ...carried, confirmed: false },
+                          candidate: referenceDraft.candidate,
+                      },
+            );
         }
 
         setDetails({ ...details, ...patch });
         markDetailsDirty();
     };
+
+    const applyAssist = (name: string, result: IngredientAssistSuggestion) => {
+        const current = latestDetails.current;
+        if (current.name.en.trim() !== name) return;
+        setAssisted({ name, result });
+
+        const { arabic: lastArabic, pair: lastPair } = aiFilled.current;
+        const arabicIsAi = lastArabic !== null && current.name.ar === lastArabic;
+        const pairIsAi =
+            lastPair !== null &&
+            current.categoryCode === lastPair.categoryCode &&
+            current.subcategoryCode === lastPair.subcategoryCode;
+        // Into an empty box, or over the assistant's own earlier answer — which a newer answer
+        // replaces even with nothing, since a translation of the old name is wrong for this one.
+        const fillArabic = arabicIsAi || (result.nameAr !== null && current.name.ar.trim() === '');
+        const pairEmpty = current.categoryCode === '' && current.subcategoryCode === '';
+        const fillPair =
+            family.categoryCode === '' && (pairIsAi || (result.categoryCode !== null && pairEmpty));
+        const fillLeaf =
+            !fillPair &&
+            family.categoryCode === '' &&
+            result.subcategoryCode !== null &&
+            current.categoryCode === result.categoryCode &&
+            current.subcategoryCode === '';
+        if (fillArabic || fillPair || fillLeaf) {
+            if (fillArabic) {
+                aiFilled.current.arabic = result.nameAr;
+                setArabicFromAi(result.nameAr);
+            }
+            if (fillPair) {
+                aiFilled.current.pair =
+                    result.categoryCode === null
+                        ? null
+                        : {
+                              categoryCode: result.categoryCode,
+                              subcategoryCode: result.subcategoryCode ?? '',
+                          };
+            }
+            setDetails((previous) => ({
+                ...previous,
+                ...(fillArabic ? { name: { ...previous.name, ar: result.nameAr ?? '' } } : {}),
+                ...(fillPair
+                    ? {
+                          categoryCode: result.categoryCode ?? '',
+                          subcategoryCode: result.subcategoryCode ?? '',
+                      }
+                    : {}),
+                ...(fillLeaf ? { subcategoryCode: result.subcategoryCode ?? '' } : {}),
+            }));
+            markDetailsDirty();
+        }
+
+        // A pick that contradicts the name is shown, never preselected: the cook chooses.
+        const nutrition = result.nutrition;
+        const pick =
+            nutrition === null || nutrition.pick === null
+                ? undefined
+                : nutrition.candidates[nutrition.pick];
+        if (pick !== undefined && nutrition?.relation !== 'different') {
+            setReferenceDraft((previous) =>
+                previous.name === current.name.en && previous.selection !== undefined
+                    ? previous
+                    : {
+                          name: current.name.en,
+                          selection: {
+                              ref: pick.ref,
+                              sourceHash: pick.source_hash,
+                              confirmed: false,
+                          },
+                          candidate: pick,
+                      },
+            );
+        }
+    };
+
+    const runAssist = (force = false) => {
+        const name = details.name.en.trim();
+        if (!isCreating || !family.food || !editable || name.length < 2) return;
+        if (!force && assistedName.current === name) return;
+        assistedName.current = name;
+        keepReferenceOnRename.current = false;
+        assistSequence.current += 1;
+        const sequence = assistSequence.current;
+        assist.mutate(name, {
+            onSuccess: (result) => {
+                if (sequence === assistSequence.current) applyAssist(name, result);
+            },
+            onError: () => {
+                // A failed call leaves the name free to be tried again on the next blur.
+                if (sequence === assistSequence.current) assistedName.current = null;
+            },
+        });
+    };
+
+    /** "Update ingredient name": back to the name field, keeping the nutrition choice for review. */
+    const renameForReference = () => {
+        keepReferenceOnRename.current = true;
+        focusField('kitchen-ingredient-name-en');
+    };
+
+    /** The assistant's category pair, when the form already holds a different one. */
+    const categorySuggestion = (() => {
+        if (assistForName === undefined || family.categoryCode !== '') return null;
+        const { categoryCode, subcategoryCode } = assistForName;
+        if (categoryCode === null) return null;
+        if (
+            details.categoryCode === categoryCode &&
+            (subcategoryCode === null || details.subcategoryCode === subcategoryCode)
+        ) {
+            return null;
+        }
+        const parent = topLevelCategories(categories.data).find(
+            (entry) => entry.code === categoryCode,
+        );
+        const leaf =
+            subcategoryCode === null
+                ? undefined
+                : subcategoriesOf(categories.data, categoryCode).find(
+                      (entry) => entry.code === subcategoryCode,
+                  );
+        const label = [parent, leaf]
+            .filter((entry) => entry !== undefined)
+            .map((entry) => displayName(entry.name, locale).value)
+            .join(' › ');
+        return {
+            label: label === '' ? humaniseCode(categoryCode) : label,
+            onApply: () => {
+                edit({ categoryCode, subcategoryCode: subcategoryCode ?? '' });
+            },
+        };
+    })();
 
     /** One of packaging's three, with the dirty flag like {@link edit}. */
     const editPackaging = (patch: Partial<PackagingDraft>) => {
@@ -1563,7 +1761,8 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
             ? packPriceValue / itemsPerPack
             : null;
 
-    const nutritionEmpty = nutritionEditable && (data?.per100g ?? null) === null;
+    const nutritionEmpty =
+        nutritionEditable && (data?.per100g ?? null) === null && preview === undefined;
     const allergens = data?.allergens ?? [];
     /** Checked, and carries nothing — the one empty set that is a claim rather than a gap. */
     const allergenFree = allergens.length === 0 && data?.allergensAssessedClear === true;
@@ -1844,6 +2043,17 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     body={t('kitchen:allergens.quarantineBody')}
                 />
             ) : null}
+            {/* Added from the recipe editor: AI-filled and owing its confirmed reference. */}
+            {data?.pendingNutrition == null ? null : (
+                <Callout
+                    testID="kitchen-ingredient-pending-nutrition"
+                    role="note"
+                    tone="warning"
+                    icon="sparkle"
+                    title={t('kitchen:editor.pendingNutritionTitle')}
+                    body={t('kitchen:editor.pendingNutritionBody')}
+                />
+            )}
             {saveFailure === null || (server.isValidation && server.unplaced === null) ? null : (
                 <Callout
                     testID="kitchen-ingredient-save-error"
@@ -1962,6 +2172,9 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 onChange={(next) => {
                                     edit({ name: next });
                                 }}
+                                onEnglishBlur={() => {
+                                    runAssist();
+                                }}
                             />
 
                             <Select
@@ -2007,6 +2220,20 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                             />
                         </FormGrid>
                     </View>
+                    {isCreating && family.food ? (
+                        <IngredientAssistPanel
+                            result={assistForName}
+                            pending={assist.isPending}
+                            arabicFromAi={arabicFromAi !== null && details.name.ar === arabicFromAi}
+                            categorySuggestion={categorySuggestion}
+                            onOpen={(id) => {
+                                router.push(`/kitchen/ingredients/${String(id)}`);
+                            }}
+                            onRerun={() => {
+                                runAssist(true);
+                            }}
+                        />
+                    ) : null}
                 </FormSection>
 
                 {/* ── measurement & cost / pack ────────────────────────────────────────────── */}
@@ -2333,8 +2560,33 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                         key={`${String(data?.id ?? 'new')}:${details.name.en}`}
                                         name={details.name.en}
                                         value={nutritionReference}
-                                        onChange={(selection) => {
-                                            setReferenceDraft({ name: details.name.en, selection });
+                                        valueCandidate={
+                                            referenceDraft.name === details.name.en
+                                                ? referenceDraft.candidate
+                                                : undefined
+                                        }
+                                        suggestion={
+                                            assistForName?.nutrition ??
+                                            // The quick add's stored pick, offered — never chosen —
+                                            // so saving anything else here is not held behind it.
+                                            (data?.pendingNutrition?.suggestion == null
+                                                ? undefined
+                                                : {
+                                                      candidates: [
+                                                          data.pendingNutrition.suggestion,
+                                                      ],
+                                                      pick: 0,
+                                                      relation: null,
+                                                      reason: null,
+                                                  })
+                                        }
+                                        onRename={isCreating ? renameForReference : undefined}
+                                        onChange={(selection, candidate) => {
+                                            setReferenceDraft({
+                                                name: details.name.en,
+                                                selection,
+                                                candidate,
+                                            });
                                             setDetailsDirty(true);
                                             guard.markDirty();
                                         }}

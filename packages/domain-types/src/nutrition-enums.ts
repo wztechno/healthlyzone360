@@ -165,7 +165,9 @@ export function isPlanDuration(value: unknown): value is PlanDuration {
 /** The duration that buys `days` delivery days. `days` must be a positive whole number. */
 export function planDuration(days: number): PlanDuration {
     if (!Number.isInteger(days) || days < 1) {
-        throw new RangeError(`A plan duration needs a positive whole number of days, got ${String(days)}.`);
+        throw new RangeError(
+            `A plan duration needs a positive whole number of days, got ${String(days)}.`,
+        );
     }
     return `${days}d`;
 }

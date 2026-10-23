@@ -492,7 +492,12 @@ type AuthoredDurationOption = PlanDurationOption & { readonly totalPrice: Money 
 
 const PLAN_DURATION_OPTIONS: readonly AuthoredDurationOption[] = [
     { duration: '7d', days: 7, discountPercent: 0, totalPrice: { amount: 47_502, currency: AED } },
-    { duration: '14d', days: 14, discountPercent: 5, totalPrice: { amount: 90_258, currency: AED } },
+    {
+        duration: '14d',
+        days: 14,
+        discountPercent: 5,
+        totalPrice: { amount: 90_258, currency: AED },
+    },
     {
         duration: '28d',
         days: 28,
@@ -1370,9 +1375,9 @@ describe('step validation', () => {
         const state = initialConfiguratorState({ plan: unsellable, startDate: '2026-08-03' });
 
         expect(state.duration).toBeNull();
-        expect(
-            validateConfiguratorStep('plan', state, { ...context, plan: unsellable }),
-        ).toEqual(['commerce:configurator.issues.duration']);
+        expect(validateConfiguratorStep('plan', state, { ...context, plan: unsellable })).toEqual([
+            'commerce:configurator.issues.duration',
+        ]);
         expect(firstIncompleteStep(state, { ...context, plan: unsellable })).toBe('plan');
 
         // A draft can name a length the kitchen has since withdrawn; the step refuses it too.
@@ -3217,9 +3222,9 @@ describe('SubscriptionConfiguratorScreen', () => {
         // The date field moves onto the server's floor once that read answers: its day and year
         // read back as chosen.
         await waitFor(() => {
-            expect(
-                screen.getByTestId('configurator-start-date-field-day-value'),
-            ).toHaveTextContent(new RegExp(`^${String(day)}$`));
+            expect(screen.getByTestId('configurator-start-date-field-day-value')).toHaveTextContent(
+                new RegExp(`^${String(day)}$`),
+            );
         });
         expect(screen.getByTestId('configurator-start-date-field-year-value')).toHaveTextContent(
             new RegExp(`^${String(year)}$`),
@@ -3262,9 +3267,9 @@ describe('SubscriptionConfiguratorScreen', () => {
             fireEvent.press(screen.getByTestId(`configurator-weekday-${String(startWeekday)}`));
         });
         await waitFor(() => {
-            expect(
-                screen.getByTestId('configurator-start-date-field-day-value'),
-            ).toHaveTextContent(new RegExp(`^${String(Number(dayAfter.slice(8, 10)))}$`));
+            expect(screen.getByTestId('configurator-start-date-field-day-value')).toHaveTextContent(
+                new RegExp(`^${String(Number(dayAfter.slice(8, 10)))}$`),
+            );
         });
         expect(screen.queryByTestId('configurator-start-date-repair')).toBeNull();
     });
@@ -3405,9 +3410,7 @@ describe('SubscriptionConfiguratorScreen', () => {
             /66\.43/,
         );
         expect(screen.getByTestId('configurator-price-gross-amount')).toHaveTextContent(/465\.01/);
-        expect(screen.getByTestId('configurator-price-gross')).toHaveTextContent(
-            /7 delivery days/,
-        );
+        expect(screen.getByTestId('configurator-price-gross')).toHaveTextContent(/7 delivery days/);
         expect(screen.queryByTestId('configurator-price-discount')).toBeNull();
         expect(screen.getByTestId('configurator-price-total-amount')).toHaveTextContent(/475\.02/);
         expect(screen.getByTestId('configurator-price-per-delivery-amount')).toHaveTextContent(
@@ -4205,9 +4208,7 @@ describe('SubscriptionDetailScreen', () => {
             await within(card).findByTestId('subscription-detail-allergy-notice-clashes'),
         ).toHaveTextContent(/1 dish in this plan contains something/);
 
-        await fireEvent.press(
-            within(card).getByTestId('subscription-detail-allergy-notice-edit'),
-        );
+        await fireEvent.press(within(card).getByTestId('subscription-detail-allergy-notice-edit'));
         expect(String(routerMock.__push.mock.calls.at(-1)?.[0])).toMatch(
             new RegExp(`^${ALLERGY_LIST_HREF}\\?returnTo=`),
         );

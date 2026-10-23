@@ -26,6 +26,7 @@ import { Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { ingredientsFromPages, useIngredientsQuery } from '../../data/kitchen-admin-hooks.ts';
 import { displayName, formatMoney, humaniseCode, parseQuantity, unitShortKey } from './format.ts';
+import { IngredientQuickAdd } from './ingredient-quick-add.tsx';
 
 /**
  * One row of a recipe's line table, as typed.
@@ -218,6 +219,13 @@ export interface RecipeLineTableProps {
     readonly onChange: (rows: readonly LineDraft[]) => void;
     /** Translated placeholder for the picker — "Add an ingredient…" / "Add packaging…". */
     readonly pickerPlaceholder: string;
+    /**
+     * Offers **Add** beside the picker when a typed name matches nothing (food only — see
+     * {@link IngredientQuickAdd}). Called once the new row exists and its line is on the table,
+     * so the screen can say what was created and where to verify it.
+     */
+    readonly onIngredientCreated?:
+        ((ingredient: IngredientAdmin, needsDetails: boolean) => void) | undefined;
     readonly testID: string;
 }
 
@@ -311,6 +319,7 @@ export function RecipeLineTable({
     nextKey,
     onChange,
     pickerPlaceholder,
+    onIngredientCreated,
     testID,
 }: RecipeLineTableProps) {
     const { t } = useTranslation();
@@ -409,9 +418,18 @@ export function RecipeLineTable({
             : // Each figure in its own currency: the server states one per amount.
               formatMoney(formatter, amount.amount, amount.currency, digits);
 
+    /*
+     * The rows as of the latest render. A quick add lands seconds after its press, and appending to
+     * the rows its callback closed over would drop every edit made while it ran.
+     */
+    const latestRows = useRef(rows);
+    useEffect(() => {
+        latestRows.current = rows;
+    });
+
     const add = (entry: PickerEntry) => {
         onChange([
-            ...rows,
+            ...latestRows.current,
             {
                 key: nextKey(),
                 ingredientId: entry.id,
@@ -623,34 +641,73 @@ export function RecipeLineTable({
         },
     ];
 
+    // Settled on this very text, and nothing came back for it — not merely "still searching".
+    const searchedFor = query.trim();
+    const nothingMatches =
+        searchedFor.length >= 2 &&
+        term === searchedFor &&
+        !search.isPending &&
+        !search.isPlaceholderData &&
+        results.length === 0;
+
     return (
         <View className="flex-col gap-tight">
             {canManage ? (
-                <Picker
-                    testID={`${testID}-picker`}
-                    placeholder={pickerPlaceholder}
-                    query={query}
-                    // Only while there is no answer for *this* term. `isFetching` is also true of a
-                    // background refetch, and swapping a list the reader is scrolling for
-                    // "Searching…" threw them back to the top of it.
-                    loading={(search.isPending || search.isPlaceholderData) && term !== ''}
-                    onQueryChange={(next) => {
-                        setQuery(next);
-                        setHighlighted(0);
-                        setOpen(true);
-                    }}
-                    open={open}
-                    onOpen={() => {
-                        setOpen(true);
-                    }}
-                    onClose={() => {
-                        setOpen(false);
-                    }}
-                    results={results}
-                    highlighted={highlighted}
-                    onHighlight={setHighlighted}
-                    onPick={add}
-                />
+                /*
+                 * The row is raised with the panel, not just the picker in it: every RN Web `View`
+                 * is its own stacking context (see `Picker`), so the table below would otherwise
+                 * paint over the open panel. It wraps, so the quick add's own panel sits beneath.
+                 */
+                <View
+                    className={
+                        open
+                            ? 'relative z-sticky flex-row flex-wrap items-center gap-tight'
+                            : 'flex-row flex-wrap items-center gap-tight'
+                    }
+                >
+                    <Picker
+                        testID={`${testID}-picker`}
+                        placeholder={pickerPlaceholder}
+                        query={query}
+                        // Only while there is no answer for *this* term. `isFetching` is also true of a
+                        // background refetch, and swapping a list the reader is scrolling for
+                        // "Searching…" threw them back to the top of it.
+                        loading={(search.isPending || search.isPlaceholderData) && term !== ''}
+                        onQueryChange={(next) => {
+                            setQuery(next);
+                            setHighlighted(0);
+                            setOpen(true);
+                        }}
+                        open={open}
+                        onOpen={() => {
+                            setOpen(true);
+                        }}
+                        onClose={() => {
+                            setOpen(false);
+                        }}
+                        results={results}
+                        highlighted={highlighted}
+                        onHighlight={setHighlighted}
+                        onPick={add}
+                    />
+                    {onIngredientCreated === undefined || !wantsIngredients ? null : (
+                        <IngredientQuickAdd
+                            testID={`${testID}-quick-add`}
+                            name={searchedFor}
+                            canAdd={nothingMatches}
+                            onPick={(ingredient) => {
+                                add(ingredientEntry(ingredient));
+                            }}
+                            onCreated={(ingredient, needsDetails) => {
+                                add(ingredientEntry(ingredient));
+                                onIngredientCreated(ingredient, needsDetails);
+                            }}
+                            onRefresh={() => {
+                                void search.refetch();
+                            }}
+                        />
+                    )}
+                </View>
             ) : null}
 
             <View>

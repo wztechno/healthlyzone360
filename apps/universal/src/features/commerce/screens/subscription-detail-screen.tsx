@@ -199,7 +199,9 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
     // holds them. Both reads are cached from the plan page and the set-up.
     const plan = usePlanQuery(subscription?.configuration.planId ?? null);
     const kitchenMeals = useMealsQuery(
-        subscription === undefined ? undefined : { kitchenIds: [subscription.kitchenId], limit: 50 },
+        subscription === undefined
+            ? undefined
+            : { kitchenIds: [subscription.kitchenId], limit: 50 },
         subscription !== undefined,
     );
     const sampleMeals = useMemo<readonly MarketplaceMeal[]>(() => {

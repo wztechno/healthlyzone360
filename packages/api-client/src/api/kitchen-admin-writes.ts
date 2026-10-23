@@ -34,6 +34,7 @@ import type {
     AllergenReferenceSearchResult,
     NutritionReferenceCandidate,
     NutritionReferenceSelection,
+    IngredientAssistReference,
     LockedRequest,
     MealAdmin,
     PlanAdmin,
@@ -78,6 +79,8 @@ import type {
     AdminSalesChannel,
     DeliveryWindow as WireDeliveryWindow,
     EnergyBand,
+    IngredientAssistReference as IngredientAssistReferenceWire,
+    IngredientAssistSuggestion as IngredientAssistSuggestionWire,
     IngredientCategory,
     MealCombinationOption,
     PlanDurationOption,
@@ -118,6 +121,7 @@ export type ApiKitchenAdminWrites = Pick<
     | 'searchAllergenReferences'
     | 'importIngredientAllergenReference'
     | 'searchNutritionReferences'
+    | 'assistIngredient'
     | 'confirmIngredientAllergens'
     | 'createRecipe'
     | 'createRecipeVersion'
@@ -730,6 +734,37 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 path: `/catalogue/ingredients/nutrition-references?q=${encodeURIComponent(query)}`,
             });
         },
+        async assistIngredient(nameEn) {
+            const wire = await transport.request<IngredientAssistSuggestionWire>({
+                method: 'POST',
+                path: '/catalogue/ingredients/assist',
+                body: { name_en: nameEn },
+            });
+            const reference = (row: IngredientAssistReferenceWire): IngredientAssistReference => ({
+                id: IngredientId.unsafe(row.id),
+                name: row.name,
+                isPlatform: row.is_platform,
+                reason: row.reason ?? null,
+            });
+            return {
+                existingMatches: wire.existing_matches.map(reference),
+                possibleDuplicates: wire.possible_duplicates.map(reference),
+                nameAr: wire.name_ar,
+                categoryCode: wire.category_code,
+                subcategoryCode: wire.subcategory_code,
+                nutrition:
+                    wire.nutrition === null
+                        ? null
+                        : {
+                              candidates: wire.nutrition
+                                  .candidates as unknown as readonly NutritionReferenceCandidate[],
+                              pick: wire.nutrition.pick,
+                              relation: wire.nutrition.relation,
+                              reason: wire.nutrition.reason,
+                          },
+                unavailable: wire.unavailable,
+            };
+        },
         async confirmIngredientAllergens(ingredientId, request) {
             await transport.requestEnvelope({
                 method: 'POST',
@@ -815,6 +850,19 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                               allergen_reference_confirmed: request.allergenReference.confirmed,
                           }),
                     ...referenceFields(request.nutritionReference),
+                    ...(request.nutritionPending === undefined
+                        ? {}
+                        : {
+                              nutrition_pending: true,
+                              ...(request.nutritionPending.suggestion === null
+                                  ? {}
+                                  : {
+                                        nutrition_suggestion:
+                                            request.nutritionPending.suggestion.ref,
+                                        nutrition_suggestion_hash:
+                                            request.nutritionPending.suggestion.sourceHash,
+                                    }),
+                          }),
                     ...priceFields(request.b2bPrice, request.b2cPrice, request.unitPrice),
                     ...(await packagingFields(
                         request.purchasePrice,

@@ -228,7 +228,10 @@ export function PlanStep({ plan, variant, state, patch, onCombination }: PlanSte
             {/* A plan with no length on sale says so; a row of nothing would leave the step with
                 a question it cannot answer and a Continue it cannot pass. */}
             {plan.durations.length === 0 ? (
-                <Row label={t('commerce:configurator.duration.label')} testID="configurator-duration">
+                <Row
+                    label={t('commerce:configurator.duration.label')}
+                    testID="configurator-duration"
+                >
                     <RNText
                         testID="configurator-duration-none"
                         className="self-start text-base text-content-secondary text-start"

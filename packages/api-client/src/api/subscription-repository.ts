@@ -468,10 +468,7 @@ function addDays(date: string, offset: number): string {
  * (S1 semantics §1), so a 28-day run on Monday, Wednesday and Friday reaches nine weeks ahead —
  * it does not stop after four.
  */
-function deliveryDates(
-    configuration: SubscriptionConfiguration,
-    days: number,
-): readonly string[] {
+function deliveryDates(configuration: SubscriptionConfiguration, days: number): readonly string[] {
     const dates: string[] = [];
     if (configuration.deliveryWeekdays.length === 0) return dates;
     for (let offset = 0; dates.length < days && offset < days * 7; offset += 1) {

@@ -178,6 +178,7 @@ use Healthy360\Ingredients\Http\Controllers\IngredientAllergenConfirmController;
 use Healthy360\Ingredients\Http\Controllers\IngredientAllergenIndexController;
 use Healthy360\Ingredients\Http\Controllers\IngredientAllergenReplaceController;
 use Healthy360\Ingredients\Http\Controllers\IngredientArchiveController;
+use Healthy360\Ingredients\Http\Controllers\IngredientAssistController;
 use Healthy360\Ingredients\Http\Controllers\IngredientBarcodeDestroyController;
 use Healthy360\Ingredients\Http\Controllers\IngredientBarcodeIndexController;
 use Healthy360\Ingredients\Http\Controllers\IngredientBarcodeScanController;
@@ -990,6 +991,8 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 ->middleware('permission:catalogue.manage_organisation')->name('catalogue.ingredients.nutrition-references');
             Route::get('/ingredients/allergen-references', AllergenReferenceSearchController::class)
                 ->middleware('permission:catalogue.manage_organisation')->name('catalogue.ingredients.allergen-references');
+            Route::post('/ingredients/assist', IngredientAssistController::class)
+                ->middleware(['permission:catalogue.manage_organisation', 'throttle:ingredient-assist'])->name('catalogue.ingredients.assist');
             Route::middleware('permission:catalogue.view_organisation')->group(function (): void {
                 Route::get('/ingredients', IngredientIndexController::class)->name('catalogue.ingredients.index');
                 Route::get('/ingredients/{ingredient}', IngredientShowController::class)->name('catalogue.ingredients.show');

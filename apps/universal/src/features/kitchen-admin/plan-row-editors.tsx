@@ -534,8 +534,7 @@ export function PlanDurationRows({
                 // problem is always that field's. What is left — a one-off's day-count or
                 // duplicate problem — has no field to sit on, so it sits under the sentence that
                 // explains the row.
-                const error =
-                    row.kind === 'fixed_days' ? undefined : errorOn(row, 'days');
+                const error = row.kind === 'fixed_days' ? undefined : errorOn(row, 'days');
                 return (
                     <View className="min-w-0 flex-1 flex-col gap-hair py-tight">
                         <Text

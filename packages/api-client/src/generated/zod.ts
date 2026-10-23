@@ -479,6 +479,9 @@ export const zIngredientAllergenMapping = z.object({
  */
 export const zAdminIngredient = z.object({
     nutrition_source: z.record(z.string(), z.unknown()).nullish(),
+    pending_nutrition: z.object({
+        suggestion: z.record(z.string(), z.unknown()).nullable()
+    }).nullish(),
     allergen_review_required: z.boolean().optional(),
     allergen_review_token: z.string().regex(/^[a-f0-9]{64}$/).optional(),
     allergens_reviewed_by: z.string().nullish(),
@@ -576,6 +579,35 @@ export const zNutritionReferenceCandidate = z.object({
     retrieved_at: z.iso.datetime({ offset: true })
 });
 
+export const zIngredientAssistReference = z.object({
+    id: z.string(),
+    name: z.object({
+        en: z.string(),
+        ar: z.string()
+    }),
+    is_platform: z.boolean(),
+    reason: z.string().nullish()
+});
+
+export const zIngredientAssistSuggestion = z.object({
+    existing_matches: z.array(zIngredientAssistReference),
+    possible_duplicates: z.array(zIngredientAssistReference),
+    name_ar: z.string().nullable(),
+    category_code: z.string().nullable(),
+    subcategory_code: z.string().nullable(),
+    nutrition: z.object({
+        candidates: z.array(zNutritionReferenceCandidate),
+        pick: z.int().nullable(),
+        relation: z.enum([
+            'same',
+            'more_specific',
+            'different'
+        ]).nullable(),
+        reason: z.string().nullable()
+    }).nullable(),
+    unavailable: z.array(z.enum(['assistant', 'nutrition']))
+});
+
 export const zConfirmIngredientAllergensRequest = z.object({
     review_token: z.string().regex(/^[a-f0-9]{64}$/),
     evidence: z.string().min(1).max(2000),
@@ -589,6 +621,9 @@ export const zCreateIngredientRequest = z.object({
     nutrition_reference: z.string().max(40).regex(/^usda:[0-9]+$/).optional(),
     nutrition_reference_hash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
     nutrition_reference_confirmed: z.literal(true).optional(),
+    nutrition_pending: z.literal(true).optional(),
+    nutrition_suggestion: z.string().max(40).regex(/^usda:[0-9]+$/).optional(),
+    nutrition_suggestion_hash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
     name_en: z.string().max(255),
     name_ar: z.string().max(255).nullish(),
     slug: z.string().max(110).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullish(),
@@ -10729,6 +10764,22 @@ export const zSearchNutritionReferencesQuery = z.object({
 export const zSearchNutritionReferencesResponse = z.object({
     data: z.array(zNutritionReferenceCandidate).max(10),
     meta: zMeta
+});
+
+export const zAssistIngredientBody = z.object({
+    name_en: z.string().min(2).max(150)
+});
+
+export const zAssistIngredientHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+/**
+ * Suggestions for the new-ingredient form.
+ */
+export const zAssistIngredientResponse = z.object({
+    data: zIngredientAssistSuggestion,
+    meta: zMeta.optional()
 });
 
 export const zConfirmIngredientAllergensBody = zConfirmIngredientAllergensRequest;

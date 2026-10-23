@@ -1008,9 +1008,9 @@ describe('durations, as a pure model', () => {
         expect(
             durationErrors([duration({ discountPercent: 140 })], DURATION_MESSAGES).get('d1'),
         ).toEqual({ field: 'discount', message: 'discount invalid' });
-        expect(
-            durationErrors([duration({ days: null })], DURATION_MESSAGES).get('d1')?.field,
-        ).toBe('days');
+        expect(durationErrors([duration({ days: null })], DURATION_MESSAGES).get('d1')?.field).toBe(
+            'days',
+        );
         expect(durationErrors([duration()], DURATION_MESSAGES).size).toBe(0);
     });
 
@@ -1693,9 +1693,9 @@ describe('editing the plan', () => {
         await untilVisible('kitchen-plan-diets');
 
         // What the server holds is what the chips show.
-        expect(screen.getByTestId('kitchen-plan-diet-keto').props.accessibilityState?.selected).toBe(
-            true,
-        );
+        expect(
+            screen.getByTestId('kitchen-plan-diet-keto').props.accessibilityState?.selected,
+        ).toBe(true);
         expect(
             screen.getByTestId('kitchen-plan-diet-vegan').props.accessibilityState?.selected,
         ).toBe(false);

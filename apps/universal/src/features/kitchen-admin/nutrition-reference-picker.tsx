@@ -1,4 +1,5 @@
 import type {
+    IngredientAssistSuggestion,
     NutritionReferenceCandidate,
     NutritionReferenceSelection,
 } from '@healthy360/api-client/contracts';
@@ -33,15 +34,30 @@ export function nutrientKey(id: string): string {
  * missing, below the ones that can: hiding it would leave a reader wondering why the obvious "Lentils,
  * dry" never appeared. Once one is chosen the list folds down to that row, the confirmation and a
  * Change, which is the whole of what is left to decide.
+ *
+ * The ingredient assistant can hand it a `suggestion`: the USDA search it already ran, the match it
+ * would pick and how that match relates to the typed name. Those candidates stand in for a search
+ * until the cook runs their own. The preparation-state confirmation stays the cook's either way.
  */
 export function NutritionReferencePicker({
     name,
     value,
+    valueCandidate,
+    suggestion,
+    onRename,
     onChange,
 }: {
     readonly name: string;
     readonly value: NutritionReferenceSelection | undefined;
-    readonly onChange: (value: NutritionReferenceSelection | undefined) => void;
+    /** The record behind `value`, so a selection carried across a rename still draws its row. */
+    readonly valueCandidate?: NutritionReferenceCandidate | undefined;
+    readonly suggestion?: NonNullable<IngredientAssistSuggestion['nutrition']> | undefined;
+    /** "Update ingredient name" — the cook edits the name; nothing renames by itself. */
+    readonly onRename?: (() => void) | undefined;
+    readonly onChange: (
+        value: NutritionReferenceSelection | undefined,
+        candidate?: NutritionReferenceCandidate,
+    ) => void;
 }) {
     const { t } = useTranslation();
     const [query, setQuery] = useState(name);
@@ -49,19 +65,42 @@ export function NutritionReferencePicker({
     const failure = toFailure(search.error);
 
     const choose = (candidate: NutritionReferenceCandidate) =>
-        onChange({ ref: candidate.ref, sourceHash: candidate.source_hash, confirmed: false });
+        onChange(
+            { ref: candidate.ref, sourceHash: candidate.source_hash, confirmed: false },
+            candidate,
+        );
     const run = () => {
         if (query.trim().length >= 2 && !search.isPending) search.mutate(query.trim());
     };
 
     const isChosen = (candidate: NutritionReferenceCandidate) =>
         value?.ref === candidate.ref && value.sourceHash === candidate.source_hash;
-    const chosen = search.data?.find(isChosen);
+    const listed = search.data ?? suggestion?.candidates;
+    const chosen =
+        listed?.find(isChosen) ??
+        (valueCandidate !== undefined && isChosen(valueCandidate) ? valueCandidate : undefined);
     // Usable matches first; the order within each group is the provider's relevance.
     const candidates =
         chosen !== undefined
             ? [chosen]
-            : [...(search.data ?? [])].sort((a, b) => Number(b.suitable) - Number(a.suitable));
+            : [...(listed ?? [])].sort((a, b) => Number(b.suitable) - Number(a.suitable));
+    const picked =
+        search.data === undefined && suggestion?.pick != null
+            ? suggestion.candidates[suggestion.pick]
+            : undefined;
+    /*
+     * How the assistant's pick sits against the typed name. Extra detail ("cooked, boiled") is a
+     * question, not an error: it asks whether that is what the kitchen buys. A different food is a
+     * warning, and the pick is never preselected for it — the cook chooses from the list.
+     */
+    const relationNotice =
+        picked === undefined
+            ? null
+            : suggestion?.relation === 'different' && value === undefined
+              ? ('different' as const)
+              : suggestion?.relation === 'more_specific' && value?.ref === picked.ref
+                ? ('more_specific' as const)
+                : null;
 
     return (
         <Stack space="sm" testID="nutrition-reference-picker">
@@ -91,6 +130,43 @@ export function NutritionReferencePicker({
                         />
                     </View>
                 </Inline>
+            )}
+
+            {relationNotice === null || picked === undefined ? null : (
+                <Callout
+                    testID={`nutrition-reference-relation-${relationNotice}`}
+                    tone="warning"
+                    icon="sparkle"
+                    title={t(
+                        relationNotice === 'different'
+                            ? 'kitchen:assist.relationDifferent'
+                            : 'kitchen:assist.relationMoreSpecific',
+                        { match: picked.label },
+                    )}
+                    {...(suggestion?.reason == null ? {} : { body: suggestion.reason })}
+                    actions={
+                        <>
+                            {onRename === undefined ? null : (
+                                <Button
+                                    testID="nutrition-reference-rename"
+                                    size="sm"
+                                    variant="secondary"
+                                    label={t('kitchen:assist.updateName')}
+                                    onPress={onRename}
+                                />
+                            )}
+                            {relationNotice === 'more_specific' ? (
+                                <Button
+                                    testID="nutrition-reference-choose-another"
+                                    size="sm"
+                                    variant="ghost"
+                                    label={t('kitchen:assist.chooseAnother')}
+                                    onPress={() => onChange(undefined)}
+                                />
+                            ) : null}
+                        </>
+                    }
+                />
             )}
 
             {failure === null ? null : (
@@ -131,6 +207,13 @@ export function NutritionReferencePicker({
                                 divider={index < candidates.length - 1}
                                 meta={
                                     <>
+                                        {candidate === picked ? (
+                                            <Tag
+                                                testID="nutrition-reference-ai-pick"
+                                                tone="info"
+                                                label={t('kitchen:assist.aiPick')}
+                                            />
+                                        ) : null}
                                         {candidate.suitable ? null : (
                                             <Tag
                                                 tone="warning"
@@ -186,7 +269,7 @@ export function NutritionReferencePicker({
                     testID="nutrition-reference-confirm"
                     label={t('kitchen:nutritionLookup.confirmPreparation')}
                     checked={value.confirmed}
-                    onChange={(confirmed) => onChange({ ...value, confirmed })}
+                    onChange={(confirmed) => onChange({ ...value, confirmed }, chosen)}
                 />
             )}
         </Stack>
