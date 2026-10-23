@@ -42,9 +42,10 @@ import { OrderTimeline } from './order-timeline.tsx';
  *   delivered it says "DELIVERED" over when, if the order says.
  * * **The timeline card** — six steps (see `order-progress.ts`), each with the time it was reached
  *   when the order carries one (`stepTimes`) and "—" otherwise, the first step's detail carrying the
- *   payment and the total owed. Under a hairline, the design's buttons: the primary refreshes the
- *   state from the server (the design's "simulate next status" is the canvas driving itself, and the
- *   honest version of "show me where it is now" is to ask again); "Get help" and — only while the
+ *   payment and the total owed. Under a hairline, the design's buttons: on the guest page the
+ *   primary refreshes the state from the server (the design's "simulate next status" is the canvas
+ *   driving itself, and the honest version of "show me where it is now" is to ask again) — the
+ *   signed-in page keeps itself current and passes no `onRefresh`, so it has none; "Get help" and — only while the
  *   food is on the road — "Message the courier" have no endpoint, so they are the prototype
  *   mechanism's controls.
  * * **IN THIS ORDER** — a thumbnail, "qty × name" and the line total per line.
@@ -84,9 +85,12 @@ export interface OrderTrackingProps {
     readonly order: TrackableOrder;
     /** The payment line, already translated — both pages are cash on delivery today. */
     readonly paymentLabel: string;
-    /** Asks the server for the order again — the timeline card's primary action. */
-    readonly onRefresh: () => void;
-    readonly refreshing: boolean;
+    /**
+     * Asks the server for the order again — the timeline card's primary action. Omitted by a page
+     * that keeps the order current on its own, which then draws no Refresh button.
+     */
+    readonly onRefresh?: (() => void) | undefined;
+    readonly refreshing?: boolean | undefined;
     /** Drawn at the foot of the timeline card, under the buttons. */
     readonly footer?: ReactNode;
     /** Prefix for every test ID — `guest-order`, `customer-order`. */
@@ -227,12 +231,14 @@ export function OrderTracking({
                     />
                 )}
                 <View className="mt-0.5 flex-row flex-wrap gap-2.5 border-t border-stroke-subtle pt-4">
-                    <Button
-                        testID={`${testID}-refresh`}
-                        label={t('guest:order.refresh')}
-                        loading={refreshing}
-                        onPress={onRefresh}
-                    />
+                    {onRefresh === undefined ? null : (
+                        <Button
+                            testID={`${testID}-refresh`}
+                            label={t('guest:order.refresh')}
+                            loading={refreshing ?? false}
+                            onPress={onRefresh}
+                        />
+                    )}
                     {order.state === 'out_for_delivery' ? (
                         <Button
                             testID={`${testID}-message`}

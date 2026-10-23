@@ -279,6 +279,10 @@ export interface MyOrderQueryOptions {
      * Re-read the order every this many milliseconds while it is still on its way (HA-23), so the
      * tracking page moves when the kitchen or the driver does. Stops by itself once the order is
      * delivered or cancelled — nothing further can happen to it. `false` (the default) never polls.
+     *
+     * A polling order also re-reads the moment its tab is shown again: the interval does not fire
+     * while the page is hidden, so without this a customer coming back from another window would
+     * look at a stale step until the next tick.
      */
     readonly pollMs?: number | false | undefined;
 }
@@ -297,6 +301,8 @@ export function useMyOrderQuery(
             const state = query.state.data?.state;
             return state === 'delivered' || state === 'cancelled' ? false : pollMs;
         },
+        // `always`: the last tick may be newer than `staleTime`, and it is still not now.
+        refetchOnWindowFocus: pollMs === false ? false : 'always',
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (orderId === null) throw new Error('No order identifier.');
