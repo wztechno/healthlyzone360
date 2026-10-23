@@ -10,6 +10,7 @@ use Healthy360\Catalogues\Models\PlanMenuEntry;
 use Healthy360\Catalogues\Services\PlanMenuService;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAddress;
+use Healthy360\Orders\Contracts\OrderSchedulingLookup;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Exceptions\PlacementRefused;
 use Healthy360\Orders\Models\Order;
@@ -91,6 +92,7 @@ final readonly class GenerationService
         private PlanMenuService $menus,
         private IdentifierService $identifiers,
         private TenantContext $context,
+        private OrderSchedulingLookup $scheduling,
     ) {}
 
     /**
@@ -277,6 +279,18 @@ final readonly class GenerationService
         CarbonImmutable $date,
         CarbonImmutable $now,
     ): array {
+        // The kitchen is shut that weekday. Placement refuses it too when the
+        // subscription names a branch; this also covers one that does not, and
+        // a day the kitchen closed after the customer chose it. Nothing is
+        // consumed, so the balance carries to the next open day.
+        if (in_array($date->dayOfWeekIso, $this->scheduling->closedWeekdays($subscription->organisation_id, $subscription->branch_id), true)) {
+            $this->skipDay($subscription, $delivery, $date, SubscriptionDeliveryStatus::SkippedUnavailable, 'unavailable', [
+                'reason' => 'kitchen_closed',
+            ]);
+
+            return ['generated' => 0, 'skipped' => 1, 'completed' => 0];
+        }
+
         $account = CustomerAccount::query()->whereKey($subscription->customer_account_id)->first();
         $address = CustomerAddress::query()->whereKey($subscription->customer_address_id)->first();
 

@@ -20,6 +20,7 @@ use Healthy360\Customers\Enums\CustomerAddressType;
 use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Services\ZoneResolver;
+use Healthy360\Orders\Contracts\OrderSchedulingLookup;
 use Healthy360\Orders\Services\CheckoutEligibility;
 use Healthy360\Orders\Services\SellerContext;
 use Healthy360\Subscriptions\Enums\SubscriptionDeliveryStatus;
@@ -92,6 +93,7 @@ final readonly class SubscriptionService
         private SubscriptionJournal $journal,
         private SellerContext $seller,
         private TenantContext $context,
+        private OrderSchedulingLookup $scheduling,
     ) {}
 
     /**
@@ -132,6 +134,7 @@ final readonly class SubscriptionService
         }
 
         $reasons = [...$reasons, ...$this->weekdayReasons($request->weekdays)];
+        $reasons = [...$reasons, ...$this->closedDayReasons($channel->organisation_id, $request->branchId, $request->weekdays)];
         $reasons = [...$reasons, ...$this->addressReasons($request->account->getKey(), $request->address)];
 
         [$plan, $planReasons] = $this->planFor($request->catalogueItemId, $channel->organisation_id);
@@ -625,6 +628,7 @@ final readonly class SubscriptionService
         }
 
         $reasons = [...$reasons, ...$this->weekdayReasons($weekdays)];
+        $reasons = [...$reasons, ...$this->closedDayReasons($subscription->organisation_id, $subscription->branch_id, $weekdays)];
         $reasons = [...$reasons, ...$this->nextDayWindowReasons($subscription, $now)];
 
         if ($reasons !== []) {
@@ -845,6 +849,29 @@ final readonly class SubscriptionService
         }
 
         return [];
+    }
+
+    /**
+     * A delivery day the kitchen does not trade on is refused.
+     *
+     * Read as the seller, because opening hours are the kitchen's rows and a
+     * customer's own session sees none of them — which would read as "never
+     * closed" and let every day through.
+     *
+     * @param  list<int>  $weekdays
+     * @return list<array<string, mixed>>
+     */
+    private function closedDayReasons(string $organisationId, ?string $branchId, array $weekdays): array
+    {
+        $closed = $this->seller->during(
+            $organisationId,
+            $branchId,
+            fn (): array => $this->scheduling->closedWeekdays($organisationId, $branchId),
+        );
+
+        $refused = array_values(array_intersect(array_map('intval', $weekdays), $closed));
+
+        return $refused === [] ? [] : [['reason' => 'kitchen_closed', 'weekdays' => $refused]];
     }
 
     /**

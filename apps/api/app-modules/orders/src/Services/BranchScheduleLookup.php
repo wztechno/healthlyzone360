@@ -7,6 +7,7 @@ namespace Healthy360\Orders\Services;
 use Carbon\CarbonImmutable;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Orders\Contracts\OrderSchedulingLookup;
+use Healthy360\Organisations\Enums\BranchStatus;
 use Healthy360\Organisations\Models\OrganisationBranch;
 
 /**
@@ -100,6 +101,42 @@ final readonly class BranchScheduleLookup implements OrderSchedulingLookup
             'reason' => $passed ? 'cut_off_passed' : null,
             'cut_off_at' => $row->order_cut_off_at,
         ];
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function closedWeekdays(string $organisationId, ?string $branchId): array
+    {
+        $branchIds = $branchId !== null
+            ? [$branchId]
+            : OrganisationBranch::withoutTenancy()
+                ->where('organisation_id', $organisationId)
+                ->where('status', BranchStatus::Active->value)
+                ->pluck('id')
+                ->map(static fn (mixed $id): string => (string) $id)
+                ->all();
+
+        if ($branchIds === []) {
+            return [];
+        }
+
+        /** @var array<int, array<string, true>> $shut weekday → the branches stating they are shut on it */
+        $shut = [];
+
+        foreach (BranchOpeningHour::withoutTenancy()->whereIn('branch_id', $branchIds)->get() as $row) {
+            if (! $row->isOpen()) {
+                $shut[$row->weekday][$row->branch_id] = true;
+            }
+        }
+
+        $closed = array_keys(array_filter(
+            $shut,
+            static fn (array $branches): bool => count($branches) === count($branchIds),
+        ));
+        sort($closed);
+
+        return $closed;
     }
 
     /**
