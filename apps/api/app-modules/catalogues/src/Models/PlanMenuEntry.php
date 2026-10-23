@@ -91,6 +91,49 @@ class PlanMenuEntry extends BaseModel implements OrganisationScoped
     }
 
     /**
+     * Which of one day's sittings a subscriber's configuration is served.
+     *
+     * The menu is the plan's, the count is the configuration's: a day written
+     * for the 3 + 1 option is served whole to a 3 + 1 subscriber and as its
+     * first two meals to a 2 + 0 one. "First" is the order of the day —
+     * breakfast, lunch, dinner, then the second lunch after the first — which
+     * is the order `$slots` must already be in. Snacks are counted apart from
+     * meals, so a snack never takes a meal's place.
+     *
+     * Null counts serve the whole day: a subscription whose configuration
+     * cannot be read is sent what the menu says rather than nothing.
+     *
+     * @param  list<string>  $slots  one day's sittings, in the order of the day
+     * @return list<int> the positions in `$slots` that are served
+     */
+    public static function servedPositions(array $slots, ?int $mealsPerDay, ?int $snacksPerDay): array
+    {
+        $served = [];
+        $meals = 0;
+        $snacks = 0;
+
+        foreach ($slots as $position => $slot) {
+            if ($slot === 'snack') {
+                if ($snacksPerDay === null || $snacks < $snacksPerDay) {
+                    $served[] = $position;
+                }
+
+                $snacks++;
+
+                continue;
+            }
+
+            if ($mealsPerDay === null || $meals < $mealsPerDay) {
+                $served[] = $position;
+            }
+
+            $meals++;
+        }
+
+        return $served;
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array

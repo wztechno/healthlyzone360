@@ -5,8 +5,11 @@ declare(strict_types=1);
 use Carbon\CarbonImmutable;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Audit\Models\AuditLog;
+use Healthy360\Catalogues\Enums\VariantStatus;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\PlanMenuEntry;
+use Healthy360\Catalogues\Models\PlanVariantProfile;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Catalogues\Tests\Fixtures\CatalogueWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
@@ -351,6 +354,52 @@ it('refuses one slot filled twice in a single submission', function (): void {
     ], 7, '2026-08-16', '0')->assertStatus(422);
 
     expect(PlanMenuEntry::withoutTenancy()->count())->toBe(0);
+});
+
+it('refuses a day with more dishes than the largest active option serves', function (): void {
+    $option = function (int $meals, int $snacks, VariantStatus $status): void {
+        $variant = CatalogueItemVariant::factory()->planConfiguration()->create([
+            'catalogue_item_id' => $this->plan->getKey(),
+            'organisation_id' => $this->a->organisation->getKey(),
+            'code' => 'option-'.$meals.'-'.$snacks,
+            'status' => $status,
+        ]);
+
+        PlanVariantProfile::factory()->create([
+            'catalogue_item_variant_id' => $variant->getKey(),
+            'organisation_id' => $this->a->organisation->getKey(),
+            'catalogue_item_id' => $this->plan->getKey(),
+            'meals_per_day' => $meals,
+            'snacks_per_day' => $snacks,
+        ]);
+    };
+
+    // The largest active option is 2 meals and 1 snack; a withdrawn 3 + 0 does not count.
+    $option(2, 1, VariantStatus::Active);
+    $option(1, 0, VariantStatus::Active);
+    $option(3, 0, VariantStatus::Archived);
+
+    $soup = CatalogueWorld::publishedMeal($this->a, 'Red lentil soup');
+    $nuts = CatalogueWorld::publishedMeal($this->a, 'Spiced nuts');
+
+    $fields = ($this->menu)([
+        ($this->entry)(1, 'lunch', $this->chicken),
+        ($this->entry)(1, 'dinner', $this->fish),
+        ($this->entry)(1, 'breakfast', $soup),
+    ], 7, '2026-08-16', '0')
+        ->assertStatus(422)
+        ->json('error.details.fields');
+
+    // The dish named is the one past the count in the order of the day: dinner.
+    expect(array_keys($fields))->toBe(['entries.1']);
+    expect(PlanMenuEntry::withoutTenancy()->count())->toBe(0);
+
+    // Two meals and a snack is the option exactly, and saves.
+    ($this->menu)([
+        ($this->entry)(1, 'lunch', $this->chicken),
+        ($this->entry)(1, 'dinner', $this->fish),
+        ($this->entry)(1, 'snack', $nuts),
+    ], 7, '2026-08-16', '0')->assertOk();
 });
 
 it('refuses a slot outside the four sittings', function (): void {

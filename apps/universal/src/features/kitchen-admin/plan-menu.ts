@@ -8,6 +8,8 @@ import type {
 } from '@healthy360/api-client/contracts';
 import type { MealId } from '@healthy360/domain-types';
 
+import type { VariantDraft } from './plan-matrix.ts';
+
 /**
  * The model behind the plan editor's fifth section — a plan's fixed menu.
  *
@@ -317,10 +319,14 @@ export interface MenuEntryMessages {
  *
  * A row already flagged for an unanswered sequence never reaches the duplicate check and never joins
  * the seen set, so it cannot make an innocent third row look like the duplicate.
+ *
+ * With `serving`, a fifth: **no day holds more than the plan's largest option.** Counted in the order
+ * of the day, meals and snacks apart, so the row flagged is the one a subscriber would not be sent.
  */
 export function menuEntryErrors(
     draft: MenuDraft,
     messages: MenuEntryMessages,
+    serving?: MenuServing,
 ): ReadonlyMap<string, string> {
     const errors = new Map<string, string>();
     const seen = new Set<string>();
@@ -352,7 +358,47 @@ export function menuEntryErrors(
         seen.add(coordinate);
     }
 
+    if (serving !== undefined) {
+        for (const day of menuDays(draft)) {
+            let meals = 0;
+            let snacks = 0;
+            for (const entry of day.entries) {
+                const over =
+                    entry.slot === 'snack'
+                        ? ++snacks > serving.snacks
+                        : ++meals > serving.meals;
+                if (over && !errors.has(entry.key)) errors.set(entry.key, serving.message);
+            }
+        }
+    }
+
     return errors;
+}
+
+/** The most a day of the menu may hold: the plan's largest option, and what to say past it. */
+export interface MenuServing {
+    readonly meals: number;
+    readonly snacks: number;
+    readonly message: string;
+}
+
+/**
+ * The plan's largest active option, in meals and in snacks, or `null` while there is none to read.
+ *
+ * Each day is served to a subscriber cut to their own option (the server's `servedTo()`), so a dish
+ * past the largest one is a dish nobody receives — the server refuses it, and so does the editor.
+ */
+export function largestServing(
+    variants: readonly VariantDraft[],
+): { readonly meals: number; readonly snacks: number } | null {
+    const counted = variants.filter(
+        (variant) => variant.isActive && variant.mealsPerDay !== null,
+    );
+    if (counted.length === 0) return null;
+    return {
+        meals: Math.max(...counted.map((variant) => variant.mealsPerDay ?? 0)),
+        snacks: Math.max(...counted.map((variant) => variant.snacksPerDay ?? 0)),
+    };
 }
 
 export interface MenuDocumentMessages {

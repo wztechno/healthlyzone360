@@ -58,7 +58,9 @@ interface SubscriptionMealDemand
      * every meal choice standing against those days.
      *
      * `days` is one entry per subscription per day, carrying the plan so the
-     * caller can read its menu, and the basis so a caller that wants to weigh a
+     * caller can read its menu, the meals and snacks a day the subscriber
+     * bought so it can cut that menu to them (null serves the whole menu day),
+     * and the basis so a caller that wants to weigh a
      * claim differently from a forecast still can. `choices` is flat rather than
      * nested under its day because the caller tallies it as its own population
      * — a chosen dish is demand whether or not the menu also names one — and it
@@ -71,7 +73,7 @@ interface SubscriptionMealDemand
      *
      * @param  string|null  $branchId  narrow to one production site, or null for the whole organisation
      * @return array{
-     *     days: list<array{subscription_id: string, plan_catalogue_item_id: string, delivery_date: string, basis: string}>,
+     *     days: list<array{subscription_id: string, plan_catalogue_item_id: string, meals_per_day: int|null, snacks_per_day: int|null, delivery_date: string, basis: string}>,
      *     choices: list<array{subscription_id: string, delivery_date: string, slot: string, sequence: int, catalogue_item_id: string}>,
      * }
      */

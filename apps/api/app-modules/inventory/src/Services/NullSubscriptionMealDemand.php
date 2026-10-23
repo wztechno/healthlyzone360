@@ -26,7 +26,7 @@ final class NullSubscriptionMealDemand implements SubscriptionMealDemand
 {
     /**
      * @return array{
-     *     days: list<array{subscription_id: string, plan_catalogue_item_id: string, delivery_date: string, basis: string}>,
+     *     days: list<array{subscription_id: string, plan_catalogue_item_id: string, meals_per_day: int|null, snacks_per_day: int|null, delivery_date: string, basis: string}>,
      *     choices: list<array{subscription_id: string, delivery_date: string, slot: string, sequence: int, catalogue_item_id: string}>,
      * }
      */

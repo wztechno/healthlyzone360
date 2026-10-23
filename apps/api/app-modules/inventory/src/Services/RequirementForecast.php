@@ -302,6 +302,8 @@ final readonly class RequirementForecast
      *
      *  * the cycle day comes from the same double-modulus helper against the
      *    plan's own anchor;
+     *  * the day is cut to the subscriber's own meals and snacks through the
+     *    same `PlanMenuService::servedTo()`;
      *  * a plan with no `menu_cycle_days` fills nothing — and here contributes
      *    `plan_has_no_menu` for a day nobody has chosen for either, because such
      *    a day is one the kitchen genuinely cannot plan a purchase for. A day
@@ -316,7 +318,7 @@ final readonly class RequirementForecast
      * The plan's menu is read once per plan however many days it serves — three
      * reads for a plan appearing on sixty days rather than a hundred and eighty.
      *
-     * @param  list<array{subscription_id: string, plan_catalogue_item_id: string, delivery_date: string, basis: string}>  $days
+     * @param  list<array{subscription_id: string, plan_catalogue_item_id: string, meals_per_day: int|null, snacks_per_day: int|null, delivery_date: string, basis: string}>  $days
      * @param  list<array{subscription_id: string, delivery_date: string, slot: string, sequence: int, catalogue_item_id: string}>  $choices
      * @param  array<string, array{quantity: numeric-string, dates: array<string, true>}>  $demanded
      * @param  array<string, array<string, true>>  $holes
@@ -349,6 +351,7 @@ final readonly class RequirementForecast
         /** @var array<string, array{cycle_days: int|null, anchor_date: string|null, entries: list<PlanMenuEntry>, meals: array<string, CatalogueItem>}|null> $plans */
         $plans = [];
 
+
         foreach ($days as $day) {
             $planId = $day['plan_catalogue_item_id'];
 
@@ -374,11 +377,13 @@ final readonly class RequirementForecast
                 $cycleDays,
             );
 
-            foreach ($menu['entries'] as $entry) {
-                if ($entry->cycle_day !== $cycleDay) {
-                    continue;
-                }
+            // Cut to the subscriber's own count, as generation cuts it.
+            $served = $this->menus->servedTo(array_values(array_filter(
+                $menu['entries'],
+                static fn (PlanMenuEntry $entry): bool => $entry->cycle_day === $cycleDay,
+            )), $day['meals_per_day'], $day['snacks_per_day']);
 
+            foreach ($served as $entry) {
                 $coordinate = $day['subscription_id'].'|'.$day['delivery_date'].'|'.$entry->slot.'|'.$entry->sequence;
 
                 if (array_key_exists($coordinate, $claimed)) {

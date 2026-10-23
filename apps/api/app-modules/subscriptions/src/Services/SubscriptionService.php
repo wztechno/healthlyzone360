@@ -214,6 +214,12 @@ final readonly class SubscriptionService
             $subscription->captured_price_list_item_id = $quote->priceListItemId;
             $subscription->captured_at = $now;
 
+            // The day's food as sold, kept like the price: a kitchen that later
+            // edits the option changes it for new subscribers only.
+            $configuration = PlanVariantProfile::withoutTenancy()->whereKey($request->catalogueItemVariantId)->first();
+            $subscription->captured_meals_per_day = $configuration?->meals_per_day;
+            $subscription->captured_snacks_per_day = $configuration?->snacks_per_day;
+
             $subscription->weekdays = $this->normalisedWeekdays($request->weekdays);
             $subscription->delivery_window_code = $request->deliveryWindowCode;
             $subscription->customer_address_id = (string) $request->address->getKey();

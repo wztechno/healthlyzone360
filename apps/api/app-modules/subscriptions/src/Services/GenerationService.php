@@ -560,10 +560,12 @@ final readonly class GenerationService
 
         $cycleDay = PlanMenuEntry::cycleDayFor($date, CarbonImmutable::parse($anchorDate), $cycleDays);
 
-        $entries = array_values(array_filter(
+        // The day as this subscriber bought it: a 2-meal subscriber on a day
+        // written for 3 + 1 gets the first two meals.
+        $entries = $this->menus->servedTo(array_values(array_filter(
             $this->menus->entriesFor($plan),
             static fn (PlanMenuEntry $entry): bool => $entry->cycle_day === $cycleDay,
-        ));
+        )), ...$subscription->servings($this->menus->configuration($subscription->catalogue_item_variant_id)));
 
         if ($entries === []) {
             return;

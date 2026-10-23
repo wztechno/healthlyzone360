@@ -75,6 +75,7 @@ import {
     menuDays,
     menuDocumentErrors,
     menuDraft,
+    largestServing,
     menuEntryErrors,
     menuRequest,
     withAnchorDate,
@@ -575,16 +576,27 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
         [durations, t],
     );
 
-    const menuRowErrors = useMemo(
-        () =>
-            menuEntryErrors(menu, {
+    const menuRowErrors = useMemo(() => {
+        const serving = largestServing(variants);
+        return menuEntryErrors(
+            menu,
+            {
                 beyondCycle: t('kitchen:plans.menuBeyondCycle'),
                 mealRequired: t('kitchen:plans.menuMealRequired'),
                 sequenceRequired: t('kitchen:plans.menuSequenceRequired'),
                 duplicateCoordinate: t('kitchen:plans.menuDuplicateCoordinate'),
-            }),
-        [menu, t],
-    );
+            },
+            serving === null
+                ? undefined
+                : {
+                      ...serving,
+                      message: t('kitchen:plans.menuOverServing', {
+                          meals: serving.meals,
+                          snacks: serving.snacks,
+                      }),
+                  },
+        );
+    }, [menu, variants, t]);
 
     const menuBlockers = useMemo(
         () =>

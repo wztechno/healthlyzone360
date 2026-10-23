@@ -217,7 +217,7 @@ final readonly class SubscriptionOutlookAdapter implements SubscriptionOutlook
      * One port entry per sitting of each day.
      *
      * @param  list<array{subscription_id: string, delivery_date: string, delivery_window_code: string|null}>  $days
-     * @param  array<string, array{cycle_days: int|null, anchor_date: string|null, menu: array<int, list<string>>, configured: list<string>}>  $sittings  keyed by subscription
+     * @param  array<string, array{cycle_days: int|null, anchor_date: string|null, menu: array<int, list<string>>, configured: list<string>, meals_per_day: int|null, snacks_per_day: int|null}>  $sittings  keyed by subscription
      * @return list<array{delivery_date: string, delivery_window_code: string|null, slot: string|null}>
      */
     private function perMeal(array $days, array $sittings): array
@@ -244,7 +244,7 @@ final readonly class SubscriptionOutlookAdapter implements SubscriptionOutlook
      * day when the plan has one, the configuration's count dealt onto the day
      * otherwise, and nothing when the plan says nothing.
      *
-     * @param  array{cycle_days: int|null, anchor_date: string|null, menu: array<int, list<string>>, configured: list<string>}|null  $sitting
+     * @param  array{cycle_days: int|null, anchor_date: string|null, menu: array<int, list<string>>, configured: list<string>, meals_per_day: int|null, snacks_per_day: int|null}|null  $sitting
      * @return list<string>
      */
     private function slotsFor(?array $sitting, string $date): array
@@ -263,7 +263,11 @@ final readonly class SubscriptionOutlookAdapter implements SubscriptionOutlook
             $fromMenu = $sitting['menu'][$cycleDay] ?? [];
 
             if ($fromMenu !== []) {
-                return $fromMenu;
+                // Cut to the subscriber's own count, as generation cuts it.
+                return array_map(
+                    static fn (int $position): string => $fromMenu[$position],
+                    PlanMenuEntry::servedPositions($fromMenu, $sitting['meals_per_day'], $sitting['snacks_per_day']),
+                );
             }
         }
 
@@ -280,7 +284,7 @@ final readonly class SubscriptionOutlookAdapter implements SubscriptionOutlook
      * arrived from elsewhere cannot borrow another kitchen's menu.
      *
      * @param  list<array{subscription_id: string, delivery_date: string, delivery_window_code: string|null}>  $days
-     * @return array<string, array{cycle_days: int|null, anchor_date: string|null, menu: array<int, list<string>>, configured: list<string>}>
+     * @return array<string, array{cycle_days: int|null, anchor_date: string|null, menu: array<int, list<string>>, configured: list<string>, meals_per_day: int|null, snacks_per_day: int|null}>
      */
     private function sittings(string $organisationId, array $days): array
     {
@@ -293,7 +297,7 @@ final readonly class SubscriptionOutlookAdapter implements SubscriptionOutlook
         $subscriptions = Subscription::query()
             ->where('organisation_id', $organisationId)
             ->whereKey($subscriptionIds)
-            ->get(['id', 'catalogue_item_id', 'catalogue_item_variant_id']);
+            ->get(['id', 'catalogue_item_id', 'catalogue_item_variant_id', 'captured_meals_per_day', 'captured_snacks_per_day']);
 
         $planIds = $subscriptions->pluck('catalogue_item_id')->unique()->values()->all();
         $variantIds = $subscriptions->pluck('catalogue_item_variant_id')->unique()->values()->all();
@@ -337,14 +341,18 @@ final readonly class SubscriptionOutlookAdapter implements SubscriptionOutlook
         foreach ($subscriptions as $subscription) {
             $profile = $profiles->get((string) $subscription->catalogue_item_id);
             $configuration = $configurations->get((string) $subscription->catalogue_item_variant_id);
+            // As sold, not as the option reads today.
+            [$meals, $snacks] = $subscription->servings($configuration instanceof PlanVariantProfile ? $configuration : null);
 
             $sittings[(string) $subscription->getKey()] = [
                 'cycle_days' => $profile?->menu_cycle_days,
                 'anchor_date' => $profile?->menu_cycle_anchor_date?->toDateString(),
                 'menu' => $menus[(string) $subscription->catalogue_item_id] ?? [],
-                'configured' => $configuration instanceof PlanVariantProfile
-                    ? $this->dealt($configuration->meals_per_day, $configuration->snacks_per_day)
+                'configured' => $meals !== null
+                    ? $this->dealt($meals, $snacks ?? 0)
                     : [],
+                'meals_per_day' => $meals,
+                'snacks_per_day' => $snacks,
             ];
         }
 

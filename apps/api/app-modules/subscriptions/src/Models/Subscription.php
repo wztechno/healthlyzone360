@@ -8,6 +8,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
+use Healthy360\Catalogues\Models\PlanVariantProfile;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Subscriptions\Database\Factories\SubscriptionFactory;
@@ -49,6 +50,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $captured_price_list_id
  * @property string|null $captured_price_list_item_id
  * @property CarbonImmutable $captured_at
+ * @property int|null $captured_meals_per_day meals a day as sold; null reads the configuration
+ * @property int|null $captured_snacks_per_day snacks a day as sold; null reads the configuration
  * @property list<int> $weekdays
  * @property string|null $delivery_window_code
  * @property string $customer_address_id
@@ -95,6 +98,8 @@ class Subscription extends BaseModel
             'balance_days_consumed' => 'integer',
             'captured_unit_price_minor' => 'integer',
             'effective_day_price_minor' => 'integer',
+            'captured_meals_per_day' => 'integer',
+            'captured_snacks_per_day' => 'integer',
             'pause_count' => 'integer',
             'lock_version' => 'integer',
             'captured_at' => 'datetime',
@@ -103,6 +108,21 @@ class Subscription extends BaseModel
             'resumed_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'completed_at' => 'datetime',
+        ];
+    }
+
+    /**
+     * Meals and snacks a day this subscriber is served: the counts captured at
+     * purchase, or the configuration's own for a subscription that has none.
+     * Null serves the whole menu day — see `PlanMenuEntry::servedPositions()`.
+     *
+     * @return array{0: int|null, 1: int|null}
+     */
+    public function servings(?PlanVariantProfile $configuration): array
+    {
+        return [
+            $this->captured_meals_per_day ?? $configuration?->meals_per_day,
+            $this->captured_snacks_per_day ?? $configuration?->snacks_per_day,
         ];
     }
 

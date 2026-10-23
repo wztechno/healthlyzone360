@@ -12,6 +12,7 @@ import {
     isMenuPublished,
     isMenuWithdrawal,
     menuDays,
+    largestServing,
     menuDocumentErrors,
     menuDraft,
     menuEntryErrors,
@@ -195,6 +196,48 @@ describe('the coordinate', () => {
         expect(errors.get('first')).toBeUndefined();
         expect(errors.get('second')).toBe('duplicate-coordinate');
         expect(errors.get('third')).toBeUndefined();
+    });
+
+    it('marks the dishes past the plan’s largest option, in the order of the day', () => {
+        const errors = menuEntryErrors(
+            draftOf([
+                row({ key: 'dinner', slot: 'dinner', sequence: 1 }),
+                row({ key: 'breakfast', slot: 'breakfast', sequence: 1 }),
+                row({ key: 'lunch', slot: 'lunch', sequence: 1 }),
+                row({ key: 'snack', slot: 'snack', sequence: 1 }),
+                row({ key: 'second-snack', slot: 'snack', sequence: 2 }),
+                row({ key: 'next-day', cycleDay: 2, slot: 'dinner', sequence: 1 }),
+            ]),
+            ROW_MESSAGES,
+            { meals: 2, snacks: 1, message: 'over-serving' },
+        );
+
+        // Breakfast and lunch are the day's first two meals; dinner is the third.
+        expect(errors.get('breakfast')).toBeUndefined();
+        expect(errors.get('lunch')).toBeUndefined();
+        expect(errors.get('dinner')).toBe('over-serving');
+        expect(errors.get('snack')).toBeUndefined();
+        expect(errors.get('second-snack')).toBe('over-serving');
+        expect(errors.get('next-day')).toBeUndefined();
+    });
+
+    it('reads the largest active option, ignoring withdrawn and unanswered ones', () => {
+        const option = (mealsPerDay: number | null, snacksPerDay: number | null, isActive = true) =>
+            ({
+                key: `option-${String(mealsPerDay)}`,
+                id: null,
+                name: { en: '', ar: '' },
+                mealsPerDay,
+                snacksPerDay,
+                energyMin: null,
+                energyMax: null,
+                isActive,
+            }) as const;
+
+        expect(largestServing([])).toBeNull();
+        expect(largestServing([option(3, 1), option(2, 2), option(5, 0, false), option(null, 4)])).toEqual(
+            { meals: 3, snacks: 2 },
+        );
     });
 
     it('does not let an unanswered position frame an innocent row as the duplicate', () => {
