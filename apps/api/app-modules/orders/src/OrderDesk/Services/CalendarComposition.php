@@ -59,7 +59,10 @@ use Healthy360\Orders\Models\Order;
  *
  * ## The window breakdown, and the bucket for orders with no slot
  *
- * `windows` splits each day's three counts by `delivery_window_code`. A day's
+ * `windows` splits each day's three counts by slot. An order's slot is its
+ * `delivery_window_code`; a subscription day's is the **sitting** each of its
+ * meals is — `breakfast`, `lunch`, `dinner`, `snack` — one entry per meal, which
+ * is what makes `scheduled` and `projected` count food rather than vans. A day's
  * unslotted work — an order or a delivery day with no named window, which is a
  * legitimate state on both tables — is an entry whose `code` is **`null`**,
  * rather than a magic string like `unslotted`. A code is a kitchen's own
@@ -145,7 +148,7 @@ final readonly class CalendarComposition
      * days of `Order` objects to throw them away would be the most expensive
      * possible way to arrive at an integer.
      *
-     * @return list<array{delivery_date: string, delivery_window_code: string|null}>
+     * @return list<array{delivery_date: string, delivery_window_code: string|null, slot: null}>
      */
     private function orderDays(
         string $organisationId,
@@ -177,6 +180,9 @@ final readonly class CalendarComposition
             $days[] = [
                 'delivery_date' => (string) $row->calendar_day,
                 'delivery_window_code' => $row->delivery_window_code,
+                // An order is a sale, not a sitting: it is counted once, under
+                // the window it is going out in.
+                'slot' => null,
             ];
         }
 
@@ -195,8 +201,15 @@ final readonly class CalendarComposition
      * asked for this window and neither should answer outside it; silently
      * widening the grid to fit an unexpected row would hide the disagreement.
      *
+     * A subscription entry that names its sitting is bucketed by the sitting
+     * (`breakfast`, `lunch`, `dinner`, `snack`) rather than by the window it
+     * is delivered in: the calendar's rows are meals, and a kitchen reads
+     * "four lunches" off it, not "four midday vans". An order names no sitting
+     * and keeps its window code, which the screen folds onto the same row —
+     * `midday` and `lunch` are one row there.
+     *
      * @param  array<string, array<array-key, array{order: int, scheduled: int, projected: int}>>  $days
-     * @param  list<array{delivery_date: string, delivery_window_code: string|null}>  $rows
+     * @param  list<array{delivery_date: string, delivery_window_code: string|null, slot?: string|null}>  $rows
      * @param  'order'|'scheduled'|'projected'  $basis
      */
     private function tally(array &$days, array $rows, string $basis): void
@@ -214,7 +227,7 @@ final readonly class CalendarComposition
             // column is `varchar(40)` and a kitchen naming a slot `''` would
             // have nothing to render, but `windowRows()` translates the key back
             // rather than trusting that, so the wire never carries a `""` code.
-            $key = $row['delivery_window_code'] ?? '';
+            $key = $row['slot'] ?? $row['delivery_window_code'] ?? '';
 
             $days[$date][$key] ??= ['order' => 0, 'scheduled' => 0, 'projected' => 0];
             $days[$date][$key][$basis]++;

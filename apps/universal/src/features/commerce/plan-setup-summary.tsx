@@ -10,9 +10,10 @@ import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
 
 import { effectiveDayPrice } from '../catalogue/plan-balance.ts';
+import { durationWithBalance } from '../catalogue/plan-duration-label.ts';
 import { formatMoney } from '../marketplace/format.ts';
 import { combinationLabel, variantName, weekdayRun } from './configurator-steps.tsx';
-import { discountedTotalMinorUnits, weeksFor } from './configurator.ts';
+import { durationOption, estimatedTotal } from './configurator.ts';
 import type { ConfiguratorState } from './configurator.ts';
 
 /**
@@ -29,9 +30,9 @@ import type { ConfiguratorState } from './configurator.ts';
  *
  * ## Which price
  *
- * Until the server has priced the configuration it is an estimate — the variant's weekly price over
- * the chosen length, less that length's discount, the same arithmetic the repository performs
- * (`discountedTotalMinorUnits`). Once the review step has the preview, the figures are the server's.
+ * Until the server has priced the configuration it is an estimate — the variant's per-day price
+ * over the chosen balance of days, less that length's discount, rounded the way the server rounds
+ * (`estimatedTotal`). Once the review step has the preview, the figures are the server's.
  */
 export interface PlanSetupSummaryProps {
     readonly plan: SubscriptionPlan;
@@ -76,22 +77,19 @@ export function PlanSetupSummary({
     const formatter = useFormatter();
     const { atLeast } = useBreakpoint();
 
-    const option = plan.durations.find((each) => each.duration === state.duration);
+    const option = durationOption(plan, state.duration);
     const discount = option?.discountPercent ?? 0;
-    const perDay = variant === null ? null : effectiveDayPrice(variant, discount);
-    const estimate =
-        variant === null
+    const perDay =
+        preview?.perDayPrice ?? (variant === null ? null : effectiveDayPrice(variant, discount));
+    const total = preview?.total ?? estimatedTotal(variant, option);
+    // The total is for a balance of delivery days, so that is what it says it is for: on three
+    // weekdays "4 weeks" of deliveries runs nine calendar weeks, and "$700 for 4 weeks" misled.
+    const balance =
+        option === undefined
             ? null
-            : {
-                  amount: discountedTotalMinorUnits(
-                      variant.pricePerWeek.amount,
-                      weeksFor(state.duration),
-                      discount,
-                  ),
-                  currency: variant.pricePerWeek.currency,
-              };
-    const total = preview?.total ?? estimate;
-    const duration = t(`catalogue:compare.duration.${state.duration}`);
+            : t('commerce:configurator.summary.balance', { count: option.days });
+    const duration =
+        option === undefined ? null : durationWithBalance(option.days, t, formatter.formatNumber);
 
     const price = (
         <View testID="configurator-summary-estimate" className="flex-col">
@@ -105,14 +103,14 @@ export function PlanSetupSummary({
                     </RNText>
                 </View>
             )}
-            {total === null ? null : (
+            {total === null || balance === null ? null : (
                 <RNText
                     testID="configurator-summary-total"
                     className="self-start text-sm tabular-nums text-content-secondary text-start"
                 >
                     {t('commerce:configurator.confirm.total', {
                         total: formatMoney(formatter, total),
-                        duration,
+                        duration: balance,
                     })}
                 </RNText>
             )}

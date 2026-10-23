@@ -3,7 +3,6 @@ import {
     Breadcrumbs,
     Button,
     Callout,
-    DateField,
     Dialog,
     EmptyState,
     FilterChip,
@@ -13,8 +12,12 @@ import {
     Stack,
     Text,
 } from '@healthy360/design-system';
-import type { Subscription, CustomerAddress } from '@healthy360/api-client/contracts';
-import { SubscriptionId } from '@healthy360/domain-types';
+import type {
+    Subscription,
+    CustomerAddress,
+    MarketplaceMeal,
+} from '@healthy360/api-client/contracts';
+import { SubscriptionId, planDurationDays } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -36,15 +39,20 @@ import {
     useSubscriptionQuoteQuery,
 } from '../../../data/commerce-hooks.ts';
 import { useAddressesQuery } from '../../../data/account-hooks.ts';
+import { mealsFromPages, useMealsQuery, usePlanQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchenMenuQuery } from '../../../data/marketplace-hooks.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+import { useCurrentHref } from '../../../navigation/use-return-to.ts';
+import { subscriptionDayPrice } from '../../catalogue/plan-balance.ts';
+import { durationWithBalance } from '../../catalogue/plan-duration-label.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
 import { weekdayRun } from '../configurator-steps.tsx';
 import { savedAddressValues } from '../configurator.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { formatAddress, toDeliveryAddress } from '../address.ts';
-import { earliestStartDate, upcomingDeliveryDates } from '../dates.ts';
+import { todayIso, upcomingDeliveryDates } from '../dates.ts';
 import { DELIVERY_SLOTS } from '../delivery.ts';
+import { PlanAllergyNotice } from '../my-allergens.tsx';
 import {
     SubscriptionStateBadge,
     canChangeDelivery,
@@ -115,9 +123,15 @@ import {
  * The opening states the plan, its state, its weekly price and the next delivery. Below it, from
  * `lg`, two columns: "Your plan" (every setting, each changeable one with its own Change beside it)
  * above the deliveries ledger, and beside them the "Manage" card — the balance and the actions —
- * which stays in view while the ledger scrolls. A paused-until date and any skipped days are rows of
- * the plan card rather than a separate timeline: `Subscription` publishes no event log, so they are
- * stated as current facts and nothing is inferred about when they happened.
+ * which stays in view while the ledger scrolls. Skipped days are a row of the plan card rather than
+ * a separate timeline: `Subscription` publishes no event log, so they are stated as current facts
+ * and nothing is inferred about when they happened.
+ *
+ * ## The allergy list is shown, not stored
+ *
+ * A subscription carries no allergen list of its own; the kitchen reads the customer's profile at
+ * generation. So the plan card shows that list against the plan's dishes, and the way to change it
+ * — the row that used to say "Nothing left out" was reading a field nothing ever wrote (plans-16).
  */
 
 export interface SubscriptionDetailScreenProps {
@@ -145,6 +159,7 @@ const SKIP_CHOICES = 6;
 export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
+    const here = useCurrentHref();
     const formatter = useFormatter();
     const params = useLocalSearchParams<{
         created?: string;
@@ -180,10 +195,23 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
               },
     );
 
+    // The plan's published dishes, for the allergy notice: the plan names them, the kitchen's menu
+    // holds them. Both reads are cached from the plan page and the set-up.
+    const plan = usePlanQuery(subscription?.configuration.planId ?? null);
+    const kitchenMeals = useMealsQuery(
+        subscription === undefined
+            ? undefined
+            : { kitchenIds: [subscription.kitchenId], limit: 50 },
+        subscription !== undefined,
+    );
+    const sampleMeals = useMemo<readonly MarketplaceMeal[]>(() => {
+        const ids = new Set((plan.data?.sampleMealIds ?? []).map(String));
+        return mealsFromPages(kitchenMeals.data?.pages).filter((meal) => ids.has(String(meal.id)));
+    }, [kitchenMeals.data, plan.data]);
+
     const [dialog, setDialog] = useState<OpenDialog>(null);
     const [skipSheetOpen, setSkipSheetOpen] = useState(false);
     const [skipDate, setSkipDate] = useState<string | null>(null);
-    const [pauseUntil, setPauseUntil] = useState<string | null>(null);
     const [slotCode, setSlotCode] = useState<string | null>(null);
     const [weekdays, setWeekdays] = useState<readonly number[] | null>(null);
     const [addressId, setAddressId] = useState<string | null>(null);
@@ -333,14 +361,26 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                   {
                       key: 'duration',
                       label: t('commerce:subscription.rows.duration'),
-                      value: t(`catalogue:compare.duration.${subscription.configuration.duration}`),
+                      value: durationWithBalance(
+                          planDurationDays(subscription.configuration.duration),
+                          t,
+                          formatter.formatNumber,
+                      ),
                   },
+                  // "Starts" until the first delivery day has come, "Started" after it; the date
+                  // is the first delivery, which the server states once one is planned.
                   {
                       key: 'start',
-                      label: t('commerce:subscription.rows.start'),
-                      value: formatter.formatDate(subscription.configuration.startDate, {
-                          dateStyle: 'medium',
-                      }),
+                      label:
+                          subscription.configuration.startDate > todayIso()
+                              ? t('commerce:subscription.rows.startsOn')
+                              : t('commerce:subscription.rows.start'),
+                      value:
+                          subscription.configuration.startDate === ''
+                              ? t('commerce:subscription.rows.startUnknown')
+                              : formatter.formatDate(subscription.configuration.startDate, {
+                                    dateStyle: 'medium',
+                                }),
                   },
                   {
                       key: 'days',
@@ -403,28 +443,6 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                             }
                           : {}),
                   },
-                  {
-                      key: 'allergens',
-                      label: t('commerce:subscription.rows.allergens'),
-                      value:
-                          subscription.configuration.excludeAllergens.length === 0
-                              ? t('commerce:configurator.checks.noAllergens')
-                              : subscription.configuration.excludeAllergens
-                                    .map((code) => t(`marketplace:allergens.${code}`))
-                                    .join(separator),
-                  },
-                  ...(subscription.pausedUntil === null
-                      ? []
-                      : [
-                            {
-                                key: 'pausedUntil',
-                                testID: 'subscription-timeline-paused-until',
-                                label: t('commerce:subscription.pausedUntilBadge'),
-                                value: formatter.formatDate(subscription.pausedUntil, {
-                                    dateStyle: 'medium',
-                                }),
-                            },
-                        ]),
                   ...(subscription.skippedDates.length === 0
                       ? []
                       : [
@@ -554,8 +572,11 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                     testID="subscription-detail-price"
                                     className="text-base text-content-primary text-start"
                                 >
-                                    {t('commerce:subscriptions.weeklyPrice', {
-                                        price: formatMoney(formatter, subscription.weeklyPrice),
+                                    {t('commerce:subscriptions.dayPrice', {
+                                        price: formatMoney(
+                                            formatter,
+                                            subscriptionDayPrice(subscription),
+                                        ),
                                     })}
                                 </RNText>
                                 <RNText aria-hidden className="text-base text-content-secondary">
@@ -587,6 +608,18 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                         testID: row.testID ?? `subscription-detail-row-${row.key}`,
                                     }))}
                                 />
+
+                                <SummaryCard
+                                    testID="subscription-detail-allergies"
+                                    title={t('commerce:subscription.rows.allergens')}
+                                >
+                                    <PlanAllergyNotice
+                                        testID="subscription-detail-allergy-notice"
+                                        meals={sampleMeals}
+                                        checked={plan.isFetched && kitchenMeals.isFetched}
+                                        returnTo={here}
+                                    />
+                                </SummaryCard>
 
                                 <SubscriptionDeliveries
                                     deliveries={deliveriesQuery.data?.items ?? []}
@@ -686,7 +719,6 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                                     label={t('commerce:subscription.pause')}
                                                     disabled={busy}
                                                     onPress={() => {
-                                                        setPauseUntil(null);
                                                         openDialog('pause');
                                                     }}
                                                 />
@@ -776,12 +808,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                             onPress={() => {
                                 if (subscription === undefined) return;
                                 pause.mutate(
-                                    {
-                                        subscriptionId: subscription.id,
-                                        ...(pauseUntil === null
-                                            ? {}
-                                            : { request: { until: pauseUntil } }),
-                                    },
+                                    { subscriptionId: subscription.id },
                                     { onSuccess: close },
                                 );
                             }}
@@ -789,30 +816,16 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                     </>
                 }
             >
+                {/* No "resume on" date: the platform has no scheduled resume, and the field that
+                    used to ask for one collected a date nothing acted on. */}
                 <Stack space="sm">
-                    <DateField
-                        testID="subscription-pause-until"
-                        label={t('commerce:subscription.pauseUntilLabel')}
-                        hint={t('commerce:subscription.pauseUntilHint')}
-                        value={pauseUntil}
-                        min={earliestStartDate()}
-                        onChange={setPauseUntil}
-                    />
                     <Callout
                         testID="subscription-pause-consequence"
                         role="note"
                         tone="warning"
                         icon="info"
                         title={t('commerce:subscription.pauseConsequenceTitle')}
-                        body={
-                            pauseUntil === null
-                                ? t('commerce:subscription.pauseConsequenceOpen')
-                                : t('commerce:subscription.pauseConsequenceUntil', {
-                                      date: formatter.formatDate(pauseUntil, {
-                                          dateStyle: 'full',
-                                      }),
-                                  })
-                        }
+                        body={t('commerce:subscription.pauseConsequenceOpen')}
                     />
                     <DialogFailure error={pause.error} testID="subscription-pause-failure" />
                 </Stack>

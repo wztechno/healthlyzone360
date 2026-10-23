@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8583 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8586 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1456,10 +1456,6 @@ export interface NamespaceKeys {
     | 'compare.backToPlans'
     | 'compare.caption'
     | 'compare.countRange'
-    | 'compare.duration.12w'
-    | 'compare.duration.1w'
-    | 'compare.duration.2w'
-    | 'compare.duration.4w'
     | 'compare.durationOption'
     | 'compare.emptyBody'
     | 'compare.emptyTitle'
@@ -1759,10 +1755,11 @@ export interface NamespaceKeys {
     | 'plan.macroBandLabel'
     | 'plan.macroRange'
     | 'plan.macrosTitle'
+    | 'plan.noDurations'
     | 'plan.notFoundBody'
     | 'plan.notFoundTitle'
+    | 'plan.priceForRun'
     | 'plan.pricePerDay'
-    | 'plan.pricePerWeek'
     | 'plan.priceTitle'
     | 'plan.sampleMenuTitle'
     | 'plan.variantLabel'
@@ -1784,13 +1781,13 @@ export interface NamespaceKeys {
     | 'plans.ctaSecondary'
     | 'plans.ctaTitle'
     | 'plans.currentPlan'
+    | 'plans.durationDays'
+    | 'plans.durationDaysShort'
     | 'plans.durationNoDiscount'
     | 'plans.durationSaves'
-    | 'plans.durationShort.12w'
-    | 'plans.durationShort.1w'
-    | 'plans.durationShort.2w'
-    | 'plans.durationShort.4w'
     | 'plans.durationTotal'
+    | 'plans.durationWeeks'
+    | 'plans.durationWeeksShort'
     | 'plans.durationsFor'
     | 'plans.durationsLabel'
     | 'plans.emptyBody'
@@ -2091,11 +2088,9 @@ export interface NamespaceKeys {
     | 'common.noPayment'
     | 'configurator.back'
     | 'configurator.browsePlans'
-    | 'configurator.checks.acknowledgeLabel'
     | 'configurator.checks.areaServed'
     | 'configurator.checks.areaUnknown'
     | 'configurator.checks.areaUnserved'
-    | 'configurator.checks.noAllergens'
     | 'configurator.combination.label'
     | 'configurator.combination.meals'
     | 'configurator.combination.snacks'
@@ -2107,21 +2102,19 @@ export interface NamespaceKeys {
     | 'configurator.delivery.addAddress'
     | 'configurator.delivery.addressPlaceholder'
     | 'configurator.delivery.addressTitle'
+    | 'configurator.delivery.allergensTitle'
+    | 'configurator.delivery.cutoffNote'
     | 'configurator.delivery.slotTitle'
     | 'configurator.delivery.startLabel'
     | 'configurator.delivery.useNextAllowed'
     | 'configurator.delivery.weekdaysLimited'
     | 'configurator.delivery.weekdaysTitle'
-    | 'configurator.dietary.allergensTitle'
-    | 'configurator.dietary.dietsTitle'
-    | 'configurator.dietary.relaxedTitle'
     | 'configurator.disclaimerContext'
     | 'configurator.duration.label'
     | 'configurator.duration.withDiscount'
     | 'configurator.edit'
     | 'configurator.issues.address'
     | 'configurator.issues.areaUnserved'
-    | 'configurator.issues.checks'
     | 'configurator.issues.deliveryDayUnavailable'
     | 'configurator.issues.duration'
     | 'configurator.issues.noDeliveryDays'
@@ -2160,16 +2153,17 @@ export interface NamespaceKeys {
     | 'configurator.successTitle'
     | 'configurator.summary.address'
     | 'configurator.summary.allergens'
+    | 'configurator.summary.balance'
     | 'configurator.summary.days'
     | 'configurator.summary.discount'
     | 'configurator.summary.duration'
     | 'configurator.summary.everyDay'
     | 'configurator.summary.gross'
+    | 'configurator.summary.perDayList'
     | 'configurator.summary.perDelivery'
     | 'configurator.summary.plan'
     | 'configurator.summary.starts'
     | 'configurator.summary.total'
-    | 'configurator.summary.weekly'
     | 'configurator.summary.window'
     | 'configurator.summary.windowValue'
     | 'configurator.title'
@@ -2202,9 +2196,16 @@ export interface NamespaceKeys {
     | 'myAllergens.dialogBody'
     | 'myAllergens.dialogBodyUnnamed'
     | 'myAllergens.dialogTitle'
+    | 'myAllergens.edit'
     | 'myAllergens.mealWithAllergens'
     | 'myAllergens.option'
     | 'myAllergens.placeAnyway'
+    | 'myAllergens.planBody'
+    | 'myAllergens.planNone'
+    | 'myAllergens.planTitle'
+    | 'myAllergens.planUnchecked'
+    | 'myAllergens.yourList'
+    | 'myAllergens.yourListEmpty'
     | 'slots.evening'
     | 'slots.midday'
     | 'slots.morning'
@@ -2233,12 +2234,8 @@ export interface NamespaceKeys {
     | 'subscription.pauseConfirm'
     | 'subscription.pauseConsequenceOpen'
     | 'subscription.pauseConsequenceTitle'
-    | 'subscription.pauseConsequenceUntil'
     | 'subscription.pauseDialogBody'
     | 'subscription.pauseDialogTitle'
-    | 'subscription.pauseUntilHint'
-    | 'subscription.pauseUntilLabel'
-    | 'subscription.pausedUntilBadge'
     | 'subscription.planTitle'
     | 'subscription.readOnly.active'
     | 'subscription.readOnly.cancelled'
@@ -2258,6 +2255,8 @@ export interface NamespaceKeys {
     | 'subscription.rows.plan'
     | 'subscription.rows.slot'
     | 'subscription.rows.start'
+    | 'subscription.rows.startUnknown'
+    | 'subscription.rows.startsOn'
     | 'subscription.skip'
     | 'subscription.skipConfirm'
     | 'subscription.skipConsequenceBody'
@@ -2276,6 +2275,7 @@ export interface NamespaceKeys {
     | 'subscriptions.body'
     | 'subscriptions.browse'
     | 'subscriptions.clearFilter'
+    | 'subscriptions.dayPrice'
     | 'subscriptions.emptyBody'
     | 'subscriptions.emptyFilteredBody'
     | 'subscriptions.emptyFilteredTitle'
@@ -2290,7 +2290,6 @@ export interface NamespaceKeys {
     | 'subscriptions.open'
     | 'subscriptions.rowSummary'
     | 'subscriptions.title'
-    | 'subscriptions.weeklyPrice'
     | 'title'
     | 'validation.countryCode'
     | 'validation.required'
@@ -5609,15 +5608,13 @@ export interface NamespaceKeys {
     | 'plans.bandRange'
     | 'plans.blockDurations'
     | 'plans.blockInconsistentDurations'
+    | 'plans.blockMenuDaysEmpty'
     | 'plans.blockName'
     | 'plans.blockNoConfirmedPrice'
     | 'plans.blockSummary'
     | 'plans.blockUnsaved'
     | 'plans.blockVariants'
     | 'plans.caption'
-    | 'plans.categoriesLabel'
-    | 'plans.categoryAddAction'
-    | 'plans.categoryAddLabel'
     | 'plans.cellLabel'
     | 'plans.cellNotSold'
     | 'plans.cellSold'
@@ -5633,7 +5630,11 @@ export interface NamespaceKeys {
     | 'plans.createChip'
     | 'plans.createTitle'
     | 'plans.createdToast'
+    | 'plans.cutOffExample'
+    | 'plans.cutOffExampleHours'
+    | 'plans.cutOffHint'
     | 'plans.cutOffLabel'
+    | 'plans.cutOffRange'
     | 'plans.cutOffRequired'
     | 'plans.cutOffUnit'
     | 'plans.dayCount'
@@ -5789,6 +5790,7 @@ export interface NamespaceKeys {
     | 'plans.variantActive'
     | 'plans.variantActiveLabel'
     | 'plans.variantCount'
+    | 'plans.variantDuplicate'
     | 'plans.variantInactive'
     | 'plans.variantNameLabel'
     | 'plans.variantNamePlaceholder'
@@ -5851,6 +5853,7 @@ export interface NamespaceKeys {
     | 'priceLists.emptyTitle'
     | 'priceLists.entriesTitle'
     | 'priceLists.entryCount'
+    | 'priceLists.entryCountWithNew'
     | 'priceLists.filterAll'
     | 'priceLists.filterChanged'
     | 'priceLists.filterConfirmed'
@@ -6768,11 +6771,11 @@ export interface NamespaceKeys {
     | 'consumer.resume.continue'
     | 'consumer.resume.dismiss'
     | 'consumer.resume.title'
+    | 'consumer.subscription.dayPrice'
     | 'consumer.subscription.eyebrow'
     | 'consumer.subscription.manage'
     | 'consumer.subscription.nextDelivery'
     | 'consumer.subscription.noNextDelivery'
-    | 'consumer.subscription.weeklyPrice'
     | 'dietitians.accepting'
     | 'dietitians.browseOthers'
     | 'dietitians.cardLabel'
@@ -10064,10 +10067,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:compare.backToPlans',
   'catalogue:compare.caption',
   'catalogue:compare.countRange',
-  'catalogue:compare.duration.12w',
-  'catalogue:compare.duration.1w',
-  'catalogue:compare.duration.2w',
-  'catalogue:compare.duration.4w',
   'catalogue:compare.durationOption',
   'catalogue:compare.emptyBody',
   'catalogue:compare.emptyTitle',
@@ -10367,10 +10366,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plan.macroBandLabel',
   'catalogue:plan.macroRange',
   'catalogue:plan.macrosTitle',
+  'catalogue:plan.noDurations',
   'catalogue:plan.notFoundBody',
   'catalogue:plan.notFoundTitle',
+  'catalogue:plan.priceForRun',
   'catalogue:plan.pricePerDay',
-  'catalogue:plan.pricePerWeek',
   'catalogue:plan.priceTitle',
   'catalogue:plan.sampleMenuTitle',
   'catalogue:plan.variantLabel',
@@ -10392,13 +10392,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.ctaSecondary',
   'catalogue:plans.ctaTitle',
   'catalogue:plans.currentPlan',
+  'catalogue:plans.durationDays',
+  'catalogue:plans.durationDaysShort',
   'catalogue:plans.durationNoDiscount',
   'catalogue:plans.durationSaves',
-  'catalogue:plans.durationShort.12w',
-  'catalogue:plans.durationShort.1w',
-  'catalogue:plans.durationShort.2w',
-  'catalogue:plans.durationShort.4w',
   'catalogue:plans.durationTotal',
+  'catalogue:plans.durationWeeks',
+  'catalogue:plans.durationWeeksShort',
   'catalogue:plans.durationsFor',
   'catalogue:plans.durationsLabel',
   'catalogue:plans.emptyBody',
@@ -10698,11 +10698,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:common.noPayment',
   'commerce:configurator.back',
   'commerce:configurator.browsePlans',
-  'commerce:configurator.checks.acknowledgeLabel',
   'commerce:configurator.checks.areaServed',
   'commerce:configurator.checks.areaUnknown',
   'commerce:configurator.checks.areaUnserved',
-  'commerce:configurator.checks.noAllergens',
   'commerce:configurator.combination.label',
   'commerce:configurator.combination.meals',
   'commerce:configurator.combination.snacks',
@@ -10714,21 +10712,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.delivery.addAddress',
   'commerce:configurator.delivery.addressPlaceholder',
   'commerce:configurator.delivery.addressTitle',
+  'commerce:configurator.delivery.allergensTitle',
+  'commerce:configurator.delivery.cutoffNote',
   'commerce:configurator.delivery.slotTitle',
   'commerce:configurator.delivery.startLabel',
   'commerce:configurator.delivery.useNextAllowed',
   'commerce:configurator.delivery.weekdaysLimited',
   'commerce:configurator.delivery.weekdaysTitle',
-  'commerce:configurator.dietary.allergensTitle',
-  'commerce:configurator.dietary.dietsTitle',
-  'commerce:configurator.dietary.relaxedTitle',
   'commerce:configurator.disclaimerContext',
   'commerce:configurator.duration.label',
   'commerce:configurator.duration.withDiscount',
   'commerce:configurator.edit',
   'commerce:configurator.issues.address',
   'commerce:configurator.issues.areaUnserved',
-  'commerce:configurator.issues.checks',
   'commerce:configurator.issues.deliveryDayUnavailable',
   'commerce:configurator.issues.duration',
   'commerce:configurator.issues.noDeliveryDays',
@@ -10767,16 +10763,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.successTitle',
   'commerce:configurator.summary.address',
   'commerce:configurator.summary.allergens',
+  'commerce:configurator.summary.balance',
   'commerce:configurator.summary.days',
   'commerce:configurator.summary.discount',
   'commerce:configurator.summary.duration',
   'commerce:configurator.summary.everyDay',
   'commerce:configurator.summary.gross',
+  'commerce:configurator.summary.perDayList',
   'commerce:configurator.summary.perDelivery',
   'commerce:configurator.summary.plan',
   'commerce:configurator.summary.starts',
   'commerce:configurator.summary.total',
-  'commerce:configurator.summary.weekly',
   'commerce:configurator.summary.window',
   'commerce:configurator.summary.windowValue',
   'commerce:configurator.title',
@@ -10809,9 +10806,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:myAllergens.dialogBody',
   'commerce:myAllergens.dialogBodyUnnamed',
   'commerce:myAllergens.dialogTitle',
+  'commerce:myAllergens.edit',
   'commerce:myAllergens.mealWithAllergens',
   'commerce:myAllergens.option',
   'commerce:myAllergens.placeAnyway',
+  'commerce:myAllergens.planBody',
+  'commerce:myAllergens.planNone',
+  'commerce:myAllergens.planTitle',
+  'commerce:myAllergens.planUnchecked',
+  'commerce:myAllergens.yourList',
+  'commerce:myAllergens.yourListEmpty',
   'commerce:slots.evening',
   'commerce:slots.midday',
   'commerce:slots.morning',
@@ -10840,12 +10844,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:subscription.pauseConfirm',
   'commerce:subscription.pauseConsequenceOpen',
   'commerce:subscription.pauseConsequenceTitle',
-  'commerce:subscription.pauseConsequenceUntil',
   'commerce:subscription.pauseDialogBody',
   'commerce:subscription.pauseDialogTitle',
-  'commerce:subscription.pauseUntilHint',
-  'commerce:subscription.pauseUntilLabel',
-  'commerce:subscription.pausedUntilBadge',
   'commerce:subscription.planTitle',
   'commerce:subscription.readOnly.active',
   'commerce:subscription.readOnly.cancelled',
@@ -10865,6 +10865,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:subscription.rows.plan',
   'commerce:subscription.rows.slot',
   'commerce:subscription.rows.start',
+  'commerce:subscription.rows.startUnknown',
+  'commerce:subscription.rows.startsOn',
   'commerce:subscription.skip',
   'commerce:subscription.skipConfirm',
   'commerce:subscription.skipConsequenceBody',
@@ -10883,6 +10885,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:subscriptions.body',
   'commerce:subscriptions.browse',
   'commerce:subscriptions.clearFilter',
+  'commerce:subscriptions.dayPrice',
   'commerce:subscriptions.emptyBody',
   'commerce:subscriptions.emptyFilteredBody',
   'commerce:subscriptions.emptyFilteredTitle',
@@ -10897,7 +10900,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:subscriptions.open',
   'commerce:subscriptions.rowSummary',
   'commerce:subscriptions.title',
-  'commerce:subscriptions.weeklyPrice',
   'commerce:title',
   'commerce:validation.countryCode',
   'commerce:validation.required',
@@ -14210,15 +14212,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.bandRange',
   'kitchen:plans.blockDurations',
   'kitchen:plans.blockInconsistentDurations',
+  'kitchen:plans.blockMenuDaysEmpty',
   'kitchen:plans.blockName',
   'kitchen:plans.blockNoConfirmedPrice',
   'kitchen:plans.blockSummary',
   'kitchen:plans.blockUnsaved',
   'kitchen:plans.blockVariants',
   'kitchen:plans.caption',
-  'kitchen:plans.categoriesLabel',
-  'kitchen:plans.categoryAddAction',
-  'kitchen:plans.categoryAddLabel',
   'kitchen:plans.cellLabel',
   'kitchen:plans.cellNotSold',
   'kitchen:plans.cellSold',
@@ -14234,7 +14234,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.createChip',
   'kitchen:plans.createTitle',
   'kitchen:plans.createdToast',
+  'kitchen:plans.cutOffExample',
+  'kitchen:plans.cutOffExampleHours',
+  'kitchen:plans.cutOffHint',
   'kitchen:plans.cutOffLabel',
+  'kitchen:plans.cutOffRange',
   'kitchen:plans.cutOffRequired',
   'kitchen:plans.cutOffUnit',
   'kitchen:plans.dayCount',
@@ -14390,6 +14394,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.variantActive',
   'kitchen:plans.variantActiveLabel',
   'kitchen:plans.variantCount',
+  'kitchen:plans.variantDuplicate',
   'kitchen:plans.variantInactive',
   'kitchen:plans.variantNameLabel',
   'kitchen:plans.variantNamePlaceholder',
@@ -14452,6 +14457,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:priceLists.emptyTitle',
   'kitchen:priceLists.entriesTitle',
   'kitchen:priceLists.entryCount',
+  'kitchen:priceLists.entryCountWithNew',
   'kitchen:priceLists.filterAll',
   'kitchen:priceLists.filterChanged',
   'kitchen:priceLists.filterConfirmed',
@@ -15368,11 +15374,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:consumer.resume.continue',
   'marketplace:consumer.resume.dismiss',
   'marketplace:consumer.resume.title',
+  'marketplace:consumer.subscription.dayPrice',
   'marketplace:consumer.subscription.eyebrow',
   'marketplace:consumer.subscription.manage',
   'marketplace:consumer.subscription.nextDelivery',
   'marketplace:consumer.subscription.noNextDelivery',
-  'marketplace:consumer.subscription.weeklyPrice',
   'marketplace:dietitians.accepting',
   'marketplace:dietitians.browseOthers',
   'marketplace:dietitians.cardLabel',

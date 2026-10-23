@@ -5,20 +5,21 @@ import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { discountedTotalMinorUnits, weeksFor } from '../commerce/configurator.ts';
 import { formatMoney } from '../marketplace/format.ts';
+import { balanceTotal } from './plan-balance.ts';
 import { cheapestVariant } from './plan-catalogue.ts';
+import { durationShortLabel } from './plan-duration-label.ts';
 
 /**
  * The commitment picker on a plan card.
  *
- * ## Why it changes the total, not the weekly price
+ * ## Why it changes the total, not the per-day price
  *
- * The weekly price is identical in every duration — the longer commitment does not buy a cheaper
- * week, it earns a discount on the total (`fixtures/plans.ts`, and the plan detail says so in as many
- * words). So this control leaves {@link PlanPrice}'s headline alone and reveals the one thing that
- * actually moves: what the whole commitment costs, and what it saves. Showing a shrinking *weekly*
- * figure here would be the false-precision the catalogue exists to avoid.
+ * The per-day list price is identical in every duration — the longer commitment does not buy a
+ * cheaper day, it earns a discount on the total (the plan detail says so in as many words). So this
+ * control leaves {@link PlanPrice}'s headline alone and reveals the one thing that actually moves:
+ * what the whole commitment costs, and what it saves. Showing a shrinking *daily* figure here would
+ * be the false-precision the catalogue exists to avoid.
  *
  * It is a segmented control rather than a `radiogroup` because that is the pattern this design system
  * already uses for an inline single choice (the calculators' unit switch), and reusing it keeps one
@@ -34,9 +35,7 @@ export function PlanDurationSelector({ plan, testID }: PlanDurationSelectorProps
     const formatter = useFormatter();
 
     const durations = plan.durations;
-    const [selected, setSelected] = useState<PlanDuration>(
-        durations[0]?.duration ?? ('1w' as PlanDuration),
-    );
+    const [selected, setSelected] = useState<PlanDuration | null>(durations[0]?.duration ?? null);
 
     const active = durations.find((option) => option.duration === selected) ?? durations[0];
     if (active === undefined) return null;
@@ -45,17 +44,7 @@ export function PlanDurationSelector({ plan, testID }: PlanDurationSelectorProps
     // the same variant the card's headline advertises — the cheapest — never a dressed-up middle.
     const advertised = cheapestVariant(plan);
     const total =
-        active.totalPrice ??
-        (advertised === null
-            ? null
-            : {
-                  amount: discountedTotalMinorUnits(
-                      advertised.pricePerWeek.amount,
-                      weeksFor(active.duration),
-                      active.discountPercent,
-                  ),
-                  currency: advertised.pricePerWeek.currency,
-              });
+        active.totalPrice ?? (advertised === null ? null : balanceTotal(advertised, active));
     if (total === null) return null;
 
     return (
@@ -70,9 +59,9 @@ export function PlanDurationSelector({ plan, testID }: PlanDurationSelectorProps
                 block
                 items={durations.map((option) => ({
                     value: option.duration,
-                    // The compact label ("4 wk") rather than "4 weeks": four equal segments in a
-                    // grid-narrow card, so the longest option has to fit without being clipped.
-                    label: t(`catalogue:plans.durationShort.${option.duration}`),
+                    // The compact label ("4 wk", "5 d") rather than "4 weeks": four equal segments
+                    // in a grid-narrow card, so the longest option has to fit without being clipped.
+                    label: durationShortLabel(option.days, t, formatter.formatNumber),
                     testID: testID === undefined ? undefined : `${testID}-${option.duration}`,
                 }))}
             />

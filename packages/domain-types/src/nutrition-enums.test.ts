@@ -8,7 +8,6 @@ import {
     MEASUREMENT_SYSTEMS,
     NUTRITION_CALCULATION_METHODS,
     PLAN_DURATIONS,
-    PLAN_DURATION_WEEKS,
     RESTRICTION_KINDS,
     SALES_CHANNELS,
     SUBSCRIPTION_STATES,
@@ -30,6 +29,8 @@ import {
     isTargetPace,
     isVdSessionState,
     isVdUnhappyState,
+    planDuration,
+    planDurationDays,
 } from './nutrition-enums.ts';
 
 const UNIONS = [
@@ -54,8 +55,8 @@ describe('closed unions', () => {
 
     it.each(UNIONS)('%s uses lower_snake_case members only', (_name, values) => {
         for (const value of values) {
-            // Plan durations are the one deliberate exception: `1w` reads as a duration everywhere.
-            if (/^\d+w$/.test(value)) continue;
+            // Plan durations are the one deliberate exception: `7d` reads as a duration everywhere.
+            if (/^\d+d$/.test(value)) continue;
             expect(value, value).toMatch(/^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/);
         }
     });
@@ -214,14 +215,27 @@ describe('subscription states', () => {
 });
 
 describe('plan durations', () => {
-    it('maps every duration to its number of weeks', () => {
-        expect(Object.keys(PLAN_DURATION_WEEKS).sort()).toEqual([...PLAN_DURATIONS].sort());
-        expect(PLAN_DURATION_WEEKS).toEqual({ '1w': 1, '2w': 2, '4w': 4, '12w': 12 });
+    it('names a run by its delivery days and reads the count back', () => {
+        expect(planDuration(5)).toBe('5d');
+        expect(planDuration(28)).toBe('28d');
+        expect(planDurationDays('5d')).toBe(5);
+        expect(planDurationDays('84d')).toBe(84);
     });
 
-    it('keeps the mapping monotonic with the declared order', () => {
-        const weeks = PLAN_DURATIONS.map((duration) => PLAN_DURATION_WEEKS[duration]);
-        expect(weeks).toEqual([...weeks].sort((a, b) => a - b));
+    it('accepts any positive whole number of days and nothing else', () => {
+        expect(isPlanDuration('5d')).toBe(true);
+        expect(isPlanDuration('365d')).toBe(true);
+        expect(isPlanDuration('0d')).toBe(false);
+        expect(isPlanDuration('4w')).toBe(false);
+        expect(isPlanDuration('d')).toBe(false);
+        expect(isPlanDuration('5')).toBe(false);
+        expect(() => planDuration(0)).toThrow(RangeError);
+        expect(() => planDuration(1.5)).toThrow(RangeError);
+    });
+
+    it('keeps the marketed set in ascending order', () => {
+        const days = PLAN_DURATIONS.map(planDurationDays);
+        expect(days).toEqual([...days].sort((a, b) => a - b));
     });
 });
 

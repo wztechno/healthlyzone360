@@ -146,16 +146,42 @@ export function isLiveSubscriptionState(state: SubscriptionState): boolean {
     return state === 'active' || state === 'skipped_today';
 }
 
-/** Marketed package lengths. Weeks, because that is the unit menus and deliveries rotate on. */
-export const PLAN_DURATIONS = ['1w', '2w', '4w', '12w'] as const;
-export type PlanDuration = (typeof PLAN_DURATIONS)[number];
+/**
+ * A plan's run length, named by the delivery days it buys: `'5d'`, `'7d'`, `'28d'`.
+ *
+ * A kitchen configures any whole number of days (`plan_durations.duration_days`), and the
+ * storefront quotes and buys a run by that count, so the vocabulary is open. It used to be the
+ * closed set `1w | 2w | 4w | 12w`, which dropped every run that was not a multiple of seven days
+ * before it reached a screen — a five-day plan had no length to choose and could not be bought.
+ */
+export type PlanDuration = `${number}d`;
 
-export const PLAN_DURATION_WEEKS: Readonly<Record<PlanDuration, number>> = {
-    '1w': 1,
-    '2w': 2,
-    '4w': 4,
-    '12w': 12,
-};
+const PLAN_DURATION_PATTERN = /^[1-9]\d*d$/;
+
+export function isPlanDuration(value: unknown): value is PlanDuration {
+    return typeof value === 'string' && PLAN_DURATION_PATTERN.test(value);
+}
+
+/** The duration that buys `days` delivery days. `days` must be a positive whole number. */
+export function planDuration(days: number): PlanDuration {
+    if (!Number.isInteger(days) || days < 1) {
+        throw new RangeError(
+            `A plan duration needs a positive whole number of days, got ${String(days)}.`,
+        );
+    }
+    return `${days}d`;
+}
+
+/** How many delivery days a duration buys. */
+export function planDurationDays(duration: PlanDuration): number {
+    return Number.parseInt(duration.slice(0, -1), 10);
+}
+
+/**
+ * The lengths the marketing copy and the fixtures reach for. A kitchen may offer any other; this is
+ * a convenience for seeded worlds and tests, not a limit a screen enforces.
+ */
+export const PLAN_DURATIONS: readonly PlanDuration[] = ['7d', '14d', '28d', '84d'];
 
 /**
  * Every state the Virtual Dietitian journey can be observed in.
@@ -202,5 +228,4 @@ export const isNutritionCalculationMethod = memberOf(NUTRITION_CALCULATION_METHO
 export const isRestrictionKind = memberOf(RESTRICTION_KINDS);
 export const isSalesChannel = memberOf(SALES_CHANNELS);
 export const isSubscriptionState = memberOf(SUBSCRIPTION_STATES);
-export const isPlanDuration = memberOf(PLAN_DURATIONS);
 export const isVdSessionState = memberOf(VD_SESSION_STATES);

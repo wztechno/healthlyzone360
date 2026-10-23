@@ -88,9 +88,9 @@ function variant(plan: number, index: number, weekly: number, meals: number): Pl
 }
 
 const DURATIONS: readonly PlanDurationOption[] = [
-    { duration: '1w', discountPercent: 0, totalPrice: null },
-    { duration: '4w', discountPercent: 5, totalPrice: null },
-    { duration: '12w', discountPercent: 12, totalPrice: null },
+    { duration: '7d', days: 7, discountPercent: 0, totalPrice: null },
+    { duration: '28d', days: 28, discountPercent: 5, totalPrice: null },
+    { duration: '84d', days: 84, discountPercent: 12, totalPrice: null },
 ];
 
 function plan(ordinal: number, name: string, slug: string): SubscriptionPlan {
@@ -130,7 +130,7 @@ const SUBSCRIPTION: Subscription = {
     configuration: {
         planId: BALANCED.id,
         variantId: BALANCED.variants[1]!.id,
-        duration: '4w',
+        duration: '28d',
         startDate: '2026-09-07',
         deliveryWeekdays: [1, 3, 5],
         slotCode: 'lunch',
@@ -143,8 +143,6 @@ const SUBSCRIPTION: Subscription = {
             countryCode: 'AE',
             instructions: null,
         },
-        dietClassifications: [],
-        excludeAllergens: [],
         selectedMealIds: [],
     },
     planName: 'Balanced week',
@@ -153,7 +151,6 @@ const SUBSCRIPTION: Subscription = {
     days: { total: 28, consumed: 6, remaining: 22 },
     nextDeliveryDate: '2026-10-05',
     skippedDates: ['2026-10-07'],
-    pausedUntil: null,
     createdAt: '2026-09-01T09:00:00.000Z',
     updatedAt: '2026-09-20T09:00:00.000Z',
 };
@@ -189,10 +186,12 @@ function moneyPattern(minor: number): RegExp {
 describe('plan balance arithmetic', () => {
     const cheap = BALANCED.variants[1]!;
 
-    it('names a balance in delivery days, from the closed duration vocabulary', () => {
-        expect(balanceDaysFor('1w')).toBe(7);
-        expect(balanceDaysFor('4w')).toBe(28);
-        expect(balanceDaysFor('12w')).toBe(84);
+    it('names a balance in delivery days, whatever count the kitchen configured', () => {
+        expect(balanceDaysFor('7d')).toBe(7);
+        expect(balanceDaysFor('28d')).toBe(28);
+        expect(balanceDaysFor('84d')).toBe(84);
+        // Not a closed vocabulary: a five-day run is five deliveries, not "1 week" rounded.
+        expect(balanceDaysFor('5d')).toBe(5);
     });
 
     it('discounts the per-day price and rounds it before multiplying, as the server quotes', () => {
@@ -355,6 +354,68 @@ describe('PlansScreen — HealthZone structure', () => {
         expect(routerMock.__push).toHaveBeenLastCalledWith(
             `/customer/subscriptions/${String(SUBSCRIPTION.id)}`,
         );
+    });
+
+    /**
+     * Every live subscription, not the newest (plans-21): a person holding two plans sees both
+     * marked and both summarised, and a subscription that has run its course marks nothing.
+     */
+    it('marks and summarises every live subscription, and ignores one that has ended', async () => {
+        const second: Subscription = {
+            ...SUBSCRIPTION,
+            id: uuid(7, 2) as SubscriptionId,
+            state: 'paused',
+            configuration: { ...SUBSCRIPTION.configuration, planId: LEAN.id },
+            planName: LEAN.name,
+        };
+        const ended: Subscription = {
+            ...SUBSCRIPTION,
+            id: uuid(7, 3) as SubscriptionId,
+            state: 'expired',
+            configuration: { ...SUBSCRIPTION.configuration, planId: LEAN.id },
+        };
+        await renderStubScreen(<PlansScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                ...SUBSCRIBER_REPOSITORIES,
+                commerce: {
+                    ...SUBSCRIBER_REPOSITORIES.commerce,
+                    listSubscriptions: async () => page([SUBSCRIPTION, second, ended]),
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getAllByTestId('plans-subscriber')).toHaveLength(2);
+        });
+        expect(screen.getByTestId('plan-card-balanced-week-current')).toBeTruthy();
+        expect(screen.getByTestId('plan-card-lean-days-current')).toBeTruthy();
+        expect(screen.queryByTestId('plan-card-lean-days-open')).toBeNull();
+
+        // Manage on the second plan's card opens *its* subscription, not the first one's.
+        await fireEvent.press(screen.getByTestId('plan-card-lean-days-manage'));
+        expect(routerMock.__push).toHaveBeenLastCalledWith(
+            `/customer/subscriptions/${String(second.id)}`,
+        );
+    });
+
+    it('marks nothing for somebody whose only subscription has ended', async () => {
+        await renderStubScreen(<PlansScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                ...SUBSCRIBER_REPOSITORIES,
+                commerce: {
+                    ...SUBSCRIBER_REPOSITORIES.commerce,
+                    listSubscriptions: async () =>
+                        page([{ ...SUBSCRIPTION, state: 'cancelled' as const }]),
+                },
+            },
+        });
+
+        await waitFor(() => screen.getByTestId('plans-grid'));
+        expect(screen.queryByTestId('plans-subscriber')).toBeNull();
+        expect(screen.queryByTestId('plan-card-balanced-week-current')).toBeNull();
+        expect(screen.getByTestId('plan-card-balanced-week-open')).toBeTruthy();
     });
 
     it('skips the next delivery for real, after asking', async () => {
@@ -657,7 +718,7 @@ describe('PlanBalanceCalculator', () => {
         await renderCalculator();
 
         expect(
-            screen.getByTestId('plans-calculator-size-4w').props.accessibilityState.selected,
+            screen.getByTestId('plans-calculator-size-28d').props.accessibilityState.selected,
         ).toBe(true);
         // 3 000 a day less 5% → 2 850; 28 days → 79 800.
         expect(screen.getByTestId('plans-calculator-per-day-value')).toHaveTextContent(
@@ -686,7 +747,7 @@ describe('PlanBalanceCalculator', () => {
     it('re-prices when the balance or the band changes', async () => {
         await renderCalculator();
 
-        await fireEvent.press(screen.getByTestId('plans-calculator-size-12w'));
+        await fireEvent.press(screen.getByTestId('plans-calculator-size-84d'));
         // 3 000 less 12% → 2 640 a day.
         expect(screen.getByTestId('plans-calculator-per-day-value')).toHaveTextContent(
             moneyPattern(2640),

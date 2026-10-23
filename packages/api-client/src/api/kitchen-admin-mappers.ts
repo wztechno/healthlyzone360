@@ -860,6 +860,8 @@ export function mapPlanAdminFromItem(
         readonly variants?: readonly PlanVariantAdmin[];
         readonly durations?: readonly PlanDurationAdmin[];
         readonly combinations?: readonly PlanCombination[];
+        /** Already narrowed to known codes; the profile read is the one place that carries them. */
+        readonly dietClassifications?: readonly DietClassification[];
     },
 ): PlanAdmin {
     const profile = options?.profile;
@@ -871,8 +873,9 @@ export function mapPlanAdminFromItem(
         summary: localised(profile?.summary_en ?? '', profile?.summary_ar),
         description: localised(wire.description_en ?? '', wire.description_ar),
         kitchenId: mapKitchenId(wire.organisation_id),
+        // The server has nowhere to keep plan categories; the marketplace answers `[]` too.
         categorySlugs: [],
-        dietClassifications: [],
+        dietClassifications: options?.dietClassifications ?? [],
         variants: options?.variants ?? [],
         durations: options?.durations ?? [],
         combinations: options?.combinations ?? [],

@@ -140,6 +140,26 @@ it('records an untranslated Arabic name as empty rather than as the English one'
         ->assertJsonPath('data.item.name_ar', '');
 });
 
+it('clears an Arabic name to empty rather than failing on the column', function (): void {
+    // A client that blanks the field sends "" — which the framework delivers
+    // as null — or null outright. Both mean "not yet translated", which the
+    // column stores as "" and the publish gate reads; neither is a 500.
+    $item = CatalogueWorld::publishableProduct($this->a);
+
+    $this->actingAs($this->a->user);
+    $url = '/api/v1/catalogue/items/'.$item->getKey();
+
+    $this->patchJson($url, ['name_ar' => null], CatalogueWorld::headers($this->a) + ['If-Match' => '"0"'])
+        ->assertOk()
+        ->assertJsonPath('data.item.name_ar', '');
+
+    $this->patchJson($url, ['name_ar' => ''], CatalogueWorld::headers($this->a) + ['If-Match' => '"1"'])
+        ->assertOk()
+        ->assertJsonPath('data.item.name_ar', '');
+
+    expect(CatalogueItem::withoutTenancy()->whereKey($item->getKey())->value('name_ar'))->toBe('');
+});
+
 it('sells one yield piece per portion unless the kitchen says otherwise', function (): void {
     // The default is the arithmetic every reader had before the column existed:
     // one piece is one sold unit. It is NOT NULL precisely so that no reader has

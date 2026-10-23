@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { useSubscriptionsQuery } from '../../../data/commerce-hooks.ts';
+import { subscriptionDayPrice } from '../../catalogue/plan-balance.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { SubscriptionStateBadge } from '../state-badge.tsx';
@@ -220,7 +221,10 @@ export function SubscriptionsScreen({ embedded = false }: SubscriptionsScreenPro
 
                                 <Text tone="secondary" variant="caption">
                                     {t('commerce:subscriptions.rowSummary', {
-                                        price: formatMoney(formatter, subscription.weeklyPrice),
+                                        price: formatMoney(
+                                            formatter,
+                                            subscriptionDayPrice(subscription),
+                                        ),
                                         days: subscription.configuration.deliveryWeekdays
                                             .map((weekday) => t(weekdayKey(weekday)))
                                             .join(t('commerce:common.listSeparator')),

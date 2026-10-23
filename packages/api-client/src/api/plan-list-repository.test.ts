@@ -1,3 +1,4 @@
+import { SubscriptionPlanId } from '@healthy360/domain-types';
 import { describe, expect, it } from 'vitest';
 
 import { createMemoryTokenStore } from '../contracts/session.ts';
@@ -90,8 +91,9 @@ const routes: Record<string, unknown> = {
     },
 };
 
-function harness() {
+function harness(extra: Record<string, unknown> = {}) {
     const paths: string[] = [];
+    const answers = { ...routes, ...extra };
     const transport = createTransport({
         baseUrl: 'https://api.example',
         tokenStore: createMemoryTokenStore('token'),
@@ -101,7 +103,7 @@ function harness() {
                 '?',
             )[0];
             paths.push(path ?? '');
-            const body = routes[path ?? ''];
+            const body = answers[path ?? ''];
             if (body === undefined) {
                 return new Response(JSON.stringify({ error: { code: 'request.invalid' } }), {
                     status: 404,
@@ -132,5 +134,35 @@ describe('listPlans', () => {
 
         expect(paths).toEqual(['/catalogue/items']);
         expect(page.items[0]?.variants).toEqual([]);
+    });
+});
+
+describe('getPlan', () => {
+    const profilePath = `/catalogue/plans/${PLAN_ID}/profile`;
+
+    it('reads the diet classifications beside the profile, dropping a code it does not know', async () => {
+        const { reads } = harness({
+            [profilePath]: {
+                data: {
+                    item: plan,
+                    profile: null,
+                    diet_classifications: ['vegan', 'not-a-diet', 'keto'],
+                },
+            },
+        });
+
+        const record = await reads.getPlan(SubscriptionPlanId.unsafe(PLAN_ID));
+
+        expect(record.dietClassifications).toEqual(['vegan', 'keto']);
+    });
+
+    it('reads a profile that does not carry diet classifications yet as a plan with none', async () => {
+        const { reads } = harness({
+            [profilePath]: { data: { item: plan, profile: null } },
+        });
+
+        const record = await reads.getPlan(SubscriptionPlanId.unsafe(PLAN_ID));
+
+        expect(record.dietClassifications).toEqual([]);
     });
 });

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\PlanMenuEntry;
+use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Catalogues\Tests\Fixtures\CatalogueWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Recipes\Models\Recipe;
@@ -226,6 +228,45 @@ it('reports and refuses a plan with a matrix but no run identically', function (
     // refusal names the cells by code as well as by identifier.
     expect($prices['context']['configurations'])->toBe(['lunch-dinner-standard'])
         ->and($prices['context']['catalogue_item_variant_ids'])->toHaveCount(1);
+});
+
+it('reports and refuses a plan whose menu cycle has days with no dish identically', function (): void {
+    $plan = CatalogueWorld::plan($this->a);
+
+    $this->putJson('/api/v1/catalogue/plans/'.$plan->getKey().'/profile', [],
+        $this->headers + ['If-Match' => '"0"'])->assertOk();
+
+    // A three-day cycle with a dish on day one only: the kind of menu a
+    // kitchen is left with after lengthening the cycle. The write path refuses
+    // a cycle with *no* entries; this is the half-written one it lets through.
+    SubscriptionPlanProfile::withoutTenancy()->whereKey($plan->getKey())->update([
+        'menu_cycle_days' => 3,
+        'menu_cycle_anchor_date' => '2026-08-16',
+    ]);
+
+    PlanMenuEntry::factory()->on(1, 'lunch')->create([
+        'catalogue_item_id' => $plan->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+    ]);
+
+    $reasons = assertReadinessMatchesPublish($plan->refresh(), $this->headers, 1);
+
+    $menu = collect($reasons)->firstWhere('code', 'menu_days_empty');
+
+    expect($menu)->not->toBeNull()
+        ->and($menu['context'])->toBe(['menu_cycle_days' => 3, 'empty_day_count' => 2, 'empty_days' => [2, 3]]);
+
+    // Filling the days clears the reason; a plan with no menu at all never had it.
+    foreach ([2, 3] as $day) {
+        PlanMenuEntry::factory()->on($day, 'lunch')->create([
+            'catalogue_item_id' => $plan->getKey(),
+            'organisation_id' => $this->a->organisation->getKey(),
+        ]);
+    }
+
+    [, $filled] = itemReadiness($plan->refresh(), $this->headers);
+
+    expect(collect($filled)->pluck('code')->all())->not->toContain('menu_days_empty');
 });
 
 it('carries the listing state in meta, so a client never has to ask twice', function (): void {

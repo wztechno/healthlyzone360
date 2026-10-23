@@ -64,6 +64,8 @@ final class SubscriptionQuoteController
             $payload['catalogue_item_variant_id'],
             $payload['plan_duration_days'],
             CarbonImmutable::now(),
+            $payload['weekdays'],
+            $payload['branch_id'],
         );
 
         $quote = $result['quote'];
@@ -100,6 +102,10 @@ final class SubscriptionQuoteController
                 'available_weekdays' => $result['available_weekdays'],
                 'allows_free_selection' => $result['allows_free_selection'],
                 'change_cutoff_hours' => $result['change_cutoff_hours'],
+                // The first day this pattern could be delivered on, so the
+                // date picker opens on a day the purchase will accept rather
+                // than one it will refuse.
+                'earliest_start_date' => $result['earliest_start_date'],
                 // Deliberately absent: `price_list_id` and `price_list_item_id`.
                 // They are the provenance the *capture* keeps so a price stays
                 // explainable years later, and on a customer's screen they name

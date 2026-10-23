@@ -29,6 +29,7 @@ use Healthy360\Subscriptions\Exceptions\SubscriptionRefused;
 use Healthy360\Subscriptions\Models\CreditMemo;
 use Healthy360\Subscriptions\Models\Subscription;
 use Healthy360\Subscriptions\Models\SubscriptionDelivery;
+use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
@@ -87,6 +88,7 @@ final readonly class SubscriptionService
         private LineProbe $probe,
         private SubscriptionPricing $pricing,
         private ChangeWindow $window,
+        private DeliveryCursor $cursor,
         private SubscriptionJournal $journal,
         private SellerContext $seller,
         private TenantContext $context,
@@ -192,7 +194,9 @@ final readonly class SubscriptionService
             throw new SubscriptionRefused($reasons);
         }
 
-        $subscription = DB::transaction(function () use ($request, $channel, $quote, $now): Subscription {
+        $firstDay = $this->firstDay($request, $now);
+
+        $subscription = DB::transaction(function () use ($request, $channel, $quote, $now, $firstDay): Subscription {
             $subscription = new Subscription;
             $subscription->organisation_id = $channel->organisation_id;
             $subscription->customer_account_id = (string) $request->account->getKey();
@@ -218,16 +222,9 @@ final readonly class SubscriptionService
             $subscription->balance_days_total = $quote->days;
             $subscription->balance_days_consumed = 0;
             $subscription->no_substitutions = $request->noSubstitutions;
+            $subscription->next_generation_date = $firstDay;
             $subscription->created_by = $this->context->userId();
             $subscription->lock_version = 0;
-            $subscription->save();
-
-            $subscription->next_generation_date = $this->window->firstChangeableDate(
-                $subscription,
-                $request->startFrom instanceof CarbonImmutable && $request->startFrom->greaterThan($now)
-                    ? $request->startFrom
-                    : $now,
-            );
             $subscription->save();
 
             return $subscription;
@@ -253,6 +250,63 @@ final readonly class SubscriptionService
         );
 
         return $subscription;
+    }
+
+    /**
+     * The day the first delivery lands on — and a refusal when it is not the
+     * day the customer asked for.
+     *
+     * The rule is `ChangeWindow`'s: the first day the subscription delivers on
+     * that is still outside the plan's cut-off. Asked of the subscription
+     * *before* it exists, through an unsaved prototype carrying the three
+     * columns the walk reads, so the refusal happens before anything is
+     * written. A `start_from` the walk cannot honour — inside the cut-off, or
+     * not a delivery weekday — is a 422 on that field rather than a silent
+     * move: the quote already told the client the earliest start, and a
+     * subscription that starts on a day the customer never agreed to is the
+     * one they ring about.
+     *
+     * @throws ApiException
+     */
+    private function firstDay(NewSubscription $request, CarbonImmutable $now): CarbonImmutable
+    {
+        $prototype = new Subscription;
+        $prototype->branch_id = $request->branchId;
+        $prototype->catalogue_item_id = $request->catalogueItemId;
+        $prototype->weekdays = $this->normalisedWeekdays($request->weekdays);
+
+        $firstDay = $this->window->firstChangeableDate($prototype, $now, $request->startFrom);
+
+        if ($request->startFrom instanceof CarbonImmutable && ! $firstDay->isSameDay($request->startFrom)) {
+            throw $this->invalid(
+                'start_from',
+                'The earliest start for this plan is '.$firstDay->toDateString().'.',
+                $this->window->reasonsFor($prototype, $request->startFrom->startOfDay(), $now) ?: [[
+                    'reason' => 'not_a_delivery_day',
+                    'delivery_date' => $request->startFrom->toDateString(),
+                    'weekdays' => $prototype->weekdays,
+                    'effective_from' => $firstDay->toDateString(),
+                ]],
+            );
+        }
+
+        return $firstDay;
+    }
+
+    /**
+     * A refusal about the request's shape, on one field — the shape
+     * `PlanVariantService::invalid()` gives, with the window's own reasons
+     * beside it so a client can show the cut-off as well as the sentence.
+     *
+     * @param  list<array<string, mixed>>  $reasons
+     */
+    private function invalid(string $field, string $message, array $reasons = []): ApiException
+    {
+        return new ApiException(
+            ErrorCode::ValidationFailed,
+            $message,
+            ['fields' => [$field => [$message]], 'reasons' => $reasons],
+        );
     }
 
     /**
@@ -381,11 +435,20 @@ final readonly class SubscriptionService
             return $delivery;
         });
 
+        // The cursor may not stay on a day that will never be delivered: the
+        // customer would read it back as their next delivery, and the tick
+        // would spend a run finding out what is already known. Only when it
+        // points at the skipped day — a skip further out changes nothing
+        // about what comes first.
+        if ($subscription->next_generation_date?->isSameDay($day) === true) {
+            $this->cursor->advance($subscription, $day);
+        }
+
         $this->journal->record(
             $subscription,
             'day_skipped',
             deliveryDate: $day,
-            detail: ['reason' => 'customer_request'],
+            detail: ['reason' => 'customer_request', 'next_delivery' => $subscription->next_generation_date?->toDateString()],
             subscriptionDeliveryId: (string) $delivery->getKey(),
         );
 

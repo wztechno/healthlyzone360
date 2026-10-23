@@ -63,6 +63,14 @@ class SubscriptionQuoteRequest extends FormRequest
             'catalogue_item_id' => ['required', 'uuid'],
             'catalogue_item_variant_id' => ['required', 'uuid'],
             'plan_duration_days' => ['required', 'integer', 'min:1', 'max:'.self::MAX_DURATION_DAYS],
+
+            // Both optional, and both only shape `earliest_start_date`: the
+            // pattern the shopper has picked so far, and the branch whose
+            // clock the cut-off is read on. Absent, the date is computed for
+            // every weekday on the application's clock.
+            'weekdays' => ['sometimes', 'array', 'min:1', 'max:7'],
+            'weekdays.*' => ['integer', 'between:1,7'],
+            'branch_id' => ['sometimes', 'nullable', 'uuid'],
         ];
     }
 
@@ -78,17 +86,23 @@ class SubscriptionQuoteRequest extends FormRequest
      *     catalogue_item_id: string,
      *     catalogue_item_variant_id: string,
      *     plan_duration_days: int,
+     *     weekdays: list<int>|null,
+     *     branch_id: string|null,
      * }
      */
     public function payload(): array
     {
-        /** @var array{catalogue_item_id: string, catalogue_item_variant_id: string, plan_duration_days: int|string} $validated */
+        /** @var array{catalogue_item_id: string, catalogue_item_variant_id: string, plan_duration_days: int|string, weekdays?: array<array-key, int|string>, branch_id?: string|null} $validated */
         $validated = $this->validated();
 
         return [
             'catalogue_item_id' => $validated['catalogue_item_id'],
             'catalogue_item_variant_id' => $validated['catalogue_item_variant_id'],
             'plan_duration_days' => (int) $validated['plan_duration_days'],
+            'weekdays' => isset($validated['weekdays'])
+                ? array_values(array_map(intval(...), $validated['weekdays']))
+                : null,
+            'branch_id' => $validated['branch_id'] ?? null,
         ];
     }
 }

@@ -138,13 +138,11 @@ function testConfiguration(
     return {
         planId: PLAN_ID,
         variantId: VARIANT_ID,
-        duration: '4w',
+        duration: '28d',
         startDate: '2026-06-01',
         deliveryWeekdays: [1, 3, 5],
         slotCode: 'morning',
         address: ADDRESS,
-        dietClassifications: [],
-        excludeAllergens: [],
         selectedMealIds: [],
         ...overrides,
     };
@@ -161,7 +159,6 @@ function testSubscription(overrides: Partial<Subscription> = {}): Subscription {
         days: { total: 20, consumed: 11, remaining: 9 },
         nextDeliveryDate: NEXT_DELIVERY,
         skippedDates: [...SKIPPED_DATES],
-        pausedUntil: null,
         createdAt: '2026-05-25T09:00:00.000Z',
         updatedAt: '2026-07-01T09:00:00.000Z',
         ...overrides,
@@ -202,7 +199,7 @@ function testQuote(overrides: Partial<SubscriptionQuote> = {}): SubscriptionQuot
     return {
         planId: PLAN_ID,
         variantId: VARIANT_ID,
-        duration: '4w',
+        duration: '28d',
         available: true,
         availableWeekdays: [1, 2, 3, 4, 5, 7],
         days: 20,
@@ -212,6 +209,7 @@ function testQuote(overrides: Partial<SubscriptionQuote> = {}): SubscriptionQuot
         total: { amount: 65_000, currency: 'AED' },
         allowsFreeSelection: false,
         changeCutoffHours: 24,
+        earliestStartDate: null,
         refusals: [],
         ...overrides,
     };
@@ -813,7 +811,7 @@ describe('the quote replaced the seven-probe hack', () => {
         expect(harness.repositories.commerce.getSubscriptionQuote).toHaveBeenCalledWith({
             planId: PLAN_ID,
             variantId: VARIANT_ID,
-            duration: '4w',
+            duration: '28d',
         });
         // The hack this replaced: seven `previewSubscription` calls, one per weekday.
         expect(harness.repositories.commerce.previewSubscription).not.toHaveBeenCalled();

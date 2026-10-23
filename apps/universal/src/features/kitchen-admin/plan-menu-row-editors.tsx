@@ -120,9 +120,16 @@ export function PlanMenuDays({
 
     const days = useMemo(() => menuDays(draft), [draft]);
 
+    /*
+     * A dish is a meal sold as itself. A meal that stands for an ingredient — a burger patty, a
+     * tray of caramelised onions — is a prep item sold *as that ingredient*, and a menu that
+     * served one would promise a component rather than a plate. The listing carries both under
+     * one type, so the picker tells them apart by the ingredient link.
+     */
     const mealOptions = useMemo<readonly SelectOption[]>(
         () =>
-            [...meals]
+            meals
+                .filter((meal) => meal.ingredientId === null)
                 .map((meal) => ({
                     value: String(meal.id),
                     label: displayName(meal.name, locale).value,

@@ -5,6 +5,7 @@ import { ApiError, isRateLimitFailure, isValidationFailure } from '../contracts/
 import { createMemoryTokenStore } from '../contracts/session.ts';
 import type { SessionTokenStore } from '../contracts/session.ts';
 import { resolveApiBaseUrl } from './config.ts';
+import { mapDuration } from './plan-mappers.ts';
 import { createApiRepositories } from './repositories.ts';
 
 /**
@@ -1829,6 +1830,7 @@ describe('subscriptions (S1)', () => {
                                 available_weekdays: [1, 2, 3, 4, 5],
                                 allows_free_selection: true,
                                 change_cutoff_hours: 12,
+                                earliest_start_date: '2026-08-10',
                             },
                         },
                         meta: {},
@@ -1841,7 +1843,7 @@ describe('subscriptions (S1)', () => {
         const quote = await repositories.commerce.getSubscriptionQuote({
             planId: 'plan-1' as never,
             variantId: 'variant-1' as never,
-            duration: '4w',
+            duration: '28d',
         });
 
         // Three coordinates. A shopper can obtain none of a channel identifier, a duration
@@ -1854,16 +1856,63 @@ describe('subscriptions (S1)', () => {
             catalogue_item_variant_id: 'variant-1',
             plan_duration_days: '28',
         });
+        // No weekdays chosen, none sent: the server then counts every delivery weekday.
+        expect(url.searchParams.getAll('weekdays[]')).toEqual([]);
 
         // The seven-probe hack's replacement, and the two rules a configurator draws with.
         expect(quote.availableWeekdays).toEqual([1, 2, 3, 4, 5]);
         expect(quote.allowsFreeSelection).toBe(true);
         // The plan's own cut-off, not the platform default — the 24-hour rule is configuration.
         expect(quote.changeCutoffHours).toBe(12);
+        // The first day the kitchen can start, as the server walks it past the cut-off.
+        expect(quote.earliestStartDate).toBe('2026-08-10');
         expect(quote.available).toBe(true);
         expect(quote.refusals).toEqual([]);
         expect(quote.total).toEqual({ amount: 36000, currency: 'USD' });
         expect(quote.discountPercent).toBe(10);
+    });
+
+    it('sends the chosen weekdays in Laravel’s array form, and reads the start they shape', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: {
+                            quote: {
+                                currency_code: 'USD',
+                                days: 20,
+                                list_price_minor: 2000,
+                                discount_percent: '10.00',
+                                per_day_minor: 1800,
+                                total_minor: 36000,
+                                duration_code: '4w',
+                                duration_kind: 'fixed_days',
+                                available_weekdays: [1, 2, 3, 4, 5],
+                                allows_free_selection: true,
+                                change_cutoff_hours: 48,
+                                // The first *chosen* day outside the cut-off: a Wednesday.
+                                earliest_start_date: '2026-08-12',
+                            },
+                        },
+                        meta: {},
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const quote = await repositories.commerce.getSubscriptionQuote({
+            planId: 'plan-1' as never,
+            variantId: 'variant-1' as never,
+            duration: '28d',
+            deliveryWeekdays: [3, 5],
+        });
+
+        const url = new URL(calls[0]!.url);
+        expect(url.searchParams.getAll('weekdays[]')).toEqual(['3', '5']);
+        expect(url.searchParams.get('plan_duration_days')).toBe('28');
+        expect(quote.earliestStartDate).toBe('2026-08-12');
     });
 
     it('draws a refused quote instead of throwing it', async () => {
@@ -1894,7 +1943,7 @@ describe('subscriptions (S1)', () => {
         const quote = await repositories.commerce.getSubscriptionQuote({
             planId: 'plan-1' as never,
             variantId: 'variant-1' as never,
-            duration: '4w',
+            duration: '28d',
         });
 
         // A configurator draws "this duration is not offered"; it does not crash on it.
@@ -1902,6 +1951,8 @@ describe('subscriptions (S1)', () => {
         expect(quote.refusals).toEqual(['duration_not_offered']);
         expect(quote.days).toBe(0);
         expect(quote.total.amount).toBe(0);
+        // No run to start, so no day it could start on.
+        expect(quote.earliestStartDate).toBeNull();
         expect(quote.availableWeekdays).toEqual([]);
     });
 
@@ -1977,16 +2028,14 @@ describe('subscriptions (S1)', () => {
         expect(subscription.weeklyPrice).toEqual({ amount: 9000, currency: 'USD' });
         // The duration's *own* day count, never `balance_days_total` — twenty delivery days is
         // what a four-week plan on five weekdays buys.
-        expect(subscription.configuration.duration).toBe('4w');
+        expect(subscription.configuration.duration).toBe('28d');
         expect(subscription.configuration.startDate).toBe('2026-08-05');
         expect(subscription.configuration.address.label).toBe('Home');
         expect(subscription.configuration.selectedMealIds).toEqual(['meal-7']);
         expect(subscription.skippedDates).toEqual(['2026-08-08']);
-        // A pause lasts until somebody resumes it, so there is no instant to report.
-        expect(subscription.pausedUntil).toBeNull();
     });
 
-    it('refuses to name a run outside the closed duration vocabulary', async () => {
+    it('names a run of any length by its own day count', async () => {
         const { repositories } = harness(
             [
                 {
@@ -1996,8 +2045,8 @@ describe('subscriptions (S1)', () => {
                             subscription: {
                                 ...WIRE_SUBSCRIPTION,
                                 // A real kitchen run of forty days. Rounding it to "4 weeks" would
-                                // show somebody the wrong commitment.
-                                duration: { ...WIRE_SUBSCRIPTION.duration, days: 40 },
+                                // show somebody the wrong commitment; it is forty days, named so.
+                                duration: { ...WIRE_SUBSCRIPTION.duration, code: '40x', days: 40 },
                             },
                         },
                         meta: {},
@@ -2007,11 +2056,44 @@ describe('subscriptions (S1)', () => {
             createMemoryTokenStore('token'),
         );
 
+        const subscription = await repositories.commerce.setSubscriptionWeekdays(
+            'subscription-1' as never,
+            { deliveryWeekdays: [1] },
+        );
+
+        expect(subscription.configuration.duration).toBe('40d');
+    });
+
+    it('refuses a one-off run, which has no balance of delivery days to name', async () => {
+        const { repositories } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: {
+                            subscription: {
+                                ...WIRE_SUBSCRIPTION,
+                                duration: {
+                                    ...WIRE_SUBSCRIPTION.duration,
+                                    code: 'once',
+                                    kind: 'one_off',
+                                    days: null,
+                                },
+                            },
+                        },
+                        meta: {},
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        // The write succeeded; what fails is naming the result, and the failure says so.
         await expect(
             repositories.commerce.setSubscriptionWeekdays('subscription-1' as never, {
                 deliveryWeekdays: [1],
             }),
-        ).rejects.toMatchObject({ code: 'server' });
+        ).rejects.toMatchObject({ code: 'server', failure: { retryable: false } });
     });
 
     it('sends only identifiers for meal choices and reads the names back', async () => {
@@ -2558,7 +2640,7 @@ describe('subscriptions (S1)', () => {
             configuration: {
                 planId: 'plan-1' as never,
                 variantId: 'variant-1' as never,
-                duration: '4w',
+                duration: '28d',
                 startDate: '2026-08-05',
                 deliveryWeekdays: [1, 3, 5],
                 slotCode: 'morning',
@@ -2571,8 +2653,6 @@ describe('subscriptions (S1)', () => {
                     countryCode: 'AE',
                     instructions: null,
                 },
-                dietClassifications: [],
-                excludeAllergens: [],
                 selectedMealIds: [],
             },
         });
@@ -2604,7 +2684,7 @@ describe('subscriptions (S1)', () => {
                 configuration: {
                     planId: 'plan-1' as never,
                     variantId: 'variant-1' as never,
-                    duration: '4w',
+                    duration: '28d',
                     startDate: '2026-08-05',
                     deliveryWeekdays: [1],
                     slotCode: 'morning',
@@ -2617,8 +2697,6 @@ describe('subscriptions (S1)', () => {
                         countryCode: 'AE',
                         instructions: null,
                     },
-                    dietClassifications: [],
-                    excludeAllergens: [],
                     selectedMealIds: [],
                 },
             }),
@@ -2632,7 +2710,7 @@ describe('subscriptions (S1)', () => {
             createMemoryTokenStore('token'),
         );
 
-        await repositories.commerce.pause('subscription-1' as never, { until: '2026-09-01' });
+        await repositories.commerce.pause('subscription-1' as never, { reason: 'holiday' });
 
         expect(calls[0]?.method).toBe('POST');
         expect(calls[0]?.url).toBe(
@@ -3572,5 +3650,39 @@ describe('record photos (BUG-14)', () => {
 
         // Absent is an older payload, read as "not taken off".
         expect(page.items.map((item) => item.stockPhotoHidden)).toEqual([true, false, false]);
+    });
+});
+
+/* ── the storefront's duration options ───────────────────────────────────────────────────────── */
+
+describe('mapDuration', () => {
+    const wire = {
+        code: 'five',
+        name: 'Five days',
+        kind: 'fixed_days' as const,
+        days: 5,
+        discount_percent: '7.50',
+        total_price: null,
+    };
+
+    it('names a fixed-days run by its day count, whatever the kitchen calls it', () => {
+        // A five-day run is not "1 week": the chooser names it as the five deliveries it buys.
+        expect(mapDuration(wire)).toEqual({
+            duration: '5d',
+            days: 5,
+            discountPercent: 8,
+            totalPrice: null,
+        });
+        expect(mapDuration({ ...wire, days: 28, discount_percent: null })).toMatchObject({
+            duration: '28d',
+            days: 28,
+            discountPercent: 0,
+        });
+    });
+
+    it('drops a one-off, which the subscription quote refuses', () => {
+        expect(mapDuration({ ...wire, kind: 'one_off', days: null })).toBeNull();
+        // A fixed-days run with no days is a malformed one, not a zero-day balance.
+        expect(mapDuration({ ...wire, days: 0 })).toBeNull();
     });
 });

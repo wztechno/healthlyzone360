@@ -9,7 +9,12 @@ use Healthy360\AccessControl\Models\MembershipRole;
 use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
+use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\PlanDuration;
+use Healthy360\Catalogues\Models\PlanMenuEntry;
+use Healthy360\Catalogues\Models\PlanVariantProfile;
+use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Customers\Database\Factories\CustomerAccountFactory;
 use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Orders\Enums\OrderStatus;
@@ -143,6 +148,62 @@ function calendarSubscription(object $test, array $weekdays, array $attributes =
 }
 
 /**
+ * A standing arrangement against a real plan, whose configuration says how
+ * many meals a day is.
+ *
+ * `calendarSubscription()` above hangs its subscription on a product, which
+ * is enough to count days and says nothing about meals. This one builds the
+ * plan half of `SubscriptionWorld` — a `subscription_plan` item, a
+ * configuration cell and its `PlanVariantProfile` — so the calendar has a
+ * meal count to expand each day into.
+ *
+ * @param  list<int>  $weekdays  ISO weekdays, 1 = Monday
+ * @param  array<string, mixed>  $attributes
+ */
+function calendarPlanSubscription(object $test, array $weekdays, int $mealsPerDay, int $snacksPerDay, array $attributes = []): Subscription
+{
+    $plan = CatalogueItem::factory()->subscriptionPlan()->published()->create([
+        'catalogue_id' => $test->tenant->catalogue->getKey(),
+        'organisation_id' => $test->orgId,
+        'name_en' => 'Plan '.Str::random(6),
+    ]);
+
+    $configuration = CatalogueItemVariant::factory()->planConfiguration()->create([
+        'catalogue_item_id' => $plan->getKey(),
+        'organisation_id' => $test->orgId,
+        'code' => 'cell-'.Str::lower(Str::random(6)),
+    ]);
+
+    PlanVariantProfile::factory()->create([
+        'catalogue_item_variant_id' => $configuration->getKey(),
+        'organisation_id' => $test->orgId,
+        'catalogue_item_id' => $plan->getKey(),
+        'meals_per_day' => $mealsPerDay,
+        'includes_snacks' => $snacksPerDay > 0,
+        'snacks_per_day' => $snacksPerDay,
+    ]);
+
+    $accountId = (string) CustomerAccountFactory::new()->create()->getKey();
+
+    $address = CustomerAddress::factory()->create(['customer_account_id' => $accountId]);
+
+    $duration = PlanDuration::factory()->days(20)->create(['organisation_id' => $test->orgId]);
+
+    return Subscription::factory()->create([
+        'organisation_id' => $test->orgId,
+        'customer_account_id' => $accountId,
+        'sales_channel_id' => $test->channelId,
+        'catalogue_item_id' => $plan->getKey(),
+        'catalogue_item_variant_id' => $configuration->getKey(),
+        'plan_duration_id' => $duration->getKey(),
+        'customer_address_id' => $address->getKey(),
+        'currency_code' => $test->organisation->default_currency_code,
+        'weekdays' => $weekdays,
+        ...$attributes,
+    ]);
+}
+
+/**
  * One claimed delivery day: the row generation writes before it places an
  * order, and the only shape the `scheduled` basis counts.
  *
@@ -251,6 +312,72 @@ it('keeps a day carrying all three bases as three numbers, and publishes no tota
     // on a window, in meta — would be a forecast added to a fact, and the number
     // it produced would be wrong in a way no screen could detect.
     expect(json_encode($response->json()))->not->toContain('total');
+});
+
+it('counts a plan day once per meal it serves, by sitting', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-05-11 08:00:00', 'UTC'));
+
+    // Three meals and a snack a day, Monday and Tuesday. The Monday is also
+    // claimed, so both subscription bases are expanded the same way; the
+    // Tuesday is forecast only. The window code is the van's name, and the
+    // sittings are what gets cooked — the rows are the sittings.
+    $subscription = calendarPlanSubscription($this, [1, 2], mealsPerDay: 3, snacksPerDay: 1, attributes: ['delivery_window_code' => 'midday']);
+    calendarDelivery($subscription, '2026-05-11');
+
+    $monday = calendarDay($this, '2026-05-11', '2026-05-12', '2026-05-11');
+    $tuesday = calendarDay($this, '2026-05-11', '2026-05-12', '2026-05-12');
+
+    expect($monday['counts'])->toBe(['order' => 0, 'scheduled' => 4, 'projected' => 0])
+        ->and($monday['windows'])->toBe([
+            ['code' => 'breakfast', 'counts' => ['order' => 0, 'scheduled' => 1, 'projected' => 0]],
+            ['code' => 'dinner', 'counts' => ['order' => 0, 'scheduled' => 1, 'projected' => 0]],
+            ['code' => 'lunch', 'counts' => ['order' => 0, 'scheduled' => 1, 'projected' => 0]],
+            ['code' => 'snack', 'counts' => ['order' => 0, 'scheduled' => 1, 'projected' => 0]],
+        ])
+        ->and($tuesday['counts'])->toBe(['order' => 0, 'scheduled' => 0, 'projected' => 4])
+        ->and($tuesday['windows'])->toBe([
+            ['code' => 'breakfast', 'counts' => ['order' => 0, 'scheduled' => 0, 'projected' => 1]],
+            ['code' => 'dinner', 'counts' => ['order' => 0, 'scheduled' => 0, 'projected' => 1]],
+            ['code' => 'lunch', 'counts' => ['order' => 0, 'scheduled' => 0, 'projected' => 1]],
+            ['code' => 'snack', 'counts' => ['order' => 0, 'scheduled' => 0, 'projected' => 1]],
+        ]);
+});
+
+it('takes a fixed menu’s own sittings for the cycle day, over the configuration’s count', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-05-11 08:00:00', 'UTC'));
+
+    // Two meals a day by configuration — but the plan has a two-day menu
+    // anchored on the Monday: day one is a lunch and two dinners, day two is
+    // breakfast alone. The menu is what generation will fill the day from, so
+    // the menu is what the forecast counts.
+    $subscription = calendarPlanSubscription($this, [1, 2], mealsPerDay: 2, snacksPerDay: 0);
+
+    SubscriptionPlanProfile::factory()->create([
+        'catalogue_item_id' => $subscription->catalogue_item_id,
+        'organisation_id' => $this->orgId,
+        'menu_cycle_days' => 2,
+        'menu_cycle_anchor_date' => '2026-05-11',
+    ]);
+
+    foreach ([[1, 'lunch', 1], [1, 'dinner', 1], [1, 'dinner', 2], [2, 'breakfast', 1]] as [$day, $slot, $sequence]) {
+        PlanMenuEntry::factory()->on($day, $slot, $sequence)->create([
+            'catalogue_item_id' => $subscription->catalogue_item_id,
+            'organisation_id' => $this->orgId,
+        ]);
+    }
+
+    $monday = calendarDay($this, '2026-05-11', '2026-05-12', '2026-05-11');
+    $tuesday = calendarDay($this, '2026-05-11', '2026-05-12', '2026-05-12');
+
+    expect($monday['counts']['projected'])->toBe(3)
+        ->and($monday['windows'])->toBe([
+            ['code' => 'dinner', 'counts' => ['order' => 0, 'scheduled' => 0, 'projected' => 2]],
+            ['code' => 'lunch', 'counts' => ['order' => 0, 'scheduled' => 0, 'projected' => 1]],
+        ])
+        ->and($tuesday['counts']['projected'])->toBe(1)
+        ->and($tuesday['windows'])->toBe([
+            ['code' => 'breakfast', 'counts' => ['order' => 0, 'scheduled' => 0, 'projected' => 1]],
+        ]);
 });
 
 it('projects nothing for a paused subscription', function (): void {

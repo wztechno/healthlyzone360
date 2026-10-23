@@ -24,10 +24,10 @@ import {
     useFormSteps,
     useToast,
 } from '@healthy360/design-system';
-import type { FormIssueItem } from '@healthy360/design-system';
+import type { FormIssueItem, GridSpanProps } from '@healthy360/design-system';
 import { DIET_CLASSIFICATIONS, SubscriptionPlanId } from '@healthy360/domain-types';
 import type { DietClassification } from '@healthy360/domain-types';
-import { useLocale } from '@healthy360/i18n';
+import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -37,11 +37,9 @@ import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     mealsFromPages,
-    plansFromPages,
     priceListsFromPages,
     useAdminMealsQuery,
     useAdminPlanQuery,
-    useAdminPlansQuery,
     useCreatePlanMutation,
     usePlanMenuQuery,
     usePriceListsQuery,
@@ -61,7 +59,6 @@ import { focusField } from '../field-focus.ts';
 import {
     dietClassificationKey,
     displayName,
-    humaniseCode,
     isTranslationIncomplete,
     statusKey,
     statusTone,
@@ -75,6 +72,7 @@ import {
     isFirstPublication,
     isMenuPublished,
     isMenuWithdrawal,
+    menuDays,
     menuDocumentErrors,
     menuDraft,
     menuEntryErrors,
@@ -157,23 +155,37 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * Working copy
  * ---------------------------------------------------------------------------------------------- */
 
+/*
+ * No `categorySlugs`: the server has nowhere to keep a plan's categories (the marketplace answers
+ * `[]` for every plan), so a field here would be edited, sent and silently lost. The contract keeps
+ * the property for the read; the editor does not offer it.
+ */
 interface DetailsDraft {
     readonly name: LocalisedText;
     readonly summary: LocalisedText;
     readonly description: LocalisedText;
-    readonly categorySlugs: readonly string[];
     readonly dietClassifications: readonly DietClassification[];
     readonly changeCutOffHours: number | null;
 }
 
 /** The 24-hour rule the source material states, as the default a new plan starts from. */
 const DEFAULT_CUT_OFF_HOURS = 24;
+/**
+ * What this editor accepts for the cut-off: half a day to a week. The server takes 0–720 and is
+ * not narrowed; these are the figures a kitchen can actually buy and cook against, and anything
+ * outside them is far more likely a typo than a decision.
+ */
+const CUT_OFF_HOURS_MIN = 12;
+const CUT_OFF_HOURS_MAX = 168;
+/** The longest cut-off the example sentence names a weekday for; past it the weekday misleads. */
+const CUT_OFF_WEEKDAY_MAX = 144;
+/** A Friday at noon, UTC — the example delivery the cut-off sentence counts back from. */
+const EXAMPLE_FRIDAY_MS = Date.UTC(2026, 0, 2, 12);
 
 const EMPTY_DETAILS: DetailsDraft = {
     name: { en: '', ar: '' },
     summary: { en: '', ar: '' },
     description: { en: '', ar: '' },
-    categorySlugs: [],
     dietClassifications: [],
     changeCutOffHours: DEFAULT_CUT_OFF_HOURS,
 };
@@ -183,10 +195,96 @@ function detailsFrom(plan: PlanAdmin): DetailsDraft {
         name: plan.name,
         summary: plan.summary,
         description: plan.description,
-        categorySlugs: plan.categorySlugs,
         dietClassifications: plan.dietClassifications,
         changeCutOffHours: plan.changeCutOffHours,
     };
+}
+
+/** A field-level refusal, which names a step's row — as opposed to a conflict or an outage. */
+function isRefusal(error: unknown): boolean {
+    const failure = toFailure(error);
+    return failure !== null && isValidationFailure(failure);
+}
+
+/** The same set of codes, whatever order the chips were pressed in. */
+function sameDiets(
+    left: readonly DietClassification[],
+    right: readonly DietClassification[],
+): boolean {
+    const sortedRight = [...right].sort();
+    return (
+        left.length === right.length &&
+        [...left].sort().every((code, index) => code === sortedRight[index])
+    );
+}
+
+interface CutOffFieldProps extends GridSpanProps {
+    readonly label: string;
+    readonly hint: string;
+    /** Drawn inside the frame at its trailing edge, the way the menu's cycle field carries "days". */
+    readonly unit: string;
+    readonly placeholder: string;
+    /** The figure in plain words, under the field; `null` while there is no figure to explain. */
+    readonly example: string | null;
+    readonly error?: string | undefined;
+    readonly disabled: boolean;
+    readonly value: number | null;
+    readonly onChange: (next: number | null) => void;
+    /** The field's own id and test id; the sentence under it is `{testID}-example`. */
+    readonly testID: string;
+}
+
+/**
+ * The change cut-off: whole hours, with the sentence that says what they mean.
+ *
+ * Its own element because `FormGrid` reads the span off its direct child, and a field and a line
+ * of caption under it have to share one cell — a caption placed after the grid would sit under
+ * the whole section rather than under this figure.
+ */
+function CutOffField({
+    label,
+    hint,
+    unit,
+    placeholder,
+    example,
+    error,
+    disabled,
+    value,
+    onChange,
+    testID,
+}: CutOffFieldProps) {
+    return (
+        <View className="flex-col gap-hair">
+            <TextInputField
+                testID={testID}
+                id={testID}
+                label={label}
+                hint={hint}
+                placeholder={placeholder}
+                size="sm"
+                inputMode="numeric"
+                autoCorrect={false}
+                required
+                disabled={disabled}
+                trailing={
+                    <Text variant="caption" tone="secondary">
+                        {unit}
+                    </Text>
+                }
+                value={value === null ? '' : String(value)}
+                {...(error === undefined ? {} : { error })}
+                onChangeText={(text) => {
+                    const digits = text.replace(/[^0-9]/g, '');
+                    onChange(digits === '' ? null : Number.parseInt(digits, 10));
+                }}
+            />
+            {example === null ? null : (
+                <Text testID={`${testID}-example`} variant="caption" tone="secondary">
+                    {example}
+                </Text>
+            )}
+        </View>
+    );
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -260,6 +358,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const { locale } = useLocale();
+    const formatter = useFormatter();
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
 
@@ -276,7 +375,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     const parsed = isCreating ? null : SubscriptionPlanId.safeParse(plan);
 
     const record = useAdminPlanQuery(parsed);
-    const allPlans = useAdminPlansQuery({ limit: 100 });
     const priceLists = usePriceListsQuery({ limit: 100 });
     const menuRecord = usePlanMenuQuery(parsed);
     /*
@@ -303,7 +401,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     const [details, setDetails] = useState<DetailsDraft>(EMPTY_DETAILS);
     const [detailsKey, setDetailsKey] = useState<string | null>(null);
     const [detailsDirty, setDetailsDirty] = useState(false);
-    const [newCategory, setNewCategory] = useState('');
 
     const [combinations, setCombinations] = useState<readonly CombinationDraft[]>([]);
     const [combinationsDirty, setCombinationsDirty] = useState(false);
@@ -444,22 +541,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
 
     /* ── derived vocabularies ────────────────────────────────────────────────────────────────── */
 
-    /**
-     * The category slugs already in use across this kitchen's plans.
-     *
-     * There is no category resource on this contract — `categorySlugs` is a free list of strings —
-     * so the chips are what the catalogue already says rather than a vocabulary the server
-     * publishes, and a slug not yet used by anything is typed rather than picked. The same honest
-     * derivation the product list makes for its categories.
-     */
-    const categoryOptions = useMemo(() => {
-        const slugs = new Set<string>(details.categorySlugs);
-        for (const row of plansFromPages(allPlans.data?.pages)) {
-            for (const slug of row.categorySlugs) slugs.add(slug);
-        }
-        return [...slugs].sort((left, right) => left.localeCompare(right));
-    }, [allPlans.data, details.categorySlugs]);
-
     const bands = useMemo(() => matrixBands(variants, []), [variants]);
     const rows = useMemo(() => matrixRows(combinations, variants), [combinations, variants]);
 
@@ -479,6 +560,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                 servingsRequired: t('kitchen:plans.servingsRequired'),
                 energyRequired: t('kitchen:plans.energyRequired'),
                 energyReversed: t('kitchen:plans.energyReversed'),
+                energyDuplicate: t('kitchen:plans.variantDuplicate'),
             }),
         [variants, t],
     );
@@ -518,8 +600,32 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     );
 
     const nameMissing = details.name.en.trim() === '';
-    const cutOffInvalid = details.changeCutOffHours === null || details.changeCutOffHours < 0;
-    const detailsBlocked = nameMissing || cutOffInvalid;
+    // Blank waits for Save like any required field; a figure outside the range is wrong at once.
+    const cutOffMissing = details.changeCutOffHours === null;
+    const cutOffOutOfRange =
+        details.changeCutOffHours !== null &&
+        (details.changeCutOffHours < CUT_OFF_HOURS_MIN ||
+            details.changeCutOffHours > CUT_OFF_HOURS_MAX);
+    const detailsBlocked = nameMissing || cutOffMissing || cutOffOutOfRange;
+
+    /**
+     * The cut-off in plain words, under the field: when a Friday delivery locks. A whole number of
+     * days names the weekday — that is how a kitchen thinks of it — and anything else is said in
+     * hours, because "Thursday at a different time" is not a sentence anybody plans by.
+     */
+    const cutOffExample = (() => {
+        const hours = details.changeCutOffHours;
+        if (hours === null || hours <= 0) return null;
+        if (hours % 24 === 0 && hours <= CUT_OFF_WEEKDAY_MAX) {
+            return t('kitchen:plans.cutOffExample', {
+                weekday: formatter.formatDate(EXAMPLE_FRIDAY_MS - hours * 3_600_000, {
+                    weekday: 'long',
+                    timeZone: 'UTC',
+                }),
+            });
+        }
+        return t('kitchen:plans.cutOffExampleHours', { count: hours });
+    })();
 
     /** A starter row still exactly as the form opened it — its blanks are required, not wrong. */
     const untouchedVariant = (key: string): boolean =>
@@ -590,14 +696,14 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                   },
               ]
             : []),
-        ...(cutOffInvalid
+        ...(cutOffMissing || cutOffOutOfRange
             ? [
                   {
                       key: 'cut-off',
                       label: t('kitchen:plans.cutOffLabel'),
                       step: 'plan' as const,
                       fieldId: 'kitchen-plan-cut-off',
-                      required: true,
+                      required: cutOffMissing,
                       blocksSave: true,
                   },
               ]
@@ -682,12 +788,26 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
         if (coverage !== null && coverage.confirmed === 0) {
             reasons.push(t('kitchen:plans.blockNoConfirmedPrice'));
         }
+        /*
+         * The *saved* menu, for the same reason as every other line here. A rotation with a day
+         * nobody is served on is a subscriber who gets nothing that day; a plan with no menu at
+         * all is a different, legitimate state (orders without dishes) and is not a blocker.
+         */
+        if (menuRecord.data !== undefined && menuRecord.data.cycleDays !== null) {
+            const emptyDays = menuDays(menuDraft(menuRecord.data)).filter(
+                (day) => !day.isBeyondCycle && day.entries.length === 0,
+            ).length;
+            if (emptyDays > 0) {
+                reasons.push(t('kitchen:plans.blockMenuDaysEmpty', { count: emptyDays }));
+            }
+        }
         if (detailsDirty || combinationsDirty || variantsDirty || durationsDirty || menuDirty) {
             reasons.push(t('kitchen:plans.blockUnsaved'));
         }
         return reasons;
     }, [
         data,
+        menuRecord.data,
         coverage,
         detailsDirty,
         combinationsDirty,
@@ -711,9 +831,14 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
      * another. The menu is last because it is the only write that leaves the item's version behind
      * it unread — nothing follows it but the navigation. The address moves to the record only once
      * every write has landed, so nothing typed is discarded by a navigation.
+     *
+     * Save is pressed from the last step, so a refusal of an earlier section's rows would land out
+     * of sight: `stage` names the step each write is about, and a validation refusal opens it, where
+     * the refused row carries the server's note.
      */
     const createPlan = (changeCutOffHours: number) => {
         void (async () => {
+            let stage: PlanStep = 'plan';
             try {
                 let record =
                     created ??
@@ -721,13 +846,13 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                         name: details.name,
                         summary: details.summary,
                         description: details.description,
-                        categorySlugs: details.categorySlugs,
                         dietClassifications: details.dietClassifications,
                         changeCutOffHours,
                     }));
                 setCreated(record);
 
                 if (record.variants.length === 0 && variants.length > 0) {
+                    stage = 'variants';
                     record = await saveVariantsMutation.mutateAsync({
                         planId: record.id,
                         request: {
@@ -738,6 +863,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     setCreated(record);
                 }
                 if (record.durations.length === 0 && durations.length > 0) {
+                    stage = 'durations';
                     record = await saveDurationsMutation.mutateAsync({
                         planId: record.id,
                         request: {
@@ -748,6 +874,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     setCreated(record);
                 }
                 if (!isMenuWithdrawal(menu)) {
+                    stage = 'menu';
                     const body = menuRequest(menu);
                     await saveMenuMutation.mutateAsync({
                         planId: record.id,
@@ -771,6 +898,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                 router.replace(`/kitchen/plans/${String(record.id)}` as never);
             } catch (error) {
                 concurrency.capture(error);
+                if (isRefusal(error)) form.goTo(stage);
             }
         })();
     };
@@ -792,8 +920,11 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     name: details.name,
                     summary: details.summary,
                     description: details.description,
-                    categorySlugs: details.categorySlugs,
-                    dietClassifications: details.dietClassifications,
+                    // Only when changed: the set is replaced wholesale, and an unchanged echo of
+                    // what was read is a write that can only lose to a concurrent edit.
+                    ...(sameDiets(details.dietClassifications, data.dietClassifications)
+                        ? {}
+                        : { dietClassifications: details.dietClassifications }),
                     changeCutOffHours: details.changeCutOffHours,
                 },
             },
@@ -861,6 +992,9 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                 },
                 onError: (error) => {
                     concurrency.capture(error);
+                    // The refused row is on the configurations step; a reader who moved on
+                    // while the save was in flight is brought back to it.
+                    if (isRefusal(error)) form.goTo('variants');
                 },
             },
         );
@@ -1040,20 +1174,41 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
         },
     });
     /*
-     * A configuration's refusal (`cells.2.name_en`) is about one row of the configurations step,
-     * and a row there has no field of its own to mark — the message becomes the row's note. `cells`
-     * holds the rows `variantRequest` sent, which skips none once the save is allowed.
+     * A configuration's refusal is about one row of the configurations step, and a row there has
+     * no field of its own to mark — the message becomes the row's note. The server names the row
+     * either whole (`cells.2`, a cell already sold) or by a field of it (`cells.2.name_en`), and
+     * both are read. `cells` holds the rows `variantRequest` sent, which skips none once the save
+     * is allowed.
      */
     const variantsServer = serverFieldErrors(matrixFailure, {
+        'cells.*': { label: t('kitchen:plans.variantsTitle'), fieldId: 'kitchen-plan-variants' },
         'cells.*.*': { label: t('kitchen:plans.variantsTitle'), fieldId: 'kitchen-plan-variants' },
     });
     const sentVariants = variants.filter((row) => variantRequest([row]).length > 0);
     const variantServerNotes = new Map(
         sentVariants.flatMap((row, index) => {
-            const message = variantsServer.errorFor(`cells.${String(index)}.*`);
+            const message =
+                variantsServer.errorFor(`cells.${String(index)}`) ??
+                variantsServer.errorFor(`cells.${String(index)}.*`);
             return message === undefined ? [] : [[row.key, message] as const];
         }),
     );
+    /*
+     * What the server said about the configurations and could not put on a row. Drawn on the
+     * configurations step as well as the matrix, because the save that was refused is pressed on
+     * the former and a refusal that only showed on the latter went unread.
+     */
+    const matrixErrorCallout =
+        matrixFailure === null ||
+        (variantsServer.isValidation && variantsServer.unplaced === null) ? null : (
+            <Callout
+                testID="kitchen-plan-matrix-error"
+                role="alert"
+                tone="danger"
+                title={t('kitchen:plans.matrixSaveError')}
+                body={variantsServer.unplaced ?? matrixFailure.message}
+            />
+        );
     // Neither of these has a field to mark: a refusal's own words go in the section's callout.
     const durationsServer = serverFieldErrors(durationsFailure);
     const menuServer = serverFieldErrors(menuFailure);
@@ -1371,114 +1526,39 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 }}
                             />
 
-                            <TextInputField
+                            {/*
+                             * A figure with its unit in the frame and the rule as the (i), and
+                             * under it the one sentence that says what the figure means for a
+                             * delivery — the number is abstract until it names a day.
+                             */}
+                            <CutOffField
                                 span={2}
                                 testID="kitchen-plan-cut-off"
-                                id="kitchen-plan-cut-off"
                                 label={t('kitchen:plans.cutOffLabel')}
-                                placeholder={t('kitchen:plans.cutOffUnit')}
-                                size="sm"
-                                inputMode="numeric"
-                                autoCorrect={false}
-                                required
+                                hint={t('kitchen:plans.cutOffHint')}
+                                unit={t('kitchen:plans.cutOffUnit')}
+                                placeholder={String(DEFAULT_CUT_OFF_HOURS)}
+                                example={cutOffExample}
                                 disabled={!canManage}
-                                value={
-                                    details.changeCutOffHours === null
-                                        ? ''
-                                        : String(details.changeCutOffHours)
-                                }
-                                {...(shows('cut-off')
+                                value={details.changeCutOffHours}
+                                {...(shows('cut-off') && cutOffMissing
                                     ? { error: t('kitchen:plans.cutOffRequired') }
-                                    : {})}
-                                {...server.flag('change_cutoff_hours')}
-                                onChangeText={(text) => {
-                                    const digits = text.replace(/[^0-9]/g, '');
+                                    : cutOffOutOfRange
+                                      ? {
+                                            error: t('kitchen:plans.cutOffRange', {
+                                                min: CUT_OFF_HOURS_MIN,
+                                                max: CUT_OFF_HOURS_MAX,
+                                            }),
+                                        }
+                                      : server.flag('change_cutoff_hours'))}
+                                onChange={(next) => {
                                     markDirty(() => {
-                                        setDetails({
-                                            ...details,
-                                            changeCutOffHours:
-                                                digits === '' ? null : Number.parseInt(digits, 10),
-                                        });
+                                        setDetails({ ...details, changeCutOffHours: next });
                                         setDetailsDirty(true);
                                     });
                                 }}
                             />
                         </FormGrid>
-                    </FormSection>
-
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-plan-categories-section"
-                        title={t('kitchen:plans.categoriesLabel')}
-                    >
-                        <Stack space="xs">
-                            {categoryOptions.length === 0 ? null : (
-                                <Inline space="xs" wrap testID="kitchen-plan-categories">
-                                    {categoryOptions.map((slug) => (
-                                        <FilterChip
-                                            key={slug}
-                                            testID={`kitchen-plan-category-${slug}`}
-                                            label={humaniseCode(slug)}
-                                            selected={details.categorySlugs.includes(slug)}
-                                            disabled={!canManage}
-                                            onChange={(selected) => {
-                                                markDirty(() => {
-                                                    setDetails({
-                                                        ...details,
-                                                        categorySlugs: selected
-                                                            ? [...details.categorySlugs, slug]
-                                                            : details.categorySlugs.filter(
-                                                                  (entry) => entry !== slug,
-                                                              ),
-                                                    });
-                                                    setDetailsDirty(true);
-                                                });
-                                            }}
-                                        />
-                                    ))}
-                                </Inline>
-                            )}
-                            {canManage ? (
-                                <Inline space="xs" align="center" wrap>
-                                    <View style={{ width: spanWidth(1) }}>
-                                        <TextInputField
-                                            testID="kitchen-plan-category-new"
-                                            id="kitchen-plan-category-new"
-                                            label={t('kitchen:plans.categoryAddLabel')}
-                                            labelHidden
-                                            placeholder={t('kitchen:plans.categoryAddLabel')}
-                                            size="sm"
-                                            value={newCategory}
-                                            autoCapitalize="none"
-                                            autoCorrect={false}
-                                            onChangeText={setNewCategory}
-                                        />
-                                    </View>
-                                    <Button
-                                        testID="kitchen-plan-category-add"
-                                        size="sm"
-                                        variant="secondary"
-                                        label={t('kitchen:plans.categoryAddAction')}
-                                        iconStart={<Icon name="plus" size="sm" />}
-                                        disabled={newCategory.trim() === ''}
-                                        onPress={() => {
-                                            const slug = newCategory.trim().toLocaleLowerCase();
-                                            if (slug === '' || details.categorySlugs.includes(slug))
-                                                return;
-                                            markDirty(() => {
-                                                setDetails({
-                                                    ...details,
-                                                    categorySlugs: [...details.categorySlugs, slug],
-                                                });
-                                                setDetailsDirty(true);
-                                            });
-                                            setNewCategory('');
-                                        }}
-                                    />
-                                </Inline>
-                            ) : null}
-                        </Stack>
                     </FormSection>
 
                     <FormSection
@@ -1526,17 +1606,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                         title={t('kitchen:plans.tabMatrix')}
                     >
                         <Stack space="md">
-                            {matrixFailure === null ||
-                            (variantsServer.isValidation &&
-                                variantsServer.unplaced === null) ? null : (
-                                <Callout
-                                    testID="kitchen-plan-matrix-error"
-                                    role="alert"
-                                    tone="danger"
-                                    title={t('kitchen:plans.matrixSaveError')}
-                                    body={variantsServer.unplaced ?? matrixFailure.message}
-                                />
-                            )}
+                            {matrixErrorCallout}
 
                             <PlanMatrixGrid
                                 testID="kitchen-plan-matrix-grid"
@@ -1592,6 +1662,8 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                         }
                     >
                         <Stack space="md">
+                            {matrixErrorCallout}
+
                             <PlanVariantRows
                                 testID="kitchen-plan-variants"
                                 rows={variants}
@@ -2026,6 +2098,9 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                 items={tabItems}
                 value={form.current}
                 onChange={form.goTo}
+                // A new plan is written once, from the end of the walk; a saved one is edited in
+                // any order, so its Save is wherever the reader is.
+                alwaysShowFinalAction={!isCreating}
                 finalAction={
                     <Button
                         testID="kitchen-plan-editor-screen-save"

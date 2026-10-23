@@ -193,16 +193,18 @@ export interface PlanVariant {
 
 export interface PlanDurationOption {
     readonly duration: PlanDuration;
-    /** Whole percent off the weekly price, `0` when none is offered. */
+    /** How many delivery days the run buys — the balance a purchase creates. */
+    readonly days: number;
+    /** Whole percent off the per-day price, `0` when none is offered. */
     readonly discountPercent: number;
     /**
      * The whole-run price, when the platform can state one figure for the plan.
      *
      * `null` for a plan with more than one active configuration: its variants carry different
-     * weekly prices, so a single plan-level total would be a figure no kitchen quoted. A consumer
-     * of this shape derives the total for the variant actually in front of the person —
-     * `pricePerWeek × weeks × (1 − discount)` — which is what the configurator and the catalogue
-     * both do.
+     * prices, so a single plan-level total would be a figure no kitchen quoted. A consumer of this
+     * shape derives the total for the variant actually in front of the person — the discounted
+     * per-day price × days, rounded the way the server rounds — which is what the configurator
+     * and the catalogue both do (`plan-balance.ts`).
      */
     readonly totalPrice: Money | null;
 }

@@ -213,12 +213,20 @@
         "emptyTitle": "لا توجد برامج لعرضها بعد",
         "emptyBody": "تظهر البرامج هنا حين تنشرها المطابخ. وإن اخترت مطبخًا، فجرّب كل المطابخ.",
         "ratingLabel": "متوسط تقييم {{plan}}",
-        "durationShort": {
-            "1w": "أسبوع",
-            "2w": "أسبوعان",
-            "4w": "4 أسابيع",
-            "12w": "12 أسبوعًا"
-        },
+        "durationDays_zero": "{{days}} يوم",
+        "durationDays_one": "يوم واحد",
+        "durationDays_two": "يومان",
+        "durationDays_few": "{{days}} أيام",
+        "durationDays_many": "{{days}} يومًا",
+        "durationDays_other": "{{days}} يوم",
+        "durationWeeks_zero": "{{weeks}} أسبوع",
+        "durationWeeks_one": "أسبوع واحد",
+        "durationWeeks_two": "أسبوعان",
+        "durationWeeks_few": "{{weeks}} أسابيع",
+        "durationWeeks_many": "{{weeks}} أسبوعًا",
+        "durationWeeks_other": "{{weeks}} أسبوع",
+        "durationDaysShort": "{{days}} ي",
+        "durationWeeksShort": "{{weeks}} أ",
         "howItWorksLink": "كيف تعمل البرامج ←",
         "perDaySuffix": "/ يوم",
         "balancePrice_zero": "{{price}} مقابل {{count}} يوم توصيل",
@@ -528,12 +536,6 @@
         },
         "macroCaveat": "أرقام العناصر الكبرى نطاقات لا قيمًا مفردة: برنامج يدور على قوائم موسم كامل ليس له رقم بروتين واحد صحيح، وذكر رقم مفرد دقة زائفة.",
         "durationOption": "{{duration}} بخصم {{discount}}%",
-        "duration": {
-            "1w": "أسبوع واحد",
-            "2w": "أسبوعان",
-            "4w": "4 أسابيع",
-            "12w": "12 أسبوعًا"
-        },
         "countRange": "{{min}}–{{max}}",
         "noFigure": "—"
     },
@@ -570,8 +572,9 @@
         "configure": "إعداد الخطة",
         "configureSignIn": "سجّل الدخول لضبطه",
         "priceTitle": "السعر",
-        "pricePerWeek": "{{price}} أسبوعيًا",
-        "pricePerDay": "نحو {{price}} يوميًا"
+        "pricePerDay": "{{price}} يوميًا",
+        "priceForRun": "{{price}} لمدة {{run}}",
+        "noDurations": "لا تتوفر مدة للبيع في هذه الخطة بعد."
     },
     "diet": {
         "loading": "جارٍ تحميل فئة النظام الغذائي",

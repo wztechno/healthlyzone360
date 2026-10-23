@@ -1,4 +1,4 @@
-import { cx, useBreakpoint, useIsCoarsePointer } from '@healthy360/design-system';
+import { Icon, cx, useBreakpoint, useIsCoarsePointer } from '@healthy360/design-system';
 import type { PriceLine } from '@healthy360/api-client/contracts';
 import type { Money } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -436,6 +436,11 @@ export interface OptionCardProps {
 /**
  * The checkout's Delivery / Pickup card: a bold label over a muted line, inside a ring that is the
  * brand colour when chosen and the strong hairline when not. A `radio` in its group.
+ *
+ * The chosen card also carries a tinted fill and a check mark. A ring alone was the only
+ * difference between chosen and not, and at a glance three cards with hairlines of two colours
+ * read as three equal choices (plans-18); the fill and the mark are what a person scanning a row
+ * sees first, and the mark survives greyscale.
  */
 export function OptionCard({
     label,
@@ -459,19 +464,34 @@ export function OptionCard({
             {...(accessibilityHint === undefined ? {} : { accessibilityHint })}
             {...(onPress === undefined ? {} : { onPress })}
             className={cx(
-                'min-h-touch min-w-0 flex-1 flex-col items-start gap-0.5 rounded-lg border-2 bg-surface-raised px-4 py-3',
-                chosen ? 'border-surface-brand' : 'border-stroke-strong hover:bg-surface-sunken',
+                'min-h-touch min-w-0 flex-1 flex-row items-start gap-3 rounded-lg border-2 px-4 py-3',
+                chosen
+                    ? 'border-surface-brand bg-surface-brand-subtle'
+                    : 'border-stroke-strong bg-surface-raised hover:bg-surface-sunken',
                 disabled ? 'opacity-60' : null,
             )}
         >
-            <RNText className="text-base font-semibold text-content-primary text-start">
-                {label}
-            </RNText>
-            {sub === undefined ? null : (
-                <RNText className="text-sm tabular-nums text-content-secondary text-start">
-                    {sub}
+            <View className="min-w-0 flex-1 flex-col items-start gap-0.5">
+                <RNText className="text-base font-semibold text-content-primary text-start">
+                    {label}
                 </RNText>
-            )}
+                {sub === undefined ? null : (
+                    <RNText className="text-sm tabular-nums text-content-secondary text-start">
+                        {sub}
+                    </RNText>
+                )}
+            </View>
+            {/* Drawn only when chosen: an empty circle on every other card would read as a
+                checklist rather than a choice of one. */}
+            {chosen ? (
+                <View
+                    testID={testID === undefined ? undefined : `${testID}-chosen`}
+                    aria-hidden
+                    className="h-5 w-5 shrink-0 items-center justify-center rounded-full bg-surface-brand"
+                >
+                    <Icon name="check" size="sm" className="text-content-on-brand" />
+                </View>
+            ) : null}
         </Pressable>
     );
 }

@@ -15,17 +15,18 @@ import type {
     CommerceRepository,
     CustomerAddress,
     DeliveryAddress,
+    DietaryProfile,
     Kitchen,
     KitchenBranch,
     KitchenSalesChannels,
     MarketplaceMeal,
+    MarketplaceRepository,
     PlaceOrderRequest,
     PlacedOrder,
     PlanDurationOption,
     PlanVariant,
     PreviewCheckoutRequest,
     SkipDayRequest,
-    StoredNutritionTarget,
     Subscription,
     SubscriptionBalance,
     SubscriptionConfiguration,
@@ -34,15 +35,15 @@ import type {
     SubscriptionPlan,
     SubscriptionPreview,
     SubscriptionQuote,
+    SubscriptionQuoteRequest,
 } from '@healthy360/api-client/contracts';
-import { PLAN_DURATIONS, PLAN_DURATION_WEEKS, SUBSCRIPTION_STATES } from '@healthy360/domain-types';
+import { SUBSCRIPTION_STATES } from '@healthy360/domain-types';
 import type {
     AllergenCode,
     CartId,
     KitchenId,
     MealId,
     Money,
-    NutritionTargetId,
     OrderId,
     PlanDuration,
     PlanVariantId,
@@ -51,7 +52,6 @@ import type {
     SubscriptionId,
     SubscriptionPlanId,
 } from '@healthy360/domain-types';
-import type { NutritionConstraint } from '@healthy360/nutrition';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import { pathnameOf, queryOf, withReturnTo } from '../../navigation/return-to.ts';
@@ -81,26 +81,22 @@ import {
     CONFIGURATOR_STEPS,
     combinationKey,
     configuredDeliveryDates,
-    diffAllergens,
-    discountedTotalMinorUnits,
+    estimatedTotal,
     firstIncompleteStep,
-    grossMinorUnits,
+    firstWeekChoices,
     initialConfiguratorState,
     isStepReachable,
     mealCombinations,
     nextConfiguratorStep,
     perDeliveryPrice,
     previousConfiguratorStep,
-    savingMinorUnits,
     stepPosition,
-    storedAllergenCodes,
-    storedDietClassifications,
     toConfiguration,
     validateConfiguratorStep,
     variantForCombination,
-    weeksFor,
 } from './configurator.ts';
 import type { ConfiguratorState, StepContext } from './configurator.ts';
+import { buildPriceRows } from './configurator-steps.tsx';
 import {
     addDays,
     daysBetween,
@@ -121,6 +117,7 @@ import {
     servedAreas,
     toContractSlot,
 } from './delivery.ts';
+import { ALLERGY_LIST_HREF } from './my-allergens.tsx';
 import { CartScreen } from './screens/cart-screen.tsx';
 import { CheckoutScreen } from './screens/checkout-screen.tsx';
 import { SubscriptionConfiguratorScreen } from './screens/subscription-configurator-screen.tsx';
@@ -210,7 +207,6 @@ const UNKNOWN_PLAN_ID = uuid(15, 255);
 const UNKNOWN_SUBSCRIPTION_ID = uuid(15, 254);
 
 const AED = 'AED';
-const TREE_NUT = 'tree_nut' as AllergenCode;
 
 const NO_CHANNELS: Readonly<Record<SalesChannel, boolean>> = {
     b2c: false,
@@ -478,22 +474,46 @@ const ADVERTISED_VARIANT = PLAN_VARIANTS[1]!;
 /**
  * The published totals, computed by hand from the advertised band's 475.00 a week.
  *
- * Deliberately *not* produced by `discountedTotalMinorUnits`: these are what the catalogue says a
- * duration costs, and the whole point of the duration-pricing case below is that the client's own
+ * Deliberately *not* produced by `estimatedTotal` or `balanceTotal`: these are what the catalogue
+ * says a run costs, and the whole point of the duration-pricing case below is that the client's own
  * arithmetic reproduces them. Deriving them from the function under test would make that vacuous.
  *
- * 1w — 47 500 × 1, no discount.        2w — 47 500 × 2 = 95 000, less 5 %  → 90 250.
- * 4w — 47 500 × 4 = 190 000, less 10 % → 171 000.  12w — 47 500 × 12 = 570 000, less 20 % → 456 000.
+ * A run is a balance of delivery days priced per day, the way the server prices it: the per-day
+ * list price is 47 500 ÷ 7 = 6 785.71 → 6 786; the discount is taken off *that* and rounded
+ * before multiplying, never off a total.
+ *
+ * 7d  — 6 786 × 7, no discount                     → 47 502.
+ * 14d — 6 786 less 5 %  = 6 446.70 → 6 447, × 14   → 90 258.
+ * 28d — 6 786 less 10 % = 6 107.40 → 6 107, × 28   → 170 996.
+ * 84d — 6 786 less 20 % = 5 428.80 → 5 429, × 84   → 456 036.
  */
 /** The authored options always carry a total; the contract allows `null` for multi-config plans. */
 type AuthoredDurationOption = PlanDurationOption & { readonly totalPrice: Money };
 
 const PLAN_DURATION_OPTIONS: readonly AuthoredDurationOption[] = [
-    { duration: '1w', discountPercent: 0, totalPrice: { amount: 47_500, currency: AED } },
-    { duration: '2w', discountPercent: 5, totalPrice: { amount: 90_250, currency: AED } },
-    { duration: '4w', discountPercent: 10, totalPrice: { amount: 171_000, currency: AED } },
-    { duration: '12w', discountPercent: 20, totalPrice: { amount: 456_000, currency: AED } },
+    { duration: '7d', days: 7, discountPercent: 0, totalPrice: { amount: 47_502, currency: AED } },
+    {
+        duration: '14d',
+        days: 14,
+        discountPercent: 5,
+        totalPrice: { amount: 90_258, currency: AED },
+    },
+    {
+        duration: '28d',
+        days: 28,
+        discountPercent: 10,
+        totalPrice: { amount: 170_996, currency: AED },
+    },
+    {
+        duration: '84d',
+        days: 84,
+        discountPercent: 20,
+        totalPrice: { amount: 456_036, currency: AED },
+    },
 ];
+
+/** The per-day list price of the advertised band: 47 500 a week ÷ 7, rounded. */
+const ADVERTISED_DAY_PRICE: Money = { amount: 6786, currency: AED };
 
 const PLAN: SubscriptionPlan = {
     id: PLAN_ID,
@@ -525,69 +545,27 @@ function variantById(variantId: PlanVariantId): PlanVariant {
     return PLAN_VARIANTS.find((variant) => variant.id === variantId) ?? ADVERTISED_VARIANT;
 }
 
-/* ── the person's stored nutrition profile ───────────────────────────────────────────────────── */
+/* ── the person's dietary profile ────────────────────────────────────────────────────────────── */
 
-const STORED_CONSTRAINTS: readonly NutritionConstraint[] = [
-    {
-        kind: 'allergy',
-        code: 'tree_nut',
-        label: 'Tree nuts',
-        severity: 'critical',
-        source: 'user',
-        note: null,
-    },
-    {
-        kind: 'preference',
-        code: 'mediterranean',
-        label: 'Mediterranean',
-        severity: 'advisory',
-        source: 'user',
-        note: null,
-    },
-];
+/**
+ * The one list the kitchen reads at generation. The set-up and the subscription show it against
+ * the plan's dishes rather than collecting a second list (plans-16); a declared milk allergy is
+ * what makes one of the plan's sample dishes a clash.
+ */
+function dietaryProfile(allergenCodes: readonly AllergenCode[] = []): DietaryProfile {
+    return {
+        dietCategoryCode: null,
+        allergens: allergenCodes.map((allergenCode) => ({
+            allergenCode,
+            severity: 'allergy' as const,
+            note: null,
+        })),
+        excludedIngredientIds: [],
+        updatedAt: null,
+    };
+}
 
-/** One stored target, carrying the one allergy the configurator is expected to pre-fill. */
-const STORED_TARGET: StoredNutritionTarget = {
-    id: uuid(10, 1) as NutritionTargetId,
-    result: {
-        id: uuid(10, 1) as NutritionTargetId,
-        prototype: true,
-        method: 'mifflin_st_jeor',
-        request: {
-            measurementSystem: 'metric',
-            ageYears: 34,
-            sexForCalculation: 'female',
-            heightCentimetres: 168,
-            weightKilograms: 64,
-            activityLevel: 'moderately_active',
-            goal: 'maintain',
-            pace: 'standard',
-            constraints: STORED_CONSTRAINTS,
-        },
-        basalMetabolicRate: 1380,
-        maintenanceEnergy: 2140,
-        targetEnergy: 2140,
-        energyTolerance: { min: 2033, max: 2247 },
-        macros: [],
-        nutrients: [],
-        explanation: {
-            summary: 'Authored by this test.',
-            steps: [],
-            assumptions: [],
-            citations: [],
-            disclaimer: 'Not medical advice.',
-        },
-        requiresProfessionalReview: false,
-        reviewReasons: [],
-        override: null,
-        calculatedAt: '2026-08-01T09:00:00.000Z',
-    },
-    professionallyApproved: false,
-    approvedBy: null,
-    approvedAt: null,
-    createdAt: '2026-08-01T09:00:00.000Z',
-    updatedAt: '2026-08-01T09:00:00.000Z',
-};
+const MILK = 'milk' as AllergenCode;
 
 /* ── the address book ────────────────────────────────────────────────────────────────────────── */
 
@@ -748,13 +726,11 @@ function testConfiguration(
     return {
         planId: PLAN_ID,
         variantId: ADVERTISED_VARIANT.id,
-        duration: '4w',
+        duration: '28d',
         startDate: '2026-08-03',
         deliveryWeekdays: [1, 3, 5],
         slotCode: 'midday',
         address: SUBSCRIPTION_ADDRESS,
-        dietClassifications: [],
-        excludeAllergens: [],
         selectedMealIds: [],
         ...overrides,
     };
@@ -768,10 +744,9 @@ function testSubscription(overrides: Partial<Subscription> = {}): Subscription {
         planName: PLAN.name,
         kitchenId: KITCHEN_ID,
         weeklyPrice: ADVERTISED_VARIANT.pricePerWeek,
-        days: { total: 12, consumed: 3, remaining: 9 },
+        days: { total: 28, consumed: 3, remaining: 25 },
         nextDeliveryDate: NEXT_DELIVERY,
         skippedDates: [],
-        pausedUntil: null,
         createdAt: '2026-08-01T09:00:00.000Z',
         updatedAt: '2026-08-10T09:00:00.000Z',
         ...overrides,
@@ -810,13 +785,15 @@ function testQuote(overrides: Partial<SubscriptionQuote> = {}): SubscriptionQuot
         duration: DEFAULT_DURATION,
         available: true,
         availableWeekdays: [1, 2, 3, 4, 5, 6, 7],
-        days: 7,
-        listPrice: ADVERTISED_VARIANT.pricePerWeek,
+        days: durationOption(DEFAULT_DURATION).days,
+        listPrice: ADVERTISED_DAY_PRICE,
         discountPercent: 0,
-        perDayPrice: { amount: 6786, currency: AED },
+        perDayPrice: ADVERTISED_DAY_PRICE,
         total: durationOption(DEFAULT_DURATION).totalPrice,
         allowsFreeSelection: false,
         changeCutoffHours: 24,
+        // The server has not named a floor: the screen works the same rule out for itself.
+        earliestStartDate: null,
         refusals: [],
         ...overrides,
     };
@@ -830,15 +807,16 @@ function plusDays(date: string, days: number): string {
 }
 
 interface PreviewOverrides {
-    readonly deliveryCount?: number | undefined;
     readonly firstDeliveryDate?: string | undefined;
+    readonly lastDeliveryDate?: string | undefined;
 }
 
 /**
  * What a priced proposal comes back as.
  *
- * The delivery count is `weekdays × weeks` rather than a re-run of `deliveryDatesFor`, so a case
- * that compares the client's derived dates against this figure is comparing two independent
+ * The delivery count is the run's own day count — a balance of deliveries, not a calendar range —
+ * and the per-day figures are worked by hand here rather than read off `plan-balance.ts`, so a case
+ * that compares the client's derived dates and rows against this is comparing two independent
  * calculations rather than one function with itself.
  */
 function subscriptionPreview(
@@ -847,18 +825,43 @@ function subscriptionPreview(
 ): SubscriptionPreview {
     const option = durationOption(configuration.duration);
     const variant = variantById(configuration.variantId);
-    const weeks = PLAN_DURATION_WEEKS[configuration.duration];
-    const deliveryCount = overrides.deliveryCount ?? configuration.deliveryWeekdays.length * weeks;
+    const currency = variant.pricePerWeek.currency;
+    const perDayList = Math.round(variant.pricePerWeek.amount / 7);
+    const perDay = Math.round((perDayList * (100 - option.discountPercent)) / 100);
+    const gross = perDayList * option.days;
 
     return {
         configuration,
-        lines: [{ code: 'weekly', label: 'Weekly price', amount: variant.pricePerWeek }],
-        weeklyPrice: variant.pricePerWeek,
+        lines: [
+            {
+                code: 'gross',
+                label: `${String(option.days)} delivery days`,
+                amount: { amount: gross, currency },
+            },
+            ...(option.discountPercent > 0
+                ? [
+                      {
+                          code: 'discount',
+                          label: `Duration discount (${String(option.discountPercent)} %)`,
+                          amount: { amount: -(gross - option.totalPrice.amount), currency },
+                      },
+                  ]
+                : []),
+        ],
+        perDayListPrice: { amount: perDayList, currency },
+        perDayPrice: { amount: perDay, currency },
+        weeklyPrice: { amount: perDay * configuration.deliveryWeekdays.length, currency },
         discountPercent: option.discountPercent,
         total: option.totalPrice,
         firstDeliveryDate: overrides.firstDeliveryDate ?? configuration.startDate,
-        lastDeliveryDate: plusDays(configuration.startDate, weeks * 7 - 1),
-        deliveryCount,
+        // Loosely a calendar horizon; the cases that care about the last day state it themselves.
+        lastDeliveryDate:
+            overrides.lastDeliveryDate ??
+            plusDays(
+                configuration.startDate,
+                Math.ceil(option.days / configuration.deliveryWeekdays.length) * 7 - 1,
+            ),
+        deliveryCount: option.days,
         warnings: [],
         paymentDeferred: true,
     };
@@ -894,11 +897,29 @@ describe('delivery calendar arithmetic', () => {
 
     it('never offers today as a start date', () => {
         expect(daysBetween(todayIso(), earliestStartDate())).toBe(1);
+        expect(daysBetween(todayIso(), earliestStartDate(new Date(), 0))).toBe(1);
     });
 
-    it('produces the delivery dates a whole-week configuration implies', () => {
-        // Monday, Wednesday, Friday across two weeks from a Monday start: six deliveries.
-        const dates = deliveryDatesFor('2026-07-27', [1, 3, 5], 2);
+    /**
+     * The plan's change cut-off reaches past tomorrow: a kitchen that locks each delivery 48 hours
+     * ahead cannot start a subscription tomorrow, and offering the date anyway promised a start the
+     * server then moved forward on its own (plans-17).
+     */
+    it('starts no sooner than the plan’s change cut-off allows', () => {
+        // Thursday 30 July, late morning. 48 hours on lands inside Saturday, so Saturday's
+        // delivery is already locked and the first open day is Sunday; tomorrow is Friday.
+        const thursday = new Date(2026, 6, 30, 11, 0);
+        expect(earliestStartDate(thursday, 48)).toBe('2026-08-02');
+        // A cut-off that ends later the same day still leaves tomorrow as the floor...
+        expect(earliestStartDate(thursday, 12)).toBe('2026-07-31');
+        // ...and one that ends just after midnight locks tomorrow too.
+        expect(earliestStartDate(thursday, 14)).toBe('2026-08-01');
+        expect(earliestStartDate(thursday, 0)).toBe('2026-07-31');
+    });
+
+    it('produces the delivery dates a balance of days lands on', () => {
+        // Monday, Wednesday, Friday from a Monday start: six deliveries reach into the second week.
+        const dates = deliveryDatesFor('2026-07-27', [1, 3, 5], 6);
         expect(dates).toEqual([
             '2026-07-27',
             '2026-07-29',
@@ -907,6 +928,13 @@ describe('delivery calendar arithmetic', () => {
             '2026-08-05',
             '2026-08-07',
         ]);
+    });
+
+    it('counts deliveries, not calendar days, so a short balance stops where it is spent', () => {
+        // Four deliveries on three weekdays: the fourth is the following Monday, and nothing after.
+        const dates = deliveryDatesFor('2026-07-27', [1, 3, 5], 4);
+        expect(dates).toHaveLength(4);
+        expect(dates.at(-1)).toBe('2026-08-03');
     });
 
     it('produces nothing at all when no weekday was chosen', () => {
@@ -1105,27 +1133,31 @@ describe('meal combinations (doc 17, SUB-08)', () => {
 });
 
 describe('duration pricing', () => {
-    it.each(PLAN_DURATIONS)(
+    it.each(PLAN_DURATION_OPTIONS.map((option) => option.duration))(
         'derives the same %s total the catalogue publishes for the advertised band',
         (duration: PlanDuration) => {
             const option = durationOption(duration);
 
-            expect(
-                discountedTotalMinorUnits(
-                    ADVERTISED_VARIANT.pricePerWeek.amount,
-                    weeksFor(duration),
-                    option.discountPercent,
-                ),
-            ).toBe(option.totalPrice.amount);
+            // With the server's figure withheld, the client's own per-day arithmetic lands on
+            // the figure the catalogue publishes — rounding the day, never the total.
+            expect(estimatedTotal(ADVERTISED_VARIANT, { ...option, totalPrice: null })).toEqual(
+                option.totalPrice,
+            );
         },
     );
 
-    it('reports the saving as the difference between gross and discounted', () => {
-        const gross = grossMinorUnits(47_500, 4);
-        expect(gross).toBe(190_000);
-        expect(discountedTotalMinorUnits(47_500, 4, 10)).toBe(171_000);
-        expect(savingMinorUnits(47_500, 4, 10)).toBe(19_000);
-        expect(savingMinorUnits(47_500, 1, 0)).toBe(0);
+    it('prefers the figure the server states over its own estimate', () => {
+        const quoted: PlanDurationOption = {
+            ...durationOption('28d'),
+            totalPrice: { amount: 123_456, currency: AED },
+        };
+        expect(estimatedTotal(ADVERTISED_VARIANT, quoted)).toEqual(quoted.totalPrice);
+    });
+
+    it('has no estimate without a band or without a length', () => {
+        const unpriced = { ...durationOption('28d'), totalPrice: null };
+        expect(estimatedTotal(null, unpriced)).toBeNull();
+        expect(estimatedTotal(ADVERTISED_VARIANT, undefined)).toBeNull();
     });
 
     it('divides a total across its deliveries, and refuses to divide by none', () => {
@@ -1141,68 +1173,57 @@ describe('duration pricing', () => {
     });
 });
 
-describe('the allergy change (doc 11, DEF-06)', () => {
-    const treeNut = TREE_NUT;
-    const milk = 'milk' as AllergenCode;
+/**
+ * The review's price card, as one arithmetic read top to bottom (plans-19): a delivery day lists
+ * at X, the run buys N of them, the discount is the gap to the server's total, and a day after the
+ * discount is what a refund is computed from. The old card showed a weekly price and a "before
+ * discount" of four calendar weeks beside a total of twenty-eight delivery days.
+ */
+describe('the review’s price rows', () => {
+    const labels = {
+        perDayList: 'Per delivery day',
+        balance: '28 delivery days',
+        gross: 'Before discount',
+        discount: 'Duration discount, 10 %',
+        total: 'Total',
+        perDelivery: 'Per delivery day, after the discount',
+    };
 
-    it('treats an added exclusion as a tightening that needs no ceremony', () => {
-        const change = diffAllergens([treeNut], [treeNut, milk]);
-        expect(change.added).toEqual([milk]);
-        expect(change.removed).toEqual([]);
-        expect(change.changed).toBe(true);
-        expect(change.relaxed).toBe(false);
-    });
+    it('reads per-day list, gross over the balance, the discount, the total and the day after it', () => {
+        const preview = subscriptionPreview(testConfiguration({ duration: '28d' }));
+        const rows = buildPriceRows(preview, labels);
 
-    it('flags a removed exclusion as a relaxation, because that is a safety decision', () => {
-        const change = diffAllergens([treeNut, milk], [milk]);
-        expect(change.removed).toEqual([treeNut]);
-        expect(change.relaxed).toBe(true);
-    });
-
-    it('reports no change when the sets match, whatever their order', () => {
-        const change = diffAllergens([treeNut, milk], [milk, treeNut]);
-        expect(change.changed).toBe(false);
-        expect(change.relaxed).toBe(false);
-    });
-
-    it('reads only the allergy constraints out of a stored profile', () => {
-        const constraints: readonly NutritionConstraint[] = [
-            {
-                kind: 'allergy',
-                code: 'tree_nut',
-                label: 'tree_nut',
-                severity: 'critical',
-                source: 'user',
-                note: null,
-            },
-            {
-                kind: 'intolerance',
-                code: 'milk',
-                label: 'milk',
-                severity: 'strict',
-                source: 'user',
-                note: null,
-            },
-        ];
-        expect(storedAllergenCodes(constraints)).toEqual([treeNut]);
-        expect(storedAllergenCodes(undefined)).toEqual([]);
-    });
-
-    it('reads a diet preference only when the plan can actually cook to it', () => {
-        const constraints: readonly NutritionConstraint[] = [
-            {
-                kind: 'preference',
-                code: 'mediterranean',
-                label: 'mediterranean',
-                severity: 'advisory',
-                source: 'user',
-                note: null,
-            },
-        ];
-        expect(storedDietClassifications(constraints, ['omnivore', 'mediterranean'])).toEqual([
-            'mediterranean',
+        expect(rows.map((row) => row.key)).toEqual([
+            'per-day-list',
+            'gross',
+            'discount',
+            'total',
+            'per-delivery',
         ]);
-        expect(storedDietClassifications(constraints, ['vegan'])).toEqual([]);
+        expect(rows[0]?.amount).toEqual(ADVERTISED_DAY_PRICE);
+        // 6 786 × 28, and the row says what it multiplies.
+        expect(rows[1]?.amount).toEqual({ amount: 6786 * 28, currency: AED });
+        expect(rows[1]?.note).toBe('28 delivery days');
+        // The gap between that and the server's total, shown as a credit.
+        expect(rows[2]?.amount).toEqual({ amount: 170_996 - 6786 * 28, currency: AED });
+        expect(rows[3]?.amount).toEqual({ amount: 170_996, currency: AED });
+        expect(rows[3]?.emphasis).toBe(true);
+        // 170 996 ÷ 28 = 6 107, the discounted per-day price the server quoted.
+        expect(rows[4]?.amount).toEqual({ amount: 6107, currency: AED });
+    });
+
+    it('leaves the discount row out of a run that earns none', () => {
+        const preview = subscriptionPreview(testConfiguration({ duration: '7d' }));
+        const rows = buildPriceRows(preview, { ...labels, balance: '7 delivery days' });
+
+        expect(rows.map((row) => row.key)).toEqual([
+            'per-day-list',
+            'gross',
+            'total',
+            'per-delivery',
+        ]);
+        // No discount, so "before" and the total are the same figure.
+        expect(rows[1]?.amount).toEqual(rows[2]?.amount);
     });
 });
 
@@ -1218,7 +1239,6 @@ describe('step validation', () => {
                 allowedWeekdays: [1, 2, 3, 4, 5, 7],
             }),
             address: COMPLETE_ADDRESS,
-            checksAcknowledged: true,
             termsAcknowledged: true,
         };
         const context: StepContext = {
@@ -1228,7 +1248,6 @@ describe('step validation', () => {
             // A saved address is the only way the address requirement is met (plans-02).
             hasSavedAddress: true,
             earliestStartDate: '2026-07-31',
-            storedAllergens: [],
             translate,
         };
         return { state, context };
@@ -1311,17 +1330,65 @@ describe('step validation', () => {
         expect(issues).toEqual([]);
     });
 
-    it('asks for an acknowledgement only when an allergy from the profile is dropped', () => {
+    /**
+     * The start is the first delivery, so it is judged against the days actually chosen — the
+     * purchase refuses a start it would otherwise have to move. With none chosen yet, the plan's
+     * own delivery days are the rule.
+     */
+    it('judges the start date against the chosen delivery days, else the plan’s', () => {
         const { state, context } = fixture();
-        const unacknowledged = { ...state, checksAcknowledged: false };
-        // Nothing dropped: nothing to acknowledge.
-        expect(validateConfiguratorStep('delivery', unacknowledged, context)).toEqual([]);
-        // The profile excludes tree nuts and this subscription would not.
-        const relaxed = { ...context, storedAllergens: [TREE_NUT] };
-        expect(validateConfiguratorStep('delivery', unacknowledged, relaxed)).toContain(
-            'commerce:configurator.issues.checks',
+        // Tuesday 4 August: a day the plan delivers on, but not one of Mon/Wed/Fri.
+        const tuesday = { ...state, startDate: '2026-08-04', deliveryWeekdays: [1, 3, 5] };
+        expect(validateConfiguratorStep('delivery', tuesday, context)).toContain(
+            'commerce:configurator.issues.startWeekday',
         );
-        expect(validateConfiguratorStep('delivery', state, relaxed)).toEqual([]);
+        expect(
+            validateConfiguratorStep('delivery', { ...tuesday, startDate: '2026-08-05' }, context),
+        ).toEqual([]);
+        // Nothing chosen: Tuesday is fine by the plan; Saturday is not.
+        const unchosen = { ...tuesday, deliveryWeekdays: [] };
+        expect(validateConfiguratorStep('delivery', unchosen, context)).not.toContain(
+            'commerce:configurator.issues.startWeekday',
+        );
+        expect(
+            validateConfiguratorStep('delivery', { ...unchosen, startDate: '2026-08-01' }, context),
+        ).toContain('commerce:configurator.issues.startWeekday');
+    });
+
+    it('refuses a start date inside the plan’s change cut-off, not merely before tomorrow', () => {
+        const { state, context } = fixture();
+        // The kitchen locks deliveries far enough ahead that Monday 3 August is the floor.
+        const locked = { ...context, earliestStartDate: '2026-08-03' };
+        expect(validateConfiguratorStep('delivery', state, locked)).toEqual([]);
+        expect(
+            validateConfiguratorStep('delivery', { ...state, startDate: '2026-07-31' }, locked),
+        ).toContain('commerce:configurator.issues.startTooSoon');
+    });
+
+    /**
+     * A plan with no length on sale opens with no length chosen, and the plan step says so rather
+     * than letting a configuration with nothing to buy through to a priced preview.
+     */
+    it('holds the plan step while the plan offers no length, or one it no longer sells', () => {
+        const { context } = fixture();
+        const unsellable = { ...PLAN, durations: [] };
+        const state = initialConfiguratorState({ plan: unsellable, startDate: '2026-08-03' });
+
+        expect(state.duration).toBeNull();
+        expect(validateConfiguratorStep('plan', state, { ...context, plan: unsellable })).toEqual([
+            'commerce:configurator.issues.duration',
+        ]);
+        expect(firstIncompleteStep(state, { ...context, plan: unsellable })).toBe('plan');
+
+        // A draft can name a length the kitchen has since withdrawn; the step refuses it too.
+        const withdrawn = { ...PLAN, durations: PLAN.durations.slice(1) };
+        expect(
+            validateConfiguratorStep(
+                'plan',
+                { ...state, duration: '7d' },
+                { ...context, plan: withdrawn },
+            ),
+        ).toEqual(['commerce:configurator.issues.duration']);
     });
 
     /**
@@ -1372,6 +1439,7 @@ describe('turning the configurator state into a request', () => {
         const base = initialConfiguratorState({ plan: PLAN, startDate: '2026-08-03' });
 
         expect(toConfiguration({ ...base, variantId: null }, PLAN, toDeliveryAddress)).toBeNull();
+        expect(toConfiguration({ ...base, duration: null }, PLAN, toDeliveryAddress)).toBeNull();
         expect(toConfiguration({ ...base, startDate: null }, PLAN, toDeliveryAddress)).toBeNull();
         expect(
             toConfiguration({ ...base, deliveryWeekdays: [] }, PLAN, toDeliveryAddress),
@@ -1381,23 +1449,53 @@ describe('turning the configurator state into a request', () => {
     it('derives the same delivery dates the repository will bill for', () => {
         const state: ConfiguratorState = {
             ...initialConfiguratorState({ plan: PLAN, startDate: '2026-08-03' }),
-            duration: '1w',
+            duration: '7d',
             deliveryWeekdays: [1, 3, 5],
             address: COMPLETE_ADDRESS,
         };
         const configuration = toConfiguration(state, PLAN, toDeliveryAddress);
         expect(configuration).not.toBeNull();
 
-        // Three deliveries from a Monday start, and the first of them is the start date itself.
+        // Seven deliveries on three weekdays from a Monday start: the first is the start date
+        // itself and the seventh is the Monday a fortnight on — a balance, not a calendar week.
         // Authored here rather than read back from `configuredDeliveryDates`, so the two really are
         // two answers to the same question.
         const preview = subscriptionPreview(configuration!, {
-            deliveryCount: 3,
             firstDeliveryDate: '2026-08-03',
+            lastDeliveryDate: '2026-08-17',
         });
 
-        expect(configuredDeliveryDates(state).length).toBe(preview.deliveryCount);
-        expect(configuredDeliveryDates(state)[0]).toBe(preview.firstDeliveryDate);
+        const dates = configuredDeliveryDates(state, PLAN);
+        expect(dates.length).toBe(preview.deliveryCount);
+        expect(dates[0]).toBe(preview.firstDeliveryDate);
+        expect(dates.at(-1)).toBe(preview.lastDeliveryDate);
+    });
+
+    it('derives no dates for a length the plan does not offer', () => {
+        const state: ConfiguratorState = {
+            ...initialConfiguratorState({ plan: PLAN, startDate: '2026-08-03' }),
+            duration: '40d',
+            deliveryWeekdays: [1, 3, 5],
+        };
+        expect(configuredDeliveryDates(state, PLAN)).toEqual([]);
+        expect(configuredDeliveryDates({ ...state, duration: null }, PLAN)).toEqual([]);
+    });
+
+    it('sends one choice per picked day of the first week, under the lunch slot', () => {
+        const picked = MENU_MEALS.slice(0, 2).map((meal) => meal.id);
+        const state: ConfiguratorState = {
+            ...initialConfiguratorState({ plan: PLAN, startDate: '2026-08-03' }),
+            duration: '28d',
+            deliveryWeekdays: [1, 3, 5],
+            selectedMealIds: picked,
+        };
+
+        expect(firstWeekChoices(state, PLAN, ADVERTISED_VARIANT)).toEqual([
+            { date: '2026-08-03', choices: [{ slot: 'lunch', mealId: picked[0] }] },
+            { date: '2026-08-05', choices: [{ slot: 'lunch', mealId: picked[1] }] },
+        ]);
+        // Nothing picked, nothing sent: the kitchen's own rotation is what was agreed to.
+        expect(firstWeekChoices({ ...state, selectedMealIds: [] }, PLAN, null)).toEqual([]);
     });
 });
 
@@ -2759,9 +2857,12 @@ describe('CheckoutScreen — a basket that crosses the person’s allergies', ()
 
 interface ConfiguratorOptions {
     readonly plan?: (() => Promise<SubscriptionPlan>) | undefined;
+    /** The kitchen's menu. Defaults to the authored one; a case may hold it back. */
+    readonly listMeals?: MarketplaceRepository['listMeals'] | undefined;
     readonly quote?: SubscriptionQuote | undefined;
     readonly addresses?: readonly CustomerAddress[] | undefined;
-    readonly targets?: StoredNutritionTarget | null | undefined;
+    /** The person's dietary profile — the one allergy list the kitchen reads. Empty by default. */
+    readonly profile?: DietaryProfile | undefined;
     readonly commerce?: Partial<CommerceRepository> | undefined;
     readonly latencyMs?: number | undefined;
     /** The account's setup checklist. Defaults to one with nothing left to do. */
@@ -2775,16 +2876,12 @@ function configuratorRepositories(options: ConfiguratorOptions = {}): Repository
         marketplace: {
             getPlan: options.plan ?? (async () => PLAN),
             getKitchen: async () => KITCHEN,
-            listMeals: async () => page(MENU_MEALS),
-        },
-        // The configurator opens on a person's stored restrictions rather than on a blank form.
-        nutrition: {
-            getCurrentTargets: async () =>
-                options.targets === undefined ? STORED_TARGET : options.targets,
+            listMeals: options.listMeals ?? (async () => page(MENU_MEALS)),
         },
         account: {
             listAddresses: async () => options.addresses ?? [],
             getChecklist: async () => options.checklist ?? READY_CHECKLIST,
+            getDietaryProfile: async () => options.profile ?? dietaryProfile(),
         },
         commerce: {
             getSubscriptionQuote: async () => options.quote ?? testQuote(),
@@ -2952,46 +3049,278 @@ describe('SubscriptionConfiguratorScreen', () => {
         await renderConfigurator({ planId: String(PLAN.id) });
 
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-duration-4w')).toBeTruthy();
+            expect(screen.getByTestId('configurator-duration-28d')).toBeTruthy();
         });
-        expect(screen.getByTestId('configurator-duration-4w')).toHaveTextContent(/10% off/);
+        const fourWeeks = screen.getByTestId('configurator-duration-28d');
+        // Named by what it buys — four weeks, twenty-eight deliveries — at the estimate for the
+        // advertised band, with the discount it earns.
+        expect(fourWeeks).toHaveTextContent(/4 weeks/);
+        expect(fourWeeks).toHaveTextContent(/28 delivery days/);
+        expect(fourWeeks).toHaveTextContent(/1,709\.96/);
+        expect(fourWeeks).toHaveTextContent(/10% off/);
     });
 
-    it('pre-fills the allergies already on the profile, and gates removing one', async () => {
-        await renderConfigurator({ planId: String(PLAN.id) }, { addresses: [HOME_ADDRESS] });
+    it('names a run that is not whole weeks in days, never rounded to a week', async () => {
+        const fiveDays: PlanDurationOption = {
+            duration: '5d',
+            days: 5,
+            discountPercent: 0,
+            totalPrice: null,
+        };
+        await renderConfigurator(
+            { planId: String(PLAN.id) },
+            { plan: async () => ({ ...PLAN, durations: [fiveDays, ...PLAN.durations] }) },
+        );
+
+        const option = await screen.findByTestId('configurator-duration-5d');
+        expect(option).toHaveTextContent(/5 days/);
+        expect(option).not.toHaveTextContent(/week/);
+    });
+
+    it('says so when the plan has no length on sale, and holds the step', async () => {
+        await renderConfigurator(
+            { planId: String(PLAN.id) },
+            { plan: async () => ({ ...PLAN, durations: [] }), addresses: [HOME_ADDRESS] },
+        );
+
+        expect(await screen.findByTestId('configurator-duration-none')).toHaveTextContent(
+            'This plan has no length on sale yet.',
+        );
+        // Nothing to quote, so the screen does not wait on a quote: Continue answers at once, with
+        // the reason, and the step holds rather than spinning on a request that is never made.
+        const next = screen.getByTestId('configurator-next');
+        expect(next).not.toBeDisabled();
+        fireEvent.press(next);
+        expect(
+            await screen.findByText('Choose how long the subscription should run.'),
+        ).toBeTruthy();
+        expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
+        expect(screen.queryByTestId('configurator-step-delivery')).toBeNull();
+    });
+
+    /**
+     * The allergy list is read, not collected (plans-16): the delivery step shows the profile's
+     * own list, which of this plan's sample dishes cross it, and the way to the editor — which
+     * comes back to this very step.
+     */
+    it('shows the profile’s allergy list against the plan’s dishes, with a way to change it', async () => {
+        await renderConfigurator(
+            { planId: String(PLAN.id) },
+            { addresses: [HOME_ADDRESS], profile: dietaryProfile([MILK]) },
+        );
         await waitFor(() => {
             expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
         });
+        // Nothing of the old "leave out" list survives on the plan step either.
+        expect(screen.queryByTestId('configurator-diets')).toBeNull();
 
         await pressNext(1);
         await waitFor(() => {
             expect(screen.getByTestId('configurator-step-delivery')).toBeTruthy();
         });
 
-        // The authored profile records one allergy: tree nuts.
-        const chip = await waitFor(() => screen.getByTestId(`configurator-allergen-${TREE_NUT}`));
+        const notice = await screen.findByTestId('configurator-allergy-notice');
+        await waitFor(() => {
+            expect(
+                within(notice).getByTestId('configurator-allergy-notice-list'),
+            ).toHaveTextContent(/Your allergy list: Milk/);
+        });
+        // The plan's sample week holds one dish with milk in it; it is named, with what it carries.
+        const clashes = await within(notice).findByTestId('configurator-allergy-notice-clashes');
+        expect(clashes).toHaveTextContent(/1 dish in this plan contains something/);
+        expect(clashes).toHaveTextContent(/Milk/);
+        expect(screen.queryByTestId(`configurator-allergen-${MILK}`)).toBeNull();
+        expect(screen.queryByTestId('configurator-checks-acknowledge')).toBeNull();
+
+        // The editor is a detour that returns to the delivery step, address and all.
+        await fireEvent.press(within(notice).getByTestId('configurator-allergy-notice-edit'));
+        const middle = PLAN.variants[Math.floor(PLAN.variants.length / 2)]!;
+        expect(routerMock.__push).toHaveBeenLastCalledWith(
+            withReturnTo(
+                ALLERGY_LIST_HREF,
+                configuratorHref({
+                    plan: String(PLAN.id),
+                    variant: String(middle.id),
+                    step: 'delivery',
+                    address: HOME_ADDRESS.id,
+                }),
+            ),
+        );
+    });
+
+    it('does not read the list as safe before the plan’s dishes have arrived', async () => {
+        await renderConfigurator(
+            { planId: String(PLAN.id) },
+            {
+                addresses: [HOME_ADDRESS],
+                params: { step: 'delivery' },
+                profile: dietaryProfile([MILK]),
+                // The kitchen's menu never answers: nothing to check the list against yet.
+                listMeals: () => new Promise(() => undefined),
+            },
+        );
+
+        await screen.findByTestId('configurator-allergy-notice');
+        // An empty sample is not "nothing crosses": the notice says the dishes are not there to
+        // check, rather than giving a clean bill it cannot stand behind.
+        await waitFor(() => {
+            expect(screen.getByTestId('configurator-allergy-notice-unchecked')).toHaveTextContent(
+                /has not published its dishes yet/,
+            );
+        });
+        expect(screen.queryByTestId('configurator-allergy-notice-none')).toBeNull();
+        expect(screen.queryByTestId('configurator-allergy-notice-clashes')).toBeNull();
+    });
+
+    /**
+     * The earliest start honours the plan's change cut-off (plans-17): a kitchen that locks each
+     * delivery 48 hours ahead cannot start tomorrow, and the step says why.
+     */
+    it('starts no sooner than the plan’s cut-off, and says so beside the date', async () => {
+        await renderConfigurator(
+            { planId: String(PLAN.id) },
+            {
+                addresses: [HOME_ADDRESS],
+                params: { step: 'delivery' },
+                quote: testQuote({ changeCutoffHours: 48 }),
+            },
+        );
+
+        const note = await screen.findByTestId('configurator-start-date-cutoff');
+        expect(note).toHaveTextContent(/locks each delivery 48 hours ahead/);
+        // The floor the note names is the one the rules enforce: two days on, not tomorrow.
+        const floor = earliestStartDate(new Date(), 48);
+        expect(floor > earliestStartDate()).toBe(true);
+    });
+
+    /**
+     * The server names the floor once it has the chosen days (plans-17): its date is the one the
+     * purchase enforces, so it is the one offered — and asked for with those days.
+     */
+    it('takes the start-date floor from the server once it names one, asking with the chosen days', async () => {
+        // Ten days out, so it is past any local rule and unmistakably the server's.
+        const floor = addDays(todayIso(), 10)!;
+        const harness = await renderConfigurator(
+            { planId: String(PLAN.id) },
+            {
+                addresses: [HOME_ADDRESS],
+                params: { step: 'delivery' },
+                commerce: {
+                    getSubscriptionQuote: async (request: SubscriptionQuoteRequest) =>
+                        testQuote({
+                            changeCutoffHours: 48,
+                            // Only the read made with the chosen days names the floor.
+                            earliestStartDate:
+                                request.deliveryWeekdays === undefined ? null : floor,
+                        }),
+                },
+            },
+        );
+
+        await screen.findByTestId('configurator-start-date-cutoff');
+        const [year, , day] = floor.split('-').map(Number);
+        // The date field moves onto the server's floor once that read answers: its day and year
+        // read back as chosen.
+        await waitFor(() => {
+            expect(screen.getByTestId('configurator-start-date-field-day-value')).toHaveTextContent(
+                new RegExp(`^${String(day)}$`),
+            );
+        });
+        expect(screen.getByTestId('configurator-start-date-field-year-value')).toHaveTextContent(
+            new RegExp(`^${String(year)}$`),
+        );
+        // Asked with every delivery day the plan offers — the default choice — in order.
+        expect(harness.repositories.commerce.getSubscriptionQuote).toHaveBeenCalledWith({
+            planId: PLAN.id,
+            variantId: PLAN.variants[Math.floor(PLAN.variants.length / 2)]!.id,
+            duration: DEFAULT_DURATION,
+            deliveryWeekdays: [1, 2, 3, 4, 5, 6, 7],
+        });
+    });
+
+    it('moves an untouched start onto the chosen days, and repairs one the person chose', async () => {
+        const tomorrow = earliestStartDate();
+        const dayAfter = addDays(tomorrow, 1)!;
+        const startWeekday = isoWeekday(tomorrow)!;
+        await renderConfigurator(
+            { planId: String(PLAN.id) },
+            {
+                addresses: [HOME_ADDRESS],
+                params: { step: 'delivery' },
+                quote: testQuote({ changeCutoffHours: 0 }),
+            },
+        );
+        await screen.findByTestId('configurator-start-date-field');
+        expect(screen.queryByTestId('configurator-start-date-repair')).toBeNull();
+        // Every delivery day is pre-selected once the plan's availability has arrived; pressing
+        // before that would *select* the day into an empty set rather than drop it.
+        await waitFor(() => {
+            expect(
+                screen.getByTestId(`configurator-weekday-${String(startWeekday)}`).props
+                    .accessibilityState,
+            ).toMatchObject({ selected: true });
+        });
+
+        // Drop the weekday the start falls on. The start was never chosen, so it follows the days
+        // to the next one of them rather than asking to be repaired.
         await act(async () => {
-            fireEvent.press(chip);
+            fireEvent.press(screen.getByTestId(`configurator-weekday-${String(startWeekday)}`));
         });
-
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-allergen-relaxed')).toBeTruthy();
+            expect(screen.getByTestId('configurator-start-date-field-day-value')).toHaveTextContent(
+                new RegExp(`^${String(Number(dayAfter.slice(8, 10)))}$`),
+            );
         });
+        expect(screen.queryByTestId('configurator-start-date-repair')).toBeNull();
+    });
 
-        // Dropping a recorded allergy has to be acknowledged before the flow moves on.
-        await pressNext(1);
-        await waitFor(() => {
-            expect(screen.getByTestId('configurator-issue-checks')).toBeTruthy();
+    it('repairs a chosen start that falls outside the chosen days onto the first that fits', async () => {
+        const tomorrow = earliestStartDate();
+        const dayAfter = addDays(tomorrow, 1)!;
+        const startWeekday = isoWeekday(tomorrow)!;
+        // A start the person chose — tomorrow — on days that no longer include it.
+        configuratorDrafts.write(configuratorDraftKey(String(PLAN.id)), {
+            startDate: tomorrow,
+            deliveryWeekdays: [1, 2, 3, 4, 5, 6, 7].filter((day) => day !== startWeekday),
         });
-        expect(screen.getByTestId('configurator-step-delivery')).toBeTruthy();
+        await renderConfigurator(
+            { planId: String(PLAN.id) },
+            {
+                addresses: [HOME_ADDRESS],
+                params: { step: 'delivery' },
+                quote: testQuote({ changeCutoffHours: 0 }),
+            },
+        );
 
+        // The repair names the first chosen day on or after the floor: the day after tomorrow.
+        const repair = await screen.findByTestId('configurator-start-date-repair');
+        expect(repair).toHaveTextContent(new RegExp(dayAfter.slice(0, 4)));
         await act(async () => {
-            fireEvent.press(screen.getByTestId('configurator-checks-acknowledge-control'));
+            fireEvent.press(repair);
         });
-        await pressNext(1);
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-step-review')).toBeTruthy();
+            expect(screen.queryByTestId('configurator-start-date-repair')).toBeNull();
         });
+        expect(screen.getByTestId('configurator-start-date-field-day-value')).toHaveTextContent(
+            new RegExp(`^${String(Number(dayAfter.slice(8, 10)))}$`),
+        );
+        expect(configuratorDrafts.read(configuratorDraftKey(String(PLAN.id)))?.startDate).toBe(
+            dayAfter,
+        );
+    });
+
+    it('draws no cut-off note for a plan that locks nothing ahead', async () => {
+        await renderConfigurator(
+            { planId: String(PLAN.id) },
+            {
+                addresses: [HOME_ADDRESS],
+                params: { step: 'delivery' },
+                quote: testQuote({ changeCutoffHours: 0 }),
+            },
+        );
+
+        await screen.findByTestId('configurator-start-date-field');
+        expect(screen.queryByTestId('configurator-start-date-cutoff')).toBeNull();
     });
 
     it('will not leave the delivery step without an address', async () => {
@@ -3070,6 +3399,30 @@ describe('SubscriptionConfiguratorScreen', () => {
         expect(screen.getByTestId('configurator-summary-address')).toHaveTextContent(
             /12 Sunset Street/,
         );
+        // The length reads as what it buys, and the price card as one arithmetic: a delivery day
+        // of the band the set-up opened on (the plan's middle one, 465.00 a week → 66.43) lists
+        // first, the run buys seven of them, and the total is the server's own figure, with
+        // the day it works out to after the discount under it.
+        expect(screen.getByTestId('configurator-summary-duration')).toHaveTextContent(
+            /1 week · 7 delivery days/,
+        );
+        expect(screen.getByTestId('configurator-price-per-day-list-amount')).toHaveTextContent(
+            /66\.43/,
+        );
+        expect(screen.getByTestId('configurator-price-gross-amount')).toHaveTextContent(/465\.01/);
+        expect(screen.getByTestId('configurator-price-gross')).toHaveTextContent(/7 delivery days/);
+        expect(screen.queryByTestId('configurator-price-discount')).toBeNull();
+        expect(screen.getByTestId('configurator-price-total-amount')).toHaveTextContent(/475\.02/);
+        expect(screen.getByTestId('configurator-price-per-delivery-amount')).toHaveTextContent(
+            /67\.86/,
+        );
+        // The allergy list is on the review too, as a card of its own rather than a summary row.
+        expect(screen.queryByTestId('configurator-summary-allergens')).toBeNull();
+        expect(
+            within(screen.getByTestId('configurator-review-allergens')).getByTestId(
+                'configurator-review-allergy-notice-list',
+            ),
+        ).toHaveTextContent('Your allergy list is empty.');
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge-control'));
@@ -3530,14 +3883,21 @@ describe('SubscriptionConfiguratorScreen — its place survives leaving it', () 
     it('reads back only what a draft may hold', () => {
         expect(
             parseConfiguratorEdits({
-                duration: '4w',
+                duration: '28d',
                 slotCode: 'evening',
                 deliveryWeekdays: [1, 3, 9],
+                selectedMealIds: ['meal-1'],
+                // Neither is a field of the set-up any more; a draft from before carries them.
                 excludeAllergens: ['tree_nut'],
+                dietClassifications: ['omnivore'],
                 termsAcknowledged: true,
                 variantId: 'from-somewhere',
             }),
-        ).toEqual({ duration: '4w', slotCode: 'evening', excludeAllergens: ['tree_nut'] });
+        ).toEqual({ duration: '28d', slotCode: 'evening', selectedMealIds: ['meal-1'] });
+        // A length from before runs were named by their days is dropped, not misread.
+        expect(parseConfiguratorEdits({ duration: '4w', slotCode: 'evening' })).toEqual({
+            slotCode: 'evening',
+        });
         expect(parseConfiguratorEdits('not a draft')).toBeNull();
     });
 });
@@ -3669,6 +4029,7 @@ function liveWorld(overrides: Partial<Subscription> = {}): SubscriptionWorld {
 
 interface DetailOptions {
     readonly addresses?: readonly CustomerAddress[] | undefined;
+    readonly profile?: DietaryProfile | undefined;
     readonly commerce?: Partial<CommerceRepository> | undefined;
     readonly latencyMs?: number | undefined;
     readonly subscriptionId?: string | undefined;
@@ -3751,7 +4112,15 @@ function renderDetail(world: SubscriptionWorld, options: DetailOptions = {}) {
                     ...transitions(world),
                     ...options.commerce,
                 },
-                account: { listAddresses: async () => options.addresses ?? [] },
+                account: {
+                    listAddresses: async () => options.addresses ?? [],
+                    getDietaryProfile: async () => options.profile ?? dietaryProfile(),
+                },
+                // The plan and the kitchen's menu, for the allergy notice on the plan card.
+                marketplace: {
+                    getPlan: async () => PLAN,
+                    listMeals: async () => page(MENU_MEALS),
+                },
             },
         },
     );
@@ -3794,6 +4163,55 @@ describe('SubscriptionDetailScreen', () => {
         expect(screen.getByTestId('subscription-change-slot')).toBeTruthy();
         // Resume is not offered from an active subscription: the repository would refuse it.
         expect(screen.queryByTestId('subscription-resume')).toBeNull();
+
+        // The length is what was bought, read as weeks and as the balance it created; the
+        // start date is in the past, so it "Started".
+        expect(screen.getByTestId('subscription-detail-row-duration')).toHaveTextContent(
+            /4 weeks · 28 delivery days/,
+        );
+        expect(screen.getByTestId('subscription-detail-row-start')).toHaveTextContent(/Started/);
+        expect(screen.getByTestId('subscription-detail-row-start')).toHaveTextContent(/Aug/);
+        expect(screen.getByTestId('subscription-detail-row-start')).toHaveTextContent(/2026/);
+        // No "Excluded" row reading a field nothing wrote: the allergy list is its own card.
+        expect(screen.queryByTestId('subscription-detail-row-allergens')).toBeNull();
+        expect(screen.queryByTestId('subscription-timeline-paused-until')).toBeNull();
+    });
+
+    it('says a subscription that has not begun "Starts", and one with no date "Not planned yet"', async () => {
+        await renderDetail(
+            liveWorld({ configuration: testConfiguration({ startDate: '2099-01-04' }) }),
+        );
+        const future = await screen.findByTestId('subscription-detail-row-start');
+        expect(future).toHaveTextContent(/Starts/);
+        expect(future).not.toHaveTextContent(/Started/);
+        expect(future).toHaveTextContent(/Jan/);
+        expect(future).toHaveTextContent(/2099/);
+
+        await renderDetail(liveWorld({ configuration: testConfiguration({ startDate: '' }) }));
+        await waitFor(() => {
+            expect(screen.getByTestId('subscription-detail-row-start')).toHaveTextContent(
+                /Not planned yet/,
+            );
+        });
+    });
+
+    it('shows the profile’s allergy list against the plan’s dishes, with a way to change it', async () => {
+        await renderDetail(liveWorld(), { profile: dietaryProfile([MILK]) });
+
+        const card = await screen.findByTestId('subscription-detail-allergies');
+        await waitFor(() => {
+            expect(
+                within(card).getByTestId('subscription-detail-allergy-notice-list'),
+            ).toHaveTextContent(/Your allergy list: Milk/);
+        });
+        expect(
+            await within(card).findByTestId('subscription-detail-allergy-notice-clashes'),
+        ).toHaveTextContent(/1 dish in this plan contains something/);
+
+        await fireEvent.press(within(card).getByTestId('subscription-detail-allergy-notice-edit'));
+        expect(String(routerMock.__push.mock.calls.at(-1)?.[0])).toMatch(
+            new RegExp(`^${ALLERGY_LIST_HREF}\\?returnTo=`),
+        );
     });
 
     /**
@@ -3832,6 +4250,12 @@ describe('SubscriptionDetailScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('subscription-pause-consequence')).toBeTruthy();
         });
+        // A pause lasts until Resume: there is no "resume on" date to collect, because nothing
+        // ever acted on one.
+        expect(screen.queryByTestId('subscription-pause-until')).toBeNull();
+        expect(screen.getByTestId('subscription-pause-consequence')).toHaveTextContent(
+            /until you press Resume/,
+        );
         await act(async () => {
             fireEvent.press(screen.getByTestId('subscription-pause-confirm'));
         });
@@ -3843,6 +4267,7 @@ describe('SubscriptionDetailScreen', () => {
             expect(screen.getByTestId('subscription-resume')).toBeTruthy();
         });
         expect(harness.repositories.commerce.pause).toHaveBeenCalledWith(SUBSCRIPTION_ID);
+        expect(harness.repositories.commerce.pause).toHaveBeenCalledTimes(1);
     });
 
     it('resumes a paused subscription for real', async () => {

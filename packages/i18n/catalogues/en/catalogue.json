@@ -197,12 +197,12 @@
         "emptyTitle": "No plans to show yet",
         "emptyBody": "Plans appear here as kitchens publish them. If you chose a kitchen, try all kitchens.",
         "ratingLabel": "Average rating for {{plan}}",
-        "durationShort": {
-            "1w": "1 wk",
-            "2w": "2 wk",
-            "4w": "4 wk",
-            "12w": "12 wk"
-        },
+        "durationDays_one": "{{days}} day",
+        "durationDays_other": "{{days}} days",
+        "durationWeeks_one": "{{weeks}} week",
+        "durationWeeks_other": "{{weeks}} weeks",
+        "durationDaysShort": "{{days}} d",
+        "durationWeeksShort": "{{weeks}} wk",
         "howItWorksLink": "How plans work →",
         "perDaySuffix": "/ day",
         "balancePrice_one": "{{price}} for {{count}} delivery day",
@@ -452,12 +452,6 @@
         },
         "macroCaveat": "Macro figures are ranges, not point values: a plan that rotates across a season of menus has no single true protein figure, and stating one would be false precision.",
         "durationOption": "{{duration}} at {{discount}}% off",
-        "duration": {
-            "1w": "1 week",
-            "2w": "2 weeks",
-            "4w": "4 weeks",
-            "12w": "12 weeks"
-        },
         "countRange": "{{min}}–{{max}}",
         "noFigure": "—"
     },
@@ -486,8 +480,9 @@
         "configure": "Set up plan",
         "configureSignIn": "Sign in to configure it",
         "priceTitle": "Price",
-        "pricePerWeek": "{{price}} a week",
-        "pricePerDay": "about {{price}} a day"
+        "pricePerDay": "{{price}} a day",
+        "priceForRun": "{{price}} for {{run}}",
+        "noDurations": "This plan has no length on sale yet."
     },
     "diet": {
         "loading": "Loading the diet category",

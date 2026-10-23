@@ -14,6 +14,7 @@ use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Organisations\Services\OrganisationTradingGuard;
+use Healthy360\Subscriptions\Models\Subscription;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\Database\DatabaseTenantContext;
 
@@ -85,11 +86,19 @@ final readonly class StorefrontQuoting
         private SubscriptionPricing $pricing,
         private DatabaseTenantContext $tenantContext,
         private OrganisationTradingGuard $trading,
+        private ChangeWindow $window,
     ) {}
 
     /**
      * Quote a plan configuration for a shopper.
      *
+     * `$weekdays` and `$branchId` are what `earliest_start_date` is computed
+     * against — the first day that pattern delivers on that is still outside
+     * the plan's cut-off, read in the branch's own timezone. Every weekday when
+     * none is given, so the configurator has a date to show before a day has
+     * been picked, and the honest one afterwards.
+     *
+     * @param  list<int>|null  $weekdays  ISO weekdays, 1 = Monday … 7 = Sunday
      * @return array{
      *     quote: PlanQuote|null,
      *     reasons: list<array<string, mixed>>,
@@ -98,6 +107,7 @@ final readonly class StorefrontQuoting
      *     available_weekdays: list<int>,
      *     allows_free_selection: bool,
      *     change_cutoff_hours: int,
+     *     earliest_start_date: string|null,
      * }
      *
      * @throws ApiException when the kitchen behind the plan has been suspended
@@ -107,6 +117,8 @@ final readonly class StorefrontQuoting
         string $catalogueItemVariantId,
         int $planDurationDays,
         ?CarbonImmutable $on = null,
+        ?array $weekdays = null,
+        ?string $branchId = null,
     ): array {
         $plan = CatalogueItem::withoutTenancy()->whereKey($catalogueItemId)->first();
 
@@ -192,7 +204,30 @@ final readonly class StorefrontQuoting
             'available_weekdays' => $this->availableWeekdays($organisationId),
             'allows_free_selection' => $profile->allows_free_selection,
             'change_cutoff_hours' => $profile->change_cutoff_hours,
+            'earliest_start_date' => $this->earliestStartDate($catalogueItemId, $weekdays, $branchId, $on ?? CarbonImmutable::now()),
         ];
+    }
+
+    /**
+     * The first day a subscription with this pattern could be delivered.
+     *
+     * The same walk `SubscriptionService` makes at purchase, asked of an
+     * unsaved subscription carrying the three columns it reads — so what the
+     * quote promises is what the purchase will accept, and a `start_from`
+     * earlier than this is refused there rather than moved.
+     *
+     * @param  list<int>|null  $weekdays
+     */
+    private function earliestStartDate(string $catalogueItemId, ?array $weekdays, ?string $branchId, CarbonImmutable $now): string
+    {
+        $prototype = new Subscription;
+        $prototype->catalogue_item_id = $catalogueItemId;
+        $prototype->branch_id = $branchId;
+        $prototype->weekdays = $weekdays === null || $weekdays === []
+            ? [1, 2, 3, 4, 5, 6, 7]
+            : array_values(array_unique(array_map(intval(...), $weekdays)));
+
+        return $this->window->firstChangeableDate($prototype, $now)->toDateString();
     }
 
     /**
@@ -323,6 +358,7 @@ final readonly class StorefrontQuoting
      *     available_weekdays: list<int>,
      *     allows_free_selection: bool,
      *     change_cutoff_hours: int,
+     *     earliest_start_date: null,
      * }
      */
     private function refusal(
@@ -342,6 +378,7 @@ final readonly class StorefrontQuoting
             'change_cutoff_hours' => $profile instanceof SubscriptionPlanProfile
                 ? $profile->change_cutoff_hours
                 : ChangeWindow::DEFAULT_CUTOFF_HOURS,
+            'earliest_start_date' => null,
         ];
     }
 }

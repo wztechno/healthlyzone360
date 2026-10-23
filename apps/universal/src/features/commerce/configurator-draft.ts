@@ -1,10 +1,5 @@
-import { PLAN_DURATIONS } from '@healthy360/domain-types';
-import type {
-    AllergenCode,
-    DietClassification,
-    MealId,
-    PlanDuration,
-} from '@healthy360/domain-types';
+import { isPlanDuration } from '@healthy360/domain-types';
+import type { MealId } from '@healthy360/domain-types';
 
 import { withQuery } from '../../navigation/return-to.ts';
 import { createSessionDraftStore } from '../../navigation/session-draft.ts';
@@ -25,10 +20,9 @@ import type { ConfiguratorState, ConfiguratorStep } from './configurator.ts';
  *   has to carry — the address editor comes back with `?address=<new id>` patched in, and the step
  *   is what makes Back walk Review → Delivery → Plan.
  * - **In a session draft** ({@link configuratorDrafts}): everything else the person changed — the
- *   length, the days, the start, the window, diet and allergies, the first week's meals. That is
- *   too many fields for a URL and some of it (what somebody cannot eat) does not belong in one. It
- *   is keyed by plan, survives a refresh and a detour in this tab, expires after two hours and is
- *   cleared once the subscription exists, by "Start over", and on sign-out.
+ *   length, the days, the start, the window, the first week's meals. That is too many fields for a
+ *   URL. It is keyed by plan, survives a refresh and a detour in this tab, expires after two hours
+ *   and is cleared once the subscription exists, by "Start over", and on sign-out.
  * - **Nowhere**: the terms tick. It acknowledges the summary as it reads at that moment, and a person
  *   who left to change their address has a different summary to acknowledge when they come back.
  */
@@ -86,15 +80,7 @@ export function configuratorHref(location: ConfiguratorLocation): string {
 export type ConfiguratorEdits = Partial<
     Pick<
         ConfiguratorState,
-        | 'duration'
-        | 'startDate'
-        | 'deliveryWeekdays'
-        | 'slotCode'
-        | 'dietClassifications'
-        | 'excludeAllergens'
-        | 'selectedMealIds'
-        | 'checksAcknowledged'
-        | 'allergensTouched'
+        'duration' | 'startDate' | 'deliveryWeekdays' | 'slotCode' | 'selectedMealIds'
     >
 >;
 
@@ -103,11 +89,7 @@ const EDIT_KEYS = [
     'startDate',
     'deliveryWeekdays',
     'slotCode',
-    'dietClassifications',
-    'excludeAllergens',
     'selectedMealIds',
-    'checksAcknowledged',
-    'allergensTouched',
 ] as const satisfies readonly (keyof ConfiguratorEdits)[];
 
 /** The part of a step's change that belongs in the draft; the band, address and terms go elsewhere. */
@@ -138,9 +120,7 @@ export function parseConfiguratorEdits(raw: unknown): ConfiguratorEdits | null {
     } = {};
 
     const duration = value['duration'];
-    if (typeof duration === 'string' && (PLAN_DURATIONS as readonly string[]).includes(duration)) {
-        edits.duration = duration as PlanDuration;
-    }
+    if (typeof duration === 'string' && isPlanDuration(duration)) edits.duration = duration;
     if (typeof value['startDate'] === 'string') edits.startDate = value['startDate'];
     const weekdays = value['deliveryWeekdays'];
     if (
@@ -150,18 +130,8 @@ export function parseConfiguratorEdits(raw: unknown): ConfiguratorEdits | null {
         edits.deliveryWeekdays = [...(weekdays as number[])];
     }
     if (typeof value['slotCode'] === 'string') edits.slotCode = value['slotCode'];
-    const diets = stringList(value['dietClassifications']);
-    if (diets !== null) edits.dietClassifications = diets as DietClassification[];
-    const allergens = stringList(value['excludeAllergens']);
-    if (allergens !== null) edits.excludeAllergens = allergens as AllergenCode[];
     const meals = stringList(value['selectedMealIds']);
     if (meals !== null) edits.selectedMealIds = meals as MealId[];
-    if (typeof value['checksAcknowledged'] === 'boolean') {
-        edits.checksAcknowledged = value['checksAcknowledged'];
-    }
-    if (typeof value['allergensTouched'] === 'boolean') {
-        edits.allergensTouched = value['allergensTouched'];
-    }
     return edits;
 }
 

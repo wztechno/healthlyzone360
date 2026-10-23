@@ -276,8 +276,14 @@ final readonly class CatalogueItemService
 
             // `name_ar` keeps the empty string it was given: unlike a
             // description, "" is the meaningful "not yet translated" state
-            // that the publish gate reads.
-            if ($value === '' && $field !== 'name_ar') {
+            // that the publish gate reads. A null is the same state — the
+            // framework turns a blank field into one before it arrives — and
+            // the column is NOT NULL, so it becomes "" here as it does on
+            // create rather than a 500 from the constraint. `name_en` keeps
+            // its "" too, for the refusal below to see.
+            if ($field === 'name_ar') {
+                $value ??= '';
+            } elseif ($value === '' && $field !== 'name_en') {
                 $value = null;
             }
 

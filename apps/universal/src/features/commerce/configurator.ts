@@ -1,20 +1,14 @@
 import type {
     CustomerAddress,
+    PlanDurationOption,
     PlanVariant,
     SetSubscriptionMealChoicesRequest,
     SubscriptionConfiguration,
     SubscriptionPlan,
 } from '@healthy360/api-client/contracts';
-import { AllergenCode, PLAN_DURATION_WEEKS } from '@healthy360/domain-types';
-import type {
-    DietClassification,
-    MealId,
-    Money,
-    PlanDuration,
-    PlanVariantId,
-} from '@healthy360/domain-types';
-import type { NutritionConstraint } from '@healthy360/nutrition';
+import type { MealId, Money, PlanDuration, PlanVariantId } from '@healthy360/domain-types';
 
+import { balanceTotal } from '../catalogue/plan-balance.ts';
 import { EMPTY_ADDRESS } from './address.ts';
 import type { AddressValues } from './address.ts';
 import type { DeliveryAreaStatus } from './delivery.ts';
@@ -32,15 +26,15 @@ import { deliveryDatesFor, isIsoDate, isoWeekday } from './dates.ts';
  *
  * Doc 11, `SUB-01`/`SUB-03` record the reference product's whole pre-purchase configuration as
  * three decisions, and doc 17, `SUB-01` endorses keeping configuration short. So: `plan` (band,
- * meals, length), `delivery` (days, start, window, address, diet and allergies) and `review` (the
- * server's price, optional first-week meals, the terms).
+ * meals, length), `delivery` (days, start, window, address) and `review` (the server's price,
+ * optional first-week meals, the terms).
  *
  * Doc 17, `SUB-02`'s two dispositive questions — does the kitchen deliver here, and what must be
- * left out — are still settled before anything is created: both live in `delivery`, an unserved
- * area is a hard stop, and dropping an allergy the profile records has to be acknowledged. What
- * changed is the price: it is shown from the first step, estimated on the client, and replaced by
- * the server's own figures on `review`. Hiding it until step seven of eight cost more than it
- * protected.
+ * left out — are still settled before anything is created. The first lives in `delivery`, and an
+ * unserved area is a hard stop. The second is answered by the person's dietary profile, which is
+ * what generation actually reads: the steps show which of the plan's dishes cross it and where to
+ * change it, rather than collecting a second list that went nowhere. The price is shown from the
+ * first step, estimated on the client, and replaced by the server's own figures on `review`.
  *
  * ## Combination and band are not independent, and the interface says so
  *
@@ -174,41 +168,29 @@ export function variantForCombination(
 
 /* ── pricing ─────────────────────────────────────────────────────────────────────────────────── */
 
+/** The duration option a state names, or `undefined` when the plan no longer offers it. */
+export function durationOption(
+    plan: SubscriptionPlan,
+    duration: PlanDuration | null,
+): PlanDurationOption | undefined {
+    if (duration === null) return undefined;
+    return plan.durations.find((option) => option.duration === duration);
+}
+
 /**
- * The discounted total for a duration, in integer minor units.
- *
- * The same arithmetic the repository performs, deliberately duplicated so the summary can show a
- * total from the first step without a round trip per choice — and so a divergence between the two
- * is a failing test rather than a number that quietly disagrees with the invoice. `previewSubscription`
- * remains the authority; `review` shows *its* figures, not these.
+ * The estimated total for a variant over a duration: the server's own figure when it states one,
+ * else the discounted per-day price × the days, rounded the way `SubscriptionPricing` rounds
+ * (`balanceTotal`). Shown from the first step without a round trip per choice; `previewSubscription`
+ * remains the authority and `review` shows *its* figures, not these.
  */
-export function discountedTotalMinorUnits(
-    weeklyMinorUnits: number,
-    weeks: number,
-    discountPercent: number,
-): number {
-    const gross = weeklyMinorUnits * weeks;
-    return Math.round((gross * (100 - discountPercent)) / 100);
-}
-
-export function grossMinorUnits(weeklyMinorUnits: number, weeks: number): number {
-    return weeklyMinorUnits * weeks;
-}
-
-/** What the duration discount is worth, in minor units. Zero when the duration earns none. */
-export function savingMinorUnits(
-    weeklyMinorUnits: number,
-    weeks: number,
-    discountPercent: number,
-): number {
-    return (
-        grossMinorUnits(weeklyMinorUnits, weeks) -
-        discountedTotalMinorUnits(weeklyMinorUnits, weeks, discountPercent)
-    );
-}
-
-export function weeksFor(duration: PlanDuration): number {
-    return PLAN_DURATION_WEEKS[duration];
+export function estimatedTotal(
+    variant: PlanVariant | null,
+    option: PlanDurationOption | undefined,
+): Money | null {
+    if (option === undefined) return null;
+    if (option.totalPrice !== null) return option.totalPrice;
+    if (variant === null) return null;
+    return balanceTotal(variant, option);
 }
 
 /**
@@ -228,71 +210,12 @@ export function perDeliveryPrice(total: Money, deliveryCount: number): Money | n
     return { amount: Math.round(total.amount / deliveryCount), currency: total.currency };
 }
 
-/* ── dietary preferences and the allergy change ──────────────────────────────────────────────── */
-
-/** The allergen codes a person's stored constraints already exclude. */
-export function storedAllergenCodes(
-    constraints: readonly NutritionConstraint[] | undefined,
-): readonly AllergenCode[] {
-    const codes = (constraints ?? [])
-        .filter((constraint) => constraint.kind === 'allergy')
-        .map((constraint) => AllergenCode.safeParse(constraint.code))
-        .filter((code): code is AllergenCode => code !== null);
-    return [...new Set(codes)];
-}
-
-/** The diet classifications a person's stored preferences already record. */
-export function storedDietClassifications(
-    constraints: readonly NutritionConstraint[] | undefined,
-    available: readonly DietClassification[],
-): readonly DietClassification[] {
-    const preferred = new Set(
-        (constraints ?? [])
-            .filter((constraint) => constraint.kind === 'preference')
-            .map((constraint) => constraint.code),
-    );
-    return available.filter((diet) => preferred.has(diet));
-}
-
-export interface AllergenChange {
-    /** Newly excluded here — a tightening, and safe. */
-    readonly added: readonly AllergenCode[];
-    /** Excluded in the stored profile but **not** in this subscription — a relaxation, and not safe. */
-    readonly removed: readonly AllergenCode[];
-    readonly changed: boolean;
-    /** True when at least one stored allergy has been dropped. Drives the safety callout. */
-    readonly relaxed: boolean;
-}
-
-/**
- * How this subscription's allergen exclusions differ from the person's stored profile.
- *
- * The asymmetry is the point. Adding an exclusion narrows what a kitchen may send and needs no
- * ceremony. **Removing** one widens it — the person is telling the product to stop filtering for
- * something they previously recorded as an allergy — and that is a safety decision, so it raises a
- * warning and has to be acknowledged before the flow continues.
- */
-export function diffAllergens(
-    stored: readonly AllergenCode[],
-    chosen: readonly AllergenCode[],
-): AllergenChange {
-    const storedSet = new Set<string>(stored);
-    const chosenSet = new Set<string>(chosen);
-    const added = chosen.filter((code) => !storedSet.has(code));
-    const removed = stored.filter((code) => !chosenSet.has(code));
-    return {
-        added,
-        removed,
-        changed: added.length > 0 || removed.length > 0,
-        relaxed: removed.length > 0,
-    };
-}
-
 /* ── the state ───────────────────────────────────────────────────────────────────────────────── */
 
 export interface ConfiguratorState {
     readonly variantId: PlanVariantId | null;
-    readonly duration: PlanDuration;
+    /** `null` when the plan offers no length this storefront can sell; the plan step says so. */
+    readonly duration: PlanDuration | null;
     readonly startDate: string | null;
     readonly deliveryWeekdays: readonly number[];
     readonly slotCode: string;
@@ -302,18 +225,9 @@ export interface ConfiguratorState {
      * a saved address's identifier and nothing else (D-084).
      */
     readonly address: AddressValues;
-    readonly dietClassifications: readonly DietClassification[];
-    readonly excludeAllergens: readonly AllergenCode[];
     readonly selectedMealIds: readonly MealId[];
-    /**
-     * Ticked by a person who drops an allergy their profile records. Only asked — and only
-     * required — when that has happened.
-     */
-    readonly checksAcknowledged: boolean;
     /** The terms summary on the confirm step. `createSubscription` rejects without it. */
     readonly termsAcknowledged: boolean;
-    /** Set once the person edits the allergen set, so a no-op visit does not raise the callout. */
-    readonly allergensTouched: boolean;
 }
 
 export interface InitialStateOptions {
@@ -321,34 +235,22 @@ export interface InitialStateOptions {
     readonly variantId?: PlanVariantId | null | undefined;
     readonly startDate: string;
     readonly allowedWeekdays?: readonly number[] | undefined;
-    readonly storedAllergens?: readonly AllergenCode[] | undefined;
-    readonly storedDiets?: readonly DietClassification[] | undefined;
 }
 
-/**
- * The state a freshly opened configurator starts in.
- *
- * Pre-filled from the person's stored restrictions rather than blank. A subscription form that asks
- * somebody with a recorded peanut allergy to remember to declare it again is a form that will
- * eventually be filled in wrongly by somebody tired.
- */
+/** The state a freshly opened configurator starts in: the advertised band, the shortest length. */
 export function initialConfiguratorState(options: InitialStateOptions): ConfiguratorState {
     const variant =
         variantById(options.plan, options.variantId ?? null) ?? defaultVariant(options.plan);
     const allowed = options.allowedWeekdays ?? [];
     return {
         variantId: variant?.id ?? null,
-        duration: options.plan.durations[0]?.duration ?? '4w',
+        duration: options.plan.durations[0]?.duration ?? null,
         startDate: options.startDate,
         deliveryWeekdays: [...allowed],
         slotCode: DEFAULT_SLOT_CODE,
         address: EMPTY_ADDRESS,
-        dietClassifications: [...(options.storedDiets ?? [])],
-        excludeAllergens: [...(options.storedAllergens ?? [])],
         selectedMealIds: [],
-        checksAcknowledged: false,
         termsAcknowledged: false,
-        allergensTouched: false,
     };
 }
 
@@ -370,9 +272,8 @@ export interface StepContext {
      * The step now offers "Add a delivery address", which saves one and comes back with it chosen.
      */
     readonly hasSavedAddress: boolean;
+    /** Tomorrow, or later when the plan's change cut-off reaches past it (`earliestStartDate`). */
     readonly earliestStartDate: string;
-    /** The allergies the profile records; dropping one must be acknowledged. */
-    readonly storedAllergens: readonly AllergenCode[];
     readonly translate: (key: string) => string;
 }
 
@@ -388,9 +289,9 @@ export function validateConfiguratorStep(
         case 'plan':
             return [
                 ...(state.variantId === null ? ['commerce:configurator.issues.variant'] : []),
-                ...(context.plan.durations.some((option) => option.duration === state.duration)
-                    ? []
-                    : ['commerce:configurator.issues.duration']),
+                ...(durationOption(context.plan, state.duration) === undefined
+                    ? ['commerce:configurator.issues.duration']
+                    : []),
             ];
 
         case 'delivery':
@@ -411,8 +312,11 @@ function deliveryIssues(state: ConfiguratorState, context: StepContext): StepIss
         if (state.startDate < context.earliestStartDate) {
             issues.push('commerce:configurator.issues.startTooSoon');
         }
+        // The first delivery is the start, so it has to fall on one of the chosen days — the
+        // purchase refuses a start it would otherwise have to move.
         const weekday = isoWeekday(state.startDate);
-        if (allowed !== null && weekday !== null && !allowed.includes(weekday)) {
+        const days = state.deliveryWeekdays.length > 0 ? state.deliveryWeekdays : allowed;
+        if (days !== null && weekday !== null && !days.includes(weekday)) {
             issues.push('commerce:configurator.issues.startWeekday');
         }
     }
@@ -427,17 +331,10 @@ function deliveryIssues(state: ConfiguratorState, context: StepContext): StepIss
 
     if (!context.hasSavedAddress) issues.push('commerce:configurator.issues.address');
 
-    // The two SUB-02 checks. `unserved` is a hard stop: there is no acknowledgement that makes a
+    // SUB-02's delivery check. `unserved` is a hard stop: there is no acknowledgement that makes a
     // kitchen deliver somewhere it does not deliver, and offering one would sell an unfulfillable
-    // subscription — the exact outcome doc 11 §3 warns about. A dropped allergy is allowed, but
-    // only once somebody has said they meant it.
+    // subscription — the exact outcome doc 11 §3 warns about.
     if (context.areaStatus === 'unserved') issues.push('commerce:configurator.issues.areaUnserved');
-    if (
-        diffAllergens(context.storedAllergens, state.excludeAllergens).relaxed &&
-        !state.checksAcknowledged
-    ) {
-        issues.push('commerce:configurator.issues.checks');
-    }
 
     return issues;
 }
@@ -500,7 +397,7 @@ export function toConfiguration(
     plan: SubscriptionPlan,
     toAddress: (values: AddressValues) => SubscriptionConfiguration['address'],
 ): SubscriptionConfiguration | null {
-    if (state.variantId === null) return null;
+    if (state.variantId === null || state.duration === null) return null;
     if (state.startDate === null || !isIsoDate(state.startDate)) return null;
     if (state.deliveryWeekdays.length === 0) return null;
 
@@ -512,8 +409,6 @@ export function toConfiguration(
         deliveryWeekdays: [...state.deliveryWeekdays].sort((left, right) => left - right),
         slotCode: state.slotCode,
         address: toAddress(state.address),
-        dietClassifications: [...state.dietClassifications],
-        excludeAllergens: [...state.excludeAllergens],
         selectedMealIds: [...state.selectedMealIds],
     };
 }
@@ -522,11 +417,15 @@ export function toConfiguration(
  * The delivery days the current configuration produces, for the summary and the first-week meals.
  *
  * Derived from the same rule the repository applies, so the sample week a person chooses meals for
- * is the week they will actually receive.
+ * is the week they will actually receive. Empty until the plan offers the chosen length.
  */
-export function configuredDeliveryDates(state: ConfiguratorState): readonly string[] {
-    if (state.startDate === null) return [];
-    return deliveryDatesFor(state.startDate, state.deliveryWeekdays, weeksFor(state.duration));
+export function configuredDeliveryDates(
+    state: ConfiguratorState,
+    plan: SubscriptionPlan,
+): readonly string[] {
+    const option = durationOption(plan, state.duration);
+    if (state.startDate === null || option === undefined) return [];
+    return deliveryDatesFor(state.startDate, state.deliveryWeekdays, option.days);
 }
 
 /** How many delivery days the first-week picker covers: one week, the rotation the kitchen publishes. */
@@ -553,11 +452,12 @@ export function firstWeekChoiceSlot(variant: PlanVariant | null): string {
  */
 export function firstWeekChoices(
     state: ConfiguratorState,
+    plan: SubscriptionPlan,
     variant: PlanVariant | null,
 ): readonly SetSubscriptionMealChoicesRequest[] {
     if (state.selectedMealIds.length === 0) return [];
     const slot = firstWeekChoiceSlot(variant);
-    return configuredDeliveryDates(state)
+    return configuredDeliveryDates(state, plan)
         .slice(0, FIRST_WEEK_DAYS)
         .flatMap((date, index) => {
             const mealId = state.selectedMealIds[index];

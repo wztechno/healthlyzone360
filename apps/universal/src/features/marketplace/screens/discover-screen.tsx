@@ -8,6 +8,8 @@ import { useSubscriptionsQuery } from '../../../data/marketplace-hooks.ts';
 import { pathnameOf } from '../../../navigation/return-to.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { useSession } from '../../../session/session-provider.tsx';
+import { subscriptionDayPrice } from '../../catalogue/plan-balance.ts';
+import { isLiveSubscription } from '../../catalogue/plan-subscriber-panel.tsx';
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { formatMoney } from '../format.ts';
 import { HomeHero, HomeSections } from '../home/home-sections.tsx';
@@ -77,10 +79,10 @@ export function DiscoverScreen() {
     const recorded = useResumeIntent();
     const resume = recorded !== null && pathnameOf(recorded.href) !== pathname ? recorded : null;
 
+    // The plan the person is on — live, not merely "not cancelled", which also matched a
+    // subscription that had run its full length.
     const activeSubscription = signedIn
-        ? (subscriptions.data?.items ?? []).find(
-              (subscription) => subscription.state !== 'cancelled',
-          )
+        ? (subscriptions.data?.items ?? []).find(isLiveSubscription)
         : undefined;
 
     const nextDelivery =
@@ -106,8 +108,8 @@ export function DiscoverScreen() {
                           : t('marketplace:consumer.subscription.nextDelivery', {
                                 date: nextDelivery,
                             })
-                  } · ${t('marketplace:consumer.subscription.weeklyPrice', {
-                      price: formatMoney(formatter, activeSubscription.weeklyPrice),
+                  } · ${t('marketplace:consumer.subscription.dayPrice', {
+                      price: formatMoney(formatter, subscriptionDayPrice(activeSubscription)),
                   })}`,
                   action: {
                       testID: 'discover-subscription-manage',

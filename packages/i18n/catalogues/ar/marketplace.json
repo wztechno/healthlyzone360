@@ -95,12 +95,7 @@
         "cardRatingLabel": "تقييم {{meal}} هو {{value}} من 5",
         "notRated": "لم يُقيَّم بعد",
         "addLabel": "أضف {{meal}} إلى السلة",
-        "offerTitle_zero": "الخطط الأسبوعية: خصم حتى {{percent}}٪",
-        "offerTitle_one": "الخطط الأسبوعية: خصم حتى {{percent}}٪ على اشتراك أسبوع واحد",
-        "offerTitle_two": "الخطط الأسبوعية: خصم حتى {{percent}}٪ على اشتراك أسبوعين",
-        "offerTitle_few": "الخطط الأسبوعية: خصم حتى {{percent}}٪ على اشتراك {{count}} أسابيع",
-        "offerTitle_many": "الخطط الأسبوعية: خصم حتى {{percent}}٪ على اشتراك {{count}} أسبوعًا",
-        "offerTitle_other": "الخطط الأسبوعية: خصم حتى {{percent}}٪ على اشتراك {{count}} أسبوع",
+        "offerTitle": "خطط الوجبات: خصم حتى {{percent}}٪ عند اختيار {{run}} أو أكثر",
         "offerFallbackEyebrow": "الخطط الأسبوعية",
         "offerFallbackTitle": "ابنِ أسبوعك من مطابخ المتجر",
         "offerFallbackBody": "املأ أسبوعك من أي مطبخ في المتجر. كل طبق يحمل طاقته وبروتينه، فيكتمل حساب الأسبوع قبل أن تطلب.",
@@ -363,7 +358,7 @@
         "subscription": {
             "nextDelivery": "التوصيل التالي {{date}}",
             "noNextDelivery": "لا يوجد توصيل مجدول",
-            "weeklyPrice": "{{price}} أسبوعيًا",
+            "dayPrice": "{{price}} يوميًا",
             "manage": "إدارة الاشتراك",
             "eyebrow": "اشتراكك · {{state}}"
         }

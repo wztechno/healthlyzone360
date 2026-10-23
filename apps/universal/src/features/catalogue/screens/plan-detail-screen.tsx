@@ -27,18 +27,21 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { mealsFromPages, useMealsQuery, usePlanQuery } from '../../../data/catalogue-hooks.ts';
-import { discountedTotalMinorUnits, weeksFor } from '../../commerce/configurator.ts';
+import { estimatedTotal } from '../../commerce/configurator.ts';
 import { configuratorHref } from '../../commerce/configurator-draft.ts';
 import { variantName } from '../../commerce/configurator-steps.tsx';
+import { PlanAllergyNotice } from '../../commerce/my-allergens.tsx';
 import { useKitchenQuery, useSubscriptionsQuery } from '../../../data/marketplace-hooks.ts';
 import { withQuery } from '../../../navigation/return-to.ts';
-import { useGoToAuth, useNavigateUp } from '../../../navigation/use-return-to.ts';
+import { useCurrentHref, useGoToAuth, useNavigateUp } from '../../../navigation/use-return-to.ts';
 import { useSession } from '../../../session/session-provider.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { recordResumeIntent } from '../../marketplace/resume-intent.ts';
 import { CardGrid, CardGridItem } from '../../marketplace/section-header.tsx';
 import { MealCard } from '../../marketplace/meal-card.tsx';
+import { listDayPrice } from '../plan-balance.ts';
+import { durationWithBalance } from '../plan-duration-label.ts';
 import { isLiveSubscription } from '../plan-subscriber-panel.tsx';
 
 /**
@@ -82,6 +85,18 @@ import { isLiveSubscription } from '../plan-subscriber-panel.tsx';
  * same action the plan's card on `/plans` offers — and setting up a second one only after it
  * (plans-12).
  *
+ * ## The price is a day, and a run
+ *
+ * The headline is the per-day price, because a plan is a balance of delivery days and that is the
+ * figure captured at purchase. Under it, the shortest run at its total. It used to headline "a
+ * week" — seven times the daily price — on plans that sold five-day runs (plans-20).
+ *
+ * ## Allergies, before anybody subscribes
+ *
+ * A signed-in reader sees their allergy list against the plan's sample week: which dishes cross
+ * it, and the way to change the list. The kitchen reads that list at generation, so this is the
+ * question "can I eat this plan?" answered where it is asked.
+ *
  * ## The band is in the URL
  *
  * `?variant=`, written with `setParams`, so the band survives the kitchen link and Back, a refresh,
@@ -93,8 +108,6 @@ import { isLiveSubscription } from '../plan-subscriber-panel.tsx';
 export interface PlanDetailScreenProps {
     readonly planId: string | undefined;
 }
-
-const DAYS_PER_WEEK = 7;
 
 /** The page's reading width: the content column and the price card beside it, and no wider. */
 const PAGE_MAX_WIDTH = 1080;
@@ -118,6 +131,7 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
     const router = useRouter();
     const navigateUp = useNavigateUp();
     const goToAuth = useGoToAuth();
+    const here = useCurrentHref();
     const formatter = useFormatter();
     // Read from the session's phase, not from `me`: `me` is also null while a stored session is
     // still being restored, and that is not the same as being signed out.
@@ -195,20 +209,13 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
             ? 1
             : Math.max(1, ...macroRanges(selected).map((entry) => entry.range?.max ?? 0));
 
-    const durationTotal = (option: SubscriptionPlan['durations'][number]) =>
-        formatMoney(
-            formatter,
-            // The server states one figure only when every configuration agrees; otherwise the
-            // total is the selected variant's, derived from numbers the kitchen did quote.
-            option.totalPrice ?? {
-                amount: discountedTotalMinorUnits(
-                    selected?.pricePerWeek.amount ?? 0,
-                    weeksFor(option.duration),
-                    option.discountPercent,
-                ),
-                currency: selected?.pricePerWeek.currency ?? 'USD',
-            },
-        );
+    // The server states one figure only when every configuration agrees; otherwise the total is
+    // the selected variant's, derived from numbers the kitchen did quote.
+    const durationTotal = (option: SubscriptionPlan['durations'][number]) => {
+        const total = estimatedTotal(selected ?? null, option);
+        return total === null ? null : formatMoney(formatter, total);
+    };
+    const shortestRun = item?.durations[0];
 
     return (
         // Held to a reading width and centred, breadcrumbs included, so the page does not run the
@@ -461,7 +468,13 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                     title={t('catalogue:plan.durationsTitle')}
                                 >
                                     {/* One hairline row per length: the length, its total, and
-                                        what the commitment earns, read across like a price list. */}
+                                        what the commitment earns, read across like a price list.
+                                        A plan with no length on sale says so instead. */}
+                                    {item.durations.length === 0 ? (
+                                        <Text testID="plan-detail-durations-none" tone="secondary">
+                                            {t('catalogue:plan.noDurations')}
+                                        </Text>
+                                    ) : null}
                                     <View className="flex-col">
                                         {item.durations.map((option, index) => (
                                             <View
@@ -477,13 +490,15 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                                     variant="bodyStrong"
                                                     className="min-w-0 flex-1"
                                                 >
-                                                    {t(
-                                                        `catalogue:compare.duration.${option.duration}`,
+                                                    {durationWithBalance(
+                                                        option.days,
+                                                        t,
+                                                        formatter.formatNumber,
                                                     )}
                                                 </Text>
                                                 <Text className="tabular-nums">
                                                     {t('catalogue:plan.durationTotal', {
-                                                        total: durationTotal(option),
+                                                        total: durationTotal(option) ?? '—',
                                                     })}
                                                 </Text>
                                                 <Badge
@@ -506,6 +521,23 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                         ))}
                                     </View>
                                 </Card>
+
+                                {/* A signed-in reader's allergy list against the plan's dishes. */}
+                                {signedIn ? (
+                                    <Card
+                                        testID="plan-detail-allergies"
+                                        tone="raised"
+                                        padding="md"
+                                        title={t('commerce:configurator.delivery.allergensTitle')}
+                                    >
+                                        <PlanAllergyNotice
+                                            testID="plan-detail-allergy-notice"
+                                            meals={sampleMeals}
+                                            checked={kitchenMeals.isFetched}
+                                            returnTo={here}
+                                        />
+                                    </Card>
+                                ) : null}
 
                                 {/* Only once the plan's dishes have loaded: a card that says a sample is
                                     not published tells the reader nothing they can act on. */}
@@ -554,23 +586,24 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                                 variant="display"
                                                 className="tabular-nums"
                                             >
-                                                {t('catalogue:plan.pricePerWeek', {
+                                                {t('catalogue:plan.pricePerDay', {
                                                     price: formatMoney(
                                                         formatter,
-                                                        selected.pricePerWeek,
+                                                        listDayPrice(selected),
                                                     ),
                                                 })}
                                             </Text>
-                                            <Text tone="secondary">
-                                                {t('catalogue:plan.pricePerDay', {
-                                                    price: formatMoney(formatter, {
-                                                        amount: Math.round(
-                                                            selected.pricePerWeek.amount /
-                                                                DAYS_PER_WEEK,
-                                                        ),
-                                                        currency: selected.pricePerWeek.currency,
-                                                    }),
-                                                })}
+                                            <Text testID="plan-detail-price-run" tone="secondary">
+                                                {shortestRun === undefined
+                                                    ? t('catalogue:plan.noDurations')
+                                                    : t('catalogue:plan.priceForRun', {
+                                                          run: durationWithBalance(
+                                                              shortestRun.days,
+                                                              t,
+                                                              formatter.formatNumber,
+                                                          ),
+                                                          price: durationTotal(shortestRun) ?? '—',
+                                                      })}
                                             </Text>
                                             <Text tone="secondary" variant="caption">
                                                 {t('catalogue:plan.variantLabel', {

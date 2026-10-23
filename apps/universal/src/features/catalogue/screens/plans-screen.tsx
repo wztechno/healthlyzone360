@@ -107,9 +107,11 @@ export function PlansScreen() {
     const items = plans.data?.items ?? [];
 
     // Only asked for a signed-in person: the list is theirs, and an anonymous request is a 401.
+    // Every live one, not the newest: a person holding two plans sees both marked and both
+    // summarised, rather than the older one vanishing from a page that lists it (plans-21).
     const subscriptions = useSubscriptionsQuery(me !== null);
-    const liveSubscription = useMemo<Subscription | undefined>(
-        () => (subscriptions.data?.items ?? []).find(isLiveSubscription),
+    const liveSubscriptions = useMemo<readonly Subscription[]>(
+        () => (subscriptions.data?.items ?? []).filter(isLiveSubscription),
         [subscriptions.data],
     );
     const openSubscription = useCallback(
@@ -223,22 +225,23 @@ export function PlansScreen() {
                     <PlanGrid testID="plans-grid">
                         {items.map((plan) => {
                             const isSelected = compared.includes(String(plan.id));
-                            const isCurrent =
-                                liveSubscription !== undefined &&
-                                String(liveSubscription.configuration.planId) === String(plan.id);
+                            const held = liveSubscriptions.find(
+                                (subscription) =>
+                                    String(subscription.configuration.planId) === String(plan.id),
+                            );
                             return (
                                 <PlanGridItem key={plan.id}>
                                     <PlanCard
                                         plan={plan}
                                         kitchenName={kitchenNameById.get(String(plan.kitchenId))}
                                         current={
-                                            isCurrent
-                                                ? {
+                                            held === undefined
+                                                ? undefined
+                                                : {
                                                       onManage: () => {
-                                                          openSubscription(liveSubscription);
+                                                          openSubscription(held);
                                                       },
                                                   }
-                                                : undefined
                                         }
                                         onOpen={() => {
                                             router.push(`/plans/${String(plan.id)}` as never);
@@ -260,11 +263,11 @@ export function PlansScreen() {
                 </QueryStates>
             </View>
 
-            {liveSubscription === undefined ? null : (
-                <View className="mt-6">
-                    <PlanSubscriberPanel subscription={liveSubscription} />
+            {liveSubscriptions.map((subscription) => (
+                <View key={subscription.id} className="mt-6">
+                    <PlanSubscriberPanel subscription={subscription} />
                 </View>
-            )}
+            ))}
 
             {/* Sticky on the web against the shell's scroll port, so the bar stays in reach while
                 the cards scroll under it. The wrapper sticks, not the bar: a sticky box sticks

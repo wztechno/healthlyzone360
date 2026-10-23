@@ -63,20 +63,34 @@ export function todayIso(now: Date = new Date()): string {
     return `${year}-${month}-${day}`;
 }
 
+const MILLISECONDS_PER_HOUR = 3_600_000;
+
 /**
  * The earliest day a subscription may start.
  *
- * Tomorrow, never today: a kitchen that has already started cooking today's deliveries cannot add
- * one, and offering a start date the operation cannot honour is the interface promising on the
- * kitchen's behalf.
+ * Tomorrow at the soonest, never today: a kitchen that has already started cooking today's
+ * deliveries cannot add one, and offering a start date the operation cannot honour is the
+ * interface promising on the kitchen's behalf.
+ *
+ * `cutoffHours` is the plan's own change cut-off: the kitchen locks a delivery that many hours
+ * before its day begins, so the first open day is the one *after* the day the cut-off lands on —
+ * a 24-hour cut-off at 23:00 on Thursday locks Friday, and the first start is Saturday. This is
+ * only the stand-in shown until the quote's own `earliestStartDate` arrives; the server's walk is
+ * the one a purchase is held to.
  */
-export function earliestStartDate(now: Date = new Date()): string {
-    return addDays(todayIso(now), 1) ?? todayIso(now);
+export function earliestStartDate(now: Date = new Date(), cutoffHours = 0): string {
+    const tomorrow = addDays(todayIso(now), 1) ?? todayIso(now);
+    if (cutoffHours <= 0) return tomorrow;
+    const cutoffDay = todayIso(new Date(now.getTime() + cutoffHours * MILLISECONDS_PER_HOUR));
+    const afterCutoff = addDays(cutoffDay, 1) ?? cutoffDay;
+    return afterCutoff > tomorrow ? afterCutoff : tomorrow;
 }
 
 /**
- * The delivery dates a configuration produces, mirroring the repository's own rule: every day from
- * the start date across `weeks` whole weeks whose weekday is in the delivery set.
+ * The delivery dates a balance of `days` deliveries lands on, mirroring the repository's own
+ * rule: from the start date, every day whose weekday is in the delivery set, until the balance is
+ * spent. A balance is a count of deliveries rather than a calendar range (S1 semantics §1), so a
+ * 28-day run on three weekdays reaches nine weeks ahead rather than stopping after four.
  *
  * It is derived here as well as server-side because the interface has to show a person which days
  * they have chosen *before* it asks for a priced preview — and a preview that arrives after the
@@ -85,11 +99,11 @@ export function earliestStartDate(now: Date = new Date()): string {
 export function deliveryDatesFor(
     startDate: string,
     weekdays: readonly number[],
-    weeks: number,
+    days: number,
 ): readonly string[] {
-    if (!isIsoDate(startDate) || weekdays.length === 0 || weeks <= 0) return [];
+    if (!isIsoDate(startDate) || weekdays.length === 0 || days <= 0) return [];
     const dates: string[] = [];
-    for (let offset = 0; offset < weeks * DAYS_PER_WEEK; offset += 1) {
+    for (let offset = 0; dates.length < days && offset < days * DAYS_PER_WEEK; offset += 1) {
         const date = addDays(startDate, offset);
         if (date === null) break;
         const weekday = isoWeekday(date);
