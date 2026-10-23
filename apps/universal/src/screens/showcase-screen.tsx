@@ -2051,6 +2051,33 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         value={null}
                         onChange={() => undefined}
                     />
+                    {/*
+                     * An action-picker: no value, the placeholder always showing, and an action
+                     * under "No option matches" — the recipe line table's "Add “…” as new".
+                     */}
+                    <Select
+                        testID={id('select-no-results-action')}
+                        id={id('select-no-results-action')}
+                        label="Add an ingredient"
+                        labelHidden
+                        placeholder="Add an ingredient…"
+                        searchable
+                        options={[
+                            { value: 'burghul', label: 'Burghul', description: 'Grains · kg' },
+                            { value: 'sumac', label: 'Sumac', description: 'Spices · g' },
+                        ]}
+                        value={null}
+                        onChange={() => undefined}
+                        noResultsAction={(typed, close) => (
+                            <Button
+                                testID={id('select-no-results-action-add')}
+                                size="sm"
+                                variant="secondary"
+                                label={`Add “${typed}” as new`}
+                                onPress={close}
+                            />
+                        )}
+                    />
                 </FormGrid>
             </Stack>
 

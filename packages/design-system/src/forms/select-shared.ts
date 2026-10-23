@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import type { GridSpanProps } from '../primitives/grid-shared.ts';
 import type { InputSize } from './text-input.tsx';
 
@@ -55,6 +57,12 @@ export interface SelectProps<T extends string = string> extends GridSpanProps {
      * matches", which read as a refusal for the half minute a slow list took to arrive.
      */
     readonly loading?: boolean | undefined;
+    /**
+     * Drawn under "No option matches" when a typed search empties a `searchable` list — the place for
+     * "Add “…” as new" when the options are a library the reader can add to. Gets the typed text and
+     * the panel's own close, so the action can hand off and get out of the way.
+     */
+    readonly noResultsAction?: ((query: string, close: () => void) => ReactNode) | undefined;
     /**
      * The frame's height step. Unset, it is the ladder's ordinary control — `sm` under the compact
      * ladder, `md` on the comfortable one. `xs` is the 24px cell step `TextInputField` already has,

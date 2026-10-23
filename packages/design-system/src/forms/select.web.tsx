@@ -79,6 +79,7 @@ export function Select<T extends string = string>({
     disabled = false,
     searchable = false,
     loading = false,
+    noResultsAction,
     size: sizeProp,
     id,
     className,
@@ -128,6 +129,12 @@ export function Select<T extends string = string>({
                 >
                     {t(loading ? 'designSystem:select.loading' : 'designSystem:select.noResults')}
                 </RNText>
+            )}
+
+            {visible.length > 0 || !filtering || loading || noResultsAction === undefined ? null : (
+                <View className="px-control-md pb-tight">
+                    {noResultsAction(query.trim(), close)}
+                </View>
             )}
 
             {visible.map((option: SelectOption<T>) => {

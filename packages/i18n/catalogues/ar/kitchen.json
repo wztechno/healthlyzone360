@@ -3365,6 +3365,7 @@
         "sheetColQuantityShort": "الكمية",
         "pickerSearching": "جارٍ البحث…",
         "quickAdd": "إضافة",
+        "quickAddNamed": "إضافة “{{name}}” كمكوّن جديد",
         "quickAddHint": "يُنشئ “{{name}}” مكوّنًا جديدًا ويضيفه إلى هذه الوصفة.",
         "quickAddExistingTitle": "“{{name}}” موجود مسبقًا في قائمة المكوّنات",
         "quickAddDuplicatesTitle": "وجد الذكاء الاصطناعي مكوّنات قد تكون نفسها “{{name}}”",

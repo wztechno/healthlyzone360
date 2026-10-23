@@ -7,26 +7,28 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { PACKAGING_CATEGORY_CODE } from '@healthy360/api-client/contracts';
 import {
+    Button,
     DataList,
     Icon,
     IconButton,
+    Select,
     Text,
     UNDROPPABLE_PRIORITY,
     growWeights,
     inputControlClass,
     inputFrameClassName,
 } from '@healthy360/design-system';
-import type { DataListColumn } from '@healthy360/design-system';
+import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { MeasureUnit } from '@healthy360/nutrition';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { TextInput, View } from 'react-native';
 
-import { ingredientsFromPages, useIngredientsQuery } from '../../data/kitchen-admin-hooks.ts';
+import { useIngredientWholeSetQuery } from '../../data/kitchen-admin-hooks.ts';
 import { displayName, formatMoney, humaniseCode, parseQuantity, unitShortKey } from './format.ts';
-import { IngredientQuickAdd } from './ingredient-quick-add.tsx';
+import { useIngredientQuickAdd } from './ingredient-quick-add.tsx';
 
 /**
  * One row of a recipe's line table, as typed.
@@ -107,16 +109,16 @@ export interface LineDraft {
  * only its title, its hint and its picker placeholder. Two copies would be two chances for the Qty
  * column to drift by a pixel.
  *
- * ## The picker is inline, and that is the design's whole point about it
+ * ## The picker is the admin's `Select searchable`
  *
- * "Type to add — the picker stays inline, no modal" is written on the section itself. A modal to add
- * a line to a nine-line sheet is nine modals, and the row a person is about to add is the one thing
- * they must be able to see the table while choosing. So: a 320px field that filters as you type, a
- * panel hanging under it, arrow keys and Enter to commit, Escape to close.
+ * "Type to add — the picker stays inline, no modal" is written on the section itself, and the web
+ * `Select` is that: a 320px field with a panel hanging under it and the filter box inside the panel —
+ * the control every other line editor in the admin adds rows with. It holds no value and always reads
+ * as its placeholder, because picking from it is an action: it adds a row.
  *
- * `Select searchable` was the alternative and is the wrong shape here. It is a *field* — labelled,
- * on the 280px grid track, holding one value — and this control holds none: it is an action that
- * happens to be spelled by typing. Picking from it adds a row and clears itself.
+ * It filters the catalogue half in hand (`useIngredientWholeSetQuery`) instead of asking the server
+ * per keystroke. The bespoke picker it replaced debounced a request per word and re-rendered a
+ * hundred rows per answer, which is what made typing in it lag.
  *
  * ## What each column can actually do
  *
@@ -221,7 +223,7 @@ export interface RecipeLineTableProps {
     readonly pickerPlaceholder: string;
     /**
      * Offers **Add** beside the picker when a typed name matches nothing (food only — see
-     * {@link IngredientQuickAdd}). Called once the new row exists and its line is on the table,
+     * {@link useIngredientQuickAdd}). Called once the new row exists and its line is on the table,
      * so the screen can say what was created and where to verify it.
      */
     readonly onIngredientCreated?:
@@ -231,25 +233,6 @@ export interface RecipeLineTableProps {
 
 /** What a server refusal of one row can be about. */
 export type LineColumn = 'line' | 'quantity' | 'comment';
-
-/** Long enough that typing "mayo" is one request, short enough to feel like typing. */
-const SEARCH_DEBOUNCE_MS = 250;
-
-/** Settles a fast-changing value, so a request follows a word rather than a keystroke. */
-function useDebounced<T>(value: T, delay: number): T {
-    const [settled, setSettled] = useState(value);
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setSettled(value);
-        }, delay);
-        return () => {
-            clearTimeout(timer);
-        };
-    }, [value, delay]);
-
-    return settled;
-}
 
 /**
  * An ingredient as the picker sees it.
@@ -326,67 +309,51 @@ export function RecipeLineTable({
     const { locale } = useLocale();
     const formatter = useFormatter();
 
-    const [query, setQuery] = useState('');
-    const [open, setOpen] = useState(false);
-    const [highlighted, setHighlighted] = useState(0);
-
     const byId = useMemo(() => {
         const map = new Map<string, PickerEntry>();
         for (const entry of ingredients) map.set(String(entry.id), entry);
         return map;
     }, [ingredients]);
 
-    /*
-     * The panel searches the *catalogue*, not the page in hand.
-     *
-     * This used to filter `ingredients` client-side, which meant it searched whichever hundred rows
-     * the listing happened to return first — `CursorPage::MAX_LIMIT` is 100 and the library is
-     * several hundred, so most of it could not be found by typing its name. The server has had a
-     * real search all along (`IngredientIndexController::applySearch`, over `name_en`, `name_ar` and
-     * the alias table), so the field asks it.
-     *
-     * The request is debounced and the term is sent only once it is worth sending; an empty field
-     * still lists the first page, which is what makes the panel useful before anything is typed.
-     */
-    const term = useDebounced(query.trim(), SEARCH_DEBOUNCE_MS);
-    /*
-     * No status filter.
-     *
-     * It used to ask for `published` only, which is `status=active` on the wire — and that quietly
-     * excluded every row the mapper calls anything else: the two inactive library rows, and any row
-     * a kitchen has flagged for review. A picker that cannot offer an ingredient the kitchen has
-     * marked "check this" is a picker that hides exactly the rows somebody is most likely to be
-     * looking for. Archived rows are already excluded by the endpoint's own default.
-     */
     const wantsIngredients = source === 'ingredients';
 
     /*
-     * One hook for both families, because they are one table again.
+     * The whole half of the catalogue the picker offers — every page, not the first hundred, so
+     * every row can be found by typing its name.
      *
-     * Packaging used to be read through `usePackagingPageQuery`, which is a *numbered page* of
-     * eighteen — so a catalogue of thirty-one boxes offered nineteen of them and the rest could not
-     * be found by typing their names. The two sides differ by one filter now: food excludes the
-     * packaging branch, packaging asks for it. The repository *refuses* an exclusion it cannot
-     * resolve rather than dropping it, so neither list can widen by accident.
-     *
-     * No `.slice` either. The panel scrolls; truncating the server's answer to eight hid matches
-     * that were already in hand.
+     * No status filter: a picker that cannot offer a row the kitchen has flagged for review hides
+     * exactly the row somebody is most likely to be looking for. Archived rows are already excluded
+     * by the endpoint's own default. Food excludes the packaging branch, packaging asks for it, and
+     * the repository refuses an exclusion it cannot resolve, so neither list can widen by accident.
      */
-    const search = useIngredientsQuery({
-        limit: 100,
-        ...(wantsIngredients
+    const catalogue = useIngredientWholeSetQuery(
+        wantsIngredients
             ? { excludeCategoryCode: PACKAGING_CATEGORY_CODE }
-            : { categoryCode: PACKAGING_CATEGORY_CODE }),
-        ...(term === '' ? {} : { query: term }),
-    });
-
-    const results = useMemo(
-        (): readonly PickerEntry[] =>
-            ingredientsFromPages(search.data?.pages).map(
-                wantsIngredients ? ingredientEntry : packagingEntry,
-            ),
-        [wantsIngredients, search.data?.pages],
+            : { categoryCode: PACKAGING_CATEGORY_CODE },
+        canManage,
     );
+
+    const offered = useMemo(() => {
+        const byOption = new Map<string, PickerEntry>();
+        const options: SelectOption[] = [];
+        for (const row of catalogue.data ?? []) {
+            const entry = wantsIngredients ? ingredientEntry(row) : packagingEntry(row);
+            byOption.set(entry.id, entry);
+            const price =
+                entry.unitPrice === null
+                    ? ''
+                    : formatMoney(formatter, entry.unitPrice.amount, entry.unitPrice.currency, MONEY);
+            options.push({
+                value: entry.id,
+                label: displayName(entry.name, locale).value,
+                // `Condiments · kg · 3.50`: what kind of thing it is, and what one unit costs.
+                description: [entry.meta, price].filter((part) => part !== '').join(' · '),
+                // What the server's search matched on: both names, the reference and the aliases.
+                keywords: [row.name.en, row.name.ar, row.reference ?? '', ...row.aliases].join(' '),
+            });
+        }
+        return { options, byOption };
+    }, [catalogue.data, wantsIngredients, formatter, locale]);
 
     /*
      * Each row's figures, matched by line number *and* ingredient.
@@ -441,9 +408,6 @@ export function RecipeLineTable({
                 isOptional: false,
             },
         ]);
-        setQuery('');
-        setHighlighted(0);
-        setOpen(false);
     };
 
     const patch = (key: string, next: Partial<LineDraft>) => {
@@ -641,72 +605,67 @@ export function RecipeLineTable({
         },
     ];
 
-    // Settled on this very text, and nothing came back for it — not merely "still searching".
-    const searchedFor = query.trim();
-    const nothingMatches =
-        searchedFor.length >= 2 &&
-        term === searchedFor &&
-        !search.isPending &&
-        !search.isPlaceholderData &&
-        results.length === 0;
+    const quickAdd = useIngredientQuickAdd({
+        testID: `${testID}-quick-add`,
+        onPick: (ingredient) => {
+            add(ingredientEntry(ingredient));
+        },
+        onCreated: (ingredient, needsDetails) => {
+            add(ingredientEntry(ingredient));
+            onIngredientCreated?.(ingredient, needsDetails);
+        },
+        onRefresh: () => {
+            void catalogue.refetch();
+        },
+    });
+    const offersQuickAdd = onIngredientCreated !== undefined && wantsIngredients;
 
     return (
         <View className="flex-col gap-tight">
             {canManage ? (
-                /*
-                 * The row is raised with the panel, not just the picker in it: every RN Web `View`
-                 * is its own stacking context (see `Picker`), so the table below would otherwise
-                 * paint over the open panel. It wraps, so the quick add's own panel sits beneath.
-                 */
-                <View
-                    className={
-                        open
-                            ? 'relative z-sticky flex-row flex-wrap items-center gap-tight'
-                            : 'flex-row flex-wrap items-center gap-tight'
-                    }
-                >
-                    <Picker
-                        testID={`${testID}-picker`}
-                        placeholder={pickerPlaceholder}
-                        query={query}
-                        // Only while there is no answer for *this* term. `isFetching` is also true of a
-                        // background refetch, and swapping a list the reader is scrolling for
-                        // "Searching…" threw them back to the top of it.
-                        loading={(search.isPending || search.isPlaceholderData) && term !== ''}
-                        onQueryChange={(next) => {
-                            setQuery(next);
-                            setHighlighted(0);
-                            setOpen(true);
-                        }}
-                        open={open}
-                        onOpen={() => {
-                            setOpen(true);
-                        }}
-                        onClose={() => {
-                            setOpen(false);
-                        }}
-                        results={results}
-                        highlighted={highlighted}
-                        onHighlight={setHighlighted}
-                        onPick={add}
-                    />
-                    {onIngredientCreated === undefined || !wantsIngredients ? null : (
-                        <IngredientQuickAdd
-                            testID={`${testID}-quick-add`}
-                            name={searchedFor}
-                            canAdd={nothingMatches}
-                            onPick={(ingredient) => {
-                                add(ingredientEntry(ingredient));
+                // It wraps, so the quick add's answer sits beneath the picker.
+                <View className="flex-row flex-wrap items-center gap-tight">
+                    <View style={{ width: PICKER_WIDTH }}>
+                        <Select
+                            testID={`${testID}-picker`}
+                            label={pickerPlaceholder}
+                            labelHidden
+                            placeholder={pickerPlaceholder}
+                            searchable
+                            loading={catalogue.isPending}
+                            options={offered.options}
+                            value={null}
+                            onChange={(id) => {
+                                const entry = offered.byOption.get(id);
+                                if (entry !== undefined) add(entry);
                             }}
-                            onCreated={(ingredient, needsDetails) => {
-                                add(ingredientEntry(ingredient));
-                                onIngredientCreated(ingredient, needsDetails);
-                            }}
-                            onRefresh={() => {
-                                void search.refetch();
-                            }}
+                            // A typed name the library does not have: create it from the panel.
+                            {...(offersQuickAdd
+                                ? {
+                                      noResultsAction: (typed: string, close: () => void) => (
+                                          <Button
+                                              testID={`${testID}-quick-add`}
+                                              size="sm"
+                                              variant="secondary"
+                                              label={t('kitchen:recipes.quickAddNamed', {
+                                                  name: typed,
+                                              })}
+                                              hint={t('kitchen:recipes.quickAddHint', {
+                                                  name: typed,
+                                              })}
+                                              iconStart={<Icon name="plus" size="sm" />}
+                                              disabled={quickAdd.busy}
+                                              onPress={() => {
+                                                  close();
+                                                  quickAdd.start(typed);
+                                              }}
+                                          />
+                                      ),
+                                  }
+                                : {})}
                         />
-                    )}
+                    </View>
+                    {offersQuickAdd ? quickAdd.view : null}
                 </View>
             ) : null}
 
@@ -1001,287 +960,5 @@ function cellControlClass(
     return align === 'center' ? `${base} text-center` : base;
 }
 
-/* ------------------------------------------------------------------------------------------------
- * The inline picker
- * ---------------------------------------------------------------------------------------------- */
-
-interface PickerProps {
-    readonly placeholder: string;
-    readonly query: string;
-    readonly onQueryChange: (next: string) => void;
-    readonly open: boolean;
-    readonly onOpen: () => void;
-    readonly onClose: () => void;
-    readonly results: readonly PickerEntry[];
-    /** A request is in flight, so the panel says so instead of claiming there is no match. */
-    readonly loading: boolean;
-    readonly highlighted: number;
-    readonly onHighlight: (index: number) => void;
-    readonly onPick: (entry: PickerEntry) => void;
-    readonly testID: string;
-}
-
 /** The design's 320px field. Stated as a style: there is no 320px width token. */
 const PICKER_WIDTH = 320;
-/** The panel is wider than its field, as drawn — a designation plus a price needs the room. */
-const PANEL_WIDTH = 360;
-/** One option row, `h-control-sm`. What the keyboard's scroll arithmetic counts in. */
-const PANEL_ROW_HEIGHT = 28;
-/**
- * The list's own height ceiling: the panel's `max-h-80` less its 4px inset top and bottom.
- *
- * Stated on the `ScrollView` itself, not only on the panel around it. A scroll view with no bound
- * of its own grows to its content, so the panel clipped it and the wheel went to the page behind —
- * which is what made the list feel as though it scrolled far too fast.
- */
-const PANEL_LIST_HEIGHT = 312;
-
-function Picker({
-    placeholder,
-    query,
-    onQueryChange,
-    open,
-    onOpen,
-    onClose,
-    results,
-    loading,
-    highlighted,
-    onHighlight,
-    onPick,
-    testID,
-}: PickerProps) {
-    const { t } = useTranslation();
-    const { locale } = useLocale();
-    const formatter = useFormatter();
-    const [focused, setFocused] = useState(false);
-    const panel = useRef<ScrollView>(null);
-    /** Where the list is scrolled to, so the keyboard can tell whether a row is already in view. */
-    const scrolledTo = useRef(0);
-    /** Set by the arrow keys only — the one kind of highlight the list should move for. */
-    const movedByKey = useRef(false);
-
-    const commit = (index: number) => {
-        const entry = results[index];
-        if (entry !== undefined) onPick(entry);
-    };
-
-    /*
-     * The panel scrolls, so the arrow keys have to carry it — a highlight the reader cannot see is a
-     * cursor that has gone missing.
-     *
-     * **Only the arrow keys.** A row also highlights on hover, and this used to scroll on every
-     * highlight change: wheeling through the list passed the pointer over row after row, each one
-     * re-positioned the list under it, and the list lurched ahead of the wheel and then snapped back
-     * to the top whenever the highlight returned to the first row. Hover now highlights and nothing
-     * more, and a key moves the list only as far as it takes to bring the row into view.
-     *
-     * ponytail: assumes uniform 28px rows (`h-control-sm`). Measure with `onLayout` per row if an
-     * option ever wraps to two lines.
-     */
-    useEffect(() => {
-        if (!open || !movedByKey.current) return;
-        movedByKey.current = false;
-
-        const top = highlighted * PANEL_ROW_HEIGHT;
-        const bottom = top + PANEL_ROW_HEIGHT;
-        if (top < scrolledTo.current) {
-            panel.current?.scrollTo({ y: top, animated: false });
-        } else if (bottom > scrolledTo.current + PANEL_LIST_HEIGHT) {
-            panel.current?.scrollTo({ y: bottom - PANEL_LIST_HEIGHT, animated: false });
-        }
-    }, [highlighted, open]);
-
-    /*
-     * On the web a press inside the panel blurs the input first, and the blur handler below closes
-     * the panel — so the row unmounts under the pointer and the press never lands. The design's own
-     * prototype solves it the same way (`onPointerDown="{{ stopEvent }}"`): the panel swallows the
-     * pointer-down, the input keeps focus, and the press completes.
-     *
-     * `preventDefault` rather than `stopPropagation`: it is the *default* action of pointer-down —
-     * moving focus — that has to not happen. Stopping propagation would leave the blur intact.
-     */
-    const panelProps =
-        Platform.OS === 'web'
-            ? {
-                  onPointerDown: (event: { preventDefault: () => void }) => {
-                      event.preventDefault();
-                  },
-              }
-            : {};
-
-    // Arrow keys and Enter, web only: `onKeyPress` on native carries no key identity worth
-    // branching on, and a phone has no cursor to walk a list with anyway — it taps the row.
-    const keyProps =
-        Platform.OS === 'web'
-            ? {
-                  onKeyDown: (event: { key: string; preventDefault: () => void }) => {
-                      if (event.key === 'ArrowDown') {
-                          event.preventDefault();
-                          movedByKey.current = true;
-                          onHighlight(Math.min(highlighted + 1, Math.max(results.length - 1, 0)));
-                          onOpen();
-                      } else if (event.key === 'ArrowUp') {
-                          event.preventDefault();
-                          movedByKey.current = true;
-                          onHighlight(Math.max(highlighted - 1, 0));
-                      } else if (event.key === 'Enter') {
-                          event.preventDefault();
-                          commit(highlighted);
-                      } else if (event.key === 'Escape') {
-                          onClose();
-                      }
-                  },
-              }
-            : {};
-
-    /*
-     * The raised layer is on the *wrapper*, not only on the panel inside it.
-     *
-     * React Native Web gives every `View` its own stacking context, so a `z-index` on the panel
-     * competes only with its siblings inside this box — and the table is a sibling of the box,
-     * later in source order, which is why the panel rendered underneath nine rows of text. The
-     * whole picker has to out-rank the table; the panel's own z-index then orders what is inside it.
-     *
-     * Raised only while the panel is open: a permanently raised 320px box would sit over anything a
-     * later section ever put near it, for no reason the rest of the time.
-     */
-    return (
-        <View style={{ width: PICKER_WIDTH }} className={open ? 'relative z-sticky' : 'relative'}>
-            <View
-                className={inputFrameClassName({
-                    invalid: false,
-                    focused,
-                    disabled: false,
-                    density: 'compact',
-                    size: 'sm',
-                })}
-            >
-                <TextInput
-                    testID={`${testID}-input`}
-                    value={query}
-                    placeholder={placeholder}
-                    accessibilityLabel={placeholder}
-                    aria-label={placeholder}
-                    role="combobox"
-                    aria-expanded={open}
-                    onChangeText={onQueryChange}
-                    onFocus={() => {
-                        setFocused(true);
-                        onOpen();
-                    }}
-                    onBlur={() => {
-                        setFocused(false);
-                        onClose();
-                    }}
-                    className={inputControlClass('compact')}
-                    {...keyProps}
-                />
-            </View>
-
-            {!open ? null : (
-                <View
-                    testID={`${testID}-panel`}
-                    {...panelProps}
-                    // React Native's `Role` union has no `listbox`, and an invalid role is worse
-                    // than none: `list` is in the union, means the same thing to a reader walking
-                    // the panel, and the options below still carry their own selected state.
-                    role="list"
-                    // Above the rows beneath it: the table paints after this in source order, so
-                    // without the raised layer the panel lands under the first line.
-                    className="absolute top-full z-sticky mt-hair max-h-80 overflow-hidden rounded-md border border-stroke bg-surface-raised p-hair shadow-elevation-3"
-                    style={{ width: PANEL_WIDTH }}
-                >
-                    {/*
-                     * The whole answer, scrolled — not the first eight of it.
-                     *
-                     * The panel used to be a fixed box over a `.slice(0, 8)`, so a search matching
-                     * nine rows silently dropped the ninth. `keyboardShouldPersistTaps="handled"` is
-                     * what keeps a tap on a row from being eaten by the keyboard dismissing first,
-                     * the same pairing `Select`'s own panel uses.
-                     */}
-                    <ScrollView
-                        ref={panel}
-                        keyboardShouldPersistTaps="handled"
-                        style={{ maxHeight: PANEL_LIST_HEIGHT }}
-                        scrollEventThrottle={16}
-                        onScroll={(event) => {
-                            scrolledTo.current = event.nativeEvent.contentOffset.y;
-                        }}
-                    >
-                        {loading ? (
-                            /*
-                             * "Searching…" rather than "no match", while a request is in flight.
-                             *
-                             * The panel used to draw the empty state during every fetch, so typing a
-                             * fourth letter flashed *No match for "mayo"* before the answer arrived —
-                             * which reads as a definitive "this ingredient does not exist" rather
-                             * than as a pause, and is why a search that worked looked like one that
-                             * did not.
-                             */
-                            <View testID={`${testID}-loading`} className="px-tight py-snug">
-                                <Text variant="caption" tone="secondary">
-                                    {t('kitchen:recipes.pickerSearching')}
-                                </Text>
-                            </View>
-                        ) : results.length === 0 ? (
-                            <View testID={`${testID}-empty`} className="px-tight py-snug">
-                                <Text variant="caption" tone="secondary">
-                                    {t('kitchen:recipes.pickerNoMatch', { query })}
-                                </Text>
-                            </View>
-                        ) : (
-                            results.map((entry, index) => (
-                                <Pressable
-                                    key={String(entry.id)}
-                                    testID={`${testID}-option-${String(entry.id)}`}
-                                    role="option"
-                                    aria-selected={index === highlighted}
-                                    accessibilityRole="menuitem"
-                                    accessibilityLabel={displayName(entry.name, locale).value}
-                                    onHoverIn={() => {
-                                        onHighlight(index);
-                                    }}
-                                    onPress={() => {
-                                        onPick(entry);
-                                    }}
-                                    className={[
-                                        'h-control-sm flex-row items-center justify-between gap-tight rounded-sm px-tight',
-                                        index === highlighted ? 'bg-surface-sunken' : null,
-                                    ]
-                                        .filter((entryClass) => entryClass !== null)
-                                        .join(' ')}
-                                >
-                                    <View className="min-w-0 flex-1 flex-row items-baseline gap-hair">
-                                        <Text variant="label" numberOfLines={1}>
-                                            {displayName(entry.name, locale).value}
-                                        </Text>
-                                        {/*
-                                         * `Condiments · kg`, as the design draws it: what kind of
-                                         * thing this is and what a quantity of it will be counted in.
-                                         * Two facts rather than one, because "Mayonnaise" appears
-                                         * twice in a library of three hundred and the unit is what
-                                         * decides whether `1` means a kilo or a bottle.
-                                         */}
-                                        <Text variant="micro" tone="secondary" numberOfLines={1}>
-                                            {entry.meta}
-                                        </Text>
-                                    </View>
-                                    <Text variant="mono" tone="secondary" numberOfLines={1}>
-                                        {entry.unitPrice === null
-                                            ? t('kitchen:list.noValue')
-                                            : formatMoney(
-                                                  formatter,
-                                                  entry.unitPrice.amount,
-                                                  entry.unitPrice.currency,
-                                                  MONEY,
-                                              )}
-                                    </Text>
-                                </Pressable>
-                            ))
-                        )}
-                    </ScrollView>
-                </View>
-            )}
-        </View>
-    );
-}

@@ -3010,6 +3010,7 @@
         "sheetColQuantityShort": "Qty",
         "pickerSearching": "Searching…",
         "quickAdd": "Add",
+        "quickAddNamed": "Add “{{name}}” as new",
         "quickAddHint": "Creates “{{name}}” as a new ingredient and adds it to this recipe.",
         "quickAddExistingTitle": "“{{name}}” is already in your ingredient list",
         "quickAddDuplicatesTitle": "AI found ingredients that may be the same as “{{name}}”",
