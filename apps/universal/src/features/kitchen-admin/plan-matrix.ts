@@ -338,12 +338,13 @@ export interface VariantMessages {
     readonly servingsRequired: string;
     readonly energyRequired: string;
     readonly energyReversed: string;
+    readonly energyDuplicate: string;
 }
 
 /**
  * What is wrong with each variant, keyed by row.
  *
- * Four rules, each of which the contract's own shape states:
+ * Five rules, each of which the contract's own shape states:
  *
  * 1. **A variant needs an English name.** `LocalisedText` requires both languages, and the readiness
  *    evaluator refuses to publish a record whose translations are incomplete — but a *draft* with no
@@ -354,12 +355,18 @@ export interface VariantMessages {
  * 3. **An energy band needs both bounds**, because `energyBand` has no nullable side.
  * 4. **The band may not run backwards.** A 1,900–1,600 kcal band is a typo, and a filter comparing
  *    against it would silently match nothing.
+ * 5. **One cell, one configuration.** The write picks a row's combination by its meals a day alone
+ *    and the server keys a cell on combination and band, so two rows with the same meals and the
+ *    same band are one cell written twice — the second is refused here, by the same key the
+ *    server would refuse it on, rather than after the request. Snacks are deliberately not in the
+ *    key: they are not in the server's either.
  */
 export function variantErrors(
     rows: readonly VariantDraft[],
     messages: VariantMessages,
 ): ReadonlyMap<string, string> {
     const errors = new Map<string, string>();
+    const sold = new Set<string>();
 
     for (const row of rows) {
         if (row.name.en.trim() === '') {
@@ -380,7 +387,17 @@ export function variantErrors(
             errors.set(row.key, messages.energyRequired);
             continue;
         }
-        if (row.energyMax < row.energyMin) errors.set(row.key, messages.energyReversed);
+        if (row.energyMax < row.energyMin) {
+            errors.set(row.key, messages.energyReversed);
+            continue;
+        }
+
+        const cell = `${String(row.mealsPerDay)}:${String(row.energyMin)}:${String(row.energyMax)}`;
+        if (sold.has(cell)) {
+            errors.set(row.key, messages.energyDuplicate);
+            continue;
+        }
+        sold.add(cell);
     }
 
     return errors;
@@ -444,6 +461,15 @@ export interface DurationMessages {
 }
 
 /**
+ * One duration row's problem, and the field it sits under. The discount's own rule belongs to the
+ * Discount field; everything else is about the row's day count, or the row as a whole.
+ */
+export interface DurationError {
+    readonly field: 'days' | 'discount';
+    readonly message: string;
+}
+
+/**
  * What is wrong with each duration, keyed by row.
  *
  * Rule one is the migration's `CHECK`, stated by the contract as {@link isPlanDurationConsistent}
@@ -456,8 +482,8 @@ export interface DurationMessages {
 export function durationErrors(
     rows: readonly DurationDraft[],
     messages: DurationMessages,
-): ReadonlyMap<string, string> {
-    const errors = new Map<string, string>();
+): ReadonlyMap<string, DurationError> {
+    const errors = new Map<string, DurationError>();
     const seen = new Set<string>();
 
     for (const row of rows) {
@@ -467,13 +493,13 @@ export function durationErrors(
             discountPercent: row.discountPercent,
         });
         if (!consistent) {
-            errors.set(row.key, messages.daysRequired);
+            errors.set(row.key, { field: 'days', message: messages.daysRequired });
             continue;
         }
 
         const identity = `${row.kind}:${String(row.days ?? '')}`;
         if (seen.has(identity)) {
-            errors.set(row.key, messages.duplicate);
+            errors.set(row.key, { field: 'days', message: messages.duplicate });
             continue;
         }
         seen.add(identity);
@@ -482,7 +508,7 @@ export function durationErrors(
             row.discountPercent !== null &&
             (row.discountPercent < 0 || row.discountPercent > 100)
         ) {
-            errors.set(row.key, messages.discountInvalid);
+            errors.set(row.key, { field: 'discount', message: messages.discountInvalid });
         }
     }
 

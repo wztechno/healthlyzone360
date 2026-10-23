@@ -137,13 +137,15 @@ final readonly class SubscriptionProjection
                 'profile' => $profile,
                 'kitchen' => $kitchen,
                 'address' => $address,
-                // The first delivery the ledger holds. `next_generation_date` is
-                // the fallback for a subscription bought moments ago whose first
-                // day has not been generated yet; the purchase date is the last
+                // The first delivery the ledger holds, or the cursor if that
+                // comes first — a subscription bought moments ago has no
+                // generated day yet, and one whose only rows are skips starts
+                // wherever the cursor now points. The purchase date is the last
                 // resort, and is never wrong by more than the lead time.
-                'started_on' => $startedOn[$id]
-                    ?? $subscription->next_generation_date?->toDateString()
-                    ?? $subscription->captured_at->toDateString(),
+                'started_on' => $this->earliest(
+                    $startedOn[$id] ?? null,
+                    $subscription->next_generation_date?->toDateString(),
+                ) ?? $subscription->captured_at->toDateString(),
                 'skipped_dates' => $skipped[$id] ?? [],
                 'chosen_catalogue_item_ids' => $chosen[$id] ?? [],
             ];
@@ -196,6 +198,18 @@ final readonly class SubscriptionProjection
     }
 
     /**
+     * The earlier of two ISO dates, or whichever one exists.
+     */
+    private function earliest(?string $left, ?string $right): ?string
+    {
+        if ($left === null || $right === null) {
+            return $left ?? $right;
+        }
+
+        return $left <= $right ? $left : $right;
+    }
+
+    /**
      * @template TModel of Model
      *
      * @param  EloquentCollection<int, TModel>  $models
@@ -215,6 +229,11 @@ final readonly class SubscriptionProjection
     /**
      * The earliest delivery date per subscription — one aggregate, not one per row.
      *
+     * A skipped or cancelled row is not a delivery and does not start anything:
+     * a customer who skips the first day before it is generated has moved their
+     * start, not kept it. The same three skip statuses `skippedDates()` lists,
+     * plus the cancellation generation's reconciliation writes.
+     *
      * @param  list<string>  $ids
      * @return array<string, string>
      */
@@ -222,6 +241,12 @@ final readonly class SubscriptionProjection
     {
         $rows = SubscriptionDelivery::query()
             ->whereIn('subscription_id', $ids)
+            ->whereNotIn('status', [
+                SubscriptionDeliveryStatus::SkippedCustomer->value,
+                SubscriptionDeliveryStatus::SkippedNoSafeMeal->value,
+                SubscriptionDeliveryStatus::SkippedUnavailable->value,
+                SubscriptionDeliveryStatus::Cancelled->value,
+            ])
             ->groupBy('subscription_id')
             ->selectRaw('subscription_id, MIN(delivery_date) as first_date')
             ->get();

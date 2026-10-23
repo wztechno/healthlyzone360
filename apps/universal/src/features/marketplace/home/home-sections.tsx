@@ -9,6 +9,7 @@ import { Pressable, Text as RNText, View } from 'react-native';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
 import { Eyebrow } from '../../../ui/eyebrow.tsx';
+import { durationLabel } from '../../catalogue/plan-duration-label.ts';
 import { formatMoney, publishedEnergyAndProtein } from '../format.ts';
 import { QueryStates } from '../query-states.tsx';
 import { CardGrid, CardGridItem, TileGrid, TileGridItem } from '../section-header.tsx';
@@ -449,7 +450,7 @@ export function HomeClosing({ testID, meals, offer }: HomeClosingProps) {
             : {
                   eyebrow: t('marketplace:discover.offerEyebrow'),
                   title: t('marketplace:discover.offerTitle', {
-                      count: planOffer.weeks,
+                      run: durationLabel(planOffer.days, t, formatter.formatNumber),
                       percent: formatter.formatNumber(planOffer.percent),
                   }),
                   body: t('marketplace:discover.offerBody'),

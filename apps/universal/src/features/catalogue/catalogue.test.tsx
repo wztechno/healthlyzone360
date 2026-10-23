@@ -465,9 +465,14 @@ function testVariant(planOrdinal: number, index: number, name: string): PlanVari
 }
 
 const DURATIONS: readonly PlanDurationOption[] = [
-    { duration: '1w', discountPercent: 0, totalPrice: { amount: 20000, currency: 'AED' } },
-    { duration: '4w', discountPercent: 5, totalPrice: { amount: 76000, currency: 'AED' } },
-    { duration: '12w', discountPercent: 12, totalPrice: { amount: 211200, currency: 'AED' } },
+    { duration: '7d', days: 7, discountPercent: 0, totalPrice: { amount: 20000, currency: 'AED' } },
+    { duration: '28d', days: 28, discountPercent: 5, totalPrice: { amount: 76000, currency: 'AED' } },
+    {
+        duration: '84d',
+        days: 84,
+        discountPercent: 12,
+        totalPrice: { amount: 211200, currency: 'AED' },
+    },
 ];
 
 interface PlanSeed {
@@ -1995,7 +2000,8 @@ describe('PlanDetailScreen', () => {
         expect(screen.getByTestId('plan-detail-variant-picker')).toBeTruthy();
         expect(screen.getByTestId('plan-detail-macro-protein')).toBeTruthy();
         expect(screen.getByTestId('plan-detail-snacks')).toBeTruthy();
-        expect(screen.getByTestId('plan-detail-duration-12w')).toBeTruthy();
+        expect(screen.getByTestId('plan-detail-duration-84d')).toBeTruthy();
+        expect(screen.getByTestId('plan-detail-duration-84d')).toHaveTextContent(/12 weeks/);
         expect(screen.getByTestId('plan-detail-price')).toBeTruthy();
         // The prose-only delivery note and the disclaimer moved off this page.
         expect(screen.queryByTestId('plan-detail-delivery')).toBeNull();
@@ -2008,9 +2014,9 @@ describe('PlanDetailScreen', () => {
     /**
      * A multi-configuration plan arrives with `totalPrice: null` on every duration — the server
      * will not quote one figure across differently-priced variants. The screen must derive the
-     * selected variant's total (weekly × weeks × discount) rather than dropping the duration,
-     * which is exactly the regression that made subscriptions unreachable when the seeded
-     * per-week plans first hit the real API.
+     * selected variant's total (the discounted per-day price, rounded, × the days) rather than
+     * dropping the duration, which is exactly the regression that made subscriptions unreachable
+     * when the seeded per-week plans first hit the real API.
      */
     it('derives duration totals from the selected variant when the server states none', async () => {
         const plan = STRENGTH_BUILD!;
@@ -2030,23 +2036,77 @@ describe('PlanDetailScreen', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('plan-detail-duration-12w')).toBeTruthy();
+            expect(screen.getByTestId('plan-detail-duration-84d')).toBeTruthy();
         });
 
         // The advertised (middle) variant is what an unopened page shows, so the derived figure
-        // is its weekly price over twelve weeks, less the option's stated discount.
+        // is its per-day list price less the option's discount — rounded to the minor unit the
+        // way the server rounds, *before* multiplying — over eighty-four delivery days.
         const middle = plan.variants[Math.floor(plan.variants.length / 2)]!;
-        const option = unpriced.durations.find((entry) => entry.duration === '12w')!;
-        const expectedMinor = Math.round(
-            (middle.pricePerWeek.amount * 12 * (100 - option.discountPercent)) / 100,
-        );
+        const option = unpriced.durations.find((entry) => entry.duration === '84d')!;
+        const perDayList = Math.round(middle.pricePerWeek.amount / 7);
+        const perDay = Math.round((perDayList * (100 - option.discountPercent)) / 100);
+        const expectedMinor = perDay * 84;
         // Digit-by-digit with any grouping/decimal codepoint between them: the formatter's
         // separators vary by ICU build, and this assertion is about the arithmetic, not the glyphs.
         const digits = String(expectedMinor).split('');
         const cents = digits.splice(-2).join('');
-        expect(screen.getByTestId('plan-detail-duration-12w')).toHaveTextContent(
+        expect(screen.getByTestId('plan-detail-duration-84d')).toHaveTextContent(
             new RegExp(`${digits.join('.?')}.?${cents}`),
         );
+    });
+
+    it('headlines the per-day list price, with the shortest run priced under it', async () => {
+        const plan = STRENGTH_BUILD!;
+        await renderStubScreen(<PlanDetailScreen planId={String(plan.id)} />, {
+            repositories: CATALOGUE_REPOSITORIES,
+        });
+
+        const price = await screen.findByTestId('plan-detail-price');
+        // The advertised band's weekly price, divided back to the day the kitchen quotes.
+        const middle = plan.variants[Math.floor(plan.variants.length / 2)]!;
+        const perDay = String(Math.round(middle.pricePerWeek.amount / 7)).split('');
+        const cents = perDay.splice(-2).join('');
+        expect(price).toHaveTextContent(new RegExp(`${perDay.join('.?')}.?${cents}.*a day`));
+        // The shortest run, at the server's own total for it, as a count of delivery days.
+        expect(screen.getByTestId('plan-detail-price-run')).toHaveTextContent(
+            /200.?00 for 1 week · 7 delivery days/,
+        );
+    });
+
+    it('says so when a plan has no length on sale, instead of pricing nothing', async () => {
+        const plan = STRENGTH_BUILD!;
+        await renderStubScreen(<PlanDetailScreen planId={String(plan.id)} />, {
+            repositories: {
+                ...CATALOGUE_REPOSITORIES,
+                marketplace: {
+                    ...CATALOGUE_REPOSITORIES.marketplace,
+                    getPlan: async () => ({ ...plan, durations: [] }),
+                },
+            },
+        });
+
+        await screen.findByTestId('plan-detail-durations-none');
+        expect(screen.getByTestId('plan-detail-price-run')).toHaveTextContent(
+            'This plan has no length on sale yet.',
+        );
+    });
+
+    it('shows a signed-in reader their allergy list against the plan, and nothing to a visitor', async () => {
+        const plan = STRENGTH_BUILD!;
+        await renderStubScreen(<PlanDetailScreen planId={String(plan.id)} />, {
+            repositories: CATALOGUE_REPOSITORIES,
+        });
+        await screen.findByTestId('plan-detail-name');
+        expect(screen.queryByTestId('plan-detail-allergies')).toBeNull();
+
+        await renderStubScreen(<PlanDetailScreen planId={String(plan.id)} />, {
+            session: CONSUMER_SESSION,
+            repositories: CATALOGUE_REPOSITORIES,
+        });
+        const card = await screen.findByTestId('plan-detail-allergies');
+        expect(within(card).getByTestId('plan-detail-allergy-notice-list')).toBeTruthy();
+        expect(within(card).getByTestId('plan-detail-allergy-notice-edit')).toBeTruthy();
     });
 
     it('changes the band, and the macro ranges follow', async () => {

@@ -669,8 +669,13 @@ export function PriceEntriesCard({
             unknown: t('kitchen:priceLists.unknownItem'),
         });
 
+    /*
+     * A row the list was not read with stays under "New entries" until it is saved, item chosen
+     * or not: a row that jumped into the meals the moment a meal was picked was a row the reader
+     * had to go and find again to give it a price.
+     */
     const groupOf = (row: PriceEntryDraft): PriceGroup => {
-        if (row.item === null) return 'unchosen';
+        if (row.item === null || !baseline.has(row.key)) return 'unchosen';
         const thing = describe(row);
         if (thing !== null) return thing.group;
         return row.item.kind;
@@ -683,6 +688,11 @@ export function PriceEntriesCard({
     // A removed row takes its selection with it; so does a reload that drops it.
     const rowKeys = new Set(rows.map((row) => row.key));
     const selected = new Set([...picked].filter((key) => rowKeys.has(key)));
+
+    // The heading counts what the list holds and, separately, what it is about to: a new row is
+    // not an entry until it is saved, and "3 entries" over two saved ones and one blank misled.
+    const savedCount = rows.filter((row) => baseline.has(row.key)).length;
+    const addedCount = rows.length - savedCount;
 
     /* ── filter and search ─────────────────────────────────────────────────────────────────── */
 
@@ -1243,7 +1253,12 @@ export function PriceEntriesCard({
                                 variant="caption"
                                 tone="secondary"
                             >
-                                {t('kitchen:priceLists.entryCount', { count: rows.length })}
+                                {addedCount > 0
+                                    ? t('kitchen:priceLists.entryCountWithNew', {
+                                          count: savedCount,
+                                          added: addedCount,
+                                      })
+                                    : t('kitchen:priceLists.entryCount', { count: rows.length })}
                             </Text>
                         </View>
                         <SegmentedControl<PriceEntryFilter>

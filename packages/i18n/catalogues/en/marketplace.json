@@ -79,8 +79,7 @@
         "cardRatingLabel": "{{meal}} is rated {{value}} out of 5",
         "notRated": "Not rated yet",
         "addLabel": "Add {{meal}} to the basket",
-        "offerTitle_one": "Weekly plans: up to {{percent}}% off a {{count}}-week run",
-        "offerTitle_other": "Weekly plans: up to {{percent}}% off a {{count}}-week run",
+        "offerTitle": "Meal plans: up to {{percent}}% off when you choose {{run}} or more",
         "offerFallbackEyebrow": "Weekly plans",
         "offerFallbackTitle": "Build a week from the kitchens on the marketplace",
         "offerFallbackBody": "Fill a week from any kitchen on the marketplace. Every dish carries its energy and protein, so the week adds up before you order.",
@@ -331,7 +330,7 @@
         "subscription": {
             "nextDelivery": "Next delivery {{date}}",
             "noNextDelivery": "No delivery scheduled",
-            "weeklyPrice": "{{price}} per week",
+            "dayPrice": "{{price}} a day",
             "manage": "Manage subscription",
             "eyebrow": "Your subscription · {{state}}"
         }

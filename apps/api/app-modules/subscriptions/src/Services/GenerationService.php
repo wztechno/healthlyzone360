@@ -85,6 +85,7 @@ final readonly class GenerationService
         private MealSafety $safety,
         private SubstitutionFinder $substitutions,
         private ChangeWindow $window,
+        private DeliveryCursor $cursor,
         private RenewalService $renewals,
         private SubscriptionJournal $journal,
         private PlanMenuService $menus,
@@ -687,25 +688,16 @@ final readonly class GenerationService
     }
 
     /**
-     * Move the cursor to the next weekday this subscription delivers on.
+     * Move the cursor past the day just dealt with.
+     *
+     * `DeliveryCursor` owns the walk — the next weekday the subscription
+     * delivers on that nobody has already skipped — because a customer's skip
+     * moves the same cursor from `SubscriptionService` and the two must agree
+     * on where it lands.
      */
     private function advanceCursor(Subscription $subscription, CarbonImmutable $from): void
     {
-        for ($offset = 1; $offset <= 7; $offset++) {
-            $candidate = $from->addDays($offset);
-
-            if ($subscription->deliversOnWeekday($candidate->dayOfWeekIso)) {
-                $subscription->next_generation_date = $candidate;
-                $subscription->save();
-
-                return;
-            }
-        }
-
-        // Unreachable while the table's CHECK holds — a subscription always
-        // delivers on at least one weekday, so seven days always contains one.
-        $subscription->next_generation_date = $from->addWeek();
-        $subscription->save();
+        $this->cursor->advance($subscription, $from);
     }
 
     /**

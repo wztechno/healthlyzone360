@@ -1,13 +1,11 @@
-import { PLAN_DURATION_WEEKS } from '@healthy360/domain-types';
-
 import { usePlansQuery } from '../../../data/catalogue-hooks.ts';
 
 /** The best run discount any listed plan publishes. */
 export interface PlanOffer {
-    /** Whole percent off the weekly price. */
+    /** Whole percent off the per-day price. */
     readonly percent: number;
-    /** The shortest run that earns it. */
-    readonly weeks: number;
+    /** The shortest run that earns it, in delivery days. */
+    readonly days: number;
 }
 
 /**
@@ -27,13 +25,12 @@ export function usePlanOffer(): PlanOffer | null {
     for (const plan of plans.data?.items ?? []) {
         for (const option of plan.durations) {
             if (option.discountPercent <= 0) continue;
-            const weeks = PLAN_DURATION_WEEKS[option.duration];
             if (
                 best === null ||
                 option.discountPercent > best.percent ||
-                (option.discountPercent === best.percent && weeks < best.weeks)
+                (option.discountPercent === best.percent && option.days < best.days)
             ) {
-                best = { percent: option.discountPercent, weeks };
+                best = { percent: option.discountPercent, days: option.days };
             }
         }
     }

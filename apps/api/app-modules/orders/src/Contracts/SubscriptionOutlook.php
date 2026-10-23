@@ -61,15 +61,23 @@ interface SubscriptionOutlook
      * Every subscription day in this window that is not already a real order,
      * split by which of the two things it is.
      *
-     * Both lists are flat — one entry per day per subscription, carrying only
-     * the day and the slot it falls in — because the caller buckets all three
-     * of its bases through one rule and a pre-counted answer would put half of
-     * that rule on this side of the seam.
+     * Both lists are flat — **one entry per meal per day per subscription**,
+     * carrying the day, the delivery window it falls in and the sitting
+     * (`breakfast`, `lunch`, `dinner`, `snack`) it is — because the caller
+     * buckets all three of its bases through one rule and a pre-counted answer
+     * would put half of that rule on this side of the seam. A plan of three
+     * meals and a snack is four entries on each of its days: a calendar that
+     * counted it as one would tell the kitchen to cook a quarter of the food.
+     *
+     * `slot` is `null` when the answering module cannot say what the day's
+     * meals are — a subscription against a plan with neither a menu nor a
+     * configuration — and the entry then counts once under its window alone,
+     * which is the whole answer there was before sittings existed.
      *
      * @param  string|null  $branchId  narrow to one production site, or null for the whole organisation
      * @return array{
-     *     scheduled: list<array{delivery_date: string, delivery_window_code: string|null}>,
-     *     projected: list<array{delivery_date: string, delivery_window_code: string|null}>,
+     *     scheduled: list<array{delivery_date: string, delivery_window_code: string|null, slot: string|null}>,
+     *     projected: list<array{delivery_date: string, delivery_window_code: string|null, slot: string|null}>,
      * }
      */
     public function forWindow(

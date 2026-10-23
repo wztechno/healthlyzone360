@@ -953,6 +953,12 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             const profileEnvelope = await transport.requestEnvelope<{
                 item: AdminCatalogueItem;
                 profile: PlanProfile | null;
+                /*
+                 * The plan's diet codes, beside the item rather than inside the profile. Optional
+                 * here because the generated types do not carry it yet: a server that has not
+                 * started sending it reads as a plan with none, not as a broken read.
+                 */
+                diet_classifications?: string[];
             }>({
                 method: 'GET',
                 path: `/catalogue/plans/${encodeURIComponent(id)}/profile`,
@@ -966,6 +972,11 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 variants: mapPlanVariantsFromCells(matrix.cells, vocabulary.bands),
                 durations: planDurationsFromAssignments(matrix.assignments, vocabulary.durations),
                 combinations: vocabulary.combinations.map(mapPlanCombination),
+                // The same guard the meal read applies: a code this build does not know is dropped
+                // rather than carried into a chip row that cannot draw it.
+                dietClassifications: (profileEnvelope.data.diet_classifications ?? []).filter(
+                    (code): code is DietClassification => isDietClassification(code),
+                ),
             });
         },
 

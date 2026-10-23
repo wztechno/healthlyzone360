@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 
 import { durationKindKey } from './format.ts';
 import { withDurationKind } from './plan-matrix.ts';
-import type { DurationDraft, VariantDraft } from './plan-matrix.ts';
+import type { DurationDraft, DurationError, VariantDraft } from './plan-matrix.ts';
 import { UndoBar } from './row-editor-shell.tsx';
 
 /**
@@ -362,7 +362,8 @@ export function CountField({
 export interface PlanDurationRowsProps {
     readonly rows: readonly DurationDraft[];
     readonly onChange: (rows: readonly DurationDraft[]) => void;
-    readonly errors: ReadonlyMap<string, string>;
+    /** From `durationErrors`: each row's one problem, and the field it belongs under. */
+    readonly errors: ReadonlyMap<string, DurationError>;
     readonly canManage: boolean;
     /**
      * Never offers to remove the only row. A new plan opens on one configuration and one duration
@@ -414,6 +415,12 @@ export function PlanDurationRows({
 
     const patchRow = (key: string, next: Partial<DurationDraft>) => {
         onChange(rows.map((entry) => (entry.key === key ? { ...entry, ...next } : entry)));
+    };
+
+    /** The row's problem when it belongs under this field; a Days problem never marks Discount. */
+    const errorOn = (row: DurationDraft, field: DurationError['field']): string | undefined => {
+        const error = errors.get(row.key);
+        return error?.field === field ? error.message : undefined;
     };
 
     const meaning = (row: DurationDraft): string =>
@@ -474,7 +481,7 @@ export function PlanDurationRows({
                             placeholder="0"
                             value={row.days}
                             disabled={!canManage}
-                            error={errors.get(row.key)}
+                            error={errorOn(row, 'days')}
                             onChange={(next) => {
                                 patchRow(row.key, { days: next });
                             }}
@@ -508,6 +515,7 @@ export function PlanDurationRows({
                         placeholder={t('kitchen:plans.discountNotSet')}
                         value={row.discountPercent}
                         disabled={!canManage}
+                        error={errorOn(row, 'discount')}
                         onChange={(next) => {
                             patchRow(row.key, { discountPercent: next });
                         }}
@@ -522,9 +530,12 @@ export function PlanDurationRows({
             priority: 97,
             fill: true,
             render: (row) => {
-                // A fixed-days row's problem is the Days field's own error; any other row's problem
-                // has no field to sit on, so it sits under the sentence that explains the row.
-                const error = row.kind === 'fixed_days' ? undefined : errors.get(row.key);
+                // A Days problem on a fixed-days row is that field's own error, and a Discount
+                // problem is always that field's. What is left — a one-off's day-count or
+                // duplicate problem — has no field to sit on, so it sits under the sentence that
+                // explains the row.
+                const error =
+                    row.kind === 'fixed_days' ? undefined : errorOn(row, 'days');
                 return (
                     <View className="min-w-0 flex-1 flex-col gap-hair py-tight">
                         <Text

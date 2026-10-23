@@ -3,7 +3,7 @@ import type {
     PlanVariant,
     SubscriptionPlan,
 } from '@healthy360/api-client/contracts';
-import { PLAN_DURATION_WEEKS } from '@healthy360/domain-types';
+import { planDurationDays } from '@healthy360/domain-types';
 import type { Money, PlanDuration } from '@healthy360/domain-types';
 
 import { DAYS_PER_WEEK } from './plan-catalogue.ts';
@@ -29,14 +29,14 @@ import { DAYS_PER_WEEK } from './plan-catalogue.ts';
  * rounded figure by the days — it never rounds a total and divides back. Doing it in the other
  * order would print a total the per-day price does not multiply up to.
  *
- * A run's length comes from the closed duration vocabulary: the client maps a wire duration onto
- * `1w | 2w | 4w | 12w` *by its day count* (`plan-mappers.ts`), so 7, 14, 28 and 84 delivery days are
- * the only balances a consumer surface can name.
+ * A run's length is its day count: the client names a wire duration by the days it buys
+ * (`plan-mappers.ts`), so any balance a kitchen configures — five days or twelve weeks — is one a
+ * consumer surface can name and price.
  */
 
 /** How many delivery days a duration buys — the balance a purchase would create. */
 export function balanceDaysFor(duration: PlanDuration): number {
-    return PLAN_DURATION_WEEKS[duration] * DAYS_PER_WEEK;
+    return planDurationDays(duration);
 }
 
 /**
@@ -51,6 +51,23 @@ export function listDayPrice(variant: PlanVariant): Money {
     return {
         amount: Math.round(variant.pricePerWeek.amount / DAYS_PER_WEEK),
         currency: variant.pricePerWeek.currency,
+    };
+}
+
+/**
+ * What one delivery day of a held subscription costs: its weekly figure, which the server builds
+ * as the effective per-day price × the chosen weekdays, divided back by those weekdays. A plan is a
+ * balance of days, so "a day" is the unit a subscription is spoken of in — "a week" read oddly on
+ * a five-day plan, and on three weekdays it was not a week of meals at all.
+ */
+export function subscriptionDayPrice(subscription: {
+    readonly weeklyPrice: Money;
+    readonly configuration: { readonly deliveryWeekdays: readonly number[] };
+}): Money {
+    const days = Math.max(1, subscription.configuration.deliveryWeekdays.length);
+    return {
+        amount: Math.round(subscription.weeklyPrice.amount / days),
+        currency: subscription.weeklyPrice.currency,
     };
 }
 

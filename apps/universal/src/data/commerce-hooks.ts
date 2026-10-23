@@ -353,17 +353,26 @@ export function useSubscriptionQuoteQuery(
     });
 }
 
+/** What a plan's quote says about when it can deliver. */
+export interface PlanAvailability {
+    readonly availableWeekdays: readonly number[];
+    readonly changeCutoffHours: number;
+    /** The first day a subscription on the asked weekdays can start; `null` on a refusal. */
+    readonly earliestStartDate: string | null;
+}
+
 /**
- * The weekdays a plan delivers on.
+ * The weekdays a plan delivers on, its change cut-off, and the first day it can start.
  *
  * A projection of {@link useSubscriptionQuoteQuery} rather than a request of its own, so the
- * configurator's weekday picker and its price summary share one cache entry and one round trip. The
- * name is kept from the hack it replaced: every call site meant "which days may I choose", and that
- * question did not change when the answer stopped costing seven requests.
+ * configurator's weekday picker and its price summary share one cache entry and one round trip.
+ * `deliveryWeekdays`, when given, shapes only the earliest start — the first of *those* weekdays
+ * outside the cut-off, which is the floor the purchase enforces with a `422`.
  */
-export function useAllowedDeliveryWeekdaysQuery(
+export function usePlanAvailabilityQuery(
     configuration: SubscriptionConfiguration | null,
-): UseQueryResult<readonly number[]> {
+    deliveryWeekdays?: readonly number[] | undefined,
+): UseQueryResult<PlanAvailability> {
     const { repositories } = useRepositoryContext();
     const request: SubscriptionQuoteRequest | null =
         configuration === null
@@ -372,20 +381,32 @@ export function useAllowedDeliveryWeekdaysQuery(
                   planId: configuration.planId,
                   variantId: configuration.variantId,
                   duration: configuration.duration,
+                  ...(deliveryWeekdays === undefined || deliveryWeekdays.length === 0
+                      ? {}
+                      : { deliveryWeekdays: [...deliveryWeekdays].sort((a, b) => a - b) }),
               };
 
     return useQuery({
         queryKey: queryKeys.commerce.subscriptionQuote(request ?? {}),
         enabled: repositories !== null && request !== null,
         // The cache holds the whole quote, as `useSubscriptionQuoteQuery` stores it; only the read is
-        // narrowed. Storing the weekdays alone under the quote's key handed the other hook an array.
+        // narrowed. Storing the projection alone under the quote's key handed the other hook a
+        // different shape.
         queryFn: (): Promise<SubscriptionQuote> => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (request === null) throw new Error('No plan to quote.');
             return repositories.commerce.getSubscriptionQuote(request);
         },
-        select: (quote): readonly number[] => quote.availableWeekdays,
+        select: selectAvailability,
     });
+}
+
+function selectAvailability(quote: SubscriptionQuote): PlanAvailability {
+    return {
+        availableWeekdays: quote.availableWeekdays,
+        changeCutoffHours: quote.changeCutoffHours,
+        earliestStartDate: quote.earliestStartDate,
+    };
 }
 
 export function useCreateSubscriptionMutation(): UseMutationResult<

@@ -50,6 +50,8 @@ final readonly class ChangeWindow
      */
     public const int DEFAULT_CUTOFF_HOURS = 24;
 
+    public function __construct(private DeliveryCursor $cursor) {}
+
     public function cutoffHoursFor(Subscription $subscription): int
     {
         $profile = SubscriptionPlanProfile::withoutTenancy()
@@ -120,24 +122,26 @@ final readonly class ChangeWindow
      * Walks forward from today rather than computing an offset, because the
      * answer must be a day the subscription actually delivers on: telling a
      * Monday-Wednesday customer that changes take effect from Tuesday is a
-     * sentence that reads correctly and means nothing.
+     * sentence that reads correctly and means nothing. Nor may it be a day the
+     * customer has already skipped — resuming onto one would name, as the
+     * next delivery, the very day they said not to come — so the walk is
+     * `DeliveryCursor`'s, with the open window as the one condition added.
+     *
+     * `$from` is where the walk starts when that is later than today — a
+     * customer asking to begin next month. The window is still judged against
+     * `$now`: a day's cut-off is a fact about the clock, not about where the
+     * customer would like to start counting, and judging it against the wish
+     * is what used to push a start two days past the day asked for.
      */
-    public function firstChangeableDate(Subscription $subscription, CarbonImmutable $now): CarbonImmutable
+    public function firstChangeableDate(Subscription $subscription, CarbonImmutable $now, ?CarbonImmutable $from = null): CarbonImmutable
     {
-        $candidate = $now->startOfDay();
+        $start = $from instanceof CarbonImmutable && $from->greaterThan($now) ? $from : $now;
 
-        // A subscription delivers on at least one weekday — the table's CHECK
-        // guarantees it — so fourteen days is more than enough to find two
-        // whole weeks' worth of candidates and terminate.
-        for ($offset = 0; $offset <= 14; $offset++) {
-            $day = $candidate->addDays($offset);
-
-            if ($subscription->deliversOnWeekday($day->dayOfWeekIso) && $this->isOpen($subscription, $day, $now)) {
-                return $day;
-            }
-        }
-
-        return $candidate->addDays(15);
+        return $this->cursor->firstDeliverableDate(
+            $subscription,
+            $start,
+            fn (CarbonImmutable $day): bool => $this->isOpen($subscription, $day, $now),
+        );
     }
 
     /**

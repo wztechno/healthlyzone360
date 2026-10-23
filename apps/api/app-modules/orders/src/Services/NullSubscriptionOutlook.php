@@ -26,8 +26,8 @@ final class NullSubscriptionOutlook implements SubscriptionOutlook
 {
     /**
      * @return array{
-     *     scheduled: list<array{delivery_date: string, delivery_window_code: string|null}>,
-     *     projected: list<array{delivery_date: string, delivery_window_code: string|null}>,
+     *     scheduled: list<array{delivery_date: string, delivery_window_code: string|null, slot: string|null}>,
+     *     projected: list<array{delivery_date: string, delivery_window_code: string|null, slot: string|null}>,
      * }
      */
     public function forWindow(

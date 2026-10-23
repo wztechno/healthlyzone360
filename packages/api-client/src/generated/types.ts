@@ -3470,6 +3470,13 @@ export type PlanProfileEnvelope = {
          *
          */
         profile: PlanProfile | null;
+        /**
+         * The plan's diet tags, as platform codes in the platform's own
+         * display order — the same list `GET /catalogue/items/{item}`
+         * serves, so an editor opening a plan does not need a second read.
+         *
+         */
+        diet_classifications: Array<string>;
     };
     meta: Meta;
 };
@@ -9258,11 +9265,19 @@ export type OrderDeskCalendarCounts = {
 
 export type OrderDeskCalendarWindow = {
     /**
-     * The delivery slot's own code, or **`null`** for the day's unslotted
-     * work — legitimate on both books. Null rather than a placeholder word
-     * because a code is a kitchen's own vocabulary and any word invented
-     * here would be one a kitchen could also have typed. The null entry, if
-     * present, is last.
+     * For an order, the delivery slot's own code. For a subscription day,
+     * the **sitting** — `breakfast`, `lunch`, `dinner` or `snack` — with
+     * one count per meal the plan serves that day (its menu's entries for
+     * that cycle day, or its configuration's `meals_per_day` and
+     * `snacks_per_day` dealt onto the day), so `scheduled` and
+     * `projected` count food rather than days. A screen folds a window
+     * code and its sitting onto one row (`midday` and `lunch` are one
+     * row). **`null`** is the day's unslotted work — legitimate on both
+     * books, and the only answer for a subscription whose plan has
+     * neither a menu nor a configuration. Null rather than a placeholder
+     * word because a code is a kitchen's own vocabulary and any word
+     * invented here would be one a kitchen could also have typed. The
+     * null entry, if present, is last.
      *
      */
     code: string | null;
@@ -13353,6 +13368,16 @@ export type PlanQuote = {
      *
      */
     change_cutoff_hours: number;
+    /**
+     * The first day a subscription with the quoted `weekdays` could be
+     * delivered on: the first of those weekdays still outside the plan's
+     * cut-off, on the branch's clock when `branch_id` was given. The same
+     * walk `POST /subscriptions` makes, so a `start_from` earlier than
+     * this is refused there with a `422` on `start_from` rather than
+     * moved.
+     *
+     */
+    earliest_start_date: string;
 };
 
 export type PlanQuoteEnvelope = {
@@ -13421,11 +13446,15 @@ export type CreateSubscriptionRequest = {
     delivery_window_code?: string | null;
     no_substitutions?: boolean;
     /**
-     * The earliest delivery date wanted. A **request, not a promise**: the
-     * server moves it forward to the first weekday the subscription
-     * actually delivers on that is still outside the plan's change window,
-     * because a first delivery already inside its own cut-off would be an
-     * order the customer could never have changed.
+     * The first delivery date wanted. It must be a day the subscription
+     * delivers on that is still outside the plan's change window — a
+     * first delivery already inside its own cut-off would be an order the
+     * customer could never have changed. One that is not is a `422` on
+     * this field, `The earliest start for this plan is {date}.`, carrying
+     * the window's own `inside_cut_off` (or `not_a_delivery_day`) reason
+     * in `details.reasons`; nothing is moved silently. The quote's
+     * `earliest_start_date` is the day to offer. Absent, the subscription
+     * starts on that earliest day.
      *
      */
     start_from?: string | null;
@@ -40052,6 +40081,21 @@ export type QuoteSubscriptionData = {
          *
          */
         plan_duration_days: number;
+        /**
+         * The weekdays picked so far (`weekdays[]=1&weekdays[]=3`), ISO
+         * numbered. Shapes `earliest_start_date` and nothing else: the first
+         * day that pattern delivers on that is still outside the plan's
+         * cut-off. Absent, every weekday is assumed.
+         *
+         */
+        weekdays?: Array<number>;
+        /**
+         * The production site the subscription would be served from. The
+         * cut-off is read on the branch's own clock, so a quote that names it
+         * answers the same `earliest_start_date` the purchase will enforce.
+         *
+         */
+        branch_id?: Uuid;
     };
     url: '/subscriptions/quote';
 };

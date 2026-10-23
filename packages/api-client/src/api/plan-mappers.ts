@@ -1,5 +1,11 @@
-import { KitchenId, MealId, PlanVariantId, SubscriptionPlanId } from '@healthy360/domain-types';
-import type { DietClassification, Money, PlanDuration } from '@healthy360/domain-types';
+import {
+    KitchenId,
+    MealId,
+    PlanVariantId,
+    SubscriptionPlanId,
+    planDuration,
+} from '@healthy360/domain-types';
+import type { DietClassification, Money } from '@healthy360/domain-types';
 
 import { ApiError, apiFailure } from '../contracts/failure.ts';
 import type {
@@ -21,23 +27,21 @@ import type { Transport } from './transport.ts';
 /**
  * Subscription plans — marketplace reads over HTTP.
  *
- * Durations map by day count onto the closed `1w | 2w | 4w | 12w` vocabulary
- * ({@link mapDuration}). Seeded demo durations must therefore use 7/14/28/84
- * days (see `DemoTenantSeeder`), or they drop out of every consumer chooser.
+ * A duration is named by its day count ({@link mapDuration}): the storefront quote and the
+ * purchase both resolve a run by `plan_duration_days`, which is the one identity the public plan
+ * read publishes. Any whole number of days a kitchen configures reaches the chooser.
  */
 
-/** Wire day counts → the closed duration vocabulary. Resolved by days, never by the code string. */
-const DURATION_BY_DAYS: Readonly<Record<number, PlanDuration>> = {
-    7: '1w',
-    14: '2w',
-    28: '4w',
-    84: '12w',
-};
-
+/**
+ * A fixed-days duration as the storefront can sell it; `null` for a one-off.
+ *
+ * A one-off is a single delivery with no day count, and the subscription quote refuses it
+ * (`duration_not_fixed`): there is nothing a balance of delivery days can be built from. It is
+ * dropped here rather than shown as a length nobody can buy.
+ */
 export function mapDuration(wire: WireDuration): PlanDurationOption | null {
     const days = wire.days;
-    const duration = days === null ? undefined : DURATION_BY_DAYS[days];
-    if (duration === undefined) return null;
+    if (wire.kind !== 'fixed_days' || days === null || days < 1) return null;
 
     // `null` is a real answer, not a hole: a multi-configuration plan has no single plan-level
     // total (the variants price differently), and the server refuses to invent one. The screens
@@ -46,7 +50,8 @@ export function mapDuration(wire: WireDuration): PlanDurationOption | null {
     const totalPrice = mapMoney(wire.total_price);
 
     return {
-        duration,
+        duration: planDuration(days),
+        days,
         // The wire sends a decimal string so a fractional percent survives the database. The
         // contract wants whole percent, and `0` is the honest reading of "no discount offered".
         discountPercent: Math.round(Number.parseFloat(wire.discount_percent ?? '0')) || 0,

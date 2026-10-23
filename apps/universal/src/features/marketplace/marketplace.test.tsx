@@ -499,7 +499,7 @@ const ACTIVE_SUBSCRIPTION: Subscription = {
     configuration: {
         planId: uuid(7, 1) as SubscriptionPlanId,
         variantId: uuid(8, 1) as PlanVariantId,
-        duration: '4w',
+        duration: '28d',
         startDate: '2026-08-03',
         deliveryWeekdays: [1, 3, 5],
         slotCode: 'morning',
@@ -512,8 +512,6 @@ const ACTIVE_SUBSCRIPTION: Subscription = {
             countryCode: 'AE',
             instructions: null,
         },
-        dietClassifications: ['omnivore'],
-        excludeAllergens: [],
         selectedMealIds: [],
     },
     planName: 'Balanced week',
@@ -522,7 +520,6 @@ const ACTIVE_SUBSCRIPTION: Subscription = {
     days: { total: 20, consumed: 6, remaining: 14 },
     nextDeliveryDate: '2026-08-20',
     skippedDates: [],
-    pausedUntil: null,
     createdAt: '2026-08-01T09:00:00.000Z',
     updatedAt: '2026-08-10T09:00:00.000Z',
 };
@@ -1682,9 +1679,11 @@ describe('DiscoverScreen', () => {
             dietClassifications: ['omnivore'],
             variants: [],
             durations: [
-                { duration: '1w', discountPercent: 0, totalPrice: null },
-                { duration: '4w', discountPercent: 10, totalPrice: null },
-                { duration: '12w', discountPercent: 10, totalPrice: null },
+                { duration: '7d', days: 7, discountPercent: 0, totalPrice: null },
+                // The same discount on the shorter and the longer run: the band names the
+                // shortest, and a run is named by its length rather than counted in weeks.
+                { duration: '20d', days: 20, discountPercent: 10, totalPrice: null },
+                { duration: '84d', days: 84, discountPercent: 10, totalPrice: null },
             ],
             sampleMealIds: [],
             imagePlaceholderId: 'plan-90',
@@ -1700,7 +1699,7 @@ describe('DiscoverScreen', () => {
 
         await waitFor(() => {
             expect(screen.getByTestId('discover-offer-title')).toHaveTextContent(
-                'Weekly plans: up to 10% off a 4-week run',
+                'Meal plans: up to 10% off when you choose 20 days or more',
             );
         });
         await fireEvent.press(screen.getByTestId('discover-offer-action'));
@@ -1870,6 +1869,30 @@ describe('DiscoverScreen as the only home', () => {
         expect(routerMock.__push).toHaveBeenCalledWith(
             `/customer/subscriptions/${String(ACTIVE_SUBSCRIPTION.id)}`,
         );
+    });
+
+    /*
+     * "Live", not merely "not cancelled": a subscription that ran its full length is expired, and
+     * it used to take the band as though it were still delivering.
+     */
+    it('does not put a subscription that has run its course in the band', async () => {
+        await renderStubScreen(<DiscoverScreen />, {
+            session: CONSUMER_SESSION,
+            repositories: {
+                commerce: {
+                    listSubscriptions: async () =>
+                        page([{ ...ACTIVE_SUBSCRIPTION, state: 'expired' as const }]),
+                },
+                marketplace: { listMeals },
+            },
+        });
+
+        await waitFor(() => screen.getByTestId('meal-card-verdant-harvest-bowl'));
+        expect(screen.queryByTestId('discover-subscription-manage')).toBeNull();
+        // The band is the plans offer again, and the hero's eyebrow names no next delivery.
+        await fireEvent.press(screen.getByTestId('discover-offer-action'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/plans');
+        expect(screen.queryByTestId('discover-hero-eyebrow')).not.toHaveTextContent(/August/);
     });
 
     it('keeps the plans offer in the band for somebody with no subscription', async () => {

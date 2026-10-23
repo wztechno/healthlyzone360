@@ -19,6 +19,7 @@ import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { listDayPrice } from '../plan-balance.ts';
 import { cheapestVariant } from '../plan-catalogue.ts';
+import { durationLabel } from '../plan-duration-label.ts';
 
 /**
  * `/plans/compare` — two or three plans, side by side.
@@ -186,12 +187,14 @@ export function PlanComparisonScreen() {
                           .map((option) =>
                               option.discountPercent > 0
                                   ? t('catalogue:compare.durationOption', {
-                                        duration: t(
-                                            `catalogue:compare.duration.${option.duration}`,
+                                        duration: durationLabel(
+                                            option.days,
+                                            t,
+                                            formatter.formatNumber,
                                         ),
                                         discount: formatter.formatNumber(option.discountPercent),
                                     })
-                                  : t(`catalogue:compare.duration.${option.duration}`),
+                                  : durationLabel(option.days, t, formatter.formatNumber),
                           )
                           .join(t('catalogue:common.listSeparator')),
         },

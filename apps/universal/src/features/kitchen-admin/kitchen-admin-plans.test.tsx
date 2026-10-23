@@ -20,6 +20,7 @@ import type {
     PublishableStatus,
 } from '@healthy360/api-client/contracts';
 import {
+    IngredientId,
     KitchenId,
     MealId,
     PlanVariantId,
@@ -646,6 +647,12 @@ function planWorld(
                     return commit({
                         ...(request.name === undefined ? {} : { name: request.name }),
                         ...(request.summary === undefined ? {} : { summary: request.summary }),
+                        ...(request.dietClassifications === undefined
+                            ? {}
+                            : { dietClassifications: request.dietClassifications }),
+                        ...(request.changeCutOffHours === undefined
+                            ? {}
+                            : { changeCutOffHours: request.changeCutOffHours }),
                     });
                 },
                 setPlanVariants: async (_planId, request) => {
@@ -784,6 +791,7 @@ const VARIANT_MESSAGES = {
     servingsRequired: 'servings required',
     energyRequired: 'energy required',
     energyReversed: 'energy reversed',
+    energyDuplicate: 'energy duplicate',
 };
 
 const COMBINATION_MESSAGES = {
@@ -906,6 +914,24 @@ describe('the matrix, as a pure model', () => {
         expect(variantErrors([variant()], VARIANT_MESSAGES).size).toBe(0);
     });
 
+    it('refuses a second configuration in a cell the server keys the same way', () => {
+        // The write picks the combination by meals a day and the server keys a cell on
+        // combination and band — so the snacks differing does not make this a second cell.
+        const duplicates = variantErrors(
+            [
+                variant({ key: 'a', snacksPerDay: 1 }),
+                variant({ key: 'b', snacksPerDay: 2 }),
+                variant({ key: 'c', energyMin: 1700, energyMax: 1900 }),
+            ],
+            VARIANT_MESSAGES,
+        );
+
+        expect(duplicates.get('a')).toBeUndefined();
+        expect(duplicates.get('b')).toBe('energy duplicate');
+        // A different band is a different cell.
+        expect(duplicates.get('c')).toBeUndefined();
+    });
+
     it('refuses two combinations sharing one code, because the code is the identity', () => {
         const duplicates = combinationErrors(
             [combination({ key: 'c1' }), combination({ key: 'c2' })],
@@ -964,10 +990,11 @@ describe('durations, as a pure model', () => {
         expect(
             durationErrors([duration({ kind: 'fixed_days', days: null })], DURATION_MESSAGES).get(
                 'd1',
-            ),
+            )?.message,
         ).toBe('days required');
         expect(
-            durationErrors([duration({ kind: 'one_off', days: 5 })], DURATION_MESSAGES).get('d1'),
+            durationErrors([duration({ kind: 'one_off', days: 5 })], DURATION_MESSAGES).get('d1')
+                ?.message,
         ).toBe('days required');
 
         const duplicates = durationErrors(
@@ -975,11 +1002,15 @@ describe('durations, as a pure model', () => {
             DURATION_MESSAGES,
         );
         expect(duplicates.get('d1')).toBeUndefined();
-        expect(duplicates.get('d2')).toBe('duplicate');
+        expect(duplicates.get('d2')).toEqual({ field: 'days', message: 'duplicate' });
 
+        // The discount's rule is the Discount field's problem, not the Days field's.
         expect(
             durationErrors([duration({ discountPercent: 140 })], DURATION_MESSAGES).get('d1'),
-        ).toBe('discount invalid');
+        ).toEqual({ field: 'discount', message: 'discount invalid' });
+        expect(
+            durationErrors([duration({ days: null })], DURATION_MESSAGES).get('d1')?.field,
+        ).toBe('days');
         expect(durationErrors([duration()], DURATION_MESSAGES).size).toBe(0);
     });
 
@@ -1265,12 +1296,10 @@ describe('editing the matrix', () => {
     it('shows a not-found state for an identifier that is not one', async () => {
         await renderStubScreen(<PlanEditScreen plan="not-a-uuid" />, {
             session: kitchenManagerSession(),
-            // The record query never runs — the identifier does not parse — but the category
-            // derivation, the price coverage and the menu picker's dish listing are
-            // unconditional hooks and still ask.
+            // The record query never runs — the identifier does not parse — but the price
+            // coverage and the menu picker's dish listing are unconditional hooks and still ask.
             repositories: {
                 kitchenAdmin: {
-                    listPlans: planListing(() => []),
                     listPriceLists: async () => page([]),
                     listMeals: async () => page([]),
                 },
@@ -1477,6 +1506,47 @@ describe('editing the matrix', () => {
         await untilVisible(firstRow);
     });
 
+    it('puts the server’s refusal of a cell on the row it named, and says the rest in a callout', async () => {
+        const spread = spreadPlan();
+        const world = planWorld(spread, pricedVariants(spread));
+
+        await renderStubScreen(<PlanEditScreen plan={String(spread.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...world.overrides.kitchenAdmin,
+                    // The server names a cell whole (`cells.0`), not a field of it, when the
+                    // combination and band are already sold — and the rest with no row at all.
+                    setPlanVariants: () =>
+                        throwFailure(
+                            validationFailure(
+                                {
+                                    'cells.0': ['This cell is already sold.'],
+                                    cells: ['Nothing else could be placed.'],
+                                },
+                                { message: 'Refused.' },
+                            ),
+                        ),
+                },
+            },
+        });
+        await openPlanStep('variants');
+        await untilVisible('kitchen-plan-variants');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plan-variants-save'));
+        });
+
+        // Both land on the configurations step, where the save was pressed — not on the matrix.
+        const row = firstVariantRow(spread);
+        await untilVisible(`${row}-error`);
+        expect(screen.getByTestId(`${row}-error`)).toHaveTextContent(/already sold/i);
+        expect(screen.getByTestId('kitchen-plan-matrix-error')).toHaveTextContent(
+            /nothing else could be placed/i,
+        );
+        expect(screen.getByTestId('kitchen-plan-variants-section')).toBeTruthy();
+    });
+
     it('blocks the save while a configuration has no name', async () => {
         const spread = spreadPlan();
         const world = planWorld(spread, pricedVariants(spread));
@@ -1538,6 +1608,28 @@ describe('editing the matrix', () => {
         expect(world.read().variants).toHaveLength(1);
     });
 
+    it('offers Save the plan on every step of a saved plan, and only at the end of a new one', async () => {
+        const spread = spreadPlan({ meta: meta({ status: 'draft' }) });
+        const world = planWorld(spread, pricedVariants(spread));
+
+        await renderStubScreen(<PlanEditScreen plan={String(spread.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: world.overrides,
+        });
+        await untilVisible('kitchen-plan-details');
+
+        // The first step: Save sits beside Next rather than waiting at the fifth.
+        expect(screen.getByTestId('kitchen-plan-editor-screen-save')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-plan-steps-nav-next')).toBeTruthy();
+
+        await openPlanStep('durations');
+        expect(screen.getByTestId('kitchen-plan-editor-screen-save')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-plan-steps-nav-next')).toBeTruthy();
+
+        // ...and the header still offers only Cancel and Publish.
+        expect(screen.getByTestId('kitchen-plan-publish')).toBeTruthy();
+    });
+
     it('asks before throwing away an unsaved change', async () => {
         const spread = spreadPlan();
         const world = planWorld(spread, pricedVariants(spread));
@@ -1564,6 +1656,133 @@ describe('editing the matrix', () => {
         });
         await waitFor(() => {
             expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/plans');
+        });
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * The plan itself, through the controls
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('editing the plan', () => {
+    it('does not offer categories: the server has nowhere to keep them', async () => {
+        const spread = spreadPlan({ categorySlugs: ['weight-management'] });
+        const world = planWorld(spread, pricedVariants(spread));
+
+        await renderStubScreen(<PlanEditScreen plan={String(spread.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: world.overrides,
+        });
+        await untilVisible('kitchen-plan-details');
+
+        expect(screen.queryByTestId('kitchen-plan-categories-section')).toBeNull();
+        expect(screen.queryByTestId('kitchen-plan-category-new')).toBeNull();
+    });
+
+    it('loads the diet classifications, and sends them only when they changed', async () => {
+        const spread = spreadPlan({ dietClassifications: ['keto'] });
+        const world = planWorld(spread, pricedVariants(spread));
+
+        const { repositories } = await renderStubScreen(
+            <PlanEditScreen plan={String(spread.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: world.overrides,
+            },
+        );
+        await untilVisible('kitchen-plan-diets');
+
+        // What the server holds is what the chips show.
+        expect(screen.getByTestId('kitchen-plan-diet-keto').props.accessibilityState?.selected).toBe(
+            true,
+        );
+        expect(
+            screen.getByTestId('kitchen-plan-diet-vegan').props.accessibilityState?.selected,
+        ).toBe(false);
+
+        // A name change alone does not echo the diet set back: the set is replaced wholesale, and
+        // an unchanged echo is a write that can only lose to somebody else's.
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-plan-name-en-input'), 'Renamed');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plan-editor-screen-save'));
+        });
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updatePlan).toHaveBeenCalledTimes(1);
+        });
+        const [, first] = (repositories.kitchenAdmin.updatePlan as jest.Mock).mock.calls[0] as [
+            unknown,
+            Record<string, unknown>,
+        ];
+        expect(first).not.toHaveProperty('dietClassifications');
+        expect(world.read().dietClassifications).toEqual(['keto']);
+
+        // A pressed chip is a change, and the whole set goes up.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plan-diet-vegan'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plan-editor-screen-save'));
+        });
+        await waitFor(() => {
+            expect(world.read().dietClassifications).toEqual(['keto', 'vegan']);
+        });
+    });
+
+    it('explains the cut-off in plain words, and refuses one outside half a day to a week', async () => {
+        const spread = spreadPlan();
+        const world = planWorld(spread, pricedVariants(spread));
+
+        const { repositories } = await renderStubScreen(
+            <PlanEditScreen plan={String(spread.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: world.overrides,
+            },
+        );
+        await untilVisible('kitchen-plan-cut-off');
+
+        // The saved 24 hours: a Friday delivery locks on the Thursday.
+        expect(screen.getByTestId('kitchen-plan-cut-off-example')).toHaveTextContent(/Thursday/);
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-plan-cut-off-input'), '48');
+        });
+        expect(screen.getByTestId('kitchen-plan-cut-off-example')).toHaveTextContent(/Wednesday/);
+
+        // Not a whole number of days: said in hours, because no weekday is "the same time".
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-plan-cut-off-input'), '30');
+        });
+        expect(screen.getByTestId('kitchen-plan-cut-off-example')).toHaveTextContent(
+            /30 hours before each delivery/,
+        );
+
+        // Six hours is a typo, not a decision: named at once, and the save stops on it.
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-plan-cut-off-input'), '6');
+        });
+        await untilVisible('kitchen-plan-cut-off-error');
+        expect(screen.getByTestId('kitchen-plan-cut-off-error')).toHaveTextContent(
+            /between 12 and 168 hours/i,
+        );
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plan-editor-screen-save'));
+        });
+        await untilVisible('kitchen-plan-issues');
+        expect(repositories.kitchenAdmin.updatePlan).not.toHaveBeenCalled();
+
+        // Back within the range, the save goes through with the figure.
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-plan-cut-off-input'), '72');
+        });
+        expect(screen.getByTestId('kitchen-plan-cut-off-example')).toHaveTextContent(/Tuesday/);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plan-editor-screen-save'));
+        });
+        await waitFor(() => {
+            expect(world.read().changeCutOffHours).toBe(72);
         });
     });
 });
@@ -1724,6 +1943,35 @@ describe('editing the durations', () => {
         });
     });
 
+    it('marks an impossible discount on the Discount field, not on the day count', async () => {
+        const spread = spreadPlan();
+        const world = planWorld(spread, pricedVariants(spread));
+
+        await renderStubScreen(<PlanEditScreen plan={String(spread.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: world.overrides,
+        });
+        await openPlanStep('durations');
+        await untilVisible('kitchen-plan-duration-rows');
+
+        const row = firstDurationRow(spread);
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${row}-discount-input`), '140');
+        });
+
+        await untilVisible(`${row}-discount-error`);
+        expect(screen.queryByTestId(`${row}-days-error`)).toBeNull();
+        // ...and a day-count problem is the Days field's, with the Discount left alone.
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${row}-discount-input`), '10');
+        });
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${row}-days-input`), '');
+        });
+        await untilVisible(`${row}-days-error`);
+        expect(screen.queryByTestId(`${row}-discount-error`)).toBeNull();
+    });
+
     it('removes a duration and undoes it in place', async () => {
         const spread = spreadPlan();
         const world = planWorld(spread, pricedVariants(spread));
@@ -1876,6 +2124,36 @@ describe('editing the fixed menu', () => {
         await waitFor(() => {
             expect(String(world.readMenu().entries[0]?.mealId)).toBe(String(mealIdentifier(2)));
         });
+    });
+
+    it('does not offer a prep item as a dish, however published it is', async () => {
+        const spread = spreadPlan();
+        // A burger patty is a meal row that stands for an ingredient — sold by the kilo, not
+        // served on a plate — and the listing carries it under the same type as a dish.
+        const patty = adminMeal(3, {
+            name: { en: 'Burger Patty', ar: 'قرص برغر' },
+            ingredientId: IngredientId.unsafe('01935f6d-0000-7000-8000-0000000f0003'),
+        });
+        const world = planWorld(spread, pricedVariants(spread), {
+            menu: publishedMenu(spread),
+            meals: [...publishedMeals, patty],
+        });
+
+        await renderStubScreen(<PlanEditScreen plan={String(spread.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: world.overrides,
+        });
+        await openPlanStep('menu');
+        await untilVisible('kitchen-plan-menu-days');
+
+        const picker = `${rowTestId(0, 'menu-1')}-meal`;
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${picker}-trigger`));
+        });
+        await untilVisible(`${picker}-list`);
+
+        expect(screen.getByTestId(`${picker}-option-${String(mealIdentifier(2))}`)).toBeTruthy();
+        expect(screen.queryByTestId(`${picker}-option-${String(patty.id)}`)).toBeNull();
     });
 
     it('states the stock cutover only when this save would publish the first menu', async () => {
@@ -2335,6 +2613,107 @@ describe('publishing a plan', () => {
                 /confirmed price/i,
             );
         });
+    });
+
+    it('blocks publication while a saved menu has days nobody is served on', async () => {
+        const ready = spreadPlan({ meta: meta({ status: 'retired' }) });
+        // Seven days, dishes on two of them: five subscribers' days with nothing on the plate.
+        const world = planWorld(ready, pricedVariants(ready), {
+            menu: publishedMenu(ready),
+            meals: [adminMeal(1), adminMeal(2)],
+        });
+
+        await renderStubScreen(<PlanEditScreen plan={String(ready.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: world.overrides,
+        });
+        await untilVisible('kitchen-plan-publish');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plan-publish'));
+        });
+        await untilVisible('kitchen-plan-publish-dialog');
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-plan-publish-blocked')).toHaveTextContent(
+                /5 menu days have no dish/i,
+            );
+        });
+        expect(
+            screen.getByTestId('kitchen-plan-publish-confirm').props.accessibilityState?.disabled,
+        ).toBe(true);
+    });
+
+    it('opens the step the server refused when the one Save of a new plan fails there', async () => {
+        const { repositories } = await renderStubScreen(<PlanEditScreen plan="new" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listPriceLists: async () => page([]),
+                    listMeals: async () => page([]),
+                    createPlan: async (request) => ({
+                        id: planIdentifier(9),
+                        meta: meta({ status: 'draft', lockVersion: 1 }),
+                        name: request.name,
+                        summary: request.summary,
+                        description: request.description,
+                        kitchenId: KITCHEN_ID,
+                        categorySlugs: [],
+                        dietClassifications: [],
+                        variants: [],
+                        durations: [],
+                        combinations: [],
+                        changeCutOffHours: request.changeCutOffHours ?? 24,
+                        deliveryWeekdays: [1, 2, 3, 4, 5],
+                    }),
+                    // The record exists; its first configuration is what the server turns down.
+                    setPlanVariants: () =>
+                        throwFailure(
+                            validationFailure(
+                                { 'cells.0': ['This cell is already sold.'] },
+                                { message: 'Refused.' },
+                            ),
+                        ),
+                },
+            },
+        });
+        await untilVisible('kitchen-plan-details');
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-plan-name-en-input'), 'Autumn reset');
+        });
+        await openPlanStep('variants');
+        const configuration = 'kitchen-plan-variants-row-variant-starter';
+        for (const [field, value] of [
+            ['name', 'Standard 1500'],
+            ['meals', '3'],
+            ['snacks', '1'],
+            ['energy-min', '1400'],
+            ['energy-max', '1600'],
+        ] as const) {
+            await act(async () => {
+                fireEvent.changeText(screen.getByTestId(`${configuration}-${field}-input`), value);
+            });
+        }
+        await openPlanStep('durations');
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-plan-duration-rows-row-duration-starter-days-input'),
+                '20',
+            );
+        });
+
+        // Save is pressed from the last step; the refusal is about the second.
+        await openPlanStep('menu');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plan-editor-screen-save'));
+        });
+
+        await untilVisible(`${configuration}-error`);
+        expect(screen.getByTestId(`${configuration}-error`)).toHaveTextContent(/already sold/i);
+        expect(screen.getByTestId('kitchen-plan-variants-section')).toBeTruthy();
+        expect(repositories.kitchenAdmin.createPlan).toHaveBeenCalledTimes(1);
+        expect(routerMock.__replace).not.toHaveBeenCalled();
     });
 
     it('publishes a plan whose configurations, durations and prices are all real', async () => {

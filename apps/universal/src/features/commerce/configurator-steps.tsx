@@ -16,7 +16,7 @@ import type {
     SubscriptionPlan,
     SubscriptionPreview,
 } from '@healthy360/api-client/contracts';
-import type { AllergenCode, DietClassification, MealId } from '@healthy360/domain-types';
+import type { MealId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useState } from 'react';
@@ -26,6 +26,8 @@ import { Pressable, Text as RNText, View } from 'react-native';
 
 import { MedicalDisclaimer } from '../../safety/medical-disclaimer.tsx';
 import { PillChip } from '../../ui/pill-chip.tsx';
+import { listDayPrice } from '../catalogue/plan-balance.ts';
+import { durationLabel, durationWithBalance } from '../catalogue/plan-duration-label.ts';
 import { formatMoney, weekdayKey } from '../marketplace/format.ts';
 import { formatAddress, toDeliveryAddress } from './address.ts';
 import { OptionCard } from './checkout-frame.tsx';
@@ -33,19 +35,18 @@ import {
     combinationKey,
     FIRST_WEEK_DAYS,
     configuredDeliveryDates,
-    diffAllergens,
-    discountedTotalMinorUnits,
-    grossMinorUnits,
+    durationOption,
+    estimatedTotal,
     mealCombinations,
     perDeliveryPrice,
     variantById,
-    weeksFor,
 } from './configurator.ts';
 import type { ConfiguratorState, ConfiguratorStep } from './configurator.ts';
-import { earliestStartDate, isoWeekday, nextAllowedDate } from './dates.ts';
+import { isoWeekday, nextAllowedDate } from './dates.ts';
 import { DELIVERY_SLOTS } from './delivery.ts';
 import type { DeliveryAreaStatus } from './delivery.ts';
 import {
+    PlanAllergyNotice,
     YourAllergens,
     clashingAllergens,
     useAllergenNames,
@@ -62,8 +63,8 @@ import { displayableWarnings, isCriticalWarning, warningMessageKey } from './war
  * Each is a stack of section cards, one question to a card. A single choice is a row of option
  * cards — the answer in bold, what it means (kcal, price, discount) under it; a choice with **one**
  * option is the answer as plain text, because a lone pre-selected card is a control that asks a
- * question nobody can answer differently. Many-of choices (weekdays, allergens) stay pills. The screen
- * owns navigation, validation, the request and the summary; these own layout and nothing else.
+ * question nobody can answer differently. Many-of choices (weekdays) stay pills. The screen owns
+ * navigation, validation, the request and the summary; these own layout and nothing else.
  */
 
 export interface StepPatch {
@@ -204,8 +205,8 @@ export function PlanStep({ plan, variant, state, patch, onCombination }: PlanSte
                             min: formatter.formatNumber(option.energyRange.min),
                             max: formatter.formatNumber(option.energyRange.max),
                         }),
-                        t('commerce:subscriptions.weeklyPrice', {
-                            price: formatMoney(formatter, option.pricePerWeek),
+                        t('catalogue:plan.pricePerDay', {
+                            price: formatMoney(formatter, listDayPrice(option)),
                         }),
                     ].join(' · '),
                     testID: `configurator-variant-${String(option.id)}`,
@@ -224,41 +225,51 @@ export function PlanStep({ plan, variant, state, patch, onCombination }: PlanSte
                 }))}
             />
 
-            <ChoiceRow
-                testID="configurator-duration"
-                label={t('commerce:configurator.duration.label')}
-                value={state.duration}
-                onChange={(next) => {
-                    const option = plan.durations.find((each) => each.duration === next);
-                    if (option !== undefined) patch({ duration: option.duration });
-                }}
-                choices={plan.durations.map((option) => ({
-                    value: option.duration,
-                    label: t(`catalogue:compare.duration.${option.duration}`),
-                    sub: [
-                        ...(variant === null
-                            ? []
-                            : [
-                                  t('catalogue:plan.durationTotal', {
-                                      total: formatMoney(formatter, {
-                                          amount: discountedTotalMinorUnits(
-                                              variant.pricePerWeek.amount,
-                                              weeksFor(option.duration),
-                                              option.discountPercent,
-                                          ),
-                                          currency: variant.pricePerWeek.currency,
-                                      }),
-                                  }),
-                              ]),
-                        option.discountPercent > 0
-                            ? t('catalogue:plan.durationDiscount', {
-                                  discount: formatter.formatNumber(option.discountPercent),
-                              })
-                            : t('catalogue:plan.durationNoDiscount'),
-                    ].join(' · '),
-                    testID: `configurator-duration-${option.duration}`,
-                }))}
-            />
+            {/* A plan with no length on sale says so; a row of nothing would leave the step with
+                a question it cannot answer and a Continue it cannot pass. */}
+            {plan.durations.length === 0 ? (
+                <Row label={t('commerce:configurator.duration.label')} testID="configurator-duration">
+                    <RNText
+                        testID="configurator-duration-none"
+                        className="self-start text-base text-content-secondary text-start"
+                    >
+                        {t('catalogue:plan.noDurations')}
+                    </RNText>
+                </Row>
+            ) : (
+                <ChoiceRow
+                    testID="configurator-duration"
+                    label={t('commerce:configurator.duration.label')}
+                    value={state.duration ?? ''}
+                    onChange={(next) => {
+                        const option = plan.durations.find((each) => each.duration === next);
+                        if (option !== undefined) patch({ duration: option.duration });
+                    }}
+                    choices={plan.durations.map((option) => {
+                        const total = estimatedTotal(variant, option);
+                        return {
+                            value: option.duration,
+                            label: durationLabel(option.days, t, formatter.formatNumber),
+                            sub: [
+                                t('commerce:configurator.summary.balance', { count: option.days }),
+                                ...(total === null
+                                    ? []
+                                    : [
+                                          t('catalogue:plan.durationTotal', {
+                                              total: formatMoney(formatter, total),
+                                          }),
+                                      ]),
+                                option.discountPercent > 0
+                                    ? t('catalogue:plan.durationDiscount', {
+                                          discount: formatter.formatNumber(option.discountPercent),
+                                      })
+                                    : t('catalogue:plan.durationNoDiscount'),
+                            ].join(' · '),
+                            testID: `configurator-duration-${option.duration}`,
+                        };
+                    })}
+                />
+            )}
         </View>
     );
 }
@@ -312,15 +323,21 @@ export function weekdayRun(weekdays: readonly number[], t: TFunction): string {
 /* ── ② delivery: days, start, window, address, diet and allergies ───────────────────────────── */
 
 export interface DeliveryStepProps {
-    readonly plan: SubscriptionPlan;
     readonly state: ConfiguratorState;
     readonly patch: StepPatch;
     readonly allowedWeekdays: readonly number[] | null;
+    /** The first day a start may fall on: tomorrow, or later when the cut-off reaches past it. */
+    readonly earliestStartDate: string;
+    /** The plan's change cut-off, so the step can say why the earliest start is what it is. */
+    readonly cutoffHours: number;
     readonly areaStatus: DeliveryAreaStatus;
     readonly servedAreas: readonly string[];
-    /** Allergens this kitchen declares on its own menu, plus anything the profile already excludes. */
-    readonly allergenOptions: readonly AllergenCode[];
-    readonly storedAllergens: readonly AllergenCode[];
+    /** The plan's published dishes, checked against the person's allergy list. */
+    readonly sampleMeals: readonly MarketplaceMeal[];
+    /** False until the kitchen's menu has loaded, so an empty sample is not read as safe. */
+    readonly sampleMealsLoaded: boolean;
+    /** This step's own URL — where the allergy editor comes back to. */
+    readonly returnTo: string;
     readonly showIssues: boolean;
     readonly savedAddresses: readonly CustomerAddress[];
     readonly addressId: string | null;
@@ -343,16 +360,30 @@ export interface DeliveryStepProps {
  * somebody with nothing saved; it validated, the address went nowhere, and Subscribe was refused
  * every time with no way forward (plans-02). An account with no address now sees the one action
  * that fixes it, in the place it is needed.
+ *
+ * ## The start date starts where the kitchen can start
+ *
+ * The earliest date offered already honours the plan's change cut-off and its delivery weekdays,
+ * and the step says why. The server used to move a start inside the cut-off forward on its own, so
+ * the summary promised one date and the subscription began on another (plans-17).
+ *
+ * ## Allergies are read, not collected
+ *
+ * The kitchen reads the person's dietary profile at generation. The step shows that list, which of
+ * this plan's dishes cross it, and the way to change it — the "leave out" pills it replaced were
+ * sent nowhere (plans-16).
  */
 export function DeliveryStep({
-    plan,
     state,
     patch,
     allowedWeekdays,
+    earliestStartDate,
+    cutoffHours,
     areaStatus,
     servedAreas,
-    allergenOptions,
-    storedAllergens,
+    sampleMeals,
+    sampleMealsLoaded,
+    returnTo,
     showIssues,
     savedAddresses,
     addressId,
@@ -364,15 +395,22 @@ export function DeliveryStep({
     const separator = t('commerce:common.listSeparator');
 
     const allowed = allowedWeekdays ?? [];
+    // The start is the first delivery, so it is judged against the days actually chosen.
+    const startDays =
+        state.deliveryWeekdays.length > 0
+            ? state.deliveryWeekdays
+            : allowedWeekdays === null
+              ? [1, 2, 3, 4, 5, 6, 7]
+              : allowed;
     const startWeekday = state.startDate === null ? null : isoWeekday(state.startDate);
-    const startWeekdayAllowed =
-        allowedWeekdays === null || startWeekday === null || allowed.includes(startWeekday);
+    const startWeekdayAllowed = startWeekday === null || startDays.includes(startWeekday);
+    const startTooSoon = state.startDate !== null && state.startDate < earliestStartDate;
+    // The repair offered beside a rejected date: the first chosen day on or after the floor.
     const repair =
-        state.startDate === null || startWeekdayAllowed
+        state.startDate === null || (startWeekdayAllowed && !startTooSoon)
             ? null
-            : nextAllowedDate(state.startDate, allowed);
+            : nextAllowedDate(startTooSoon ? earliestStartDate : state.startDate, startDays);
 
-    const change = diffAllergens(storedAllergens, state.excludeAllergens);
     const hasSaved = savedAddresses.length > 0;
     const area = savedAddresses.find((entry) => entry.id === addressId)?.areaName ?? '';
 
@@ -426,15 +464,36 @@ export function DeliveryStep({
                         testID="configurator-start-date-field"
                         label={t('commerce:configurator.delivery.startLabel')}
                         value={state.startDate}
-                        min={earliestStartDate()}
+                        min={earliestStartDate}
                         required
                         onChange={(next) => {
                             patch({ startDate: next });
                         }}
-                        {...(showIssues && !startWeekdayAllowed
-                            ? { error: t('commerce:configurator.issues.startWeekday') }
-                            : {})}
+                        {...(showIssues && startTooSoon
+                            ? {
+                                  error: t('commerce:configurator.issues.startTooSoon', {
+                                      date: formatter.formatDate(earliestStartDate, {
+                                          dateStyle: 'medium',
+                                      }),
+                                  }),
+                              }
+                            : showIssues && !startWeekdayAllowed
+                              ? { error: t('commerce:configurator.issues.startWeekday') }
+                              : {})}
                     />
+                    {cutoffHours <= 0 ? null : (
+                        <RNText
+                            testID="configurator-start-date-cutoff"
+                            className="self-start text-sm text-content-secondary text-start"
+                        >
+                            {t('commerce:configurator.delivery.cutoffNote', {
+                                count: cutoffHours,
+                                date: formatter.formatDate(earliestStartDate, {
+                                    dateStyle: 'medium',
+                                }),
+                            })}
+                        </RNText>
+                    )}
                     {repair === null ? null : (
                         <View className="self-start">
                             <Chip
@@ -514,105 +573,16 @@ export function DeliveryStep({
                 </View>
             </Row>
 
-            {plan.dietClassifications.length === 0 ? null : (
-                <Row
-                    label={t('commerce:configurator.dietary.dietsTitle')}
-                    testID="configurator-diets"
-                >
-                    <View className="flex-row flex-wrap gap-2">
-                        {plan.dietClassifications.map((diet: DietClassification) => {
-                            const on = state.dietClassifications.includes(diet);
-                            return (
-                                <PillChip
-                                    key={diet}
-                                    testID={`configurator-diet-${diet}`}
-                                    label={t(`marketplace:diets.${diet}`)}
-                                    selected={on}
-                                    onPress={() => {
-                                        patch({
-                                            dietClassifications: toggle(
-                                                state.dietClassifications,
-                                                diet,
-                                                !on,
-                                            ),
-                                        });
-                                    }}
-                                />
-                            );
-                        })}
-                    </View>
-                </Row>
-            )}
-
             <Row
-                label={t('commerce:configurator.dietary.allergensTitle')}
+                label={t('commerce:configurator.delivery.allergensTitle')}
                 testID="configurator-allergens"
             >
-                {allergenOptions.length === 0 ? (
-                    <RNText
-                        testID="configurator-allergens-none"
-                        className="self-start text-base text-content-secondary text-start"
-                    >
-                        {t('commerce:configurator.checks.noAllergens')}
-                    </RNText>
-                ) : (
-                    <View className="flex-row flex-wrap gap-2">
-                        {allergenOptions.map((code) => {
-                            const on = state.excludeAllergens.includes(code);
-                            return (
-                                <PillChip
-                                    key={code}
-                                    testID={`configurator-allergen-${code}`}
-                                    label={t(`marketplace:allergens.${code}`)}
-                                    selected={on}
-                                    onPress={() => {
-                                        patch({
-                                            allergensTouched: true,
-                                            excludeAllergens: toggle(
-                                                state.excludeAllergens,
-                                                code,
-                                                !on,
-                                            ),
-                                        });
-                                    }}
-                                />
-                            );
-                        })}
-                    </View>
-                )}
-
-                {/*
-                 * Adding an exclusion tightens what the kitchen may send and needs no ceremony.
-                 * Removing one the profile records widens it — a safety decision — so it is an
-                 * alert that names what was dropped, and it has to be acknowledged.
-                 */}
-                {change.relaxed ? (
-                    <View className="flex-col gap-3">
-                        <Callout
-                            testID="configurator-allergen-relaxed"
-                            role="alert"
-                            tone="danger"
-                            icon="warning"
-                            title={t('commerce:configurator.dietary.relaxedTitle', {
-                                allergens: change.removed
-                                    .map((code) => t(`marketplace:allergens.${code}`))
-                                    .join(separator),
-                            })}
-                        />
-                        <Checkbox
-                            testID="configurator-checks-acknowledge"
-                            checked={state.checksAcknowledged}
-                            onChange={(checked) => {
-                                patch({ checksAcknowledged: checked });
-                            }}
-                            label={t('commerce:configurator.checks.acknowledgeLabel')}
-                            required
-                            {...(showIssues && !state.checksAcknowledged
-                                ? { error: t('commerce:configurator.issues.checks') }
-                                : {})}
-                        />
-                    </View>
-                ) : null}
+                <PlanAllergyNotice
+                    testID="configurator-allergy-notice"
+                    meals={sampleMeals}
+                    checked={sampleMealsLoaded}
+                    returnTo={returnTo}
+                />
             </Row>
         </View>
     );
@@ -689,6 +659,11 @@ export interface ReviewStepProps {
     /** The saved address chosen on the delivery step, when one was. */
     readonly savedAddress: CustomerAddress | undefined;
     readonly menu: readonly MarketplaceMeal[];
+    /** The plan's published dishes, checked against the person's allergy list once more here. */
+    readonly sampleMeals: readonly MarketplaceMeal[];
+    readonly sampleMealsLoaded: boolean;
+    /** This step's own URL — where the allergy editor comes back to. */
+    readonly returnTo: string;
     /**
      * The plan lets a subscriber choose their meals (`allowsFreeSelection` on the quote). Off, the
      * first-week picker is not drawn: the server refuses choices on such a plan, and a picker whose
@@ -705,23 +680,27 @@ export function ReviewStep({
     preview,
     savedAddress,
     menu,
+    sampleMeals,
+    sampleMealsLoaded,
+    returnTo,
     freeSelection,
     onEdit,
 }: ReviewStepProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
-    const separator = t('commerce:common.listSeparator');
     const variant = variantById(plan, state.variantId);
+    const option = durationOption(plan, state.duration);
     const [mealsOpen, setMealsOpen] = useState(false);
 
     const rows: readonly PriceRow[] =
         preview === undefined
             ? []
             : buildPriceRows(preview, {
-                  weekly: t('commerce:configurator.summary.weekly'),
-                  gross: t('commerce:configurator.summary.gross', {
-                      weeks: formatter.formatNumber(weeksFor(preview.configuration.duration)),
+                  perDayList: t('commerce:configurator.summary.perDayList'),
+                  balance: t('commerce:configurator.summary.balance', {
+                      count: preview.deliveryCount,
                   }),
+                  gross: t('commerce:configurator.summary.gross'),
                   discount: t('commerce:configurator.summary.discount', {
                       percent: formatter.formatNumber(preview.discountPercent),
                   }),
@@ -762,7 +741,10 @@ export function ReviewStep({
                         key: 'duration',
                         testID: 'configurator-summary-duration',
                         label: t('commerce:configurator.summary.duration'),
-                        value: t(`catalogue:compare.duration.${state.duration}`),
+                        value:
+                            option === undefined
+                                ? '—'
+                                : durationWithBalance(option.days, t, formatter.formatNumber),
                     },
                 ]}
             />
@@ -808,19 +790,20 @@ export function ReviewStep({
                         label: t('commerce:configurator.summary.address'),
                         value: address,
                     },
-                    {
-                        key: 'allergens',
-                        testID: 'configurator-summary-allergens',
-                        label: t('commerce:configurator.summary.allergens'),
-                        value:
-                            state.excludeAllergens.length === 0
-                                ? t('commerce:configurator.checks.noAllergens')
-                                : state.excludeAllergens
-                                      .map((code) => t(`marketplace:allergens.${code}`))
-                                      .join(separator),
-                    },
                 ]}
             />
+
+            <SummaryCard
+                testID="configurator-review-allergens"
+                title={t('commerce:configurator.summary.allergens')}
+            >
+                <PlanAllergyNotice
+                    testID="configurator-review-allergy-notice"
+                    meals={sampleMeals}
+                    checked={sampleMealsLoaded}
+                    returnTo={returnTo}
+                />
+            </SummaryCard>
 
             {preview === undefined ? null : (
                 <SummaryCard
@@ -923,7 +906,7 @@ function FirstWeekMeals({
     const formatter = useFormatter();
     const myAllergens = useMyAllergenCodes();
     const allergenNames = useAllergenNames();
-    const dates = configuredDeliveryDates(state).slice(0, FIRST_WEEK_DAYS);
+    const dates = configuredDeliveryDates(state, plan).slice(0, FIRST_WEEK_DAYS);
     const swappable = menu.length > 0;
 
     /** An option names the clash before it is picked, so the list itself warns. */
@@ -1013,7 +996,9 @@ function FirstWeekMeals({
 }
 
 export interface PriceLabels {
-    readonly weekly: string;
+    readonly perDayList: string;
+    /** "28 delivery days" — the note under the gross row, saying what it multiplies. */
+    readonly balance: string;
     readonly gross: string;
     readonly discount: string;
     readonly total: string;
@@ -1028,22 +1013,26 @@ export interface PriceLabels {
  * the figures are the server's. Recorded as a contract gap: a priced line should carry a stable
  * code and its parameters, not a rendered string.
  *
- * The gross and the saving are derived — same currency, no cross-currency addition anywhere — and
- * the authority for what is owed remains `preview.total`, which is rendered as it arrived.
+ * One arithmetic, readable top to bottom: a delivery day lists at X; the run buys N of them, so
+ * before the discount it is X × N; the discount takes the gap to the total; the total is what the
+ * server quoted; and a day after the discount is the figure a refund is computed from. The gross
+ * and the saving are derived in one currency, and the authority for what is owed remains
+ * `preview.total`, rendered as it arrived. It used to show a "weekly price" and a gross of four
+ * calendar weeks beside a total of twenty-eight delivery days, so "before discount" was smaller
+ * than the total it was discounted to (plans-19).
  */
 export function buildPriceRows(
     preview: SubscriptionPreview,
     labels: PriceLabels,
 ): readonly PriceRow[] {
-    const weeks = weeksFor(preview.configuration.duration);
     const currency = preview.total.currency;
-    const gross = { amount: grossMinorUnits(preview.weeklyPrice.amount, weeks), currency };
+    const gross = { amount: preview.perDayListPrice.amount * preview.deliveryCount, currency };
     const saving = gross.amount - preview.total.amount;
     const perDelivery = perDeliveryPrice(preview.total, preview.deliveryCount);
 
     return [
-        { key: 'weekly', label: labels.weekly, amount: preview.weeklyPrice },
-        { key: 'gross', label: labels.gross, amount: gross },
+        { key: 'per-day-list', label: labels.perDayList, amount: preview.perDayListPrice },
+        { key: 'gross', label: labels.gross, amount: gross, note: labels.balance },
         ...(preview.discountPercent > 0 && saving > 0
             ? [
                   {

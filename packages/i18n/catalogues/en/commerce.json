@@ -185,14 +185,13 @@
             "variant": "Choose a calorie band to continue.",
             "duration": "Choose how long the subscription should run.",
             "startDate": "Choose a start date.",
-            "startTooSoon": "The earliest start is tomorrow.",
+            "startTooSoon": "The earliest start is {{date}}.",
             "startWeekday": "This plan does not deliver on that weekday.",
             "noDeliveryDays": "Choose at least one delivery day.",
             "deliveryDayUnavailable": "One of the days you chose is not a delivery day for this plan.",
             "slot": "Choose a delivery window.",
             "address": "Choose a delivery address.",
             "areaUnserved": "This kitchen does not deliver to that area, so this subscription cannot go ahead.",
-            "checks": "Confirm you want to continue without leaving it out.",
             "terms": "Tick the box below to subscribe."
         },
         "plan": {
@@ -212,14 +211,12 @@
             "label": "Length",
             "withDiscount": "{{duration}} · −{{percent}}%"
         },
-        "dietary": {
-            "dietsTitle": "Diet",
-            "allergensTitle": "Leave out",
-            "relaxedTitle": "{{allergens}} will no longer be left out"
-        },
         "delivery": {
             "startLabel": "Start date",
             "useNextAllowed": "Use {{date}} instead",
+            "cutoffNote_one": "This kitchen locks each delivery {{count}} hour ahead, so the earliest start is {{date}}.",
+            "cutoffNote_other": "This kitchen locks each delivery {{count}} hours ahead, so the earliest start is {{date}}.",
+            "allergensTitle": "Your allergy list",
             "weekdaysTitle": "Delivery days",
             "weekdaysLimited": "This plan delivers on {{days}} only.",
             "slotTitle": "Delivery window",
@@ -228,8 +225,6 @@
             "addAddress": "Add a delivery address"
         },
         "checks": {
-            "noAllergens": "Nothing left out",
-            "acknowledgeLabel": "I understand, and want to continue",
             "areaServed": "Delivers to {{area}}",
             "areaUnserved": "Does not deliver to {{area}}. Delivers to {{areas}}.",
             "areaUnknown": "Your area is confirmed before the first delivery"
@@ -244,14 +239,16 @@
             "duration": "Length",
             "days": "Days",
             "address": "Address",
-            "allergens": "Left out",
+            "allergens": "Your allergy list",
             "window": "Deliveries",
             "windowValue": "{{first}} to {{last}}",
-            "weekly": "Weekly price",
-            "gross": "Before discount, {{weeks}} weeks",
+            "perDayList": "Per delivery day",
+            "balance_one": "{{count}} delivery day",
+            "balance_other": "{{count}} delivery days",
+            "gross": "Before discount",
             "discount": "Duration discount, {{percent}} %",
             "total": "Total",
-            "perDelivery": "Per delivery",
+            "perDelivery": "Per delivery day, after the discount",
             "starts": "Starts {{date}}",
             "everyDay": "Every day"
         },
@@ -294,10 +291,10 @@
         "clearFilter": "Show all subscriptions",
         "browse": "Browse meal plans",
         "open": "Open",
-        "weeklyPrice": "{{price}} a week",
+        "dayPrice": "{{price}} a day",
         "nextDelivery": "Next delivery {{date}}",
         "noNextDelivery": "No delivery scheduled",
-        "rowSummary": "{{price}} a week, delivered on {{days}}"
+        "rowSummary": "{{price}} a day, delivered on {{days}}"
     },
     "subscription": {
         "notFoundTitle": "We could not find that subscription",
@@ -307,12 +304,13 @@
             "plan": "Plan",
             "duration": "Length",
             "start": "Started",
+            "startsOn": "Starts",
+            "startUnknown": "Not planned yet",
             "days": "Delivery days",
             "slot": "Delivery window",
             "address": "Address",
-            "allergens": "Excluded"
+            "allergens": "Your allergy list"
         },
-        "pausedUntilBadge": "Paused until",
         "skippedBadge": "Skipped days",
         "actionFailedTitle": "That did not go through",
         "readOnlyTitle": "This subscription is closed",
@@ -334,11 +332,8 @@
         "pauseDialogTitle": "Pause this subscription?",
         "pauseDialogBody": "Deliveries stop until you resume. Nothing is cancelled and nothing is lost.",
         "pauseConfirm": "Pause deliveries",
-        "pauseUntilLabel": "Resume automatically on",
-        "pauseUntilHint": "Optional. Leave this empty to pause until you resume it yourself.",
         "pauseConsequenceTitle": "What happens next",
         "pauseConsequenceOpen": "No delivery will be scheduled until you press Resume. We will not choose a date for you.",
-        "pauseConsequenceUntil": "We will record {{date}} as the day you intend to resume. You still press Resume yourself, so nothing restarts without you.",
         "resumeDialogTitle": "Resume this subscription?",
         "resumeDialogBody": "Deliveries start again on the next day this plan delivers on.",
         "resumeConfirm": "Resume deliveries",
@@ -458,6 +453,14 @@
         "option": "{{meal}} (on your allergy list: {{allergens}})",
         "confirmTitle": "Order meals with your allergens?",
         "placeAnyway": "Place order anyway",
-        "mealWithAllergens": "{{meal}} ({{allergens}})"
+        "mealWithAllergens": "{{meal}} ({{allergens}})",
+        "yourList": "Your allergy list: {{allergens}}",
+        "yourListEmpty": "Your allergy list is empty.",
+        "edit": "Change your allergy list",
+        "planTitle_one": "{{count}} dish in this plan contains something on your allergy list",
+        "planTitle_other": "{{count}} dishes in this plan contain something on your allergy list",
+        "planBody": "The kitchen swaps these for a safe dish or skips that slot. Keep your list up to date so it can.",
+        "planNone": "Nothing in this plan’s sample week crosses your allergy list.",
+        "planUnchecked": "This plan has not published its dishes yet, so they cannot be checked against your allergy list."
     }
 }

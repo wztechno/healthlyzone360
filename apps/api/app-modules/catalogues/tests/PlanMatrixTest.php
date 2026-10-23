@@ -62,6 +62,7 @@ it('writes the commercial terms of a plan, defaulting the cut-off to twenty-four
     $this->getJson('/api/v1/catalogue/plans/'.$this->plan->getKey().'/profile', $this->headers)
         ->assertOk()
         ->assertJsonPath('data.profile', null)
+        ->assertJsonPath('data.diet_classifications', [])
         ->assertHeader('ETag', '"0"');
 
     $this->putJson('/api/v1/catalogue/plans/'.$this->plan->getKey().'/profile', [], $this->headers + ['If-Match' => '"0"'])
@@ -75,6 +76,18 @@ it('writes the commercial terms of a plan, defaulting the cut-off to twenty-four
         ->assertHeader('ETag', '"1"');
 
     expect(AuditLog::query()->where('action', 'catalogue.plan_profile_updated')->count())->toBe(1);
+});
+
+it('serves a plan’s diet tags beside its terms, as the item read does', function (): void {
+    // The tags are written through the item's own resource; the profile read
+    // carries them so a plan editor is one read, not two.
+    $this->putJson('/api/v1/catalogue/items/'.$this->plan->getKey().'/diet-classifications', [
+        'diet_classifications' => ['vegan', 'gluten_free'],
+    ], $this->headers + ['If-Match' => '"0"'])->assertOk();
+
+    $this->getJson('/api/v1/catalogue/plans/'.$this->plan->getKey().'/profile', $this->headers)
+        ->assertOk()
+        ->assertJsonPath('data.diet_classifications', ['vegan', 'gluten_free']);
 });
 
 it('accepts a zero-hour cut-off, because until the van leaves is a real policy', function (): void {

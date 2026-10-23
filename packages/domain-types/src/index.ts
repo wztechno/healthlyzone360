@@ -106,7 +106,6 @@ export {
     MEASUREMENT_SYSTEMS,
     NUTRITION_CALCULATION_METHODS,
     PLAN_DURATIONS,
-    PLAN_DURATION_WEEKS,
     RESTRICTION_KINDS,
     SALES_CHANNELS,
     SUBSCRIPTION_STATES,
@@ -128,6 +127,8 @@ export {
     isTargetPace,
     isVdSessionState,
     isVdUnhappyState,
+    planDuration,
+    planDurationDays,
 } from './nutrition-enums.ts';
 export type {
     ActivityLevel,

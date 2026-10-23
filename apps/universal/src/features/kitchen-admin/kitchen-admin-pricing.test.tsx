@@ -1183,6 +1183,18 @@ describe('editing a price list', () => {
         expect(screen.getByTestId('kitchen-price-list-changes-title')).toHaveTextContent(
             /2 changes not saved/i,
         );
+
+        // Both rows already name their meal, and both stay under "New entries" until they are
+        // saved — the heading counts them apart from the two the list was read with.
+        expect(
+            screen.getByTestId('kitchen-price-list-entries-group-unchosen-count'),
+        ).toHaveTextContent('2');
+        expect(screen.getByTestId('kitchen-price-list-entries-group-meal-count')).toHaveTextContent(
+            '2',
+        );
+        expect(screen.getByTestId('kitchen-price-list-entry-count')).toHaveTextContent(
+            /2 entries · 2 new/,
+        );
     });
 
     it('saves a changed amount as minor units, and reads it back in major ones', async () => {

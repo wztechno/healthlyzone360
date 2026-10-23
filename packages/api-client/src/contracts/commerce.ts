@@ -1,7 +1,6 @@
 import type {
     AllergenCode,
     CartId,
-    DietClassification,
     IsoDateTime,
     KitchenId,
     MealId,
@@ -149,20 +148,32 @@ export interface SubscriptionConfiguration {
     readonly deliveryWeekdays: readonly number[];
     readonly slotCode: string;
     readonly address: DeliveryAddress;
-    readonly dietClassifications: readonly DietClassification[];
-    readonly excludeAllergens: readonly AllergenCode[];
-    /** Explicit meal choices, where the plan allows selection. */
+    /**
+     * Explicit meal choices, where the plan allows selection.
+     *
+     * There is no diet or allergen field here on purpose. Neither is a property of a subscription:
+     * a plan's diet classification belongs to the plan, and safety comes from the customer's
+     * dietary profile, which generation applies to every delivery. A per-subscription "leave out"
+     * list used to be collected here and sent nowhere.
+     */
     readonly selectedMealIds: readonly MealId[];
 }
 
 export interface SubscriptionPreview {
     readonly configuration: SubscriptionConfiguration;
     readonly lines: readonly PriceLine[];
+    /** What one delivery day lists at, before the duration discount. */
+    readonly perDayListPrice: Money;
+    /** What one delivery day costs after the discount — the figure a refund is computed from. */
+    readonly perDayPrice: Money;
+    /** The per-day price × the delivery days chosen each week. An estimate of a week's spend. */
     readonly weeklyPrice: Money;
     readonly discountPercent: number;
+    /** `perDayPrice × deliveryCount`, as the server computes it. */
     readonly total: Money;
     readonly firstDeliveryDate: string;
     readonly lastDeliveryDate: string;
+    /** The delivery days the run buys — the balance a purchase creates. */
     readonly deliveryCount: number;
     readonly warnings: readonly string[];
     /** The picked meals that clash with the customer's allergies. Absent when none were picked. */
@@ -201,7 +212,6 @@ export interface Subscription {
     readonly nextDeliveryDate: string | null;
     /** `YYYY-MM-DD` dates the person has skipped. */
     readonly skippedDates: readonly string[];
-    readonly pausedUntil: string | null;
     readonly createdAt: IsoDateTime;
     readonly updatedAt: IsoDateTime;
 }
@@ -214,9 +224,11 @@ export interface CreateSubscriptionRequest {
     readonly addressId?: string | undefined;
 }
 
+/**
+ * A pause lasts until the person resumes it. There is no "resume on" date: the platform has no
+ * scheduled resume, and a field for one would collect a date nothing ever acts on.
+ */
 export interface PauseSubscriptionRequest {
-    /** `YYYY-MM-DD`. Omitted, the subscription is paused until it is resumed. */
-    readonly until?: string | undefined;
     readonly reason?: string | undefined;
 }
 
@@ -423,6 +435,12 @@ export interface SubscriptionQuoteRequest {
     readonly planId: SubscriptionPlanId;
     readonly variantId: PlanVariantId;
     readonly duration: PlanDuration;
+    /**
+     * The delivery weekdays the person has chosen. Only shapes {@link SubscriptionQuote.earliestStartDate}:
+     * the first day the kitchen can start is the first of *these* weekdays outside the cut-off.
+     * Omitted, every weekday counts.
+     */
+    readonly deliveryWeekdays?: readonly number[] | undefined;
 }
 
 /**
@@ -456,6 +474,13 @@ export interface SubscriptionQuote {
     /** Whether this plan lets the customer choose each meal (semantics §7, choose-ahead). */
     readonly allowsFreeSelection: boolean;
     readonly changeCutoffHours: number;
+    /**
+     * `YYYY-MM-DD` — the first day a subscription on the requested weekdays can start: past the
+     * plan's cut-off, on one of those weekdays. The purchase refuses an earlier `startDate` with a
+     * `422` rather than moving it, so this is the floor a start-date picker offers. `null` on a
+     * refused quote.
+     */
+    readonly earliestStartDate: string | null;
     readonly refusals: readonly SubscriptionQuoteRefusal[];
 }
 

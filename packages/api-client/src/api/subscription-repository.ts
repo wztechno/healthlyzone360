@@ -1,11 +1,12 @@
 import {
     KitchenId,
     MealId,
-    PLAN_DURATION_WEEKS,
     PlanVariantId,
     SubscriptionId,
     SubscriptionPlanId,
     isCurrencyCode,
+    planDuration,
+    planDurationDays,
 } from '@healthy360/domain-types';
 import type {
     CurrencyCode,
@@ -98,22 +99,19 @@ import type { Transport } from './transport.ts';
  *    caller's language, and there is still no request field for one: a caller-supplied label on a
  *    surface this close to safety could disagree with the dish actually recorded.
  *
- * ## The four places the models still differ, and how each is answered
+ * ## The places the models still differ, and how each is answered
  *
- * - **`duration`.** The contract's vocabulary is closed (`1w | 2w | 4w | 12w`) and the platform
- *   stores real runs of 5, 20, 40 and 60 days. Resolution is by *days* — the rule
- *   `plan-mappers.ts` has applied since M1, because the kitchen's `code` is an authored slug — and
- *   a run this build cannot name is reported rather than rounded. Rounding would show somebody
- *   "4 weeks" for a twelve-week commitment.
- * - **`pausedUntil` is always `null`.** Not a gap in the mapper: the platform has no scheduled
- *   resume. `paused_at` records when a pause *began*, and a pause lasts until somebody resumes it,
- *   so there is no instant to report. Reporting `paused_at` here would print a date in the past
- *   under the words "paused until".
- * - **`dietClassifications` and `excludeAllergens` are empty.** Neither is a property of a
- *   subscription. A plan's diet classification belongs to the plan and is on the plan page; there
- *   is no per-subscription allergen exclusion, because safety comes from the customer's dietary
- *   profile and is applied at generation. `no_substitutions` is the related switch and is a
- *   different fact.
+ * - **`duration`.** Named by its day count (`planDuration`), because the kitchen's `code` is an
+ *   authored slug and the quote and the purchase both resolve a run by `plan_duration_days`. A
+ *   one-off run has no day count and is not a balance; a subscription carrying one is reported
+ *   rather than rounded into a length it does not have.
+ * - **A pause has no end date.** The platform has no scheduled resume: `paused_at` records when
+ *   a pause *began*, and it lasts until somebody resumes it. The contract carries no `pausedUntil`
+ *   for the same reason, and the pause request sends no date.
+ * - **Diet and allergens are not on the configuration.** A plan's diet classification belongs to
+ *   the plan and is on the plan page; there is no per-subscription allergen exclusion, because
+ *   safety comes from the customer's dietary profile and is applied at generation.
+ *   `no_substitutions` is the related switch and is a different fact.
  * - **The address has no area or city name.** The projection names the gazetteer entry by
  *   identifier, not by name — the same reason `mapOrderAddress` leaves `countryCode` empty. A
  *   screen that needs the area name has it from the address book, which serves the resolved entry.
@@ -138,14 +136,6 @@ export const DEFAULT_CHANGE_CUTOFF_HOURS = 24;
  * rehearsed screen and a live one byte-identical.
  */
 const REFUSAL_CURRENCY: CurrencyCode = 'USD';
-
-/** Wire day counts → the closed duration vocabulary. Resolved by days, never by the code string. */
-const DURATION_BY_DAYS: Readonly<Record<number, PlanDuration>> = {
-    7: '1w',
-    14: '2w',
-    28: '4w',
-    84: '12w',
-};
 
 /**
  * Wire status → the domain's state vocabulary.
@@ -251,19 +241,18 @@ export function mapDeliveryAddress(
 }
 
 /**
- * The run that was bought, in the contract's closed vocabulary.
+ * The run that was bought, named by its day count.
  *
  * Resolved from the duration's **own** day count and never from `balance_days_total`, which counts
- * delivery days: a four-week plan delivering five weekdays buys twenty of them, not twenty-eight.
- * A run this build cannot name rejects rather than rounds — the write it followed already
- * succeeded, so this is a display failure and says so, on the same terms an unformattable currency
- * is handled.
+ * the same thing today but is a balance that a kitchen can adjust. A one-off run has no day count
+ * and is not a balance of delivery days; a subscription carrying one rejects rather than rounds —
+ * the write it followed already succeeded, so this is a display failure and says so, on the same
+ * terms an unformattable currency is handled.
  */
 function mapDuration(wire: WireSubscription): PlanDuration {
     const days = wire.duration?.days ?? null;
-    const duration = days === null ? undefined : DURATION_BY_DAYS[days];
 
-    if (duration === undefined) {
+    if (days === null || days < 1) {
         throw new ApiError(
             apiFailure('server', {
                 message:
@@ -274,15 +263,14 @@ function mapDuration(wire: WireSubscription): PlanDuration {
         );
     }
 
-    return duration;
+    return planDuration(days);
 }
 
 /**
  * A customer's own subscription, whole.
  *
- * Every named fact comes from the projection the backend serves. The three it cannot serve —
- * `pausedUntil`, `dietClassifications`, `excludeAllergens` — are documented in the file header and
- * are honest absences rather than unfinished mapping.
+ * Every named fact comes from the projection the backend serves; what the projection does not
+ * carry is absent from the contract rather than defaulted (see the file header).
  */
 export function mapSubscription(wire: WireSubscription): Subscription {
     return {
@@ -296,9 +284,6 @@ export function mapSubscription(wire: WireSubscription): Subscription {
             deliveryWeekdays: wire.weekdays,
             slotCode: wire.delivery_window_code ?? '',
             address: mapDeliveryAddress(wire.delivery_address),
-            // Not properties of a subscription — see the file header.
-            dietClassifications: [],
-            excludeAllergens: [],
             selectedMealIds: (wire.chosen_catalogue_item_ids ?? []).map((id) => MealId.unsafe(id)),
         },
         planName: wire.plan?.name ?? '',
@@ -311,8 +296,6 @@ export function mapSubscription(wire: WireSubscription): Subscription {
         },
         nextDeliveryDate: wire.next_delivery_date,
         skippedDates: wire.skipped_dates ?? [],
-        // Always null: a pause lasts until somebody resumes it, so there is no instant to report.
-        pausedUntil: null,
         createdAt: wire.created_at ?? wire.captured_at,
         updatedAt: wire.updated_at ?? wire.created_at ?? wire.captured_at,
     };
@@ -386,6 +369,7 @@ function refusedQuote(request: SubscriptionQuoteRequest, failure: ApiFailure): S
         total: nothing,
         allowsFreeSelection: false,
         changeCutoffHours: DEFAULT_CHANGE_CUTOFF_HOURS,
+        earliestStartDate: null,
         refusals,
     };
 }
@@ -454,11 +438,16 @@ function requireAddressId(addressId: string | undefined, field: 'addressId'): st
 }
 
 function quoteQuery(request: SubscriptionQuoteRequest): string {
-    return new URLSearchParams({
+    const search = new URLSearchParams({
         catalogue_item_id: String(request.planId),
         catalogue_item_variant_id: String(request.variantId),
-        plan_duration_days: String(PLAN_DURATION_WEEKS[request.duration] * 7),
-    }).toString();
+        plan_duration_days: String(planDurationDays(request.duration)),
+    });
+    // Laravel's array form, one entry per weekday: `weekdays[]=1&weekdays[]=3`.
+    for (const weekday of request.deliveryWeekdays ?? []) {
+        search.append('weekdays[]', String(weekday));
+    }
+    return search.toString();
 }
 
 /** ISO weekday, `1` Monday through `7` Sunday. */
@@ -473,10 +462,19 @@ function addDays(date: string, offset: number): string {
     return next.toISOString().slice(0, 10);
 }
 
-function deliveryDates(configuration: SubscriptionConfiguration): readonly string[] {
-    const weeks = PLAN_DURATION_WEEKS[configuration.duration];
+/**
+ * The calendar days a balance of `days` deliveries lands on: from the start date, every chosen
+ * weekday, until the balance is spent. A balance is a count of deliveries, not a calendar range
+ * (S1 semantics §1), so a 28-day run on Monday, Wednesday and Friday reaches nine weeks ahead —
+ * it does not stop after four.
+ */
+function deliveryDates(
+    configuration: SubscriptionConfiguration,
+    days: number,
+): readonly string[] {
     const dates: string[] = [];
-    for (let offset = 0; offset < weeks * 7; offset += 1) {
+    if (configuration.deliveryWeekdays.length === 0) return dates;
+    for (let offset = 0; dates.length < days && offset < days * 7; offset += 1) {
         const date = addDays(configuration.startDate, offset);
         if (configuration.deliveryWeekdays.includes(isoWeekday(date))) dates.push(date);
     }
@@ -500,29 +498,30 @@ function mapQuote(
         total: money(wire.total_minor, wire.currency_code),
         allowsFreeSelection: wire.allows_free_selection,
         changeCutoffHours: wire.change_cutoff_hours,
+        earliestStartDate: wire.earliest_start_date,
         refusals: [],
     };
 }
 
+/**
+ * The preview, from the quote's own figures.
+ *
+ * Every money figure here is one the server stated or a product of two it stated: the per-day
+ * list price × the days bought is the gross, the discount is the gap between that and the total,
+ * and the weekly figure is the discounted day × the weekdays chosen. Nothing counts weeks — a run
+ * is a balance of delivery days — which is how the review used to show a "before discount" figure
+ * smaller than the total it was supposedly discounted to.
+ */
 function previewFromQuote(
     configuration: SubscriptionConfiguration,
     quote: SubscriptionQuote,
 ): SubscriptionPreview {
-    const dates = deliveryDates(configuration);
-    const weeks = PLAN_DURATION_WEEKS[configuration.duration];
-    const gross = quote.listPrice.amount * weeks;
+    const dates = deliveryDates(configuration, quote.days);
+    const gross = quote.listPrice.amount * quote.days;
     const lines: PriceLine[] = [
         {
-            code: 'weekly',
-            label: 'Weekly price',
-            amount: {
-                amount: quote.perDayPrice.amount * configuration.deliveryWeekdays.length,
-                currency: quote.perDayPrice.currency,
-            },
-        },
-        {
             code: 'gross',
-            label: `${String(weeks)} weeks`,
+            label: `${String(quote.days)} delivery days`,
             amount: money(gross, quote.total.currency),
         },
     ];
@@ -550,6 +549,8 @@ function previewFromQuote(
     return {
         configuration,
         lines,
+        perDayListPrice: quote.listPrice,
+        perDayPrice: quote.perDayPrice,
         weeklyPrice: {
             amount: quote.perDayPrice.amount * configuration.deliveryWeekdays.length,
             currency: quote.perDayPrice.currency,
@@ -810,7 +811,7 @@ export function createApiSubscriptionReads(transport: Transport): ApiSubscriptio
                 body: {
                     catalogue_item_id: String(configuration.planId),
                     catalogue_item_variant_id: String(configuration.variantId),
-                    plan_duration_days: PLAN_DURATION_WEEKS[configuration.duration] * 7,
+                    plan_duration_days: planDurationDays(configuration.duration),
                     customer_address_id: addressId,
                     weekdays: [...configuration.deliveryWeekdays],
                     delivery_window_code:

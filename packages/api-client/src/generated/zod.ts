@@ -2205,7 +2205,8 @@ export const zPlanProfile = z.object({
 export const zPlanProfileEnvelope = z.object({
     data: z.object({
         item: zAdminCatalogueItem,
-        profile: zPlanProfile.nullable()
+        profile: zPlanProfile.nullable(),
+        diet_classifications: z.array(z.string().max(40))
     }),
     meta: zMeta
 });
@@ -8921,7 +8922,8 @@ export const zPlanQuote = z.object({
     duration_kind: z.enum(['one_off', 'fixed_days']).nullable(),
     available_weekdays: z.array(z.int().gte(1).lte(7)),
     allows_free_selection: z.boolean(),
-    change_cutoff_hours: z.int()
+    change_cutoff_hours: z.int(),
+    earliest_start_date: z.iso.date()
 });
 
 export const zPlanQuoteEnvelope = z.object({
@@ -15979,7 +15981,9 @@ export const zQuoteSubscriptionHeaders = z.object({
 export const zQuoteSubscriptionQuery = z.object({
     catalogue_item_id: zUuid,
     catalogue_item_variant_id: zUuid,
-    plan_duration_days: z.int().gte(1).lte(400)
+    plan_duration_days: z.int().gte(1).lte(400),
+    weekdays: z.array(z.int().gte(1).lte(7)).min(1).max(7).optional(),
+    branch_id: zUuid.optional()
 });
 
 /**

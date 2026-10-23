@@ -129,6 +129,12 @@ export interface TabStepNavigationProps<Key extends string> {
     readonly value: Key;
     readonly onChange: (value: Key) => void;
     readonly finalAction?: ReactNode | undefined;
+    /**
+     * Draws `finalAction` beside Next on every step, not only in place of it on the last. For a
+     * saved record, whose steps are opened in any order and whose commit is not the end of a walk:
+     * a reader who corrected the first step should not have to page to the fifth to keep it.
+     */
+    readonly alwaysShowFinalAction?: boolean | undefined;
     /** The row. Its buttons are `{testID}-previous` and `{testID}-next`. */
     readonly testID: string;
 }
@@ -138,6 +144,7 @@ export function TabStepNavigation<Key extends string>({
     value,
     onChange,
     finalAction,
+    alwaysShowFinalAction = false,
     testID,
 }: TabStepNavigationProps<Key>) {
     const { t } = useTranslation();
@@ -170,15 +177,18 @@ export function TabStepNavigation<Key extends string>({
                 next === undefined && finalAction !== undefined ? (
                     finalAction
                 ) : (
-                    <Button
-                        testID={`${testID}-next`}
-                        label={t('kitchen:editor.next')}
-                        iconEnd={<Icon name="chevronEnd" size="sm" />}
-                        disabled={next === undefined}
-                        onPress={() => {
-                            if (next !== undefined) onChange(next.value);
-                        }}
-                    />
+                    <>
+                        {alwaysShowFinalAction ? finalAction : null}
+                        <Button
+                            testID={`${testID}-next`}
+                            label={t('kitchen:editor.next')}
+                            iconEnd={<Icon name="chevronEnd" size="sm" />}
+                            disabled={next === undefined}
+                            onPress={() => {
+                                if (next !== undefined) onChange(next.value);
+                            }}
+                        />
+                    </>
                 )
             }
         />

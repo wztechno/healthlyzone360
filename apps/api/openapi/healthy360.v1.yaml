@@ -20733,6 +20733,33 @@ paths:
             type: integer
             minimum: 1
             maximum: 400
+        - name: weekdays
+          in: query
+          required: false
+          style: form
+          explode: true
+          description: |
+            The weekdays picked so far (`weekdays[]=1&weekdays[]=3`), ISO
+            numbered. Shapes `earliest_start_date` and nothing else: the first
+            day that pattern delivers on that is still outside the plan's
+            cut-off. Absent, every weekday is assumed.
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 7
+            items:
+              type: integer
+              minimum: 1
+              maximum: 7
+        - name: branch_id
+          in: query
+          required: false
+          description: |
+            The production site the subscription would be served from. The
+            cut-off is read on the branch's own clock, so a quote that names it
+            answers the same `earliest_start_date` the purchase will enforce.
+          schema:
+            $ref: '#/components/schemas/Uuid'
         - $ref: '#/components/parameters/AcceptLanguage'
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
@@ -29466,7 +29493,7 @@ components:
       properties:
         data:
           type: object
-          required: [item, profile]
+          required: [item, profile, diet_classifications]
           properties:
             item:
               $ref: '#/components/schemas/AdminCatalogueItem'
@@ -29477,6 +29504,15 @@ components:
               description: |
                 Null when nobody has written terms yet â€” the state the publish
                 gate refuses, and deliberately not filled in with defaults.
+            diet_classifications:
+              type: array
+              description: |
+                The plan's diet tags, as platform codes in the platform's own
+                display order — the same list `GET /catalogue/items/{item}`
+                serves, so an editor opening a plan does not need a second read.
+              items:
+                type: string
+                maxLength: 40
         meta:
           $ref: '#/components/schemas/Meta'
 
@@ -37620,11 +37656,19 @@ components:
           type: [string, 'null']
           maxLength: 40
           description: |
-            The delivery slot's own code, or **`null`** for the day's unslotted
-            work — legitimate on both books. Null rather than a placeholder word
-            because a code is a kitchen's own vocabulary and any word invented
-            here would be one a kitchen could also have typed. The null entry, if
-            present, is last.
+            For an order, the delivery slot's own code. For a subscription day,
+            the **sitting** — `breakfast`, `lunch`, `dinner` or `snack` — with
+            one count per meal the plan serves that day (its menu's entries for
+            that cycle day, or its configuration's `meals_per_day` and
+            `snacks_per_day` dealt onto the day), so `scheduled` and
+            `projected` count food rather than days. A screen folds a window
+            code and its sitting onto one row (`midday` and `lunch` are one
+            row). **`null`** is the day's unslotted work — legitimate on both
+            books, and the only answer for a subscription whose plan has
+            neither a menu nor a configuration. Null rather than a placeholder
+            word because a code is a kitchen's own vocabulary and any word
+            invented here would be one a kitchen could also have typed. The
+            null entry, if present, is last.
         counts:
           $ref: '#/components/schemas/OrderDeskCalendarCounts'
 
@@ -43373,6 +43417,7 @@ components:
           available_weekdays,
           allows_free_selection,
           change_cutoff_hours,
+          earliest_start_date,
         ]
       properties:
         currency_code:
@@ -43420,6 +43465,16 @@ components:
             How long before a delivery a change stops being accepted. The plan's
             own `change_cutoff_hours`, not the platform default — the 24-hour
             rule is configuration.
+        earliest_start_date:
+          type: string
+          format: date
+          description: |
+            The first day a subscription with the quoted `weekdays` could be
+            delivered on: the first of those weekdays still outside the plan's
+            cut-off, on the branch's clock when `branch_id` was given. The same
+            walk `POST /subscriptions` makes, so a `start_from` earlier than
+            this is refused there with a `422` on `start_from` rather than
+            moved.
     PlanQuoteEnvelope:
       type: object
       required: [data, meta]
@@ -43535,11 +43590,15 @@ components:
           type: [string, 'null']
           format: date
           description: |
-            The earliest delivery date wanted. A **request, not a promise**: the
-            server moves it forward to the first weekday the subscription
-            actually delivers on that is still outside the plan's change window,
-            because a first delivery already inside its own cut-off would be an
-            order the customer could never have changed.
+            The first delivery date wanted. It must be a day the subscription
+            delivers on that is still outside the plan's change window — a
+            first delivery already inside its own cut-off would be an order the
+            customer could never have changed. One that is not is a `422` on
+            this field, `The earliest start for this plan is {date}.`, carrying
+            the window's own `inside_cut_off` (or `not_a_delivery_day`) reason
+            in `details.reasons`; nothing is moved silently. The quote's
+            `earliest_start_date` is the day to offer. Absent, the subscription
+            starts on that earliest day.
     SkipSubscriptionDayRequest:
       type: object
       required: [date]

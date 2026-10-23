@@ -12,7 +12,7 @@ import type {
     SetSubscriptionMealChoicesRequest,
     SubscriptionRefusal,
 } from '@healthy360/api-client/contracts';
-import { AllergenCode, SubscriptionPlanId } from '@healthy360/domain-types';
+import { SubscriptionPlanId } from '@healthy360/domain-types';
 import type { PlanVariantId, SubscriptionId } from '@healthy360/domain-types';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -23,14 +23,14 @@ import { Text as RNText, View } from 'react-native';
 import { mealsFromPages, useMealsQuery, usePlanQuery } from '../../../data/catalogue-hooks.ts';
 import {
     toFailure,
-    useAllowedDeliveryWeekdaysQuery,
     useCreateSubscriptionMutation,
+    usePlanAvailabilityQuery,
     useSetSubscriptionMealChoicesMutation,
     useSubscriptionPreviewQuery,
     useSubscriptionQuoteQuery,
 } from '../../../data/commerce-hooks.ts';
 import { useAccountChecklistQuery, useAddressesQuery } from '../../../data/account-hooks.ts';
-import { useCurrentTargetsQuery, useKitchenQuery } from '../../../data/marketplace-hooks.ts';
+import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { queryKeys } from '../../../data/query-keys.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { useNavigateUp, usePreviousEntry } from '../../../navigation/use-return-to.ts';
@@ -72,26 +72,24 @@ import {
     previousConfiguratorStep,
     savedAddressValues,
     stepPosition,
-    storedAllergenCodes,
-    storedDietClassifications,
     toConfiguration,
     validateConfiguratorStep,
     variantById,
     variantForCombination,
 } from '../configurator.ts';
 import type { ConfiguratorState, ConfiguratorStep, StepContext } from '../configurator.ts';
-import { earliestStartDate } from '../dates.ts';
+import { earliestStartDate, nextAllowedDate } from '../dates.ts';
 import { servedAreas } from '../delivery.ts';
 import type { DeliveryAreaStatus } from '../delivery.ts';
-import { useMyAllergenCodes } from '../my-allergens.tsx';
 import { PlanSetupSummary } from '../plan-setup-summary.tsx';
 
 /**
  * `/customer/subscriptions/new?plan={id}` — setting up a subscription, in three steps.
  *
  * ① **Plan** — calorie band, meals a day, length. ② **Delivery** — days, start, window, address,
- * diet and allergies. ③ **Review** — the choices with an Edit back to each, the server's price, the
- * first week's meals (optional, folded away) and the terms. `configurator.ts` holds the rules.
+ * and the allergy list the kitchen will read. ③ **Review** — the choices with an Edit back to
+ * each, the server's price, the first week's meals (optional, folded away) and the terms.
+ * `configurator.ts` holds the rules.
  *
  * Beside the step, from `lg`, a summary card states what has been chosen and the price, and carries
  * the action that moves the flow on; below `lg` it is a bar pinned to the foot of the page. The
@@ -105,10 +103,11 @@ import { PlanSetupSummary } from '../plan-setup-summary.tsx';
  *
  * ## What the configurator has to discover rather than read
  *
- * A plan's delivery weekdays are not on `SubscriptionPlan`, so they are probed through the preview
- * (`data/commerce-hooks.ts`). The allergen vocabulary is not published either, so the choices are
- * the union of what this kitchen declares on its own menu and what the person's profile already
- * excludes. Both are recorded as contract gaps rather than hard-coded lists.
+ * A plan's delivery weekdays and its change cut-off are not on `SubscriptionPlan`, so they are
+ * read from the quote (`usePlanAvailabilityQuery`). Together they fix the earliest start date:
+ * the first delivery weekday on or after the cut-off, which is the date the kitchen would start
+ * on anyway. Offering an earlier one meant the summary promised a date the subscription then
+ * silently did not keep (plans-17).
  *
  * ## Nothing here lives only in component memory
  *
@@ -164,12 +163,18 @@ export function SubscriptionConfiguratorScreen({
     const item = plan.data;
 
     const kitchen = useKitchenQuery(item?.kitchenId ?? null);
-    const targets = useCurrentTargetsQuery(true);
     const menuQuery = useMealsQuery(
         item === undefined ? undefined : { kitchenIds: [item.kitchenId], limit: 50 },
         item !== undefined,
     );
     const menu: readonly MarketplaceMeal[] = mealsFromPages(menuQuery.data?.pages);
+    // The plan's own dishes, as far as the kitchen's menu holds them: what the allergy notice
+    // checks against the person's list on the delivery and review steps.
+    const sampleMeals = useMemo<readonly MarketplaceMeal[]>(() => {
+        const ids = new Set((item?.sampleMealIds ?? []).map(String));
+        return menu.filter((meal) => ids.has(String(meal.id)));
+    }, [item, menu]);
+    const sampleMealsLoaded = menuQuery.isFetched;
 
     const [showIssues, setShowIssues] = useState(false);
     const [termsAcknowledged, setTermsAcknowledged] = useState(false);
@@ -244,37 +249,11 @@ export function SubscriptionConfiguratorScreen({
         [router, setEdits, setTermsAcknowledged],
     );
 
-    // "Leave out" starts from what the person already told us: the allergies on their profile,
-    // and any their nutrition targets carry. The profile is the one checkout and generation read.
-    const profileAllergens = useMyAllergenCodes();
-    const storedAllergens = useMemo(
-        () => [
-            ...new Set([
-                ...profileAllergens
-                    .map((code) => AllergenCode.safeParse(code))
-                    .filter((code): code is AllergenCode => code !== null),
-                ...storedAllergenCodes(targets.data?.result.request.constraints),
-            ]),
-        ],
-        [profileAllergens, targets.data],
-    );
+    /* ── the availability probe, and the defaults it feeds ─────────────────────────────────── */
 
-    const storedDiets = useMemo(
-        () =>
-            item === undefined
-                ? []
-                : storedDietClassifications(
-                      targets.data?.result.request.constraints,
-                      item.dietClassifications,
-                  ),
-        [item, targets.data],
-    );
-
-    /* ── the weekday probe, and the defaults it feeds ───────────────────────────────────────── */
-
-    // A probe configuration exists as soon as the plan does. Its delivery weekdays are irrelevant —
-    // the hook replaces them, one weekday at a time — and its query key is the plan and the variant,
-    // so choosing an address or a window does not re-run seven requests.
+    // A probe configuration exists as soon as the plan does. Its delivery weekdays and start are
+    // irrelevant — the quote is keyed by the plan, the band and the length — so choosing an
+    // address or a window does not re-run it.
     const probe = useMemo(() => {
         if (item === undefined) return null;
         const seed = initialConfiguratorState({
@@ -287,22 +266,37 @@ export function SubscriptionConfiguratorScreen({
         );
     }, [edits, item, variantId]);
 
-    const weekdays = useAllowedDeliveryWeekdaysQuery(probe);
-    const allowedWeekdays: readonly number[] | null = weekdays.data ?? null;
+    const availability = usePlanAvailabilityQuery(probe);
+    const allowedWeekdays: readonly number[] | null = availability.data?.availableWeekdays ?? null;
+    const cutoffHours = availability.data?.changeCutoffHours ?? 0;
+
+    // The days the person is choosing: their own once they have touched them, else every day
+    // the plan delivers on (the default below).
+    const chosenWeekdays = edits.deliveryWeekdays ?? allowedWeekdays ?? undefined;
+
+    // The first day the kitchen can start on *those* days, as the server walks it — the floor the
+    // purchase enforces with a 422 rather than moving the start (plans-17). Until it answers, the
+    // same rule worked out here: past the cut-off, on a chosen day.
+    const startFloor = usePlanAvailabilityQuery(probe, chosenWeekdays);
+    const earliest = useMemo(() => {
+        const server = startFloor.data?.earliestStartDate ?? null;
+        if (server !== null) return server;
+        const floor = earliestStartDate(new Date(), cutoffHours);
+        const days = chosenWeekdays === undefined || chosenWeekdays.length === 0 ? null : chosenWeekdays;
+        return days === null ? floor : (nextAllowedDate(floor, days) ?? floor);
+    }, [chosenWeekdays, cutoffHours, startFloor.data]);
 
     const defaults = useMemo<ConfiguratorState | null>(() => {
         if (item === undefined) return null;
         return initialConfiguratorState({
             plan: item,
             variantId: variantId === undefined ? null : (variantId as PlanVariantId),
-            startDate: earliestStartDate(),
+            startDate: earliest,
             // Every day the plan can deliver on, pre-selected: the common case is "all of them", and
             // removing a few is a smaller job than choosing from nothing.
-            ...(weekdays.data === undefined ? {} : { allowedWeekdays: weekdays.data }),
-            storedAllergens,
-            storedDiets,
+            ...(allowedWeekdays === null ? {} : { allowedWeekdays }),
         });
-    }, [item, storedAllergens, storedDiets, variantId, weekdays.data]);
+    }, [allowedWeekdays, earliest, item, variantId]);
 
     const state = useMemo<ConfiguratorState | null>(
         () =>
@@ -333,12 +327,6 @@ export function SubscriptionConfiguratorScreen({
 
     const areas = useMemo(() => servedAreas(kitchen.data), [kitchen.data]);
 
-    const allergenOptions = useMemo<readonly AllergenCode[]>(() => {
-        const codes = new Set<AllergenCode>(storedAllergens);
-        for (const meal of menu) for (const code of meal.allergens) codes.add(code);
-        return [...codes].sort((left, right) => String(left).localeCompare(String(right)));
-    }, [menu, storedAllergens]);
-
     const context = useMemo<StepContext | null>(() => {
         if (item === undefined) return null;
         return {
@@ -346,26 +334,26 @@ export function SubscriptionConfiguratorScreen({
             allowedWeekdays,
             areaStatus,
             hasSavedAddress: savedAddress !== undefined,
-            earliestStartDate: earliestStartDate(),
-            storedAllergens,
+            earliestStartDate: earliest,
             translate: (key: string) => validationTranslate(key),
         };
-    }, [allowedWeekdays, areaStatus, item, savedAddress, storedAllergens, validationTranslate]);
+    }, [allowedWeekdays, areaStatus, earliest, item, savedAddress, validationTranslate]);
 
     /*
      * The step is `?step=`, honoured only while every step before it is satisfied. A link, a stale
      * Back or an expired draft can name a step whose earlier answers are no longer there — Review
      * with no address — and that entry is moved, in place, to the first step still unanswered.
      *
-     * Only once what the rules read has *settled*: the plan, the weekdays it delivers on, the stored
-     * allergies, and an address book that is not fetching at all. Coming back from adding an
-     * address, the book is refetched on remount, and judging `?address=` against the copy from
-     * before the detour would throw the person off the step they were on.
+     * Only once what the rules read has *settled*: the plan, the days it delivers on, and an
+     * address book that is not fetching at all. Coming back from adding an address, the book is
+     * refetched on remount, and judging `?address=` against the copy from before the detour would
+     * throw the person off the step they were on.
      */
+    // A plan with no length on sale has nothing to quote, so it never waits on the quote: its
+    // plan step then says so rather than spinning on a request that is never made.
     const settled =
         item !== undefined &&
-        weekdays.isFetched &&
-        targets.isFetched &&
+        (item.durations.length === 0 || availability.isFetched) &&
         addresses.isFetched &&
         !addresses.isFetching;
     const reachable =
@@ -398,7 +386,11 @@ export function SubscriptionConfiguratorScreen({
     // cache entry the weekday probe and the preview read. Unknown counts as no: the picker appears
     // once the server has said yes, rather than being withdrawn after somebody has used it.
     const quote = useSubscriptionQuoteQuery(
-        item === undefined || state === null || state.variantId === null || step !== 'review'
+        item === undefined ||
+            state === null ||
+            state.variantId === null ||
+            state.duration === null ||
+            step !== 'review'
             ? null
             : { planId: item.id, variantId: state.variantId, duration: state.duration },
     );
@@ -513,7 +505,7 @@ export function SubscriptionConfiguratorScreen({
             setShowIssues(true);
             return;
         }
-        const picks = freeSelection ? firstWeekChoices(state, variant) : [];
+        const picks = freeSelection ? firstWeekChoices(state, item, variant) : [];
         create.mutate(
             {
                 configuration: request,
@@ -688,14 +680,16 @@ export function SubscriptionConfiguratorScreen({
 
                             {step === 'delivery' ? (
                                 <DeliveryStep
-                                    plan={item}
                                     state={state}
                                     patch={patch}
                                     allowedWeekdays={allowedWeekdays}
+                                    earliestStartDate={earliest}
+                                    cutoffHours={cutoffHours}
                                     areaStatus={areaStatus}
                                     servedAreas={areas}
-                                    allergenOptions={allergenOptions}
-                                    storedAllergens={storedAllergens}
+                                    sampleMeals={sampleMeals}
+                                    sampleMealsLoaded={sampleMealsLoaded}
+                                    returnTo={here}
                                     showIssues={showIssues}
                                     savedAddresses={addressList}
                                     addressId={addressId}
@@ -722,6 +716,9 @@ export function SubscriptionConfiguratorScreen({
                                         preview={preview.data}
                                         savedAddress={savedAddress}
                                         menu={menu}
+                                        sampleMeals={sampleMeals}
+                                        sampleMealsLoaded={sampleMealsLoaded}
+                                        returnTo={here}
                                         freeSelection={freeSelection}
                                         onEdit={goTo}
                                     />
