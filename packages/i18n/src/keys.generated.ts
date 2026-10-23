@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8588 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8587 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1828,7 +1828,6 @@ export interface NamespaceKeys {
     | 'plans.subscriber.planTitle'
     | 'plans.subscriber.resume'
     | 'plans.subscriber.resumedToast'
-    | 'plans.subscriber.shuffle'
     | 'plans.subscriber.skipNext'
     | 'plans.subscriber.skippedToast'
     | 'plans.subscriber.tile.delivery'
@@ -10441,7 +10440,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.subscriber.planTitle',
   'catalogue:plans.subscriber.resume',
   'catalogue:plans.subscriber.resumedToast',
-  'catalogue:plans.subscriber.shuffle',
   'catalogue:plans.subscriber.skipNext',
   'catalogue:plans.subscriber.skippedToast',
   'catalogue:plans.subscriber.tile.delivery',
