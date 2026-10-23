@@ -1717,10 +1717,18 @@ describe('editing the plan', () => {
         ];
         expect(first).not.toHaveProperty('dietClassifications');
         expect(world.read().dietClassifications).toEqual(['keto']);
+        // The save settles the form and re-seeds it from the answer; a chip pressed before then
+        // would be overwritten by it, so the next edit waits for the save to land.
+        await untilVisible('kitchen-plan-saved-toast');
 
         // A pressed chip is a change, and the whole set goes up.
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-plan-diet-vegan'));
+        });
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('kitchen-plan-diet-vegan').props.accessibilityState?.selected,
+            ).toBe(true);
         });
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-plan-editor-screen-save'));
