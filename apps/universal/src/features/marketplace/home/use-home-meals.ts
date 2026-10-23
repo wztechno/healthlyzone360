@@ -86,17 +86,29 @@ export interface HomeMeals {
     readonly categories: readonly HomeCategory[];
     /** The signed-in person's most recent order, when there is one. */
     readonly latestOrder: PlacedOrder | undefined;
+    /** Their most recent order still on its way — the hero's "Track order". */
+    readonly trackableOrder: PlacedOrder | undefined;
 }
 
 /**
- * The signed-in person's most recent order — the design's "Track order #4821" and "because you
+ * Recent orders read for the hero. A plan places a day's order ahead of time, so the newest order
+ * may be a later day's and the one still on its way a few rows down.
+ */
+const RECENT_ORDER_COUNT = 10;
+
+/** Nothing left to track once the food has arrived or the order has been called off. */
+const isTrackable = (order: PlacedOrder) =>
+    order.state !== 'delivered' && order.state !== 'cancelled';
+
+/**
+ * The signed-in person's recent orders — the design's "Track order #4821" and "because you
  * ordered …". Disabled for a visitor, who has no order history to read; a failed read is treated
  * as no order rather than surfaced, because both places it feeds have an honest fallback.
  */
-function useLatestOrder(): PlacedOrder | undefined {
+function useRecentOrders(): readonly PlacedOrder[] {
     const { me } = useSession();
-    const orders = useMyOrdersQuery({ limit: 1 }, me !== null);
-    return me === null ? undefined : orders.data?.pages[0]?.items[0];
+    const orders = useMyOrdersQuery({ limit: RECENT_ORDER_COUNT }, me !== null);
+    return me === null ? [] : (orders.data?.pages[0]?.items ?? []);
 }
 
 const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -181,7 +193,8 @@ const SHOWN_HOME_MEALS_FILTER: Omit<MealFilter, 'cursor'> = {
 export function useHomeMeals({ shownShelvesOnly = false }: HomeMealsOptions = {}): HomeMeals {
     const query = useMealsQuery(shownShelvesOnly ? SHOWN_HOME_MEALS_FILTER : HOME_MEALS_FILTER);
     const hideDietTiles = shownShelvesOnly && narrowed;
-    const latestOrder = useLatestOrder();
+    const recentOrders = useRecentOrders();
+    const latestOrder = recentOrders[0];
 
     const pageCount = query.data?.pages.length ?? 0;
     const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = query;
@@ -275,5 +288,6 @@ export function useHomeMeals({ shownShelvesOnly = false }: HomeMealsOptions = {}
         kitchenCount: complete ? new Set(rated.map((meal) => meal.kitchenId)).size : null,
         categories: [...shelfTiles, ...dietTiles].slice(0, CATEGORY_COUNT),
         latestOrder,
+        trackableOrder: recentOrders.find(isTrackable),
     };
 }
