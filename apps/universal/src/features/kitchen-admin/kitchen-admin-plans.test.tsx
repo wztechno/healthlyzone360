@@ -2134,17 +2134,16 @@ describe('editing the fixed menu', () => {
         });
     });
 
-    it('does not offer a prep item as a dish, however published it is', async () => {
+    it('offers a published meal that is linked to an ingredient', async () => {
         const spread = spreadPlan();
-        // A burger patty is a meal row that stands for an ingredient — sold by the kilo, not
-        // served on a plate — and the listing carries it under the same type as a dish.
-        const patty = adminMeal(3, {
-            name: { en: 'Burger Patty', ar: 'قرص برغر' },
+        // A stocked meal carries an ingredient link and is still a dish a plan can serve.
+        const stocked = adminMeal(3, {
+            name: { en: 'Hummus Dip', ar: 'حمص' },
             ingredientId: IngredientId.unsafe('01935f6d-0000-7000-8000-0000000f0003'),
         });
         const world = planWorld(spread, pricedVariants(spread), {
             menu: publishedMenu(spread),
-            meals: [...publishedMeals, patty],
+            meals: [...publishedMeals, stocked],
         });
 
         await renderStubScreen(<PlanEditScreen plan={String(spread.id)} />, {
@@ -2161,7 +2160,7 @@ describe('editing the fixed menu', () => {
         await untilVisible(`${picker}-list`);
 
         expect(screen.getByTestId(`${picker}-option-${String(mealIdentifier(2))}`)).toBeTruthy();
-        expect(screen.queryByTestId(`${picker}-option-${String(patty.id)}`)).toBeNull();
+        expect(screen.getByTestId(`${picker}-option-${String(stocked.id)}`)).toBeTruthy();
     });
 
     it('states the stock cutover only when this save would publish the first menu', async () => {
