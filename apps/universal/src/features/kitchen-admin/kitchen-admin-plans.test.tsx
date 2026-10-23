@@ -1334,6 +1334,28 @@ describe('editing the matrix', () => {
         ).toBe(false);
     });
 
+    it('does not mark a withdrawn configuration’s cell as sold', async () => {
+        const spread = spreadPlan();
+        const [withdrawn, ...rest] = spread.variants;
+        const plan = { ...spread, variants: [{ ...withdrawn!, isActive: false }, ...rest] };
+        const world = planWorld(plan, pricedVariants(plan));
+
+        await renderStubScreen(<PlanEditScreen plan={String(plan.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: world.overrides,
+        });
+        await openPlanStep('matrix');
+        await untilVisible('kitchen-plan-matrix-grid');
+
+        // Kept on the Configurations tab as inactive, but not on sale: its cell is not sold, or
+        // not drawn at all when nothing else on sale shares its row or band.
+        const cell = screen.queryByTestId(`${cellOf(withdrawn!)}-control`);
+        expect(cell?.props.accessibilityState?.checked ?? false).toBe(false);
+        expect(screen.getByTestId(`${cellOf(rest[0]!)}-control`).props.accessibilityState?.checked).toBe(
+            true,
+        );
+    });
+
     it('says how many configurations share a cell, for the shape an import brings', async () => {
         const stacked = stackedPlan();
         const world = planWorld(stacked);

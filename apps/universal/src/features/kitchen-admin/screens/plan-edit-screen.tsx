@@ -542,8 +542,14 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
 
     /* ── derived vocabularies ────────────────────────────────────────────────────────────────── */
 
-    const bands = useMemo(() => matrixBands(variants, []), [variants]);
-    const rows = useMemo(() => matrixRows(combinations, variants), [combinations, variants]);
+    // The matrix is what is on sale, so a withdrawn configuration — kept, not deleted, because
+    // subscribers and prices still point at it — draws no cell, row or band of its own.
+    const soldVariants = useMemo(() => variants.filter((variant) => variant.isActive), [variants]);
+    const bands = useMemo(() => matrixBands(soldVariants, []), [soldVariants]);
+    const rows = useMemo(
+        () => matrixRows(combinations, soldVariants),
+        [combinations, soldVariants],
+    );
 
     const lists = priceListsFromPages(priceLists.data?.pages);
     const pricesReady = !priceLists.isPending && priceLists.error === null;
@@ -1624,7 +1630,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 testID="kitchen-plan-matrix-grid"
                                 rows={rows}
                                 bands={bands}
-                                variants={variants}
+                                variants={soldVariants}
                             />
                         </Stack>
                     </FormSection>
