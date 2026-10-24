@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8588 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8590 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -55,7 +55,8 @@ export interface NamespaceKeys {
     | 'workspaceSelector.emptyBody'
     | 'workspaceSelector.open'
     | 'workspaceSelector.subtitle'
-    | 'workspaceSelector.title';
+    | 'workspaceSelector.title'
+    | 'workspaceSelector.webShop';
   readonly "accessAdmin":
     | 'add.back'
     | 'add.branch'
@@ -1837,6 +1838,7 @@ export interface NamespaceKeys {
     | 'plans.subscriber.weekCount'
     | 'plans.subscriber.weekTitle'
     | 'plans.taglineWithKitchen'
+    | 'plans.viewPlanShort'
     | 'title'
     | 'tools.activity.extra_active'
     | 'tools.activity.lightly_active'
@@ -8675,6 +8677,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'access:workspaceSelector.open',
   'access:workspaceSelector.subtitle',
   'access:workspaceSelector.title',
+  'access:workspaceSelector.webShop',
   'accessAdmin:add.back',
   'accessAdmin:add.branch',
   'accessAdmin:add.createHint',
@@ -10450,6 +10453,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.subscriber.weekCount',
   'catalogue:plans.subscriber.weekTitle',
   'catalogue:plans.taglineWithKitchen',
+  'catalogue:plans.viewPlanShort',
   'catalogue:title',
   'catalogue:tools.activity.extra_active',
   'catalogue:tools.activity.lightly_active',

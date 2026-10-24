@@ -38,6 +38,7 @@ import { useSession } from '../../../session/session-provider.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { recordResumeIntent } from '../../marketplace/resume-intent.ts';
+import { useShopViewOnly } from '../../marketplace/shop-view-only.tsx';
 import { CardGrid, CardGridItem } from '../../marketplace/section-header.tsx';
 import { MealCard } from '../../marketplace/meal-card.tsx';
 import { listDayPrice } from '../plan-balance.ts';
@@ -138,6 +139,8 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
     const { phase } = useSession();
     const restoring = phase === 'restoring';
     const signedIn = phase !== 'restoring' && phase !== 'anonymous';
+    // Staff view the plan and set nothing up (`shop-view-only.tsx`).
+    const viewOnly = useShopViewOnly();
     const verified = phase === 'contextPending' || phase === 'ready';
     const wide = useBreakpoint().atLeast('lg');
 
@@ -638,38 +641,45 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
                                                 }}
                                             />
                                         )}
-                                        <Button
-                                            testID="plan-detail-configure"
-                                            block
-                                            variant={held === undefined ? 'primary' : 'secondary'}
-                                            label={
-                                                signedIn || restoring
-                                                    ? t('catalogue:plan.configure')
-                                                    : t('catalogue:plan.configureSignIn')
-                                            }
-                                            loading={restoring}
-                                            disabled={restoring}
-                                            onPress={() => {
-                                                const setUp = configuratorHref({
-                                                    plan: String(item.id),
-                                                    variant: String(selected.id),
-                                                });
-                                                if (signedIn) {
-                                                    router.push(setUp as never);
-                                                    return;
+                                        {viewOnly ? null : (
+                                            <Button
+                                                testID="plan-detail-configure"
+                                                block
+                                                variant={
+                                                    held === undefined ? 'primary' : 'secondary'
                                                 }
-                                                // The fallback for a sign-in that ends somewhere
-                                                // else in the tab; `returnTo` is the way back.
-                                                recordResumeIntent({
-                                                    href: withQuery(`/plans/${String(item.id)}`, {
+                                                label={
+                                                    signedIn || restoring
+                                                        ? t('catalogue:plan.configure')
+                                                        : t('catalogue:plan.configureSignIn')
+                                                }
+                                                loading={restoring}
+                                                disabled={restoring}
+                                                onPress={() => {
+                                                    const setUp = configuratorHref({
+                                                        plan: String(item.id),
                                                         variant: String(selected.id),
-                                                    }),
-                                                    labelKey: 'catalogue:nav.plans',
-                                                    name: item.name,
-                                                });
-                                                goToAuth('/sign-in', setUp);
-                                            }}
-                                        />
+                                                    });
+                                                    if (signedIn) {
+                                                        router.push(setUp as never);
+                                                        return;
+                                                    }
+                                                    // The fallback for a sign-in that ends somewhere
+                                                    // else in the tab; `returnTo` is the way back.
+                                                    recordResumeIntent({
+                                                        href: withQuery(
+                                                            `/plans/${String(item.id)}`,
+                                                            {
+                                                                variant: String(selected.id),
+                                                            },
+                                                        ),
+                                                        labelKey: 'catalogue:nav.plans',
+                                                        name: item.name,
+                                                    });
+                                                    goToAuth('/sign-in', setUp);
+                                                }}
+                                            />
+                                        )}
                                     </Stack>
                                 </Card>
                             </View>

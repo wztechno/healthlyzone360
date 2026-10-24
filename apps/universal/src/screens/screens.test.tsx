@@ -22,6 +22,7 @@ import { withReturnTo } from '../navigation/return-to.ts';
 import type { ExpoRouterMock } from '../testing/expo-router-mock.ts';
 import {
     TEST_USER_ID,
+    kitchenManagerSession,
     testActiveContext,
     testBranch,
     testMeResponse,
@@ -599,6 +600,13 @@ describe('WorkspaceSelectorScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('workspace-switch-organisation')).toBeTruthy();
         });
+    });
+
+    it('offers the profile as a card beside the areas', async () => {
+        await renderStubScreen(<WorkspaceSelectorScreen />, { session: kitchenSession() });
+
+        await fireEvent.press(await screen.findByTestId('workspace-profile'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/profile');
     });
 });
 
@@ -1319,6 +1327,27 @@ describe('LandingScreen — the return', () => {
             expect(routerMock.__redirect).toHaveBeenCalledWith('/discover');
         });
         expect(routerMock.__router.dismissTo).not.toHaveBeenCalled();
+    });
+
+    it('sends staff to the workspace page, not back to the shop page they signed in from', async () => {
+        await renderStubScreen(<LandingScreen returnTo="/meals?diet=vegan" />, {
+            session: kitchenManagerSession(),
+        });
+
+        await waitFor(() => {
+            expect(routerMock.__redirect).toHaveBeenCalledWith('/workspace');
+        });
+        expect(routerMock.__router.dismissTo).not.toHaveBeenCalled();
+    });
+
+    it('still takes staff on to a workspace page they were sent to', async () => {
+        await renderStubScreen(<LandingScreen returnTo="/kitchen/orders" />, {
+            session: kitchenManagerSession(),
+        });
+
+        await waitFor(() => {
+            expect(routerMock.__router.dismissTo).toHaveBeenCalledWith('/kitchen/orders');
+        });
     });
 
     it('lands as it always did with no return', async () => {

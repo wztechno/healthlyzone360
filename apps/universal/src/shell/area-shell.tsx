@@ -27,9 +27,10 @@ import { ThemeToggle } from './theme-toggle.tsx';
 /**
  * Which shell chrome each area gets.
  *
- * Kiosk hardware (the KDS ticket board) is bare by design; drivers get thumb-reachable tabs;
- * consumers get a plain top bar because a sidebar of one item is noise; everything else is a staff
- * workspace.
+ * Consumers get a plain top bar because a sidebar of one item is noise; everything else is a staff
+ * workspace — the KDS board and the driver area included, so every admin page has the same top bar
+ * and the same Workspaces button back to the workspace page. Both used to be bare under a bottom bar
+ * of areas, which is gone.
  */
 export const AREA_SHELL_VARIANT: Readonly<Record<RouteArea, AppShellVariant>> = {
     public: 'public',
@@ -39,21 +40,16 @@ export const AREA_SHELL_VARIANT: Readonly<Record<RouteArea, AppShellVariant>> = 
     dietitian: 'workspace',
     clinic: 'workspace',
     kitchen: 'workspace',
-    kds: 'kiosk',
-    driver: 'driver',
+    kds: 'workspace',
+    driver: 'workspace',
     partner: 'workspace',
     corporate: 'workspace',
     insurance: 'workspace',
     'platform-admin': 'workspace',
 };
 
-/** The chromes that carry the workspace switcher: the staff desks, the KDS and the driver. */
-const SWITCHER_VARIANTS: ReadonlySet<AppShellVariant> = new Set([
-    'workspace',
-    'rail',
-    'kiosk',
-    'driver',
-]);
+/** The chromes whose top bar leads back to the workspace page: the staff desks. */
+const WORKSPACES_BUTTON_VARIANTS: ReadonlySet<AppShellVariant> = new Set(['workspace', 'rail']);
 
 export interface AreaShellProps {
     readonly area: RouteArea;
@@ -139,12 +135,12 @@ function GuardedAreaShell({
     const sidebarPresent = signOutInSidebar && atLeast('lg');
 
     /*
-     * The workspace switcher — the other areas and the account pages. On every admin chrome it is
-     * the bottom bar, the same on every page; the driver's tabs *are* it. It used to be the first
-     * module on each rail, which buried area switching one panel deep.
+     * The driver chrome's tabs, when a caller asks for that chrome: the areas and the account pages.
+     * No area uses it any more — the admin pages lead back to the workspace page from their top bar
+     * instead, where every area and the account pages are.
      */
     const switcher = useMemo<readonly NavigationItem[]>(() => {
-        if (!SWITCHER_VARIANTS.has(resolvedVariant)) return [];
+        if (resolvedVariant !== 'driver') return [];
         return workspaceGroup({
             state: accessState,
             t,
@@ -161,7 +157,9 @@ function GuardedAreaShell({
         if (resolvedVariant === 'driver') return switcher;
         return navigationOverride ?? [];
     }, [navigationOverride, resolvedVariant, switcher]);
-    const bottomNavigation = resolvedVariant === 'driver' ? [] : switcher;
+    // Not on the workspace page itself, which is where it leads.
+    const showWorkspacesButton =
+        WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant) && pathname !== '/workspace';
 
     const signOut = () => {
         logout.mutate(undefined, {
@@ -183,6 +181,21 @@ function GuardedAreaShell({
                 {topbarSearch}
                 <LocaleToggle />
                 <ThemeToggle />
+                {/*
+                 * Back to the workspace page, to choose another area. Labelled, because it is the
+                 * one way between areas.
+                 */}
+                {showWorkspacesButton ? (
+                    <Button
+                        testID="workspaces-button"
+                        size="sm"
+                        variant="secondary"
+                        label={t('marketplace:nav.workspaces')}
+                        onPress={() => {
+                            router.push('/workspace' as never);
+                        }}
+                    />
+                ) : null}
                 {/*
                  * Sign out is quiet here and the primary slot is left *empty*. Rule 4 is explicit
                  * that a staff area with no single core-loop action gets no top-bar primary at
@@ -247,7 +260,6 @@ function GuardedAreaShell({
             variant={resolvedVariant}
             title={title ?? t(`access:area.${area}`)}
             navigation={navigation}
-            bottomNavigation={bottomNavigation}
             banner={banner}
             topbarEnd={topbarEnd}
             {...(topbarTitle === undefined ? {} : { topbarTitle })}

@@ -69,6 +69,7 @@
         "current": "You are here",
         "empty": "No areas are available to you here",
         "emptyBody": "Your role in this organisation does not open any workspace yet. Try another organisation, or ask an administrator.",
-        "open": "Open {{area}}"
+        "open": "Open {{area}}",
+        "webShop": "Web shop"
     }
 }

@@ -1,6 +1,8 @@
 import { Redirect, Slot, usePathname } from 'expo-router';
 
 import { isPathAvailable } from '../../src/features/availability.ts';
+import { isShopViewOnly } from '../../src/features/marketplace/shop-view-only.tsx';
+import { useAccessState } from '../../src/session/session-provider.tsx';
 import { ConsumerShell } from '../../src/shell/consumer-shell.tsx';
 
 /**
@@ -18,8 +20,12 @@ import { ConsumerShell } from '../../src/shell/consumer-shell.tsx';
  */
 export default function CustomerLayout() {
     const pathname = usePathname();
+    // Staff view the shop and own nothing in it — no basket, account, orders or subscriptions — so
+    // every page here sends them back to the shop's home (`shop-view-only.tsx`).
+    const viewOnly = isShopViewOnly(useAccessState());
 
     if (pathname === '/customer' || pathname === '/customer/') return <Redirect href="/discover" />;
+    if (viewOnly) return <Redirect href="/discover" />;
     if (!isPathAvailable(pathname)) return <Redirect href="/discover" />;
 
     return (

@@ -10,6 +10,7 @@ import { EntityImage } from '../../../media/entity-image.tsx';
 import { YourAllergens } from '../../commerce/my-allergens.tsx';
 import { formatMoney, nutrientValue } from '../format.ts';
 import { PackSuffix } from '../pack-suffix.tsx';
+import { useShopViewOnly } from '../shop-view-only.tsx';
 
 export interface HomeMealCardProps {
     readonly meal: MarketplaceMeal;
@@ -44,6 +45,7 @@ export interface HomeMealCardProps {
  * yet" in its slot until somebody has rated the dish, rather than a star with nothing after it.
  */
 export function HomeMealCard({ meal, tag, onOpen, onAdd, testID }: HomeMealCardProps) {
+    const viewOnly = useShopViewOnly();
     const { t } = useTranslation();
     const formatter: Formatter = useFormatter();
     const id = testID ?? `meal-card-${meal.slug}`;
@@ -191,17 +193,20 @@ export function HomeMealCard({ meal, tag, onOpen, onAdd, testID }: HomeMealCardP
                         {formatMoney(formatter, meal.price)}
                         <PackSuffix pack={meal.pack} testID={`${id}-pack`} />
                     </RNText>
-                    <View className="shrink-0">
-                        <Button
-                            testID={`${id}-add`}
-                            size="sm"
-                            label={t('marketplace:menu.add')}
-                            accessibilityLabel={t('marketplace:discover.addLabel', {
-                                meal: meal.name,
-                            })}
-                            onPress={onAdd}
-                        />
-                    </View>
+                    {/* Staff view the shop and add nothing (`shop-view-only.tsx`). */}
+                    {viewOnly ? null : (
+                        <View className="shrink-0">
+                            <Button
+                                testID={`${id}-add`}
+                                size="sm"
+                                label={t('marketplace:menu.add')}
+                                accessibilityLabel={t('marketplace:discover.addLabel', {
+                                    meal: meal.name,
+                                })}
+                                onPress={onAdd}
+                            />
+                        </View>
+                    )}
                 </View>
             </View>
         </View>

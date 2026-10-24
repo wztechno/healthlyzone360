@@ -13,7 +13,12 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { AREA_ICONS, availableWorkspaceAreas } from '../navigation/items.ts';
+import {
+    AREA_ICONS,
+    availableWorkspaceAreas,
+    permittedNavigation,
+    workspaceAreaLabelKey,
+} from '../navigation/items.ts';
 import { useAccessState, useSession } from '../session/session-provider.tsx';
 
 /**
@@ -62,6 +67,13 @@ export function WorkspaceSelectorScreen() {
     const { me } = useSession();
 
     const areas = availableWorkspaceAreas(accessState);
+    /*
+     * The account pages, which the admin bottom bar used to carry: every workspace page leads back
+     * here (its Workspaces button), so they are tiles beside the areas, one press away.
+     */
+    const accountPages = permittedNavigation(accessState).filter(
+        (item) => item.key === 'profile' || item.key === 'devices',
+    );
     const context = me?.activeContext ?? null;
     const membership = me?.memberships.find((candidate) => candidate.id === context?.membershipId);
     const organisationName = membership?.organisation.name ?? t('auth:profile.noContext');
@@ -141,11 +153,26 @@ export function WorkspaceSelectorScreen() {
                                 className="flex-row flex-wrap justify-center gap-3"
                                 testID="workspace-area-grid"
                             >
-                                {areas.map((option) => {
-                                    const name = t(`access:area.${option.area}`);
+                                {[
+                                    ...areas.map((option) => ({
+                                        key: option.area,
+                                        testID: `workspace-area-${option.area}`,
+                                        name: t(workspaceAreaLabelKey(option.area)),
+                                        icon: AREA_ICONS[option.area],
+                                        href: option.href,
+                                    })),
+                                    ...accountPages.map((item) => ({
+                                        key: item.key,
+                                        testID: `workspace-${item.key}`,
+                                        name: t(item.labelKey),
+                                        icon: item.icon,
+                                        href: item.href,
+                                    })),
+                                ].map((tile) => {
+                                    const name = tile.name;
                                     return (
                                         <View
-                                            key={option.area}
+                                            key={tile.key}
                                             style={{ width: TILE_WIDTH, height: TILE_HEIGHT }}
                                         >
                                             {/*
@@ -155,7 +182,7 @@ export function WorkspaceSelectorScreen() {
                                              * grown content is not the height you meant.
                                              */}
                                             <Card
-                                                testID={`workspace-area-${option.area}`}
+                                                testID={tile.testID}
                                                 interactive
                                                 padding="md"
                                                 className="flex-1 items-center justify-center"
@@ -164,7 +191,7 @@ export function WorkspaceSelectorScreen() {
                                                     { area: name },
                                                 )}
                                                 onPress={() => {
-                                                    router.push(option.href as never);
+                                                    router.push(tile.href as never);
                                                 }}
                                             >
                                                 <Stack space="xs" align="center">
@@ -175,7 +202,7 @@ export function WorkspaceSelectorScreen() {
                                                      * once as a glyph and once as a word.
                                                      */}
                                                     <Icon
-                                                        name={AREA_ICONS[option.area]}
+                                                        name={tile.icon}
                                                         size="lg"
                                                         className="text-brand-600"
                                                     />

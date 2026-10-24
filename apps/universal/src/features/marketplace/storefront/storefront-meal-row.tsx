@@ -10,6 +10,7 @@ import { EntityImage } from '../../../media/entity-image.tsx';
 import { YourAllergens } from '../../commerce/my-allergens.tsx';
 import { allergenKey, formatMoney, nutrientValue } from '../format.ts';
 import { PackSuffix } from '../pack-suffix.tsx';
+import { useShopViewOnly } from '../shop-view-only.tsx';
 
 /**
  * One dish on a kitchen's storefront — HealthZone `§isStorefront`, the Menu tab's row: a square
@@ -46,6 +47,7 @@ export interface StorefrontMealRowProps {
 }
 
 export function StorefrontMealRow({ meal, onOpen, onAdd, testID }: StorefrontMealRowProps) {
+    const viewOnly = useShopViewOnly();
     const { t } = useTranslation();
     const formatter: Formatter = useFormatter();
     const resolvedTestID = testID ?? `storefront-menu-${meal.slug}`;
@@ -163,18 +165,21 @@ export function StorefrontMealRow({ meal, onOpen, onAdd, testID }: StorefrontMea
                             <PackSuffix pack={meal.pack} testID={`${resolvedTestID}-pack`} />
                         </RNText>
 
-                        <View className="shrink-0">
-                            <Button
-                                testID={`${resolvedTestID}-add`}
-                                size="sm"
-                                variant="primary"
-                                label={t('marketplace:menu.add')}
-                                accessibilityLabel={t('marketplace:storefront.addLabel', {
-                                    meal: meal.name,
-                                })}
-                                onPress={onAdd}
-                            />
-                        </View>
+                        {/* Staff view the shop and add nothing (`shop-view-only.tsx`). */}
+                        {viewOnly ? null : (
+                            <View className="shrink-0">
+                                <Button
+                                    testID={`${resolvedTestID}-add`}
+                                    size="sm"
+                                    variant="primary"
+                                    label={t('marketplace:menu.add')}
+                                    accessibilityLabel={t('marketplace:storefront.addLabel', {
+                                        meal: meal.name,
+                                    })}
+                                    onPress={onAdd}
+                                />
+                            </View>
+                        )}
                     </View>
                 </View>
             </View>

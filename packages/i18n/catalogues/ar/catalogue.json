@@ -323,6 +323,7 @@
         "count_many": "{{count}} خطة",
         "count_other": "{{count}} خطة",
         "choosePlanShort": "اختر الخطة",
+        "viewPlanShort": "عرض الخطة",
         "compareCount": "قارن ({{selected}})"
     },
     "howPlans": {

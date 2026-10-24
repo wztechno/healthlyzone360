@@ -12,6 +12,7 @@ import { YourAllergens } from '../commerce/my-allergens.tsx';
 
 import { formatMoney, nutrientValue } from './format.ts';
 import { PackSuffix } from './pack-suffix.tsx';
+import { useShopViewOnly } from './shop-view-only.tsx';
 
 /**
  * A meal on a kitchen's menu.
@@ -95,7 +96,9 @@ export interface MealCardProps {
     readonly testID?: string | undefined;
 }
 
-export function MealCard({ meal, onPress, onAdd, testID }: MealCardProps) {
+export function MealCard({ meal, onPress, onAdd: onAddProp, testID }: MealCardProps) {
+    // In the shop staff view, the card is the plain link it is without an Add.
+    const onAdd = useShopViewOnly() ? undefined : onAddProp;
     const { t } = useTranslation();
     const formatter: Formatter = useFormatter();
     const resolvedTestID = testID ?? `meal-card-${meal.slug}`;
