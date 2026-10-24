@@ -25,9 +25,10 @@ import { OrderTracking } from '../order-tracking.tsx';
  * stacked on top of the order.
  *
  * **It keeps itself current (HA-23).** While the order is still on its way the page re-reads it
- * every {@link ORDER_TRACKING_POLL_MS}, so a kitchen's confirm or a driver's pick-up shows up without
- * anybody pressing Refresh; it stops once the order is delivered or cancelled, and while offline —
- * an interval firing into a dead network is retries nobody asked for.
+ * every {@link ORDER_TRACKING_POLL_MS}, so a kitchen's confirm or a driver's pick-up shows up within
+ * seconds, and again the moment the tab is shown; it stops once the order is delivered or
+ * cancelled, and while offline — an interval firing into a dead network is retries nobody asked
+ * for. So there is no Refresh button here: it would only ever repeat what the page just did.
  *
  * The route parameter is the order's **identifier**, never its printed number: the endpoint refuses
  * the number on purpose (a receipt passes through a courier's hands). A malformed identifier is
@@ -37,8 +38,12 @@ import { OrderTracking } from '../order-tracking.tsx';
 
 const TEST_ID = 'customer-order';
 
-/** The kitchen display's and the driver sheet's fifteen seconds, for the same reasons. */
-export const ORDER_TRACKING_POLL_MS = 15_000;
+/**
+ * Five seconds, not the kitchen display's fifteen: a customer watching their order is looking for
+ * the step to move, and one small read of one order is cheap against the `api` limiter's sixty a
+ * minute.
+ */
+export const ORDER_TRACKING_POLL_MS = 5_000;
 
 /** The account's order history — where this page goes up to. */
 export const ORDER_HISTORY_HREF = '/customer/account?section=orders';
@@ -103,10 +108,6 @@ export function CustomerOrderScreen({ orderId }: CustomerOrderScreenProps) {
                                 testID={TEST_ID}
                                 order={order.data}
                                 paymentLabel={t('guest:review.cashOnDelivery')}
-                                onRefresh={() => {
-                                    void order.refetch();
-                                }}
-                                refreshing={order.isRefetching}
                             />
                         </View>
                     )}

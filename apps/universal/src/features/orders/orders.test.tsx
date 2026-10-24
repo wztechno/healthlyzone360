@@ -1,7 +1,8 @@
 import { ApiError, apiFailure } from '@healthy360/api-client';
 import type { PlacedOrder } from '@healthy360/api-client/contracts';
 import { OrderId } from '@healthy360/domain-types';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { focusManager } from '@tanstack/react-query';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
 import { testMeResponse } from '../../testing/session-fixtures.ts';
@@ -123,11 +124,9 @@ describe('CustomerOrderScreen', () => {
             /^Cash on delivery · .*60/,
         );
 
-        // The primary action asks the server again; "Get help" has no endpoint and says so.
-        await fireEvent.press(screen.getByTestId('customer-order-refresh'));
-        await waitFor(() => {
-            expect(repositories.commerce.getMyOrder).toHaveBeenCalledTimes(2);
-        });
+        // The page keeps itself current, so there is no Refresh to press; "Get help" has no
+        // endpoint and says so.
+        expect(screen.queryByTestId('customer-order-refresh')).toBeNull();
         // Nobody is driving it yet, so there is no courier to message.
         expect(screen.queryByTestId('customer-order-message')).toBeNull();
         await fireEvent.press(screen.getByTestId('customer-order-help'));
@@ -246,6 +245,46 @@ describe('CustomerOrderScreen', () => {
             await jest.advanceTimersByTimeAsync(ORDER_TRACKING_POLL_MS * 3);
             expect(repositories.commerce.getMyOrder).toHaveBeenCalledTimes(delivered);
         } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('waits while the tab is hidden, and catches up the moment it is shown again', async () => {
+        jest.useFakeTimers({ advanceTimers: true });
+        try {
+            let state: PlacedOrder['state'] = 'confirmed';
+            const { repositories, view } = await renderStubScreen(
+                <CustomerOrderScreen orderId={ORDER_ID} />,
+                {
+                    session: testMeResponse(),
+                    repositories: { commerce: { getMyOrder: async () => placedOrder({ state }) } },
+                },
+            );
+            expect(await screen.findByTestId('customer-order-title')).toHaveTextContent(
+                'Kitchen confirmed',
+            );
+
+            // The customer switches to another window; the kitchen starts cooking meanwhile.
+            await act(() => {
+                focusManager.setFocused(false);
+            });
+            const reads = (repositories.commerce.getMyOrder as jest.Mock).mock.calls.length;
+            state = 'preparing';
+            await jest.advanceTimersByTimeAsync(ORDER_TRACKING_POLL_MS * 2);
+            expect(repositories.commerce.getMyOrder).toHaveBeenCalledTimes(reads);
+
+            // Back on the tab: read at once, not at the next tick.
+            await act(() => {
+                focusManager.setFocused(true);
+            });
+            await waitFor(() => {
+                expect(screen.getByTestId('customer-order-title')).toHaveTextContent('Cooking now');
+            });
+            expect(repositories.commerce.getMyOrder).toHaveBeenCalledTimes(reads + 1);
+            // Still moving, so still polling: stop it here, under the fake clock that drives it.
+            view.unmount();
+        } finally {
+            focusManager.setFocused(undefined);
             jest.useRealTimers();
         }
     });

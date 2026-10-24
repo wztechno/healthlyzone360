@@ -9,6 +9,7 @@ use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\PlanMenuEntry;
+use Healthy360\Catalogues\Models\PlanVariantProfile;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\IngredientStockCost;
@@ -198,6 +199,65 @@ it('generates a menu-less plan exactly as it did before there was a menu table',
 /*
 | 2. A published menu: the food, the ledger, and the stock
 */
+
+it('sends a subscriber only as many dishes as their option serves', function (): void {
+    $omelette = ($this->dish)('Egg white omelette');
+    $chicken = ($this->dish)('Grilled chicken');
+    $soup = ($this->dish)('Red lentil soup');
+    $nuts = ($this->dish)('Spiced nuts');
+
+    // The world's option is 2 meals and no snack; the day is written for 3 + 1.
+    $subscription = $this->subscriptions->create(SubscriptionWorld::request($this->world));
+
+    ($this->publishMenu)([
+        [1, 'breakfast', $omelette],
+        [1, 'lunch', $chicken],
+        [1, 'dinner', $soup],
+        [1, 'snack', $nuts],
+    ], $subscription->next_generation_date);
+
+    CarbonImmutable::setTestNow(CarbonImmutable::now()->addDay());
+
+    expect($this->generation->tick()['generated'])->toBe(1);
+
+    // The first two meals of the day, in the order of the day; no dinner, no snack.
+    $mealIds = Order::query()->sole()->lines()->get()
+        ->pluck('catalogue_item_id')
+        ->reject(fn (string $id): bool => $id === (string) $this->world->plan->getKey())
+        ->sort()->values()->all();
+
+    expect($mealIds)->toBe(collect([(string) $omelette->getKey(), (string) $chicken->getKey()])->sort()->values()->all());
+});
+
+it('keeps a subscriber on the count they bought when the kitchen edits the option', function (): void {
+    $chicken = ($this->dish)('Grilled chicken');
+    $soup = ($this->dish)('Red lentil soup');
+
+    // Bought as 2 meals a day; the kitchen then cuts the option to 1.
+    $subscription = $this->subscriptions->create(SubscriptionWorld::request($this->world));
+
+    expect($subscription->captured_meals_per_day)->toBe(2)
+        ->and($subscription->captured_snacks_per_day)->toBe(0);
+
+    PlanVariantProfile::withoutTenancy()
+        ->where('catalogue_item_variant_id', $this->world->configuration->getKey())
+        ->update(['meals_per_day' => 1]);
+
+    ($this->publishMenu)([
+        [1, 'lunch', $chicken],
+        [1, 'dinner', $soup],
+    ], $subscription->next_generation_date);
+
+    CarbonImmutable::setTestNow(CarbonImmutable::now()->addDay());
+
+    expect($this->generation->tick()['generated'])->toBe(1);
+
+    // Still both meals: the edit reaches new subscriptions only.
+    $mealLines = Order::query()->sole()->lines()->get()
+        ->reject(fn ($line): bool => $line->catalogue_item_id === (string) $this->world->plan->getKey());
+
+    expect($mealLines)->toHaveCount(2);
+});
 
 it('fills the day from the plan menu, prices the food at zero, and records who chose it', function (): void {
     $chicken = ($this->dish)('Grilled chicken');

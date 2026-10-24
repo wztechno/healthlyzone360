@@ -44,21 +44,17 @@ type QuickAddState =
  * The server refuses a name that exists with a 409, so a race between two Adds — or an assist call
  * that failed outright — still cannot make a duplicate; the caller refreshes its list instead.
  *
- * Renders the button and, below it, whatever the cook has to choose. Both are row items: the
- * caller's row wraps, so the panel's full width puts it under the picker.
+ * A hook rather than a component because the trigger and the answer live in different places: the
+ * **Add** is drawn inside the picker's panel when its search matches nothing (`noResultsAction`),
+ * and the panel closes as it is pressed — so `start` is handed out, and `view` (the in-flight
+ * button and whatever the cook has to choose) is drawn under the picker by the caller.
  */
-export function IngredientQuickAdd({
-    name,
-    canAdd,
+export function useIngredientQuickAdd({
     onPick,
     onCreated,
     onRefresh,
     testID,
 }: {
-    /** The settled, trimmed term the picker searched for. */
-    readonly name: string;
-    /** The search for {@link name} came back empty. */
-    readonly canAdd: boolean;
     /** An existing row the cook chose instead — fetched, so the line takes its unit. */
     readonly onPick: (ingredient: IngredientAdmin) => void;
     readonly onCreated: (ingredient: IngredientAdmin, needsDetails: boolean) => void;
@@ -75,8 +71,7 @@ export function IngredientQuickAdd({
     const [state, setState] = useState<QuickAddState>({ kind: 'idle' });
 
     const busy = state.kind === 'checking' || state.kind === 'creating';
-    // A panel answers the name it was asked about; typing on moves past it.
-    const shown = state.kind !== 'idle' && state.name === name ? state : null;
+    const shown = state.kind === 'idle' ? null : state;
 
     const createFor = (typed: string, result: IngredientAssistSuggestion | null) => {
         const assisted = result !== null && !result.unavailable.includes('assistant');
@@ -119,8 +114,8 @@ export function IngredientQuickAdd({
         );
     };
 
-    const start = () => {
-        const typed = name;
+    const start = (typed: string) => {
+        if (typed === '' || busy) return;
         setState({ kind: 'checking', name: typed });
         assist.mutate(typed, {
             onSuccess: (result) => {
@@ -147,7 +142,7 @@ export function IngredientQuickAdd({
                 queryFn: () => repositories.kitchenAdmin.getIngredient(entry.id),
             })
             .then(onPick, () => {
-                setState({ kind: 'failed', name });
+                setState({ kind: 'failed', name: shown?.name ?? '' });
             });
     };
 
@@ -183,20 +178,18 @@ export function IngredientQuickAdd({
         />
     );
 
-    return (
+    const view = (
         <>
-            {canAdd || busy ? (
+            {busy ? (
                 <View>
                     <Button
-                        testID={testID}
+                        testID={`${testID}-busy`}
                         size="sm"
                         variant="secondary"
                         label={t('kitchen:recipes.quickAdd')}
-                        hint={t('kitchen:recipes.quickAddHint', { name })}
                         iconStart={<Icon name="plus" size="sm" />}
-                        loading={busy}
-                        disabled={busy || name === ''}
-                        onPress={start}
+                        loading
+                        disabled
                     />
                 </View>
             ) : null}
@@ -261,4 +254,6 @@ export function IngredientQuickAdd({
             ) : null}
         </>
     );
+
+    return { start, busy, view };
 }

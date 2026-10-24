@@ -343,13 +343,14 @@ it('counts a plan day once per meal it serves, by sitting', function (): void {
         ]);
 });
 
-it('takes a fixed menu’s own sittings for the cycle day, over the configuration’s count', function (): void {
+it('takes a fixed menu’s own sittings for the cycle day, cut to the configuration’s count', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-05-11 08:00:00', 'UTC'));
 
-    // Two meals a day by configuration — but the plan has a two-day menu
-    // anchored on the Monday: day one is a lunch and two dinners, day two is
-    // breakfast alone. The menu is what generation will fill the day from, so
-    // the menu is what the forecast counts.
+    // Two meals a day by configuration, on a two-day menu anchored on the
+    // Monday: day one is a lunch and two dinners, day two is breakfast alone.
+    // The menu names the sittings and the configuration caps them — generation
+    // sends a 2-meal subscriber the day's first two — so the Monday counts the
+    // lunch and the first dinner, and the Tuesday its one breakfast.
     $subscription = calendarPlanSubscription($this, [1, 2], mealsPerDay: 2, snacksPerDay: 0);
 
     SubscriptionPlanProfile::factory()->create([
@@ -369,9 +370,9 @@ it('takes a fixed menu’s own sittings for the cycle day, over the configuratio
     $monday = calendarDay($this, '2026-05-11', '2026-05-12', '2026-05-11');
     $tuesday = calendarDay($this, '2026-05-11', '2026-05-12', '2026-05-12');
 
-    expect($monday['counts']['projected'])->toBe(3)
+    expect($monday['counts']['projected'])->toBe(2)
         ->and($monday['windows'])->toBe([
-            ['code' => 'dinner', 'counts' => ['order' => 0, 'scheduled' => 0, 'projected' => 2]],
+            ['code' => 'dinner', 'counts' => ['order' => 0, 'scheduled' => 0, 'projected' => 1]],
             ['code' => 'lunch', 'counts' => ['order' => 0, 'scheduled' => 0, 'projected' => 1]],
         ])
         ->and($tuesday['counts']['projected'])->toBe(1)

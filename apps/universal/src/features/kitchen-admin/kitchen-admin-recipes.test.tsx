@@ -185,27 +185,25 @@ async function openTab(tab: EditorTab) {
 const LINE_PICKER = 'kitchen-recipe-lines-table-picker';
 
 /**
- * The picker's field, which is the part that exists in the tree.
- *
- * `Picker` puts its testID on the input, the panel and each option — not on the box around them —
- * so the field is what a test waits on and what its absence proves on a read-only version.
+ * The picker's trigger — the `Select searchable` field that opens the panel. It is what a test waits
+ * on, and what its absence proves on a read-only version.
  */
-const LINE_PICKER_INPUT = `${LINE_PICKER}-input`;
+const LINE_PICKER_TRIGGER = `${LINE_PICKER}-trigger`;
 
 /** The row testIDs the line table draws, one per drawn line. */
 const LINE_ROWS = /^kitchen-recipe-lines-table-row-.+-name$/;
 
 /** The same control on the Packaging tab — one component, two tabs, two testID roots. */
 const PACKAGING_PICKER = 'kitchen-recipe-packaging-table-picker';
-const PACKAGING_PICKER_INPUT = `${PACKAGING_PICKER}-input`;
+const PACKAGING_PICKER_TRIGGER = `${PACKAGING_PICKER}-trigger`;
 
 /** Every option the panel is currently offering. The panel scrolls; it no longer truncates. */
 const LINE_PICKER_OPTIONS = /^kitchen-recipe-lines-table-picker-option-/;
 
-/** Opens a picker's panel on the catalogue's first page, then picks one row from it. */
+/** Opens a picker's panel, then picks one row from it. */
 async function pickFrom(picker: string, ingredientId: string) {
     await act(async () => {
-        fireEvent(screen.getByTestId(`${picker}-input`), 'focus');
+        fireEvent.press(screen.getByTestId(`${picker}-trigger`));
     });
     await untilVisible(`${picker}-option-${ingredientId}`);
     await act(async () => {
@@ -216,9 +214,8 @@ async function pickFrom(picker: string, ingredientId: string) {
 /**
  * Adds a raw-material line by picking from the inline field.
  *
- * Focusing opens the panel on the catalogue's first page, so nothing has to be typed — which also
- * keeps the picker's own 250ms search debounce out of tests that are not about it. The pick appends
- * a row at quantity `1` in the ingredient's own unit.
+ * Opening the panel lists the whole catalogue, so nothing has to be typed. The pick appends a row at
+ * quantity `1` in the ingredient's own unit.
  *
  * The caller must already be on the Production tab.
  */
@@ -2465,7 +2462,7 @@ describe('versions', () => {
          */
         await openTab('production');
         await untilVisible('kitchen-recipe-lines-table');
-        expect(screen.queryByTestId(LINE_PICKER_INPUT)).toBeNull();
+        expect(screen.queryByTestId(LINE_PICKER_TRIGGER)).toBeNull();
 
         // The packaging table too: rows typed here on a published version vanished on save (HA-36).
         await openTab('packaging');
@@ -2502,7 +2499,7 @@ describe('versions', () => {
             /Draft/,
         );
         await openTab('production');
-        await untilVisible(LINE_PICKER_INPUT);
+        await untilVisible(LINE_PICKER_TRIGGER);
 
         // A copy, not a blank: the whole point of opening a draft *from* a version. The rows the
         // table draws are the copied line set, not a fresh one.
@@ -2593,7 +2590,7 @@ describe('the line editor', () => {
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('production');
-        await untilVisible(LINE_PICKER_INPUT);
+        await untilVisible(LINE_PICKER_TRIGGER);
 
         // Two lines, because this test authored two.
         expect(seededCount).toBe(2);
@@ -2688,10 +2685,10 @@ describe('the line editor', () => {
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('production');
-        await untilVisible(LINE_PICKER_INPUT);
+        await untilVisible(LINE_PICKER_TRIGGER);
 
         await act(async () => {
-            fireEvent(screen.getByTestId(LINE_PICKER_INPUT), 'focus');
+            fireEvent.press(screen.getByTestId(LINE_PICKER_TRIGGER));
         });
         await untilVisible(`${LINE_PICKER}-option-${String(many[0]?.id)}`);
 
@@ -2723,7 +2720,7 @@ describe('the line editor', () => {
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('production');
-        await untilVisible(LINE_PICKER_INPUT);
+        await untilVisible(LINE_PICKER_TRIGGER);
 
         for (const key of ['row-1', 'row-2']) {
             await addLine(String(MAPPED_INGREDIENT.id));
@@ -2955,7 +2952,7 @@ describe('the packaging tab', () => {
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('packaging');
-        await untilVisible(PACKAGING_PICKER_INPUT);
+        await untilVisible(PACKAGING_PICKER_TRIGGER);
         await pickFrom(PACKAGING_PICKER, String(box.id));
 
         const row = 'kitchen-recipe-packaging-table-row-row-1';
@@ -3451,7 +3448,7 @@ describe('the sections this screen no longer edits', () => {
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('production');
-        await untilVisible(LINE_PICKER_INPUT);
+        await untilVisible(LINE_PICKER_TRIGGER);
 
         // Edit both sections the screen *does* own, so the save has real work to do and the
         // absence below is a decision rather than a no-op.
@@ -3531,7 +3528,7 @@ describe('the roll-up preview', () => {
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('production');
-        await untilVisible(LINE_PICKER_INPUT);
+        await untilVisible(LINE_PICKER_TRIGGER);
 
         const preview = repositories.kitchenAdmin.previewRecipeRollup as jest.Mock;
         await waitFor(() => {
@@ -3602,7 +3599,7 @@ describe('the roll-up preview', () => {
         // Hold the *next* answer open, then make a structural edit so one is requested at once.
         hold = true;
         await openTab('production');
-        await untilVisible(LINE_PICKER_INPUT);
+        await untilVisible(LINE_PICKER_TRIGGER);
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-lines-table-row-line-0-remove'));
         });
@@ -3694,7 +3691,7 @@ describe('the roll-up preview', () => {
         // And the row itself. The glyph is decorative — the sentence above is what a screen reader
         // hears — so reaching it takes `includeHiddenElements`.
         await openTab('production');
-        await untilVisible(LINE_PICKER_INPUT);
+        await untilVisible(LINE_PICKER_TRIGGER);
         expect(
             screen.getByTestId('kitchen-recipe-lines-table-row-line-1-flag', {
                 includeHiddenElements: true,
@@ -3727,7 +3724,7 @@ describe('the roll-up preview', () => {
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('production');
-        await untilVisible(LINE_PICKER_INPUT);
+        await untilVisible(LINE_PICKER_TRIGGER);
 
         const preview = repositories.kitchenAdmin.previewRecipeRollup as jest.Mock;
         await waitFor(() => {
@@ -4018,7 +4015,7 @@ describe('safety', () => {
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('production');
-        await untilVisible(LINE_PICKER_INPUT);
+        await untilVisible(LINE_PICKER_TRIGGER);
         // An unsaved *line*, specifically: the guard has to fire for a section the header's own
         // fields know nothing about, which is exactly the edit a person is most likely to lose.
         await addLine(String(UNMAPPED_INGREDIENT.id));
@@ -4227,7 +4224,7 @@ describe('the technical sheet', () => {
 /* ------------------------------------------------------------------------------------------------
  * Adding an ingredient from the line picker
  *
- * A typed name the library does not have gets an Add beside the picker. The assistant runs first;
+ * A typed name the library does not have gets an Add in the picker's panel. The assistant runs first;
  * an exact match is offered instead of created, possible duplicates are shown before anything is
  * written, and otherwise the row is created in the background owing its confirmed nutrition
  * reference and lands on the line.
@@ -4290,8 +4287,11 @@ describe('adding an ingredient from the line picker', () => {
 
     async function typeInPicker(text: string) {
         await act(async () => {
-            fireEvent(screen.getByTestId(LINE_PICKER_INPUT), 'focus');
-            fireEvent.changeText(screen.getByTestId(LINE_PICKER_INPUT), text);
+            fireEvent.press(screen.getByTestId(LINE_PICKER_TRIGGER));
+        });
+        await untilVisible(`${LINE_PICKER}-search-input`);
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${LINE_PICKER}-search-input`), text);
         });
     }
 
@@ -4332,7 +4332,7 @@ describe('adding an ingredient from the line picker', () => {
 
         await untilVisible('kitchen-recipe-name-en-input');
         await openTab('production');
-        await untilVisible(LINE_PICKER_INPUT);
+        await untilVisible(LINE_PICKER_TRIGGER);
         await typeInPicker('Sumac');
         await pressQuickAdd();
 
@@ -4400,7 +4400,7 @@ describe('adding an ingredient from the line picker', () => {
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('production');
-        await untilVisible(LINE_PICKER_INPUT);
+        await untilVisible(LINE_PICKER_TRIGGER);
         await typeInPicker('Pita');
         await pressQuickAdd();
 
@@ -4455,7 +4455,7 @@ describe('adding an ingredient from the line picker', () => {
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('production');
-        await untilVisible(LINE_PICKER_INPUT);
+        await untilVisible(LINE_PICKER_TRIGGER);
         await typeInPicker('Zaytoun');
         await pressQuickAdd();
 
@@ -4518,7 +4518,7 @@ describe('adding an ingredient from the line picker', () => {
 
             await untilVisible('kitchen-recipe-editor-screen-header');
             await openTab('production');
-            await untilVisible(LINE_PICKER_INPUT);
+            await untilVisible(LINE_PICKER_TRIGGER);
             await typeInPicker('Mahlab');
             await pressQuickAdd();
 
@@ -4552,7 +4552,7 @@ describe('adding an ingredient from the line picker', () => {
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('production');
-        await untilVisible(LINE_PICKER_INPUT);
+        await untilVisible(LINE_PICKER_TRIGGER);
         await typeInPicker('Sumac');
         await pressQuickAdd();
 
@@ -4576,7 +4576,7 @@ describe('adding an ingredient from the line picker', () => {
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('production');
-        await untilVisible(LINE_PICKER_INPUT);
+        await untilVisible(LINE_PICKER_TRIGGER);
         await typeInPicker('Burghul');
 
         await untilVisible(`${LINE_PICKER}-option-${String(MAPPED_INGREDIENT.id)}`);

@@ -17,10 +17,9 @@ import {
 import { toFailure } from '../../data/hooks.ts';
 import { withReturnTo } from '../../navigation/return-to.ts';
 import { useCurrentHref } from '../../navigation/use-return-to.ts';
-import { usePrototypeAction } from '../../prototype/index.ts';
 import { Eyebrow } from '../../ui/eyebrow.tsx';
 import { canPauseOrSkip, canResume } from '../commerce/state-badge.tsx';
-import { InfoNote, SubtleButton } from './plan-controls.tsx';
+import { InfoNote } from './plan-controls.tsx';
 
 /**
  * The band under the plan cards for somebody who already holds a plan — HealthZone's "Your week ·
@@ -38,7 +37,6 @@ import { InfoNote, SubtleButton } from './plan-controls.tsx';
  *   delivery tile says "Delivery" where the design names a dish, and the date where it gives macros.
  * - **"Next charge".** A plan is a balance bought up front — nothing is charged on a schedule — so
  *   the row reads "None scheduled" rather than inventing a billing date.
- * - **"Shuffle my week"** has no endpoint, so it goes through the prototype mechanism.
  *
  * ## The two lifecycle actions are real
  *
@@ -138,7 +136,6 @@ export function PlanSubscriberPanel({ subscription }: PlanSubscriberPanelProps) 
     const router = useRouter();
     const here = useCurrentHref();
     const toast = useToast();
-    const prototype = usePrototypeAction();
     const { atLeast } = useBreakpoint();
 
     const pause = usePauseSubscriptionMutation();
@@ -255,16 +252,6 @@ export function PlanSubscriberPanel({ subscription }: PlanSubscriberPanelProps) 
                 })}
             </View>
             <View className="mt-4 flex-row flex-wrap gap-2">
-                <SubtleButton
-                    testID="plans-subscriber-shuffle"
-                    label={t('catalogue:plans.subscriber.shuffle')}
-                    onPress={() => {
-                        prototype({
-                            contract:
-                                'POST /api/v1/subscriptions/{subscription}/meal-choices/shuffle',
-                        });
-                    }}
-                />
                 <Button
                     testID="plans-subscriber-dietary"
                     variant="secondary"

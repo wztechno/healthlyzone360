@@ -121,15 +121,13 @@ export function PlanMenuDays({
     const days = useMemo(() => menuDays(draft), [draft]);
 
     /*
-     * A dish is a meal sold as itself. A meal that stands for an ingredient — a burger patty, a
-     * tray of caramelised onions — is a prep item sold *as that ingredient*, and a menu that
-     * served one would promise a component rather than a plate. The listing carries both under
-     * one type, so the picker tells them apart by the ingredient link.
+     * Every published meal, ingredient link or not. The link says the kitchen stocks the meal, not
+     * that it is a component: real dishes (a tiramisu, a hummus dip) carry one too, and filtering
+     * on it left a kitchen with three dishes to choose from. The server takes any published meal.
      */
     const mealOptions = useMemo<readonly SelectOption[]>(
         () =>
             meals
-                .filter((meal) => meal.ingredientId === null)
                 .map((meal) => ({
                     value: String(meal.id),
                     label: displayName(meal.name, locale).value,

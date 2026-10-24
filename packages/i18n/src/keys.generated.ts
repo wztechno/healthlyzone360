@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8586 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8588 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1828,7 +1828,6 @@ export interface NamespaceKeys {
     | 'plans.subscriber.planTitle'
     | 'plans.subscriber.resume'
     | 'plans.subscriber.resumedToast'
-    | 'plans.subscriber.shuffle'
     | 'plans.subscriber.skipNext'
     | 'plans.subscriber.skippedToast'
     | 'plans.subscriber.tile.delivery'
@@ -2660,6 +2659,7 @@ export interface NamespaceKeys {
     | 'subscriptionRefusal.duration_not_offered'
     | 'subscriptionRefusal.duration_unknown'
     | 'subscriptionRefusal.guest_may_not_subscribe'
+    | 'subscriptionRefusal.kitchen_closed'
     | 'subscriptionRefusal.plan_not_published'
     | 'subscriptionRefusal.plan_not_subscription'
     | 'subscriptionRefusal.plan_unknown'
@@ -5714,6 +5714,7 @@ export interface NamespaceKeys {
     | 'plans.menuMealRequired'
     | 'plans.menuMealUnavailable'
     | 'plans.menuMealsPending'
+    | 'plans.menuOverServing'
     | 'plans.menuSaveError'
     | 'plans.menuSavedToast'
     | 'plans.menuSequenceLabel'
@@ -6246,6 +6247,7 @@ export interface NamespaceKeys {
     | 'recipes.quickAddExists'
     | 'recipes.quickAddFailed'
     | 'recipes.quickAddHint'
+    | 'recipes.quickAddNamed'
     | 'recipes.quickAddNeedsDetailsToast'
     | 'recipes.quickAddReview'
     | 'recipes.quickAddUse'
@@ -10439,7 +10441,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.subscriber.planTitle',
   'catalogue:plans.subscriber.resume',
   'catalogue:plans.subscriber.resumedToast',
-  'catalogue:plans.subscriber.shuffle',
   'catalogue:plans.subscriber.skipNext',
   'catalogue:plans.subscriber.skippedToast',
   'catalogue:plans.subscriber.tile.delivery',
@@ -11267,6 +11268,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:subscriptionRefusal.duration_not_offered',
   'errors:subscriptionRefusal.duration_unknown',
   'errors:subscriptionRefusal.guest_may_not_subscribe',
+  'errors:subscriptionRefusal.kitchen_closed',
   'errors:subscriptionRefusal.plan_not_published',
   'errors:subscriptionRefusal.plan_not_subscription',
   'errors:subscriptionRefusal.plan_unknown',
@@ -14318,6 +14320,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.menuMealRequired',
   'kitchen:plans.menuMealUnavailable',
   'kitchen:plans.menuMealsPending',
+  'kitchen:plans.menuOverServing',
   'kitchen:plans.menuSaveError',
   'kitchen:plans.menuSavedToast',
   'kitchen:plans.menuSequenceLabel',
@@ -14850,6 +14853,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.quickAddExists',
   'kitchen:recipes.quickAddFailed',
   'kitchen:recipes.quickAddHint',
+  'kitchen:recipes.quickAddNamed',
   'kitchen:recipes.quickAddNeedsDetailsToast',
   'kitchen:recipes.quickAddReview',
   'kitchen:recipes.quickAddUse',

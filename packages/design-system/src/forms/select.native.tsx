@@ -56,6 +56,7 @@ export function Select<T extends string = string>({
     disabled = false,
     searchable = false,
     loading = false,
+    noResultsAction,
     size: sizeProp,
     id,
     className,
@@ -298,6 +299,14 @@ export function Select<T extends string = string>({
                                                 : 'designSystem:select.noResults',
                                         )}
                                     </RNText>
+                                )}
+                                {visible.length > 0 ||
+                                !filtering ||
+                                loading ||
+                                noResultsAction === undefined ? null : (
+                                    <View className="px-4 pb-3">
+                                        {noResultsAction(query.trim(), close)}
+                                    </View>
                                 )}
                                 {visible.map((option) => {
                                     const isSelected = option.value === value;

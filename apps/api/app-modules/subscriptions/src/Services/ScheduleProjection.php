@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Subscriptions\Services;
 
 use Carbon\CarbonImmutable;
+use Healthy360\Orders\Contracts\OrderSchedulingLookup;
 use Healthy360\Subscriptions\Enums\SubscriptionDeliveryStatus;
 use Healthy360\Subscriptions\Enums\SubscriptionStatus;
 use Healthy360\Subscriptions\Models\Subscription;
@@ -34,9 +35,15 @@ use Healthy360\Subscriptions\Models\SubscriptionDelivery;
  * in the window. Pauses project nothing at all, because a paused subscription
  * delivers nothing until somebody resumes it and no date can be predicted for
  * that.
+ *
+ * **A day the kitchen is shut projects nothing.** Generation skips it without
+ * consuming a day, so forecasting it would buy for food nobody cooks — and
+ * the balance it would have used is carried to the next open day.
  */
 final readonly class ScheduleProjection
 {
+    public function __construct(private OrderSchedulingLookup $scheduling) {}
+
     /**
      * Upcoming deliveries for one kitchen, day by day.
      *
@@ -73,7 +80,13 @@ final readonly class ScheduleProjection
 
         $rows = [];
 
+        /** @var array<string, list<int>> $closed branch (or '' for the whole kitchen) → shut weekdays */
+        $closed = [];
+
         foreach ($subscriptions as $subscription) {
+            $branchKey = $subscription->branch_id ?? '';
+            $closed[$branchKey] ??= $this->scheduling->closedWeekdays($organisationId, $subscription->branch_id);
+
             $actual = SubscriptionDelivery::query()
                 ->where('subscription_id', $subscription->getKey())
                 ->whereBetween('delivery_date', [$start->toDateString(), $end->toDateString()])
@@ -96,7 +109,8 @@ final readonly class ScheduleProjection
                     continue;
                 }
 
-                if (! $subscription->deliversOnWeekday($day->dayOfWeekIso)) {
+                if (! $subscription->deliversOnWeekday($day->dayOfWeekIso)
+                    || in_array($day->dayOfWeekIso, $closed[$branchKey], true)) {
                     continue;
                 }
 

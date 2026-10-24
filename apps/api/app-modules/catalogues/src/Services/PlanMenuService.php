@@ -8,8 +8,11 @@ use Carbon\CarbonImmutable;
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
+use Healthy360\Catalogues\Enums\VariantStatus;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\PlanMenuEntry;
+use Healthy360\Catalogues\Models\PlanVariantProfile;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -242,6 +245,43 @@ final readonly class PlanMenuService
     }
 
     /**
+     * One day's entries cut to what a subscriber's configuration is served.
+     *
+     * Generation, the desk calendar and the requirement forecast all read a
+     * day of the menu, and all three ask this so they agree on how many dishes
+     * a subscriber gets — see `PlanMenuEntry::servedPositions()` for the rule.
+     * The counts are the subscriber's as sold — a subscription captures them
+     * at purchase, so an option edited later reaches new subscribers only.
+     *
+     * @param  list<PlanMenuEntry>  $dayEntries  one day of the cycle, in `entriesFor()` order
+     * @return list<PlanMenuEntry>
+     */
+    public function servedTo(array $dayEntries, ?int $mealsPerDay, ?int $snacksPerDay): array
+    {
+        $positions = PlanMenuEntry::servedPositions(
+            array_map(static fn (PlanMenuEntry $entry): string => $entry->slot, $dayEntries),
+            $mealsPerDay,
+            $snacksPerDay,
+        );
+
+        return array_map(static fn (int $position): PlanMenuEntry => $dayEntries[$position], $positions);
+    }
+
+    /**
+     * A subscription's configuration — its meals and snacks a day — by the
+     * variant it bought. Archived variants keep their profile, so a subscriber
+     * on a withdrawn option still reads its count.
+     */
+    public function configuration(string $variantId): ?PlanVariantProfile
+    {
+        $profile = PlanVariantProfile::withoutTenancy()
+            ->where('catalogue_item_variant_id', $variantId)
+            ->first();
+
+        return $profile instanceof PlanVariantProfile ? $profile : null;
+    }
+
+    /**
      * The plan's cycle configuration, or nulls when no menu is published.
      *
      * Served from the profile even when the profile does not exist, because a
@@ -314,7 +354,74 @@ final readonly class PlanMenuService
             ];
         }
 
+        $this->assertWithinLargestConfiguration($item, $prepared);
+
         return $prepared;
+    }
+
+    /**
+     * No day holds more than the plan's largest active configuration serves.
+     *
+     * A dish past that count is one no subscriber would ever be sent —
+     * `servedTo()` cuts every day to the subscriber's own count — so a menu
+     * that lists it is promising food nobody receives. A plan with no active
+     * configuration has no count yet and is not limited.
+     *
+     * Only the menu is refused. Cutting a configuration below a menu already
+     * written is allowed: generation serves the first dishes of each day, and
+     * the next save of the menu is asked to trim it.
+     *
+     * @param  list<array{cycle_day: int, slot: string, sequence: int, meal_catalogue_item_id: string}>  $prepared
+     *
+     * @throws ApiException
+     */
+    private function assertWithinLargestConfiguration(CatalogueItem $item, array $prepared): void
+    {
+        $largest = PlanVariantProfile::withoutTenancy()
+            ->where('catalogue_item_id', $item->getKey())
+            ->whereIn('catalogue_item_variant_id', CatalogueItemVariant::withoutTenancy()
+                ->where('catalogue_item_id', $item->getKey())
+                ->where('status', VariantStatus::Active->value)
+                ->select('id'))
+            ->toBase()
+            ->selectRaw('max(meals_per_day) as meals, max(snacks_per_day) as snacks')
+            ->first();
+
+        if ($largest === null || $largest->meals === null) {
+            return;
+        }
+
+        $meals = (int) $largest->meals;
+        $snacks = (int) $largest->snacks;
+
+        /** @var array<int, list<int>> $days cycle day → submission indexes */
+        $days = [];
+
+        foreach ($prepared as $index => $entry) {
+            $days[$entry['cycle_day']][] = $index;
+        }
+
+        $sitting = ['breakfast' => 1, 'lunch' => 2, 'dinner' => 3, 'snack' => 4];
+
+        foreach ($days as $cycleDay => $indexes) {
+            usort($indexes, static fn (int $left, int $right): int => [$sitting[$prepared[$left]['slot']], $prepared[$left]['sequence']]
+                <=> [$sitting[$prepared[$right]['slot']], $prepared[$right]['sequence']]);
+
+            $served = PlanMenuEntry::servedPositions(
+                array_map(static fn (int $index): string => $prepared[$index]['slot'], $indexes),
+                $meals,
+                $snacks,
+            );
+
+            foreach ($indexes as $position => $index) {
+                if (! in_array($position, $served, true)) {
+                    throw $this->invalid(
+                        "entries.{$index}",
+                        'Day '.$cycleDay.' has more dishes than this plan serves. Its largest option is '.$meals.' meals and '.$snacks.' snacks a day — remove a dish from this day.',
+                    );
+                }
+            }
+        }
     }
 
     /**

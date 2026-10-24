@@ -13,6 +13,7 @@ use Healthy360\Catalogues\Models\PlanVariantDuration;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Delivery\Models\DeliveryWindow;
+use Healthy360\Orders\Contracts\OrderSchedulingLookup;
 use Healthy360\Organisations\Services\OrganisationTradingGuard;
 use Healthy360\Subscriptions\Models\Subscription;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -70,7 +71,9 @@ use Healthy360\Tenancy\Database\DatabaseTenantContext;
  * kitchen's active `delivery_windows`, which is where the platform actually
  * records which days deliveries run — `weekdays = []` means every day, and that
  * convention is read here through the model's own `runsOn()` so nothing has to
- * remember it twice.
+ * remember it twice. A weekday the kitchen has said it is shut on is taken out
+ * as well, so the configurator never offers a day the purchase would refuse
+ * (`kitchen_closed`).
  *
  * A kitchen with **no** active window is unconstrained rather than closed: all
  * seven days. That is the reading `Orders\Services\BranchScheduleLookup` takes
@@ -87,6 +90,7 @@ final readonly class StorefrontQuoting
         private DatabaseTenantContext $tenantContext,
         private OrganisationTradingGuard $trading,
         private ChangeWindow $window,
+        private OrderSchedulingLookup $scheduling,
     ) {}
 
     /**
@@ -201,7 +205,7 @@ final readonly class StorefrontQuoting
             'reasons' => $resolved[1],
             'sales_channel_id' => $resolved[2],
             'duration' => $duration,
-            'available_weekdays' => $this->availableWeekdays($organisationId),
+            'available_weekdays' => $this->availableWeekdays($organisationId, $branchId),
             'allows_free_selection' => $profile->allows_free_selection,
             'change_cutoff_hours' => $profile->change_cutoff_hours,
             'earliest_start_date' => $this->earliestStartDate($catalogueItemId, $weekdays, $branchId, $on ?? CarbonImmutable::now()),
@@ -315,31 +319,35 @@ final readonly class StorefrontQuoting
     }
 
     /**
-     * ISO weekdays this kitchen delivers on, ascending.
+     * ISO weekdays this kitchen delivers on, ascending — the days a delivery
+     * window runs, less the days the kitchen is shut.
+     *
+     * The opening hours are read as the kitchen, because they are its rows and
+     * a shopper's session sees none of them.
      *
      * @return list<int>
      */
-    private function availableWeekdays(string $organisationId): array
+    private function availableWeekdays(string $organisationId, ?string $branchId): array
     {
         $windows = DeliveryWindow::withoutTenancy()
             ->where('organisation_id', $organisationId)
             ->where('is_active', true)
             ->get();
 
-        $all = [1, 2, 3, 4, 5, 6, 7];
+        $closed = $this->tenantContext->during(
+            null,
+            $organisationId,
+            $branchId,
+            fn (): array => $this->scheduling->closedWeekdays($organisationId, $branchId),
+        );
 
-        if ($windows->isEmpty()) {
-            return $all;
-        }
-
-        $available = array_values(array_filter(
-            $all,
-            static fn (int $weekday): bool => $windows->contains(
-                static fn (DeliveryWindow $window): bool => $window->runsOn($weekday),
-            ),
+        return array_values(array_filter(
+            [1, 2, 3, 4, 5, 6, 7],
+            static fn (int $weekday): bool => ! in_array($weekday, $closed, true)
+                && ($windows->isEmpty() || $windows->contains(
+                    static fn (DeliveryWindow $window): bool => $window->runsOn($weekday),
+                )),
         ));
-
-        return $available;
     }
 
     /**

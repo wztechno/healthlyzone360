@@ -1737,6 +1737,54 @@ describe('DiscoverScreen', () => {
         await fireEvent.press(screen.getByTestId('discover-hero-track'));
         expect(routerMock.__push).toHaveBeenCalledWith(`/customer/orders/${String(order.id)}`);
     });
+
+    /*
+     * A delivered order has nothing left to track: the hero tracks the newest one still on its way
+     * (a plan's next day), and with none the button is the screen's own alternative again.
+     */
+    it('does not track a delivered order from the hero', async () => {
+        const delivered: PlacedOrder = {
+            ...testOrder('Ranked meal 6'),
+            id: uuid(9, 2) as PlacedOrder['id'],
+            reference: 'H360-1043',
+            state: 'delivered',
+        };
+        const next: PlacedOrder = { ...testOrder('Ranked meal 6'), state: 'placed' };
+
+        await renderStubScreen(<DiscoverScreen />, {
+            session: CONSUMER_SESSION,
+            repositories: {
+                marketplace: { listMeals: async () => page(rankedMeals()) },
+                commerce: { listMyOrders: async () => page([delivered, next]) },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('discover-hero-track')).toHaveTextContent(
+                'Track order H360-1042',
+            );
+        });
+    });
+
+    it('drops the hero track button once every order is delivered', async () => {
+        const delivered: PlacedOrder = { ...testOrder('Ranked meal 6'), state: 'delivered' };
+
+        await renderStubScreen(<DiscoverScreen />, {
+            session: CONSUMER_SESSION,
+            repositories: {
+                marketplace: { listMeals: async () => page(rankedMeals()) },
+                commerce: { listMyOrders: async () => page([delivered]) },
+            },
+        });
+
+        // The rail still reads the delivered order: it is what they last ate.
+        await waitFor(() => {
+            expect(screen.getByTestId('discover-rail-title')).toHaveTextContent(
+                'Because you ordered Ranked meal 6',
+            );
+        });
+        expect(screen.queryByTestId('discover-hero-track')).toBeNull();
+    });
 });
 
 /** Eight lunches from one kitchen, in the order the rating sort hands them back. */

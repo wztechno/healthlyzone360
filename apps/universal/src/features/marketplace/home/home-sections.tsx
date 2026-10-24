@@ -68,7 +68,7 @@ export function HomeHero({ testID, meals, eyebrow, primaryTestID, secondary }: H
     const { t } = useTranslation();
     const router = useRouter();
     const formatter: Formatter = useFormatter();
-    const { heroMeal, latestOrder } = meals;
+    const { heroMeal, trackableOrder } = meals;
 
     const catalogueEyebrow =
         meals.total === null || meals.kitchenCount === null
@@ -79,15 +79,15 @@ export function HomeHero({ testID, meals, eyebrow, primaryTestID, secondary }: H
               )}`;
 
     const second: HomeAction =
-        latestOrder === undefined
+        trackableOrder === undefined
             ? secondary
             : {
                   testID: `${testID}-track`,
                   label: t('marketplace:discover.heroTrackOrder', {
-                      reference: latestOrder.reference,
+                      reference: trackableOrder.reference,
                   }),
                   onPress: () => {
-                      router.push(`/customer/orders/${String(latestOrder.id)}` as never);
+                      router.push(`/customer/orders/${String(trackableOrder.id)}` as never);
                   },
               };
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Subscriptions\Services;
 
 use Carbon\CarbonImmutable;
+use Healthy360\Catalogues\Models\PlanVariantProfile;
 use Healthy360\Inventory\Contracts\SubscriptionMealDemand;
 use Healthy360\Subscriptions\Enums\SubscriptionDeliveryStatus;
 use Healthy360\Subscriptions\Models\Subscription;
@@ -66,7 +67,7 @@ final readonly class SubscriptionMealDemandAdapter implements SubscriptionMealDe
 
     /**
      * @return array{
-     *     days: list<array{subscription_id: string, plan_catalogue_item_id: string, delivery_date: string, basis: string}>,
+     *     days: list<array{subscription_id: string, plan_catalogue_item_id: string, meals_per_day: int|null, snacks_per_day: int|null, delivery_date: string, basis: string}>,
      *     choices: list<array{subscription_id: string, delivery_date: string, slot: string, sequence: int, catalogue_item_id: string}>,
      * }
      */
@@ -88,7 +89,52 @@ final readonly class SubscriptionMealDemandAdapter implements SubscriptionMealDe
             ...$this->projected($organisationId, $start, $end, $branchId),
         ];
 
-        return ['days' => $days, 'choices' => $this->choices($organisationId, $days)];
+        return ['days' => $this->withServings($organisationId, $days), 'choices' => $this->choices($organisationId, $days)];
+    }
+
+    /**
+     * Each day with the meals and snacks its subscriber bought, in place of the
+     * configuration it was bought on — read once for the window, the captured
+     * counts first and the configuration's for a subscription that has none.
+     *
+     * @param  list<array{subscription_id: string, plan_catalogue_item_id: string, plan_configuration_id: string, delivery_date: string, basis: string}>  $days
+     * @return list<array{subscription_id: string, plan_catalogue_item_id: string, meals_per_day: int|null, snacks_per_day: int|null, delivery_date: string, basis: string}>
+     */
+    private function withServings(string $organisationId, array $days): array
+    {
+        if ($days === []) {
+            return [];
+        }
+
+        $subscriptions = Subscription::query()
+            ->where('organisation_id', $organisationId)
+            ->whereKey(array_values(array_unique(array_column($days, 'subscription_id'))))
+            ->get(['id', 'captured_meals_per_day', 'captured_snacks_per_day'])
+            ->keyBy(static fn (Subscription $subscription): string => (string) $subscription->getKey());
+
+        $configurations = PlanVariantProfile::withoutTenancy()
+            ->where('organisation_id', $organisationId)
+            ->whereIn('catalogue_item_variant_id', array_values(array_unique(array_column($days, 'plan_configuration_id'))))
+            ->get()
+            ->keyBy(static fn (PlanVariantProfile $profile): string => (string) $profile->catalogue_item_variant_id);
+
+        return array_map(function (array $day) use ($subscriptions, $configurations): array {
+            $configuration = $configurations->get($day['plan_configuration_id']);
+            $subscription = $subscriptions->get($day['subscription_id']);
+
+            [$meals, $snacks] = $subscription instanceof Subscription
+                ? $subscription->servings($configuration instanceof PlanVariantProfile ? $configuration : null)
+                : [null, null];
+
+            return [
+                'subscription_id' => $day['subscription_id'],
+                'plan_catalogue_item_id' => $day['plan_catalogue_item_id'],
+                'meals_per_day' => $meals,
+                'snacks_per_day' => $snacks,
+                'delivery_date' => $day['delivery_date'],
+                'basis' => $day['basis'],
+            ];
+        }, $days);
     }
 
     /**
@@ -99,7 +145,7 @@ final readonly class SubscriptionMealDemandAdapter implements SubscriptionMealDe
      * records which plan was bought, and a forecast reading sixty days of a busy
      * kitchen would otherwise issue one query per claimed day.
      *
-     * @return list<array{subscription_id: string, plan_catalogue_item_id: string, delivery_date: string, basis: string}>
+     * @return list<array{subscription_id: string, plan_catalogue_item_id: string, plan_configuration_id: string, delivery_date: string, basis: string}>
      */
     private function scheduled(
         string $organisationId,
@@ -120,6 +166,7 @@ final readonly class SubscriptionMealDemandAdapter implements SubscriptionMealDe
                 'subscription_deliveries.subscription_id',
                 'subscription_deliveries.delivery_date',
                 'subscriptions.catalogue_item_id as plan_catalogue_item_id',
+                'subscriptions.catalogue_item_variant_id as plan_configuration_id',
             ]);
 
         $days = [];
@@ -128,6 +175,7 @@ final readonly class SubscriptionMealDemandAdapter implements SubscriptionMealDe
             $days[] = [
                 'subscription_id' => (string) $row->subscription_id,
                 'plan_catalogue_item_id' => (string) $row->getAttribute('plan_catalogue_item_id'),
+                'plan_configuration_id' => (string) $row->getAttribute('plan_configuration_id'),
                 'delivery_date' => $row->delivery_date->toDateString(),
                 'basis' => 'scheduled',
             ];
@@ -148,7 +196,7 @@ final readonly class SubscriptionMealDemandAdapter implements SubscriptionMealDe
      * projection answers in identifiers and a forecast wants the plan for each
      * of them without a query per day.
      *
-     * @return list<array{subscription_id: string, plan_catalogue_item_id: string, delivery_date: string, basis: string}>
+     * @return list<array{subscription_id: string, plan_catalogue_item_id: string, plan_configuration_id: string, delivery_date: string, basis: string}>
      */
     private function projected(
         string $organisationId,
@@ -165,20 +213,18 @@ final readonly class SubscriptionMealDemandAdapter implements SubscriptionMealDe
             return [];
         }
 
-        /** @var array<string, string> $plans */
-        $plans = Subscription::query()
+        $subscriptions = Subscription::query()
             ->where('organisation_id', $organisationId)
             ->whereKey(array_values(array_unique(array_column($rows, 'subscription_id'))))
-            ->pluck('catalogue_item_id', 'id')
-            ->map(static fn (mixed $planId): string => (string) $planId)
-            ->all();
+            ->get(['id', 'catalogue_item_id', 'catalogue_item_variant_id'])
+            ->keyBy(static fn (Subscription $subscription): string => (string) $subscription->getKey());
 
         $days = [];
 
         foreach ($rows as $row) {
-            $planId = $plans[$row['subscription_id']] ?? null;
+            $subscription = $subscriptions->get($row['subscription_id']);
 
-            if ($planId === null) {
+            if (! $subscription instanceof Subscription) {
                 // Unreachable: the projection just read these subscriptions from
                 // this organisation. Dropped rather than guessed at, so a row
                 // that somehow arrived from elsewhere cannot put another
@@ -188,7 +234,8 @@ final readonly class SubscriptionMealDemandAdapter implements SubscriptionMealDe
 
             $days[] = [
                 'subscription_id' => $row['subscription_id'],
-                'plan_catalogue_item_id' => $planId,
+                'plan_catalogue_item_id' => $subscription->catalogue_item_id,
+                'plan_configuration_id' => $subscription->catalogue_item_variant_id,
                 'delivery_date' => $row['delivery_date'],
                 'basis' => 'projected',
             ];
@@ -213,7 +260,7 @@ final readonly class SubscriptionMealDemandAdapter implements SubscriptionMealDe
      * over another here would forecast something other than what generation will
      * read back.
      *
-     * @param  list<array{subscription_id: string, plan_catalogue_item_id: string, delivery_date: string, basis: string}>  $days
+     * @param  list<array{subscription_id: string, plan_catalogue_item_id: string, plan_configuration_id: string, delivery_date: string, basis: string}>  $days
      * @return list<array{subscription_id: string, delivery_date: string, slot: string, sequence: int, catalogue_item_id: string}>
      */
     private function choices(string $organisationId, array $days): array

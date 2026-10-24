@@ -1,5 +1,5 @@
 import { fireEvent, screen } from '@testing-library/react-native';
-import { Platform } from 'react-native';
+import { Platform, Text as RNText } from 'react-native';
 
 import { Text } from '../primitives/text.tsx';
 import { assertSubtreeIsLogical, renderWithI18n, withI18n } from '../testing/render.tsx';
@@ -805,6 +805,32 @@ describe('Select', () => {
                 'لا يوجد خيار يطابق بحثك.',
             );
             assertSubtreeIsLogical(screen.getByTestId('org-list'));
+        });
+
+        it('offers its no-results action only when the typed search empties the list', async () => {
+            const action = jest.fn((typed: string) => (
+                <RNText testID="org-add">{`Add ${typed}`}</RNText>
+            ));
+            await renderWithI18n(
+                <Select
+                    testID="org"
+                    id="org"
+                    label="Organisation"
+                    options={options}
+                    value={null}
+                    onChange={jest.fn()}
+                    searchable
+                    noResultsAction={action}
+                />,
+            );
+            await fireEvent.press(screen.getByTestId('org-trigger'));
+            expect(screen.queryByTestId('org-add')).toBeNull();
+
+            await fireEvent.changeText(screen.getByTestId('org-search-input'), 'verd');
+            expect(screen.queryByTestId('org-add')).toBeNull();
+
+            await fireEvent.changeText(screen.getByTestId('org-search-input'), '  zzzz ');
+            expect(screen.getByTestId('org-add')).toHaveTextContent('Add zzzz');
         });
     });
 });

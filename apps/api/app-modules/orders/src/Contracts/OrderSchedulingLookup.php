@@ -53,4 +53,18 @@ interface OrderSchedulingLookup
      * @return array{accepted: bool, reason: string|null, cut_off_at: string|null}
      */
     public function explain(string $branchId, CarbonImmutable $requestedDate, CarbonImmutable $at): array;
+
+    /**
+     * The ISO weekdays (1 = Monday … 7 = Sunday) on which nothing is made — for
+     * a standing arrangement that repeats by weekday, where no single date can
+     * be asked about.
+     *
+     * With a branch, the days that branch has stated it is shut. Without one,
+     * the days **every** active branch of the kitchen is shut: a kitchen is
+     * closed on a day only when all of its branches are. A weekday nobody has
+     * configured is not closed, for the reason `acceptsOrderFor()` gives.
+     *
+     * @return list<int> ascending; empty when nothing is closed
+     */
+    public function closedWeekdays(string $organisationId, ?string $branchId): array;
 }

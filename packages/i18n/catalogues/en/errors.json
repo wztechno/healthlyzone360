@@ -115,6 +115,7 @@
         "duration_not_fixed": "Choose a plan length with a set number of days.",
         "weekdays_empty": "Choose at least one delivery day.",
         "weekdays_invalid": "One of the delivery days you chose is not offered.",
+        "kitchen_closed": "The kitchen is closed on one of the delivery days you chose.",
         "guest_may_not_subscribe": "Sign in to start a subscription."
     },
     "cart": {
