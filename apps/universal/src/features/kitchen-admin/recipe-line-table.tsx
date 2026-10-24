@@ -342,7 +342,12 @@ export function RecipeLineTable({
             const price =
                 entry.unitPrice === null
                     ? ''
-                    : formatMoney(formatter, entry.unitPrice.amount, entry.unitPrice.currency, MONEY);
+                    : formatMoney(
+                          formatter,
+                          entry.unitPrice.amount,
+                          entry.unitPrice.currency,
+                          MONEY,
+                      );
             options.push({
                 value: entry.id,
                 label: displayName(entry.name, locale).value,

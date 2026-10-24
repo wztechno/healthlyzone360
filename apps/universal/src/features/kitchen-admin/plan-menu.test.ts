@@ -235,9 +235,9 @@ describe('the coordinate', () => {
             }) as const;
 
         expect(largestServing([])).toBeNull();
-        expect(largestServing([option(3, 1), option(2, 2), option(5, 0, false), option(null, 4)])).toEqual(
-            { meals: 3, snacks: 2 },
-        );
+        expect(
+            largestServing([option(3, 1), option(2, 2), option(5, 0, false), option(null, 4)]),
+        ).toEqual({ meals: 3, snacks: 2 });
     });
 
     it('does not let an unanswered position frame an innocent row as the duplicate', () => {

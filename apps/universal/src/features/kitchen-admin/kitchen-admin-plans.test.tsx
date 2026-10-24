@@ -1351,9 +1351,9 @@ describe('editing the matrix', () => {
         // not drawn at all when nothing else on sale shares its row or band.
         const cell = screen.queryByTestId(`${cellOf(withdrawn!)}-control`);
         expect(cell?.props.accessibilityState?.checked ?? false).toBe(false);
-        expect(screen.getByTestId(`${cellOf(rest[0]!)}-control`).props.accessibilityState?.checked).toBe(
-            true,
-        );
+        expect(
+            screen.getByTestId(`${cellOf(rest[0]!)}-control`).props.accessibilityState?.checked,
+        ).toBe(true);
     });
 
     it('says how many configurations share a cell, for the shape an import brings', async () => {

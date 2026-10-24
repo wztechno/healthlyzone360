@@ -351,7 +351,6 @@ final readonly class RequirementForecast
         /** @var array<string, array{cycle_days: int|null, anchor_date: string|null, entries: list<PlanMenuEntry>, meals: array<string, CatalogueItem>}|null> $plans */
         $plans = [];
 
-
         foreach ($days as $day) {
             $planId = $day['plan_catalogue_item_id'];
 

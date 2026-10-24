@@ -364,9 +364,7 @@ export function menuEntryErrors(
             let snacks = 0;
             for (const entry of day.entries) {
                 const over =
-                    entry.slot === 'snack'
-                        ? ++snacks > serving.snacks
-                        : ++meals > serving.meals;
+                    entry.slot === 'snack' ? ++snacks > serving.snacks : ++meals > serving.meals;
                 if (over && !errors.has(entry.key)) errors.set(entry.key, serving.message);
             }
         }
@@ -391,9 +389,7 @@ export interface MenuServing {
 export function largestServing(
     variants: readonly VariantDraft[],
 ): { readonly meals: number; readonly snacks: number } | null {
-    const counted = variants.filter(
-        (variant) => variant.isActive && variant.mealsPerDay !== null,
-    );
+    const counted = variants.filter((variant) => variant.isActive && variant.mealsPerDay !== null);
     if (counted.length === 0) return null;
     return {
         meals: Math.max(...counted.map((variant) => variant.mealsPerDay ?? 0)),
