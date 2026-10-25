@@ -9,6 +9,12 @@ const StockScreen = lazyScreen(
 
 export default function KitchenStock() {
     // `?view=`: the record whose page is open, so an editor sent from it comes back to it.
-    const { view } = useLocalSearchParams<{ view?: string }>();
-    return <StockScreen view={view} />;
+    // `?ingredient=` / `?item=` with `?returnTo=`: a Stock gap sent the reader to move that shelf.
+    const { view, ingredient, item, returnTo } = useLocalSearchParams<{
+        view?: string;
+        ingredient?: string;
+        item?: string;
+        returnTo?: string;
+    }>();
+    return <StockScreen view={view} ingredient={ingredient} item={item} returnTo={returnTo} />;
 }

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8645 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8656 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4342,7 +4342,10 @@ export interface NamespaceKeys {
     | 'ops.exceptions.filterFrom'
     | 'ops.exceptions.filterResolved'
     | 'ops.exceptions.filterStatus'
+    | 'ops.exceptions.filterTo'
     | 'ops.exceptions.filterUnresolved'
+    | 'ops.exceptions.filteredEmptyBody'
+    | 'ops.exceptions.filteredEmptyTitle'
     | 'ops.exceptions.fix.back'
     | 'ops.exceptions.fix.doneTitle'
     | 'ops.exceptions.fix.piecesMissing'
@@ -4350,10 +4353,15 @@ export interface NamespaceKeys {
     | 'ops.exceptions.fix.title'
     | 'ops.exceptions.fix.titleIngredient'
     | 'ops.exceptions.fix.unitMismatch'
+    | 'ops.exceptions.fixAction.price'
+    | 'ops.exceptions.fixAction.product'
+    | 'ops.exceptions.fixAction.production'
+    | 'ops.exceptions.fixAction.stock'
+    | 'ops.exceptions.fixAction.unit'
     | 'ops.exceptions.fixInRecipe'
     | 'ops.exceptions.fromInvalid'
+    | 'ops.exceptions.fromPlaceholder'
     | 'ops.exceptions.nextPage'
-    | 'ops.exceptions.openBadge'
     | 'ops.exceptions.reasons.insufficient_stock'
     | 'ops.exceptions.reasons.no_branch'
     | 'ops.exceptions.reasons.no_catalogue_item'
@@ -4376,14 +4384,17 @@ export interface NamespaceKeys {
     | 'ops.exceptions.retry'
     | 'ops.exceptions.retryDeductedToast'
     | 'ops.exceptions.retryStillOpenToast'
+    | 'ops.exceptions.searchPlaceholder'
     | 'ops.exceptions.statResolvedCaption'
     | 'ops.exceptions.statShownCaption'
     | 'ops.exceptions.statUnit'
     | 'ops.exceptions.statUnresolvedCaption'
     | 'ops.exceptions.subtitle'
     | 'ops.exceptions.title'
+    | 'ops.exceptions.toPlaceholder'
     | 'ops.exceptions.unknownItem'
     | 'ops.exceptions.unknownOrder'
+    | 'ops.exceptions.unresolvedBadge'
     | 'ops.exceptions.unresolvedCount'
     | 'ops.exceptions.window.fieldDetail'
     | 'ops.exceptions.window.fieldIngredient'
@@ -13005,7 +13016,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.filterFrom',
   'kitchen:ops.exceptions.filterResolved',
   'kitchen:ops.exceptions.filterStatus',
+  'kitchen:ops.exceptions.filterTo',
   'kitchen:ops.exceptions.filterUnresolved',
+  'kitchen:ops.exceptions.filteredEmptyBody',
+  'kitchen:ops.exceptions.filteredEmptyTitle',
   'kitchen:ops.exceptions.fix.back',
   'kitchen:ops.exceptions.fix.doneTitle',
   'kitchen:ops.exceptions.fix.piecesMissing',
@@ -13013,10 +13027,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.fix.title',
   'kitchen:ops.exceptions.fix.titleIngredient',
   'kitchen:ops.exceptions.fix.unitMismatch',
+  'kitchen:ops.exceptions.fixAction.price',
+  'kitchen:ops.exceptions.fixAction.product',
+  'kitchen:ops.exceptions.fixAction.production',
+  'kitchen:ops.exceptions.fixAction.stock',
+  'kitchen:ops.exceptions.fixAction.unit',
   'kitchen:ops.exceptions.fixInRecipe',
   'kitchen:ops.exceptions.fromInvalid',
+  'kitchen:ops.exceptions.fromPlaceholder',
   'kitchen:ops.exceptions.nextPage',
-  'kitchen:ops.exceptions.openBadge',
   'kitchen:ops.exceptions.reasons.insufficient_stock',
   'kitchen:ops.exceptions.reasons.no_branch',
   'kitchen:ops.exceptions.reasons.no_catalogue_item',
@@ -13039,14 +13058,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.retry',
   'kitchen:ops.exceptions.retryDeductedToast',
   'kitchen:ops.exceptions.retryStillOpenToast',
+  'kitchen:ops.exceptions.searchPlaceholder',
   'kitchen:ops.exceptions.statResolvedCaption',
   'kitchen:ops.exceptions.statShownCaption',
   'kitchen:ops.exceptions.statUnit',
   'kitchen:ops.exceptions.statUnresolvedCaption',
   'kitchen:ops.exceptions.subtitle',
   'kitchen:ops.exceptions.title',
+  'kitchen:ops.exceptions.toPlaceholder',
   'kitchen:ops.exceptions.unknownItem',
   'kitchen:ops.exceptions.unknownOrder',
+  'kitchen:ops.exceptions.unresolvedBadge',
   'kitchen:ops.exceptions.unresolvedCount',
   'kitchen:ops.exceptions.window.fieldDetail',
   'kitchen:ops.exceptions.window.fieldIngredient',

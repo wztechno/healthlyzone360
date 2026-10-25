@@ -6,6 +6,10 @@ import { Dimensions } from 'react-native';
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { ConsumptionExceptionsScreen } from './screens/consumption-exceptions-screen.tsx';
+import { withReturnTo } from '../../navigation/return-to.ts';
+
+/** An ingredient id, as a gap reads it out of its detail line. */
+const LENTILS_ID = '0f9a6c1e-2b3d-4e5f-8a9b-0c1d2e3f4a5b';
 
 const mockRouter = {
     push: jest.fn(),
@@ -300,18 +304,107 @@ describe('consumption exceptions at desk width', () => {
             );
         });
 
-        it('offers no fix for a gap that is not fixed in a recipe', async () => {
+        it('offers no fix for a gap nothing can fix — an order with no branch', async () => {
             await renderStubScreen(<ConsumptionExceptionsScreen />, {
                 session: kitchenManagerSession(),
                 repositories: {
                     kitchenOps: {
-                        listConsumptionExceptions: async () => pageOf([exception()]),
+                        listConsumptionExceptions: async () =>
+                            pageOf([exception({ reasonCode: 'no_branch' })]),
                     },
                 },
             });
 
             await untilVisible('kitchen-exception-exception-1-retry');
             expect(screen.queryByTestId('kitchen-exception-exception-1-fix')).toBeNull();
+        });
+
+        it('leads a shortage with Add stock, opening that shelf with the way back', async () => {
+            await renderStubScreen(<ConsumptionExceptionsScreen />, {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenOps: {
+                        listConsumptionExceptions: async () =>
+                            pageOf([exception({ ingredientId: LENTILS_ID })]),
+                    },
+                },
+            });
+
+            await untilVisible('kitchen-exception-exception-1-fix');
+            expect(screen.getByTestId('kitchen-exception-exception-1-fix')).toHaveTextContent(
+                'Add stock',
+            );
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-exception-exception-1-fix'));
+            });
+            expect(mockRouter.push).toHaveBeenCalledWith(
+                withReturnTo(
+                    `/kitchen/stock?ingredient=${LENTILS_ID}`,
+                    '/kitchen/consumption-exceptions?gap=exception-1',
+                ),
+            );
+        });
+
+        it('leads a gap with no cost to the ingredient’s unit price', async () => {
+            await renderStubScreen(<ConsumptionExceptionsScreen />, {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenOps: {
+                        listConsumptionExceptions: async () =>
+                            pageOf([
+                                exception({
+                                    reasonCode: 'no_ingredient_cost',
+                                    ingredientId: LENTILS_ID,
+                                }),
+                            ]),
+                    },
+                },
+            });
+
+            await untilVisible('kitchen-exception-exception-1-fix');
+            expect(screen.getByTestId('kitchen-exception-exception-1-fix')).toHaveTextContent(
+                'Set unit price',
+            );
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-exception-exception-1-fix'));
+            });
+            expect(mockRouter.push).toHaveBeenCalledWith(
+                withReturnTo(
+                    `/kitchen/ingredients/${LENTILS_ID}?needs=price`,
+                    '/kitchen/consumption-exceptions?gap=exception-1',
+                ),
+            );
+        });
+
+        it('calls an open gap Unresolved, and narrows the page by search', async () => {
+            await renderStubScreen(<ConsumptionExceptionsScreen />, {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenOps: {
+                        listConsumptionExceptions: async () =>
+                            pageOf([
+                                exception(),
+                                exception({ id: 'exception-2', orderNumber: '0151' }),
+                            ]),
+                    },
+                },
+            });
+
+            await untilVisible('kitchen-exception-exception-1-open');
+            expect(screen.getByTestId('kitchen-exception-exception-1-open')).toHaveTextContent(
+                'Unresolved',
+            );
+
+            await act(async () => {
+                fireEvent.changeText(
+                    screen.getByTestId('kitchen-consumption-exceptions-toolbar-search-input'),
+                    '0151',
+                );
+            });
+            await waitFor(() => {
+                expect(screen.queryByTestId('kitchen-exception-exception-1-order')).toBeNull();
+            });
+            expect(screen.getByTestId('kitchen-exception-exception-2-order')).toBeTruthy();
         });
 
         it('reopens the gap the URL names, with Fix in recipe first and Retry under it', async () => {
@@ -383,6 +476,27 @@ describe('consumption exceptions at desk width', () => {
             );
         });
 
+        it('asks for the raised-between window the URL holds, both ends inclusive', async () => {
+            const harness = await renderStubScreen(
+                <ConsumptionExceptionsScreen from="2026-08-01" to="2026-08-31" />,
+                {
+                    session: kitchenManagerSession(),
+                    repositories: {
+                        kitchenOps: {
+                            listConsumptionExceptions: async () => pageOf([exception()]),
+                        },
+                    },
+                },
+            );
+
+            await untilVisible('kitchen-consumption-exceptions-table');
+            expect(harness.repositories.kitchenOps.listConsumptionExceptions).toHaveBeenCalledWith(
+                expect.objectContaining({ from: '2026-08-01', to: '2026-08-31' }),
+            );
+            expect(screen.getByTestId('kitchen-exceptions-filter-from-trigger')).toBeTruthy();
+            expect(screen.getByTestId('kitchen-exceptions-filter-to-trigger')).toBeTruthy();
+        });
+
         it('starts from the view the URL holds and writes every change back to it', async () => {
             const harness = await renderStubScreen(
                 <ConsumptionExceptionsScreen status="resolved" page="2" />,
@@ -408,7 +522,9 @@ describe('consumption exceptions at desk width', () => {
             expect(mockRouter.setParams).not.toHaveBeenCalled();
 
             await act(async () => {
-                fireEvent.press(screen.getByTestId('kitchen-exceptions-filter-status-unresolved'));
+                fireEvent.press(
+                    screen.getByTestId('kitchen-consumption-exceptions-toolbar-status-unresolved'),
+                );
             });
             // Back to the default status, and to page 1 with it: both leave the address.
             expect(mockRouter.setParams).toHaveBeenLastCalledWith(

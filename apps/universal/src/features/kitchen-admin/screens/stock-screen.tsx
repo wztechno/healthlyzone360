@@ -23,6 +23,7 @@ import {
 } from '@healthy360/design-system';
 import type { BadgeTone, MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
+import { IngredientId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useEffect, useMemo, useState } from 'react';
@@ -71,6 +72,8 @@ import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { returnCrumbLabel } from '../came-from.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import {
@@ -133,14 +136,27 @@ function stockPhotoId(item: StockItem): string {
  * whole library in one query string is what the edge refused with a `414`. Three cells, kept three:
  * **Hidden** without the cost permission, an actual price with it, and *never bought*.
  */
-export function StockScreen({ view }: { readonly view?: string | undefined }) {
+export interface StockScreenProps {
+    /** `?view=` — the shelf whose page is open (`use-viewed-record.ts`). */
+    readonly view?: string | undefined;
+    /**
+     * `?ingredient=` or `?item=` — the shelf a Stock gap sent the reader to move: its count or
+     * adjustment opens on arrival, for a reader who may move stock.
+     */
+    readonly ingredient?: string | undefined;
+    readonly item?: string | undefined;
+    /** `?returnTo=` — where Cancel, Save and the trail go once the movement is done. */
+    readonly returnTo?: string | undefined;
+}
+
+export function StockScreen(props: StockScreenProps) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [INVENTORY_VIEW_PERMISSION] }}
             testID="kitchen-stock"
         >
-            <Stock view={view} />
+            <Stock {...props} />
         </Gate>
     );
 }
@@ -204,10 +220,12 @@ function compareDecimal(
     return compareNumber(Number(left), Number(right), direction);
 }
 
-function Stock({ view }: { readonly view?: string | undefined }) {
+function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
+    // A detour from a Stock gap: the movement's Cancel and Save go back to the gap.
+    const back = useReturnTo(returnTo, '/kitchen/stock');
     const canManage = useCan(INVENTORY_MANAGE_PERMISSION);
     const canViewCosts = useCan(INVENTORY_VIEW_COSTS_PERMISSION);
 
@@ -269,6 +287,26 @@ function Stock({ view }: { readonly view?: string | undefined }) {
         (row) => String(row.item.id),
         items.isSuccess && !items.isFetching,
     );
+
+    /*
+     * The shelf a Stock gap sent the reader to, opened in its movement editor once the shelves have
+     * arrived — once, so closing the editor leaves the list. Adjusted during render, like the
+     * page's other arrivals. A gap whose shelf does not exist yet says so where a scan would.
+     */
+    const [sentFor, setSentFor] = useState(
+        canManage && (ingredient !== undefined || item !== undefined),
+    );
+    if (sentFor && items.isSuccess) {
+        setSentFor(false);
+        const ingredientId = IngredientId.safeParse(ingredient);
+        const shelf =
+            ingredientId !== null
+                ? shelfForIngredient(items.data, ingredientId)
+                : items.data.find((candidate) => candidate.catalogueItemId === item);
+        const row = shelfRows.find((candidate) => candidate.item.id === shelf?.id);
+        if (row === undefined) setScanMessage(t('kitchen:barcodes.noShelf'));
+        else setEditing(row);
+    }
 
     const trimmed = query.trim().toLowerCase();
     const filteredRows = useMemo(
@@ -674,8 +712,22 @@ function Stock({ view }: { readonly view?: string | undefined }) {
             <StockMovementEditor
                 row={{ item: editing.item, level, state: levelState(level) }}
                 onDone={() => {
-                    setEditing(null);
+                    if (back.returnTo === null) setEditing(null);
+                    else back.leave();
                 }}
+                // Back at the gap, Retry is the step left — `fixed=1` puts it first.
+                onSaved={() => {
+                    if (back.returnTo === null) setEditing(null);
+                    else back.finish({ fixed: '1' });
+                }}
+                trail={
+                    back.returnTo === null
+                        ? undefined
+                        : {
+                              label: returnCrumbLabel(back.returnTo, t) ?? undefined,
+                              onBack: back.leave,
+                          }
+                }
                 onReload={() => {
                     void items.refetch();
                     void levels.refetch();
@@ -1006,11 +1058,19 @@ const MOVEMENT_LABEL: Readonly<Record<MovementDirection, string>> = {
 function StockMovementEditor({
     row,
     onDone,
+    onSaved = onDone,
     onReload,
+    trail,
 }: {
     readonly row: StockRow;
+    /** Cancel. */
     readonly onDone: () => void;
+    /** After a write lands. Cancel's way out unless the caller has somewhere better to go. */
+    readonly onSaved?: (() => void) | undefined;
     readonly onReload: () => void;
+    /** The crumb above the shelf, when the editor was opened as a detour from another page. */
+    readonly trail?:
+        { readonly label: string | undefined; readonly onBack: () => void } | undefined;
 }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -1045,7 +1105,15 @@ function StockMovementEditor({
     const port = useCataloguePort();
     const bodyWidth = port.width;
 
-    useKitchenTrailLeaf(row.item.nameEn);
+    useKitchenTrailLeaf(
+        row.item.nameEn,
+        trail === undefined
+            ? undefined
+            : () => {
+                  guard.intercept(trail.onBack);
+              },
+        trail?.label,
+    );
 
     const thresholdTrimmed = thresholdValue.trim();
     const parTrimmed = parLevelValue.trim();
@@ -1167,7 +1235,7 @@ function StockMovementEditor({
                       ? t('kitchen:ops.stock.thresholdClearedToast', { name })
                       : t('kitchen:ops.stock.thresholdSetToast', { name }),
             });
-            onDone();
+            onSaved();
         } catch (error) {
             if (!concurrency.capture(error)) {
                 setSaveError(toFailure(error)?.message ?? t('kitchen:ops.stock.saveFailedBody'));

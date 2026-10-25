@@ -4,6 +4,7 @@ import {
     canFixInRecipe,
     readStockGapsView,
     recipeFixHref,
+    stockGapFixAction,
     stockGapsHref,
     stockGapsParams,
 } from './stock-gap-fix.ts';
@@ -63,37 +64,67 @@ describe('stockGapsHref', () => {
     it('leaves every default out, so the plain list is the plain path', () => {
         expect(stockGapsHref({})).toBe('/kitchen/consumption-exceptions');
         expect(
-            stockGapsHref({ status: 'unresolved', from: '', page: 1, gap: null, fixed: false }),
+            stockGapsHref({
+                status: 'unresolved',
+                from: '',
+                to: '',
+                page: 1,
+                gap: null,
+                fixed: false,
+            }),
         ).toBe('/kitchen/consumption-exceptions');
     });
 
-    it('carries the status, date, page, open gap and fixed flag', () => {
+    it('carries the status, both dates, page, open gap and fixed flag', () => {
         expect(
             stockGapsHref({
                 status: 'all',
                 from: '2026-08-01',
+                to: '2026-08-31',
                 page: 3,
                 gap: 'exception-1',
                 fixed: true,
             }),
         ).toBe(
-            '/kitchen/consumption-exceptions?status=all&from=2026-08-01&page=3&gap=exception-1&fixed=1',
+            '/kitchen/consumption-exceptions?status=all&from=2026-08-01&to=2026-08-31&page=3&gap=exception-1&fixed=1',
         );
     });
 
     it('clears the same defaults when written as params', () => {
         expect(
-            stockGapsParams({ status: 'unresolved', from: '', page: 1, gap: null, fixed: false }),
+            stockGapsParams({
+                status: 'unresolved',
+                from: '',
+                to: '',
+                page: 1,
+                gap: null,
+                fixed: false,
+            }),
         ).toEqual({
             status: undefined,
             from: undefined,
+            to: undefined,
             page: undefined,
             gap: undefined,
             fixed: undefined,
         });
         expect(
-            stockGapsParams({ status: 'resolved', from: '', page: 2, gap: 'g', fixed: true }),
-        ).toEqual({ status: 'resolved', from: undefined, page: '2', gap: 'g', fixed: '1' });
+            stockGapsParams({
+                status: 'resolved',
+                from: '',
+                to: '2026-08-31',
+                page: 2,
+                gap: 'g',
+                fixed: true,
+            }),
+        ).toEqual({
+            status: 'resolved',
+            from: undefined,
+            to: '2026-08-31',
+            page: '2',
+            gap: 'g',
+            fixed: '1',
+        });
     });
 });
 
@@ -103,6 +134,7 @@ describe('readStockGapsView', () => {
             readStockGapsView({
                 status: 'resolved',
                 from: '2026-08-01',
+                to: '2026-08-31',
                 page: '4',
                 gap: 'exception-1',
                 fixed: '1',
@@ -110,6 +142,7 @@ describe('readStockGapsView', () => {
         ).toEqual({
             status: 'resolved',
             from: '2026-08-01',
+            to: '2026-08-31',
             page: 4,
             gap: 'exception-1',
             fixed: true,
@@ -118,8 +151,14 @@ describe('readStockGapsView', () => {
 
     it('falls back to the defaults for anything it cannot read', () => {
         expect(
-            readStockGapsView({ status: 'banana', from: 'yesterday', page: '-2', fixed: 'yes' }),
-        ).toEqual({ status: 'unresolved', from: '', page: 1, gap: null, fixed: false });
+            readStockGapsView({
+                status: 'banana',
+                from: 'yesterday',
+                to: 'tomorrow',
+                page: '-2',
+                fixed: 'yes',
+            }),
+        ).toEqual({ status: 'unresolved', from: '', to: '', page: 1, gap: null, fixed: false });
     });
 });
 
@@ -143,5 +182,48 @@ describe('recipeFixHref', () => {
         ).toBe(
             `/kitchen/recipes/item/item-1?kind=meal&fix=no_recipe_version&returnTo=${encodedBack}`,
         );
+    });
+});
+
+describe('stockGapFixAction', () => {
+    const back = '/kitchen/consumption-exceptions?gap=g1';
+    const anyone = () => true;
+    const fixOf = (overrides: Partial<Gap>) => stockGapFixAction(gap(overrides), back, anyone);
+
+    it('sends each reason to the page that fixes it', () => {
+        expect(fixOf({})?.kind).toBe('recipe');
+        expect(fixOf({ reasonCode: 'insufficient_stock' })?.kind).toBe('stock');
+        expect(fixOf({ reasonCode: 'no_stock_item' })?.kind).toBe('stock');
+        expect(fixOf({ reasonCode: 'no_ingredient_cost' })?.href).toMatch(
+            new RegExp(`^/kitchen/ingredients/${LENTILS}\\?needs=price&returnTo=`),
+        );
+        expect(fixOf({ reasonCode: 'no_stock_unit' })?.href).toMatch(/needs=unit/);
+        expect(fixOf({ reasonCode: 'no_net_content', itemType: 'product' })?.href).toMatch(
+            /^\/kitchen\/products\/item-1\?returnTo=/,
+        );
+        expect(fixOf({ reasonCode: 'reserved_for_production' })?.href).toBe('/kitchen/production');
+    });
+
+    it('offers nothing where nothing fixes the gap', () => {
+        expect(fixOf({ reasonCode: 'no_branch' })).toBeNull();
+        expect(fixOf({ reasonCode: 'no_catalogue_item' })).toBeNull();
+        expect(fixOf({ reasonCode: 'no_ingredient_cost', ingredientId: null })).toBeNull();
+        expect(fixOf({ reasonCode: 'no_net_content', itemType: 'meal' })).toBeNull();
+    });
+
+    it('opens the shelf by the sold item when the gap names no ingredient', () => {
+        expect(fixOf({ reasonCode: 'insufficient_stock', ingredientId: null })?.href).toMatch(
+            /^\/kitchen\/stock\?item=item-1&returnTo=/,
+        );
+    });
+
+    it('offers a fix only to a reader who may open its page', () => {
+        expect(
+            stockGapFixAction(
+                gap({ reasonCode: 'insufficient_stock' }),
+                back,
+                (kind) => kind !== 'stock',
+            ),
+        ).toBeNull();
     });
 });

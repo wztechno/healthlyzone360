@@ -20,9 +20,10 @@ const ConsumptionExceptionsScreen = lazyScreen(
 );
 
 export default function KitchenConsumptionExceptions() {
-    const { status, from, page, gap, fixed } = useLocalSearchParams<{
+    const { status, from, to, page, gap, fixed } = useLocalSearchParams<{
         status?: string;
         from?: string;
+        to?: string;
         page?: string;
         gap?: string;
         fixed?: string;
@@ -31,6 +32,7 @@ export default function KitchenConsumptionExceptions() {
         <ConsumptionExceptionsScreen
             status={status}
             from={from}
+            to={to}
             page={page}
             gap={gap}
             fixed={fixed}
