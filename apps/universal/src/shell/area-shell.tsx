@@ -1,6 +1,7 @@
 import {
     AppShell,
     Button,
+    DensityProvider,
     Icon,
     IconButton,
     Inline,
@@ -160,6 +161,10 @@ function GuardedAreaShell({
     // Not on the workspace page itself, which is where it leads.
     const showWorkspacesButton =
         WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant) && pathname !== '/workspace';
+    // The bar sits outside `KitchenOpsShell`'s compact provider, so on a staff page its two buttons
+    // would otherwise come out at the customer app's 44px. Every staff area takes the 28px pair —
+    // the KDS and the driver area included, by the user's choice on 2026-10-25.
+    const barDensity = WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant) ? 'compact' : 'comfortable';
 
     const signOut = () => {
         logout.mutate(undefined, {
@@ -183,39 +188,47 @@ function GuardedAreaShell({
                 <ThemeToggle />
                 {/*
                  * Back to the workspace page, to choose another area. Labelled, because it is the
-                 * one way between areas. Filled green, like Sign out beside it: the top bar's two
-                 * ways off the page are drawn alike on every staff page and on the workspace page.
-                 */}
-                {showWorkspacesButton ? (
-                    <Button
-                        testID="workspaces-button"
-                        size="sm"
-                        variant="primary"
-                        label={t('marketplace:nav.workspaces')}
-                        onPress={() => {
-                            router.push('/workspace' as never);
-                        }}
-                    />
-                ) : null}
-                {/*
-                 * Sign out is filled green, as Workspaces is — a deliberate departure from Rule 4,
-                 * which would keep it quiet and leave the top-bar primary empty. The areas with a
-                 * core-loop action — the kitchen workbench, the editors — still carry it on the
-                 * screen that owns it, never in this bar.
+                 * one way between areas. Drawn as the app's other "back" controls are — outlined,
+                 * with a backward chevron — so it reads as a way back rather than an action.
                  *
-                 * When the area pins Sign out to its sidebar, this control moves there — but only
-                 * while the sidebar is on screen.
+                 * Both buttons are `self-center`: `Button` is `self-start` by default, which pinned
+                 * them to the top of a row whose toggles are taller.
                  */}
-                {sidebarPresent ? null : (
-                    <Button
-                        testID="sign-out"
-                        size="sm"
-                        variant="primary"
-                        label={t('common:action.signOut')}
-                        loading={logout.isPending}
-                        onPress={signOut}
-                    />
-                )}
+                <DensityProvider value={barDensity}>
+                    {showWorkspacesButton ? (
+                        <Button
+                            testID="workspaces-button"
+                            size="sm"
+                            variant="secondary"
+                            label={t('marketplace:nav.workspaces')}
+                            iconStart={<Icon name="chevronBackward" size="sm" />}
+                            className="self-center"
+                            onPress={() => {
+                                router.push('/workspace' as never);
+                            }}
+                        />
+                    ) : null}
+                    {/*
+                     * Sign out is filled green — a deliberate departure from Rule 4, which would
+                     * keep it quiet and leave the top-bar primary empty. The areas with a core-loop
+                     * action — the kitchen workbench, the editors — still carry it on the screen
+                     * that owns it, never in this bar.
+                     *
+                     * When the area pins Sign out to its sidebar, this control moves there — but only
+                     * while the sidebar is on screen.
+                     */}
+                    {sidebarPresent ? null : (
+                        <Button
+                            testID="sign-out"
+                            size="sm"
+                            variant="primary"
+                            label={t('common:action.signOut')}
+                            loading={logout.isPending}
+                            className="self-center"
+                            onPress={signOut}
+                        />
+                    )}
+                </DensityProvider>
             </Inline>
         );
 
