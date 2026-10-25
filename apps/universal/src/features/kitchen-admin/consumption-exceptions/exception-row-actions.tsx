@@ -21,6 +21,13 @@ import { Platform, View } from 'react-native';
  * Each action is offered only with its handler: `fix` for a gap with a page the reader may open,
  * `onRetry` and `onResolve` for a reader who can write stock.
  */
+/**
+ * The fix's track, wide enough for its longest label ("See production plan") at `sm`. Every row
+ * keeps it, filled or empty, so Retry and Accept gap start at the same place on every row read from
+ * the start edge. A style, not a class: there is no width token for it.
+ */
+export const FIX_SLOT_WIDTH = 140;
+
 export interface ExceptionRowActionsProps {
     readonly row: ConsumptionException;
     /** Opens the page that fixes this gap. Absent when nothing fixes it, or it cannot be opened. */
@@ -44,7 +51,8 @@ export function ExceptionRowActions({
 
     return (
         <View
-            className="flex-row flex-wrap items-center gap-hair"
+            // One line from the start edge: the fix in its fixed track, then Retry and Accept gap.
+            className="flex-row items-center gap-tight"
             // The row body opens the view window; on the web a nested button's click would bubble
             // into it. Same stop, same reason, as `catalogue-list.tsx`.
             {...(Platform.OS === 'web'
@@ -55,16 +63,19 @@ export function ExceptionRowActions({
                   }
                 : {})}
         >
-            {fix === undefined ? null : (
-                <Button
-                    testID={`kitchen-exception-${row.id}-fix`}
-                    variant="primary"
-                    size="sm"
-                    label={fix.label}
-                    disabled={pendingId !== null}
-                    onPress={fix.onPress}
-                />
-            )}
+            <View style={{ width: FIX_SLOT_WIDTH }}>
+                {fix === undefined ? null : (
+                    <Button
+                        testID={`kitchen-exception-${row.id}-fix`}
+                        variant="primary"
+                        size="sm"
+                        block
+                        label={fix.label}
+                        disabled={pendingId !== null}
+                        onPress={fix.onPress}
+                    />
+                )}
+            </View>
             {onRetry === undefined ? null : (
                 <Button
                     testID={`kitchen-exception-${row.id}-retry`}

@@ -366,8 +366,11 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
             priority: 100,
             sort: (left, right, direction) =>
                 compareText(orderLabel(left), orderLabel(right), direction),
+            // Each line is one line: a long item ends in an ellipsis and shows whole on hover, as
+            // every table cell's text does, rather than running on into the Branch column. `flex-1`
+            // is what holds the pair to the column's width at all.
             render: (row) => (
-                <View className="min-w-0 flex-col py-1">
+                <View className="min-w-0 flex-1 flex-col py-1">
                     <Text
                         variant="mono"
                         className="font-medium"
@@ -378,7 +381,6 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                     <Text
                         variant="caption"
                         tone="secondary"
-                        numberOfLines={2}
                         testID={`kitchen-exception-${row.id}-item`}
                     >
                         {itemCellLabel(row)}
@@ -441,8 +443,10 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
             key: 'status',
             role: 'status',
             label: t('kitchen:ops.exceptions.columnStatus'),
-            // The badge and up to three actions — Fix in recipe, Retry, Accept gap — on one line.
-            width: 340,
+            // The badge alone; the actions are their own column, so they line up row to row. Held
+            // at the badge's width, so the actions follow it rather than a share of the spare width.
+            width: 120,
+            grow: false,
             priority: 95,
             /*
              * The toolbar's status cut, offered again where the column is: the same state, so the
@@ -465,29 +469,45 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                     },
                 },
             },
-            render: (row) => (
-                <View className="flex-row flex-wrap items-center gap-1.5">
-                    {row.resolved ? (
-                        <Badge
-                            testID={`kitchen-exception-${row.id}-resolved`}
-                            tone="success"
-                            label={t('kitchen:ops.exceptions.resolvedBadge')}
-                        />
-                    ) : (
-                        <Badge
-                            testID={`kitchen-exception-${row.id}-open`}
-                            tone="danger"
-                            label={t('kitchen:ops.exceptions.unresolvedBadge')}
-                        />
-                    )}
-                    <ExceptionRowActions
-                        row={row}
-                        pendingId={pendingId}
-                        fix={rowFix(row)}
-                        onRetry={canManage ? runRetry : undefined}
-                        onResolve={canManage ? setResolving : undefined}
+            render: (row) =>
+                row.resolved ? (
+                    <Badge
+                        testID={`kitchen-exception-${row.id}-resolved`}
+                        tone="success"
+                        label={t('kitchen:ops.exceptions.resolvedBadge')}
                     />
-                </View>
+                ) : (
+                    <Badge
+                        testID={`kitchen-exception-${row.id}-open`}
+                        tone="danger"
+                        label={t('kitchen:ops.exceptions.unresolvedBadge')}
+                    />
+                ),
+        },
+        {
+            key: 'actions',
+            role: 'actions',
+            label: t('kitchen:list.actionHeader'),
+            /*
+             * Up to three — the fix, Retry, Accept gap — on one line from the start edge, the fix in
+             * a track of its own width (`FIX_SLOT_WIDTH`), so Retry and Accept gap start in the same
+             * place on every row. Its width is its content: a share of the port's leftover would
+             * only open a gap after the buttons.
+             */
+            width: 300,
+            min: 300,
+            priority: 95,
+            grow: false,
+            sortable: false,
+            filterable: false,
+            render: (row) => (
+                <ExceptionRowActions
+                    row={row}
+                    pendingId={pendingId}
+                    fix={rowFix(row)}
+                    onRetry={canManage ? runRetry : undefined}
+                    onResolve={canManage ? setResolving : undefined}
+                />
             ),
         },
     ];
