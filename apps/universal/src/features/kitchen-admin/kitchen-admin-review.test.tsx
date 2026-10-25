@@ -293,6 +293,25 @@ describe('the review model', () => {
         expect(isBlocked(item!)).toBe(false);
     });
 
+    it('opens each ingredient row where it is fixed, and leaves a sold item’s own row out', () => {
+        const quarantined = meta({ status: 'review_required' });
+        const [library] = ingredientReviewItems([
+            ingredient({ reference: 'ING-0042', meta: quarantined }),
+        ]);
+        expect(library?.href).toMatch(/^\/kitchen\/ingredients\//);
+
+        const [box] = ingredientReviewItems([
+            ingredient({ reference: 'PKG-0007', meta: quarantined }),
+        ]);
+        expect(box?.href).toMatch(/^\/kitchen\/packaging\//);
+
+        // The row the import writes beside a sauce is not a raw material: the sauce is reviewed
+        // as itself, under Recipes, where it is made.
+        expect(
+            ingredientReviewItems([ingredient({ reference: 'SAC-0012', meta: quarantined })]),
+        ).toEqual([]);
+    });
+
     it('says nothing about a record with nothing wrong with it', () => {
         expect(
             ingredientReviewItems([ingredient({ meta: meta({ status: 'published' }) })]),

@@ -2,6 +2,7 @@ import type {
     ConsumptionException,
     ConsumptionExceptionReasonCode,
 } from '@healthy360/api-client/contracts';
+import { isRecipeKind } from '@healthy360/api-client/contracts';
 
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
@@ -48,17 +49,35 @@ type FixableFields = Pick<
 /**
  * Whether the gap is fixed in a recipe this page can open.
  *
- * The reason has to be one a recipe fixes, and the sold item a meal (or gone from the catalogue,
- * when only its id is left) — sauces and products are fixed elsewhere. `unit_conversion_unsupported`
- * is also raised at the cost stage, where no recipe line is at fault, so it needs the ingredient the
- * detail named.
+ * The reason has to be one a recipe fixes, and the sold item one a recipe makes — a meal, sauce,
+ * dressing or frozen meal (or gone from the catalogue, when only its id is left); a resale product
+ * is fixed on its own page. `unit_conversion_unsupported` is also raised at the cost stage, where no
+ * recipe line is at fault, so it needs the ingredient the detail named.
  */
 export function canFixInRecipe(row: FixableFields): boolean {
     if (!(RECIPE_FIX_REASONS as readonly string[]).includes(row.reasonCode)) return false;
-    if (row.itemType !== 'meal' && row.itemType !== null) return false;
+    if (!isRecipeKind(row.itemType) && row.itemType !== null) return false;
     if (row.catalogueItemId === null) return false;
     if (row.reasonCode === 'unit_conversion_unsupported' && row.ingredientId === null) return false;
     return true;
+}
+
+type TwinFields = Pick<ConsumptionException, 'ingredientId' | 'ingredientNameEn' | 'itemNameEn'>;
+
+/**
+ * Whether the gap is about the sold item itself rather than one of its raw materials.
+ *
+ * A sauce, dressing or packaged item is sold as its own ingredient: the import writes an ingredient
+ * row beside every sellable one (the `SAC-`, `DRS-`, `PRD-` series), stock and cost are read off it,
+ * and a gap names it. That row is bookkeeping, not a raw material — the ingredient library does not
+ * list it — so the gap is the item's, and is fixed where the item is made. It carries the item's
+ * name, which is how it is told from a real line: the order cell already says "Barbecue Dip" once,
+ * not twice, for the same reason.
+ */
+export function isAboutSoldItem(row: TwinFields): boolean {
+    if (row.ingredientId === null) return true;
+    if (row.ingredientNameEn === null || row.itemNameEn === null) return false;
+    return row.ingredientNameEn.trim().toLowerCase() === row.itemNameEn.trim().toLowerCase();
 }
 
 export interface StockGapsView {
@@ -136,24 +155,39 @@ export function readStockGapsView(params: StockGapsRouteParams): StockGapsView {
 
 type RecipeFixFields = Pick<
     ConsumptionException,
-    'reasonCode' | 'recipeId' | 'catalogueItemId' | 'ingredientId'
+    'reasonCode' | 'recipeId' | 'catalogueItemId' | 'ingredientId' | 'itemType'
 >;
+
+/** A recipe editor tab a gap lands on — `RecipeTab` in `recipe-edit-screen.tsx`. */
+type RecipeFixTab = 'costing' | 'selling';
 
 /**
  * The recipe page that fixes a gap, carrying the fix and the way back.
  *
- * The recipe's own page when the sold item names one; otherwise the meal's address in the recipe
- * book, which opens the recipe it has or starts the one it lacks.
+ * The recipe's own page when the sold item names one; otherwise the item's address in the recipe
+ * book, under its own kind, which opens the recipe it has or starts the one it lacks.
+ *
+ * `fix` and `ingredient` go only with a reason the editor marks a field for
+ * (`recipe-stock-gap-fix.ts`); `tab` opens the tab the rest are fixed on.
  */
-export function recipeFixHref(row: RecipeFixFields, returnHref: string): string {
+export function recipeFixHref(
+    row: RecipeFixFields,
+    returnHref: string,
+    tab?: RecipeFixTab,
+): string {
     const page =
         row.recipeId !== null
             ? `/kitchen/recipes/${encodeURIComponent(row.recipeId)}`
             : withQuery(`/kitchen/recipes/item/${encodeURIComponent(row.catalogueItemId ?? '')}`, {
-                  kind: 'meal',
+                  kind: isRecipeKind(row.itemType) ? row.itemType : 'meal',
               });
+    const marked = (RECIPE_FIX_REASONS as readonly string[]).includes(row.reasonCode);
     return withReturnTo(
-        withQuery(page, { fix: row.reasonCode, ingredient: row.ingredientId ?? undefined }),
+        withQuery(page, {
+            fix: marked ? row.reasonCode : undefined,
+            ingredient: marked ? (row.ingredientId ?? undefined) : undefined,
+            tab,
+        }),
         returnHref,
     );
 }
@@ -161,15 +195,21 @@ export function recipeFixHref(row: RecipeFixFields, returnHref: string): string 
 /**
  * Where each gap is fixed, so every gap that *can* be fixed leads somewhere.
  *
- * | Reason                                       | Fixed on                                     |
- * | -------------------------------------------- | -------------------------------------------- |
- * | the four recipe reasons                      | the recipe ({@link recipeFixHref})           |
- * | `insufficient_stock`, `no_stock_item`        | the shelf's stock movement (count or adjust) |
- * | `no_ingredient_cost`                         | the ingredient's unit price                  |
- * | `no_stock_unit`, a cost-stage unit mismatch  | the ingredient's units                       |
- * | `no_ingredient_link`, `no_net_content`       | the product                                  |
- * | `reserved_for_production`                    | the production plan                          |
- * | `no_branch`, `no_catalogue_item`             | nowhere: the order or the item is broken     |
+ * | Reason                                       | Fixed on                                          |
+ * | -------------------------------------------- | ------------------------------------------------- |
+ * | the four recipe reasons                      | the recipe ({@link recipeFixHref})                |
+ * | `insufficient_stock`, `no_stock_item`        | the shelf's stock movement (count or adjust)      |
+ * | `no_ingredient_cost`                         | a raw material's unit price — or, for the sold   |
+ * |                                              | item itself, its recipe's Costing tab             |
+ * | `no_stock_unit`, a cost-stage unit mismatch  | a raw material's units — or the recipe's Selling  |
+ * | `no_ingredient_link`, `no_net_content`       | a recipe item's Selling tab; a resale product     |
+ * | `reserved_for_production`                    | the production plan                               |
+ * | `no_branch`, `no_catalogue_item`             | nowhere: the order or the item is broken          |
+ *
+ * **Anything a recipe makes is fixed in its recipe.** A gap about a sauce, dressing, meal or frozen
+ * meal *itself* ({@link isAboutSoldItem}) never opens the ingredient row the import wrote beside it:
+ * that row is not in the ingredient library and its form has no category for a sauce. Only a gap
+ * about a real raw material — the vinegar in a marinade — opens that ingredient's form.
  *
  * Every page but the production plan is handed this exact view as `returnTo`, so its Cancel, Save
  * and trail come back to the gap — the stock movement with `fixed=1`, which makes Retry next.
@@ -185,7 +225,13 @@ export interface StockGapFixAction {
 
 type GapFixFields = Pick<
     ConsumptionException,
-    'reasonCode' | 'itemType' | 'catalogueItemId' | 'ingredientId' | 'recipeId'
+    | 'reasonCode'
+    | 'itemType'
+    | 'catalogueItemId'
+    | 'ingredientId'
+    | 'recipeId'
+    | 'ingredientNameEn'
+    | 'itemNameEn'
 >;
 
 /** The page that fixes a gap, or `null` when none does or the reader may not open it. */
@@ -199,13 +245,29 @@ export function stockGapFixAction(
 }
 
 function gapFix(row: GapFixFields, returnHref: string): StockGapFixAction | null {
-    if (canFixInRecipe(row)) {
-        return {
-            kind: 'recipe',
-            labelKey: 'kitchen:ops.exceptions.fixInRecipe',
-            href: recipeFixHref(row, returnHref),
-        };
+    const inRecipe = (tab?: RecipeFixTab): StockGapFixAction => ({
+        kind: 'recipe',
+        labelKey: 'kitchen:ops.exceptions.fixInRecipe',
+        href: recipeFixHref(row, returnHref, tab),
+    });
+    const recipeMade = isRecipeKind(row.itemType) && row.catalogueItemId !== null;
+    const itself = recipeMade && isAboutSoldItem(row);
+
+    // The sold item's own cost, size or unit is decided in its recipe, not on the row beside it.
+    if (itself) {
+        switch (row.reasonCode) {
+            case 'no_ingredient_cost':
+                return inRecipe('costing');
+            case 'no_net_content':
+            case 'no_ingredient_link':
+            case 'no_stock_unit':
+            case 'unit_conversion_unsupported':
+                return inRecipe('selling');
+            default:
+                break;
+        }
     }
+    if (canFixInRecipe(row)) return inRecipe();
     switch (row.reasonCode) {
         case 'insufficient_stock':
         case 'no_stock_item':
@@ -241,6 +303,8 @@ function gapFix(row: GapFixFields, returnHref: string): StockGapFixAction | null
             );
         case 'no_ingredient_link':
         case 'no_net_content':
+            // What it is sold as: a recipe item's Selling tab, a resale product's own page.
+            if (recipeMade) return inRecipe('selling');
             if (row.itemType !== 'product' || row.catalogueItemId === null) return null;
             return {
                 kind: 'product',

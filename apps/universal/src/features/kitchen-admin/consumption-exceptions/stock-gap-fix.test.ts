@@ -13,7 +13,13 @@ const LENTILS = '0f9a6c1e-2b3d-4e5f-8a9b-0c1d2e3f4a5b';
 
 type Gap = Pick<
     ConsumptionException,
-    'reasonCode' | 'itemType' | 'catalogueItemId' | 'recipeId' | 'ingredientId'
+    | 'reasonCode'
+    | 'itemType'
+    | 'catalogueItemId'
+    | 'recipeId'
+    | 'ingredientId'
+    | 'ingredientNameEn'
+    | 'itemNameEn'
 >;
 
 function gap(overrides: Partial<Gap> = {}): Gap {
@@ -23,8 +29,21 @@ function gap(overrides: Partial<Gap> = {}): Gap {
         catalogueItemId: 'item-1',
         recipeId: 'recipe-1',
         ingredientId: LENTILS,
+        ingredientNameEn: 'Red lentils',
+        itemNameEn: 'Lentil Soup',
         ...overrides,
     };
+}
+
+/** A sauce sold as its own ingredient: the gap names the row the import wrote beside it. */
+function sauceGap(overrides: Partial<Gap> = {}): Gap {
+    return gap({
+        itemType: 'sauce',
+        recipeId: 'recipe-bbq',
+        ingredientNameEn: 'Barbecue Dip',
+        itemNameEn: 'Barbecue Dip',
+        ...overrides,
+    });
 }
 
 describe('canFixInRecipe', () => {
@@ -207,8 +226,50 @@ describe('stockGapFixAction', () => {
     it('offers nothing where nothing fixes the gap', () => {
         expect(fixOf({ reasonCode: 'no_branch' })).toBeNull();
         expect(fixOf({ reasonCode: 'no_catalogue_item' })).toBeNull();
-        expect(fixOf({ reasonCode: 'no_ingredient_cost', ingredientId: null })).toBeNull();
-        expect(fixOf({ reasonCode: 'no_net_content', itemType: 'meal' })).toBeNull();
+        expect(
+            fixOf({ reasonCode: 'no_ingredient_cost', itemType: 'product', ingredientId: null }),
+        ).toBeNull();
+    });
+
+    it('fixes a sauce’s own cost, size and unit in its recipe, never on the row beside it', () => {
+        const sauceFix = (overrides: Partial<Gap>) =>
+            stockGapFixAction(sauceGap(overrides), back, anyone);
+
+        const cost = sauceFix({ reasonCode: 'no_ingredient_cost' });
+        expect(cost?.kind).toBe('recipe');
+        expect(cost?.labelKey).toBe('kitchen:ops.exceptions.fixInRecipe');
+        expect(cost?.href).toMatch(/^\/kitchen\/recipes\/recipe-bbq\?tab=costing&returnTo=/);
+        expect(sauceFix({ reasonCode: 'no_net_content' })?.href).toMatch(
+            /^\/kitchen\/recipes\/recipe-bbq\?tab=selling&returnTo=/,
+        );
+        expect(sauceFix({ reasonCode: 'no_stock_unit' })?.href).toMatch(/tab=selling/);
+        // Its shelf is still a shelf: stock is moved on the stock page.
+        expect(sauceFix({ reasonCode: 'insufficient_stock' })?.kind).toBe('stock');
+    });
+
+    it('still opens a real raw material’s own form', () => {
+        // The vinegar in a marinade is an ingredient of the library, priced on its own form.
+        expect(
+            fixOf({
+                reasonCode: 'no_ingredient_cost',
+                itemNameEn: 'Chicken Red Tawouk',
+                ingredientNameEn: 'Vinegar',
+            })?.kind,
+        ).toBe('ingredient');
+    });
+
+    it('sends a frozen meal to its recipe, started from the item when it has none', () => {
+        expect(
+            fixOf({
+                reasonCode: 'no_recipe_version',
+                itemType: 'frozen_meal',
+                recipeId: null,
+                ingredientId: null,
+            })?.href,
+        ).toMatch(/^\/kitchen\/recipes\/item\/item-1\?kind=frozen_meal&fix=no_recipe_version&/);
+        expect(
+            fixOf({ reasonCode: 'no_net_content', itemType: 'frozen_meal', recipeId: null })?.href,
+        ).toMatch(/^\/kitchen\/recipes\/item\/item-1\?kind=frozen_meal&tab=selling&/);
     });
 
     it('opens the shelf by the sold item when the gap names no ingredient', () => {
