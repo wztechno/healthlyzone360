@@ -23,9 +23,10 @@ import {
 } from '@healthy360/design-system';
 import type { BadgeTone, MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
+import { IngredientId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, View } from 'react-native';
 
@@ -71,8 +72,17 @@ import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { returnCrumbLabel } from '../came-from.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
+import {
+    useListMemory,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedQuery,
+} from '../list-memory.ts';
+import { useViewedRecord } from '../use-viewed-record.ts';
 
 /**
  * The photograph of what is on the shelf: the ingredient's own, or the product's.
@@ -126,20 +136,40 @@ function stockPhotoId(item: StockItem): string {
  * whole library in one query string is what the edge refused with a `414`. Three cells, kept three:
  * **Hidden** without the cost permission, an actual price with it, and *never bought*.
  */
-export function StockScreen() {
+export interface StockScreenProps {
+    /** `?view=` — the shelf whose page is open (`use-viewed-record.ts`). */
+    readonly view?: string | undefined;
+    /**
+     * `?ingredient=` or `?item=` — the shelf a Stock gap sent the reader to move: its count or
+     * adjustment opens on arrival, for a reader who may move stock.
+     */
+    readonly ingredient?: string | undefined;
+    readonly item?: string | undefined;
+    /** `?returnTo=` — where Cancel, Save and the trail go once the movement is done. */
+    readonly returnTo?: string | undefined;
+}
+
+export function StockScreen(props: StockScreenProps) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [INVENTORY_VIEW_PERMISSION] }}
             testID="kitchen-stock"
         >
-            <Stock />
+            <Stock {...props} />
         </Gate>
     );
 }
 
 /** Client-side pages over a book the stock read answers whole. Capped for the `414` reason above. */
 const PAGE_SIZE = 18;
+
+/**
+ * The paging key a list coming back starts under: "the remembered page, under whatever header
+ * filters the first render has". Swapped for that render's real key at once, so a later header
+ * change still lands on page one.
+ */
+const RESTORED_PAGING: object = {};
 
 type Kind = 'ingredients' | 'products';
 type LevelSegment = 'all' | 'low' | 'out' | 'ok' | 'none';
@@ -190,28 +220,32 @@ function compareDecimal(
     return compareNumber(Number(left), Number(right), direction);
 }
 
-function Stock() {
+function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
+    // A detour from a Stock gap: the movement's Cancel and Save go back to the gap.
+    const back = useReturnTo(returnTo, '/kitchen/stock');
     const canManage = useCan(INVENTORY_MANAGE_PERMISSION);
     const canViewCosts = useCan(INVENTORY_VIEW_COSTS_PERMISSION);
 
     const items = useStockItemsQuery();
     const levels = useStockLevelsQuery();
 
-    const [query, setQuery] = useState('');
-    const [kind, setKind] = useState<Kind>('ingredients');
-    const [segment, setSegment] = useState<LevelSegment>('all');
+    // Search, kind, segment, page and the row last opened survive leaving the list.
+    const memory = useListMemory('kitchen.stock');
+    const [query, setQuery] = useRememberedQuery(memory);
+    const [kind, setKind] = useRememberedFilter<Kind>(memory, 'kind', 'ingredients');
+    const [segment, setSegment] = useRememberedFilter<LevelSegment>(memory, 'segment', 'all');
     /**
      * The page, remembered against the header filters it was chosen under — so narrowing a column
      * lands on page one without an effect. `null` is "page one, whatever the filters".
      */
     const [paging, setPaging] = useState<{ readonly key: object | null; readonly page: number }>({
-        key: null,
-        page: 1,
+        key: RESTORED_PAGING,
+        page: memory.initial.page,
     });
-    const [viewing, setViewing] = useState<StockRow | null>(null);
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
     const [editing, setEditing] = useState<StockRow | null>(null);
     const { locale } = useLocale();
     const resolveScan = useResolveBarcodeScan();
@@ -224,22 +258,55 @@ function Stock() {
         return byItem;
     }, [levels.data]);
 
+    const shelfRows = useMemo(
+        () =>
+            (items.data ?? []).map((item): StockRow => {
+                const level = levelByItem.get(String(item.id)) ?? null;
+                return { item, level, state: levelState(level) };
+            }),
+        [items.data, levelByItem],
+    );
     // The server's ranking — stocked first, then ever-moved, then by name — survives because
     // `filter` preserves order.
     const bookRows = useMemo(
         () =>
-            (items.data ?? [])
-                .filter((item) =>
-                    kind === 'ingredients'
-                        ? item.backing === 'ingredient'
-                        : item.backing === 'product',
-                )
-                .map((item): StockRow => {
-                    const level = levelByItem.get(String(item.id)) ?? null;
-                    return { item, level, state: levelState(level) };
-                }),
-        [items.data, kind, levelByItem],
+            shelfRows.filter((row) =>
+                kind === 'ingredients'
+                    ? row.item.backing === 'ingredient'
+                    : row.item.backing === 'product',
+            ),
+        [shelfRows, kind],
     );
+    /*
+     * The open shelf is an address, `?view=`, so Back and a refresh keep it open. Found on every
+     * shelf rather than this kind's: a scan opens whichever shelf the code is linked to.
+     */
+    const { viewing, setViewing } = useViewedRecord(
+        view,
+        shelfRows,
+        (row) => String(row.item.id),
+        items.isSuccess && !items.isFetching,
+    );
+
+    /*
+     * The shelf a Stock gap sent the reader to, opened in its movement editor once the shelves have
+     * arrived — once, so closing the editor leaves the list. Adjusted during render, like the
+     * page's other arrivals. A gap whose shelf does not exist yet says so where a scan would.
+     */
+    const [sentFor, setSentFor] = useState(
+        canManage && (ingredient !== undefined || item !== undefined),
+    );
+    if (sentFor && items.isSuccess) {
+        setSentFor(false);
+        const ingredientId = IngredientId.safeParse(ingredient);
+        const shelf =
+            ingredientId !== null
+                ? shelfForIngredient(items.data, ingredientId)
+                : items.data.find((candidate) => candidate.catalogueItemId === item);
+        const row = shelfRows.find((candidate) => candidate.item.id === shelf?.id);
+        if (row === undefined) setScanMessage(t('kitchen:barcodes.noShelf'));
+        else setEditing(row);
+    }
 
     const trimmed = query.trim().toLowerCase();
     const filteredRows = useMemo(
@@ -416,8 +483,18 @@ function Stock() {
     ];
 
     const controls = useColumnControls(filteredRows, columns, 'kitchen-stock');
+    // The remembered page binds to the first header filters it meets — adjusted during render.
+    if (paging.key === RESTORED_PAGING) setPaging({ key: controls.key, page: paging.page });
+    const chosenPage =
+        paging.key === controls.key || paging.key === RESTORED_PAGING ? paging.page : 1;
     const totalPages = Math.max(1, Math.ceil(controls.rows.length / PAGE_SIZE));
-    const currentPage = paging.key === controls.key ? Math.min(paging.page, totalPages) : 1;
+    const currentPage = Math.min(chosenPage, totalPages);
+    const { remember } = memory;
+    // The page chosen rather than the page drawn: before the rows land every list is one page
+    // long, and that must not overwrite the page the reader left.
+    useEffect(() => {
+        remember({ page: chosenPage });
+    }, [remember, chosenPage]);
     const from = (currentPage - 1) * PAGE_SIZE;
     const visible = controls.rows.slice(from, from + PAGE_SIZE);
 
@@ -526,7 +603,13 @@ function Stock() {
 
     const openEditor = (row: StockRow) => {
         setViewing(null);
+        rememberOpened(String(row.item.id));
         setEditing(row);
+    };
+
+    const openView = (row: StockRow) => {
+        rememberOpened(String(row.item.id));
+        setViewing(row);
     };
 
     /**
@@ -555,7 +638,7 @@ function Stock() {
                 const row: StockRow = { item, level, state: levelState(level) };
                 setQuery('');
                 if (canManage) openEditor(row);
-                else setViewing(row);
+                else openView(row);
             },
             (error: unknown) => {
                 const failure = toFailure(error);
@@ -572,6 +655,7 @@ function Stock() {
     };
 
     const openHistory = (row: StockRow) => {
+        rememberOpened(String(row.item.id));
         router.push(`/kitchen/purchases-ledger?item=${String(row.item.id)}` as never);
     };
 
@@ -589,7 +673,7 @@ function Stock() {
                 icon: CATALOGUE_ROW_ICONS.view,
                 testID: `${testID}-view`,
                 onSelect: () => {
-                    setViewing(row);
+                    openView(row);
                 },
             },
             ...(canManage
@@ -628,8 +712,22 @@ function Stock() {
             <StockMovementEditor
                 row={{ item: editing.item, level, state: levelState(level) }}
                 onDone={() => {
-                    setEditing(null);
+                    if (back.returnTo === null) setEditing(null);
+                    else back.leave();
                 }}
+                // Back at the gap, Retry is the step left — `fixed=1` puts it first.
+                onSaved={() => {
+                    if (back.returnTo === null) setEditing(null);
+                    else back.finish({ fixed: '1' });
+                }}
+                trail={
+                    back.returnTo === null
+                        ? undefined
+                        : {
+                              label: returnCrumbLabel(back.returnTo, t) ?? undefined,
+                              onBack: back.leave,
+                          }
+                }
                 onReload={() => {
                     void items.refetch();
                     void levels.refetch();
@@ -845,7 +943,8 @@ function Stock() {
                         rows={visible}
                         rowKey={(row) => String(row.item.id)}
                         density="sm"
-                        onRowPress={canManage ? openEditor : setViewing}
+                        highlightedId={lastOpenedId}
+                        onRowPress={canManage ? openEditor : openView}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={rowActions}
                     />
@@ -959,11 +1058,19 @@ const MOVEMENT_LABEL: Readonly<Record<MovementDirection, string>> = {
 function StockMovementEditor({
     row,
     onDone,
+    onSaved = onDone,
     onReload,
+    trail,
 }: {
     readonly row: StockRow;
+    /** Cancel. */
     readonly onDone: () => void;
+    /** After a write lands. Cancel's way out unless the caller has somewhere better to go. */
+    readonly onSaved?: (() => void) | undefined;
     readonly onReload: () => void;
+    /** The crumb above the shelf, when the editor was opened as a detour from another page. */
+    readonly trail?:
+        { readonly label: string | undefined; readonly onBack: () => void } | undefined;
 }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -998,7 +1105,15 @@ function StockMovementEditor({
     const port = useCataloguePort();
     const bodyWidth = port.width;
 
-    useKitchenTrailLeaf(row.item.nameEn);
+    useKitchenTrailLeaf(
+        row.item.nameEn,
+        trail === undefined
+            ? undefined
+            : () => {
+                  guard.intercept(trail.onBack);
+              },
+        trail?.label,
+    );
 
     const thresholdTrimmed = thresholdValue.trim();
     const parTrimmed = parLevelValue.trim();
@@ -1120,7 +1235,7 @@ function StockMovementEditor({
                       ? t('kitchen:ops.stock.thresholdClearedToast', { name })
                       : t('kitchen:ops.stock.thresholdSetToast', { name }),
             });
-            onDone();
+            onSaved();
         } catch (error) {
             if (!concurrency.capture(error)) {
                 setSaveError(toFailure(error)?.message ?? t('kitchen:ops.stock.saveFailedBody'));

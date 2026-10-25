@@ -36,6 +36,7 @@ import { NO_MARKET, useAllergenList } from '../catalogue/use-allergen-list.ts';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { useListMemory, useRememberedOpened } from '../list-memory.ts';
 
 /**
  * `/kitchen/allergen-classes` — the fourteen regulatory classes, read only.
@@ -89,14 +90,14 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  * in for that; a pressable row and a real panel answer it properly, and carry the description and
  * the full withdrawal wording that no 160px track could hold.
  */
-export function AllergenClassesScreen() {
+export function AllergenClassesScreen({ view }: { readonly view?: string | undefined }) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
             testID="kitchen-allergen-classes"
         >
-            <AllergenClasses />
+            <AllergenClasses view={view} />
         </Gate>
     );
 }
@@ -104,12 +105,20 @@ export function AllergenClassesScreen() {
 /** All · Active · Withdrawn — the `isActive` split, which is this record's whole lifecycle. */
 const SEGMENTS: readonly AllergenStatusFilter[] = ['all', 'active', 'withdrawn'];
 
-function AllergenClasses() {
+function AllergenClasses({ view }: { readonly view?: string | undefined }) {
     const { t } = useTranslation();
     const { locale } = useLocale();
     const formatter = useFormatter();
 
-    const list = useAllergenList();
+    const list = useAllergenList(view);
+    // The class last opened and the page survive leaving the list. The filters are the list
+    // hook's own state.
+    const memory = useListMemory('kitchen.allergen-classes');
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
+    const openView = (entry: AllergenClass) => {
+        rememberOpened(String(entry.code));
+        list.openView(entry);
+    };
 
     const columns = useMemo(
         () => allergenColumns({ t, locale, formatter }),
@@ -241,7 +250,12 @@ function AllergenClasses() {
                     rows={list.rows}
                     rowKey={(entry) => String(entry.code)}
                     density="sm"
-                    onRowPress={list.openView}
+                    highlightedId={lastOpenedId}
+                    initialPage={memory.initial.page}
+                    onPageChange={(page) => {
+                        memory.remember({ page });
+                    }}
+                    onRowPress={openView}
                     rowActionsLabel={t('kitchen:list.rowActions')}
                     // One action, and it is the only one this record can offer — see the note above
                     // on why there is no Edit.
@@ -252,7 +266,7 @@ function AllergenClasses() {
                             icon: CATALOGUE_ROW_ICONS.view,
                             testID: `${allergenRowTestId(String(entry.code))}-view`,
                             onSelect: () => {
-                                list.openView(entry);
+                                openView(entry);
                             },
                         },
                     ]}

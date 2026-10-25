@@ -5,7 +5,6 @@ import { useDensity } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
-import { useSummariseFields } from './form-issue-scope.tsx';
 
 /**
  * FormIssueBanner — what stands between a form and its save, in one line under the header.
@@ -20,12 +19,17 @@ import { useSummariseFields } from './form-issue-scope.tsx';
  * the bug report that follows. The chips are the point — a banner that only counted would send the
  * reader hunting for the fields it had just declined to name.
  *
- * ## The field does not say it twice
+ * ## The field still says it
  *
- * A chip that carries `fieldId` stands in for that field's own message: inside a `FormIssueScope`
- * the field keeps its red edge and drops the line of copy under it (Badges & Callouts, 2a). Leave
- * `fieldId` off when the chip says less than the field would — one `Packs` chip over a table whose
- * rows each say what is wrong with them — and the field goes on saying it.
+ * The banner is never the only place a problem appears. Every field it names keeps its own message
+ * under the control, so a reader who scrolls past the strip, or never looked at it, still finds the
+ * problem where it has to be fixed. A chip's `fieldId` no longer quiets that field; it is kept so
+ * the call sites that pass it compile.
+ *
+ * ## The full width, one line
+ *
+ * The strip takes its own line at the full width of the form, so it is never squeezed beside a
+ * button or another banner into a column a few words wide.
  *
  * ## One banner per tone, never one per field
  *
@@ -54,8 +58,8 @@ export interface FormIssueItem {
     /** Takes the reader to the field: switches to its tab, scrolls it into view, focuses it. */
     readonly onPress: () => void;
     /**
-     * The id of the `FormField` this chip stands for, when the chip says all its message would. The
-     * field then drops that message while the banner shows. See `FormIssueScope`.
+     * The id of the `FormField` this chip stands for. Informational only: the field always keeps its
+     * own message under the control. See `FormIssueScope`.
      */
     readonly fieldId?: string | undefined;
 }
@@ -114,7 +118,6 @@ export function FormIssueBanner({ tone, summary, items, className, testID }: For
     const summaryClass =
         density === 'compact' ? 'text-role-label font-semibold' : 'text-sm font-semibold';
     const chipTextClass = density === 'compact' ? 'text-role-label' : 'text-xs font-medium';
-    useSummariseFields(items.flatMap((item) => (item.fieldId === undefined ? [] : [item.fieldId])));
 
     return (
         <View
@@ -126,11 +129,12 @@ export function FormIssueBanner({ tone, summary, items, className, testID }: For
             aria-live="polite"
             /*
              * The soft strip (Badges & Callouts, 2a): the tone's fill and no border, 32px tall at
-             * least, 10px in from the start and 4px from the end — the chips sit closer to the edge
-             * than the mark does, so the last one looks tucked in rather than floating.
+             * least, the full width of the form, 10px in from the start and 4px from the end — the
+             * chips sit closer to the edge than the mark does, so the last one looks tucked in
+             * rather than floating.
              */
             className={cx(
-                'min-h-8 flex-row flex-wrap items-center self-start gap-2 rounded-md py-1 pe-1 ps-2.5',
+                'min-h-8 w-full flex-row flex-wrap items-center gap-2 rounded-md py-1 pe-1 ps-2.5',
                 TONE_FILL[tone],
                 className,
             )}

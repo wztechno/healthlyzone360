@@ -19,6 +19,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 import { useSyncExternalStore } from 'react';
 
+import { forgetListMemory } from '../features/kitchen-admin/list-memory.ts';
 import { clearResumeIntent } from '../features/marketplace/resume-intent.ts';
 import { clearAllSessionDrafts } from '../navigation/session-draft.ts';
 import { appGuestTokenStore } from '../session/guest-storage.ts';
@@ -173,6 +174,8 @@ export function useLogoutMutation(): UseMutationResult<void, unknown, void> {
             // page, the workspace chrome, "wrong person" on the verification card — does it.
             clearAllSessionDrafts();
             clearResumeIntent();
+            // The admin lists' remembered search, page and last-opened row belong to this person.
+            forgetListMemory();
         },
     });
 }

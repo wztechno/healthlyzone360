@@ -162,9 +162,8 @@
     },
     "pages": {
         "levels": {
-            "none": "No access",
-            "view": "Can look",
-            "manage": "Can change"
+            "view": "View",
+            "manage": "Edit"
         },
         "alsoOpens": "Also opens: {{pages}}",
         "unmappedHeading": "Held, but not shown on any page",
@@ -187,7 +186,7 @@
         },
         "actions": {
             "view": "View",
-            "manage": "Manage",
+            "manage": "Edit",
             "publish": "Publish",
             "viewCosts": "See costs",
             "other": "Other"

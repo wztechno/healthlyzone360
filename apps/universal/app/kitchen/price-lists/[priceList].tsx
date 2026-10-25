@@ -18,6 +18,10 @@ const PriceListEditScreen = lazyScreen(
 );
 
 export default function KitchenPriceListEditor() {
-    const { priceList } = useLocalSearchParams<{ priceList?: string }>();
-    return <PriceListEditScreen priceList={priceList} />;
+    // `?returnTo=`: the page that sent the reader here — the review queue, on this record.
+    const { priceList, returnTo } = useLocalSearchParams<{
+        priceList?: string;
+        returnTo?: string;
+    }>();
+    return <PriceListEditScreen priceList={priceList} returnTo={returnTo} />;
 }

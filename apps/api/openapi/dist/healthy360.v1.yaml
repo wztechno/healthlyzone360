@@ -38169,6 +38169,10 @@ components:
         - order_line_id
         - catalogue_item_id
         - item_name_en
+        - item_type
+        - recipe_id
+        - ingredient_id
+        - ingredient_name_en
         - branch_id
         - branch_name
         - reason_code
@@ -38178,7 +38182,7 @@ components:
         - resolved_by
         - resolution_note
         - created_at
-      description: One thing a confirmed order could not deduct honestly (INV1.2), with its resolution state (INV1.5), joined to the human-readable names of the order, sold item and branch it points at. Nothing confidential — no recipe line, formulation quantity, ingredient cost or supplier term — passes through.
+      description: One thing a confirmed order could not deduct honestly (INV1.2), with its resolution state (INV1.5), joined to the human-readable names of the order, sold item, ingredient and branch it points at, and to where the sold item's recipe opens. Nothing confidential — no recipe line, formulation quantity, ingredient cost or supplier term — passes through.
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -38202,6 +38206,26 @@ components:
           type:
             - string
             - 'null'
+        item_type:
+          oneOf:
+            - $ref: '#/components/schemas/CatalogueItemType'
+            - type: 'null'
+          description: The sold catalogue item's type; null when the item is gone or none was named.
+        recipe_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The recipe the sold catalogue item is made from, when it has one.
+        ingredient_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The ingredient the detail names, read out of it; null when the detail names none.
+        ingredient_name_en:
+          type:
+            - string
+            - 'null'
+          description: The English name of ingredient_id; null when there is none or it is gone.
         branch_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'

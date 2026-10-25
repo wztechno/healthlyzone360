@@ -16,7 +16,7 @@ import {
     Text,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
-import { SupplierId } from '@healthy360/domain-types';
+import { PurchaseOrderId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -31,6 +31,7 @@ import {
     usePurchaseOrdersQuery,
     useSuppliersQuery,
     useSupplyNeedsCountQuery,
+    usePurchaseOrderQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
@@ -57,6 +58,23 @@ import {
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import {
+    useListMemory,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedPageNumber,
+    useRememberedQuery,
+    useRestoredPageFallback,
+} from '../list-memory.ts';
+import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+
+/** The order `?view=` names, read on its own when the loaded page does not hold it. */
+function useOrderById(id: string | null) {
+    const parsed = PurchaseOrderId.safeParse(id);
+    const record = usePurchaseOrderQuery(parsed);
+    return parsed === null ? RECORD_NOT_FOUND : record;
+}
 
 /**
  * `/kitchen/supply-orders` — the order book, and what the branch is short of (SUP3), on the
@@ -121,6 +139,9 @@ const EM_DASH = '—';
 /** A stable empty queue, so the preview's controls are not handed a fresh array per render. */
 const NO_PROPOSAL_ITEMS: readonly OrderProposalItem[] = [];
 
+/** The book's first page: no cursor opens it. */
+const FIRST_PAGE_CURSORS: readonly (string | undefined)[] = [undefined];
+
 type StatusSegmentValue = PurchaseOrderStatus | 'all';
 
 const SEGMENT_STATUSES: readonly PurchaseOrderStatus[] = [
@@ -161,16 +182,18 @@ export interface SupplyOrdersScreenProps {
      * drafts it has just raised (SUP7). Absent on every other way of arriving here.
      */
     readonly created?: string | undefined;
+    /** `?view=` — the order whose page is open (`use-viewed-record.ts`). */
+    readonly view?: string | undefined;
 }
 
-export function SupplyOrdersScreen({ created }: SupplyOrdersScreenProps) {
+export function SupplyOrdersScreen({ created, view }: SupplyOrdersScreenProps) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [INVENTORY_ORDER_SUPPLIES_PERMISSION] }}
             testID="kitchen-supply-orders"
         >
-            <SupplyOrders created={created} />
+            <SupplyOrders created={created} view={view} />
         </Gate>
     );
 }
@@ -183,7 +206,7 @@ function supplierName(row: PurchaseOrder, locale: string): string {
         : displayName({ en: row.supplier.nameEn, ar: row.supplier.nameAr ?? '' }, locale).value;
 }
 
-function SupplyOrders({ created }: SupplyOrdersScreenProps) {
+function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const { locale } = useLocale();
@@ -192,15 +215,22 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
 
     const branchId = access.branch?.id ?? null;
 
-    const [query, setQuery] = useState('');
-    const [status, setStatus] = useState<StatusSegmentValue>('all');
+    // Search, filters, the page of the book and the order last opened survive leaving the list.
+    const memory = useListMemory('kitchen.supply-orders');
+    const [query, setQuery] = useRememberedQuery(memory);
+    const [status, setStatus] = useRememberedFilter<StatusSegmentValue>(memory, 'status', 'all');
     /** The Supplier header's choice. Sent with the request — `PurchaseOrderFilter.supplierId`. */
-    const [supplier, setSupplier] = useState<string | null>(null);
-    const [viewing, setViewing] = useState<PurchaseOrder | null>(null);
+    const [supplier, setSupplier] = useRememberedFilter<string | null>(memory, 'supplier', null);
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
     // `cursors[n - 1]` opens page n of the book: page one has none, and each loaded page with more
-    // behind it adds the next page's — the purchases ledger's pager.
-    const [cursors, setCursors] = useState<readonly (string | undefined)[]>([undefined]);
-    const [page, setPage] = useState(1);
+    // behind it adds the next page's — the purchases ledger's pager. Remembered with the page, so
+    // the book reopens on the page it was left on.
+    const [cursors, setCursors] = useRememberedFilter<readonly (string | undefined)[]>(
+        memory,
+        'cursors',
+        FIRST_PAGE_CURSORS,
+    );
+    const [page, setPage] = useRememberedPageNumber(memory);
     const cursor = cursors[page - 1];
     /** The queue's page, remembered against the header filters it was chosen under. */
     const [queuePaging, setQueuePaging] = useState<{
@@ -210,7 +240,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
 
     /** A status or supplier change is a new book: back to page one, and out of any record. */
     const resetBook = () => {
-        setCursors([undefined]);
+        setCursors(FIRST_PAGE_CURSORS);
         setPage(1);
         setViewing(null);
     };
@@ -232,6 +262,11 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
         [status, supplier, cursor],
     );
     const orders = usePurchaseOrdersQuery(bookFilter, branchId !== null);
+    // A remembered cursor the book no longer honours starts the book again.
+    useRestoredPageFallback(memory, page, orders.isError, () => {
+        setCursors(FIRST_PAGE_CURSORS);
+        setPage(1);
+    });
     const supplierBook = useSuppliersQuery(SUPPLIER_BOOK, branchId !== null);
 
     const nextCursor = orders.data?.nextCursor ?? null;
@@ -252,6 +287,14 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
             ),
         );
     }, [orders.data, trimmed, locale]);
+    // The open order is an address, `?view=`, so the order's page can come back to it.
+    const { viewing, viewingId, setViewing } = useViewedRecord(
+        view,
+        searched,
+        (row) => String(row.id),
+        orders.isSuccess && !orders.isFetching,
+        { useLookup: useOrderById },
+    );
 
     const shortage = proposal.data?.items ?? NO_PROPOSAL_ITEMS;
     const shortageFailure = toFailure(needs.error ?? proposal.error);
@@ -265,9 +308,16 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
         .map((segment) => segment.trim())
         .filter((segment) => segment !== '');
 
+    /** From the order's view, the order page's Cancel and trail come back to it. */
     const openOrder = (row: PurchaseOrder) => {
-        setViewing(null);
-        router.push(`/kitchen/supply-orders/${String(row.id)}` as never);
+        const id = String(row.id);
+        rememberOpened(id);
+        router.push(
+            withReturnTo(
+                `/kitchen/supply-orders/${id}`,
+                viewingId === id ? withQuery('/kitchen/supply-orders', { view: id }) : null,
+            ) as never,
+        );
     };
 
     const prepare = () => {
@@ -699,6 +749,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                         rows={controls.rows}
                         rowKey={(row) => String(row.id)}
                         density="sm"
+                        highlightedId={lastOpenedId}
                         onRowPress={openOrder}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={(row): readonly MenuItem[] => [
@@ -708,6 +759,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                                 icon: CATALOGUE_ROW_ICONS.view,
                                 testID: `${purchaseOrderRowTestId(String(row.id))}-view`,
                                 onSelect: () => {
+                                    rememberOpened(String(row.id));
                                     setViewing(row);
                                 },
                             },

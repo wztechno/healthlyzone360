@@ -11,6 +11,7 @@ use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\Subscriptions\Enums\SubscriptionDeliveryStatus;
 use Healthy360\Subscriptions\Exceptions\SubscriptionRefused;
 use Healthy360\Subscriptions\Models\SubscriptionDelivery;
+use Healthy360\Subscriptions\Services\ChangeWindow;
 use Healthy360\Subscriptions\Services\GenerationService;
 use Healthy360\Subscriptions\Services\ScheduleProjection;
 use Healthy360\Subscriptions\Services\StorefrontQuoting;
@@ -92,7 +93,10 @@ it('skips a shut day without spending it, on a subscription that names no branch
     $first = $subscription->next_generation_date;
     ($this->closeOn)($first->dayOfWeekIso);
 
-    CarbonImmutable::setTestNow(CarbonImmutable::now()->addDay());
+    // Just past that day's cut-off. Not "a day later": with no branch the deadline is read in the
+    // app's zone rather than the branch's the start date was chosen in, so at some hours a day on
+    // is still before it.
+    CarbonImmutable::setTestNow(app(ChangeWindow::class)->deadlineFor($subscription->refresh(), $first)->addMinute());
 
     expect(app(GenerationService::class)->tick())->toMatchArray(['generated' => 0, 'skipped' => 1]);
 

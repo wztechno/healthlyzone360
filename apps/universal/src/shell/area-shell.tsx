@@ -1,6 +1,7 @@
 import {
     AppShell,
     Button,
+    DensityProvider,
     Icon,
     IconButton,
     Inline,
@@ -27,9 +28,10 @@ import { ThemeToggle } from './theme-toggle.tsx';
 /**
  * Which shell chrome each area gets.
  *
- * Kiosk hardware (the KDS ticket board) is bare by design; drivers get thumb-reachable tabs;
- * consumers get a plain top bar because a sidebar of one item is noise; everything else is a staff
- * workspace.
+ * Consumers get a plain top bar because a sidebar of one item is noise; everything else is a staff
+ * workspace — the KDS board and the driver area included, so every admin page has the same top bar
+ * and the same Workspaces button back to the workspace page. Both used to be bare under a bottom bar
+ * of areas, which is gone.
  */
 export const AREA_SHELL_VARIANT: Readonly<Record<RouteArea, AppShellVariant>> = {
     public: 'public',
@@ -39,21 +41,16 @@ export const AREA_SHELL_VARIANT: Readonly<Record<RouteArea, AppShellVariant>> = 
     dietitian: 'workspace',
     clinic: 'workspace',
     kitchen: 'workspace',
-    kds: 'kiosk',
-    driver: 'driver',
+    kds: 'workspace',
+    driver: 'workspace',
     partner: 'workspace',
     corporate: 'workspace',
     insurance: 'workspace',
     'platform-admin': 'workspace',
 };
 
-/** The chromes that carry the workspace switcher: the staff desks, the KDS and the driver. */
-const SWITCHER_VARIANTS: ReadonlySet<AppShellVariant> = new Set([
-    'workspace',
-    'rail',
-    'kiosk',
-    'driver',
-]);
+/** The chromes whose top bar leads back to the workspace page: the staff desks. */
+const WORKSPACES_BUTTON_VARIANTS: ReadonlySet<AppShellVariant> = new Set(['workspace', 'rail']);
 
 export interface AreaShellProps {
     readonly area: RouteArea;
@@ -139,12 +136,12 @@ function GuardedAreaShell({
     const sidebarPresent = signOutInSidebar && atLeast('lg');
 
     /*
-     * The workspace switcher — the other areas and the account pages. On every admin chrome it is
-     * the bottom bar, the same on every page; the driver's tabs *are* it. It used to be the first
-     * module on each rail, which buried area switching one panel deep.
+     * The driver chrome's tabs, when a caller asks for that chrome: the areas and the account pages.
+     * No area uses it any more — the admin pages lead back to the workspace page from their top bar
+     * instead, where every area and the account pages are.
      */
     const switcher = useMemo<readonly NavigationItem[]>(() => {
-        if (!SWITCHER_VARIANTS.has(resolvedVariant)) return [];
+        if (resolvedVariant !== 'driver') return [];
         return workspaceGroup({
             state: accessState,
             t,
@@ -161,7 +158,13 @@ function GuardedAreaShell({
         if (resolvedVariant === 'driver') return switcher;
         return navigationOverride ?? [];
     }, [navigationOverride, resolvedVariant, switcher]);
-    const bottomNavigation = resolvedVariant === 'driver' ? [] : switcher;
+    // Not on the workspace page itself, which is where it leads.
+    const showWorkspacesButton =
+        WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant) && pathname !== '/workspace';
+    // The bar sits outside `KitchenOpsShell`'s compact provider, so on a staff page its two buttons
+    // would otherwise come out at the customer app's 44px. Every staff area takes the 28px pair —
+    // the KDS and the driver area included, by the user's choice on 2026-10-25.
+    const barDensity = WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant) ? 'compact' : 'comfortable';
 
     const signOut = () => {
         logout.mutate(undefined, {
@@ -184,25 +187,48 @@ function GuardedAreaShell({
                 <LocaleToggle />
                 <ThemeToggle />
                 {/*
-                 * Sign out is quiet here and the primary slot is left *empty*. Rule 4 is explicit
-                 * that a staff area with no single core-loop action gets no top-bar primary at
-                 * all: promoting navigation into the slot, or letting a destructive action sit
-                 * there, is worse than leaving it alone. The areas that do have one — the kitchen
-                 * workbench, the editors — carry it on the screen that owns it.
+                 * Back to the workspace page, to choose another area. Labelled, because it is the
+                 * one way between areas. Drawn as the app's other "back" controls are — outlined,
+                 * with a backward chevron — so it reads as a way back rather than an action.
                  *
-                 * When the area pins Sign out to its sidebar, this control moves there — but only
-                 * while the sidebar is on screen.
+                 * Both buttons are `self-center`: `Button` is `self-start` by default, which pinned
+                 * them to the top of a row whose toggles are taller.
                  */}
-                {sidebarPresent ? null : (
-                    <Button
-                        testID="sign-out"
-                        size="sm"
-                        variant="quiet"
-                        label={t('common:action.signOut')}
-                        loading={logout.isPending}
-                        onPress={signOut}
-                    />
-                )}
+                <DensityProvider value={barDensity}>
+                    {showWorkspacesButton ? (
+                        <Button
+                            testID="workspaces-button"
+                            size="sm"
+                            variant="secondary"
+                            label={t('marketplace:nav.workspaces')}
+                            iconStart={<Icon name="chevronBackward" size="sm" />}
+                            className="self-center"
+                            onPress={() => {
+                                router.push('/workspace' as never);
+                            }}
+                        />
+                    ) : null}
+                    {/*
+                     * Sign out is filled green — a deliberate departure from Rule 4, which would
+                     * keep it quiet and leave the top-bar primary empty. The areas with a core-loop
+                     * action — the kitchen workbench, the editors — still carry it on the screen
+                     * that owns it, never in this bar.
+                     *
+                     * When the area pins Sign out to its sidebar, this control moves there — but only
+                     * while the sidebar is on screen.
+                     */}
+                    {sidebarPresent ? null : (
+                        <Button
+                            testID="sign-out"
+                            size="sm"
+                            variant="primary"
+                            label={t('common:action.signOut')}
+                            loading={logout.isPending}
+                            className="self-center"
+                            onPress={signOut}
+                        />
+                    )}
+                </DensityProvider>
             </Inline>
         );
 
@@ -247,7 +273,6 @@ function GuardedAreaShell({
             variant={resolvedVariant}
             title={title ?? t(`access:area.${area}`)}
             navigation={navigation}
-            bottomNavigation={bottomNavigation}
             banner={banner}
             topbarEnd={topbarEnd}
             {...(topbarTitle === undefined ? {} : { topbarTitle })}

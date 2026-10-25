@@ -627,5 +627,10 @@
             "bottle": "{{value}} bottle",
             "gallon": "{{value}} gal"
         }
+    },
+    "staffReturn": {
+        "recipe": "Back to the recipe",
+        "plan": "Back to the plan",
+        "kitchen": "Back to the kitchen"
     }
 }

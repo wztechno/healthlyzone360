@@ -1,3 +1,4 @@
+import { DeliveryZoneId } from '@healthy360/domain-types';
 import type {
     DeliveryWindow,
     DeliveryZoneAdmin,
@@ -19,7 +20,7 @@ import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
@@ -30,6 +31,7 @@ import {
     useDeliveryWindowsQuery,
     useDeliveryZonePageQuery,
     useDeliveryZoneWholeSetQuery,
+    useAdminZoneQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
@@ -56,9 +58,25 @@ import {
     statusTone,
     zoneRowTestId,
 } from '../format.ts';
-import { useListPage } from '../use-list-page.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import {
+    useListMemory,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedPage,
+    useRememberedQuery,
+    useRestoredPageFallback,
+} from '../list-memory.ts';
+import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+
+/** The zone `?view=` names, read on its own when the loaded page does not hold it. */
+function useZoneById(id: string | null) {
+    const parsed = DeliveryZoneId.safeParse(id);
+    const record = useAdminZoneQuery(parsed);
+    return parsed === null ? RECORD_NOT_FOUND : record;
+}
 
 /**
  * `/kitchen/delivery-zones` — where this kitchen delivers, for how much, and when (Commercial §3.4).
@@ -83,14 +101,14 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  * "3 windows · 6 days covered", "None of them are active", "No windows" — whether Saturday is reached
  * is the question a person opens this list to answer.
  */
-export function DeliveryZonesScreen() {
+export function DeliveryZonesScreen({ view }: { readonly view?: string | undefined }) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
             testID="kitchen-zones"
         >
-            <DeliveryZonesList />
+            <DeliveryZonesList view={view} />
         </Gate>
     );
 }
@@ -100,16 +118,18 @@ const NO_WINDOWS: readonly DeliveryWindow[] = [];
 const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'retired'];
 type StatusSegmentValue = PublishableStatus | 'all';
 
-function DeliveryZonesList() {
+function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
     const { locale } = useLocale();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
 
-    const [query, setQuery] = useState('');
-    const [status, setStatus] = useState<StatusSegmentValue>('all');
-    const [viewing, setViewing] = useState<DeliveryZoneAdmin | null>(null);
+    // Search, status, page and the row last opened survive leaving the list for a zone.
+    const memory = useListMemory('kitchen.delivery-zones');
+    const [query, setQuery] = useRememberedQuery(memory);
+    const [status, setStatus] = useRememberedFilter<StatusSegmentValue>(memory, 'status', 'all');
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
 
     const trimmed = query.trim();
     const filter = useMemo(
@@ -119,8 +139,11 @@ function DeliveryZonesList() {
         }),
         [trimmed, status],
     );
-    const [page, setPage] = useListPage(filter);
+    const [page, setPage] = useRememberedPage(memory, filter);
     const zones = useDeliveryZonePageQuery(filter, page);
+    useRestoredPageFallback(memory, page, zones.isError, () => {
+        setPage(1);
+    });
     const wholeSet = useDeliveryZoneWholeSetQuery(filter);
     // A zone carries window identifiers; the windows themselves are the kitchen's list.
     const kitchenWindows = useDeliveryWindowsQuery();
@@ -128,12 +151,27 @@ function DeliveryZonesList() {
     const coverageOf = (row: DeliveryZoneAdmin) =>
         summariseWindows(assignedWindows(row.windowIds, allWindows));
     const rows = useMemo(() => zones.data?.items ?? [], [zones.data]);
+    // The open record is an address, `?view=`, so its editor can come back to it.
+    const { viewing, viewingId, setViewing } = useViewedRecord(
+        view,
+        rows,
+        (row) => String(row.id),
+        zones.isSuccess && !zones.isFetching,
+        { useLookup: useZoneById },
+    );
     const total = zones.data?.totalCount ?? null;
     const totalPages = pagesInResult(zones.data) ?? 0;
 
+    /** From the record's page, the editor's Cancel, Save and trail come back to it. */
     const openEditor = (row: DeliveryZoneAdmin) => {
-        setViewing(null);
-        router.push(`/kitchen/delivery-zones/${String(row.id)}` as never);
+        const id = String(row.id);
+        rememberOpened(id);
+        router.push(
+            withReturnTo(
+                `/kitchen/delivery-zones/${id}`,
+                viewingId === id ? withQuery('/kitchen/delivery-zones', { view: id }) : null,
+            ) as never,
+        );
     };
 
     const columns: readonly ControlledColumn<
@@ -520,6 +558,7 @@ function DeliveryZonesList() {
                         rows={controls.rows}
                         rowKey={(row) => String(row.id)}
                         density="sm"
+                        highlightedId={lastOpenedId}
                         onRowPress={openEditor}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={(row): readonly MenuItem[] => [
@@ -529,6 +568,7 @@ function DeliveryZonesList() {
                                 icon: CATALOGUE_ROW_ICONS.view,
                                 testID: `${zoneRowTestId(String(row.id))}-view`,
                                 onSelect: () => {
+                                    rememberOpened(String(row.id));
                                     setViewing(row);
                                 },
                             },

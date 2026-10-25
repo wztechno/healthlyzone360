@@ -22,6 +22,7 @@ import { withReturnTo } from '../navigation/return-to.ts';
 import type { ExpoRouterMock } from '../testing/expo-router-mock.ts';
 import {
     TEST_USER_ID,
+    kitchenManagerSession,
     testActiveContext,
     testBranch,
     testMeResponse,
@@ -581,11 +582,9 @@ describe('WorkspaceSelectorScreen', () => {
 
         // The confirmed context is on the screen, not merely in the cache.
         await waitFor(() => {
-            expect(screen.getByTestId('workspace-organisation')).toHaveTextContent(
-                /Verdant Kitchen/,
-            );
+            expect(screen.getByTestId('workspace-hero-chips')).toHaveTextContent(/Verdant Kitchen/);
         });
-        expect(screen.getByTestId('workspace-branch')).toHaveTextContent(/Al Quoz/);
+        expect(screen.getByTestId('workspace-hero-chips')).toHaveTextContent(/Al Quoz/);
 
         // The kitchen gate opens on this context; the platform-admin one does not, because the
         // server's permission set does not carry `organisation.manage_platform`.
@@ -593,12 +592,77 @@ describe('WorkspaceSelectorScreen', () => {
         expect(screen.queryByTestId('workspace-area-platform-admin')).toBeNull();
     });
 
+    describe('greeting', () => {
+        /*
+         * Only the clock is faked. The stub screen's queries and `waitFor` run on real timers, and
+         * faking those as well would leave every pending answer waiting on a clock nobody advances.
+         */
+        function setClock(now: Date): void {
+            jest.useFakeTimers({
+                now,
+                doNotFake: [
+                    'hrtime',
+                    'nextTick',
+                    'performance',
+                    'queueMicrotask',
+                    'requestAnimationFrame',
+                    'cancelAnimationFrame',
+                    'requestIdleCallback',
+                    'cancelIdleCallback',
+                    'setImmediate',
+                    'clearImmediate',
+                    'setInterval',
+                    'clearInterval',
+                    'setTimeout',
+                    'clearTimeout',
+                ],
+            });
+        }
+
+        afterEach(() => {
+            jest.useRealTimers();
+        });
+
+        it('greets the person by first name for the morning, with the date and time', async () => {
+            setClock(new Date(2026, 9, 25, 9, 5));
+            await renderStubScreen(<WorkspaceSelectorScreen />, { session: kitchenSession() });
+
+            // The first frame is drawn before the session answers, so wait for the name.
+            await waitFor(() => {
+                expect(screen.getByTestId('workspace-hero-title')).toHaveTextContent(
+                    'Good morning, Test',
+                );
+            });
+            const today = screen.getByTestId('workspace-hero-subtitle');
+            expect(today).toHaveTextContent(/Sunday/);
+            expect(today).toHaveTextContent(/2026/);
+            expect(today).toHaveTextContent(/9:05/);
+        });
+
+        it('says good evening after six, and through the small hours', async () => {
+            setClock(new Date(2026, 9, 25, 2, 30));
+            await renderStubScreen(<WorkspaceSelectorScreen />, { session: kitchenSession() });
+
+            await waitFor(() => {
+                expect(screen.getByTestId('workspace-hero-title')).toHaveTextContent(
+                    'Good evening, Test',
+                );
+            });
+        });
+    });
+
     it('offers a switch back to the organisation picker', async () => {
         await renderStubScreen(<WorkspaceSelectorScreen />, { session: kitchenSession() });
 
-        await waitFor(() => {
-            expect(screen.getByTestId('workspace-switch-organisation')).toBeTruthy();
-        });
+        await fireEvent.press(await screen.findByTestId('workspace-switch-organisation'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/select-organisation');
+    });
+
+    it('offers the profile as a card beside the areas', async () => {
+        await renderStubScreen(<WorkspaceSelectorScreen />, { session: kitchenSession() });
+
+        await fireEvent.press(await screen.findByTestId('workspace-profile'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/profile');
     });
 });
 
@@ -1319,6 +1383,27 @@ describe('LandingScreen — the return', () => {
             expect(routerMock.__redirect).toHaveBeenCalledWith('/discover');
         });
         expect(routerMock.__router.dismissTo).not.toHaveBeenCalled();
+    });
+
+    it('sends staff to the workspace page, not back to the shop page they signed in from', async () => {
+        await renderStubScreen(<LandingScreen returnTo="/meals?diet=vegan" />, {
+            session: kitchenManagerSession(),
+        });
+
+        await waitFor(() => {
+            expect(routerMock.__redirect).toHaveBeenCalledWith('/workspace');
+        });
+        expect(routerMock.__router.dismissTo).not.toHaveBeenCalled();
+    });
+
+    it('still takes staff on to a workspace page they were sent to', async () => {
+        await renderStubScreen(<LandingScreen returnTo="/kitchen/orders" />, {
+            session: kitchenManagerSession(),
+        });
+
+        await waitFor(() => {
+            expect(routerMock.__router.dismissTo).toHaveBeenCalledWith('/kitchen/orders');
+        });
     });
 
     it('lands as it always did with no return', async () => {

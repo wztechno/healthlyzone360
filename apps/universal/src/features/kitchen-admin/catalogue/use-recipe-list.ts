@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react';
 
 import { useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import {
     KITCHEN_PAGE_SIZE,
     pagesInResult,
@@ -28,10 +29,17 @@ import {
 } from '../../../data/kitchen-admin-hooks.ts';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
-import { useListPage } from '../use-list-page.ts';
 import { missingPack, onSaleStatus, recipeHandle } from './recipe-columns.tsx';
-import { useCatalogueFilters } from './use-catalogue-filters.ts';
 import { useDestructiveRow } from './use-destructive-row.ts';
+import {
+    useListMemory,
+    useRememberedCatalogueFilters,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedPage,
+    useRestoredPageFallback,
+} from '../list-memory.ts';
+import { useViewedRecord } from '../use-viewed-record.ts';
 
 /**
  * Everything `/kitchen/recipes` knows that is not a pixel — the recipe book's list state.
@@ -153,6 +161,8 @@ export interface RecipeListState {
     readonly noPackCount: number;
 
     readonly openEditor: (recipeId: string) => void;
+    /** The row the reader opened last — marked when they come back to the list. */
+    readonly lastOpenedId: string | null;
     /** Opens the create form for one kind — a preparation is a plain recipe. */
     readonly createNew: (kind: RecipeKind) => void;
 
@@ -194,12 +204,16 @@ export interface RecipeListState {
     readonly withdrawFailure: ApiFailure | null;
 }
 
-export function useRecipeList(): RecipeListState {
+/** `view` is the route's `?view=` — the record whose page is open (`use-viewed-record.ts`). */
+export function useRecipeList(view?: string): RecipeListState {
     const router = useRouter();
     const { locale } = useLocale();
     const sells = useCan(CATALOGUE_VIEW_PERMISSION);
     const requested = useLocalSearchParams<{ kind?: string }>().kind;
     const kind = sells && isRecipeKind(requested) ? requested : null;
+    // Search, filters, sort, page and the row last opened survive leaving the list for a record.
+    // The tab is the URL's `kind`, which Back already restores.
+    const memory = useListMemory('kitchen.recipes');
 
     const {
         query,
@@ -209,16 +223,32 @@ export function useRecipeList(): RecipeListState {
         setStatuses,
         isUnfiltered: searchAndStatusUnset,
         clear: clearSearchAndStatus,
-    } = useCatalogueFilters();
-    const [allergen, setAllergen] = useState<AllergenCode | null>(null);
-    const [category, setCategory] = useState<string | null>(null);
-    const [sellingStatus, setSellingStatus] = useState<PublishableStatus | null>(null);
+    } = useRememberedCatalogueFilters(memory);
+    const [allergen, setAllergen] = useRememberedFilter<AllergenCode | null>(
+        memory,
+        'allergen',
+        null,
+    );
+    const [category, setCategory] = useRememberedFilter<string | null>(memory, 'category', null);
+    const [sellingStatus, setSellingStatus] = useRememberedFilter<PublishableStatus | null>(
+        memory,
+        'sellingStatus',
+        null,
+    );
     // Reference ascending, which is the order the codes were issued in and so the order a
     // kitchen already knows the library by. Sorting by name instead put the list in an order
     // that changes with the language.
-    const [sortKey, setSortKey] = useState<RecipeSortKey>('reference');
-    const [sortDirection, setSortDirection] = useState<RecipeSortDirection>('asc');
-    const [viewing, setViewing] = useState<RecipeAdminSummary | null>(null);
+    const [sortKey, setSortKey] = useRememberedFilter<RecipeSortKey>(
+        memory,
+        'sortKey',
+        'reference',
+    );
+    const [sortDirection, setSortDirection] = useRememberedFilter<RecipeSortDirection>(
+        memory,
+        'sortDirection',
+        'asc',
+    );
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
     const [draftOpeningFor, setDraftOpeningFor] = useState<RecipeId | null>(null);
 
     const filter = useMemo(
@@ -234,8 +264,11 @@ export function useRecipeList(): RecipeListState {
         [trimmed, statuses, allergen, category, kind, sells, sellingStatus],
     );
 
-    const [page, setPage] = useListPage(filter);
+    const [page, setPage] = useRememberedPage(memory, filter);
     const recipes = useRecipePageQuery(filter, page);
+    useRestoredPageFallback(memory, page, recipes.isError, () => {
+        setPage(1);
+    });
     // The cards count every page the filters match, not the eighteen rows on this one.
     const wholeSet = useRecipeWholeSetQuery(filter);
     const everyRow = wholeSet.data ?? [];
@@ -294,6 +327,22 @@ export function useRecipeList(): RecipeListState {
             );
         });
     }, [rows, sortKey, sortDirection, locale]);
+    const viewed = useViewedRecord(
+        view,
+        sorted,
+        (row) => String(row.id),
+        recipes.isSuccess && !recipes.isFetching,
+        {
+            // No by-id read answers a summary row; the whole set the cards count holds every match.
+            useLookup: (id) => {
+                const match = everyRow.find((row) => String(row.id) === id);
+                return {
+                    data: match,
+                    isError: match === undefined && wholeSet.isSuccess && !wholeSet.isFetching,
+                };
+            },
+        },
+    );
 
     const draftCount = everyRow.filter((row) => row.meta.status === 'draft').length;
     const reviewCount = everyRow.filter((row) => row.meta.status === 'review_required').length;
@@ -301,7 +350,16 @@ export function useRecipeList(): RecipeListState {
     const noPackCount = everyRow.filter((row) => (row.soldAs ?? []).some(missingPack)).length;
 
     const openEditor = (recipeId: string) => {
-        router.push(`/kitchen/recipes/${recipeId}` as never);
+        rememberOpened(recipeId);
+        // From the record's page, the editor's Cancel, Save and trail come back to it.
+        router.push(
+            withReturnTo(
+                `/kitchen/recipes/${recipeId}`,
+                viewed.viewingId === recipeId
+                    ? withQuery('/kitchen/recipes', { kind, view: recipeId })
+                    : null,
+            ) as never,
+        );
     };
     const setKind = (next: RecipeKind | null) => {
         router.setParams({ kind: next ?? '' });
@@ -367,14 +425,18 @@ export function useRecipeList(): RecipeListState {
         noPackCount,
 
         openEditor,
+        lastOpenedId,
         createNew: (next) => {
             router.push(`/kitchen/recipes/new?kind=${next}` as never);
         },
 
-        viewing,
-        openView: setViewing,
+        viewing: viewed.viewing,
+        openView: (row) => {
+            rememberOpened(String(row.id));
+            viewed.setViewing(row);
+        },
         closeView: () => {
-            setViewing(null);
+            viewed.setViewing(null);
         },
 
         // A published or retired version is frozen by the contract, so the only way to change it is

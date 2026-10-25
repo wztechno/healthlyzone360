@@ -8,11 +8,12 @@ import {
     EmptyState,
     ErrorState,
     RecordSkeleton,
+    Stack,
     Text,
 } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { Gate } from '../../../access/gate.tsx';
@@ -41,8 +42,8 @@ import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
  * ```
  * Monthly cost report  [ COSTS ]
  * From month [ 2026-03 ▦ ]  To month [ 2026-08 ▦ ]  Currency [ USD ▾ ]
- * ⚠ Two months' COGS may be understated. …  Open consumption exceptions
- * ⓘ Some purchases are still waiting on their prices. …
+ * ⚠ This month's COGS may be understated                 Open stock gaps
+ * ⓘ Some purchases are still waiting on their prices  2026-08, 2026-07
  * ┌ SPEND ┐ ┌ COGS ┐ ┌ REVENUE ┐ ┌ MARGIN ┐
  * REVENUE AND COGS BY MONTH            REVENUE BY LINE OF BUSINESS  2026-08
  * MONTHLY COST REPORT
@@ -59,6 +60,9 @@ import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
  * them would leave a manager unable to tell which number to distrust. The `Understated` badge on a
  * month row is the warning's row-level echo, and both are derived from the same rows.
  *
+ * Both are one-line strips in one band: the title, and for the spend the months it is short in —
+ * the only fact the strip carries that the table does not. The why is not spelled out on screen.
+ *
  * ## One currency at a time
  *
  * Currency is a filter, never a mix: there is no exchange rate, so there is no grand total across
@@ -67,6 +71,12 @@ import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
  * ## No summary strip
  *
  * The four cost tiles are the summary (§3z). Margin is the one tile in brand ink.
+ *
+ * ## The range and the open month are in the address
+ *
+ * `?from=`, `?to=` and `?month=`, never component state. The stock gaps and the ledger this report
+ * opens are pages of their own, and Back from either has to land on the report as it was left — the
+ * same range, the same month open — rather than on today's default range with nothing open.
  */
 export function CostReportScreen() {
     return (
@@ -83,16 +93,24 @@ export function CostReportScreen() {
 function isMonthOrEmpty(value: string): boolean {
     return value === '' || /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
 }
+/** A picked day as the address carries it, `YYYY-MM-DD`. */
+function isIsoDay(value: unknown): value is string {
+    return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
 function CostReport() {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
+    const params = useLocalSearchParams<{ from?: string; to?: string; month?: string }>();
     // Today to a week out by default, as the order desk's pickers open.
-    const [fromDate, setFromDate] = useState(() => todayIso());
-    const [toDate, setToDate] = useState(() => addDays(todayIso(), 7) ?? todayIso());
+    const fromDate = isIsoDay(params.from) ? params.from : todayIso();
+    const toDate = isIsoDay(params.to) ? params.to : (addDays(todayIso(), 7) ?? todayIso());
     const from = fromDate.slice(0, 7);
     const to = toDate.slice(0, 7);
-    const [viewing, setViewing] = useState<MonthlyCostReportRow | null>(null);
+    // Cleared with an empty value, which parses as no month — the recipe list's `?kind=` precedent.
+    const setViewing = (row: MonthlyCostReportRow | null) => {
+        router.setParams({ month: row === null ? '' : row.month });
+    };
     const filter = useMemo(
         () => ({
             ...(from === '' || !isMonthOrEmpty(from) ? {} : { from }),
@@ -114,6 +132,8 @@ function CostReport() {
         [currencyRows],
     );
     const latest = currencyRows[0] ?? null;
+    // The month in the address, once the report has it — a range moved past it opens nothing.
+    const viewing = currencyRows.find((row) => row.month === params.month) ?? null;
     const flaggedCount = currencyRows.filter((row) => row.hasDataQualityFlag).length;
     // Counted once per month, not per row: the lines are a month fact repeated across currencies.
     const incompleteSpend = useMemo(() => {
@@ -376,8 +396,8 @@ function CostReport() {
                 primaryAction={{
                     label: t('kitchen:ops.costReport.window.openLedger'),
                     icon: null,
+                    // The month stays open behind it, so Back from the ledger returns to it.
                     onPress: () => {
-                        setViewing(null);
                         router.push('/kitchen/purchases-ledger' as never);
                     },
                 }}
@@ -401,8 +421,7 @@ function CostReport() {
                 value={fromDate}
                 max={toDate === '' ? undefined : toDate}
                 onChange={(next) => {
-                    setFromDate(next);
-                    setViewing(null);
+                    router.setParams({ from: next, month: '' });
                 }}
             />
             <Text variant="caption" tone="secondary" aria-hidden>
@@ -414,8 +433,7 @@ function CostReport() {
                 value={toDate}
                 min={fromDate === '' ? undefined : fromDate}
                 onChange={(next) => {
-                    setToDate(next);
-                    setViewing(null);
+                    router.setParams({ to: next, month: '' });
                 }}
             />
         </ToolbarPanel>
@@ -453,42 +471,42 @@ function CostReport() {
                  * all at once.
                  */
                 <Cascade space="md">
-                    {flaggedCount > 0 ? (
-                        <Callout
-                            testID="kitchen-cost-report-data-quality"
-                            role="alert"
-                            tone="warning"
-                            title={t('kitchen:ops.costReport.dataQualityTitle', {
-                                count: flaggedCount,
-                            })}
-                            body={t('kitchen:ops.costReport.dataQualityBody', {
-                                count: flaggedCount,
-                            })}
-                            actions={
-                                <Button
-                                    testID="kitchen-cost-report-open-exceptions"
-                                    variant="ghost"
-                                    size="sm"
-                                    label={t('kitchen:ops.costReport.openExceptions')}
-                                    onPress={() => {
-                                        router.push('/kitchen/consumption-exceptions' as never);
-                                    }}
+                    {flaggedCount === 0 && incompleteSpend.months.length === 0 ? null : (
+                        <Stack space="xs" testID="kitchen-cost-report-notices">
+                            {flaggedCount > 0 ? (
+                                <Callout
+                                    testID="kitchen-cost-report-data-quality"
+                                    role="alert"
+                                    tone="warning"
+                                    title={t('kitchen:ops.costReport.dataQualityTitle', {
+                                        count: flaggedCount,
+                                    })}
+                                    actions={
+                                        <Button
+                                            testID="kitchen-cost-report-open-exceptions"
+                                            variant="ghost"
+                                            size="sm"
+                                            label={t('kitchen:ops.costReport.openExceptions')}
+                                            onPress={() => {
+                                                router.push(
+                                                    '/kitchen/consumption-exceptions' as never,
+                                                );
+                                            }}
+                                        />
+                                    }
                                 />
-                            }
-                        />
-                    ) : null}
-                    {incompleteSpend.months.length > 0 ? (
-                        <Callout
-                            testID="kitchen-cost-report-spend-quality"
-                            role="note"
-                            tone="info"
-                            title={t('kitchen:ops.costReport.spendIncompleteTitle')}
-                            body={t('kitchen:ops.costReport.spendIncompleteBody', {
-                                count: incompleteSpend.lineCount,
-                                months: incompleteSpend.months.join(', '),
-                            })}
-                        />
-                    ) : null}
+                            ) : null}
+                            {incompleteSpend.months.length > 0 ? (
+                                <Callout
+                                    testID="kitchen-cost-report-spend-quality"
+                                    role="note"
+                                    tone="info"
+                                    title={t('kitchen:ops.costReport.spendIncompleteTitle')}
+                                    body={incompleteSpend.months.join(', ')}
+                                />
+                            ) : null}
+                        </Stack>
+                    )}
                     <CatalogueStatCards
                         testID="kitchen-cost-report-tile"
                         cards={(

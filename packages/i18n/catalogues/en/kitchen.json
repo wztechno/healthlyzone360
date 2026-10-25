@@ -43,7 +43,27 @@
             "lowStockReadyToOrder_other": "{{count}} items ready to order"
         },
         "attentionTitle": "Needs attention",
-        "attentionClear": "Nothing is waiting on you right now."
+        "attentionClear": "Nothing is waiting on you right now.",
+        "dateLine": "{{date}} · {{branch}}",
+        "newSale": "New order",
+        "orderSupplies": "Order supplies",
+        "attention": {
+            "review": "Records to review",
+            "stockGaps": "Unresolved stock gaps",
+            "shortfalls": "Ingredients short in the next 7 days",
+            "cutOffs": "Days with an order cut-off"
+        },
+        "action": {
+            "review": "Review",
+            "fix": "Fix",
+            "plan": "Plan",
+            "set": "Set"
+        },
+        "onSaleOfTotal": "on sale / total",
+        "buyingTitle": "Stock and buying",
+        "itemsToOrder": "Items to order",
+        "openingDays": "Opening days",
+        "goTo": "Go to"
     },
     "nav": {
         "railTitle": "Kitchen",
@@ -1459,6 +1479,9 @@
             "filterResolved": "Resolved",
             "filterAll": "All",
             "filterFrom": "Raised from",
+            "filterTo": "Raised until",
+            "fromPlaceholder": "Start date",
+            "toPlaceholder": "End date",
             "columnOrder": "Order",
             "columnBranch": "Branch",
             "columnReason": "Reason",
@@ -1467,10 +1490,21 @@
             "unknownOrder": "Order gone",
             "unknownItem": "Item gone",
             "resolvedBadge": "Resolved",
-            "openBadge": "Open",
+            "unresolvedBadge": "Unresolved",
             "clearBadge": "All clear",
             "retry": "Retry",
-            "resolve": "Resolve",
+            "resolve": "Accept gap",
+            "fixInRecipe": "Fix in recipe",
+            "fixAction": {
+                "stock": "Add stock",
+                "price": "Set unit price",
+                "unit": "Set the unit",
+                "product": "Fix the product",
+                "production": "See production plan"
+            },
+            "searchPlaceholder": "Order, item, ingredient or reason",
+            "filteredEmptyTitle": "No stock gaps match",
+            "filteredEmptyBody": "Change the search or the filters.",
             "nextPage": "Next page",
             "unresolvedCount_one": "{{count}} unresolved",
             "unresolvedCount_other": "{{count}} unresolved",
@@ -1478,7 +1512,7 @@
                 "no_branch": "Order has no branch",
                 "no_catalogue_item": "Catalogue item missing",
                 "no_recipe_version": "No published recipe version",
-                "no_yield_piece_count": "Recipe has no yield count",
+                "no_yield_piece_count": "Recipe has no pieces produced",
                 "unquantified_recipe_line": "Recipe line has no quantity",
                 "no_ingredient_link": "Product links no ingredient",
                 "no_stock_item": "No stock item at the branch",
@@ -1499,9 +1533,9 @@
             "retryDeductedToast": "Stock deducted for order {{order}}. The gap is closed.",
             "retryStillOpenToast": "Order {{order}} still could not be deducted. The gap stays open.",
             "actionFailedToast": "That did not go through. Try again.",
-            "resolveTitle": "Resolve this exception?",
+            "resolveTitle": "Accept this stock gap?",
             "resolveBody": "Resolving accepts the stock gap for good: nothing is deducted for this line, and stock stays as it is. Retry instead if the cause has been fixed.",
-            "resolveConfirm": "Resolve and accept the gap",
+            "resolveConfirm": "Accept the gap",
             "window": {
                 "title": "Order {{order}}",
                 "kind": "Exception",
@@ -1511,7 +1545,17 @@
                 "fieldResolutionNote": "Resolution note",
                 "fieldMoney": "Money",
                 "moneyValue": "None — an exception names a sale and a stock gap, not a valuation",
-                "retry": "Retry the deduction"
+                "retry": "Retry the deduction",
+                "fieldIngredient": "Ingredient"
+            },
+            "fix": {
+                "title": "Stock gap to fix: {{reason}}",
+                "titleIngredient": "Stock gap to fix: {{reason}} — {{ingredient}}",
+                "doneTitle": "Fixed and published. Retry the stock gap next.",
+                "back": "Back to stock gaps",
+                "piecesMissing": "Enter the pieces produced",
+                "quantityMissing": "Enter a quantity",
+                "unitMismatch": "This unit does not match how the stock is counted"
             }
         },
         "requirements": {
@@ -2899,6 +2943,7 @@
         "lineUnit": "Unit",
         "lineUnitUnknownDimension": "Choose an ingredient to narrow the units to the ones it can be converted to.",
         "lineNote": "As written on the sheet",
+        "lineNotePlaceholder": "Add a comment",
         "lineNoteHint": "Kept verbatim beside the resolved ingredient, so the original item name is never lost.",
         "markOptional": "Mark optional",
         "markRequired": "Mark required",
@@ -3007,7 +3052,7 @@
         "marginHint": "B2B against a total cost of {{cost}}",
         "sectionRawMaterials": "Raw materials",
         "addIngredientPlaceholder": "Add an ingredient…",
-        "sheetColQuantityShort": "Qty",
+        "sheetColQuantityShort": "Quantity",
         "pickerSearching": "Searching…",
         "quickAdd": "Add",
         "quickAddNamed": "Add “{{name}}” as new",
@@ -3115,21 +3160,29 @@
         "withdrawFailed": "That item could not be taken off sale.",
         "sellerLabel": "Sold as",
         "viewHandle": "Handle",
-        "viewAllergensFrozen": "Label frozen on the item at publication"
+        "viewAllergensFrozen": "Label frozen on the item at publication",
+        "openIngredient": "Open {{name}}",
+        "fixIngredient": "Fix {{name}}: {{issue}}",
+        "ingredientIssueFix": "{{issue}} · Fix",
+        "detourRestoredToast": "Back on your recipe. Your unsaved changes are still here.",
+        "savedAllToast": "All changes saved.",
+        "allSavedBadge": "All saved",
+        "listingNotSavedToast": "The Selling tab was not saved. It shows what to fix.",
+        "swappedToCopyToast": "This recipe now uses your kitchen’s copy of the ingredient. Save to keep it."
     },
     "publish": {
         "action": "Publish",
         "title": "Publish this version?",
         "body": "Publishing makes this version the one every consumer surface reads.",
         "confirm": "Publish it",
-        "consequence": "The recipe, its figures and the allergen rows below become visible on the menu, in search and on every meal built from it. The version is immutable from then on.",
-        "allergenRowsTitle": "The label this version would carry",
-        "allergenRowsNone": "No allergen is derived from these lines.",
+        "consequence": "Customers will see this version on the menu. After that it can’t be changed — you’d start a new draft.",
+        "allergenRowsTitle": "Allergens on the label",
+        "allergenRowsNone": "No allergens.",
         "allergenRow": "{{code}} — {{containment}}, from {{names}}",
         "quarantineTitle": "Quarantined for review",
-        "quarantineBody": "This recipe’s allergen information contradicts a determination it was published against. Publication is refused from here — no amount of clicking gets past it. Resolve the conflict on the ingredient first.",
-        "blockedTitle": "This version cannot be published yet",
-        "blockNoLines": "It has no lines.",
+        "quarantineBody": "Its allergens conflict with an ingredient. Fix the ingredient first.",
+        "blockedTitle": "Fix these first",
+        "blockNoLines": "Add at least one ingredient.",
         "gateTitle": "Publication gate",
         "gateCheckName": "Name in both languages",
         "gateCheckDescription": "Description in both languages",
@@ -3138,15 +3191,18 @@
         "gateQueueTitle": "In the review queue",
         "gateQueueBody": "A failing check appears on the review queue too — resolving it here clears it there.",
         "gateQueueOpen": "Open the review queue",
-        "blockName": "The name is missing one of its two languages.",
+        "blockName": "Add the name in both languages.",
         "blockDescription": "The description is missing one of its two languages.",
-        "blockUnsaved": "There are unsaved changes. Save them first — publishing publishes what the server holds, not what is on screen.",
-        "blockIngredientState": "{{name}} is {{status}}, so a label derived from it cannot be published.",
-        "blockNutritionPending": "{{name}} still needs its nutrition reference confirmed, so this recipe cannot be published.",
-        "unmappedTitle": "Some ingredients carry no allergen determination",
-        "unmappedBody": "An ingredient with no mapping is either genuinely free of all fourteen classes or has never been checked, and this record cannot tell the two apart. Open each one and record the determination before this label is trusted.",
+        "blockUnsaved": "Save your changes first.",
+        "blockIngredientState": "{{name}} is {{status}}.",
+        "blockNutritionPending": "{{name}} needs its nutrition confirmed.",
+        "unmappedTitle": "Allergens not checked",
+        "unmappedBody": "Open each one and record its allergens.",
         "failedTitle": "That publish was refused",
-        "publishedToast": "Version {{number}} is published."
+        "publishedToast": "Version {{number}} is published.",
+        "titleVersion": "Publish version {{number}}?",
+        "allergenTag": "{{code}} · {{containment}}",
+        "fixIt": "Fix it"
     },
     "rollup": {
         "title": "What this draft declares",
@@ -4078,7 +4134,8 @@
     "dressings": {
         "title": "Dressings",
         "create": "New dressing",
-        "viewKind": "Dressing"
+        "viewKind": "Dressing",
+        "kindSaladDressing": "Salad dressing"
     },
     "sale": {
         "title": "Sale",
@@ -4209,7 +4266,8 @@
         "expiryPeriod": "Expiry period",
         "shelfLifeInvalid": "Enter a whole number of days between 0 and 3650.",
         "days": "days",
-        "yieldAndWaste": "Yield & waste"
+        "yieldAndWaste": "Yield & waste",
+        "lineQuantityMissing": "Enter a quantity"
     },
     "deliveryWindows": {
         "title": "Delivery windows",
@@ -4369,5 +4427,27 @@
         "lotFilterPlaceholder": "Find a lot",
         "lotUnreadable": "A supplier lot is at most 20 letters, digits or GS1 symbols, with no spaces.",
         "issueLotUnreadable": "Line {{line}} — the lot cannot be recorded as typed"
+    },
+    "ingredientNeeds": {
+        "allergens": "Allergens not checked",
+        "nutrition": "Nutrition not confirmed",
+        "unit": "Unit can’t be converted",
+        "price": "No price yet",
+        "separator": " · "
+    },
+    "ingredientFix": {
+        "title_one": "Fix {{count}} thing for your recipe",
+        "title_other": "Fix {{count}} things for your recipe",
+        "doneTitle": "All fixed",
+        "doneItem": "Done",
+        "allergens": "Choose an answer for each allergen, then save allergens.",
+        "nutrition": "Choose and confirm a nutrition match, then save.",
+        "unit": "Enter what one {{unit}} weighs, then save.",
+        "priceFood": "No price yet. It comes from the next delivery you receive.",
+        "pricePack": "Enter the pack price, then save.",
+        "back": "Back to recipe",
+        "backNamed": "Back to {{name}}",
+        "savedBack": "Saved. Back to your recipe.",
+        "savedBackNamed": "Saved. Back to {{name}}."
     }
 }

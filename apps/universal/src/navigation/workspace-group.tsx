@@ -3,7 +3,12 @@ import type { RouteArea } from '@healthy360/domain-types';
 import type { AccessState } from '@healthy360/permissions';
 import type { TFunction } from 'i18next';
 
-import { AREA_ICONS, availableWorkspaceAreas, permittedNavigation } from './items.ts';
+import {
+    AREA_ICONS,
+    availableWorkspaceAreas,
+    permittedNavigation,
+    workspaceAreaLabelKey,
+} from './items.ts';
 
 export interface WorkspaceGroupOptions {
     readonly state: AccessState;
@@ -35,7 +40,7 @@ export function workspaceGroup({
 }: WorkspaceGroupOptions): readonly NavigationItem[] {
     const areas = availableWorkspaceAreas(state).map((option): NavigationItem => ({
         key: `area-${option.area}`,
-        label: t(`access:area.${option.area}`),
+        label: t(workspaceAreaLabelKey(option.area)),
         icon: AREA_ICONS[option.area],
         active: option.area === currentArea,
         testID: `nav-area-${option.area}`,

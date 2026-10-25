@@ -63,7 +63,27 @@
             "lowStockReadyToOrder_other": "{{count}} صنف جاهز للطلب"
         },
         "attentionTitle": "بحاجة إلى انتباه",
-        "attentionClear": "لا شيء بانتظارك الآن."
+        "attentionClear": "لا شيء بانتظارك الآن.",
+        "dateLine": "{{date}} · {{branch}}",
+        "newSale": "طلب جديد",
+        "orderSupplies": "طلب مستلزمات",
+        "attention": {
+            "review": "سجلات بحاجة إلى مراجعة",
+            "stockGaps": "نواقص مخزون غير محلولة",
+            "shortfalls": "مكوّنات ناقصة خلال الأيام السبعة القادمة",
+            "cutOffs": "أيام لها موعد إغلاق للطلبات"
+        },
+        "action": {
+            "review": "مراجعة",
+            "fix": "إصلاح",
+            "plan": "تخطيط",
+            "set": "تحديد"
+        },
+        "onSaleOfTotal": "المعروض / الإجمالي",
+        "buyingTitle": "المخزون والشراء",
+        "itemsToOrder": "أصناف للطلب",
+        "openingDays": "أيام العمل",
+        "goTo": "انتقل إلى"
     },
     "nav": {
         "railTitle": "المطبخ",
@@ -1650,6 +1670,9 @@
             "filterResolved": "محلولة",
             "filterAll": "الكل",
             "filterFrom": "أُثيرت من",
+            "filterTo": "أُثيرت حتى",
+            "fromPlaceholder": "تاريخ البداية",
+            "toPlaceholder": "تاريخ النهاية",
             "columnOrder": "الطلب",
             "columnBranch": "الفرع",
             "columnReason": "السبب",
@@ -1658,10 +1681,21 @@
             "unknownOrder": "الطلب غير موجود",
             "unknownItem": "الصنف غير موجود",
             "resolvedBadge": "محلولة",
-            "openBadge": "مفتوحة",
+            "unresolvedBadge": "غير محلولة",
             "clearBadge": "لا شيء معلّق",
             "retry": "إعادة المحاولة",
-            "resolve": "حسم",
+            "resolve": "قبول النقص",
+            "fixInRecipe": "أصلِح في الوصفة",
+            "fixAction": {
+                "stock": "أضِف مخزونًا",
+                "price": "حدّد سعر الوحدة",
+                "unit": "حدّد الوحدة",
+                "product": "أصلِح المنتج",
+                "production": "اعرض خطة الإنتاج"
+            },
+            "searchPlaceholder": "الطلب أو الصنف أو المكوّن أو السبب",
+            "filteredEmptyTitle": "لا توجد فجوات مخزون مطابقة",
+            "filteredEmptyBody": "غيّر البحث أو عوامل التصفية.",
             "nextPage": "الصفحة التالية",
             "unresolvedCount_zero": "لا استثناءات غير محلولة",
             "unresolvedCount_one": "استثناء واحد غير محلول",
@@ -1673,7 +1707,7 @@
                 "no_branch": "الطلب بلا فرع",
                 "no_catalogue_item": "صنف الكتالوج غير موجود",
                 "no_recipe_version": "لا نسخة وصفة منشورة",
-                "no_yield_piece_count": "الوصفة بلا عدد حصص",
+                "no_yield_piece_count": "الوصفة بلا عدد القطع الناتجة",
                 "unquantified_recipe_line": "بند الوصفة بلا كمية",
                 "no_ingredient_link": "المنتج لا يرتبط بمكوّن",
                 "no_stock_item": "لا صنف مخزون في الفرع",
@@ -1694,9 +1728,9 @@
             "retryDeductedToast": "خُصم المخزون للطلب {{order}}، وأُغلقت الفجوة.",
             "retryStillOpenToast": "تعذّر الخصم للطلب {{order}} مرة أخرى، وتبقى الفجوة مفتوحة.",
             "actionFailedToast": "لم تتم العملية. حاول مرة أخرى.",
-            "resolveTitle": "حل هذا الاستثناء؟",
+            "resolveTitle": "قبول نقص المخزون هذا؟",
             "resolveBody": "الحل يقبل فجوة المخزون نهائيًا: لا يُخصم شيء لهذا البند ويبقى المخزون كما هو. أعد المحاولة بدلًا من ذلك إن أُصلح السبب.",
-            "resolveConfirm": "الحل وقبول الفجوة",
+            "resolveConfirm": "قبول النقص",
             "window": {
                 "title": "الطلب {{order}}",
                 "kind": "استثناء",
@@ -1706,7 +1740,17 @@
                 "fieldResolutionNote": "ملاحظة الحل",
                 "fieldMoney": "المال",
                 "moneyValue": "لا شيء — الاستثناء يسمّي عملية بيع وفجوة مخزون، لا تقييمًا",
-                "retry": "إعادة محاولة الخصم"
+                "retry": "إعادة محاولة الخصم",
+                "fieldIngredient": "المكوّن"
+            },
+            "fix": {
+                "title": "نقص مخزون يجب إصلاحه: {{reason}}",
+                "titleIngredient": "نقص مخزون يجب إصلاحه: {{reason}} — {{ingredient}}",
+                "doneTitle": "تم الإصلاح والنشر. أعد محاولة نقص المخزون بعد ذلك.",
+                "back": "العودة إلى نواقص المخزون",
+                "piecesMissing": "أدخل عدد القطع الناتجة",
+                "quantityMissing": "أدخل الكمية",
+                "unitMismatch": "هذه الوحدة لا تطابق طريقة عدّ المخزون"
             }
         },
         "requirements": {
@@ -3234,6 +3278,7 @@
         "lineUnit": "الوحدة",
         "lineUnitUnknownDimension": "اختر مكوّنًا لتقتصر الوحدات على ما يمكن التحويل إليه.",
         "lineNote": "كما ورد في البطاقة",
+        "lineNotePlaceholder": "أضف ملاحظة",
         "lineNoteHint": "يُحفظ حرفيًا إلى جانب المكوّن المطابق، حتى لا يضيع اسم الصنف الأصلي.",
         "markOptional": "اجعله اختياريًا",
         "markRequired": "اجعله أساسيًا",
@@ -3486,21 +3531,29 @@
         "withdrawFailed": "تعذّر إيقاف بيع هذا الصنف.",
         "sellerLabel": "يُباع كـ",
         "viewHandle": "المعرّف",
-        "viewAllergensFrozen": "ملصق مثبّت على الصنف عند النشر"
+        "viewAllergensFrozen": "ملصق مثبّت على الصنف عند النشر",
+        "openIngredient": "فتح {{name}}",
+        "fixIngredient": "إصلاح {{name}}: {{issue}}",
+        "ingredientIssueFix": "{{issue}} · إصلاح",
+        "detourRestoredToast": "عدت إلى وصفتك. تغييراتك غير المحفوظة ما زالت هنا.",
+        "savedAllToast": "تم حفظ كل التغييرات.",
+        "allSavedBadge": "تم حفظ الكل",
+        "listingNotSavedToast": "لم يتم حفظ تبويب البيع. يوضح ما يجب إصلاحه.",
+        "swappedToCopyToast": "تستخدم هذه الوصفة الآن نسخة مطبخك من المكوّن. احفظ للإبقاء على ذلك."
     },
     "publish": {
         "action": "نشر",
         "title": "نشر هذه النسخة؟",
         "body": "النشر يجعل هذه النسخة هي ما تقرؤه كل واجهات العملاء.",
         "confirm": "انشرها",
-        "consequence": "تصبح الوصفة وأرقامها وصفوف مسبّبات الحساسية أدناه ظاهرة في القائمة وفي البحث وفي كل وجبة مبنية عليها. وتصبح النسخة بعد ذلك غير قابلة للتعديل.",
-        "allergenRowsTitle": "البطاقة التي ستحملها هذه النسخة",
-        "allergenRowsNone": "لا يُشتقّ أي مسبّب حساسية من هذه البنود.",
+        "consequence": "سيرى العملاء هذا الإصدار في القائمة. بعد ذلك لا يمكن تعديله — ستبدأ مسودة جديدة.",
+        "allergenRowsTitle": "مسببات الحساسية على الملصق",
+        "allergenRowsNone": "لا توجد مسببات حساسية.",
         "allergenRow": "{{code}} — {{containment}}، من {{names}}",
         "quarantineTitle": "محجوزة للمراجعة",
-        "quarantineBody": "تتعارض معلومات مسبّبات الحساسية في هذه الوصفة مع تحديد نُشرت على أساسه. النشر مرفوض من هذه الحالة، ولا يتجاوزه أي عدد من النقرات. عالج التعارض على مستوى المكوّن أوّلًا.",
-        "blockedTitle": "لا يمكن نشر هذه النسخة بعد",
-        "blockNoLines": "لا تحتوي على أي بند.",
+        "quarantineBody": "مسببات الحساسية فيه تتعارض مع أحد المكوّنات. أصلح المكوّن أولاً.",
+        "blockedTitle": "أصلح هذه أولاً",
+        "blockNoLines": "أضف مكوّناً واحداً على الأقل.",
         "gateTitle": "بوابة النشر",
         "gateCheckName": "الاسم باللغتين",
         "gateCheckDescription": "الوصف باللغتين",
@@ -3509,15 +3562,18 @@
         "gateQueueTitle": "في قائمة المراجعة",
         "gateQueueBody": "الفحص المتعثر يظهر في قائمة المراجعة أيضًا — حلّه هنا يزيله هناك.",
         "gateQueueOpen": "افتح قائمة المراجعة",
-        "blockName": "ينقص الاسمَ إحدى اللغتين.",
+        "blockName": "أضف الاسم باللغتين.",
         "blockDescription": "ينقص الوصفَ إحدى اللغتين.",
-        "blockUnsaved": "هناك تغييرات غير محفوظة. احفظها أوّلًا؛ فالنشر ينشر ما لدى الخادم لا ما يظهر على الشاشة.",
-        "blockIngredientState": "{{name}} في حالة {{status}}، لذا لا يمكن نشر بطاقة مشتقّة منه.",
-        "blockNutritionPending": "لم يُؤكَّد المرجع الغذائي لـ{{name}} بعد، لذا لا يمكن نشر هذه الوصفة.",
-        "unmappedTitle": "بعض المكوّنات بلا تحديد لمسبّبات الحساسية",
-        "unmappedBody": "المكوّن الذي لا يحمل أي ربط إمّا أنه خالٍ فعلًا من الأصناف الأربعة عشر، وإمّا أنه لم يُفحص قطّ، والسجل لا يفرّق بين الحالتين. افتح كلًّا منها وسجّل التحديد قبل الوثوق بهذه البطاقة.",
+        "blockUnsaved": "احفظ تغييراتك أولاً.",
+        "blockIngredientState": "{{name}} حالته {{status}}.",
+        "blockNutritionPending": "{{name}} يحتاج إلى تأكيد القيم الغذائية.",
+        "unmappedTitle": "لم يتم فحص مسببات الحساسية",
+        "unmappedBody": "افتح كل مكوّن وسجّل مسببات الحساسية فيه.",
         "failedTitle": "رُفض هذا النشر",
-        "publishedToast": "نُشرت النسخة {{number}}."
+        "publishedToast": "نُشرت النسخة {{number}}.",
+        "titleVersion": "نشر الإصدار {{number}}؟",
+        "allergenTag": "{{code}} · {{containment}}",
+        "fixIt": "إصلاح"
     },
     "rollup": {
         "title": "ما تعلنه هذه المسودة",
@@ -4713,7 +4769,8 @@
     "dressings": {
         "title": "صلصات السلطة",
         "create": "صلصة سلطة جديدة",
-        "viewKind": "تتبيلة"
+        "viewKind": "تتبيلة",
+        "kindSaladDressing": "صلصة سلطة"
     },
     "sale": {
         "title": "البيع",
@@ -4864,7 +4921,8 @@
         "expiryPeriod": "مدة الصلاحية",
         "shelfLifeInvalid": "أدخل عددًا صحيحًا من الأيام بين 0 و3650.",
         "days": "أيام",
-        "yieldAndWaste": "المردود والهدر"
+        "yieldAndWaste": "المردود والهدر",
+        "lineQuantityMissing": "أدخل الكمية"
     },
     "deliveryWindows": {
         "title": "نوافذ التوصيل",
@@ -5024,5 +5082,31 @@
         "lotFilterPlaceholder": "ابحث عن تشغيلة",
         "lotUnreadable": "تشغيلة المورّد 20 حرفًا أو رقمًا أو رمز GS1 على الأكثر، من دون مسافات.",
         "issueLotUnreadable": "السطر {{line}} — لا يمكن تسجيل التشغيلة كما كُتبت"
+    },
+    "ingredientNeeds": {
+        "allergens": "مسببات الحساسية غير مفحوصة",
+        "nutrition": "القيم الغذائية غير مؤكدة",
+        "unit": "لا يمكن تحويل الوحدة",
+        "price": "لا يوجد سعر بعد",
+        "separator": " · "
+    },
+    "ingredientFix": {
+        "title_zero": "أصلح {{count}} أشياء لوصفتك",
+        "title_one": "أصلح شيئاً واحداً لوصفتك",
+        "title_two": "أصلح شيئين لوصفتك",
+        "title_few": "أصلح {{count}} أشياء لوصفتك",
+        "title_many": "أصلح {{count}} شيئاً لوصفتك",
+        "title_other": "أصلح {{count}} شيء لوصفتك",
+        "doneTitle": "تم إصلاح الكل",
+        "doneItem": "تم",
+        "allergens": "اختر إجابة لكل مسبب حساسية، ثم احفظ مسببات الحساسية.",
+        "nutrition": "اختر تطابقاً غذائياً وأكّده، ثم احفظ.",
+        "unit": "أدخل وزن {{unit}} واحد، ثم احفظ.",
+        "priceFood": "لا يوجد سعر بعد. يأتي من أول توريد تستلمه.",
+        "pricePack": "أدخل سعر العبوة، ثم احفظ.",
+        "back": "العودة إلى الوصفة",
+        "backNamed": "العودة إلى {{name}}",
+        "savedBack": "تم الحفظ. عدت إلى وصفتك.",
+        "savedBackNamed": "تم الحفظ. عدت إلى {{name}}."
     }
 }

@@ -65,10 +65,16 @@
     },
     "workspaceSelector": {
         "title": "Choose where to work",
-        "subtitle": "These are the areas your role at {{organisation}} gives you.",
+        "greeting": {
+            "morning": "Good morning, {{name}}",
+            "afternoon": "Good afternoon, {{name}}",
+            "evening": "Good evening, {{name}}"
+        },
+        "today": "{{date}} · {{time}}",
         "current": "You are here",
         "empty": "No areas are available to you here",
         "emptyBody": "Your role in this organisation does not open any workspace yet. Try another organisation, or ask an administrator.",
-        "open": "Open {{area}}"
+        "open": "Open {{area}}",
+        "webShop": "Web shop"
     }
 }

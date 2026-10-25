@@ -1592,6 +1592,13 @@ export interface ConsumptionException {
     readonly orderLineId: string | null;
     readonly catalogueItemId: string | null;
     readonly itemNameEn: string | null;
+    /** The sold item's catalogue type (`meal`, `product`, …), or `null` when it is gone or unnamed. */
+    readonly itemType: string | null;
+    /** The recipe the sold item is made from — where a recipe-shaped gap is fixed. */
+    readonly recipeId: string | null;
+    /** The ingredient the detail names, read out of it server-side; `null` when it names none. */
+    readonly ingredientId: string | null;
+    readonly ingredientNameEn: string | null;
     readonly branchId: BranchId | null;
     readonly branchName: string | null;
     readonly reasonCode: ConsumptionExceptionReasonCode;

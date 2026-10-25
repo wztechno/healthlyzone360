@@ -30,6 +30,7 @@ import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
     recipesFromPages,
     useRecipeQuery,
@@ -50,10 +51,11 @@ import {
     useShelfAvailability,
 } from '../operations/batch-sheet.tsx';
 import type { ShelfAvailability } from '../operations/batch-sheet.tsx';
-import { RecordFormOpening } from '../record-form-opening.tsx';
+import { RecordFormOpening, focusFirstRefusal } from '../record-form-opening.tsx';
 import { productionStatusKey } from '../ops-format.ts';
 import { readNumber } from '../production-desk/completion-model.ts';
 import { serverFieldErrors } from '../server-field-errors.ts';
+import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
@@ -160,7 +162,13 @@ function ProductionBatchNew() {
      * once, as the initial state — the form is the person's from then on. Anything unreadable is
      * dropped rather than half-applied, so a mangled link opens an empty form, not a wrong one.
      */
-    const params = useLocalSearchParams<{ readonly recipe?: string; readonly runs?: string }>();
+    const params = useLocalSearchParams<{
+        readonly recipe?: string;
+        readonly runs?: string;
+        readonly returnTo?: string;
+    }>();
+    // Cancel steps back to wherever the form was opened from — the desk, or the planner.
+    const back = useReturnTo(params.returnTo, '/kitchen/production-desk');
     const handedRuns = (() => {
         const runs = typeof params.runs === 'string' ? readNumber(params.runs) : null;
         return runs !== null && runs > 0 ? params.runs : undefined;
@@ -237,7 +245,8 @@ function ProductionBatchNew() {
             ? 'kitchen:ops.production.plannedYieldLabel'
             : 'kitchen:ops.production.batchFactorLabel',
     );
-    const server = serverFieldErrors(failure, {
+    /** The fields a create can be refused on, in the order the form draws them. */
+    const createTargets: Readonly<Record<string, ServerFieldTarget>> = {
         recipe_version_id: {
             label: t('kitchen:ops.production.recipeLabel'),
             fieldId: 'kitchen-production-batch-new-recipe',
@@ -248,7 +257,8 @@ function ProductionBatchNew() {
             label: t('kitchen:ops.production.notesLabel'),
             fieldId: 'kitchen-production-batch-new-notes',
         },
-    });
+    };
+    const server = serverFieldErrors(failure, createTargets);
     const serverAmountError = server.errorFor('planned_yield') ?? server.errorFor('batch_factor');
 
     /*
@@ -414,6 +424,11 @@ function ProductionBatchNew() {
                     });
                     router.replace(`/kitchen/production-desk/${String(detail.order.id)}`);
                 },
+                // A refused create takes the reader to the first field the server named, as a
+                // blocked one does.
+                onError: (error) => {
+                    focusFirstRefusal(error, createTargets);
+                },
             },
         );
     };
@@ -483,9 +498,7 @@ function ProductionBatchNew() {
                             variant="secondary"
                             label={t('kitchen:editor.cancel')}
                             onPress={() => {
-                                guard.intercept(() => {
-                                    router.push('/kitchen/production-desk');
-                                });
+                                guard.intercept(back.leave);
                             }}
                         />
                         <Button
@@ -531,33 +544,36 @@ function ProductionBatchNew() {
 
             {/*
              * Said before anything is pressed, because it changes how many batches somebody opens:
-             * a draft claims nothing, and only confirming it does.
+             * a draft claims nothing, and only confirming it does. One band with any refusal.
              */}
-            <Callout
-                testID="kitchen-production-batch-new-note"
-                role="note"
-                tone="info"
-                title={t('kitchen:ops.production.newSubtitle')}
-                {...(fromPlanner && recipe !== null && amount !== ''
-                    ? {
-                          body: t('kitchen:ops.production.fromPlanner', {
-                              recipe: displayName(recipe.name, locale).value,
-                              runs: amount,
-                          }),
-                      }
-                    : {})}
-            />
-
-            {/* Gone once the banner names every refused field (BUG-06). */}
-            {failure === null || (server.unplaced === null && server.items.length > 0) ? null : (
+            <Stack space="xs" testID="kitchen-production-batch-new-notices">
                 <Callout
-                    testID="kitchen-production-batch-new-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:editor.saveError')}
-                    body={server.unplaced ?? failure.message}
+                    testID="kitchen-production-batch-new-note"
+                    role="note"
+                    tone="info"
+                    title={t('kitchen:ops.production.newSubtitle')}
+                    {...(fromPlanner && recipe !== null && amount !== ''
+                        ? {
+                              body: t('kitchen:ops.production.fromPlanner', {
+                                  recipe: displayName(recipe.name, locale).value,
+                                  runs: amount,
+                              }),
+                          }
+                        : {})}
                 />
-            )}
+
+                {/* Gone once the banner names every refused field (BUG-06). */}
+                {failure === null ||
+                (server.unplaced === null && server.items.length > 0) ? null : (
+                    <Callout
+                        testID="kitchen-production-batch-new-error"
+                        role="alert"
+                        tone="danger"
+                        title={t('kitchen:editor.saveError')}
+                        body={server.unplaced ?? failure.message}
+                    />
+                )}
+            </Stack>
 
             {/*
              * The form beside what it will make, where the *page* has room for both — the content
@@ -766,10 +782,6 @@ function ProductionBatchNew() {
                                         tone="warning"
                                         title={t(
                                             'kitchen:ops.production.draftOnTopTitle',
-                                            draftOnTop,
-                                        )}
-                                        body={t(
-                                            'kitchen:ops.production.draftOnTopBody',
                                             draftOnTop,
                                         )}
                                     />

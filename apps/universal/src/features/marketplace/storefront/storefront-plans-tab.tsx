@@ -7,6 +7,7 @@ import { Pressable, Text as RNText, View } from 'react-native';
 import { Eyebrow } from '../../../ui/eyebrow.tsx';
 import { cheapestVariant } from '../../catalogue/plan-catalogue.ts';
 import { formatMoney } from '../format.ts';
+import { useShopViewOnly } from '../shop-view-only.tsx';
 
 /**
  * The storefront's Plans tab — HealthZone `§isStorefront` `storeIsPlans`: one card, a heading row
@@ -38,6 +39,7 @@ export function StorefrontPlansTab({
     onChoose,
     onHowPlansWork,
 }: StorefrontPlansTabProps) {
+    const viewOnly = useShopViewOnly();
     const { t } = useTranslation();
     const formatter = useFormatter();
 
@@ -126,7 +128,11 @@ export function StorefrontPlansTab({
                                 testID={`kitchen-plan-${plan.slug}-choose`}
                                 size="sm"
                                 variant="primary"
-                                label={t('marketplace:storefront.plans.choose')}
+                                label={
+                                    viewOnly
+                                        ? t('catalogue:plans.viewPlanShort')
+                                        : t('marketplace:storefront.plans.choose')
+                                }
                                 accessibilityLabel={t('marketplace:storefront.plans.chooseLabel', {
                                     plan: plan.name,
                                 })}

@@ -1,3 +1,5 @@
+import { useLocalSearchParams } from 'expo-router';
+
 import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
 
 /** `/kitchen/packaging` — bags, boxes, lids and cutlery, and what each costs. */
@@ -8,5 +10,7 @@ const PackagingScreen = lazyScreen(
 );
 
 export default function KitchenPackaging() {
-    return <PackagingScreen />;
+    // `?view=`: the record whose page is open, so an editor sent from it comes back to it.
+    const { view } = useLocalSearchParams<{ view?: string }>();
+    return <PackagingScreen view={view} />;
 }

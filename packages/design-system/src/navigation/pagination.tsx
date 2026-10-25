@@ -142,7 +142,7 @@ export function Pagination({
      */
     const compact = density === 'compact';
     const boxClass = compact
-        ? 'h-control-xs items-center justify-center rounded-sm border px-control-xs'
+        ? 'h-control-xs items-center justify-center rounded border px-control-xs'
         : 'min-h-touch min-w-touch items-center justify-center rounded-md border px-3';
     const digitClass = compact ? 'text-role-caption' : 'text-sm';
     /*

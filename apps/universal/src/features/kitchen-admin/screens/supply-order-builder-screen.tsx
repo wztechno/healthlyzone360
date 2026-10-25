@@ -34,6 +34,7 @@ import { Platform, View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
     useCreatePurchaseOrdersMutation,
     useOrderProposalQuery,
@@ -195,6 +196,8 @@ function SupplyOrderBuilder() {
     const { locale } = useLocale();
     const formatter = useFormatter();
     const router = useRouter();
+    // Cancel steps back to wherever the builder was opened from — the book, or a batch's shortfall.
+    const back = useReturnTo(undefined, '/kitchen/supply-orders');
     const toast = useToast();
     const access = useAccessState();
 
@@ -704,9 +707,7 @@ function SupplyOrderBuilder() {
                             testID="kitchen-supply-order-builder-cancel"
                             variant="secondary"
                             label={t('kitchen:editor.cancel')}
-                            onPress={() => {
-                                router.push('/kitchen/supply-orders' as never);
-                            }}
+                            onPress={back.leave}
                         />
                         {loaded ? (
                             <Button
@@ -969,7 +970,7 @@ function SupplyOrderBuilder() {
                             note={
                                 plan.unassigned.length === 0 &&
                                 plan.excluded.length === 0 ? null : (
-                                    <Stack space="xs">
+                                    <Stack space="sm">
                                         {plan.unassigned.length === 0 ? null : (
                                             <Callout
                                                 testID="kitchen-supply-order-unassigned-warning"

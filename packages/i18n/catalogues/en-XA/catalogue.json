@@ -198,7 +198,7 @@
     "emptyBody": "[[Þłáñš áþþéáŕ ĥéŕé áš ķíţçĥéñš þúƀłíšĥ ţĥéɱ. Íƒ ýóú çĥóšé á ķíţçĥéñ, ţŕý áłł ķíţçĥéñš. āēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēīō]]",
     "ratingLabel": "[[Áṽéŕáĝé ŕáţíñĝ ƒóŕ {{plan}} āēīōūāēīōūā]]",
     "durationDays_one": "[[{{days}} ðáý āēīōū]]",
-    "durationDays_other": "[[{{days}} ðáýš āēīōū]]",
+    "durationDays_other": "[[{{days}} ðáýš āēīōūā]]",
     "durationWeeks_one": "[[{{weeks}} ŵééķ āēīōūā]]",
     "durationWeeks_other": "[[{{weeks}} ŵééķš āēīōūā]]",
     "durationDaysShort": "[[{{days}} ð āēīō]]",
@@ -267,6 +267,7 @@
     "count_one": "[[{{count}} þłáñ āēīōūā]]",
     "count_other": "[[{{count}} þłáñš āēīōūā]]",
     "choosePlanShort": "[[Çĥóóšé þłáñ āēīōū]]",
+    "viewPlanShort": "[[Ṽíéŵ þłáñ āēīō]]",
     "compareCount": "[[Çóɱþáŕé ({{selected}}) āēīōūāēīō]]"
   },
   "howPlans": {
@@ -479,8 +480,8 @@
     "configure": "[[Šéţ úþ þłáñ āēīōū]]",
     "configureSignIn": "[[Šíĝñ íñ ţó çóñƒíĝúŕé íţ āēīōūāēīōū]]",
     "priceTitle": "[[Þŕíçé āē]]",
-    "pricePerDay": "[[{{price}} á ðáý āēīōūāē]]",
-    "priceForRun": "[[{{price}} ƒóŕ {{run}} āēīōūāēī]]",
+    "pricePerDay": "[[{{price}} á ðáý āēīōūā]]",
+    "priceForRun": "[[{{price}} ƒóŕ {{run}} āēīōūāēīō]]",
     "noDurations": "[[Ţĥíš þłáñ ĥáš ñó łéñĝţĥ óñ šáłé ýéţ. āēīōūāēīōūāēīōū]]"
   },
   "diet": {

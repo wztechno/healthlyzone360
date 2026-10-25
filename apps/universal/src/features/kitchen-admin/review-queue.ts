@@ -215,19 +215,47 @@ function translationReason(name: LocalisedText): readonly ReviewReason[] {
  * Per-family builders
  * ---------------------------------------------------------------------------------------------- */
 
+/**
+ * Where an ingredient row is fixed, by its reference series — or `null` when it is not the
+ * ingredient library's to fix.
+ *
+ * The ingredients table holds three things: the library (`ING-`, and a kitchen's own rows before a
+ * code was issued), packaging (`PKG-`, with an editor of its own), and the row the import writes
+ * beside every sellable item (`SAC-` sauces, `DRS-` dressings, `PRD-`/`RSL-` products) so stock and
+ * cost can be read off it. That last kind is not a raw material: the ingredient list does not show
+ * it and its form has no category for a sauce. Its item is reviewed as itself — under Recipes or
+ * Products, where it is made — so the row is left out here rather than opened in the wrong form.
+ */
+function ingredientRowHref(row: IngredientAdmin): string | null {
+    const reference = row.reference ?? '';
+    if (reference === '' || reference.startsWith('ING-')) {
+        return editorHref('ingredients', String(row.id));
+    }
+    if (reference.startsWith('PKG-')) return `/kitchen/packaging/${String(row.id)}`;
+    return null;
+}
+
 export function ingredientReviewItems(rows: readonly IngredientAdmin[]): readonly ReviewItem[] {
     return rows.flatMap((row) => {
         const unverified = row.allergens.filter(
             (mapping) => mapping.verification === 'unverified',
         ).length;
 
-        const item = itemFrom('ingredients', String(row.id), row.reference, row.name, row.meta, [
-            ...quarantineReason(row.meta),
-            ...(unverified === 0
-                ? []
-                : [{ code: 'unverifiedAllergens' as const, count: unverified }]),
-            ...translationReason(row.name),
-        ]);
+        const item = itemFrom(
+            'ingredients',
+            String(row.id),
+            row.reference,
+            row.name,
+            row.meta,
+            [
+                ...quarantineReason(row.meta),
+                ...(unverified === 0
+                    ? []
+                    : [{ code: 'unverifiedAllergens' as const, count: unverified }]),
+                ...translationReason(row.name),
+            ],
+            ingredientRowHref(row),
+        );
         return item === null ? [] : [item];
     });
 }

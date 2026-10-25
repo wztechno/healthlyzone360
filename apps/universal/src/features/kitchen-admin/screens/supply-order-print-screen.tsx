@@ -11,13 +11,13 @@ import {
     Text,
 } from '@healthy360/design-system';
 import { PurchaseOrderId } from '@healthy360/domain-types';
-import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { usePurchaseOrdersQuery } from '../../../data/kitchen-ops-hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
 import { PrintSheet, usePrintSheet } from '../print-sheet.tsx';
 
@@ -109,7 +109,8 @@ export function parseOrderIds(raw: string | undefined): readonly PurchaseOrderId
 
 function SupplyOrderPrint({ orders }: SupplyOrderPrintScreenProps) {
     const { t } = useTranslation();
-    const router = useRouter();
+    // Back steps to the page the sheet was opened from; the book when it was opened directly.
+    const back = useReturnTo(undefined, '/kitchen/supply-orders').leave;
     const sheet = usePrintSheet();
 
     const ids = useMemo(() => parseOrderIds(orders), [orders]);
@@ -121,15 +122,12 @@ function SupplyOrderPrint({ orders }: SupplyOrderPrintScreenProps) {
         ids.length > 0,
     );
 
-    function back(): void {
-        router.push('/kitchen/supply-orders' as never);
-    }
-
     const backButton = (
         <Button
             testID="kitchen-supply-print-back"
             variant="secondary"
-            label={t('kitchen:ops.supplyOrders.backToOrders')}
+            // One step back — to the order the sheet was printed from, or the book.
+            label={t('kitchen:common.back')}
             onPress={back}
         />
     );
@@ -146,7 +144,6 @@ function SupplyOrderPrint({ orders }: SupplyOrderPrintScreenProps) {
                     // is none, which is a state that has to interrupt rather than sit quietly.
                     role="alert"
                     title={t('kitchen:ops.supplyOrders.print.nothingToPrintTitle')}
-                    body={t('kitchen:ops.supplyOrders.print.nothingToPrintBody')}
                     actions={backButton}
                 />
             </Stack>
@@ -226,30 +223,36 @@ function SupplyOrderPrint({ orders }: SupplyOrderPrintScreenProps) {
                     </Inline>
                 </Inline>
 
-                {sheet.mode === 'browser' ? null : (
-                    /*
-                     * §7: render the preview and explain where printing lives. The sheets below are
-                     * complete — a person can read an order off the phone in their hand and ring
-                     * the supplier from it — so the notice says that rather than apologising.
-                     */
-                    <Callout
-                        testID="kitchen-supply-print-native-notice"
-                        tone="info"
-                        title={t('kitchen:ops.supplyOrders.print.nativeUnavailableTitle')}
-                        body={t('kitchen:ops.supplyOrders.print.nativeUnavailableBody')}
-                    />
-                )}
+                {sheet.mode === 'browser' && (missing === 0 || sheets.length === 0) ? null : (
+                    <Stack space="xs" testID="kitchen-supply-print-notices">
+                        {sheet.mode === 'browser' ? null : (
+                            /*
+                             * §7: render the preview and say printing is not here. The sheets
+                             * below are complete — a person can read an order off the phone in
+                             * their hand and ring the supplier from it.
+                             */
+                            <Callout
+                                testID="kitchen-supply-print-native-notice"
+                                tone="info"
+                                title={t('kitchen:ops.supplyOrders.print.nativeUnavailableTitle')}
+                            />
+                        )}
 
-                {missing === 0 || sheets.length === 0 ? null : (
-                    // Suppressed when *nothing* was found: the empty state below already carries
-                    // that news along with the way out, and two warnings for one fact is noise.
-                    <Callout
-                        testID="kitchen-supply-print-missing"
-                        tone="warning"
-                        role="alert"
-                        title={t('kitchen:ops.supplyOrders.print.missingTitle')}
-                        body={t('kitchen:ops.supplyOrders.print.missing', { count: missing })}
-                    />
+                        {missing === 0 || sheets.length === 0 ? null : (
+                            // Suppressed when *nothing* was found: the empty state below already
+                            // carries that news with the way out, and two warnings for one fact
+                            // is noise.
+                            <Callout
+                                testID="kitchen-supply-print-missing"
+                                tone="warning"
+                                role="alert"
+                                title={t('kitchen:ops.supplyOrders.print.missingTitle')}
+                                body={t('kitchen:ops.supplyOrders.print.missing', {
+                                    count: missing,
+                                })}
+                            />
+                        )}
+                    </Stack>
                 )}
             </Stack>
 
@@ -259,7 +262,6 @@ function SupplyOrderPrint({ orders }: SupplyOrderPrintScreenProps) {
                     tone="warning"
                     role="alert"
                     title={t('kitchen:ops.supplyOrders.print.nothingToPrintTitle')}
-                    body={t('kitchen:ops.supplyOrders.print.nothingFoundBody')}
                     actions={backButton}
                 />
             ) : (

@@ -1,3 +1,4 @@
+import { SubscriptionPlanId } from '@healthy360/domain-types';
 import type { PlanAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import {
     Badge,
@@ -14,7 +15,7 @@ import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
@@ -26,6 +27,7 @@ import {
     useAdminPlanPageQuery,
     useAdminPlanWholeSetQuery,
     usePriceListsQuery,
+    useAdminPlanQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
@@ -53,9 +55,25 @@ import {
     summarisePlanPrices,
 } from '../format.ts';
 import type { PlanPriceCoverage } from '../format.ts';
-import { useListPage } from '../use-list-page.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import {
+    useListMemory,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedPage,
+    useRememberedQuery,
+    useRestoredPageFallback,
+} from '../list-memory.ts';
+import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+
+/** The plan `?view=` names, read on its own when the loaded page does not hold it. */
+function usePlanById(id: string | null) {
+    const parsed = SubscriptionPlanId.safeParse(id);
+    const record = useAdminPlanQuery(parsed);
+    return parsed === null ? RECORD_NOT_FOUND : record;
+}
 
 /**
  * `/kitchen/plans` — the plans this kitchen sells, and how much of each is decided (Commercial §3.3).
@@ -75,14 +93,14 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  * Archive stays on the editor, where `plans.retire*` already explains what it costs; the row offers
  * View and Edit.
  */
-export function PlansScreen() {
+export function PlansScreen({ view }: { readonly view?: string | undefined }) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
             testID="kitchen-plans"
         >
-            <PlansList />
+            <PlansList view={view} />
         </Gate>
     );
 }
@@ -90,16 +108,18 @@ export function PlansScreen() {
 const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'review_required'];
 type StatusSegmentValue = PublishableStatus | 'all';
 
-function PlansList() {
+function PlansList({ view }: { readonly view?: string | undefined }) {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
     const { locale } = useLocale();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
 
-    const [query, setQuery] = useState('');
-    const [status, setStatus] = useState<StatusSegmentValue>('all');
-    const [viewing, setViewing] = useState<PlanAdmin | null>(null);
+    // Search, status, page and the row last opened survive leaving the list for a plan.
+    const memory = useListMemory('kitchen.plans');
+    const [query, setQuery] = useRememberedQuery(memory);
+    const [status, setStatus] = useRememberedFilter<StatusSegmentValue>(memory, 'status', 'all');
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
 
     const trimmed = query.trim();
     const filter = useMemo(
@@ -109,12 +129,23 @@ function PlansList() {
         }),
         [trimmed, status],
     );
-    const [page, setPage] = useListPage(filter);
+    const [page, setPage] = useRememberedPage(memory, filter);
     const plans = useAdminPlanPageQuery(filter, page);
+    useRestoredPageFallback(memory, page, plans.isError, () => {
+        setPage(1);
+    });
     const wholeSet = useAdminPlanWholeSetQuery(filter);
     const priceLists = usePriceListsQuery({ limit: 100 });
 
     const rows = useMemo(() => plans.data?.items ?? [], [plans.data]);
+    // The open record is an address, `?view=`, so its editor can come back to it.
+    const { viewing, viewingId, setViewing } = useViewedRecord(
+        view,
+        rows,
+        (row) => String(row.id),
+        plans.isSuccess && !plans.isFetching,
+        { useLookup: usePlanById },
+    );
     const total = plans.data?.totalCount ?? null;
     const totalPages = pagesInResult(plans.data) ?? 0;
     const lists = priceListsFromPages(priceLists.data?.pages);
@@ -148,9 +179,16 @@ function PlansList() {
                   name: row.meta.updatedByName,
               })}`;
 
+    /** From the record's page, the editor's Cancel, Save and trail come back to it. */
     const openEditor = (row: PlanAdmin) => {
-        setViewing(null);
-        router.push(`/kitchen/plans/${String(row.id)}` as never);
+        const id = String(row.id);
+        rememberOpened(id);
+        router.push(
+            withReturnTo(
+                `/kitchen/plans/${id}`,
+                viewingId === id ? withQuery('/kitchen/plans', { view: id }) : null,
+            ) as never,
+        );
     };
 
     const columns: readonly ControlledColumn<PlanAdmin, CatalogueColumn<PlanAdmin>>[] = [
@@ -509,6 +547,7 @@ function PlansList() {
                         rows={controls.rows}
                         rowKey={(row) => String(row.id)}
                         density="sm"
+                        highlightedId={lastOpenedId}
                         onRowPress={openEditor}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={(row): readonly MenuItem[] => [
@@ -518,6 +557,7 @@ function PlansList() {
                                 icon: CATALOGUE_ROW_ICONS.view,
                                 testID: `${planRowTestId(String(row.id))}-view`,
                                 onSelect: () => {
+                                    rememberOpened(String(row.id));
                                     setViewing(row);
                                 },
                             },

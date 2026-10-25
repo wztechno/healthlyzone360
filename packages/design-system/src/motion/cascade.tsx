@@ -53,20 +53,27 @@ export interface CascadeProps extends StackProps {
      * `Cascade` placed directly in another is given this automatically.
      */
     readonly startIndex?: number | undefined;
+    /**
+     * Mounts already arrived: every band is drawn in place from its first frame. Read once, at
+     * mount. A `Cascade` placed directly in another is given this automatically when it appears
+     * after the enclosing page has arrived.
+     */
+    readonly immediate?: boolean | undefined;
     readonly children?: ReactNode;
 }
 
-export function Cascade({ startIndex = 0, children, ...stack }: CascadeProps) {
+export function Cascade({ startIndex = 0, immediate = false, children, ...stack }: CascadeProps) {
     const bands = flatten(children);
 
     /*
-     * The stagger orders the page's first arrival and nothing after it. A band that mounts later —
-     * a callout once a save lands, the next step's section — is answering something the reader
-     * just did, and holding it back behind a delay meant for the eighth band of a page load would
-     * read as lag. It still rises in, but at once. Set after the first commit, so a render that is
-     * thrown away before it commits still counts as the first arrival.
+     * The cascade orders the page's first arrival and nothing after it. A band that mounts later —
+     * a callout once a save lands, the next step's section, a list once its data arrives — is
+     * answering something the reader just did. Holding it back behind a delay would read as lag,
+     * and so would a rise and a fade: it is drawn in place at once, like everything already on the
+     * page. Set after the first commit, so a render that is thrown away before it commits still
+     * counts as the first arrival.
      */
-    const arrived = useRef(false);
+    const arrived = useRef(immediate);
     useEffect(() => {
         arrived.current = true;
     }, []);
@@ -82,7 +89,11 @@ export function Cascade({ startIndex = 0, children, ...stack }: CascadeProps) {
                  * continue this one's count.
                  */
                 if (isValidElement<CascadeProps>(node) && node.type === Cascade) {
-                    return cloneElement(node, { key, startIndex: place(index) });
+                    return cloneElement(node, {
+                        key,
+                        startIndex: place(index),
+                        immediate: arrived.current,
+                    });
                 }
                 /*
                  * A band that needs its box styled — a panel kept mounted but hidden, whose
@@ -90,10 +101,19 @@ export function Cascade({ startIndex = 0, children, ...stack }: CascadeProps) {
                  * `CascadeItem` of its own. It keeps its props and takes its place in the count.
                  */
                 if (isValidElement<CascadeItemProps>(node) && node.type === CascadeItem) {
-                    return cloneElement(node, { key, index: place(index) });
+                    return cloneElement(node, {
+                        key,
+                        index: place(index),
+                        immediate: arrived.current,
+                    });
                 }
                 return (
-                    <CascadeItem key={key} index={place(index)} className="web:empty:hidden">
+                    <CascadeItem
+                        key={key}
+                        index={place(index)}
+                        immediate={arrived.current}
+                        className="web:empty:hidden"
+                    >
                         {node}
                     </CascadeItem>
                 );
@@ -131,6 +151,12 @@ export interface CascadeItemProps {
      * the cascade assigns it, so a screen passing its own item can give any number.
      */
     readonly index: number;
+    /**
+     * Mounts settled: drawn in place, fully opaque, with no transform and no animation. Read once,
+     * at mount. Inside a `Cascade` the cascade sets it for every band that appears after the page's
+     * first arrival.
+     */
+    readonly immediate?: boolean | undefined;
     readonly distance?: MotionDistanceName | undefined;
     readonly duration?: DurationName | undefined;
     readonly className?: string | undefined;
@@ -146,11 +172,12 @@ export interface CascadeItemProps {
  * the live index would send every item below that change back through its arrival. An item that is
  * already on the page has already arrived.
  *
- * Under reduced motion the item is settled from its first frame: drawn in place, fully opaque, with
- * no transform, and nothing can leave it invisible.
+ * Under reduced motion, and when it mounts `immediate`, the item is settled from its first frame:
+ * drawn in place, fully opaque, with no transform, and nothing can leave it invisible.
  */
 export function CascadeItem({
     index,
+    immediate = false,
     distance = 'small',
     duration = 'slow',
     className,
@@ -160,8 +187,9 @@ export function CascadeItem({
     const { enabled, durations, distances, easing, stagger } = useMotion();
     const [delayMs] = useState(() => stagger(index));
     const progress = useRef(new Animated.Value(0)).current;
-    const [settled, setSettled] = useState(false);
-    const settledRef = useRef(false);
+    // Taken once, at mount, like the delay: an item that has arrived does not arrive again.
+    const [settled, setSettled] = useState(immediate);
+    const settledRef = useRef(immediate);
     const travel = distances[distance];
 
     useEffect(() => {

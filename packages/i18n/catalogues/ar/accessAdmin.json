@@ -178,9 +178,8 @@
     },
     "pages": {
         "levels": {
-            "none": "لا وصول",
-            "view": "يستطيع الاطلاع",
-            "manage": "يستطيع التغيير"
+            "view": "عرض",
+            "manage": "تعديل"
         },
         "alsoOpens": "يفتح أيضًا: {{pages}}",
         "unmappedHeading": "ممنوحة، ولا تظهر في أي صفحة",
@@ -207,7 +206,7 @@
         },
         "actions": {
             "view": "العرض",
-            "manage": "الإدارة",
+            "manage": "التعديل",
             "publish": "النشر",
             "viewCosts": "رؤية التكاليف",
             "other": "أخرى"

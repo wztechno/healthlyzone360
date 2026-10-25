@@ -20,7 +20,7 @@ import type { GridSpanProps } from '../primitives/grid-shared.ts';
  * inline style prop is correct — there is no Tailwind utility for it on a `TextInput`.
  *
  * Under `compact` the frame takes its height from `controlHeight` and its inset from
- * `controlPaddingX`, at a 4px corner; under `comfortable` it keeps the 44px floor and the 12px
+ * `controlPaddingX`, at an 8px corner; under `comfortable` it keeps the 44px floor and the 12px
  * corner the customer app ships. **The frame never states a width** — a field is 280px because
  * `FormGrid` says so, not because the input decided.
  */
@@ -69,10 +69,10 @@ const COMFORTABLE_FRAME_SIZE: Readonly<Record<InputSize, string>> = {
 };
 
 const COMPACT_FRAME_SIZE: Readonly<Record<InputSize, string>> = {
-    xs: 'h-control-xs gap-control-xs rounded-sm px-control-xs',
-    sm: 'h-control-sm gap-control-sm rounded-sm px-control-sm',
-    md: 'h-control-md gap-control-md rounded-sm px-control-md',
-    lg: 'h-control-lg gap-control-lg rounded-sm px-control-lg',
+    xs: 'h-control-xs gap-control-xs rounded px-control-xs',
+    sm: 'h-control-sm gap-control-sm rounded px-control-sm',
+    md: 'h-control-md gap-control-md rounded px-control-md',
+    lg: 'h-control-lg gap-control-lg rounded px-control-lg',
 };
 
 const FRAME_SIZE: Readonly<Record<Density, Readonly<Record<InputSize, string>>>> = {
@@ -97,10 +97,10 @@ const COMFORTABLE_MULTILINE_FRAME_SIZE: Readonly<Record<InputSize, string>> = {
 };
 
 const COMPACT_MULTILINE_FRAME_SIZE: Readonly<Record<InputSize, string>> = {
-    xs: 'min-h-control-xs gap-control-xs rounded-sm px-control-xs py-2',
-    sm: 'min-h-control-sm gap-control-sm rounded-sm px-control-sm py-2',
-    md: 'min-h-control-md gap-control-md rounded-sm px-control-md py-2',
-    lg: 'min-h-control-lg gap-control-lg rounded-sm px-control-lg py-2',
+    xs: 'min-h-control-xs gap-control-xs rounded px-control-xs py-2',
+    sm: 'min-h-control-sm gap-control-sm rounded px-control-sm py-2',
+    md: 'min-h-control-md gap-control-md rounded px-control-md py-2',
+    lg: 'min-h-control-lg gap-control-lg rounded px-control-lg py-2',
 };
 
 const MULTILINE_FRAME_SIZE: Readonly<Record<Density, Readonly<Record<InputSize, string>>>> = {

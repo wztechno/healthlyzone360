@@ -219,6 +219,17 @@ describe('FormIssueBanner', () => {
         expect(classes).toContain('bg-danger-subtle');
         expect(classes).not.toMatch(/(^|\s)border(\s|$)/);
     });
+
+    it('takes the full width, so it never shares a line with a button or another strip', async () => {
+        await renderWithI18n(
+            <FormIssueBanner testID="issues" tone="danger" summary="1 required" items={[]} />,
+        );
+
+        const classes: string[] = screen.getByTestId('issues').props.className.split(' ');
+        expect(classes).toContain('w-full');
+        expect(classes).not.toContain('self-start');
+        expect(classes).toContain('min-h-8');
+    });
 });
 
 describe('FormIssueScope', () => {
@@ -234,7 +245,16 @@ describe('FormIssueScope', () => {
         />
     );
 
-    it('quiets the field a chip names, and keeps its message for assistive technology', async () => {
+    /** The field's message as the reader sees it: drawn, and announced. */
+    function expectShown(testID: string, text: string) {
+        const message = screen.getByTestId(testID);
+        expect(message).toHaveTextContent(text);
+        expect(message.props.className).not.toContain('opacity-0');
+        expect(message.props.className).not.toContain('absolute');
+        expect(message.props.accessibilityRole).toBe('alert');
+    }
+
+    it('leaves the message under a field even when a banner chip names it', async () => {
         await renderWithI18n(
             <FormIssueScope>
                 {banner('price')}
@@ -242,16 +262,12 @@ describe('FormIssueScope', () => {
             </FormIssueScope>,
         );
 
-        const message = screen.getByTestId('price-error');
-        // Still the control's description, still the same words…
-        expect(message).toHaveTextContent('Required');
-        expect(message.props.nativeID).toBe('price-error');
+        // The banner counts and points; the field still says what is wrong with it.
+        expect(screen.getByTestId('issues-price')).toBeTruthy();
+        expectShown('price-error', 'Required');
+        expect(screen.getByTestId('price-error').props.nativeID).toBe('price-error');
         expect(screen.getByTestId('price-input').props['aria-describedby']).toBe('price-error');
         expect(screen.getByTestId('price-input').props['aria-invalid']).toBe(true);
-        // …but drawn nowhere, and no second alert beside the banner's.
-        expect(message.props.className).toContain('opacity-0');
-        expect(message.props.role).toBeUndefined();
-        expect(message.props.accessibilityRole).toBeUndefined();
     });
 
     it('leaves a field no chip names saying what is wrong with it', async () => {
@@ -262,32 +278,39 @@ describe('FormIssueScope', () => {
             </FormIssueScope>,
         );
 
-        const message = screen.getByTestId('price-error');
-        expect(message.props.accessibilityRole).toBe('alert');
-        expect(message.props.className).not.toContain('opacity-0');
+        expectShown('price-error', 'Required');
     });
 
-    it('changes nothing outside a scope', async () => {
+    it('shows a named field’s warning too', async () => {
         await renderWithI18n(
+            <FormIssueScope>
+                <FormIssueBanner
+                    testID="cautions"
+                    tone="warning"
+                    summary="1 warning"
+                    items={[{ key: 'waste', label: 'Waste', fieldId: 'waste', onPress: jest.fn() }]}
+                />
+                <TextInputField testID="waste" id="waste" label="Waste" warning="Above 10%" />
+            </FormIssueScope>,
+        );
+
+        const message = screen.getByTestId('waste-warning');
+        expect(message).toHaveTextContent('Above 10%');
+        expect(message.props.className).not.toContain('opacity-0');
+        expect(message.props.role).toBe('status');
+    });
+
+    it('changes nothing outside a scope, nor when the banner goes', async () => {
+        const view = await renderWithI18n(
             <>
                 {banner('price')}
                 {priceField}
             </>,
         );
+        expectShown('price-error', 'Required');
 
-        expect(screen.getByTestId('price-error').props.accessibilityRole).toBe('alert');
-    });
-
-    it('gives the message back when the banner goes', async () => {
-        const view = await renderWithI18n(
-            <FormIssueScope>
-                {banner('price')}
-                {priceField}
-            </FormIssueScope>,
-        );
         await view.rerender(withI18n(<FormIssueScope>{priceField}</FormIssueScope>));
-
-        expect(screen.getByTestId('price-error').props.accessibilityRole).toBe('alert');
+        expectShown('price-error', 'Required');
     });
 });
 

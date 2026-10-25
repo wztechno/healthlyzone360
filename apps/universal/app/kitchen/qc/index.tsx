@@ -1,3 +1,5 @@
+import { useLocalSearchParams } from 'expo-router';
+
 import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
 
 const QualityControlScreen = lazyScreen(
@@ -7,5 +9,7 @@ const QualityControlScreen = lazyScreen(
 );
 
 export default function KitchenQc() {
-    return <QualityControlScreen />;
+    // `?view=`: the record whose page is open, so an editor sent from it comes back to it.
+    const { view } = useLocalSearchParams<{ view?: string }>();
+    return <QualityControlScreen view={view} />;
 }

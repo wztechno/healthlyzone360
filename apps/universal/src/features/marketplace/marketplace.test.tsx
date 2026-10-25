@@ -65,6 +65,8 @@ import { HowItWorksScreen } from './screens/how-it-works-screen.tsx';
 import { KitchenMenuScreen } from './screens/kitchen-menu-screen.tsx';
 import { KitchenProfileScreen } from './screens/kitchen-profile-screen.tsx';
 import { KitchensScreen } from './screens/kitchens-screen.tsx';
+import { MealCard } from './meal-card.tsx';
+import { ShopViewOnlyProvider } from './shop-view-only.tsx';
 import type * as ShownShelves from '../catalogue/shown-shelves.ts';
 
 /**
@@ -2083,7 +2085,7 @@ describe('ConsumerShell', () => {
         expect(routerMock.__push).toHaveBeenCalledWith('/workspace');
     });
 
-    it('gives staff a second icon, to their staff profile', async () => {
+    it('gives staff a view-only shop: Workspaces and Sign out, no basket or account', async () => {
         await renderStubScreen(
             <ConsumerShell unguarded>
                 <></>
@@ -2091,12 +2093,39 @@ describe('ConsumerShell', () => {
             { session: kitchenManagerSession() },
         );
 
-        await fireEvent.press(await screen.findByTestId('marketplace-staff-profile'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/profile');
-        // Kitchen staff are not business customers.
+        await fireEvent.press(await screen.findByTestId('marketplace-workspaces-button'));
+        expect(routerMock.__push).toHaveBeenCalledWith('/workspace');
+        expect(screen.getByTestId('marketplace-sign-out')).toBeTruthy();
+        expect(screen.getByTestId('locale-toggle')).toBeTruthy();
+        expect(screen.getByTestId('theme-toggle')).toBeTruthy();
+        // Everything a customer does is gone.
+        expect(screen.queryByTestId('marketplace-basket')).toBeNull();
+        expect(screen.queryByTestId('marketplace-account')).toBeNull();
+        expect(screen.queryByTestId('marketplace-staff-profile')).toBeNull();
+        // The bar's button is the way back, so the menu carries no second one.
         await fireEvent.press(screen.getByTestId('marketplace-shell-menu'));
         expect(screen.queryByTestId('marketplace-workspaces')).toBeNull();
         expect(screen.queryByTestId('prototype-notice')).toBeNull();
+    });
+});
+
+describe('the shop’s staff view', () => {
+    const meal = MEALS[0]!;
+    const card = (viewOnly: boolean) => (
+        <ShopViewOnlyProvider value={viewOnly}>
+            <MealCard meal={meal} onPress={jest.fn()} onAdd={jest.fn()} />
+        </ShopViewOnlyProvider>
+    );
+
+    it('keeps Add on a meal card for a customer', async () => {
+        await renderStubScreen(card(false));
+        expect(screen.getByTestId(`meal-card-${meal.slug}-add`)).toBeTruthy();
+    });
+
+    it('drops Add from a meal card for staff, leaving the card to show', async () => {
+        await renderStubScreen(card(true));
+        expect(screen.queryByTestId(`meal-card-${meal.slug}-add`)).toBeNull();
+        expect(screen.getByText(meal.name)).toBeTruthy();
     });
 });
 

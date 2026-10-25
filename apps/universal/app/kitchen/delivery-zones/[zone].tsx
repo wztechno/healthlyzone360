@@ -18,6 +18,7 @@ const DeliveryZoneEditScreen = lazyScreen(
 );
 
 export default function KitchenDeliveryZoneEditor() {
-    const { zone } = useLocalSearchParams<{ zone?: string }>();
-    return <DeliveryZoneEditScreen zone={zone} />;
+    // `?returnTo=`: the page that sent the reader here — the zone list, on this zone's view.
+    const { zone, returnTo } = useLocalSearchParams<{ zone?: string; returnTo?: string }>();
+    return <DeliveryZoneEditScreen zone={zone} returnTo={returnTo} />;
 }

@@ -2106,22 +2106,6 @@ function OrderDeskQueueList() {
                 </View>
             </View>
 
-            {/*
-             * Offline, the poll stops (see the query options above) and the rows on screen are the
-             * last copy that arrived. Said once, at the top, so an agent does not quote a driver's
-             * position that stopped updating five minutes ago.
-             */}
-            {online ? null : (
-                <Callout
-                    testID="kitchen-order-desk-offline"
-                    tone="warning"
-                    role="status"
-                    icon="offline"
-                    title={t('kitchen:desk.offlineTitle')}
-                    body={t('kitchen:desk.offlineBody')}
-                />
-            )}
-
             {queue.isPending ? (
                 <TableSkeleton
                     testID="kitchen-order-desk-loading"

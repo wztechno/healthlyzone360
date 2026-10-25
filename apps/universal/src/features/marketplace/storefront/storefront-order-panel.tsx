@@ -14,6 +14,7 @@ import { deliveryTerms, pickupBranches } from '../storefront-facts.ts';
 
 import type { KitchenClock } from './storefront-today.ts';
 import { deliveryMinutesRange, minutesUntil } from './storefront-today.ts';
+import { useShopViewOnly } from '../shop-view-only.tsx';
 
 /** Which way an order leaves the kitchen. Drives the figures the panel states. */
 type StorefrontMode = 'delivery' | 'pickup';
@@ -56,6 +57,8 @@ export function StorefrontOrderPanel({
     onStartOrder,
     onSeePlans,
 }: StorefrontOrderPanelProps) {
+    // Staff view the storefront and start no order (`shop-view-only.tsx`).
+    const viewOnly = useShopViewOnly();
     const { t } = useTranslation();
     const formatter: Formatter = useFormatter();
 
@@ -200,13 +203,15 @@ export function StorefrontOrderPanel({
             </View>
 
             <View className="mt-1 flex-col gap-3">
-                <Button
-                    testID="kitchen-view-menu"
-                    block
-                    size="lg"
-                    label={t('marketplace:storefront.order.start')}
-                    onPress={onStartOrder}
-                />
+                {viewOnly ? null : (
+                    <Button
+                        testID="kitchen-view-menu"
+                        block
+                        size="lg"
+                        label={t('marketplace:storefront.order.start')}
+                        onPress={onStartOrder}
+                    />
+                )}
                 <Button
                     testID="kitchen-see-plans"
                     block

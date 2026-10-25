@@ -25,6 +25,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
     usePostGoodsReceiptMutation,
     useReceivableOrdersQuery,
@@ -38,6 +39,10 @@ import {
     applyScan,
     exceedsOutstanding,
     initialLines,
+    lotCheckPending,
+    lotIsReadable,
+    readAmount,
+    readQuantity,
     readiness,
     toReceiptPayload,
     todayIsoDate,
@@ -50,6 +55,10 @@ import type {
 } from '../receive-delivery-model.ts';
 import { ReceiveLineTrace } from '../receive-line-trace.tsx';
 import { ReceiveScanBar } from '../receive-scan-bar.tsx';
+import { focusFirstRefusal } from '../record-form-opening.tsx';
+import { serverFieldErrors } from '../server-field-errors.ts';
+import type { ServerFieldTarget } from '../server-field-errors.ts';
+import { readQuantity as readOrderQuantity } from '../supply-order-model.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -118,10 +127,23 @@ export function ReceiveDeliveryScreen({ order }: ReceiveDeliveryScreenProps) {
 /** The one currency a delivery's prices are booked in — see the procurement screen for why. */
 const RECEIPT_CURRENCY = 'USD';
 
+/** The ids Post and a server refusal take the reader to. */
+const DOCUMENT_REF_ID = 'kitchen-receive-document-ref';
+const INVOICE_REF_ID = 'kitchen-receive-invoice-ref';
+const OVER_CONFIRM_ID = 'kitchen-receive-over-confirm';
+const VARIANCE_NOTE_ID = 'kitchen-receive-variance-note';
+const CLOSE_SHORT_REASON_ID = 'kitchen-receive-close-short-reason';
+
+function lineFieldId(index: number, field: 'quantity' | 'price' | 'trace'): string {
+    return `kitchen-receive-line-${String(index)}-${field}`;
+}
+
 function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
+    // Back steps to wherever the delivery was opened from — the order, or procurement.
+    const back = useReturnTo(undefined, '/kitchen/procurement');
     const toast = useToast();
     const access = useAccessState();
     const branchId = access.branch?.id ?? null;
@@ -149,6 +171,11 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
     }, [lines]);
     const [chargesOpen, setChargesOpen] = useState(false);
     const [confirming, setConfirming] = useState(false);
+    // Blanks that have to be filled are marked once Post has been pressed, and live from then on.
+    const [attempted, setAttempted] = useState(false);
+    // The rows the last post sent, by their place on screen: the server names a line by its
+    // place in what was posted, and rows at nothing are left out of that.
+    const [postedIndexes, setPostedIndexes] = useState<readonly number[]>([]);
 
     const [header, setHeader] = useState<ReceiveHeaderDraft>(() => ({
         receivedOn: todayIsoDate(),
@@ -261,9 +288,131 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
         }
     }
 
+    /*
+     * What stops the post, field by field, in the order the form reads. A value typed wrong is
+     * marked as it is typed; a blank that has to be filled waits for Post. Every gate `readiness`
+     * holds the post on is one entry here, so Post never refuses without taking you somewhere.
+     */
+    const quantityErrors = new Map<number, string>();
+    const priceErrors = new Map<number, string>();
+    const problems: { readonly key: string; readonly fieldId?: string | undefined }[] = [];
+    lines.forEach((line, index) => {
+        if (line.quantity.trim() !== '' && readQuantity(line.quantity) === null) {
+            const issue = readOrderQuantity(line.quantity).issue;
+            quantityErrors.set(
+                index,
+                t(
+                    `kitchen:ops.supplyOrders.quantityIssue.${
+                        issue === null || issue === 'blank' || issue === 'zero'
+                            ? 'notANumber'
+                            : issue
+                    }`,
+                ),
+            );
+            problems.push({
+                key: `quantity-${String(index)}`,
+                fieldId: lineFieldId(index, 'quantity'),
+            });
+        }
+        if (line.unitPrice.trim() !== '' && readAmount(line.unitPrice) === null) {
+            priceErrors.set(index, t('kitchen:ops.procurement.lineUnitPriceInvalid'));
+            problems.push({ key: `price-${String(index)}`, fieldId: lineFieldId(index, 'price') });
+        }
+        // Lots matter only on a row that posts. The lot field says what is wrong with it; it has
+        // no id of its own to be taken to.
+        if ((readQuantity(line.quantity) ?? 0) <= 0) return;
+        if (!lotIsReadable(line.supplierLot)) problems.push({ key: `lot-${String(index)}` });
+        if (lotCheckPending(line)) {
+            problems.push({
+                key: `lot-check-${String(index)}`,
+                fieldId: `${lineFieldId(index, 'trace')}-lot-checked`,
+            });
+        }
+    });
+    const nothingDelivered = lines.length > 0 && state.deliveredLineCount === 0;
+    if (nothingDelivered && quantityErrors.size === 0) {
+        problems.push({ key: 'nothing', fieldId: lineFieldId(0, 'quantity') });
+        if (attempted) quantityErrors.set(0, t('kitchen:forms.lineQuantityMissing'));
+    }
+    const overUnconfirmed = state.hasOverReceipt && !confirmations.overReceiptConfirmed;
+    if (overUnconfirmed) problems.push({ key: 'over', fieldId: OVER_CONFIRM_ID });
+    if (state.needsVarianceNote) problems.push({ key: 'note', fieldId: VARIANCE_NOTE_ID });
+    if (state.needsCloseShortReason) {
+        problems.push({ key: 'close-short', fieldId: CLOSE_SHORT_REASON_ID });
+    }
+
+    /*
+     * What the server refused, put on the fields it named (BUG-06): a line by its place in what
+     * was posted, the paperwork and the confirmations by name — in the order the form draws them.
+     */
+    const serverTargets = (indexes: readonly number[]): Record<string, ServerFieldTarget> => {
+        const targets: Record<string, ServerFieldTarget> = {
+            document_ref: {
+                label: t('kitchen:ops.receiving.fieldDocumentRef'),
+                fieldId: DOCUMENT_REF_ID,
+            },
+            supplier_invoice_ref: {
+                label: t('kitchen:ops.receiving.fieldInvoiceRef'),
+                fieldId: INVOICE_REF_ID,
+            },
+        };
+        indexes.forEach((index, posted) => {
+            const unit = lines[index]?.unitCode ?? '';
+            targets[`lines.${String(posted)}.quantity`] = {
+                label: t('kitchen:ops.receiving.fieldLineQuantity', { unit }),
+                fieldId: lineFieldId(index, 'quantity'),
+            };
+            targets[`lines.${String(posted)}.unit_price_amount`] = {
+                label: t('kitchen:ops.receiving.fieldLineUnitPrice', {
+                    currency: RECEIPT_CURRENCY,
+                }),
+                fieldId: lineFieldId(index, 'price'),
+            };
+        });
+        return {
+            ...targets,
+            over_receipt_confirmed: {
+                label: t('kitchen:ops.receiving.overReceiptConfirm'),
+                fieldId: OVER_CONFIRM_ID,
+            },
+            variance_note: {
+                label: t('kitchen:ops.receiving.fieldVarianceNote'),
+                fieldId: VARIANCE_NOTE_ID,
+            },
+            close_short_reason: {
+                label: t('kitchen:ops.receiving.fieldCloseShortReason'),
+                fieldId: CLOSE_SHORT_REASON_ID,
+            },
+        };
+    };
+    const postFailure = toFailure(postReceipt.error);
+    const server = serverFieldErrors(postFailure, serverTargets(postedIndexes));
+    const serverLineError = (
+        index: number,
+        field: 'quantity' | 'unit_price_amount',
+    ): string | undefined => {
+        const posted = postedIndexes.indexOf(index);
+        return posted === -1 ? undefined : server.errorFor(`lines.${String(posted)}.${field}`);
+    };
+
+    function attemptPost() {
+        setAttempted(true);
+        if (problems.length > 0 || !state.canSubmit) {
+            // Each field says what is wrong with it; Post takes the reader to the first.
+            const first = problems.find((problem) => problem.fieldId !== undefined);
+            if (first?.fieldId !== undefined) focusField(first.fieldId);
+            return;
+        }
+        setConfirming(true);
+    }
+
     function submit() {
         if (branchId === null || selectedOrder === null || !state.canSubmit) return;
 
+        const posted = lines.flatMap((line, index) =>
+            (readQuantity(line.quantity) ?? 0) > 0 ? [index] : [],
+        );
+        setPostedIndexes(posted);
         postReceipt.mutate(
             toReceiptPayload(lines, {
                 branchId,
@@ -294,6 +443,10 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                             message: t('kitchen:ops.receiving.unpricedToast'),
                         });
                     }
+                },
+                // A refusal that names a field closes the confirmation and takes the reader there.
+                onError: (error) => {
+                    if (focusFirstRefusal(error, serverTargets(posted))) setConfirming(false);
                 },
             },
         );
@@ -335,15 +488,12 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                 }
                 guard={guard}
                 concurrency={concurrency}
-                onSaveDraft={() => {
-                    setConfirming(true);
-                }}
+                onSaveDraft={attemptPost}
                 saveLabel={t('kitchen:ops.receiving.post')}
-                saveDisabled={branchId === null || selectedOrder === null || !state.canSubmit}
+                // A problem on the form does not disable Post: pressing it takes you there.
+                saveDisabled={branchId === null || selectedOrder === null}
                 hideSave={selectedOrder === null}
-                onBack={() => {
-                    router.push('/kitchen/procurement' as never);
-                }}
+                onBack={back.leave}
                 backLabel={t('kitchen:ops.receiving.backToProcurement')}
             >
                 {orders.isPending ? (
@@ -420,6 +570,8 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                         />
                                         <TextInputField
                                             testID="kitchen-receive-document-ref"
+                                            id={DOCUMENT_REF_ID}
+                                            {...server.flag('document_ref')}
                                             label={t('kitchen:ops.receiving.fieldDocumentRef')}
                                             placeholder={t(
                                                 'kitchen:ops.receiving.documentRefPlaceholder',
@@ -435,6 +587,8 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                         />
                                         <TextInputField
                                             testID="kitchen-receive-invoice-ref"
+                                            id={INVOICE_REF_ID}
+                                            {...server.flag('supplier_invoice_ref')}
                                             label={t('kitchen:ops.receiving.fieldInvoiceRef')}
                                             hint={t('kitchen:ops.receiving.fieldInvoiceRefHint')}
                                             placeholder={t(
@@ -500,7 +654,11 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                 <Inline space="sm" align="start" wrap>
                                                     <TextInputField
                                                         testID={`kitchen-receive-line-${String(index)}-quantity`}
-                                                        id={`kitchen-receive-line-${String(index)}-quantity`}
+                                                        id={lineFieldId(index, 'quantity')}
+                                                        error={
+                                                            quantityErrors.get(index) ??
+                                                            serverLineError(index, 'quantity')
+                                                        }
                                                         label={t(
                                                             'kitchen:ops.receiving.fieldLineQuantity',
                                                             { unit: line.unitCode },
@@ -528,6 +686,14 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                      */}
                                                     <TextInputField
                                                         testID={`kitchen-receive-line-${String(index)}-price`}
+                                                        id={lineFieldId(index, 'price')}
+                                                        error={
+                                                            priceErrors.get(index) ??
+                                                            serverLineError(
+                                                                index,
+                                                                'unit_price_amount',
+                                                            )
+                                                        }
                                                         label={t(
                                                             'kitchen:ops.receiving.fieldLineUnitPrice',
                                                             { currency: RECEIPT_CURRENCY },
@@ -587,11 +753,16 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                             title={t('kitchen:ops.receiving.overReceiptTitle')}
                                         >
                                             <Stack space="sm">
-                                                <Text>
-                                                    {t('kitchen:ops.receiving.overReceiptBody')}
-                                                </Text>
                                                 <Checkbox
                                                     testID="kitchen-receive-over-confirm"
+                                                    id={OVER_CONFIRM_ID}
+                                                    {...(attempted && overUnconfirmed
+                                                        ? {
+                                                              error: t(
+                                                                  'kitchen:ops.procurement.issueOverReceipt',
+                                                              ),
+                                                          }
+                                                        : server.flag('over_receipt_confirmed'))}
                                                     checked={confirmations.overReceiptConfirmed}
                                                     label={t(
                                                         'kitchen:ops.receiving.overReceiptConfirm',
@@ -610,6 +781,10 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                     {state.hasOverReceipt || state.hasUnplannedLine ? (
                                         <TextInputField
                                             testID="kitchen-receive-variance-note"
+                                            id={VARIANCE_NOTE_ID}
+                                            {...(attempted && state.needsVarianceNote
+                                                ? { error: t('kitchen:forms.required') }
+                                                : server.flag('variance_note'))}
                                             label={t('kitchen:ops.receiving.fieldVarianceNote')}
                                             placeholder={t(
                                                 'kitchen:ops.receiving.varianceNotePlaceholder',
@@ -644,6 +819,10 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                             {confirmations.closeShort ? (
                                                 <TextInputField
                                                     testID="kitchen-receive-close-short-reason"
+                                                    id={CLOSE_SHORT_REASON_ID}
+                                                    {...(attempted && state.needsCloseShortReason
+                                                        ? { error: t('kitchen:forms.required') }
+                                                        : server.flag('close_short_reason'))}
                                                     label={t(
                                                         'kitchen:ops.receiving.fieldCloseShortReason',
                                                     )}
@@ -729,10 +908,11 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                         ) : null}
                                     </Stack>
 
-                                    {postReceipt.error === null ? null : (
+                                    {/* Gone once every refused field carries its own message. */}
+                                    {postFailure === null ||
+                                    (server.unplaced === null && server.items.length > 0) ? null : (
                                         <Text testID="kitchen-receive-error-message" tone="danger">
-                                            {toFailure(postReceipt.error)?.message ??
-                                                t('kitchen:ops.receiving.postFailed')}
+                                            {server.unplaced ?? postFailure.message}
                                         </Text>
                                     )}
                                 </FormSection>

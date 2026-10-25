@@ -10,6 +10,7 @@ import { PillChip } from '../../../ui/pill-chip.tsx';
 
 import type { KitchenClock, ScheduleEvent, ScheduleStatus } from './storefront-today.ts';
 import { daySchedule, minutesUntil, scheduleStatus, windowsOn } from './storefront-today.ts';
+import { useShopViewOnly } from '../shop-view-only.tsx';
 
 /**
  * The storefront's "Today in the kitchen" tab — HealthZone `§isStorefront` `storeIsToday`: the
@@ -89,6 +90,8 @@ export function StorefrontTodayTab({
     cutOff,
     onPickFromMenu,
 }: StorefrontTodayTabProps) {
+    // Staff view the storefront and start no order (`shop-view-only.tsx`).
+    const viewOnly = useShopViewOnly();
     const { t } = useTranslation();
     const formatter = useFormatter();
     const { atLeast } = useBreakpoint();
@@ -284,15 +287,17 @@ export function StorefrontTodayTab({
                             ))}
                         </View>
                     )}
-                    <View className="mt-auto pt-2">
-                        <Button
-                            testID="kitchen-today-pick"
-                            block
-                            size="lg"
-                            label={t('marketplace:storefront.today.cutoff.pick')}
-                            onPress={onPickFromMenu}
-                        />
-                    </View>
+                    {viewOnly ? null : (
+                        <View className="mt-auto pt-2">
+                            <Button
+                                testID="kitchen-today-pick"
+                                block
+                                size="lg"
+                                label={t('marketplace:storefront.today.cutoff.pick')}
+                                onPress={onPickFromMenu}
+                            />
+                        </View>
+                    )}
                 </View>
             </View>
         </View>

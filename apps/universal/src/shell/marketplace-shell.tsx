@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { Platform, Pressable, Text as RNText, TextInput, View } from 'react-native';
 
 import { recordResumeIntent } from '../features/marketplace/resume-intent.ts';
+import { useLogoutMutation } from '../data/hooks.ts';
 import { useCartQuery } from '../data/marketplace-hooks.ts';
 import { isPathAvailable } from '../features/availability.ts';
 import {
@@ -32,6 +33,7 @@ import { useBasketAdd } from '../features/commerce/use-basket-add.tsx';
 import type { BasketAdd } from '../features/commerce/use-basket-add.tsx';
 import { requestMenuSearchFocus } from '../features/catalogue/menu-search-focus.ts';
 import { QUERY_PARAM } from '../features/marketplace/filter-bar.tsx';
+import { ShopViewOnlyProvider, isShopViewOnly } from '../features/marketplace/shop-view-only.tsx';
 import { marketplaceNavigation } from '../navigation/consumer-items.ts';
 import { availableWorkspaceAreas } from '../navigation/items.ts';
 import { withQuery } from '../navigation/return-to.ts';
@@ -179,6 +181,9 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
     const { phase, me } = useSession();
     const accessState = useAccessState();
     const signedIn = phase !== 'anonymous' && phase !== 'restoring';
+    /** Staff look at the shop as customers see it, and act on nothing (`shop-view-only.tsx`). */
+    const viewOnly = signedIn && isShopViewOnly(accessState);
+    const logout = useLogoutMutation();
     // Count only while signed in: `getCart` opens a basket lazily, and an anonymous visit must not
     // create one just to paint a zero. A signed-out Add asks the person to sign in first, and the
     // add is made here once they have (`usePendingAddReplay`).
@@ -246,7 +251,8 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                      * it is labelled in the bar and still reachable from the phone menu, where the
                      * bar has no room. `/workspace` picks the organisation first when none is.
                      */
-                    businessCustomer
+                    // Staff have the Workspaces button in the bar instead.
+                    businessCustomer && !viewOnly
                         ? [
                               {
                                   key: 'workspaces',
@@ -261,7 +267,7 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                           ]
                         : [],
                 ),
-        [businessCustomer, navigateTo, pathname, router, t],
+        [businessCustomer, navigateTo, pathname, router, t, viewOnly],
     );
 
     /*
@@ -511,6 +517,39 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
     );
 
     /*
+     * Staff, viewing the shop: the way back to the workspace page, and Sign out — in place of the
+     * account, the staff profile and the basket, which are a customer's. Labelled buttons at every
+     * width: they are the only two things staff do here.
+     */
+    const staffControls = (
+        <>
+            <Button
+                testID="marketplace-workspaces-button"
+                size="sm"
+                variant="secondary"
+                label={t('marketplace:nav.workspaces')}
+                onPress={() => {
+                    router.push('/workspace' as never);
+                }}
+            />
+            <Button
+                testID="marketplace-sign-out"
+                size="sm"
+                variant="quiet"
+                label={t('common:action.signOut')}
+                loading={logout.isPending}
+                onPress={() => {
+                    logout.mutate(undefined, {
+                        onSuccess: () => {
+                            router.replace('/sign-in' as never);
+                        },
+                    });
+                }}
+            />
+        </>
+    );
+
+    /*
      * One line from `xl`. A wrapping row breaks a line *before* it lets a child shrink, so at 1280px
      * the search dropped onto a second line at full width instead of narrowing. From `xl` the bar
      * keeps the destinations on one line (see `AppShell`), and the search — which is `min-w-0
@@ -536,7 +575,9 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                 <View className="hidden lg:flex">
                     <ThemeToggle />
                 </View>
-                {signedIn ? (
+                {viewOnly ? (
+                    staffControls
+                ) : signedIn ? (
                     <>
                         {staffProfileButton === null ? null : (
                             <View className="hidden lg:flex">{staffProfileButton}</View>
@@ -659,7 +700,7 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
             onContentSizeChange={scrollPlace.onContentSizeChange}
             onContentLayout={scrollPlace.onContentLayout}
         >
-            {children}
+            <ShopViewOnlyProvider value={viewOnly}>{children}</ShopViewOnlyProvider>
             {/* The replayed add's own question, when the basket holds another kitchen's meals. */}
             {replayBasket.dialog}
         </AppShell>

@@ -124,6 +124,9 @@ jest.mock('expo-router', () => {
             replace,
             setParams: jest.fn(),
             back: jest.fn(),
+            // No history in a suite: the zone editor's Cancel and finished save open the list.
+            canGoBack: () => false,
+            dismissTo: jest.fn(),
             prefetch: jest.fn(),
         }),
         usePathname: () => '/kitchen/delivery-zones',
@@ -167,12 +170,11 @@ async function openZoneStep(step: 'zone' | 'areas' | 'windows') {
     });
 }
 
-/** Walks to the last step and presses the one save the wizard has. */
+/** Presses the one save the editor has: in the header, on every step. */
 async function saveZone() {
-    await openZoneStep('windows');
-    await untilVisible('kitchen-zone-windows-save');
+    await untilVisible('kitchen-zone-editor-screen-save');
     await act(async () => {
-        fireEvent.press(screen.getByTestId('kitchen-zone-windows-save'));
+        fireEvent.press(screen.getByTestId('kitchen-zone-editor-screen-save'));
     });
 }
 
@@ -1126,8 +1128,7 @@ describe('the delivery-zone editor', () => {
             expect(stored.deliveryFeeMinor).toBeNull();
         });
 
-        // And a typed zero is a zero, not another absence. The save left the wizard on its last
-        // step, so this walks back to the zone before typing it.
+        // And a typed zero is a zero, not another absence.
         await openZoneStep('zone');
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-zone-fee-input'), '0');
@@ -1187,8 +1188,7 @@ describe('the delivery-zone editor', () => {
             expect(stored.areas.map((area) => String(area.id))).toContain(String(target.id));
         });
 
-        // The chip is the other way out, and it removes what the checkbox added. The save left the
-        // wizard on its last step, so this starts by walking back to the areas one.
+        // The chip is the other way out, and it removes what the checkbox added.
         await openZoneStep('areas');
         await act(async () => {
             fireEvent.press(

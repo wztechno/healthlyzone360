@@ -48,7 +48,8 @@ jest.mock('expo-router', () => {
     const replace = jest.fn();
     const back = jest.fn();
     return {
-        useRouter: () => ({ push, replace, back }),
+        // No history in a suite: an editor's Cancel or a finished removal opens its list.
+        useRouter: () => ({ push, replace, back, canGoBack: () => false, dismissTo: jest.fn() }),
         useLocalSearchParams: () => (globalThis as { __params?: unknown }).__params ?? {},
         Redirect: () => null,
         __push: push,
@@ -92,7 +93,7 @@ async function openMemberStep(step: 'roles' | 'scope' | 'permissions') {
     });
 }
 
-/** Advanced is the role editor's last step, where Next becomes Save role. */
+/** Advanced is the role editor's last step; Save role is in the header on it as on every step. */
 async function openRoleAdvancedStep() {
     await untilVisible('kitchen-role-editor-tabs');
     await act(async () => {
@@ -439,10 +440,49 @@ describe('the role editor', () => {
         await openRolePagesStep();
         await untilVisible('kitchen-role-editor-pages');
 
-        // The order book is Manage, because the role holds both codes.
-        expect(screen.getByTestId('kitchen-role-editor-pages-orders-level')).toBeTruthy();
-        // And a sibling on a code it does not hold is drawn too, at None.
-        expect(screen.getByTestId('kitchen-role-editor-pages-ingredients-level')).toBeTruthy();
+        // The order book is Edit, because the role holds both codes: both ticks are on.
+        expect(
+            screen.getByTestId('kitchen-role-editor-pages-orders-view').props.accessibilityState,
+        ).toMatchObject({ checked: true });
+        expect(
+            screen.getByTestId('kitchen-role-editor-pages-orders-edit').props.accessibilityState,
+        ).toMatchObject({ checked: true });
+        // And a sibling on a code it does not hold is drawn too, with neither ticked.
+        expect(
+            screen.getByTestId('kitchen-role-editor-pages-ingredients-view').props
+                .accessibilityState,
+        ).toMatchObject({ checked: false });
+    });
+
+    it('brings View with Edit, and takes Edit with View', async () => {
+        setParams({ role: String(ROLE_ID) });
+
+        await renderStubScreen(<RoleEditorScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: editorRepositories(),
+        });
+
+        await openRolePagesStep();
+        await untilVisible('kitchen-role-editor-pages');
+
+        const checked = (id: string) =>
+            (
+                screen.getByTestId(`kitchen-role-editor-pages-${id}`).props.accessibilityState as {
+                    checked: boolean;
+                }
+            ).checked;
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-role-editor-pages-ingredients-edit'));
+        });
+        expect(checked('ingredients-view')).toBe(true);
+        expect(checked('ingredients-edit')).toBe(true);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-role-editor-pages-ingredients-view'));
+        });
+        expect(checked('ingredients-view')).toBe(false);
+        expect(checked('ingredients-edit')).toBe(false);
     });
 
     it('marks a code the administrator does not hold rather than hiding it', async () => {
@@ -522,14 +562,12 @@ describe('the role editor', () => {
         await openRolePagesStep();
         await untilVisible('kitchen-role-editor-pages');
 
-        // Turn the order book off entirely, on the Pages tab.
+        // Turn the order book off entirely, on the Pages tab: untick View.
         await act(async () => {
-            fireEvent.press(
-                screen.getByTestId('kitchen-role-editor-pages-orders-level-option-none'),
-            );
+            fireEvent.press(screen.getByTestId('kitchen-role-editor-pages-orders-view'));
         });
 
-        // Saved from the last step, having changed nothing past Pages.
+        // Saved from the last step, having changed nothing past Pages (Save is on every step).
         await openRoleAdvancedStep();
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-role-editor-save'));
@@ -700,7 +738,7 @@ describe('adding a member of staff', () => {
             );
         });
 
-        // The commit is the last step's Next.
+        // Committed from the last step; the commit is in the header on every step.
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-staff-create-tabs-tab-role'));
         });
@@ -825,7 +863,7 @@ describe('adding a member of staff', () => {
                 'ahmad',
             );
         });
-        // The commit is the last step's Next.
+        // Committed from the last step; the commit is in the header on every step.
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-staff-create-tabs-tab-role'));
         });
@@ -924,7 +962,7 @@ describe('one member of staff', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-team-member-role-evening_counter'));
         });
-        // Save is the last step's Next.
+        // Saved from the last step; Save is in the header on every step.
         await openMemberStep('permissions');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-team-member-save'));
@@ -971,7 +1009,7 @@ describe('one member of staff', () => {
                 String(BRANCHES[1]?.id),
             );
         });
-        // Save is the last step's Next.
+        // Saved from the last step; Save is in the header on every step.
         await openMemberStep('permissions');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-team-member-save'));
@@ -1018,7 +1056,7 @@ describe('one member of staff', () => {
                 '__organisation__',
             );
         });
-        // Save is the last step's Next.
+        // Saved from the last step; Save is in the header on every step.
         await openMemberStep('permissions');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-team-member-save'));
@@ -1149,7 +1187,7 @@ describe('refusals that must not vanish', () => {
 
         await untilVisible('kitchen-team-member-roles');
 
-        // Save is the last step's Next.
+        // Saved from the last step; Save is in the header on every step.
         await openMemberStep('permissions');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-team-member-save'));
@@ -1204,7 +1242,7 @@ describe('refusals that must not vanish', () => {
 
         await untilVisible('kitchen-team-member-roles');
 
-        // Save is the last step's Next.
+        // Saved from the last step; Save is in the header on every step.
         await openMemberStep('permissions');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-team-member-save'));

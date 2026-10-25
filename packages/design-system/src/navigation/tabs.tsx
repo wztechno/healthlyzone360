@@ -88,7 +88,7 @@ const COMFORTABLE_LIST_VARIANT: Readonly<Record<TabsVariant, string>> = {
  */
 const COMPACT_LIST_VARIANT: Readonly<Record<TabsVariant, string>> = {
     underline: 'flex-row flex-wrap items-end gap-hair border-b border-stroke-subtle',
-    segmented: 'flex-row flex-wrap items-stretch gap-0.5 rounded-sm bg-surface-sunken p-0.5',
+    segmented: 'flex-row flex-wrap items-stretch gap-0.5 rounded bg-surface-sunken p-0.5',
     /*
      * The step row the Catalogue's recipe editor opens on: a sunken track with a hairline, holding
      * one raised tab per step. Not a control height — it is the form's opening, not a field in a
@@ -112,8 +112,8 @@ const COMPACT_TAB_VARIANT: Readonly<Record<TabsVariant, string>> = {
     underline:
         'h-control-md flex-row items-center justify-center gap-control-md border-b-2 px-control-md',
     segmented:
-        'h-control-xs flex-row items-center justify-center gap-control-sm rounded-sm px-control-sm',
-    steps: 'h-control-lg min-w-0 flex-row items-center justify-start gap-control-sm rounded-sm px-control-sm',
+        'h-control-xs flex-row items-center justify-center gap-control-sm rounded px-control-sm',
+    steps: 'h-control-lg min-w-0 flex-row items-center justify-start gap-control-sm rounded px-control-sm',
 };
 
 const TAB_VARIANT: Readonly<Record<Density, Readonly<Record<TabsVariant, string>>>> = {

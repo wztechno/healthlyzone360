@@ -13,6 +13,10 @@ import { lazyScreen } from '../../../../src/shell/lazy-screen.tsx';
  * as not found rather than guessed at.
  *
  * Nested under `/kitchen/recipes`, so the rail, the trail and the registry file it under the book.
+ *
+ * A stock gap's `?returnTo=`, `?fix=` and `?ingredient=` are handed down too, so the hand-over to the
+ * recipe carries them, and so does `?tab=`. The review queue sends `?returnTo=` too — the
+ * record's page in the queue — and an item with no recipe opens as the full recipe editor.
  */
 const CookedItemEditScreen = lazyScreen(
     'kitchen-recipe-item-loading',
@@ -22,6 +26,22 @@ const CookedItemEditScreen = lazyScreen(
 );
 
 export default function KitchenRecipeItem() {
-    const { item, kind } = useLocalSearchParams<{ item?: string; kind?: string }>();
-    return <CookedItemEditScreen item={item} kind={kind} />;
+    const { item, kind, returnTo, fix, ingredient, tab } = useLocalSearchParams<{
+        item?: string;
+        kind?: string;
+        returnTo?: string;
+        fix?: string;
+        ingredient?: string;
+        tab?: string;
+    }>();
+    return (
+        <CookedItemEditScreen
+            item={item}
+            kind={kind}
+            returnTo={returnTo}
+            fix={fix}
+            ingredient={ingredient}
+            tab={tab}
+        />
+    );
 }

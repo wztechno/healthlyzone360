@@ -1,3 +1,5 @@
+import { useLocalSearchParams } from 'expo-router';
+
 import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
 
 /** `/kitchen/ingredients` — the ingredient list, with its filters and the create affordance. */
@@ -8,5 +10,7 @@ const IngredientsScreen = lazyScreen(
 );
 
 export default function KitchenIngredients() {
-    return <IngredientsScreen />;
+    // `?view=`: the record whose page is open, so an editor sent from it comes back to it.
+    const { view } = useLocalSearchParams<{ view?: string }>();
+    return <IngredientsScreen view={view} />;
 }

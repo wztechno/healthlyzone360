@@ -5035,7 +5035,7 @@ export const zConsumptionExceptionReasonCode = z.enum([
 ]);
 
 /**
- * One thing a confirmed order could not deduct honestly (INV1.2), with its resolution state (INV1.5), joined to the human-readable names of the order, sold item and branch it points at. Nothing confidential — no recipe line, formulation quantity, ingredient cost or supplier term — passes through.
+ * One thing a confirmed order could not deduct honestly (INV1.2), with its resolution state (INV1.5), joined to the human-readable names of the order, sold item, ingredient and branch it points at, and to where the sold item's recipe opens. Nothing confidential — no recipe line, formulation quantity, ingredient cost or supplier term — passes through.
  */
 export const zConsumptionException = z.object({
     id: zUuid,
@@ -5044,6 +5044,10 @@ export const zConsumptionException = z.object({
     order_line_id: zUuid.nullable(),
     catalogue_item_id: zUuid.nullable(),
     item_name_en: z.string().nullable(),
+    item_type: zCatalogueItemType.nullable(),
+    recipe_id: zUuid.nullable(),
+    ingredient_id: zUuid.nullable(),
+    ingredient_name_en: z.string().nullable(),
     branch_id: zUuid.nullable(),
     branch_name: z.string().nullable(),
     reason_code: zConsumptionExceptionReasonCode,

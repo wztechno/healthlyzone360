@@ -53,13 +53,13 @@ export const nativeTokens = {
           "border": "#3f9d6a"
         },
         "warning": {
-          "subtle": "#fdf2d6",
-          "onSubtle": "#79480a",
-          "default": "#8a5a09",
+          "subtle": "#fef3c7",
+          "onSubtle": "#92400e",
+          "default": "#b45309",
           "onDefault": "#ffffff",
-          "strong": "#5f3d05",
+          "strong": "#92400e",
           "onStrong": "#ffffff",
-          "border": "#b3841f"
+          "border": "#d97706"
         },
         "danger": {
           "subtle": "#fde5e3",
@@ -163,13 +163,13 @@ export const nativeTokens = {
           "border": "#4a7d5d"
         },
         "warning": {
-          "subtle": "#33240a",
-          "onSubtle": "#e8c073",
-          "default": "#e5bb6a",
-          "onDefault": "#2a1d04",
-          "strong": "#f0d295",
-          "onStrong": "#2a1d04",
-          "border": "#8a6a2a"
+          "subtle": "#3a2808",
+          "onSubtle": "#fcd37a",
+          "default": "#fbbf24",
+          "onDefault": "#2a1a03",
+          "strong": "#fde68a",
+          "onStrong": "#2a1a03",
+          "border": "#b7790f"
         },
         "danger": {
           "subtle": "#3a1512",

@@ -36,6 +36,22 @@ import { IngredientEditScreen, PACKAGING_FAMILY } from './ingredient-edit-screen
  * write contract carries none of the three yet. `UnstoredDraft` on the ingredient editor says why
  * they are drawn anyway, and why they cannot block a save.
  */
-export function PackagingEditScreen({ item }: { readonly item: string | undefined }) {
-    return <IngredientEditScreen ingredient={item} family={PACKAGING_FAMILY} />;
+export function PackagingEditScreen({
+    item,
+    returnTo,
+    needs,
+}: {
+    readonly item: string | undefined;
+    /** `?returnTo=` and `?needs=` — a recipe's fix, as on the ingredient editor. */
+    readonly returnTo?: string | undefined;
+    readonly needs?: string | undefined;
+}) {
+    return (
+        <IngredientEditScreen
+            ingredient={item}
+            family={PACKAGING_FAMILY}
+            returnTo={returnTo}
+            needs={needs}
+        />
+    );
 }

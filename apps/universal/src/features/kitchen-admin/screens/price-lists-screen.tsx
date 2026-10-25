@@ -10,12 +10,12 @@ import {
     Text,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
-import { SALES_CHANNELS } from '@healthy360/domain-types';
+import { PriceListId, SALES_CHANNELS } from '@healthy360/domain-types';
 import type { SalesChannel } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Gate } from '../../../access/gate.tsx';
@@ -25,6 +25,7 @@ import {
     pagesInResult,
     usePriceListPageQuery,
     usePriceListWholeSetQuery,
+    usePriceListQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
@@ -51,9 +52,25 @@ import {
     statusTone,
     summarisePriceEntries,
 } from '../format.ts';
-import { useListPage } from '../use-list-page.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import {
+    useListMemory,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedPage,
+    useRememberedQuery,
+    useRestoredPageFallback,
+} from '../list-memory.ts';
+import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+
+/** The price list `?view=` names, read on its own when the loaded page does not hold it. */
+function usePriceListById(id: string | null) {
+    const parsed = PriceListId.safeParse(id);
+    const record = usePriceListQuery(parsed);
+    return parsed === null ? RECORD_NOT_FOUND : record;
+}
 
 /**
  * `/kitchen/price-lists` — what this kitchen charges, and how much of it is actually decided
@@ -86,14 +103,14 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  * Any list on a contract-private channel is negotiated paperwork inside one buyer relationship, so
  * the banner sits above the list whenever one is on the page, and the row carries `Agreement`.
  */
-export function PriceListsScreen() {
+export function PriceListsScreen({ view }: { readonly view?: string | undefined }) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
             testID="kitchen-price-lists"
         >
-            <PriceListsList />
+            <PriceListsList view={view} />
         </Gate>
     );
 }
@@ -101,16 +118,18 @@ export function PriceListsScreen() {
 const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'review_required'];
 type StatusSegmentValue = PublishableStatus | 'all';
 
-function PriceListsList() {
+function PriceListsList({ view }: { readonly view?: string | undefined }) {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
     const { locale } = useLocale();
 
-    const [query, setQuery] = useState('');
-    const [status, setStatus] = useState<StatusSegmentValue>('all');
-    const [channel, setChannel] = useState<SalesChannel | null>(null);
-    const [viewing, setViewing] = useState<PriceListAdmin | null>(null);
+    // Search, filters, page and the row last opened survive leaving the list for a price list.
+    const memory = useListMemory('kitchen.price-lists');
+    const [query, setQuery] = useRememberedQuery(memory);
+    const [status, setStatus] = useRememberedFilter<StatusSegmentValue>(memory, 'status', 'all');
+    const [channel, setChannel] = useRememberedFilter<SalesChannel | null>(memory, 'channel', null);
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
 
     const trimmed = query.trim();
     const filter = useMemo(
@@ -121,16 +140,34 @@ function PriceListsList() {
         }),
         [trimmed, status, channel],
     );
-    const [page, setPage] = useListPage(filter);
+    const [page, setPage] = useRememberedPage(memory, filter);
     const priceLists = usePriceListPageQuery(filter, page);
+    useRestoredPageFallback(memory, page, priceLists.isError, () => {
+        setPage(1);
+    });
     const wholeSet = usePriceListWholeSetQuery(filter);
     const rows = useMemo(() => priceLists.data?.items ?? [], [priceLists.data]);
+    // The open record is an address, `?view=`, so its editor can come back to it.
+    const { viewing, viewingId, setViewing } = useViewedRecord(
+        view,
+        rows,
+        (row) => String(row.id),
+        priceLists.isSuccess && !priceLists.isFetching,
+        { useLookup: usePriceListById },
+    );
     const total = priceLists.data?.totalCount ?? null;
     const totalPages = pagesInResult(priceLists.data) ?? 0;
 
+    /** From the record's page, the editor's Cancel, Save and trail come back to it. */
     const openEditor = (row: PriceListAdmin) => {
-        setViewing(null);
-        router.push(`/kitchen/price-lists/${String(row.id)}` as never);
+        const id = String(row.id);
+        rememberOpened(id);
+        router.push(
+            withReturnTo(
+                `/kitchen/price-lists/${id}`,
+                viewingId === id ? withQuery('/kitchen/price-lists', { view: id }) : null,
+            ) as never,
+        );
     };
 
     const columns: readonly ControlledColumn<PriceListAdmin, CatalogueColumn<PriceListAdmin>>[] = [
@@ -409,6 +446,7 @@ function PriceListsList() {
                         rows={controls.rows}
                         rowKey={(row) => String(row.id)}
                         density="sm"
+                        highlightedId={lastOpenedId}
                         onRowPress={openEditor}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         // View and Edit. No Archive: the contract publishes no retire (§6.1).
@@ -419,6 +457,7 @@ function PriceListsList() {
                                 icon: CATALOGUE_ROW_ICONS.view,
                                 testID: `${priceListRowTestId(String(row.id))}-view`,
                                 onSelect: () => {
+                                    rememberOpened(String(row.id));
                                     setViewing(row);
                                 },
                             },

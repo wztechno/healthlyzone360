@@ -14,7 +14,7 @@ import type { MenuItem } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -36,6 +36,12 @@ import {
 } from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { ROLE_MANAGE_PERMISSION, ROLE_VIEW_PERMISSION } from '../entity-registry.ts';
+import {
+    useListMemory,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedQuery,
+} from '../list-memory.ts';
 
 /**
  * `/kitchen/roles` — what each job title is allowed to reach (AA1), on the Catalogue list.
@@ -100,8 +106,11 @@ function RolesList() {
     const router = useRouter();
     const canManage = useCan(ROLE_MANAGE_PERMISSION);
 
-    const [query, setQuery] = useState('');
-    const [segment, setSegment] = useState<RoleSegment>('all');
+    // Search, segment, page and the role last opened survive leaving the list for a role.
+    const memory = useListMemory('kitchen.roles');
+    const [query, setQuery] = useRememberedQuery(memory);
+    const [segment, setSegment] = useRememberedFilter<RoleSegment>(memory, 'segment', 'all');
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
 
     const roles = useOrganisationRolesQuery();
     const arabic = locale.startsWith('ar');
@@ -125,10 +134,12 @@ function RolesList() {
     }, [roles.data, segment, trimmed, locale]);
 
     const openRole = (row: OrganisationRoleSummary) => {
+        rememberOpened(String(row.id));
         router.push(`/kitchen/roles/${String(row.id)}` as never);
     };
 
     const copyRole = (row: OrganisationRoleSummary) => {
+        rememberOpened(String(row.id));
         router.push(`/kitchen/roles/new?from=${encodeURIComponent(String(row.id))}` as never);
     };
 
@@ -331,6 +342,11 @@ function RolesList() {
                     rows={controls.rows}
                     rowKey={(row) => String(row.id)}
                     density="sm"
+                    highlightedId={lastOpenedId}
+                    initialPage={memory.initial.page}
+                    onPageChange={(page) => {
+                        memory.remember({ page });
+                    }}
                     onRowPress={openRole}
                     rowActionsLabel={t('kitchen:list.rowActions')}
                     rowActions={(row): readonly MenuItem[] => [

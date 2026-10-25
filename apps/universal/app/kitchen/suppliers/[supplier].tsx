@@ -16,6 +16,7 @@ const SupplierDetailScreen = lazyScreen(
 );
 
 export default function KitchenSupplierDetail() {
-    const { supplier } = useLocalSearchParams<{ supplier?: string }>();
-    return <SupplierDetailScreen supplier={supplier} />;
+    // `?returnTo=`: the page that sent the reader here — the supplier list, on this record's view.
+    const { supplier, returnTo } = useLocalSearchParams<{ supplier?: string; returnTo?: string }>();
+    return <SupplierDetailScreen supplier={supplier} returnTo={returnTo} />;
 }

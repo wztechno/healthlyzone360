@@ -8,6 +8,7 @@ import { PillChip } from '../../ui/pill-chip.tsx';
 import { balanceDaysFor, maxDiscountPercent, mealsPerDayRange } from './plan-balance.ts';
 import { StatePill, SubtleButton } from './plan-controls.tsx';
 import { PlanPrice } from './plan-price.tsx';
+import { useShopViewOnly } from '../marketplace/shop-view-only.tsx';
 
 /**
  * A subscription plan in the catalogue — HealthZone's plan card, element for element: the name and
@@ -83,6 +84,8 @@ export function PlanCard({
     const { t } = useTranslation();
     const formatter = useFormatter();
     const resolvedTestID = testID ?? `plan-card-${plan.slug}`;
+    // Staff only look: the button opens the same page, and says so (`shop-view-only.tsx`).
+    const viewOnly = useShopViewOnly();
 
     const meals = mealsPerDayRange(plan);
     const discount = maxDiscountPercent(plan);
@@ -203,7 +206,11 @@ export function PlanCard({
                         variant="primary"
                         size="lg"
                         block
-                        label={t('catalogue:plans.choosePlanShort')}
+                        label={
+                            viewOnly
+                                ? t('catalogue:plans.viewPlanShort')
+                                : t('catalogue:plans.choosePlanShort')
+                        }
                         accessibilityLabel={t('catalogue:plans.choosePlan', { plan: plan.name })}
                         onPress={onOpen}
                     />

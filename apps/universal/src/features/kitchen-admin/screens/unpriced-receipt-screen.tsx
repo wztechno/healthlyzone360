@@ -33,6 +33,7 @@ import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
     useCompleteReceiptPricesMutation,
     useGoodsReceiptQuery,
@@ -42,10 +43,12 @@ import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
+import { focusField } from '../field-focus.ts';
 import { RECORD_RAIL_MIN, RECORD_SPLIT_MIN } from '../desk-layout.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { receiptCostStatusKey, receiptCostStatusTone } from '../ops-format.ts';
 import { readAmount } from '../receive-delivery-model.ts';
+import { focusFirstRefusal } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
@@ -112,6 +115,8 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
     const split = useContentWidth().atLeast(RECORD_SPLIT_MIN);
     const formatter = useFormatter();
     const router = useRouter();
+    // Back steps to wherever the receipt was opened from — the queue on its page, or the book.
+    const backToQueue = useReturnTo(undefined, QUEUE_ROUTE).leave;
     const toast = useToast();
 
     const parsed = receipt === undefined ? null : GoodsReceiptId.safeParse(receipt);
@@ -135,9 +140,6 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
               : t('kitchen:ops.unpricedReceipts.receiptTitle', {
                     reference: detail.documentRef,
                 });
-    const backToQueue = () => {
-        router.push(QUEUE_ROUTE as never);
-    };
     // The trail names the receipt, and its queue crumb is the way back.
     useKitchenTrailLeaf(title, () => {
         guard.intercept(backToQueue);
@@ -195,27 +197,29 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
     if (detail === undefined) return null;
 
     const typed = priceable.filter((line) => readAmount(prices[line.id] ?? '') !== null);
-    const everyPriceReadable = priceable.every((line) => {
-        const raw = prices[line.id] ?? '';
-        return raw.trim() === '' || readAmount(raw) !== null;
-    });
+    const entered = priceable.filter((line) => (prices[line.id] ?? '').trim() !== '');
+    const unreadable = entered.filter((line) => readAmount(prices[line.id] ?? '') === null);
     const saveFailure = toFailure(complete.error);
     // What the server refused, put on the price it named (BUG-06). No banner here, so the
     // callout stays and carries anything the lines cannot.
-    const priceTargets: Record<string, ServerFieldTarget> = {};
-    sentLineIds.forEach((lineId, index) => {
-        const line = lines.find((candidate) => candidate.id === lineId);
-        if (line === undefined) return;
-        const target = {
-            label: t('kitchen:ops.unpricedReceipts.linePriceLabel', {
-                item: itemsById.get(String(line.stockItemId))?.nameEn ?? String(line.stockItemId),
-            }),
-            fieldId: `kitchen-unpriced-line-${line.id}-price`,
-        };
-        priceTargets[`lines.${String(index)}.unit_price_amount`] = target;
-        priceTargets[`lines.${String(index)}.cost_currency_code`] = target;
-    });
-    const server = serverFieldErrors(saveFailure, priceTargets);
+    const priceTargetsFor = (lineIds: readonly string[]): Record<string, ServerFieldTarget> => {
+        const targets: Record<string, ServerFieldTarget> = {};
+        lineIds.forEach((lineId, index) => {
+            const line = lines.find((candidate) => candidate.id === lineId);
+            if (line === undefined) return;
+            const target = {
+                label: t('kitchen:ops.unpricedReceipts.linePriceLabel', {
+                    item:
+                        itemsById.get(String(line.stockItemId))?.nameEn ?? String(line.stockItemId),
+                }),
+                fieldId: `kitchen-unpriced-line-${line.id}-price`,
+            };
+            targets[`lines.${String(index)}.unit_price_amount`] = target;
+            targets[`lines.${String(index)}.cost_currency_code`] = target;
+        });
+        return targets;
+    };
+    const server = serverFieldErrors(saveFailure, priceTargetsFor(sentLineIds));
     const serverPriceError = (lineId: string): string | undefined => {
         const index = sentLineIds.indexOf(lineId);
         if (index === -1) return undefined;
@@ -231,9 +235,16 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
     };
 
     const save = () => {
-        if (typed.length === 0 || !everyPriceReadable) return;
+        const firstUnreadable = unreadable[0];
+        if (firstUnreadable !== undefined) {
+            // The price says what is wrong with it; Save takes the reader there.
+            focusField(`kitchen-unpriced-line-${firstUnreadable.id}-price`);
+            return;
+        }
+        if (typed.length === 0) return;
 
-        setSentLineIds(typed.map((line) => line.id));
+        const sent = typed.map((line) => line.id);
+        setSentLineIds(sent);
         complete.mutate(
             {
                 goodsReceiptId: detail.id,
@@ -256,6 +267,10 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                     // Back to the queue: this receipt has either left it or moved down it, and the
                     // next one is the job.
                     router.replace(QUEUE_ROUTE as never);
+                },
+                // A refused save takes the reader to the first price the server named.
+                onError: (error) => {
+                    focusFirstRefusal(error, priceTargetsFor(sent));
                 },
             },
         );
@@ -299,7 +314,8 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                                     count: typed.length,
                                 })}
                                 loading={complete.isPending}
-                                disabled={typed.length === 0 || !everyPriceReadable}
+                                // A wrong price does not disable Save: pressing it takes you there.
+                                disabled={entered.length === 0}
                                 onPress={save}
                             />
                         )}
@@ -365,7 +381,6 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                                     testID="kitchen-unpriced-receipt-pending-fx"
                                     tone="warning"
                                     title={t('kitchen:ops.unpricedReceipts.pendingFxTitle')}
-                                    body={t('kitchen:ops.unpricedReceipts.pendingFxBody')}
                                 />
                             )}
                         </Stack>

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\AccessControl\Services\PermissionRegistry;
+use Healthy360\Catalogues\Models\Catalogue;
+use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\OrderConsumptionException;
 use Healthy360\Inventory\Models\StockItem;
@@ -12,6 +14,7 @@ use Healthy360\Inventory\Services\StockItemDerivationService;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
+use Healthy360\Recipes\Models\Recipe;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Illuminate\Support\Str;
@@ -432,6 +435,62 @@ it('retries a consumption exception through the endpoint', function (): void {
         ->assertJsonPath('data.exception.resolved', false);
 
     expect($exception->refresh()->detail)->toBe('Retry could not run: the order no longer exists.');
+});
+
+/*
+| A stock gap the recipe can fix has to say where the fix is: the sold item's type
+| and recipe, and the ingredient the detail names — read out of the free-text
+| detail, where the deduction wrote its UUID — with that ingredient's name.
+*/
+it('carries the sold item\'s type and recipe and the ingredient the detail names', function (): void {
+    $organisationId = (string) $this->tenant->organisation->getKey();
+    $kg = MeasurementUnit::query()->where('code', 'kg')->sole();
+    $lentils = Ingredient::factory()->create([
+        'organisation_id' => $organisationId,
+        'name_en' => 'Red lentils',
+        'default_unit_id' => (string) $kg->getKey(),
+    ]);
+    $recipe = Recipe::factory()->create(['organisation_id' => $organisationId]);
+    $catalogue = Catalogue::factory()->create(['organisation_id' => $organisationId]);
+    $soup = CatalogueItem::factory()->meal()->create([
+        'catalogue_id' => $catalogue->getKey(),
+        'organisation_id' => $organisationId,
+        'name_en' => 'Lentil Soup',
+        'recipe_id' => $recipe->getKey(),
+    ]);
+
+    $named = OrderConsumptionException::query()->create([
+        'organisation_id' => $organisationId,
+        'order_id' => (string) Str::uuid(),
+        'catalogue_item_id' => (string) $soup->getKey(),
+        'reason_code' => 'unquantified_recipe_line',
+        'detail' => 'A recipe line for ingredient '.$lentils->getKey().' has no quantity or unit.',
+    ]);
+    $bare = OrderConsumptionException::query()->create([
+        'organisation_id' => $organisationId,
+        'order_id' => (string) Str::uuid(),
+        'reason_code' => 'no_branch',
+        'detail' => 'The order has no branch.',
+    ]);
+
+    $rows = collect(
+        $this->getJson('/api/v1/catalogue/inventory/consumption-exceptions?resolved=false', $this->headers)
+            ->assertOk()
+            ->json('data.exceptions'),
+    )->keyBy('id');
+
+    expect($rows->get((string) $named->getKey()))->toMatchArray([
+        'item_name_en' => 'Lentil Soup',
+        'item_type' => 'meal',
+        'recipe_id' => (string) $recipe->getKey(),
+        'ingredient_id' => (string) $lentils->getKey(),
+        'ingredient_name_en' => 'Red lentils',
+    ])->and($rows->get((string) $bare->getKey()))->toMatchArray([
+        'item_type' => null,
+        'recipe_id' => null,
+        'ingredient_id' => null,
+        'ingredient_name_en' => null,
+    ]);
 });
 
 it('answers 404 for another organisation\'s consumption exception', function (): void {

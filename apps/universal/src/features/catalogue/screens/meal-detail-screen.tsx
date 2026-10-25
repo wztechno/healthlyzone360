@@ -18,6 +18,8 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
+import { StaffReturnButton } from '../../marketplace/staff-return-button.tsx';
+
 import { mealsFromPages, useMealQuery, useMealsQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { EntityImage } from '../../../media/entity-image.tsx';
@@ -34,6 +36,7 @@ import { QueryStates } from '../../marketplace/query-states.tsx';
 import { leadTag, publishedFigure } from '../meal-readings.ts';
 import { MenuGrid } from '../menu-grid.tsx';
 import { RelatedMealCard } from '../menu-meal-card.tsx';
+import { useShopViewOnly } from '../../marketplace/shop-view-only.tsx';
 import { NutritionFactsPanel } from '../nutrition-facts-panel.tsx';
 
 /**
@@ -75,6 +78,8 @@ import { NutritionFactsPanel } from '../nutrition-facts-panel.tsx';
  */
 export interface MealDetailScreenProps {
     readonly mealId: string | undefined;
+    /** `?returnTo=` — the kitchen record staff opened this from; see `StaffReturnButton`. */
+    readonly returnTo?: string | undefined;
 }
 
 /** A ceiling on the stepper. The API refuses nothing above zero; this only stops a held button. */
@@ -177,7 +182,7 @@ function useMealTrail(item: MarketplaceMeal | undefined): readonly BreadcrumbIte
     ];
 }
 
-export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
+export function MealDetailScreen({ mealId, returnTo }: MealDetailScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const navigateUp = useNavigateUp();
@@ -231,6 +236,7 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
 
     return (
         <View testID="meal-detail-screen" className="flex-col gap-4">
+            <StaffReturnButton returnTo={returnTo} testID="meal-detail-staff-return" />
             <Breadcrumbs testID="meal-detail-breadcrumbs" items={trail} />
 
             {/* A link carrying something that is not an identifier at all leaves the query
@@ -461,6 +467,7 @@ function MealInfoColumn({
     const { t } = useTranslation();
     const formatter = useFormatter();
     const failureMessage = useFailureMessage();
+    const viewOnly = useShopViewOnly();
 
     const tag = leadTag(item, t);
     const total = formatMoney(formatter, {
@@ -551,32 +558,35 @@ function MealInfoColumn({
                 />
             </View>
 
-            <View
-                testID="meal-detail-options"
-                className="mt-[26px] flex-col border-t border-stroke pt-[22px]"
-            >
-                <Eyebrow className="mb-3">{t('catalogue:meal.makeItYours')}</Eyebrow>
-                <View className="min-h-touch flex-row items-center gap-3 rounded-lg border border-stroke bg-surface-raised px-4 py-3">
-                    <RNText
-                        testID="meal-detail-options-none"
-                        className="min-w-0 flex-1 text-sm text-content-secondary text-start"
-                    >
-                        {t('catalogue:meal.optionsNone')}
-                    </RNText>
+            {/* Staff view the shop and order nothing (`shop-view-only.tsx`): no options, no basket. */}
+            {viewOnly ? null : (
+                <View
+                    testID="meal-detail-options"
+                    className="mt-[26px] flex-col border-t border-stroke pt-[22px]"
+                >
+                    <Eyebrow className="mb-3">{t('catalogue:meal.makeItYours')}</Eyebrow>
+                    <View className="min-h-touch flex-row items-center gap-3 rounded-lg border border-stroke bg-surface-raised px-4 py-3">
+                        <RNText
+                            testID="meal-detail-options-none"
+                            className="min-w-0 flex-1 text-sm text-content-secondary text-start"
+                        >
+                            {t('catalogue:meal.optionsNone')}
+                        </RNText>
+                    </View>
+                    <TextInputField
+                        testID="meal-detail-instructions"
+                        id="meal-detail-instructions"
+                        label={t('catalogue:meal.instructionsLabel')}
+                        labelHidden
+                        placeholder={t('catalogue:meal.instructionsPlaceholder')}
+                        multiline
+                        numberOfLines={3}
+                        value={instructions}
+                        onChangeText={onInstructionsChange}
+                        className="mt-2.5"
+                    />
                 </View>
-                <TextInputField
-                    testID="meal-detail-instructions"
-                    id="meal-detail-instructions"
-                    label={t('catalogue:meal.instructionsLabel')}
-                    labelHidden
-                    placeholder={t('catalogue:meal.instructionsPlaceholder')}
-                    multiline
-                    numberOfLines={3}
-                    value={instructions}
-                    onChangeText={onInstructionsChange}
-                    className="mt-2.5"
-                />
-            </View>
+            )}
 
             {/*
              * The purchase bar, pinned to the foot of the scroll port while the column runs past it
@@ -589,40 +599,49 @@ function MealInfoColumn({
                 testID="meal-detail-actions"
                 className="mt-6 flex-col gap-2 bg-surface-base py-2.5 web:sticky web:bottom-4"
             >
-                <View className="flex-row items-center gap-3">
-                    <QuantityStepper
-                        testID="meal-detail-quantity"
-                        value={quantity}
-                        onChange={onQuantityChange}
-                    />
-                    <Pressable
-                        testID="meal-detail-add-to-basket"
-                        role="button"
-                        accessibilityRole="button"
-                        accessibilityLabel={
-                            pending
-                                ? t('catalogue:meal.addingToBasket')
-                                : t('catalogue:meal.addToCartLabel', { total })
-                        }
-                        accessibilityState={{ disabled: pending, busy: pending }}
-                        aria-disabled={pending}
-                        disabled={pending}
-                        onPress={onAdd}
-                        className="min-h-touch flex-1 flex-row items-center justify-between gap-3 rounded bg-surface-brand px-5 py-4 hover:bg-surface-canopy"
+                {viewOnly ? (
+                    <RNText
+                        testID="meal-detail-price"
+                        className="font-display text-xl font-bold tabular-nums text-content-primary text-start"
                     >
-                        <RNText className="text-base font-semibold text-content-on-brand">
-                            {pending
-                                ? t('catalogue:meal.addingToBasket')
-                                : t('catalogue:meal.addToCart')}
-                        </RNText>
-                        <RNText
-                            testID="meal-detail-price"
-                            className="text-base font-semibold tabular-nums text-content-on-brand"
+                        {total}
+                    </RNText>
+                ) : (
+                    <View className="flex-row items-center gap-3">
+                        <QuantityStepper
+                            testID="meal-detail-quantity"
+                            value={quantity}
+                            onChange={onQuantityChange}
+                        />
+                        <Pressable
+                            testID="meal-detail-add-to-basket"
+                            role="button"
+                            accessibilityRole="button"
+                            accessibilityLabel={
+                                pending
+                                    ? t('catalogue:meal.addingToBasket')
+                                    : t('catalogue:meal.addToCartLabel', { total })
+                            }
+                            accessibilityState={{ disabled: pending, busy: pending }}
+                            aria-disabled={pending}
+                            disabled={pending}
+                            onPress={onAdd}
+                            className="min-h-touch flex-1 flex-row items-center justify-between gap-3 rounded bg-surface-brand px-5 py-4 hover:bg-surface-canopy"
                         >
-                            {total}
-                        </RNText>
-                    </Pressable>
-                </View>
+                            <RNText className="text-base font-semibold text-content-on-brand">
+                                {pending
+                                    ? t('catalogue:meal.addingToBasket')
+                                    : t('catalogue:meal.addToCart')}
+                            </RNText>
+                            <RNText
+                                testID="meal-detail-price"
+                                className="text-base font-semibold tabular-nums text-content-on-brand"
+                            >
+                                {total}
+                            </RNText>
+                        </Pressable>
+                    </View>
+                )}
 
                 {/* What one unit buys, when it is sold by weight: the total above is per pack. */}
                 {item.pack === null ? null : (

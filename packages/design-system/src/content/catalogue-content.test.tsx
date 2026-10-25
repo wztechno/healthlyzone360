@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react-native';
+import { screen, within } from '@testing-library/react-native';
 
 import { DataList, fitColumns, growWeights, spreadColumns } from './data-list.tsx';
 import type { DataListColumn } from './data-list.tsx';
@@ -155,7 +155,7 @@ describe('growWeights', () => {
 });
 
 describe('DataList', () => {
-    it('rules the header alone — no line between rows, and no zebra', async () => {
+    it('draws a soft line between rows, none under the last, and no zebra', async () => {
         await renderWithI18n(
             compact(
                 <DataList
@@ -177,9 +177,14 @@ describe('DataList', () => {
         expect(header).toContain('border-b');
         expect(header).toContain('border-stroke-subtle');
 
+        const first = screen.getByTestId('list-row-a').props.className as string;
+        expect(first).toContain('border-b');
+        expect(first).toContain('border-stroke-subtle');
+        // The frame's own edge closes the list.
+        expect(screen.getByTestId('list-row-b').props.className).not.toContain('border-b');
+
         for (const id of ['list-row-a', 'list-row-b']) {
             const className = screen.getByTestId(id).props.className as string;
-            expect(className).not.toContain('border-b');
             // No zebra: the tint is a hover state, never an alternating background.
             expect(className).not.toMatch(/bg-surface-(base|raised|sunken)(\s|$)/);
         }
@@ -349,6 +354,25 @@ describe('FormSection', () => {
         // A rule directly under a page title is a rule against nothing.
         expect(screen.getByTestId('first-title')).toBeTruthy();
         expect(screen.getByTestId('second-title')).toBeTruthy();
+    });
+
+    it('sets its content in one column with a gap, so a notice and a grid never touch', async () => {
+        await renderWithI18n(
+            compact(
+                <FormSection testID="section" title="Lines">
+                    <Text testID="notice">Two lines need a quantity</Text>
+                    <Text testID="grid">Lines</Text>
+                </FormSection>,
+            ),
+        );
+
+        const content = screen.getByTestId('section-content');
+        const classes: string[] = content.props.className.split(' ');
+        expect(classes).toEqual(expect.arrayContaining(['z-auto', 'flex-col', 'gap-snug']));
+        expect(within(content).getByTestId('notice')).toBeTruthy();
+        expect(within(content).getByTestId('grid')).toBeTruthy();
+        // The heading is not part of the gapped column.
+        expect(within(content).queryByTestId('section-title')).toBeNull();
     });
 });
 

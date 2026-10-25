@@ -1,4 +1,5 @@
-import { apiFailure, isDeletableRole } from '@healthy360/api-client/contracts';
+import { apiFailure, isDeletableRole, isValidationFailure } from '@healthy360/api-client/contracts';
+import type { ApiFailure } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -29,8 +30,8 @@ import {
     useUpdateRoleMutation,
 } from '../../../data/access-admin-hooks.ts';
 import { toFailure } from '../../../data/hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { BilingualField } from '../bilingual-field.tsx';
-import { TabStepNavigation } from '../editor-steps.tsx';
 import { ROLE_MANAGE_PERMISSION, ROLE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
@@ -39,6 +40,7 @@ import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.ts
 import { RolePagesTab } from '../role-pages-tab.tsx';
 import { RolePermissionsTab } from '../role-permissions-tab.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
+import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -51,11 +53,11 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * ## It opens the way every other kitchen record form does
  *
- * `RecordFormOpening` — title, reference, unsaved marker, then Cancel and Delete at the inline end —
- * over three numbered steps: the role's own details, then Pages, then Advanced, walked with the same
- * Previous / Next footer the supplier and plan editors use. On the last step Next becomes Save role.
- * It is always pressable over an incomplete role: the press names what is missing and takes the
- * reader to it.
+ * `RecordFormOpening` — title, reference, unsaved marker, then Cancel, Delete and Save role at the
+ * inline end — over three numbered steps: the role's own details, then Pages, then Advanced. Save
+ * role is in the header, so it is on screen on every step. It is always pressable over an
+ * incomplete role: the press marks what is missing under the field, counts it on the step's tab and
+ * takes the reader to it. A refusal from the server does the same with the field it named.
  *
  * ## Copy is a create seeded from a read
  *
@@ -96,6 +98,22 @@ const ROLE_STEPS: readonly RoleStep[] = ['details', 'pages', 'advanced'];
 /** What the server accepts as a role's reference (`StoreOrganisationRoleRequest`). */
 const ROLE_CODE = /^[a-z][a-z0-9_]*$/;
 
+/**
+ * Whether the server refused the permission set itself. The matrix has no field to carry the
+ * message — it stays in the write callout — but the step that holds the codes still says so.
+ */
+function permissionsRefused(failure: ApiFailure | null): boolean {
+    return (
+        failure !== null &&
+        isValidationFailure(failure) &&
+        Object.entries(failure.fields).some(
+            ([field, messages]) =>
+                messages.length > 0 &&
+                (field === 'permissions' || field.startsWith('permissions.')),
+        )
+    );
+}
+
 interface Draft {
     readonly code: string;
     readonly nameEn: string;
@@ -118,6 +136,9 @@ function RoleEditor() {
     const { locale } = useLocale();
     const router = useRouter();
     const toast = useToast();
+    // Cancel, and leaving after a delete, step back to wherever the reader came from — the roles
+    // list as they left it — and only open a fresh list when there is no history to return to.
+    const back = useReturnTo(undefined, '/kitchen/roles');
 
     const params = useLocalSearchParams<{ readonly role?: string; readonly from?: string }>();
 
@@ -307,7 +328,8 @@ function RoleEditor() {
      * matrix has no field to carry a message, so that refusal stays in the callout.
      */
     const descriptionLabel = t('accessAdmin:role.description');
-    const server = serverFieldErrors(writeFailure, {
+    // In the order the details step draws them, so the first refused is the first the reader meets.
+    const serverTargets: Readonly<Record<string, ServerFieldTarget>> = {
         code: { label: t('accessAdmin:role.code'), fieldId: 'kitchen-role-editor-code' },
         name_en: {
             label: t('kitchen:bilingual.englishShort', { field: nameLabel }),
@@ -325,8 +347,28 @@ function RoleEditor() {
             label: t('kitchen:bilingual.arabicShort', { field: descriptionLabel }),
             fieldId: 'kitchen-role-editor-description-ar',
         },
-    });
+    };
+    const server = serverFieldErrors(writeFailure, serverTargets);
     const detailsIssueCount = shownIssues.length + server.items.length;
+    const advancedIssueCount = permissionsRefused(writeFailure) ? 1 : 0;
+
+    /**
+     * Where a refused save takes the reader: the first field the server named, on Details, or the
+     * permission set on Advanced. Anything else is the write callout's, which every step shows.
+     */
+    function showRefusal(error: unknown) {
+        const failure = toFailure(error);
+        const refused = serverFieldErrors(failure, serverTargets);
+        const first = Object.entries(serverTargets).find(
+            ([field]) => refused.errorFor(field) !== undefined,
+        )?.[1];
+        if (first !== undefined) {
+            setStep('details');
+            focusField(first.fieldId);
+            return;
+        }
+        if (permissionsRefused(failure)) setStep('advanced');
+    }
 
     function save() {
         const permissions = toSavedCodes(current.codes);
@@ -355,6 +397,8 @@ function RoleEditor() {
                         });
                         router.replace(`/kitchen/roles/${String(result.role.id)}` as never);
                     },
+                    // No conflict to capture: a role being created has no version to lose.
+                    onError: showRefusal,
                 },
             );
             return;
@@ -373,8 +417,8 @@ function RoleEditor() {
                 },
                 onError: (error: unknown) => {
                     // `true` means the dialog is open and has the question; anything else falls
-                    // through to the banner below, which is where the write failure is rendered.
-                    concurrency.capture(error);
+                    // through to the fields it names and the banner below.
+                    if (!concurrency.capture(error)) showRefusal(error);
                 },
             },
         );
@@ -402,16 +446,22 @@ function RoleEditor() {
         advanced: t('accessAdmin:role.tabs.advanced'),
     };
 
+    const stepIssueCount: Readonly<Record<RoleStep, number>> = {
+        details: detailsIssueCount,
+        pages: 0,
+        advanced: advancedIssueCount,
+    };
+
     const stepItems: readonly TabItem<RoleStep>[] = ROLE_STEPS.map((key) => ({
         value: key,
         label: stepLabels[key],
         ...(key === 'advanced' ? { count: current.codes.size } : {}),
-        ...(key === 'details' && detailsIssueCount > 0
+        ...(stepIssueCount[key] > 0
             ? {
                   issues: {
-                      count: detailsIssueCount,
+                      count: stepIssueCount[key],
                       tone: 'danger' as const,
-                      label: t('kitchen:forms.toFixCount', { count: detailsIssueCount }),
+                      label: t('kitchen:forms.toFixCount', { count: stepIssueCount[key] }),
                   },
               }
             : {}),
@@ -456,9 +506,7 @@ function RoleEditor() {
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
                                 onPress={() => {
-                                    guard.intercept(() => {
-                                        router.back();
-                                    });
+                                    guard.intercept(back.leave);
                                 }}
                             />
                             {deletable ? (
@@ -471,6 +519,20 @@ function RoleEditor() {
                                     }}
                                 />
                             ) : null}
+                            {/*
+                             * Save role, last, on every step. Not drawn at all on a role this
+                             * caller cannot change — every field is locked and the callout below
+                             * says why.
+                             */}
+                            {readOnly ? null : (
+                                <Button
+                                    testID="kitchen-role-editor-save"
+                                    label={t('accessAdmin:role.save')}
+                                    loading={create.isPending || update.isPending}
+                                    disabled={create.isPending || update.isPending}
+                                    onPress={attemptSave}
+                                />
+                            )}
                         </>
                     }
                     errors={{
@@ -482,16 +544,17 @@ function RoleEditor() {
                             { count: detailsIssueCount },
                         ),
                         items: [
+                            // No `fieldId`: the field keeps its own message under it, so the
+                            // problem is said where it is fixed and not only in this line.
                             ...shownIssues.map((issue) => ({
                                 key: issue.key,
                                 label: issue.label,
-                                fieldId: issue.fieldId,
                                 onPress: () => {
                                     setStep('details');
                                     focusField(issue.fieldId);
                                 },
                             })),
-                            // Save is pressed from the last step; every refused field is on Details.
+                            // Save is pressed from any step; every refused field is on Details.
                             ...server.items.map((item) => ({
                                 ...item,
                                 onPress: () => {
@@ -684,30 +747,6 @@ function RoleEditor() {
                         />
                     )}
                 </View>
-
-                {/*
-                 * Save role is the last step's Next, not a header button: a role is read through
-                 * to Advanced before it is saved. Not drawn at all on a role this caller cannot
-                 * change — every field is locked and the callout above says why — so the last
-                 * step keeps a disabled Next instead.
-                 */}
-                <TabStepNavigation<RoleStep>
-                    testID="kitchen-role-editor-steps-nav"
-                    items={stepItems}
-                    value={step}
-                    onChange={setStep}
-                    finalAction={
-                        readOnly ? undefined : (
-                            <Button
-                                testID="kitchen-role-editor-save"
-                                label={t('accessAdmin:role.save')}
-                                loading={create.isPending || update.isPending}
-                                disabled={create.isPending || update.isPending}
-                                onPress={attemptSave}
-                            />
-                        )
-                    }
-                />
             </Cascade>
 
             <EditorGuardDialogs
@@ -751,7 +790,7 @@ function RoleEditor() {
                                                     name: title,
                                                 }),
                                             });
-                                            router.back();
+                                            back.leave();
                                         },
                                     },
                                 );

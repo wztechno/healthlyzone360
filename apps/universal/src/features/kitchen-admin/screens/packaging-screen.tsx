@@ -106,26 +106,26 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  * row's Edit land in one place. Archive is offered only where the server would accept it: the
  * permission, the row's own `isEditable`, and a row that is not already archived.
  */
-export function PackagingScreen() {
+export function PackagingScreen({ view }: { readonly view?: string | undefined }) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
             testID="kitchen-packaging"
         >
-            <PackagingList />
+            <PackagingList view={view} />
         </Gate>
     );
 }
 
-function PackagingList() {
+function PackagingList({ view }: { readonly view?: string | undefined }) {
     const { t } = useTranslation();
     const { locale } = useLocale();
     const formatter = useFormatter();
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
 
-    const list = usePackagingList();
+    const list = usePackagingList(view);
 
     /**
      * Code → the taxonomy's own name for it.
@@ -196,8 +196,8 @@ function PackagingList() {
                 primaryAction={{
                     label: t('kitchen:catalogue.edit'),
                     testID: 'kitchen-packaging-view-edit',
+                    // The page stays open underneath: the editor's way back is this view.
                     onPress: () => {
-                        list.closeView();
                         list.openEditor(String(viewing.id));
                     },
                 }}
@@ -269,6 +269,7 @@ function PackagingList() {
                     rows={list.rows}
                     rowKey={(row) => String(row.id)}
                     density="sm"
+                    highlightedId={list.lastOpenedId}
                     // The row body opens the panel, not the editor. Reading is what this page
                     // is for — what a box costs and how many a batch needs — so the cheap
                     // answer is the one a click lands on, and Edit is one control away.

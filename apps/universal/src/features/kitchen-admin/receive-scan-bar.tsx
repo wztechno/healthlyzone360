@@ -86,7 +86,7 @@ export function ReceiveScanBar({ testID, stockItems, onScanned, notice }: Receiv
     const shown = message ?? notice ?? null;
 
     return (
-        <Stack space="xs" testID={testID}>
+        <Stack space="sm" testID={testID}>
             <TextInputField
                 testID={`${testID}-code`}
                 id={`${testID}-code`}

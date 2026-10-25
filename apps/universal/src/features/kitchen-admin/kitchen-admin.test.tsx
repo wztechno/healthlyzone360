@@ -87,6 +87,8 @@ jest.mock('expo-router', () => {
             replace,
             setParams: jest.fn(),
             back: jest.fn(),
+            canGoBack: () => false,
+            dismissTo: jest.fn(),
             prefetch: jest.fn(),
         }),
         usePathname: () => '/kitchen',
@@ -597,11 +599,9 @@ describe('the kitchen hub', () => {
         expect(screen.getByTestId('kitchen-family-ingredients-total')).toHaveTextContent(
             new RegExp(String(library.length)),
         );
-        expect(screen.getByTestId('kitchen-family-ingredients-drafts')).toHaveTextContent(/1/);
-        expect(screen.getByTestId('kitchen-family-ingredients-quarantined')).toHaveTextContent(/1/);
-        // A reference family says it is reference rather than inventing a draft count.
-        expect(screen.getByTestId('kitchen-family-allergen-classes-reference')).toBeTruthy();
-        expect(screen.queryByTestId('kitchen-family-allergen-classes-drafts')).toBeNull();
+        // The draft is counted once, in the Drafts figure, rather than on a module card.
+        await untilVisible('kitchen-kpi-drafts-value');
+        expect(screen.getByTestId('kitchen-kpi-drafts-value')).toHaveTextContent('1');
     });
 
     it('lists what a kitchen cooks as one recipe book, and still counts its meals among the drafts', async () => {
@@ -1552,13 +1552,15 @@ describe('the ingredient editor', () => {
 
         await untilVisible('kitchen-ingredient-editor-screen-unsaved-dialog');
         expect(routerMock.__push).not.toHaveBeenCalled();
+        expect(routerMock.__replace).not.toHaveBeenCalled();
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-unsaved-discard'));
         });
 
+        // Back steps out of the editor; with no history under it, it lands on the list.
         await waitFor(() => {
-            expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/ingredients');
+            expect(routerMock.__replace).toHaveBeenCalledWith('/kitchen/ingredients');
         });
     });
 

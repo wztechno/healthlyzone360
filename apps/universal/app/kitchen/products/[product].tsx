@@ -18,6 +18,7 @@ const ProductEditScreen = lazyScreen(
 );
 
 export default function KitchenProductEditor() {
-    const { product } = useLocalSearchParams<{ product?: string }>();
-    return <ProductEditScreen product={product} />;
+    // `?returnTo=`: the page that sent the reader here — the review queue, on this record.
+    const { product, returnTo } = useLocalSearchParams<{ product?: string; returnTo?: string }>();
+    return <ProductEditScreen product={product} returnTo={returnTo} />;
 }

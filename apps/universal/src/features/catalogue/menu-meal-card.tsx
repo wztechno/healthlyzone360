@@ -16,6 +16,7 @@ import {
     unavailableReason,
 } from './meal-readings.ts';
 import { PackSuffix } from '../marketplace/pack-suffix.tsx';
+import { useShopViewOnly } from '../marketplace/shop-view-only.tsx';
 
 /**
  * HealthZone's meal card, as the menu grid draws it (`customer.dc.html`, `§isCatalog`).
@@ -49,6 +50,7 @@ export interface MenuMealCardProps {
 }
 
 export function MenuMealCard({ meal, onOpen, onAdd, testID }: MenuMealCardProps) {
+    const viewOnly = useShopViewOnly();
     const { t } = useTranslation();
     const formatter = useFormatter();
     const id = testID ?? `meal-card-${meal.slug}`;
@@ -196,22 +198,25 @@ export function MenuMealCard({ meal, onOpen, onAdd, testID }: MenuMealCardProps)
                         {formatMoney(formatter, meal.price)}
                         <PackSuffix pack={meal.pack} testID={`${id}-pack`} />
                     </RNText>
-                    <View className="shrink-0">
-                        <Button
-                            testID={`${id}-add`}
-                            size="sm"
-                            variant="primary"
-                            label={
-                                !soldOut
-                                    ? t('marketplace:menu.add')
-                                    : unavailableReason(meal) === 'sold-out'
-                                      ? t('catalogue:card.soldOut')
-                                      : t('catalogue:card.unavailable')
-                            }
-                            disabled={soldOut}
-                            onPress={onAdd}
-                        />
-                    </View>
+                    {/* Staff view the shop and add nothing (`shop-view-only.tsx`). */}
+                    {viewOnly ? null : (
+                        <View className="shrink-0">
+                            <Button
+                                testID={`${id}-add`}
+                                size="sm"
+                                variant="primary"
+                                label={
+                                    !soldOut
+                                        ? t('marketplace:menu.add')
+                                        : unavailableReason(meal) === 'sold-out'
+                                          ? t('catalogue:card.soldOut')
+                                          : t('catalogue:card.unavailable')
+                                }
+                                disabled={soldOut}
+                                onPress={onAdd}
+                            />
+                        </View>
+                    )}
                 </View>
             </View>
         </View>

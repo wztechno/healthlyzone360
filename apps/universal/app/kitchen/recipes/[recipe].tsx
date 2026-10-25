@@ -14,6 +14,14 @@ import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
  * `?kind=` is what `new` creates — the book's New menu and its kind tabs send it — and it is read
  * here and handed down as a prop, like every other query parameter in this workspace. A saved recipe
  * answers the question itself, so the screen ignores it there.
+ *
+ * `?returnTo=`, `?fix=` and `?ingredient=` are what Stock gaps sends when a gap is fixed in the
+ * recipe: the exact view to come back to, the gap's reason and the line it is about. Handed down
+ * as they are read; the screen validates each.
+ *
+ * `?tab=` opens a tab other than the first — what a detour to an ingredient's form comes back
+ * with, so the reader lands on the table they left. `?swapFrom=&swapTo=` come back with it when that
+ * form made a kitchen copy of a library ingredient: the recipe's lines move to the copy.
  */
 const RecipeBookEditScreen = lazyScreen(
     'kitchen-recipe-editor-loading',
@@ -22,6 +30,27 @@ const RecipeBookEditScreen = lazyScreen(
 );
 
 export default function KitchenRecipeEditor() {
-    const { recipe, kind } = useLocalSearchParams<{ recipe?: string; kind?: string }>();
-    return <RecipeBookEditScreen recipe={recipe} kind={kind} />;
+    const { recipe, kind, returnTo, fix, ingredient, tab, swapFrom, swapTo } =
+        useLocalSearchParams<{
+            recipe?: string;
+            kind?: string;
+            returnTo?: string;
+            fix?: string;
+            ingredient?: string;
+            tab?: string;
+            swapFrom?: string;
+            swapTo?: string;
+        }>();
+    return (
+        <RecipeBookEditScreen
+            recipe={recipe}
+            kind={kind}
+            returnTo={returnTo}
+            fix={fix}
+            ingredient={ingredient}
+            tab={tab}
+            swapFrom={swapFrom}
+            swapTo={swapTo}
+        />
+    );
 }

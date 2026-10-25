@@ -20,17 +20,20 @@ import {
  * The Pages step — what a role can reach, said in screens rather than in codes, as a matrix.
  *
  * ```
- * Page                         No access    Can look     Can change    Also allowed
- * ─────────────────────────────────────────────────────────────────────────────────────
- * Orders                                                                          <- band
- * Order book                   [        ]  [        ]  [   ✓    ]    [✓ New sale]
+ * Page                    View   Edit   Also allowed
+ * ──────────────────────────────────────────────────────
+ * Orders                                         <- band
+ * Order book              [✓]    [✓]    [✓ New sale]
  * Also opens: Calendar
  * ```
  *
- * A row per page under its sidebar section, a column per level. The three level cells of a row are
- * one pick-one group — pressing one moves the tick — and a page that has no Manage level draws a
- * dash in that column rather than a cell that could never be ticked. The three extras (New sale,
- * New customer, Unpriced receipts) are chips in the last column of the page they belong to.
+ * A row per page under its sidebar section, a tick for View and a tick for Edit. No access is
+ * neither ticked — it has no column of its own. The ticks still set one level through
+ * `applyPageLevel`: Edit on brings View with it, View off takes Edit with it, Edit off leaves View.
+ * A page that has no Edit level draws a dash in that column rather than a box that could never be
+ * ticked; the supply-order book, whose one code opens and writes it, draws its dash under View. The
+ * three extras (New sale, New customer, Unpriced receipts) are chips in the last column of the page
+ * they belong to.
  *
  * It holds no state of its own. The whole matrix is derived from the code set on every render,
  * which is what makes shared codes honest: ten families are gated on
@@ -50,7 +53,10 @@ export interface RolePagesTabProps {
     readonly testID: string;
 }
 
-const LEVEL_COLUMNS: readonly PageLevel[] = ['none', 'view', 'manage'];
+/** The two ticked levels. None is no tick at all, so it has no column. */
+type TickLevel = Exclude<PageLevel, 'none'>;
+
+const TICK_COLUMNS: readonly TickLevel[] = ['view', 'manage'];
 
 /** Also allowed holds named chips — up to two on one page — so it takes two tracks. */
 const EXTRAS_WEIGHT = 2;
@@ -61,16 +67,15 @@ export function RolePagesTab({ codes, onChange, disabled = false, testID }: Role
     const sections = pageSections(codes);
     const unmapped = unmappedCodes(codes);
 
-    // The level columns are one group, drawn the way each row draws its one `radiogroup`.
     const columns = [
-        LEVEL_COLUMNS.map((level) => ({
+        ...TICK_COLUMNS.map((level) => ({
             key: level,
             label: t(`accessAdmin:pages.levels.${level}` as never),
         })),
         { key: 'extras', label: t('accessAdmin:pages.columns.extras'), weight: EXTRAS_WEIGHT },
     ];
 
-    const floor = useMatrixFloor([...LEVEL_COLUMNS.map(() => 1), EXTRAS_WEIGHT]);
+    const floor = useMatrixFloor([...TICK_COLUMNS.map(() => 1), EXTRAS_WEIGHT]);
 
     return (
         <View testID={testID} className="z-auto flex-col gap-base">
@@ -91,6 +96,18 @@ export function RolePagesTab({ codes, onChange, disabled = false, testID }: Role
                         {section.rows.map((row) => {
                             const rowTestID = `${testID}-${row.family.key}`;
                             const pageName = t(row.family.nameKey as never);
+                            const hasView = row.levels.includes('view');
+                            const hasEdit = row.levels.includes('manage');
+                            const viewOn = hasView && row.level !== 'none';
+                            const editOn = row.level === 'manage';
+                            const cellLabel = (level: TickLevel) =>
+                                t('accessAdmin:pages.cellLabel', {
+                                    page: pageName,
+                                    level: t(`accessAdmin:pages.levels.${level}` as never),
+                                });
+                            const setLevel = (level: PageLevel) => {
+                                onChange(applyPageLevel(codes, row.family, level));
+                            };
 
                             return (
                                 <MatrixRow
@@ -115,48 +132,45 @@ export function RolePagesTab({ codes, onChange, disabled = false, testID }: Role
                                         )
                                     }
                                 >
-                                    {/*
-                                     * The three level slots are one radio group: the row's name is
-                                     * the group's, and each cell announces "{page}: {level}".
-                                     */}
-                                    <View
-                                        testID={`${rowTestID}-level`}
-                                        role="radiogroup"
-                                        accessibilityLabel={pageName}
-                                        className="flex-row gap-tight"
-                                        style={{ flex: LEVEL_COLUMNS.length }}
-                                    >
-                                        {LEVEL_COLUMNS.map((level) => (
-                                            <MatrixSlot key={level}>
-                                                {row.levels.includes(level) ? (
-                                                    <MatrixCell
-                                                        testID={`${rowTestID}-level-option-${level}`}
-                                                        kind="radio"
-                                                        on={row.level === level}
-                                                        label={t('accessAdmin:pages.cellLabel', {
-                                                            page: pageName,
-                                                            level: t(
-                                                                `accessAdmin:pages.levels.${level}` as never,
-                                                            ),
-                                                        })}
-                                                        disabled={disabled}
-                                                        onPress={() => {
-                                                            if (row.level === level) return;
-                                                            onChange(
-                                                                applyPageLevel(
-                                                                    codes,
-                                                                    row.family,
-                                                                    level,
-                                                                ),
-                                                            );
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    <MatrixNone />
-                                                )}
-                                            </MatrixSlot>
-                                        ))}
-                                    </View>
+                                    <MatrixSlot>
+                                        {hasView ? (
+                                            <MatrixCell
+                                                testID={`${rowTestID}-view`}
+                                                on={viewOn}
+                                                label={cellLabel('view')}
+                                                disabled={disabled}
+                                                onPress={() => {
+                                                    setLevel(viewOn ? 'none' : 'view');
+                                                }}
+                                            />
+                                        ) : (
+                                            <MatrixNone />
+                                        )}
+                                    </MatrixSlot>
+
+                                    <MatrixSlot>
+                                        {hasEdit ? (
+                                            <MatrixCell
+                                                testID={`${rowTestID}-edit`}
+                                                on={editOn}
+                                                label={cellLabel('manage')}
+                                                disabled={disabled}
+                                                onPress={() => {
+                                                    // Off again drops to View where the page has
+                                                    // one, and to nothing where it does not.
+                                                    setLevel(
+                                                        editOn
+                                                            ? hasView
+                                                                ? 'view'
+                                                                : 'none'
+                                                            : 'manage',
+                                                    );
+                                                }}
+                                            />
+                                        ) : (
+                                            <MatrixNone />
+                                        )}
+                                    </MatrixSlot>
 
                                     <MatrixSlot
                                         testID={`${rowTestID}-extras`}
@@ -169,7 +183,6 @@ export function RolePagesTab({ codes, onChange, disabled = false, testID }: Role
                                                 <MatrixCell
                                                     key={extra.key}
                                                     testID={`${rowTestID}-extra-${extra.key}`}
-                                                    kind="checkbox"
                                                     on={enabled}
                                                     word={t(extra.nameKey as never)}
                                                     label={t(extra.nameKey as never)}

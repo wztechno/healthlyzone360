@@ -267,6 +267,7 @@
         "count_one": "{{count}} plan",
         "count_other": "{{count}} plans",
         "choosePlanShort": "Choose plan",
+        "viewPlanShort": "View plan",
         "compareCount": "Compare ({{selected}})"
     },
     "howPlans": {

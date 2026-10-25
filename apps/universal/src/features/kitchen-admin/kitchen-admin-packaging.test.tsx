@@ -22,6 +22,7 @@ import {
 } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { withReturnTo } from '../../navigation/return-to.ts';
 import { PackagingEditScreen } from './screens/packaging-edit-screen.tsx';
 import { PackagingScreen } from './screens/packaging-screen.tsx';
 import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
@@ -57,12 +58,13 @@ afterEach(() => {
 
 jest.mock('expo-router', () => {
     const push = jest.fn();
+    const setParams = jest.fn();
     return {
         __esModule: true,
         useRouter: () => ({
             push,
             replace: jest.fn(),
-            setParams: jest.fn(),
+            setParams,
             back: jest.fn(),
             prefetch: jest.fn(),
         }),
@@ -73,14 +75,16 @@ jest.mock('expo-router', () => {
         Slot: () => null,
         Stack: () => null,
         __push: push,
+        __setParams: setParams,
     };
 });
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const routerMock = require('expo-router') as { __push: jest.Mock };
+const routerMock = require('expo-router') as { __push: jest.Mock; __setParams: jest.Mock };
 
 beforeEach(() => {
     routerMock.__push.mockClear();
+    routerMock.__setParams.mockClear();
 });
 
 /** Waits for an element, with the contention headroom the other kitchen suites document. */
@@ -616,6 +620,8 @@ describe('the packaging list', () => {
         });
 
         await untilVisible('kitchen-packaging-view-field-composition');
+        // The view is an address, so the editor opened from it can come back to it.
+        expect(routerMock.__setParams).toHaveBeenCalledWith({ view: String(row.id) });
         // The material — the field a sustainability question is asked about, and the one the row
         // has no track for.
         expect(screen.getByTestId('kitchen-packaging-view-field-composition')).toHaveTextContent(
@@ -627,7 +633,102 @@ describe('the packaging list', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-packaging-view-edit'));
         });
-        expect(routerMock.__push).toHaveBeenCalledWith(`/kitchen/packaging/${String(row.id)}`);
+        // Carrying the way back to this record's page, which Cancel, Save and the trail take.
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            withReturnTo(
+                `/kitchen/packaging/${String(row.id)}`,
+                `/kitchen/packaging?view=${String(row.id)}`,
+            ),
+        );
+    });
+
+    it('opens the record the address names, so a way back lands on it', async () => {
+        const row = item({ ordinal: 1, name: 'Kraft lunch box' });
+
+        await renderStubScreen(<PackagingScreen view={String(row.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listIngredients: packagingListing(() => [row]),
+                    listIngredientCategories: async () => CATEGORIES,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-packaging-view-field-composition');
+        expect(screen.queryByTestId('kitchen-packaging-table')).toBeNull();
+    });
+
+    it('waits for the rows before deciding the record the address names is gone', async () => {
+        const row = item({ ordinal: 1, name: 'Kraft lunch box' });
+        let release: () => void = () => undefined;
+        const arrived = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        const listing = packagingListing(() => [row]);
+
+        await renderStubScreen(<PackagingScreen view={String(row.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listIngredients: async (filter) => {
+                        await arrived;
+                        return listing(filter);
+                    },
+                    listIngredientCategories: async () => CATEGORIES,
+                },
+            },
+        });
+        // Mounted before the page has answered: nothing is open yet, and nothing is given up.
+        expect(screen.queryByTestId('kitchen-packaging-view-field-composition')).toBeNull();
+        expect(routerMock.__setParams).not.toHaveBeenCalledWith({ view: undefined });
+
+        await act(async () => {
+            release();
+        });
+
+        await untilVisible('kitchen-packaging-view-field-composition');
+        expect(routerMock.__setParams).not.toHaveBeenCalledWith({ view: undefined });
+    });
+
+    it('reads the record the address names by its id when the loaded page does not hold it', async () => {
+        // A refresh starts the list on page one; the record a link names can be anywhere.
+        const onPage = item({ ordinal: 1, name: 'Kraft lunch box' });
+        const elsewhere = item({ ordinal: 2, name: 'Paper straw' });
+
+        await renderStubScreen(<PackagingScreen view={String(elsewhere.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listIngredients: packagingListing(() => [onPage]),
+                    listIngredientCategories: async () => CATEGORIES,
+                    getIngredient: async () => elsewhere,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-packaging-view-field-composition');
+        expect(screen.getByTestId('kitchen-packaging-view-title')).toHaveTextContent('Paper straw');
+        expect(routerMock.__setParams).not.toHaveBeenCalledWith({ view: undefined });
+    });
+
+    it('shows the list when the address names a record nothing can find', async () => {
+        const row = item({ ordinal: 1, name: 'Kraft lunch box' });
+
+        await renderStubScreen(<PackagingScreen view="no-such-record" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listIngredients: packagingListing(() => [row]),
+                    listIngredientCategories: async () => CATEGORIES,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-packaging-table');
+        await waitFor(() => {
+            expect(routerMock.__setParams).toHaveBeenCalledWith({ view: undefined });
+        });
     });
 
     it('opens the packaging editor from the row', async () => {

@@ -56,9 +56,9 @@ const COMFORTABLE_SIZE: Readonly<Record<ButtonSize, string>> = {
 };
 
 const COMPACT_SIZE: Readonly<Record<ButtonSize, string>> = {
-    sm: 'h-control-sm aspect-square rounded-sm',
-    md: 'h-control-md aspect-square rounded-sm',
-    lg: 'h-control-lg aspect-square rounded-sm',
+    sm: 'h-control-sm aspect-square rounded',
+    md: 'h-control-md aspect-square rounded',
+    lg: 'h-control-lg aspect-square rounded',
 };
 
 const ICON_BUTTON_SIZE: Readonly<Record<Density, Readonly<Record<ButtonSize, string>>>> = {

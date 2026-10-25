@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Text as RNText, View } from 'react-native';
 
+import { useDensity } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
@@ -41,6 +42,9 @@ const TONE_ICON: Readonly<Record<CalloutTone, IconName>> = {
 export const CALLOUT_ROLES = ['note', 'status', 'alert'] as const;
 export type CalloutRole = (typeof CALLOUT_ROLES)[number];
 
+export const CALLOUT_SIZES = ['regular', 'compact'] as const;
+export type CalloutSize = (typeof CALLOUT_SIZES)[number];
+
 export interface CalloutProps {
     readonly title: string;
     readonly tone?: CalloutTone | undefined;
@@ -49,13 +53,21 @@ export interface CalloutProps {
     readonly children?: ReactNode | undefined;
     /** Overrides the tone's icon. `null` removes it — only when the title is unambiguous. */
     readonly icon?: IconName | null | undefined;
-    /** Buttons or links. Rendered under the body in a wrapping row. */
+    /**
+     * Buttons or links. `regular`: under the body in a wrapping row. `compact`: at the end of the
+     * strip's own row, wrapping onto a line of their own when the text needs the room.
+     */
     readonly actions?: ReactNode | undefined;
     /**
      * `note` for standing guidance (a medical disclaimer), `status` for a polite live update,
      * `alert` for something that must interrupt. Defaults to `note`.
      */
     readonly role?: CalloutRole | undefined;
+    /**
+     * `regular` is the padded panel; `compact` is the one-line strip `FormIssueBanner` draws. Follows
+     * the density when omitted, so every notice in the kitchen admin is a strip.
+     */
+    readonly size?: CalloutSize | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -77,6 +89,21 @@ export interface CalloutProps {
  * The frame is the soft one (Badges & Callouts, 1a): the tone's subtle fill with no border, a 10px
  * inset and a 13px mark in the tone's full ink. The fill already separates it from the page; a
  * border on top of it was a second edge saying the same thing.
+ *
+ * ## Always the full width
+ *
+ * A notice never shares its line. Beside a button or a field it was squeezed into a column a few
+ * words wide, and in a wrapping row it sat wherever the row put it; at `w-full` it takes a line of
+ * its own wherever it is placed.
+ *
+ * ## Two sizes
+ *
+ * `regular` is the panel: the title on its line, the body under it, the actions under that.
+ * `compact` is the strip `FormIssueBanner` draws — 32px tall at least, the mark, then the title and
+ * the body as one run of text, the actions at the end of the same row. Anything structured passed
+ * as `children` (a list of short items) goes on a full-width row under the strip. The kitchen
+ * admin renders under `DensityProvider value="compact"`, so every notice there is a strip unless
+ * it asks for the panel.
  */
 export function Callout({
     title,
@@ -86,19 +113,86 @@ export function Callout({
     icon,
     actions,
     role = 'note',
+    size,
     className,
     testID,
 }: CalloutProps) {
+    const density = useDensity();
+    const resolvedSize = size ?? (density === 'compact' ? 'compact' : 'regular');
     const resolvedIcon = icon === undefined ? TONE_ICON[tone] : icon;
+    const part = (name: string) => (testID === undefined ? undefined : `${testID}-${name}`);
+    const semantics = {
+        testID,
+        role,
+        ...(role === 'alert' ? { accessibilityRole: 'alert' as const } : {}),
+        ...(role === 'status' ? { 'aria-live': 'polite' as const } : {}),
+    };
+
+    if (resolvedSize === 'compact') {
+        const hasChildren = children !== undefined && children !== null && children !== false;
+        return (
+            <View
+                {...semantics}
+                className={cx(
+                    'min-h-8 w-full flex-col justify-center gap-1 rounded-md py-1 pe-1 ps-2.5',
+                    TONE_CLASS[tone],
+                    className,
+                )}
+            >
+                <View className="flex-row flex-wrap items-center gap-x-2 gap-y-1">
+                    {resolvedIcon === null ? null : (
+                        <Icon
+                            testID={part('icon')}
+                            name={resolvedIcon}
+                            size="sm"
+                            className={TONE_MARK_CLASS[tone]}
+                        />
+                    )}
+                    {/*
+                     * One run of text: the title in its weight, the body after a space. It keeps a
+                     * card's width before the actions may share its line — below that they wrap to
+                     * a line of their own rather than squeeze the words into a column.
+                     */}
+                    <RNText
+                        testID={part('text')}
+                        className={cx(
+                            'min-w-card flex-1 text-sm text-start',
+                            TONE_TEXT_CLASS[tone],
+                        )}
+                    >
+                        <RNText testID={part('title')} className="font-semibold">
+                            {title}
+                        </RNText>
+                        {body === undefined ? null : (
+                            <>
+                                {' '}
+                                <RNText testID={part('body')}>{body}</RNText>
+                            </>
+                        )}
+                    </RNText>
+                    {actions === undefined ? null : (
+                        <View
+                            testID={part('actions')}
+                            className="ms-auto flex-row flex-wrap items-center gap-1.5"
+                        >
+                            {actions}
+                        </View>
+                    )}
+                </View>
+                {hasChildren ? (
+                    <View testID={part('children')} className="w-full flex-col">
+                        {children}
+                    </View>
+                ) : null}
+            </View>
+        );
+    }
 
     return (
         <View
-            testID={testID}
-            role={role}
-            {...(role === 'alert' ? { accessibilityRole: 'alert' as const } : {})}
-            {...(role === 'status' ? { 'aria-live': 'polite' as const } : {})}
+            {...semantics}
             className={cx(
-                'flex-row items-start gap-2.5 rounded-lg px-3 py-2.5',
+                'w-full flex-row items-start gap-2.5 rounded-lg px-3 py-2.5',
                 TONE_CLASS[tone],
                 className,
             )}
@@ -106,7 +200,7 @@ export function Callout({
             {resolvedIcon === null ? null : (
                 // `mt-1` sets the 13px mark on the title's first line rather than on its top edge.
                 <Icon
-                    testID={testID === undefined ? undefined : `${testID}-icon`}
+                    testID={part('icon')}
                     name={resolvedIcon}
                     size="sm"
                     className={cx('mt-1', TONE_MARK_CLASS[tone])}
@@ -115,7 +209,7 @@ export function Callout({
 
             <View className="min-w-0 flex-1 flex-col gap-0.5">
                 <RNText
-                    testID={testID === undefined ? undefined : `${testID}-title`}
+                    testID={part('title')}
                     className={cx('text-sm font-semibold text-start', TONE_TEXT_CLASS[tone])}
                 >
                     {title}
@@ -123,7 +217,7 @@ export function Callout({
 
                 {body === undefined ? null : (
                     <RNText
-                        testID={testID === undefined ? undefined : `${testID}-body`}
+                        testID={part('body')}
                         className={cx('text-sm text-start', TONE_TEXT_CLASS[tone])}
                     >
                         {body}
@@ -134,7 +228,7 @@ export function Callout({
 
                 {actions === undefined ? null : (
                     <View
-                        testID={testID === undefined ? undefined : `${testID}-actions`}
+                        testID={part('actions')}
                         className="flex-row flex-wrap items-center gap-1.5 pt-1.5"
                     >
                         {actions}

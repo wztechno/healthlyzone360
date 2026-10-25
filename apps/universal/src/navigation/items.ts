@@ -149,6 +149,14 @@ export function availableWorkspaceAreas(state: AccessState): readonly WorkspaceA
         .filter((option) => option.available);
 }
 
+/**
+ * The catalogue key that names an area on the workspace page and in the switcher. The customer
+ * area is the web shop there: "Home" read as the staff member's own home page.
+ */
+export function workspaceAreaLabelKey(area: RouteArea): string {
+    return area === 'customer' ? 'access:workspaceSelector.webShop' : `access:area.${area}`;
+}
+
 /** Areas compiled into a build family, regardless of the current user. Used by the showcase. */
 export function areasForMode(mode: AppMode): readonly RouteArea[] {
     return WORKSPACE_AREAS.filter((area) => modeAllows(mode, area));

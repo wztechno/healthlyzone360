@@ -406,11 +406,15 @@ describe('Cascade', () => {
         expect(entranceDelays(timing)).toEqual([0, 40, 80, 120]);
     });
 
-    it('brings in a band that appears above the others without replaying them', async () => {
+    it('draws a band that appears after the first arrival in place, without replaying the others', async () => {
         const timing = jest.spyOn(Animated, 'timing');
         const page = (banner: boolean) => (
             <Cascade>
-                {banner ? <RNText key="banner">Saved</RNText> : null}
+                {banner ? (
+                    <RNText key="banner" testID="banner">
+                        Saved
+                    </RNText>
+                ) : null}
                 <RNText key="toolbar">Toolbar</RNText>
                 <RNText key="list">List</RNText>
             </Cascade>
@@ -422,10 +426,59 @@ describe('Cascade', () => {
             view.rerender(withI18n(page(true)));
         });
 
-        expect(timing).toHaveBeenCalledTimes(3);
-        // It answers something that just happened, so it rises in at once rather than waiting
-        // behind a delay meant for the page's first arrival.
-        expect(entranceDelays(timing)).toEqual([0, 40, 0]);
+        // It answers something that just happened: no delay, no rise, no fade — it is simply
+        // there, like everything already on the page.
+        expect(timing).toHaveBeenCalledTimes(2);
+        const item = screen.getByTestId('banner').parent;
+        expect(item).not.toBeNull();
+        expect(flattenStyle(item?.props.style)).toEqual({});
+    });
+
+    it('settles a CascadeItem the screen passes once the page has arrived', async () => {
+        const timing = jest.spyOn(Animated, 'timing');
+        const page = (late: boolean) => (
+            <Cascade>
+                <RNText key="opening">Opening</RNText>
+                {late ? (
+                    <CascadeItem key="late" index={0} testID="late">
+                        <RNText>Late</RNText>
+                    </CascadeItem>
+                ) : null}
+            </Cascade>
+        );
+        const view = await renderWithI18n(page(false));
+        await act(async () => {
+            view.rerender(withI18n(page(true)));
+        });
+
+        expect(timing).toHaveBeenCalledTimes(1);
+        expect(styleOf('late')).toEqual({});
+    });
+
+    it('settles a nested cascade that appears after the page has arrived', async () => {
+        const timing = jest.spyOn(Animated, 'timing');
+        const page = (grid: boolean) => (
+            <Cascade>
+                <RNText key="header">Header</RNText>
+                {grid ? (
+                    <Cascade key="grid" testID="grid">
+                        <RNText>Group one</RNText>
+                        <RNText>Group two</RNText>
+                    </Cascade>
+                ) : null}
+            </Cascade>
+        );
+        const view = await renderWithI18n(page(false));
+        await act(async () => {
+            view.rerender(withI18n(page(true)));
+        });
+
+        expect(timing).toHaveBeenCalledTimes(1);
+        expect(screen.getByTestId('grid').children).toHaveLength(2);
+        for (const band of screen.getByTestId('grid').children) {
+            expect(typeof band).not.toBe('string');
+            if (typeof band !== 'string') expect(flattenStyle(band.props.style)).toEqual({});
+        }
     });
 
     it('keeps a band passed as its own CascadeItem, placing it in the count', async () => {
@@ -467,6 +520,18 @@ describe('Cascade', () => {
 
         expect(styleOf('band')['opacity']).not.toBe(1);
         expect(Object.keys(firstTransform('band'))).toEqual(['translateY']);
+    });
+
+    it('mounts settled when it is told it arrives late — no timing, no transform', async () => {
+        const timing = jest.spyOn(Animated, 'timing');
+        await renderWithI18n(
+            <CascadeItem index={0} immediate testID="band">
+                <RNText>Band</RNText>
+            </CascadeItem>,
+        );
+
+        expect(timing).not.toHaveBeenCalled();
+        expect(styleOf('band')).toEqual({});
     });
 });
 

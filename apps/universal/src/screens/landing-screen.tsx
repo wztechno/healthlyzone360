@@ -7,6 +7,7 @@ import type { AccessState } from '@healthy360/permissions';
 import { Redirect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
+import { isShopViewOnly } from '../features/marketplace/shop-view-only.tsx';
 import { resolveAppLandingRoute } from '../navigation/landing.ts';
 import { ReturnRedirect } from '../navigation/return-redirect.tsx';
 import { isPublicHref, pathnameOf, safeReturnTo, withReturnTo } from '../navigation/return-to.ts';
@@ -30,10 +31,15 @@ function gatingAreaOf(href: string): RouteArea | null {
  * Whether a session that has landed may be sent on to `href`: the same kernel the destination's own
  * `<Gate>` will run, asked first, so a return into an area this person cannot open lands them on
  * their home instead of on a forbidden page.
+ *
+ * Staff never return to the shop. They sign in to work, so a shop page they signed in from — or a
+ * customer page they cannot use (`shop-view-only.tsx`) — gives way to the workspace page, where
+ * they choose where to work. A return into a workspace (a link to a kitchen page) is still honoured.
  */
 function mayReturnTo(state: AccessState, href: string): boolean {
-    if (isPublicHref(href)) return true;
     const area = gatingAreaOf(href);
+    if (isShopViewOnly(state) && (isPublicHref(href) || area === 'customer')) return false;
+    if (isPublicHref(href)) return true;
     if (area === null) return true;
     return evaluateGates(state, requirementForArea(area)).status === 'allow';
 }

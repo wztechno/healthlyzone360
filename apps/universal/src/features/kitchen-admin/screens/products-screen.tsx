@@ -141,25 +141,37 @@ export const PRODUCTS_FAMILY: GoodsFamily = {
     searchPlaceholder: 'kitchen:products.searchPlaceholder',
 };
 
-export function ProductsScreen({ family = PRODUCTS_FAMILY }: { readonly family?: GoodsFamily }) {
+export function ProductsScreen({
+    family = PRODUCTS_FAMILY,
+    view,
+}: {
+    readonly family?: GoodsFamily;
+    readonly view?: string | undefined;
+}) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
             testID={family.gateTestID}
         >
-            <ProductsList family={family} />
+            <ProductsList family={family} view={view} />
         </Gate>
     );
 }
 
-function ProductsList({ family }: { readonly family: GoodsFamily }) {
+function ProductsList({
+    family,
+    view,
+}: {
+    readonly family: GoodsFamily;
+    readonly view?: string | undefined;
+}) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const { locale } = useLocale();
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
-    const list = useProductList(family.itemType, family.routeBase);
+    const list = useProductList(family.itemType, family.routeBase, view);
 
     /**
      * Code → the name the kitchen filed it under.
@@ -222,8 +234,8 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
                 primaryAction={{
                     label: t('kitchen:catalogue.edit'),
                     testID: 'kitchen-products-view-edit',
+                    // The page stays open underneath: the editor's way back is this view.
                     onPress: () => {
-                        list.closeView();
                         list.openEditor(String(viewing.id));
                     },
                 }}
@@ -303,6 +315,7 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
                     rowKey={(row) => String(row.id)}
                     // Fixed, not switchable: the S/M/L control is gone.
                     density="sm"
+                    highlightedId={list.lastOpenedId}
                     onRowPress={(row) => {
                         list.openEditor(String(row.id));
                     }}

@@ -16,7 +16,6 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { TabItem } from '@healthy360/design-system';
-import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -29,7 +28,7 @@ import {
     useStaffSignInDomainsQuery,
 } from '../../../data/access-admin-hooks.ts';
 import { toFailure } from '../../../data/hooks.ts';
-import { TabStepNavigation } from '../editor-steps.tsx';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { MEMBERSHIP_INVITE_PERMISSION, USER_MANAGE_PERMISSION } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
@@ -68,12 +67,13 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * ## It opens the way every other kitchen record form does
  *
- * `RecordFormOpening` — title, unsaved marker, Cancel at the inline end — over numbered step tabs,
- * each an underlined section of `sm` fields in a `FormGrid`, walked with the Previous / Next footer
- * the supplier and role editors use, whose last Next is the commit. An invitation is two steps
- * (sign-in, role); a login made here is three (sign-in, person, role). The commit is always pressable: a
- * press over an incomplete form names what is missing in the issues banner and opens the step that
- * holds the first of it, rather than a disabled button that says nothing.
+ * `RecordFormOpening` — title, unsaved marker, Cancel and the commit at the inline end — over
+ * numbered step tabs, each an underlined section of `sm` fields in a `FormGrid`. The commit is in
+ * the header, so it is on screen on every step. An invitation is two steps (sign-in, role); a login
+ * made here is three (sign-in, person, role). The commit is always pressable: a press over an
+ * incomplete form marks what is missing under each field, counts it on each step's tab and opens
+ * the step that holds the first of it, rather than a disabled button that says nothing. A refusal
+ * from the server does the same with the field it named.
  */
 
 export function StaffCreateScreen() {
@@ -148,8 +148,10 @@ interface Issue {
 
 function StaffCreateForm() {
     const { t } = useTranslation();
-    const router = useRouter();
     const toast = useToast();
+    // Cancel, and leaving once the person is in, step back to wherever the reader came from — the
+    // team list as they left it — and only open a fresh list when there is no history.
+    const back = useReturnTo(undefined, '/kitchen/team');
 
     const canInvite = useCan(MEMBERSHIP_INVITE_PERMISSION);
     const canCreate = useCan(USER_MANAGE_PERMISSION);
@@ -271,9 +273,9 @@ function StaffCreateForm() {
         server.errorFor('role_code') ??
         server.errorFor('role_ids') ??
         server.errorFor('role_ids.*');
-    // A chip names its field by label; the label says which step to open before focusing it.
+    // The helper keys each chip `server-<pattern>`, which names the step to open before focusing.
     const serverItems = server.items.map((item) => {
-        const on = Object.values(serverTargets).find((target) => target.label === item.label)?.step;
+        const on = serverTargets[item.key.slice('server-'.length)]?.step;
         return {
             ...item,
             step: on,
@@ -283,6 +285,21 @@ function StaffCreateForm() {
             },
         };
     });
+
+    /*
+     * Where a refused commit takes the reader: the step holding the first field the server named —
+     * the targets are listed in step order — with that field focused. A refusal that names no
+     * field is the callout's, which every step shows.
+     */
+    function showRefusal(error: unknown) {
+        const refused = serverFieldErrors(toFailure(error), serverTargets);
+        const first = Object.entries(serverTargets).find(
+            ([field]) => refused.errorFor(field) !== undefined,
+        )?.[1];
+        if (first === undefined) return;
+        setStep(first.step);
+        focusField(first.fieldId);
+    }
 
     /*
      * What stops the commit, each naming the field that fixes it, in the order the steps draw
@@ -380,8 +397,9 @@ function StaffCreateForm() {
                     onSuccess: () => {
                         guard.markClean();
                         toast.show({ message: t('accessAdmin:team.invitations.sent', { email }) });
-                        router.back();
+                        back.leave();
                     },
+                    onError: showRefusal,
                 },
             );
             return;
@@ -402,6 +420,7 @@ function StaffCreateForm() {
                 guard.markClean();
                 setIssued({ name, password: result.initialPassword });
             },
+            onError: showRefusal,
         });
     }
 
@@ -465,10 +484,20 @@ function StaffCreateForm() {
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
                                 onPress={() => {
-                                    guard.intercept(() => {
-                                        router.back();
-                                    });
+                                    guard.intercept(back.leave);
                                 }}
+                            />
+                            {/* The commit, last, on every step. */}
+                            <Button
+                                testID="kitchen-staff-create-submit"
+                                label={t(
+                                    mode === 'invite'
+                                        ? 'accessAdmin:add.submitInvite'
+                                        : 'accessAdmin:add.submitCreate',
+                                )}
+                                loading={invite.isPending || create.isPending}
+                                disabled={invite.isPending || create.isPending}
+                                onPress={attemptSubmit}
                             />
                         </>
                     }
@@ -480,10 +509,11 @@ function StaffCreateForm() {
                             { count: shownIssues.length + serverItems.length },
                         ),
                         items: [
+                            // No `fieldId`: the field keeps its own message under it, so the
+                            // problem is said where it is fixed and not only in this line.
                             ...shownIssues.map((issue) => ({
                                 key: issue.key,
                                 label: issue.label,
-                                fieldId: issue.fieldId,
                                 onPress: () => {
                                     goToIssue(issue);
                                 },
@@ -718,27 +748,6 @@ function StaffCreateForm() {
                         </FormSection>
                     )}
                 </View>
-
-                {/* The commit is the last step's Next, not a header button, as on the role editor. */}
-                <TabStepNavigation<StaffStep>
-                    testID="kitchen-staff-create-steps-nav"
-                    items={stepItems}
-                    value={step}
-                    onChange={setStep}
-                    finalAction={
-                        <Button
-                            testID="kitchen-staff-create-submit"
-                            label={t(
-                                mode === 'invite'
-                                    ? 'accessAdmin:add.submitInvite'
-                                    : 'accessAdmin:add.submitCreate',
-                            )}
-                            loading={invite.isPending || create.isPending}
-                            disabled={invite.isPending || create.isPending}
-                            onPress={attemptSubmit}
-                        />
-                    }
-                />
             </Cascade>
 
             <EditorGuardDialogs testID="kitchen-staff-create" guard={guard} />
@@ -751,7 +760,7 @@ function StaffCreateForm() {
                 dismissOnBackdrop={false}
                 onClose={() => {
                     setIssued(null);
-                    router.back();
+                    back.leave();
                 }}
                 title={t('accessAdmin:add.passwordTitle')}
                 description={t('accessAdmin:add.passwordBody', { name: issued?.name ?? '' })}
@@ -767,7 +776,7 @@ function StaffCreateForm() {
                                     message: t('accessAdmin:add.created', { name: created.name }),
                                 });
                             }
-                            router.back();
+                            back.leave();
                         }}
                     />
                 }

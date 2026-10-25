@@ -1,3 +1,5 @@
+import { useLocalSearchParams } from 'expo-router';
+
 import { lazyScreen } from '../../src/shell/lazy-screen.tsx';
 
 /**
@@ -6,6 +8,9 @@ import { lazyScreen } from '../../src/shell/lazy-screen.tsx';
  *
  * Behind `inventory.view_organisation` — the screen's own `<Gate>` refuses a reader without it, and
  * the resolve/retry controls need `inventory.manage_organisation`.
+ *
+ * `?status=`, `?from=`, `?page=`, `?gap=` and `?fixed=` are the view the list was left on
+ * (`stock-gap-fix.ts`), so Back from a recipe fix returns to the same gap.
  */
 const ConsumptionExceptionsScreen = lazyScreen(
     'kitchen-consumption-exceptions-loading',
@@ -15,5 +20,22 @@ const ConsumptionExceptionsScreen = lazyScreen(
 );
 
 export default function KitchenConsumptionExceptions() {
-    return <ConsumptionExceptionsScreen />;
+    const { status, from, to, page, gap, fixed } = useLocalSearchParams<{
+        status?: string;
+        from?: string;
+        to?: string;
+        page?: string;
+        gap?: string;
+        fixed?: string;
+    }>();
+    return (
+        <ConsumptionExceptionsScreen
+            status={status}
+            from={from}
+            to={to}
+            page={page}
+            gap={gap}
+            fixed={fixed}
+        />
+    );
 }

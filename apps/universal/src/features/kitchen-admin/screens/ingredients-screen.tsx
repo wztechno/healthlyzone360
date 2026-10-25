@@ -108,25 +108,25 @@ import {
  * Every step is `useMotion`'s: under reduced motion the page is drawn in its final place on the
  * first frame, and no step can leave a band invisible.
  */
-export function IngredientsScreen() {
+export function IngredientsScreen({ view }: { readonly view?: string | undefined }) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
             testID="kitchen-ingredients"
         >
-            <IngredientsList />
+            <IngredientsList view={view} />
         </Gate>
     );
 }
 
-function IngredientsList() {
+function IngredientsList({ view }: { readonly view?: string | undefined }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const { locale } = useLocale();
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
-    const list = useIngredientList();
+    const list = useIngredientList(view);
 
     /**
      * Code → the catalogue's own name for it, for both levels of the tree.
@@ -177,8 +177,8 @@ function IngredientsList() {
      * The record is opened *instead of* the list, not on a route of its own: `list.viewing` already
      * holds the full `IngredientAdmin` the row was drawn from, so this costs no second fetch and no
      * loading state, and Back is a state change rather than a navigation that would drop the list's
-     * page, sort and filters on the way out. The cost is that the record is not deep-linkable — see
-     * `ingredient-detail.tsx` for what that would take.
+     * page, sort and filters on the way out. It is still an address — `?view=` names it, so the
+     * editor it opens comes back to it (`use-viewed-record.ts`).
      */
     const viewing = list.viewing;
     if (viewing !== null) {
@@ -276,6 +276,7 @@ function IngredientsList() {
                     rowKey={(row) => String(row.id)}
                     // Fixed, not switchable: the S/M/L control is gone.
                     density="sm"
+                    highlightedId={list.lastOpenedId}
                     onRowPress={(row) => {
                         list.openEditor(String(row.id));
                     }}

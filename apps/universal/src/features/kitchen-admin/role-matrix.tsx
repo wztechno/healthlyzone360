@@ -1,4 +1,5 @@
 import { Icon, Text, cx, useContentWidth } from '@healthy360/design-system';
+import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
@@ -6,10 +7,10 @@ import { Pressable, ScrollView, View } from 'react-native';
  * The role editor's permission matrix: a matrix in shape, drawn in the kitchen tables' style.
  *
  * ```
- * PAGE                         No access    Can look     Can change    Also allowed
- * ─────────────────────────────────────────────────────────────────────────────────────
- * ORDERS                                                                        <- band
- * Order book                   [        ]  [        ]  [   ✓    ]    [✓ New sale]
+ * PAGE                    View   Edit   Also allowed
+ * ──────────────────────────────────────────────────────────────────
+ * ORDERS                                                     <- band
+ * Order book              [✓]    [✓]    [✓ New sale] [+ New customer]
  * Also opens: Calendar
  * ```
  *
@@ -20,55 +21,76 @@ import { Pressable, ScrollView, View } from 'react-native';
  * by their height and the hover tint, because a rule under every row stripes a page into a ledger.
  * A sidebar section is a sunken band across the full width, not a line.
  *
- * What stays the matrix's own is the cells: a fixed row-label track, then one flexible track per
- * column, each cell a 32px well — tinted and
- * ticked when on, plain when off — pressable where the plan grid's are read-only, because here the
- * matrix *is* the editor. Wide on purpose: below its floor it scrolls sideways inside its own port
- * rather than squeezing the columns into slivers.
+ * What stays the matrix's own is the cells. A tick column is a **fixed narrow track** holding a
+ * checkbox — `Checkbox`'s box, filled and ticked when on — and the one column of named chips takes
+ * whatever width is left. The tick columns used to be flexible tracks with a well stretched across
+ * each, which on a wide page pushed View a long way from the name it belongs to and drew a row of
+ * empty bars rather than boxes anyone would read as ticks. Below its floor the matrix scrolls
+ * sideways inside its own port rather than squeezing the columns into slivers.
  *
- * The pieces are separate so the two steps compose them differently: Pages draws its level columns
- * as a pick-one row (`role="radio"`), Advanced draws each well as its own tick (`role="checkbox"`).
- * A cell always announces the whole sentence — row and column — since a tick means nothing alone.
+ * Every cell is a checkbox. A cell always announces the whole sentence — row and column — since a
+ * tick means nothing alone.
  */
 
-/**
- * A row-label track wide enough for a page name and most of its "Also opens" line — a longer one
- * wraps under it — and `minmax(120px, 1fr)` columns.
- */
+/** A row-label track wide enough for a page name and most of its "Also opens" line. */
 export const MATRIX_ROW_TRACK = 320;
-export const MATRIX_CELL_FLOOR = 120;
+/** A tick column: its header word and a checkbox, and nothing more. */
+export const MATRIX_CELL_FLOOR = 112;
 
 /**
- * The same two on a laptop's page. The full-size matrix (320 + seven 120px columns) is 1160px wide
- * and scrolled sideways on every page narrower than that, which was every laptop. A page name still
- * fits 240 — its "Also opens" line wraps under it — and a 32px well sits in 96 with room to spare.
+ * The same two on a laptop's page. A page name still fits 240 — its "Also opens" line wraps under
+ * it — and a checkbox sits in 96 with room to spare.
  */
 const MATRIX_ROW_TRACK_COMPACT = 240;
 const MATRIX_CELL_FLOOR_COMPACT = 96;
 
+/**
+ * The narrow row track, for a matrix whose row names are a word or two (Advanced's areas). At the
+ * page track an area name sat beside two hundred pixels of nothing before its first tick.
+ */
+const MATRIX_ROW_TRACK_NARROW = 200;
+const MATRIX_ROW_TRACK_NARROW_COMPACT = 160;
+
 /** Below this much page, the matrix draws its compact tracks. */
 const MATRIX_FULL_MIN = 1160;
+
+/** How wide a matrix's row names run — see {@link MATRIX_ROW_TRACK_NARROW}. */
+export type MatrixRowWidth = 'wide' | 'narrow';
 
 export interface MatrixTracks {
     readonly row: number;
     readonly cell: number;
 }
 
-/** The tracks for the page this matrix is on — the content column, not the window. */
-export function useMatrixTracks(): MatrixTracks {
-    const full = useContentWidth().atLeast(MATRIX_FULL_MIN);
+/** The frame's row width, read by its header and rows so every track lines up. */
+const RowWidthContext = createContext<MatrixRowWidth>('wide');
+
+function tracksFor(full: boolean, rows: MatrixRowWidth): MatrixTracks {
+    if (rows === 'narrow') {
+        return full
+            ? { row: MATRIX_ROW_TRACK_NARROW, cell: MATRIX_CELL_FLOOR }
+            : { row: MATRIX_ROW_TRACK_NARROW_COMPACT, cell: MATRIX_CELL_FLOOR_COMPACT };
+    }
     return full
         ? { row: MATRIX_ROW_TRACK, cell: MATRIX_CELL_FLOOR }
         : { row: MATRIX_ROW_TRACK_COMPACT, cell: MATRIX_CELL_FLOOR_COMPACT };
 }
 
+/** The tracks for the page this matrix is on — the content column, not the window. */
+export function useMatrixTracks(rows?: MatrixRowWidth): MatrixTracks {
+    const fromFrame = useContext(RowWidthContext);
+    const full = useContentWidth().atLeast(MATRIX_FULL_MIN);
+    return tracksFor(full, rows ?? fromFrame);
+}
+
 /**
- * A column's share of the width. A tick column is `1`; a column of named chips — Also allowed,
- * Other — is wider, so its names are read whole rather than cut to an ellipsis. The header and every
- * row take the same weights, which is what keeps the tracks aligned.
+ * A column's track. A tick column (`1`) is a fixed width, so its checkbox sits beside the row name
+ * whatever the page. A column of named chips — Also allowed, Other — is wider and takes the rest,
+ * so its names are read whole rather than cut to an ellipsis. The header and every row take the
+ * same weights, which is what keeps the tracks aligned.
  */
 function trackStyle(weight: number, tracks: MatrixTracks) {
-    return { flex: weight, minWidth: tracks.cell * weight };
+    return weight === 1 ? { width: tracks.cell } : { flex: weight, minWidth: tracks.cell * weight };
 }
 
 /** `CatalogueList`'s panel — the frame every kitchen table sits in. */
@@ -84,13 +106,14 @@ export function matrixFloor(
 }
 
 /** `matrixFloor` at the tracks this page draws. */
-export function useMatrixFloor(weights: readonly number[]): number {
-    return matrixFloor(weights, useMatrixTracks());
+export function useMatrixFloor(weights: readonly number[], rows: MatrixRowWidth = 'wide'): number {
+    return matrixFloor(weights, useMatrixTracks(rows));
 }
 
 export function MatrixFrame({
     label,
     floor,
+    rows = 'wide',
     children,
     testID,
 }: {
@@ -98,29 +121,39 @@ export function MatrixFrame({
     readonly label: string;
     /** The width below which the grid scrolls sideways rather than squeezing. */
     readonly floor: number;
+    /** How wide the row names run. The same value the floor was measured with. */
+    readonly rows?: MatrixRowWidth | undefined;
     readonly children: ReactNode;
     readonly testID: string;
 }) {
+    // The port's own width, measured. The matrix is drawn at exactly that — or at its floor, and
+    // scrolled, when the port is narrower. Left to size itself, a horizontal scroller's content
+    // takes its max-content width: every chip column laid out on one line, so a long chip ran off
+    // the panel instead of wrapping.
+    const [port, setPort] = useState(0);
+
     return (
-        // `flexGrow: 1` on the content: without it a horizontal scroller sizes its content to the
-        // content's own minimum, and the matrix sat at its floor on a wide screen, squeezing every
-        // name in it. With it the matrix fills the panel and scrolls only below its floor.
-        <View className={PANEL}>
-            <ScrollView
-                horizontal
-                testID={testID}
-                contentContainerStyle={{ flexGrow: 1 }}
-                contentContainerClassName="flex-col"
-            >
-                <View
-                    accessibilityLabel={label}
-                    style={{ minWidth: floor }}
-                    className="flex-1 flex-col"
+        <RowWidthContext.Provider value={rows}>
+            <View className={PANEL}>
+                <ScrollView
+                    horizontal
+                    testID={testID}
+                    onLayout={(event) => {
+                        setPort(event.nativeEvent.layout.width);
+                    }}
+                    contentContainerStyle={{ flexGrow: 1 }}
+                    contentContainerClassName="flex-col"
                 >
-                    {children}
-                </View>
-            </ScrollView>
-        </View>
+                    <View
+                        accessibilityLabel={label}
+                        style={port === 0 ? { minWidth: floor } : { width: Math.max(floor, port) }}
+                        className="flex-1 flex-col"
+                    >
+                        {children}
+                    </View>
+                </ScrollView>
+            </View>
+        </RowWidthContext.Provider>
     );
 }
 
@@ -131,55 +164,41 @@ export interface MatrixColumn {
     readonly weight?: number | undefined;
 }
 
-/**
- * The header row. An entry that is itself a list is drawn as one group — the way a row draws its
- * pick-one cells inside one `radiogroup` — so the header's tracks and the row's line up exactly.
- */
 export function MatrixHeader({
     rowHeader,
     columns,
 }: {
     readonly rowHeader: string;
-    readonly columns: readonly (MatrixColumn | readonly MatrixColumn[])[];
+    readonly columns: readonly MatrixColumn[];
 }) {
     const tracks = useMatrixTracks();
-    // `DataList`'s header: the brand's subtle band, labels a step heavier than the cells under it.
-    const cell = (column: MatrixColumn) => (
-        <View key={column.key} style={trackStyle(column.weight ?? 1, tracks)} className="py-1.5">
-            <Text variant="strong" align="center" className="text-content-on-brand-subtle">
-                {column.label}
-            </Text>
-        </View>
-    );
 
     return (
+        // `DataList`'s header: the brand's subtle band, labels a step heavier than the cells under it.
         <View className="min-h-row-sm flex-row items-center gap-tight border-b border-stroke-subtle bg-surface-brand-subtle px-control-sm">
             <View style={{ width: tracks.row }} className="py-1.5">
                 <Text variant="strong" className="text-content-on-brand-subtle">
                     {rowHeader}
                 </Text>
             </View>
-            {columns.map((entry) =>
-                isGroup(entry) ? (
-                    <View
-                        key={entry.map((column) => column.key).join('+')}
-                        style={{
-                            flex: entry.reduce((sum, column) => sum + (column.weight ?? 1), 0),
-                        }}
-                        className="flex-row gap-tight"
-                    >
-                        {entry.map(cell)}
+            {columns.map((column) => {
+                const weight = column.weight ?? 1;
+                return (
+                    <View key={column.key} style={trackStyle(weight, tracks)} className="py-1.5">
+                        {/* A tick column centres its word over the box; a chip column starts
+                         * where its chips do. */}
+                        <Text
+                            variant="strong"
+                            align={weight === 1 ? 'center' : 'start'}
+                            className="text-content-on-brand-subtle"
+                        >
+                            {column.label}
+                        </Text>
                     </View>
-                ) : (
-                    cell(entry)
-                ),
-            )}
+                );
+            })}
         </View>
     );
-}
-
-function isGroup(entry: MatrixColumn | readonly MatrixColumn[]): entry is readonly MatrixColumn[] {
-    return Array.isArray(entry);
 }
 
 /** A group's heading across the whole width — a sidebar section, a permission area. */
@@ -224,7 +243,7 @@ export function MatrixRow({
     );
 }
 
-/** One column's slot in a row. Holds a cell, several chips, or nothing. */
+/** One column's slot in a row. Holds a checkbox, several chips, or nothing. */
 export function MatrixSlot({
     children,
     weight = 1,
@@ -240,7 +259,10 @@ export function MatrixSlot({
         <View
             testID={testID}
             style={trackStyle(weight, tracks)}
-            className="flex-row flex-wrap items-center justify-center gap-hair"
+            className={cx(
+                'flex-row flex-wrap items-center gap-hair',
+                weight === 1 ? 'justify-center' : 'justify-start',
+            )}
         >
             {children}
         </View>
@@ -248,12 +270,11 @@ export function MatrixSlot({
 }
 
 /**
- * One pressable well. `word` is drawn inside it — a chip names its permission, a column cell draws
- * only the tick because its column header already says what it is. `label` is what is announced.
+ * One tick. Without `word` it is a checkbox — the column header already says what it is. With
+ * `word` it is a chip naming its permission. `label` is what is announced, either way.
  */
 export function MatrixCell({
     on,
-    kind,
     label,
     word,
     marker,
@@ -263,7 +284,6 @@ export function MatrixCell({
     testID,
 }: {
     readonly on: boolean;
-    readonly kind: 'radio' | 'checkbox';
     readonly label: string;
     readonly word?: string | undefined;
     /** Drawn after the tick — the "you do not hold this" warning. */
@@ -277,11 +297,12 @@ export function MatrixCell({
     readonly onPress: () => void;
     readonly testID: string;
 }) {
+    const chip = word !== undefined;
     return (
         <Pressable
             testID={testID}
-            role={kind}
-            accessibilityRole={kind}
+            role="checkbox"
+            accessibilityRole="checkbox"
             accessibilityLabel={label}
             aria-label={label}
             aria-checked={on}
@@ -291,30 +312,48 @@ export function MatrixCell({
             onPress={onPress}
             {...({ title: label } as object)}
             className={cx(
-                'flex-row items-center justify-center gap-hair rounded-sm border px-2',
-                // A tick fills its track; a chip is as wide as its name, wrapping inside the slot
-                // and growing a line taller rather than cutting the name off.
-                word === undefined ? 'h-control-sm w-full' : 'min-h-control-sm max-w-full py-1',
-                on
-                    ? 'border-surface-brand bg-surface-brand-subtle'
-                    : cx(
-                          'border-stroke-subtle bg-surface-raised',
-                          readOnly ? null : 'hover:bg-surface-sunken',
-                      ),
+                'flex-row items-center justify-center gap-hair rounded-sm',
+                chip
+                    ? cx(
+                          // A chip is as wide as its name, wrapping inside the slot and growing a
+                          // line taller rather than cutting the name off.
+                          'min-h-control-sm max-w-full border px-2 py-1',
+                          on
+                              ? 'border-surface-brand bg-surface-brand-subtle'
+                              : 'border-stroke-subtle bg-surface-raised',
+                      )
+                    : // A 32px target around a 20px box — the box is `Checkbox`'s.
+                      'h-control-sm min-w-8 px-1',
+                readOnly ? null : 'hover:bg-surface-sunken',
                 disabled ? 'opacity-50' : null,
             )}
         >
-            {on ? <Icon name="check" size="sm" className="text-content-on-brand-subtle" /> : null}
-            {word === undefined ? null : (
-                <Text
-                    variant="caption"
+            {chip ? (
+                <>
+                    {on ? (
+                        <Icon name="check" size="sm" className="text-content-on-brand-subtle" />
+                    ) : null}
+                    <Text
+                        variant="caption"
+                        className={cx(
+                            'shrink',
+                            on ? 'text-content-on-brand-subtle' : 'text-content-secondary',
+                        )}
+                    >
+                        {word}
+                    </Text>
+                </>
+            ) : (
+                <View
                     className={cx(
-                        'shrink',
-                        on ? 'text-content-on-brand-subtle' : 'text-content-secondary',
+                        'size-5 shrink-0 items-center justify-center rounded-sm border',
+                        on
+                            ? 'border-transparent bg-surface-brand'
+                            : 'border-stroke-strong bg-surface-raised',
                     )}
                 >
-                    {word}
-                </Text>
+                    {on ? <Icon name="check" size="sm" className="text-content-on-brand" /> : null}
+                </View>
             )}
             {marker}
         </Pressable>

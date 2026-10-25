@@ -1,9 +1,11 @@
+import { ProductId } from '@healthy360/domain-types';
 import type { ApiFailure, ProductAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { toFailure } from '../../../data/hooks.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import {
     KITCHEN_PAGE_SIZE,
     pagesInResult,
@@ -11,13 +13,28 @@ import {
     useProductCategoriesQuery,
     useProductPageQuery,
     useProductWholeSetQuery,
+    useProductQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import type { ProductCategory } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
-import { useListPage } from '../use-list-page.ts';
 import { missingLast } from './catalogue-column-spec.ts';
-import { useCatalogueFilters } from './use-catalogue-filters.ts';
 import { useDestructiveRow } from './use-destructive-row.ts';
+import {
+    useListMemory,
+    useRememberedCatalogueFilters,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedPage,
+    useRestoredPageFallback,
+} from '../list-memory.ts';
+import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
+
+/** The product `?view=` names, read on its own when the loaded page does not hold it. */
+function useProductById(id: string | null) {
+    const parsed = ProductId.safeParse(id);
+    const record = useProductQuery(parsed);
+    return parsed === null ? RECORD_NOT_FOUND : record;
+}
 
 /**
  * Everything `/kitchen/products` knows that is not a pixel.
@@ -101,6 +118,8 @@ export interface ProductListState {
     readonly noPackCount: number;
 
     readonly openEditor: (productId: string) => void;
+    /** The row the reader opened last — marked when they come back to the list. */
+    readonly lastOpenedId: string | null;
     readonly createNew: () => void;
 
     /**
@@ -123,9 +142,16 @@ export interface ProductListState {
     readonly archiveFailure: ApiFailure | null;
 }
 
-export function useProductList(itemType: ProductItemType, routeBase: string): ProductListState {
+/** `view` is the route's `?view=` — the record whose page is open (`use-viewed-record.ts`). */
+export function useProductList(
+    itemType: ProductItemType,
+    routeBase: string,
+    view?: string,
+): ProductListState {
     const router = useRouter();
     const { locale } = useLocale();
+    // One place per family: Sauces and Dressings are two lists that happen to share a hook.
+    const memory = useListMemory(`kitchen.products.${itemType}`);
 
     const {
         query,
@@ -135,14 +161,22 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
         setStatuses,
         isUnfiltered: searchAndStatusUnset,
         clear: clearSearchAndStatus,
-    } = useCatalogueFilters();
-    const [category, setCategory] = useState<string | null>(null);
+    } = useRememberedCatalogueFilters(memory);
+    const [category, setCategory] = useRememberedFilter<string | null>(memory, 'category', null);
     // Reference ascending, which is the order the codes were issued in and so the order a
     // kitchen already knows the library by. Sorting by name instead put the list in an order
     // that changes with the language.
-    const [sortKey, setSortKey] = useState<ProductSortKey>('reference');
-    const [sortDirection, setSortDirection] = useState<ProductSortDirection>('asc');
-    const [viewing, setViewing] = useState<ProductAdmin | null>(null);
+    const [sortKey, setSortKey] = useRememberedFilter<ProductSortKey>(
+        memory,
+        'sortKey',
+        'reference',
+    );
+    const [sortDirection, setSortDirection] = useRememberedFilter<ProductSortDirection>(
+        memory,
+        'sortDirection',
+        'asc',
+    );
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
 
     /*
      * The vocabulary is read before the filter is built, because the filter needs its ids.
@@ -167,8 +201,11 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
         [itemType, trimmed, statuses, categoryId],
     );
 
-    const [page, setPage] = useListPage(filter);
+    const [page, setPage] = useRememberedPage(memory, filter);
     const products = useProductPageQuery(filter, page);
+    useRestoredPageFallback(memory, page, products.isError, () => {
+        setPage(1);
+    });
     // The cards count every page the filters match, not the eighteen rows on this one.
     const wholeSet = useProductWholeSetQuery(filter);
     const everyRow = wholeSet.data ?? [];
@@ -209,6 +246,13 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
             );
         });
     }, [rows, sortKey, sortDirection, locale]);
+    const viewed = useViewedRecord(
+        view,
+        sorted,
+        (row) => String(row.id),
+        products.isSuccess && !products.isFetching,
+        { useLookup: useProductById },
+    );
 
     return {
         rows: sorted,
@@ -252,16 +296,29 @@ export function useProductList(itemType: ProductItemType, routeBase: string): Pr
         noPackCount: everyRow.filter((row) => row.packVariants.length === 0).length,
 
         openEditor: (productId) => {
-            router.push(`${routeBase}/${productId}` as never);
+            rememberOpened(productId);
+            // From the record's page, the editor's Cancel, Save and trail come back to it.
+            router.push(
+                withReturnTo(
+                    `${routeBase}/${productId}`,
+                    viewed.viewingId === productId
+                        ? withQuery(routeBase, { view: productId })
+                        : null,
+                ) as never,
+            );
         },
         createNew: () => {
             router.push(`${routeBase}/new` as never);
         },
+        lastOpenedId,
 
-        viewing,
-        openView: setViewing,
+        viewing: viewed.viewing,
+        openView: (row) => {
+            rememberOpened(String(row.id));
+            viewed.setViewing(row);
+        },
         closeView: () => {
-            setViewing(null);
+            viewed.setViewing(null);
         },
 
         archiving: archive.target,

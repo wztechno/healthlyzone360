@@ -47,6 +47,7 @@ import {
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { useViewedRecord } from '../use-viewed-record.ts';
 
 /**
  * `/kitchen/procurement` — the receipts book, and the direct-purchase path (O2, SUP5).
@@ -68,14 +69,14 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  * order goes to `/kitchen/procurement/receive` instead.
  */
 
-export function ProcurementScreen() {
+export function ProcurementScreen({ view }: { readonly view?: string | undefined }) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [INVENTORY_VIEW_PERMISSION] }}
             testID="kitchen-procurement"
         >
-            <Procurement />
+            <Procurement view={view} />
         </Gate>
     );
 }
@@ -84,7 +85,7 @@ export function ProcurementScreen() {
 const PRICE_SEGMENTS: readonly ReceiptCostStatus[] = ['unpriced', 'partial', 'complete'];
 type PriceSegmentValue = ReceiptCostStatus | 'all';
 
-function Procurement() {
+function Procurement({ view }: { readonly view?: string | undefined }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
@@ -108,9 +109,15 @@ function Procurement() {
     // takes no filter and publishes no page), and View opens the record window over a row.
     const [query, setQuery] = useState('');
     const [priceStatus, setPriceStatus] = useState<PriceSegmentValue>('all');
-    const [viewing, setViewing] = useState<GoodsReceipt | null>(null);
 
     const receiptRows = useMemo(() => receipts.data ?? [], [receipts.data]);
+    // The open receipt is an address, `?view=`, so Back and a refresh keep it open.
+    const { viewing, setViewing } = useViewedRecord(
+        view,
+        receiptRows,
+        (row) => String(row.id),
+        receipts.isSuccess && !receipts.isFetching,
+    );
 
     // By name alone, as the receipt form's picker labels them: the code is the name's slug.
     const stockItemLabelById = useMemo(() => {

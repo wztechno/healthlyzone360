@@ -65,10 +65,16 @@
     },
     "workspaceSelector": {
         "title": "اختر مكان العمل",
-        "subtitle": "هذه هي الأقسام التي يتيحها دورك في {{organisation}}.",
+        "greeting": {
+            "morning": "صباح الخير، {{name}}",
+            "afternoon": "طاب يومك، {{name}}",
+            "evening": "مساء الخير، {{name}}"
+        },
+        "today": "{{date}} · {{time}}",
         "current": "أنت هنا",
         "empty": "لا تتوفّر لك أقسام هنا",
         "emptyBody": "دورك في هذه المؤسسة لا يفتح أي مساحة عمل بعد. جرّب مؤسسة أخرى أو تواصل مع أحد المسؤولين.",
-        "open": "فتح {{area}}"
+        "open": "فتح {{area}}",
+        "webShop": "المتجر الإلكتروني"
     }
 }

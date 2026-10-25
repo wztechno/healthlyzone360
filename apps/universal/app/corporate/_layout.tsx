@@ -14,8 +14,7 @@ import { AreaTrail, TrailLeafProvider } from '../../src/shell/area-trail.tsx';
 /**
  * The `corporate` area. `AreaShell` applies `<Gate area="corporate">` and this area's chrome — the
  * kitchen's desk shell with the corporate destinations: Overview, one catalogue per programme and
- * the quotations on the rail, the breadcrumb trail in the top bar, and Sign out at the foot of the
- * sidebar.
+ * the quotations on the rail, and the breadcrumb trail, Workspaces and Sign out in the top bar.
  *
  * A corporate buyer works at a desk with a mouse, as a kitchen does, so every page renders on the
  * compact ladder (`DensityProvider value="compact"`): 28/32px controls rather than the customer
@@ -46,7 +45,6 @@ function CorporateAreaShell() {
                     <AreaTrail testID="corporate-breadcrumbs" crumbs={crumbs} />
                 )
             }
-            signOutInSidebar
         >
             <DensityProvider value="compact">
                 <View testID="corporate-ops-content" className="min-h-0 min-w-0 flex-1">

@@ -1,3 +1,4 @@
+import { QuotationId } from '@healthy360/domain-types';
 import { KITCHEN_QUOTATION_STATUSES } from '@healthy360/api-client/contracts';
 import type {
     KitchenQuotation,
@@ -14,12 +15,13 @@ import {
     FormSection,
     RecordSkeleton,
     RecordWindowFieldGrid,
+    Stack,
     TableSkeleton,
     Text,
     useToast,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
-import type { CurrencyCode, QuotationId } from '@healthy360/domain-types';
+import type { CurrencyCode } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -57,9 +59,18 @@ import {
     kitchenQuotationTotalMinor,
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { focusField } from '../field-focus.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
+import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
+
+/** The request `?view=` names, read on its own when the loaded page does not hold it. */
+function useQuotationById(id: string | null) {
+    const parsed = QuotationId.safeParse(id);
+    const record = useKitchenQuotationQuery(parsed);
+    return parsed === null ? RECORD_NOT_FOUND : record;
+}
 
 /**
  * `/kitchen/quotations` — what corporate buyers have asked this kitchen to price (B4), as
@@ -126,19 +137,19 @@ const FILTER_STATUSES: Readonly<Record<StatusFilter, readonly KitchenQuotationSt
     closed: ['accepted', 'declined', 'expired'],
 };
 
-export function QuotationsScreen() {
+export function QuotationsScreen({ view }: { readonly view?: string | undefined }) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [B2B_QUOTATION_VIEW_PERMISSION] }}
             testID="kitchen-quotations"
         >
-            <Quotations />
+            <Quotations view={view} />
         </Gate>
     );
 }
 
-function Quotations() {
+function Quotations({ view }: { readonly view?: string | undefined }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const { locale } = useLocale();
@@ -146,10 +157,17 @@ function Quotations() {
     const [filter, setFilter] = useState<StatusFilter>('all');
     const [search, setSearch] = useState('');
     const [openId, setOpenId] = useState<QuotationId | null>(null);
-    const [viewing, setViewing] = useState<KitchenQuotation | null>(null);
 
     const quotations = useKitchenQuotationsQuery();
     const all: readonly KitchenQuotation[] = quotations.data ?? NO_QUOTATIONS;
+    // The open request is an address, `?view=`, so Back and a refresh keep it open.
+    const { viewing, setViewing } = useViewedRecord(
+        view,
+        all,
+        (row) => String(row.id),
+        quotations.isSuccess && !quotations.isFetching,
+        { useLookup: useQuotationById },
+    );
 
     const rows = useMemo(() => {
         const allowed = FILTER_STATUSES[filter];
@@ -313,10 +331,9 @@ function Quotations() {
                 primaryAction={{
                     label: t('kitchen:ops.quotations.open'),
                     icon: null,
+                    // The request stays open underneath, so closing the quote comes back to it.
                     onPress: () => {
-                        const id = viewing.id;
-                        setViewing(null);
-                        setOpenId(id);
+                        setOpenId(viewing.id);
                     },
                 }}
             />
@@ -554,7 +571,15 @@ function QuotationPricing({
         : kitchenQuotationTotalMinor(lines);
 
     function submitPrices() {
-        if (quotation === null || parsedPrices === null) return;
+        if (quotation === null) return;
+        if (parsedPrices === null) {
+            // Every line needs a price: Send takes the reader to the first one that has none.
+            const first = lines.find(
+                (line) => parseMinorAmount(prices[line.id] ?? '', currency) === null,
+            );
+            if (first !== undefined) focusField(`kitchen-quotation-line-${first.id}-price`);
+            return;
+        }
         quote.mutate(
             { id: quotation.id, lockVersion: quotation.lockVersion, prices: parsedPrices },
             {
@@ -672,7 +697,7 @@ function QuotationPricing({
                                 testID="kitchen-quotations-send"
                                 label={t('kitchen:ops.quotations.send')}
                                 loading={quote.isPending}
-                                disabled={quote.isPending || parsedPrices === null}
+                                disabled={quote.isPending || lines.length === 0}
                                 onPress={submitPrices}
                             />
                         ) : null}
@@ -680,53 +705,52 @@ function QuotationPricing({
                 }
             />
 
-            {editable ? (
-                <Callout
-                    testID="kitchen-quotations-price-guidance"
-                    tone="info"
-                    title={t('kitchen:ops.quotations.guidanceTitle')}
-                    body={t('kitchen:ops.quotations.guidanceBody', { currency })}
-                />
-            ) : null}
-
-            {quoteFailure === null ? null : isConflict || isStale ? (
-                <Callout
-                    testID="kitchen-quotations-conflict"
-                    tone="warning"
-                    role="alert"
-                    title={t(
-                        isStale
-                            ? 'kitchen:ops.quotations.staleTitle'
-                            : 'kitchen:ops.quotations.conflictTitle',
-                    )}
-                    body={t(
-                        isStale
-                            ? 'kitchen:ops.quotations.staleBody'
-                            : 'kitchen:ops.quotations.conflictBody',
-                    )}
-                    actions={
-                        <Button
-                            testID="kitchen-quotations-conflict-refresh"
-                            size="sm"
-                            variant="secondary"
-                            label={t('kitchen:ops.quotations.conflictRefresh')}
-                            loading={detail.isFetching}
-                            onPress={() => {
-                                quote.reset();
-                                void detail.refetch();
-                                onListChanged();
-                            }}
+            {/* The pricing notices, one band under the opening. */}
+            {!editable && quoteFailure === null ? null : (
+                <Stack space="xs" testID="kitchen-quotations-notices">
+                    {editable ? (
+                        <Callout
+                            testID="kitchen-quotations-price-guidance"
+                            tone="info"
+                            title={t('kitchen:ops.quotations.guidanceTitle')}
                         />
-                    }
-                />
-            ) : (
-                <Callout
-                    testID="kitchen-quotations-action-error"
-                    tone="danger"
-                    role="alert"
-                    title={t('kitchen:editor.saveError')}
-                    body={quoteFailure.message}
-                />
+                    ) : null}
+
+                    {quoteFailure === null ? null : isConflict || isStale ? (
+                        <Callout
+                            testID="kitchen-quotations-conflict"
+                            tone="warning"
+                            role="alert"
+                            title={t(
+                                isStale
+                                    ? 'kitchen:ops.quotations.staleTitle'
+                                    : 'kitchen:ops.quotations.conflictTitle',
+                            )}
+                            actions={
+                                <Button
+                                    testID="kitchen-quotations-conflict-refresh"
+                                    size="sm"
+                                    variant="secondary"
+                                    label={t('kitchen:ops.quotations.conflictRefresh')}
+                                    loading={detail.isFetching}
+                                    onPress={() => {
+                                        quote.reset();
+                                        void detail.refetch();
+                                        onListChanged();
+                                    }}
+                                />
+                            }
+                        />
+                    ) : (
+                        <Callout
+                            testID="kitchen-quotations-action-error"
+                            tone="danger"
+                            role="alert"
+                            title={t('kitchen:editor.saveError')}
+                            body={quoteFailure.message}
+                        />
+                    )}
+                </Stack>
             )}
 
             <View

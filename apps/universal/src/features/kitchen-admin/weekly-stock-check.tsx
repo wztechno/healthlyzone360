@@ -13,10 +13,11 @@ const NAMED = 5;
  * What the weekly stock check found — the scheduler's Monday run of this buy list over the next
  * seven days (`inventory:check-stock-sufficiency`).
  *
- * Above the live list rather than instead of it: the check is a snapshot of what the shelf looked
- * like on Monday, the list is now, and a kitchen reads the first as "what we were warned about" and
- * the second as "where we stand". A branch never checked draws nothing — null is not an all-clear.
- * "Show that week" points the list's window at the week the check looked at.
+ * Just above the live list rather than instead of it: the check is a snapshot of what the shelf
+ * looked like on Monday, the list is now, and a kitchen reads the first as "what we were warned
+ * about" and the second as "where we stand". It only speaks when something was short: an all-clear
+ * draws nothing, and so does a branch never checked. "Show that week" points the list's window at
+ * the week the check looked at.
  */
 export function WeeklyStockCheckBanner({
     branchId,
@@ -30,7 +31,8 @@ export function WeeklyStockCheckBanner({
     const check = useWeeklyStockCheckQuery(branchId);
     const data = check.data ?? null;
 
-    if (data === null) return null;
+    // Nothing to warn about is nothing to draw: a green strip saying so is one more thing to read.
+    if (data === null || data.shortCount === 0) return null;
 
     const window = {
         from: formatter.formatDate(data.windowFrom, { dateStyle: 'medium' }),
@@ -48,26 +50,6 @@ export function WeeklyStockCheckBanner({
             }}
         />
     );
-
-    if (data.shortCount === 0) {
-        return (
-            <Callout
-                testID="kitchen-weekly-check"
-                tone="success"
-                icon="check"
-                role="status"
-                title={t('kitchen:ops.requirements.weeklyClearTitle', window)}
-                body={
-                    data.notComputableDays > 0
-                        ? t('kitchen:ops.requirements.weeklyClearWithHoles', {
-                              count: data.notComputableDays,
-                          })
-                        : t('kitchen:ops.requirements.weeklyClearBody')
-                }
-                actions={show}
-            />
-        );
-    }
 
     const named = data.shortfalls.slice(0, NAMED);
     const more = data.shortfalls.length - named.length;

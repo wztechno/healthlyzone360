@@ -17,7 +17,6 @@ import {
 } from '@healthy360/design-system';
 import type { BadgeTone, RecordWindowField } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -25,6 +24,7 @@ import { View } from 'react-native';
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useKitchenCustomerQuery } from '../../../data/kitchen-customers-hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ORDER_VIEW_CUSTOMER_CONTACT_PERMISSION } from '../entity-registry.ts';
 import { prefersArabic } from '../format.ts';
@@ -77,13 +77,10 @@ function statusLabel(status: string, t: TFunction): string {
 
 function CustomerRecord({ customer }: CustomerDetailScreenProps) {
     const { t } = useTranslation();
-    const router = useRouter();
+    // Back steps to wherever the customer was opened from — the book on its filter and page.
+    const backToList = useReturnTo(undefined, '/kitchen/customers').leave;
     const record = useKitchenCustomerQuery(customer);
     const failure = toFailure(record.error);
-
-    const backToList = () => {
-        router.push('/kitchen/customers' as never);
-    };
 
     if (customer === undefined || customer === '' || failure?.code === 'resource.not_found') {
         return (
@@ -93,7 +90,6 @@ function CustomerRecord({ customer }: CustomerDetailScreenProps) {
                     role="alert"
                     tone="warning"
                     title={t('kitchen:ops.customers.notFoundTitle')}
-                    body={t('kitchen:ops.customers.notFoundBody')}
                     actions={
                         <Button
                             testID="kitchen-customer-not-found-back"

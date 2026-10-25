@@ -1,4 +1,4 @@
-import { isRecipeKind } from '@healthy360/api-client/contracts';
+import { apiFailure, isRecipeKind } from '@healthy360/api-client/contracts';
 import type {
     LocalisedText,
     MealAdmin,
@@ -11,30 +11,28 @@ import type {
 import {
     Button,
     Callout,
-    Cascade,
     ErrorState,
     FormSkeleton,
     SegmentedControl,
     Stack,
-    Text,
     useToast,
 } from '@healthy360/design-system';
 import type { SelectOption } from '@healthy360/design-system';
 import { MealId, ProductId, RecipeId } from '@healthy360/domain-types';
-import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
+import { safeReturnTo, withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
     useAdminMealQuery,
     useCreateMealMutation,
     useCreateProductMutation,
-    useCreateRecipeMutation,
     useProductQuery,
     useRecipeQuery,
     useUpdateMealMutation,
@@ -43,12 +41,11 @@ import {
 import {
     CATALOGUE_MANAGE_PERMISSION,
     CATALOGUE_VIEW_PERMISSION,
-    RECIPE_MANAGE_PERMISSION,
     RECIPE_VIEW_PERMISSION,
 } from '../entity-registry.ts';
-import { displayName } from '../format.ts';
+import type { HostSave } from '../host-save.ts';
 import { MealListing } from '../meal-listing.tsx';
-import { serverFieldErrors } from '../server-field-errors.ts';
+import { parseStockGapFix } from '../recipe-stock-gap-fix.ts';
 import { ProductEditScreen } from './product-edit-screen.tsx';
 import { RecipeEditScreen } from './recipe-edit-screen.tsx';
 
@@ -77,8 +74,8 @@ import { RecipeEditScreen } from './recipe-edit-screen.tsx';
  * one seller at a time. Switching unmounts the listing on screen, which is why the others are
  * disabled while it holds an unsaved edit.
  *
- * Two records still save separately, each against its own lock version: nothing on Save draft writes
- * the item, and nothing in the tab writes the recipe.
+ * Two records, each written against its own lock version — but one Save draft writes both: the
+ * recipe's writes, then the listing's, which hands its save over (`host-save.ts`).
  *
  * ## The kind files the page
  *
@@ -109,9 +106,10 @@ import { RecipeEditScreen } from './recipe-edit-screen.tsx';
  *
  * The old item addresses redirect to `/kitchen/recipes/item/{item}`, and the review queue sends a
  * meal there when it has no recipe to be addressed by. An item with a recipe is replaced by the
- * recipe's page at once. One without is where the kitchen starts its formulation: the notice offers
- * it, and the listing stays editable underneath, because an imported item already has its name, its
- * packs or its service days, and pricing it is not a question its recipe has to answer first.
+ * recipe's page at once. One without opens as the recipe page it is about to become — every tab,
+ * the item's name already on the recipe, and its listing on Selling, editable before there is a
+ * formulation, because an imported item already has its name, its packs or its service days. The
+ * first Save writes the listing, the recipe and the link between them, and lands on the recipe.
  *
  * For a sauce or a dressing the server writes a third record with the item: its ingredient twin,
  * carrying the same `SAC-` handle, which is what a meal's lines name when they use the sauce and the
@@ -151,14 +149,18 @@ const REFERENCE_SERIES = {
  * The sub-category words, as the sauces sheet's own filter lists them.
  *
  * Values are the `recipe_category` column's — snake case, matching `cooking_sauce`, which the
- * import already writes for every SC- row. Dressings have no list of their own: the sheets file all
- * fourteen alike, so the page states the category and asks nothing further, and a frozen meal is
- * filed the same way — offering an empty select would be a control with nothing behind it.
+ * import already writes for every SC- row. Dressings have one, `salad_dressing` — the value the
+ * import writes for every dressing — and it is drawn even so, beside the category, so a dressing is
+ * filed the way a sauce is. A frozen meal has no list, and offering an empty select would be a
+ * control with nothing behind it.
  */
 function subcategoryOptions(
     itemType: Exclude<RecipeSellerKind, 'meal'>,
     t: TFunction,
 ): readonly SelectOption[] {
+    if (itemType === 'dressing') {
+        return [{ value: 'salad_dressing', label: t('kitchen:dressings.kindSaladDressing') }];
+    }
     if (itemType !== 'sauce') return [];
 
     return [
@@ -178,11 +180,27 @@ function sellerKind(value: unknown): RecipeSellerKind | null {
  * The recipe book's editor
  * ---------------------------------------------------------------------------------------------- */
 
-export interface RecipeBookEditScreenProps {
+/**
+ * What a stock gap hands the recipe it is fixed in (`recipe-stock-gap-fix.ts`): the exact Stock gaps
+ * view to return to, the gap's reason and the ingredient it is about. All three as the route reads
+ * them; the editor validates each.
+ */
+export interface StockGapFixParams {
+    readonly returnTo?: string | undefined;
+    readonly fix?: string | undefined;
+    readonly ingredient?: string | undefined;
+}
+
+export interface RecipeBookEditScreenProps extends StockGapFixParams {
     /** The route parameter — a recipe id, or `new` for the create form. */
     readonly recipe?: string | undefined;
     /** `?kind=` — what a new recipe is created as. Ignored once the recipe exists. */
     readonly kind?: string | undefined;
+    /** `?tab=` — the tab to open on, so a detour comes back where it left. */
+    readonly tab?: string | undefined;
+    /** `?swapFrom=&swapTo=` — a library ingredient the detour replaced with this kitchen's copy. */
+    readonly swapFrom?: string | undefined;
+    readonly swapTo?: string | undefined;
 }
 
 export function RecipeBookEditScreen(props: RecipeBookEditScreenProps) {
@@ -202,11 +220,22 @@ export function RecipeBookEditScreen(props: RecipeBookEditScreenProps) {
     );
 }
 
-function RecipeBookEditor({ recipe, kind: requested }: RecipeBookEditScreenProps) {
+function RecipeBookEditor({
+    recipe,
+    kind: requested,
+    returnTo,
+    fix,
+    ingredient,
+    tab,
+    swapFrom,
+    swapTo,
+}: RecipeBookEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const toast = useToast();
     const canManageItems = useCan(CATALOGUE_MANAGE_PERMISSION);
+    // Memoised on the two strings, so the editor is handed the same fix on every render.
+    const stockGapFix = useMemo(() => parseStockGapFix(fix, ingredient), [fix, ingredient]);
 
     const isCreating = recipe === undefined || recipe === 'new';
     // The cache entry the editor below reads, so naming the sellers costs no request of its own.
@@ -223,6 +252,18 @@ function RecipeBookEditor({ recipe, kind: requested }: RecipeBookEditScreenProps
     // The listing's unsaved state, so the page's own exits ask before dropping it.
     const [listingDirty, setListingDirty] = useState(false);
     const [chosenSeller, setChosenSeller] = useState<string | null>(null);
+    /*
+     * The listing's save, handed over so the recipe's one Save draft writes it too
+     * (`host-save.ts`). A ref: it changes with the listing, and nothing here draws from it.
+     */
+    const listingSave = useRef<HostSave | null>(null);
+    const registerListingSave = useCallback((save: HostSave | null) => {
+        listingSave.current = save;
+    }, []);
+    const saveListing = useCallback(
+        async () => (listingSave.current === null ? true : listingSave.current()),
+        [],
+    );
 
     const createMeal = useCreateMealMutation();
     const createItem = useCreateProductMutation();
@@ -296,6 +337,11 @@ function RecipeBookEditor({ recipe, kind: requested }: RecipeBookEditScreenProps
                 key={seller.id}
                 meal={MealId.unsafe(seller.id)}
                 onDirtyChange={setListingDirty}
+                onRegisterSave={registerListingSave}
+                returnHref={withReturnTo(
+                    withQuery(`/kitchen/recipes/${String(recipe)}`, { tab: 'selling' }),
+                    safeReturnTo(returnTo),
+                )}
             />
         ) : (
             <ProductEditScreen
@@ -305,13 +351,20 @@ function RecipeBookEditor({ recipe, kind: requested }: RecipeBookEditScreenProps
                 routeBase="/kitchen/recipes"
                 embedded
                 onDirtyChange={setListingDirty}
+                onRegisterSave={registerListingSave}
             />
         );
 
     return (
         <RecipeEditScreen
             recipe={recipe}
+            initialTab={tab}
+            kind={requested}
+            swapFrom={swapFrom}
+            swapTo={swapTo}
             backTo={kind === null ? '/kitchen/recipes' : `/kitchen/recipes?kind=${kind}`}
+            returnTo={returnTo}
+            stockGapFix={stockGapFix}
             classification={classification}
             referenceSeries={cooked === null ? undefined : REFERENCE_SERIES[cooked]}
             onCreated={
@@ -347,6 +400,7 @@ function RecipeBookEditor({ recipe, kind: requested }: RecipeBookEditScreenProps
                                   </View>
                               ),
                           isDirty: listingDirty,
+                          save: saveListing,
                       }
             }
         />
@@ -357,11 +411,13 @@ function RecipeBookEditor({ recipe, kind: requested }: RecipeBookEditScreenProps
  * An item, before it is known by its recipe
  * ---------------------------------------------------------------------------------------------- */
 
-export interface CookedItemEditScreenProps {
+export interface CookedItemEditScreenProps extends StockGapFixParams {
     /** The route parameter — a catalogue item id. */
     readonly item?: string | undefined;
     /** `?kind=` — which cooked kind the id names; a meal and a packaged kind are read apart. */
     readonly kind?: string | undefined;
+    /** `?tab=` — the tab to open on, carried to the recipe once it exists. */
+    readonly tab?: string | undefined;
 }
 
 export function CookedItemEditScreen(props: CookedItemEditScreenProps) {
@@ -385,23 +441,25 @@ export function CookedItemEditScreen(props: CookedItemEditScreenProps) {
     );
 }
 
-function CookedItemEditor({ item: routeItem, kind }: CookedItemEditScreenProps) {
+function CookedItemEditor({
+    item: routeItem,
+    kind,
+    returnTo,
+    fix,
+    ingredient,
+    tab,
+}: CookedItemEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
-    const { locale } = useLocale();
     const toast = useToast();
-    // Both halves again — see the gate above. The recipe is written first, so a member holding
-    // only `catalogue.manage` must not be offered the start at all.
-    //
-    // Two statements rather than one `&&`: the short-circuit would skip the second hook on a render
-    // where the first came back false, and a hook that is sometimes called is a hook order that
-    // sometimes changes.
-    const canManageItem = useCan(CATALOGUE_MANAGE_PERMISSION);
-    const canManageRecipe = useCan(RECIPE_MANAGE_PERMISSION);
-    const canManage = canManageItem && canManageRecipe;
 
     const itemType = sellerKind(kind);
     const isMeal = itemType === 'meal';
+    // The not-found notice steps back the way the reader came, or to the book's tab for the kind.
+    const back = useReturnTo(
+        returnTo,
+        itemType === null ? '/kitchen/recipes' : `/kitchen/recipes?kind=${itemType}`,
+    );
 
     /*
      * Both reads, always, with the one this kind does not use given no id — hooks are called in the
@@ -414,23 +472,47 @@ function CookedItemEditor({ item: routeItem, kind }: CookedItemEditScreenProps) 
     const record = isMeal ? mealRecord : productRecord;
     const parsed = isMeal ? mealId : productId;
 
-    const createRecipe = useCreateRecipeMutation();
     const linkMeal = useUpdateMealMutation();
     const linkProduct = useUpdateProductMutation();
 
+    // The listing's unsaved state and its save, handed to the recipe's one Save (`host-save.ts`).
+    const [listingDirty, setListingDirty] = useState(false);
+    const listingSave = useRef<HostSave | null>(null);
+    const registerListingSave = useCallback((save: HostSave | null) => {
+        listingSave.current = save;
+    }, []);
+    const saveListing = useCallback(
+        async () => (listingSave.current === null ? true : listingSave.current()),
+        [],
+    );
+
     /*
      * An item with a recipe is edited on the recipe's page, so this one hands over at once — and
-     * again the moment a formulation started below links one, because the link's write effect puts
-     * the item back in the cache carrying its `recipeId`. Once: the ref keeps StrictMode's second
+     * again the moment the first Save below links one, because the link's write effect puts the
+     * item back in the cache carrying its `recipeId`. Once: the ref keeps StrictMode's second
      * effect and every later render from replacing again.
      */
     const recipeId = record.data?.recipeId ?? null;
+    /*
+     * A stock gap or the review queue that sent the reader to the item still means the recipe:
+     * the fix, the line, the tab and the way back travel with the hand-over. Nothing to carry
+     * leaves the address exactly as it was.
+     */
+    const carried = useMemo(() => {
+        const parsedFix = parseStockGapFix(fix, ingredient);
+        return {
+            fix: parsedFix?.reason,
+            ingredient: parsedFix?.ingredientId,
+            tab,
+            returnTo: safeReturnTo(returnTo),
+        };
+    }, [fix, ingredient, tab, returnTo]);
     const replaced = useRef(false);
     useEffect(() => {
         if (recipeId === null || replaced.current) return;
         replaced.current = true;
-        router.replace(`/kitchen/recipes/${String(recipeId)}` as never);
-    }, [recipeId, router]);
+        router.replace(withQuery(`/kitchen/recipes/${String(recipeId)}`, carried) as never);
+    }, [recipeId, router, carried]);
 
     if (itemType === null || parsed === null) {
         return (
@@ -440,19 +522,12 @@ function CookedItemEditor({ item: routeItem, kind }: CookedItemEditScreenProps) 
                     role="alert"
                     tone="warning"
                     title={t('kitchen:products.notFoundTitle')}
-                    body={t('kitchen:products.notFoundBody')}
                     actions={
                         <Button
                             testID="kitchen-cooked-item-not-found-back"
                             variant="quiet"
                             label={t('kitchen:recipes.backToList')}
-                            onPress={() => {
-                                router.push(
-                                    (itemType === null
-                                        ? '/kitchen/recipes'
-                                        : `/kitchen/recipes?kind=${itemType}`) as never,
-                                );
-                            }}
+                            onPress={back.leave}
                         />
                     }
                 />
@@ -472,12 +547,13 @@ function CookedItemEditor({ item: routeItem, kind }: CookedItemEditScreenProps) 
     }
 
     const loadFailure = toFailure(record.error);
-    if (loadFailure !== null) {
+    const item: MealAdmin | ProductAdmin | undefined = record.data;
+    if (loadFailure !== null || item === undefined) {
         return (
             <Stack space="lg" testID="kitchen-cooked-item-screen">
                 <ErrorState
                     testID="kitchen-cooked-item-load-error"
-                    failure={loadFailure}
+                    failure={loadFailure ?? apiFailure('server', { retryable: true })}
                     title={t('kitchen:products.loadErrorTitle')}
                     onRetry={() => {
                         void record.refetch();
@@ -488,119 +564,96 @@ function CookedItemEditor({ item: routeItem, kind }: CookedItemEditScreenProps) 
         );
     }
 
-    const item: MealAdmin | ProductAdmin | undefined = record.data;
-
-    /** The item's own listing, inside this page — a meal's, or a packaged kind's. */
-    const listing =
-        item === undefined ? null : itemType === 'meal' ? (
-            <MealListing meal={MealId.unsafe(String(item.id))} />
-        ) : (
-            <ProductEditScreen
-                product={String(item.id)}
-                itemType={itemType}
-                routeBase="/kitchen/recipes"
-                embedded
-            />
-        );
-
     /*
-     * Saved as an item, with nothing made yet.
-     *
-     * Every row the v6 import wrote was in this state: the sheets said "Source: Recipe Library",
-     * there was no library, and each row carries `recipe_library_unlinked` instead of a link. What
-     * the notice starts is a formulation for *this* item, and the page it lands on is the recipe's.
+     * Write the recipe's link onto *this* item — not a new one — then land on the recipe, carrying
+     * the way back. The lock version is read fresh: the listing may have been saved a moment ago
+     * by the same press, and its version moved with it. The link carries `recipeId` and the lock
+     * version alone, so nothing else on the item can be cleared by it.
      */
-    const startFailure = toFailure(createRecipe.error ?? linkMeal.error ?? linkProduct.error);
-    // This start has no fields of its own, so a refusal is said in the server's words rather than
-    // as "The submitted data is invalid." (BUG-06).
-    const startMessage =
-        startFailure === null
-            ? null
-            : (serverFieldErrors(startFailure).unplaced ?? startFailure.message);
-    const starting = createRecipe.isPending || linkMeal.isPending || linkProduct.isPending;
-
-    /*
-     * Write the recipe, then link it to *this* item — not to a new one. Stops at the first failure
-     * rather than reporting success: a recipe nothing points at is invisible from here, and a second
-     * press would write another. The link carries `recipeId` and the lock version alone;
-     * `CatalogueItemService::update` reads its payload key by key, so the packs, the channels, the
-     * portion and the filing are not in the request and cannot be cleared by it. Nothing routes from
-     * here: the effect above carries the reader to the recipe once the link has answered.
-     */
-    const startFormulation = () => {
-        if (item === undefined) return;
-
-        const started = {
-            onSuccess: () => {
-                toast.show({
-                    testID: 'kitchen-cooked-item-formulation-started-toast',
-                    tone: 'success',
-                    message: t('kitchen:products.formulationStartedToast', {
-                        name: displayName(item.name, locale).value,
-                    }),
-                });
-            },
+    const linkToItem = (created: RecipeAdmin) => {
+        const open = () => {
+            router.replace(withQuery(`/kitchen/recipes/${String(created.id)}`, carried) as never);
         };
-
-        createRecipe.mutate(
-            {
-                name: item.name,
-                description: item.description,
-                yieldQuantity: 1,
-                yieldUnit: 'kg',
-            },
-            {
-                onSuccess: (created) => {
-                    const request = { lockVersion: item.meta.lockVersion, recipeId: created.id };
-                    if (isMeal) {
-                        linkMeal.mutate(
-                            { mealId: MealId.unsafe(String(item.id)), request },
-                            started,
-                        );
-                    } else {
-                        linkProduct.mutate(
-                            { productId: ProductId.unsafe(String(item.id)), request },
-                            started,
-                        );
-                    }
-                },
-            },
-        );
+        const keepRecipe = () => {
+            toast.show({
+                testID: 'kitchen-cooked-item-listing-failed-toast',
+                tone: 'warning',
+                message: t('kitchen:recipes.listingFailedToast'),
+            });
+            open();
+        };
+        void record.refetch().then((fresh) => {
+            const request = {
+                lockVersion: (fresh.data ?? item).meta.lockVersion,
+                recipeId: created.id,
+            };
+            if (isMeal) {
+                linkMeal.mutate(
+                    { mealId: MealId.unsafe(String(item.id)), request },
+                    { onSuccess: open, onError: keepRecipe },
+                );
+            } else {
+                linkProduct.mutate(
+                    { productId: ProductId.unsafe(String(item.id)), request },
+                    { onSuccess: open, onError: keepRecipe },
+                );
+            }
+        }, keepRecipe);
     };
 
+    /** The item's own listing, on the Selling tab — a meal's, or a packaged kind's. */
+    const listing = isMeal ? (
+        <MealListing
+            meal={MealId.unsafe(String(item.id))}
+            onDirtyChange={setListingDirty}
+            onRegisterSave={registerListingSave}
+        />
+    ) : (
+        <ProductEditScreen
+            product={String(item.id)}
+            itemType={itemType}
+            routeBase="/kitchen/recipes"
+            embedded
+            onDirtyChange={setListingDirty}
+            onRegisterSave={registerListingSave}
+        />
+    );
+
+    /*
+     * Saved as an item, with nothing made yet — every row the v6 import wrote, and any meal the
+     * review queue finds with no recipe. It opens as the recipe page it is about to become: every
+     * tab, the item's name already on the recipe, and its listing on Selling. The first Save
+     * writes the listing, then the recipe, then the link between them, and lands on the recipe's
+     * own address.
+     */
     return (
-        <Cascade space="md" testID="kitchen-cooked-item-screen">
-            <Callout
-                testID="kitchen-cooked-item-recipe-missing"
-                role="note"
-                tone="info"
-                title={t('kitchen:products.recipeMissingTitle')}
-                body={t('kitchen:products.recipeMissingBody')}
-                actions={
-                    canManage ? (
-                        <Button
-                            testID="kitchen-cooked-item-formulation-start"
-                            label={t('kitchen:products.formulationStart')}
-                            loading={starting}
-                            disabled={starting}
-                            onPress={startFormulation}
-                        />
-                    ) : undefined
-                }
-            />
-
-            {startMessage === null ? null : (
-                <Text testID="kitchen-cooked-item-formulation-error" tone="danger">
-                    {startMessage}
-                </Text>
-            )}
-
-            {/*
-             * The listing is editable before there is a formulation: an imported item already has its
-             * name, its packs or its service days, and pricing it or putting it on sale is not a
-             * question its recipe has to answer first.
-             */}
-            {listing}
-        </Cascade>
+        <RecipeEditScreen
+            recipe="new"
+            initialName={item.name}
+            selfHref={`/kitchen/recipes/item/${String(item.id)}?kind=${itemType}`}
+            initialTab={tab}
+            backTo={`/kitchen/recipes?kind=${itemType}`}
+            returnTo={returnTo}
+            classification={
+                isMeal
+                    ? undefined
+                    : {
+                          categoryLabel: t(CATEGORY_LABEL_KEY[itemType]),
+                          subcategoryLabel: t('kitchen:fields.subcategory'),
+                          subcategoryPlaceholder: t('kitchen:fields.subcategoryPlaceholder'),
+                          options: subcategoryOptions(itemType, t),
+                      }
+            }
+            referenceSeries={REFERENCE_SERIES.meal}
+            onCreated={(created) => {
+                linkToItem(created);
+            }}
+            sellsAs={{
+                label: t('kitchen:recipes.tabSelling'),
+                content: listing,
+                isDirty: listingDirty,
+                save: saveListing,
+            }}
+        />
     );
 }

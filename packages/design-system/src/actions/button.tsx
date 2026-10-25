@@ -55,13 +55,13 @@ const COMFORTABLE_CONTAINER_SIZE: Readonly<Record<ButtonSize, string>> = {
 
 /*
  * The admin ladder: height from `controlHeight`, inset from `controlPaddingX`, gap from
- * `controlGap`, corner 4px for every size. Nothing is written as a number and nothing is derived
+ * `controlGap`, corner 8px for every size. Nothing is written as a number and nothing is derived
  * from padding, so "make the admin two pixels tighter" stays one edit in `control.ts`.
  */
 const COMPACT_CONTAINER_SIZE: Readonly<Record<ButtonSize, string>> = {
-    sm: 'h-control-sm px-control-sm gap-control-sm rounded-sm',
-    md: 'h-control-md px-control-md gap-control-md rounded-sm',
-    lg: 'h-control-lg px-control-lg gap-control-lg rounded-sm',
+    sm: 'h-control-sm px-control-sm gap-control-sm rounded',
+    md: 'h-control-md px-control-md gap-control-md rounded',
+    lg: 'h-control-lg px-control-lg gap-control-lg rounded',
 };
 
 const CONTAINER_SIZE: Readonly<Record<Density, Readonly<Record<ButtonSize, string>>>> = {
