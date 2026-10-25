@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8590 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8593 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -53,9 +53,12 @@ export interface NamespaceKeys {
     | 'workspaceSelector.current'
     | 'workspaceSelector.empty'
     | 'workspaceSelector.emptyBody'
+    | 'workspaceSelector.greeting.afternoon'
+    | 'workspaceSelector.greeting.evening'
+    | 'workspaceSelector.greeting.morning'
     | 'workspaceSelector.open'
-    | 'workspaceSelector.subtitle'
     | 'workspaceSelector.title'
+    | 'workspaceSelector.today'
     | 'workspaceSelector.webShop';
   readonly "accessAdmin":
     | 'add.back'
@@ -8674,9 +8677,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'access:workspaceSelector.current',
   'access:workspaceSelector.empty',
   'access:workspaceSelector.emptyBody',
+  'access:workspaceSelector.greeting.afternoon',
+  'access:workspaceSelector.greeting.evening',
+  'access:workspaceSelector.greeting.morning',
   'access:workspaceSelector.open',
-  'access:workspaceSelector.subtitle',
   'access:workspaceSelector.title',
+  'access:workspaceSelector.today',
   'access:workspaceSelector.webShop',
   'accessAdmin:add.back',
   'accessAdmin:add.branch',

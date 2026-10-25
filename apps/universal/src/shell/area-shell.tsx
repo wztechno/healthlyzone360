@@ -183,13 +183,14 @@ function GuardedAreaShell({
                 <ThemeToggle />
                 {/*
                  * Back to the workspace page, to choose another area. Labelled, because it is the
-                 * one way between areas.
+                 * one way between areas. Filled green, like Sign out beside it: the top bar's two
+                 * ways off the page are drawn alike on every staff page and on the workspace page.
                  */}
                 {showWorkspacesButton ? (
                     <Button
                         testID="workspaces-button"
                         size="sm"
-                        variant="secondary"
+                        variant="primary"
                         label={t('marketplace:nav.workspaces')}
                         onPress={() => {
                             router.push('/workspace' as never);
@@ -197,11 +198,10 @@ function GuardedAreaShell({
                     />
                 ) : null}
                 {/*
-                 * Sign out is quiet here and the primary slot is left *empty*. Rule 4 is explicit
-                 * that a staff area with no single core-loop action gets no top-bar primary at
-                 * all: promoting navigation into the slot, or letting a destructive action sit
-                 * there, is worse than leaving it alone. The areas that do have one — the kitchen
-                 * workbench, the editors — carry it on the screen that owns it.
+                 * Sign out is filled green, as Workspaces is — a deliberate departure from Rule 4,
+                 * which would keep it quiet and leave the top-bar primary empty. The areas with a
+                 * core-loop action — the kitchen workbench, the editors — still carry it on the
+                 * screen that owns it, never in this bar.
                  *
                  * When the area pins Sign out to its sidebar, this control moves there — but only
                  * while the sidebar is on screen.
@@ -210,7 +210,7 @@ function GuardedAreaShell({
                     <Button
                         testID="sign-out"
                         size="sm"
-                        variant="quiet"
+                        variant="primary"
                         label={t('common:action.signOut')}
                         loading={logout.isPending}
                         onPress={signOut}
