@@ -103,8 +103,8 @@ describe('compact density', () => {
             </>,
         );
 
-        // 4px controls, 8px panels — the two radii §1.3 allows.
-        expect(screen.getByTestId('save').props.className).toContain('rounded-sm');
+        // 8px controls, the panel radius on panels.
+        expect(screen.getByTestId('save').props.className).toMatch(/(^|\s)rounded(\s|$)/);
         const panel: string = screen.getByTestId('panel').props.className;
         expect(panel).toMatch(/\brounded\b/);
         expect(panel).not.toContain('rounded-xl');

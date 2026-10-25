@@ -155,7 +155,7 @@ describe('growWeights', () => {
 });
 
 describe('DataList', () => {
-    it('rules the header alone — no line between rows, and no zebra', async () => {
+    it('draws a soft line between rows, none under the last, and no zebra', async () => {
         await renderWithI18n(
             compact(
                 <DataList
@@ -177,9 +177,14 @@ describe('DataList', () => {
         expect(header).toContain('border-b');
         expect(header).toContain('border-stroke-subtle');
 
+        const first = screen.getByTestId('list-row-a').props.className as string;
+        expect(first).toContain('border-b');
+        expect(first).toContain('border-stroke-subtle');
+        // The frame's own edge closes the list.
+        expect(screen.getByTestId('list-row-b').props.className).not.toContain('border-b');
+
         for (const id of ['list-row-a', 'list-row-b']) {
             const className = screen.getByTestId(id).props.className as string;
-            expect(className).not.toContain('border-b');
             // No zebra: the tint is a hover state, never an alternating background.
             expect(className).not.toMatch(/bg-surface-(base|raised|sunken)(\s|$)/);
         }

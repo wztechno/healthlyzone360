@@ -511,7 +511,7 @@ export function Table<Row>({
                             testID={`${base}-row-${rowKey(row)}`}
                             role="row"
                             className={cx(
-                                'flex-row items-center border-b border-surface-sunken px-1',
+                                'flex-row items-center border-b border-stroke-subtle px-1',
                                 ROW_SIZE_CLASS[rowSize],
                                 rowGapClass,
                                 // Both branches, deliberately. The stacked branch dimmed and this

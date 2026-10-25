@@ -584,15 +584,15 @@ export function DataList<Row>({
 
                           const last = index === rows.length - 1;
                           /*
-                           * No hairline between rows — the header's rule is the table's one line.
-                           * The rows are told apart by their height and the hover tint, and a rule
-                           * under every one of them striped a dense page into a ledger. The last
-                           * row of a framed list takes the frame's bottom corners, so its tint does
-                           * not square them off.
+                           * A soft hairline between rows, in the subtle stroke so it separates
+                           * without striping a dense page into a ledger. The last row has none —
+                           * the frame's own edge closes the list — and takes the frame's bottom
+                           * corners, so its tint does not square them off.
                            */
                           const rowClass = cx(
                               ROW_HEIGHT_CLASS[density],
                               'flex-row items-center',
+                              last ? null : 'border-b border-stroke-subtle',
                               framed && last ? 'rounded-b-panel' : null,
                           );
 
