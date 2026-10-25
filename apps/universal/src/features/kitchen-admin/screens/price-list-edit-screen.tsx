@@ -51,6 +51,7 @@ import {
     statusTone,
     summarisePriceEntries,
 } from '../format.ts';
+import { returnCrumbLabel } from '../came-from.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import {
     PriceEntriesCard,
@@ -135,9 +136,14 @@ const SCREEN_ID = 'kitchen-price-list-editor-screen';
 export interface PriceListEditScreenProps {
     /** The route parameter. Always an identifier — this family has no create path. */
     readonly priceList: string | undefined;
+    /**
+     * `?returnTo=` — the page that sent the reader here (the review queue, on this record), as
+     * written. Cancel and the trail's crumb above the record go back to it.
+     */
+    readonly returnTo?: string | undefined;
 }
 
-export function PriceListEditScreen({ priceList }: PriceListEditScreenProps) {
+export function PriceListEditScreen({ priceList, returnTo }: PriceListEditScreenProps) {
     return (
         <Gate
             area="kitchen"
@@ -145,13 +151,13 @@ export function PriceListEditScreen({ priceList }: PriceListEditScreenProps) {
             testID="kitchen-price-list-editor"
         >
             <FormIssueScope>
-                <PriceListEditor priceList={priceList} />
+                <PriceListEditor priceList={priceList} returnTo={returnTo} />
             </FormIssueScope>
         </Gate>
     );
 }
 
-function PriceListEditor({ priceList }: PriceListEditScreenProps) {
+function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
     const { t } = useTranslation();
     const { locale } = useLocale();
     const formatter = useFormatter();
@@ -193,7 +199,7 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
      * "Back to price lists" goes back a step, as the browser's arrow does — to the list as it was
      * left — and opens the list afresh only when nothing is behind this page.
      */
-    const back = useReturnTo(undefined, BOOK_ROUTE);
+    const back = useReturnTo(returnTo, BOOK_ROUTE);
 
     const [entries, setEntries] = useState<readonly PriceEntryDraft[]>([]);
     const [baseline, setBaseline] = useState<ReadonlyMap<string, PriceEntryDraft>>(() => new Map());
@@ -226,7 +232,15 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
         data === undefined
             ? t('kitchen:priceLists.viewKind')
             : displayName(data.name, locale).value;
-    useKitchenTrailLeaf(data === undefined ? null : title);
+    useKitchenTrailLeaf(
+        data === undefined ? null : title,
+        back.returnTo === null
+            ? undefined
+            : () => {
+                  guard.intercept(back.leave);
+              },
+        back.returnTo === null ? undefined : returnCrumbLabel(back.returnTo, t),
+    );
 
     const changes = useMemo(
         () => summarisePriceChanges(entries, baseline, currency),

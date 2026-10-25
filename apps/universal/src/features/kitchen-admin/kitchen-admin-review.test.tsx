@@ -50,6 +50,7 @@ import {
 } from './review-queue.ts';
 import type { ReviewSources } from './review-queue.ts';
 import { KitchenHomeScreen } from './screens/kitchen-home-screen.tsx';
+import { withReturnTo } from '../../navigation/return-to.ts';
 import { ReviewScreen } from './screens/review-screen.tsx';
 import { Dimensions } from 'react-native';
 
@@ -100,9 +101,10 @@ afterAll(() => {
 jest.mock('expo-router', () => {
     const push = jest.fn();
     const replace = jest.fn();
+    const setParams = jest.fn();
     return {
         __esModule: true,
-        useRouter: () => ({ push, replace, setParams: jest.fn(), back: jest.fn() }),
+        useRouter: () => ({ push, replace, setParams, back: jest.fn() }),
         usePathname: () => '/kitchen/review',
         useLocalSearchParams: () => ({}),
         Redirect: () => null,
@@ -111,11 +113,16 @@ jest.mock('expo-router', () => {
         Stack: () => null,
         __push: push,
         __replace: replace,
+        __setParams: setParams,
     };
 });
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const routerMock = require('expo-router') as { __push: jest.Mock; __replace: jest.Mock };
+const routerMock = require('expo-router') as {
+    __push: jest.Mock;
+    __replace: jest.Mock;
+    __setParams: jest.Mock;
+};
 
 beforeEach(() => {
     routerMock.__push.mockClear();
@@ -721,6 +728,10 @@ describe('the review queue screen', () => {
         });
 
         await untilVisible('kitchen-review-window');
+        // The view is an address, so an editor opened from it can come back to it.
+        expect(routerMock.__setParams).toHaveBeenCalledWith({
+            view: String(QUARANTINED_INGREDIENT.id),
+        });
         expect(screen.getByTestId('kitchen-review-window-title')).toHaveTextContent(
             QUARANTINED_INGREDIENT.name.en,
         );
@@ -732,8 +743,12 @@ describe('the review queue screen', () => {
             fireEvent.press(screen.getByTestId('kitchen-review-window-primary'));
         });
 
+        // The editor, carrying the way back to this record's page in the queue.
         expect(routerMock.__push).toHaveBeenCalledWith(
-            `/kitchen/ingredients/${String(QUARANTINED_INGREDIENT.id)}`,
+            withReturnTo(
+                `/kitchen/ingredients/${String(QUARANTINED_INGREDIENT.id)}`,
+                `/kitchen/review?view=${String(QUARANTINED_INGREDIENT.id)}`,
+            ),
         );
     });
 
@@ -779,8 +794,12 @@ describe('the review queue screen', () => {
             fireEvent.press(screen.getByTestId(`${row}-open`));
         });
 
+        // The editor, carrying the way back to this record's page in the queue.
         expect(routerMock.__push).toHaveBeenCalledWith(
-            `/kitchen/ingredients/${String(QUARANTINED_INGREDIENT.id)}`,
+            withReturnTo(
+                `/kitchen/ingredients/${String(QUARANTINED_INGREDIENT.id)}`,
+                `/kitchen/review?view=${String(QUARANTINED_INGREDIENT.id)}`,
+            ),
         );
     });
 

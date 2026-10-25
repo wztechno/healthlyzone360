@@ -18,6 +18,8 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
+import { StaffReturnButton } from '../../marketplace/staff-return-button.tsx';
+
 import { mealsFromPages, useMealQuery, useMealsQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { EntityImage } from '../../../media/entity-image.tsx';
@@ -76,6 +78,8 @@ import { NutritionFactsPanel } from '../nutrition-facts-panel.tsx';
  */
 export interface MealDetailScreenProps {
     readonly mealId: string | undefined;
+    /** `?returnTo=` — the kitchen record staff opened this from; see `StaffReturnButton`. */
+    readonly returnTo?: string | undefined;
 }
 
 /** A ceiling on the stepper. The API refuses nothing above zero; this only stops a held button. */
@@ -178,7 +182,7 @@ function useMealTrail(item: MarketplaceMeal | undefined): readonly BreadcrumbIte
     ];
 }
 
-export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
+export function MealDetailScreen({ mealId, returnTo }: MealDetailScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const navigateUp = useNavigateUp();
@@ -232,6 +236,7 @@ export function MealDetailScreen({ mealId }: MealDetailScreenProps) {
 
     return (
         <View testID="meal-detail-screen" className="flex-col gap-4">
+            <StaffReturnButton returnTo={returnTo} testID="meal-detail-staff-return" />
             <Breadcrumbs testID="meal-detail-breadcrumbs" items={trail} />
 
             {/* A link carrying something that is not an identifier at all leaves the query

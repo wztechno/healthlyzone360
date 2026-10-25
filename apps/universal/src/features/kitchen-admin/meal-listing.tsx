@@ -61,6 +61,7 @@ import {
     INVENTORY_VIEW_PERMISSION,
 } from './entity-registry.ts';
 import { GateRailCard } from './gate-rail-card.tsx';
+import { withReturnTo } from '../../navigation/return-to.ts';
 import { useHostSave } from './host-save.ts';
 import type { RegisterHostSave } from './host-save.ts';
 import {
@@ -249,9 +250,11 @@ export interface MealListingProps {
      * service days too (see `host-save.ts`). With it the listing draws no Save of its own.
      */
     readonly onRegisterSave?: RegisterHostSave | undefined;
+    /** The page this listing is on, so the shop's meal page can lead back to it. */
+    readonly returnHref?: string | undefined;
 }
 
-export function MealListing({ meal, onDirtyChange, onRegisterSave }: MealListingProps) {
+export function MealListing({ meal, onDirtyChange, onRegisterSave, returnHref }: MealListingProps) {
     return (
         <Gate
             area="kitchen"
@@ -262,12 +265,13 @@ export function MealListing({ meal, onDirtyChange, onRegisterSave }: MealListing
                 meal={meal}
                 onDirtyChange={onDirtyChange}
                 onRegisterSave={onRegisterSave}
+                returnHref={returnHref}
             />
         </Gate>
     );
 }
 
-function MealListingEditor({ meal, onDirtyChange, onRegisterSave }: MealListingProps) {
+function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: MealListingProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const { locale } = useLocale();
@@ -960,7 +964,14 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave }: MealListingP
                                     label={t('kitchen:meals.viewPublic')}
                                     onPress={() => {
                                         guard.intercept(() => {
-                                            router.push(`/meals/${String(data.id)}` as never);
+                                            // With the way back to this page, which the
+                                            // shop offers staff above its trail.
+                                            router.push(
+                                                withReturnTo(
+                                                    `/meals/${String(data.id)}`,
+                                                    returnHref,
+                                                ) as never,
+                                            );
                                         });
                                     }}
                                 />

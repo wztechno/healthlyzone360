@@ -28,6 +28,7 @@ import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { useListMemory, useRememberedFilter, useRememberedQuery } from '../list-memory.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
 /**
  * `/kitchen/review` — the publication review queue (K1.8), as `Workbench.dc.html` draws it.
@@ -67,25 +68,21 @@ import { useListMemory, useRememberedFilter, useRememberedQuery } from '../list-
  * narrowing the queue moves the cards with it (§3z rule 1). Shown's unit states the whole queue — "of
  * 6" — which is the one figure a filter should not move.
  */
-export function ReviewScreen() {
+export function ReviewScreen({ view }: { readonly view?: string | undefined }) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
             testID="kitchen-review"
         >
-            <ReviewQueueBody />
+            <ReviewQueueBody view={view} />
         </Gate>
     );
 }
 
 type ReviewScope = 'all' | 'blocked' | 'unblocked';
 
-interface Viewing {
-    readonly item: ReviewItem;
-}
-
-function ReviewQueueBody() {
+function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
     const { t } = useTranslation();
     const { locale } = useLocale();
     const router = useRouter();
@@ -95,7 +92,22 @@ function ReviewQueueBody() {
     const memory = useListMemory('kitchen.review');
     const [search, setSearch] = useRememberedQuery(memory);
     const [scope, setScope] = useRememberedFilter<ReviewScope>(memory, 'scope', 'all');
-    const [viewing, setViewing] = useState<Viewing | null>(null);
+    /*
+     * The record whose page is open, by id — mirrored into `?view=` so the view is an address:
+     * an editor opened from it comes back to it, and Back and a refresh keep it. Followed from the
+     * param during render, so the browser's own Back closes it too.
+     */
+    const [viewingId, setViewingId] = useState<string | null>(view ?? null);
+    const [viewParam, setViewParam] = useState(view);
+    if (viewParam !== view) {
+        setViewParam(view);
+        setViewingId(view ?? null);
+    }
+    const setViewing = (next: { readonly item: ReviewItem } | null) => {
+        if (next === null && viewingId === null) return;
+        setViewingId(next === null ? null : next.item.id);
+        router.setParams({ view: next === null ? undefined : next.item.id } as never);
+    };
 
     const queue = useMemo(
         () =>
@@ -129,15 +141,30 @@ function ReviewQueueBody() {
         ? (toFailure(sources.error) ?? apiFailure('server', { retryable: true }))
         : null;
 
+    /*
+     * Into the family's editor, carrying the way back to this record's page — so the editor's
+     * Cancel, its trail and a finished fix all return here, on the record, not to the top of the
+     * queue.
+     */
     const open = (item: ReviewItem) => {
-        setViewing(null);
-        router.push(item.href as never);
+        router.push(
+            withReturnTo(item.href, withQuery('/kitchen/review', { view: item.id })) as never,
+        );
     };
 
-    if (viewing !== null) {
+    // From the whole queue, not the filtered list: a record opened by address stays open whatever
+    // the search says.
+    const viewingItem =
+        viewingId === null || queue === null
+            ? null
+            : (queue.sections
+                  .flatMap((section) => section.items)
+                  .find((item) => item.id === viewingId) ?? null);
+
+    if (viewingItem !== null) {
         return (
             <ReviewWindow
-                item={viewing.item}
+                item={viewingItem}
                 onBack={() => {
                     setViewing(null);
                 }}

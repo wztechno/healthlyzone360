@@ -50,6 +50,7 @@ import {
     useSetPlanVariantsMutation,
     useUpdatePlanMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
+import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
@@ -65,6 +66,7 @@ import {
     summarisePlanDurations,
     summarisePlanPrices,
 } from '../format.ts';
+import { returnCrumbLabel } from '../came-from.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import {
     EMPTY_MENU,
@@ -336,21 +338,26 @@ const PLAN_STEP_LABELS: Record<PlanStep, string> = {
 export interface PlanEditScreenProps {
     /** The route parameter. `'new'` opens the create form; anything else is an identifier. */
     readonly plan: string | undefined;
+    /**
+     * `?returnTo=` — the page that sent the reader here (the review queue, on this record), as
+     * written. Cancel and the trail's crumb above the record go back to it.
+     */
+    readonly returnTo?: string | undefined;
 }
 
-export function PlanEditScreen({ plan }: PlanEditScreenProps) {
+export function PlanEditScreen({ plan, returnTo }: PlanEditScreenProps) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
             testID="kitchen-plan-editor"
         >
-            <PlanEditor plan={plan} />
+            <PlanEditor plan={plan} returnTo={returnTo} />
         </Gate>
     );
 }
 
-function PlanEditor({ plan }: PlanEditScreenProps) {
+function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const { locale } = useLocale();
@@ -359,7 +366,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
     // Cancel and the not-found link step back to wherever the reader came from — the plan list as
     // they left it — and only open a fresh list when there is no history to return to.
-    const back = useReturnTo(undefined, '/kitchen/plans');
+    const back = useReturnTo(returnTo, '/kitchen/plans');
 
     const isCreating = plan === undefined || plan === 'new';
     // Every plan, new or saved, opens on the plan itself and walks the same five steps.
@@ -439,6 +446,12 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
             : data === undefined
               ? null
               : displayName(data.name, locale).value || t('kitchen:plans.editTitle'),
+        back.returnTo === null
+            ? undefined
+            : () => {
+                  guard.intercept(back.leave);
+              },
+        back.returnTo === null ? undefined : returnCrumbLabel(back.returnTo, t),
     );
 
     const serverKey =
@@ -1456,7 +1469,17 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                             label={t('kitchen:plans.viewPublic')}
                             onPress={() => {
                                 guard.intercept(() => {
-                                    router.push(`/plans/${String(data.id)}` as never);
+                                    // With the way back to this plan, which the shop
+                                    // offers staff above its trail.
+                                    router.push(
+                                        withReturnTo(
+                                            `/plans/${String(data.id)}`,
+                                            withReturnTo(
+                                                `/kitchen/plans/${String(data.id)}`,
+                                                back.returnTo,
+                                            ),
+                                        ) as never,
+                                    );
                                 });
                             }}
                         />

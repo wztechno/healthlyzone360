@@ -17,6 +17,7 @@ const PlanEditScreen = lazyScreen(
 );
 
 export default function KitchenPlanEditor() {
-    const { plan } = useLocalSearchParams<{ plan?: string }>();
-    return <PlanEditScreen plan={plan} />;
+    // `?returnTo=`: the page that sent the reader here — the review queue, on this record.
+    const { plan, returnTo } = useLocalSearchParams<{ plan?: string; returnTo?: string }>();
+    return <PlanEditScreen plan={plan} returnTo={returnTo} />;
 }

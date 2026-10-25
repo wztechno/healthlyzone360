@@ -101,6 +101,7 @@ import {
     unitCodeLabel,
 } from '../format.ts';
 import { ImageSlot } from '../image-slot.tsx';
+import { returnCrumbLabel } from '../came-from.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { focusFirstRefusal } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
@@ -364,6 +365,11 @@ export interface ProductEditScreenProps {
      * `host-save.ts`). With it the listing draws no Save of its own.
      */
     readonly onRegisterSave?: RegisterHostSave | undefined;
+    /**
+     * `?returnTo=` — the page that sent the reader here (the review queue, on this record), as
+     * written. Cancel and the trail's crumb above the record go back to it.
+     */
+    readonly returnTo?: string | undefined;
 }
 
 export function ProductEditScreen({
@@ -373,6 +379,7 @@ export function ProductEditScreen({
     embedded = false,
     onDirtyChange,
     onRegisterSave,
+    returnTo,
 }: ProductEditScreenProps) {
     return (
         <Gate
@@ -387,6 +394,7 @@ export function ProductEditScreen({
                 embedded={embedded}
                 onDirtyChange={onDirtyChange}
                 onRegisterSave={onRegisterSave}
+                returnTo={returnTo}
             />
         </Gate>
     );
@@ -399,6 +407,7 @@ function ProductEditor({
     embedded = false,
     onDirtyChange,
     onRegisterSave,
+    returnTo,
 }: ProductEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
@@ -482,7 +491,7 @@ function ProductEditor({
      * Cancel and the not-found page's way out go back a step, as the browser's arrow does — to the
      * list as it was left — and open the list afresh only when nothing is behind this page.
      */
-    const back = useReturnTo(undefined, routeBase);
+    const back = useReturnTo(returnTo, routeBase);
 
     useEffect(() => {
         onDirtyChange?.(guard.isDirty);
@@ -539,7 +548,15 @@ function ProductEditor({
      * embedded: the host page names itself. Not while a record is still loading either, because
      * there is nothing truthful to put in it for the frame or two before it arrives.
      */
-    useKitchenTrailLeaf(!embedded && (isCreating || data !== undefined) ? title : null);
+    useKitchenTrailLeaf(
+        !embedded && (isCreating || data !== undefined) ? title : null,
+        back.returnTo === null
+            ? undefined
+            : () => {
+                  guard.intercept(back.leave);
+              },
+        back.returnTo === null ? undefined : returnCrumbLabel(back.returnTo, t),
+    );
 
     const markDetailsDirty = () => {
         setDetailsDirty(true);

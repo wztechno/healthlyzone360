@@ -81,6 +81,7 @@ import { resolveEntityImage } from '../../../media/entity-image.tsx';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { BilingualField } from '../bilingual-field.tsx';
+import { returnCrumbLabel } from '../came-from.ts';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { DerivedPanel } from '../catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../catalogue/derived-panel.tsx';
@@ -630,6 +631,12 @@ function IngredientEditor({
         return match === null ? null : RecipeId.safeParse(match[1]);
     }, [back.returnTo]);
     const returnRecipe = useRecipeQuery(returnRecipeId);
+    const returnName =
+        returnRecipe.data === undefined ? null : displayName(returnRecipe.data.name, locale).value;
+    const returnLabel = useMemo(
+        () => returnCrumbLabel(back.returnTo, t, returnName),
+        [back.returnTo, t, returnName],
+    );
 
     /** Whether Save has been pressed — what lets an empty required field call itself out. */
     const [attempted, setAttempted] = useState(false);
@@ -818,7 +825,16 @@ function IngredientEditor({
      * back. Only a record that has not loaded yet leaves the leaf off, because there is nothing
      * truthful to put in it for the frame or two before it arrives.
      */
-    useKitchenTrailLeaf(isCreating || data !== undefined ? title : null);
+    // Sent from a recipe, the crumb above is that recipe, by name, and takes the reader back to it.
+    useKitchenTrailLeaf(
+        isCreating || data !== undefined ? title : null,
+        back.returnTo === null
+            ? undefined
+            : () => {
+                  guard.intercept(back.leave);
+              },
+        returnLabel ?? undefined,
+    );
 
     const markDetailsDirty = () => {
         setDetailsDirty(true);
@@ -948,8 +964,6 @@ function IngredientEditor({
     const openNeed = (key: IngredientNeed) =>
         needItems.find((item) => item.key === key && !item.resolved);
     const needsDone = needItems.length > 0 && needItems.every((item) => item.resolved);
-    const returnName =
-        returnRecipe.data === undefined ? null : displayName(returnRecipe.data.name, locale).value;
 
     /*
      * Back to the recipe once a save has done what it was sent here for — by this page's Save, or

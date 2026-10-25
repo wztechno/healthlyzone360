@@ -76,6 +76,7 @@ import {
     useUpdateRecipeMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { BilingualField } from '../bilingual-field.tsx';
+import { returnCrumbLabel } from '../came-from.ts';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { DerivedPanel } from '../catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../catalogue/derived-panel.tsx';
@@ -461,6 +462,9 @@ const recipeDrafts = createSessionDraftStore<RecipeDetour>({
     },
 });
 
+/** A create stopped by the listing, which has already said why on its own tab. */
+const LISTING_REFUSED = Symbol('listing-refused');
+
 /** The tab a `?tab=` names, or `null` for anything that is not one. */
 function recipeTabOf(value: string | undefined): RecipeTab | null {
     return (TAB_ORDER as readonly (string | undefined)[]).includes(value)
@@ -619,6 +623,13 @@ export interface RecipeEditScreenProps {
     /** `?kind=` of a new recipe, so a detour from the create form comes back to the same form. */
     readonly kind?: string | undefined;
     /**
+     * This page's own address when it is not the recipe book's — an item with no recipe yet,
+     * `/kitchen/recipes/item/{item}?kind=…` — so a detour to an ingredient comes back here.
+     */
+    readonly selfHref?: string | undefined;
+    /** The name a new recipe starts with — the item it is being written for already has one. */
+    readonly initialName?: LocalisedText | undefined;
+    /**
      * `?swapFrom=&swapTo=` — a library ingredient the reader took into this kitchen while fixing it.
      * The server leaves existing recipes on the library row, so a draft's lines naming it move to
      * the copy here, unsaved, for the reader to Save.
@@ -675,6 +686,8 @@ function RecipeEditor({
     stockGapFix,
     initialTab,
     kind,
+    selfHref,
+    initialName,
     swapFrom,
     swapTo,
 }: RecipeEditScreenProps) {
@@ -746,7 +759,9 @@ function RecipeEditor({
     const [photoKey, setPhotoKey] = useState<string | null | undefined>(undefined);
     const [photoDirty, setPhotoDirty] = useState(false);
 
-    const [details, setDetails] = useState<DetailsDraft>(EMPTY_DETAILS);
+    const [details, setDetails] = useState<DetailsDraft>(
+        initialName === undefined ? EMPTY_DETAILS : { ...EMPTY_DETAILS, name: initialName },
+    );
     const [lines, setLinesDraft] = useState<readonly LineDraft[]>([]);
 
     /*
@@ -822,7 +837,7 @@ function RecipeEditor({
      * Adjusted during render, as the hydration above is; the guard and the word to the reader
      * follow in an effect.
      */
-    const detourKey = isCreating ? `new:${referenceSeries}` : String(recipe);
+    const detourKey = isCreating ? `new:${selfHref ?? referenceSeries}` : String(recipe);
     const [detourChecked, setDetourChecked] = useState(false);
     const [detourRestored, setDetourRestored] = useState(false);
     const [swapped, setSwapped] = useState(false);
@@ -973,13 +988,15 @@ function RecipeEditor({
     const editable = canManage && isEditable;
 
     const title = isCreating
-        ? t('kitchen:recipes.createTitle')
+        ? initialName === undefined
+            ? t('kitchen:recipes.createTitle')
+            : displayName(initialName, locale).value
         : displayName(data?.name ?? { en: '', ar: '' }, locale).value;
 
     /*
-     * Opened from Stock gaps, the crumb above the recipe is Stock gaps — the page the reader came
-     * from — and it returns to the exact view they left, through the unsaved guard. Otherwise the
-     * trail is the book's, exactly as every other editor's.
+     * Opened from elsewhere — Stock gaps, Review — the crumb above the recipe is that page, named
+     * as the sidebar names it, and it returns to the exact view they left, through the unsaved
+     * guard. Otherwise the trail is the book's, exactly as every other editor's.
      */
     const cameBack = back.returnTo !== null;
     useKitchenTrailLeaf(
@@ -989,7 +1006,7 @@ function RecipeEditor({
                   guard.intercept(back.leave);
               }
             : undefined,
-        cameBack ? t('kitchen:families.consumptionExceptions.name') : undefined,
+        cameBack ? returnCrumbLabel(back.returnTo, t) : undefined,
     );
 
     /* ── the roll-up preview ─────────────────────────────────────────────────────────────────── */
@@ -1256,8 +1273,8 @@ function RecipeEditor({
          * with (its kind while new, a stock gap's fix and way back) rather than read off the router.
          */
         const here = withReturnTo(
-            withQuery(`/kitchen/recipes/${isCreating ? 'new' : String(recipe)}`, {
-                kind: isCreating ? kind : null,
+            withQuery(selfHref ?? `/kitchen/recipes/${isCreating ? 'new' : String(recipe)}`, {
+                kind: isCreating && selfHref === undefined ? kind : null,
                 fix: fix?.reason,
                 ingredient: fix?.ingredientId,
                 tab: family === 'packaging' ? 'packaging' : tab,
@@ -1826,6 +1843,9 @@ function RecipeEditor({
              * then silently lost on the first save, which is worse than not offering it.
              */
             const createAll = async () => {
+                // The listing first: it is a record already, and a refusal there should stop the
+                // press before a recipe exists — on the Selling tab, where it says what it needs.
+                if (!(await saveListing())) throw LISTING_REFUSED;
                 const created = await create.mutateAsync({
                     name: details.name,
                     description: details.description,
@@ -1899,6 +1919,7 @@ function RecipeEditor({
                 (error: unknown) => {
                     creatingRef.current = null;
                     setCreatingNow(false);
+                    if (error === LISTING_REFUSED) return;
                     const failure = toFailure(error);
                     setSaveError({ failure });
                     leadToRefusal(failure);
@@ -2662,7 +2683,9 @@ function RecipeEditor({
                                  * once it exists it is edited on the Selling tab with the rest of
                                  * the listing. A library recipe sells nothing and draws none.
                                  */}
-                                {!isCreating || onCreated === undefined ? null : (
+                                {!isCreating ||
+                                onCreated === undefined ||
+                                sellsAs !== undefined ? null : (
                                     <BilingualField
                                         span={4}
                                         layout="row"

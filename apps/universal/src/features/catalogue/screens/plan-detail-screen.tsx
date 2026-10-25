@@ -26,6 +26,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { StaffReturnButton } from '../../marketplace/staff-return-button.tsx';
+
 import { mealsFromPages, useMealsQuery, usePlanQuery } from '../../../data/catalogue-hooks.ts';
 import { estimatedTotal } from '../../commerce/configurator.ts';
 import { configuratorHref } from '../../commerce/configurator-draft.ts';
@@ -108,6 +110,8 @@ import { isLiveSubscription } from '../plan-subscriber-panel.tsx';
  */
 export interface PlanDetailScreenProps {
     readonly planId: string | undefined;
+    /** `?returnTo=` — the kitchen record staff opened this from; see `StaffReturnButton`. */
+    readonly returnTo?: string | undefined;
 }
 
 /** The page's reading width: the content column and the price card beside it, and no wider. */
@@ -126,7 +130,7 @@ function macroRanges(variant: PlanVariant) {
     ] as const;
 }
 
-export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
+export function PlanDetailScreen({ planId, returnTo }: PlanDetailScreenProps) {
     const { t } = useTranslation();
     const basket = useBasketAdd({ labelKey: 'catalogue:nav.plans', testID: 'plan-detail' });
     const router = useRouter();
@@ -228,6 +232,7 @@ export function PlanDetailScreen({ planId }: PlanDetailScreenProps) {
             className="w-full flex-col gap-6 self-center"
             style={{ maxWidth: PAGE_MAX_WIDTH }}
         >
+            <StaffReturnButton returnTo={returnTo} testID="plan-detail-staff-return" />
             <Breadcrumbs
                 testID="plan-detail-breadcrumbs"
                 items={[

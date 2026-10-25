@@ -506,10 +506,25 @@ describe('an item’s address', () => {
         expect(routerMock.__replace).toHaveBeenCalledTimes(1);
     });
 
-    it('lists a sauce that has no recipe yet, under the notice that offers to start one', async () => {
+    it('opens a sauce with no recipe yet as the full recipe page, its listing on Selling', async () => {
         await renderSauceItem(sauce({ recipeId: null }));
 
-        await untilVisible('kitchen-cooked-item-recipe-missing');
+        // Every tab, as the recipe it is about to become, named after the item.
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        for (const tab of [
+            'description',
+            'production',
+            'packaging',
+            'costing',
+            'selling',
+            'sheet',
+        ]) {
+            expect(screen.getByTestId(`kitchen-recipe-tab-${tab}`)).toBeTruthy();
+        }
+        expect(screen.getByTestId('kitchen-recipe-editor-screen-title')).toHaveTextContent(
+            /Garlic sauce/,
+        );
+        await press('kitchen-recipe-tab-selling');
         await untilVisible('kitchen-product-packs');
         expect(screen.getByTestId('kitchen-product-publish')).toBeTruthy();
         expect(routerMock.__replace).not.toHaveBeenCalled();
@@ -527,8 +542,9 @@ describe('an item’s address', () => {
             },
         });
 
-        await untilVisible('kitchen-cooked-item-formulation-start');
-        await press('kitchen-cooked-item-formulation-start');
+        // The recipe page's own Save writes the recipe, then links it to this item.
+        await untilVisible('kitchen-recipe-editor-screen-save');
+        await press('kitchen-recipe-editor-screen-save');
 
         await waitFor(() => {
             expect(routerMock.__replace).toHaveBeenCalledWith(
@@ -740,7 +756,7 @@ describe('a meal page', () => {
         expect(repositories.kitchenAdmin.createProduct).not.toHaveBeenCalled();
     });
 
-    it('lists a meal that has no recipe yet, under the notice that offers to start one', async () => {
+    it('opens a meal with no recipe yet as the full recipe page, its listing on Selling', async () => {
         await renderStubScreen(<CookedItemEditScreen item={String(MEAL_ID)} kind="meal" />, {
             session: kitchenManagerSession(),
             repositories: {
@@ -748,7 +764,8 @@ describe('a meal page', () => {
             },
         });
 
-        await untilVisible('kitchen-cooked-item-recipe-missing');
+        await untilVisible('kitchen-recipe-tab-production');
+        await press('kitchen-recipe-tab-selling');
         await untilVisible('kitchen-meal-portion-input');
     });
 });
