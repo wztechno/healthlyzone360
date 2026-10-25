@@ -48,6 +48,7 @@ import {
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
+import { returnCrumbLabel } from '../came-from.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { focusField } from '../field-focus.ts';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
@@ -111,16 +112,21 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 export interface SupplierDetailScreenProps {
     /** The route parameter. `undefined` or `'new'` opens the create form. */
     readonly supplier?: string | undefined;
+    /**
+     * `?returnTo=` — the page that sent the reader here (the list, on this record's view), as
+     * written. Cancel and the trail's crumb above the record go back to it.
+     */
+    readonly returnTo?: string | undefined;
 }
 
-export function SupplierDetailScreen({ supplier }: SupplierDetailScreenProps) {
+export function SupplierDetailScreen({ supplier, returnTo }: SupplierDetailScreenProps) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [INVENTORY_VIEW_PERMISSION] }}
             testID="kitchen-supplier"
         >
-            <SupplierDetailEditor supplier={supplier} />
+            <SupplierDetailEditor supplier={supplier} returnTo={returnTo} />
         </Gate>
     );
 }
@@ -204,7 +210,7 @@ function parseLeadTime(value: string): number | null | undefined {
     return parsed > 365 ? undefined : parsed;
 }
 
-function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
+function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps) {
     const { t } = useTranslation();
     const { locale } = useLocale();
     const formatter = useFormatter();
@@ -214,7 +220,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
     const canViewCosts = useCan(INVENTORY_VIEW_COSTS_PERMISSION);
     // Cancel and the not-found link step back to wherever the reader came from — the supplier list
     // as they left it — and only open a fresh list when there is no history to return to.
-    const back = useReturnTo(undefined, '/kitchen/suppliers');
+    const back = useReturnTo(returnTo, '/kitchen/suppliers');
 
     const isCreating = supplier === undefined || supplier === 'new';
     const parsed = isCreating ? null : SupplierId.safeParse(supplier);
@@ -231,13 +237,20 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
     const form = useFormSteps(isCreating ? SUPPLIER_CREATE_STEPS : SUPPLIER_STEPS);
 
-    // The page draws no heading, so the top bar's trail is where the supplier is named.
+    // The page draws no heading, so the top bar's trail is where the supplier is named. Opened as
+    // a detour, the crumb above it is the page it came from.
     useKitchenTrailLeaf(
         isCreating
             ? t('kitchen:ops.suppliers.createTitle')
             : record.data === undefined
               ? null
               : displayName(record.data.name, locale).value,
+        back.returnTo === null
+            ? undefined
+            : () => {
+                  guard.intercept(back.leave);
+              },
+        back.returnTo === null ? undefined : returnCrumbLabel(back.returnTo, t),
     );
 
     const [details, setDetails] = useState<DetailsDraft>(EMPTY_DETAILS);

@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { toFailure } from '../../../data/hooks.ts';
 import { useAllergenClassesQuery } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
+import { useViewedRecord } from '../use-viewed-record.ts';
 
 /**
  * The allergen list's state — the Catalogue's list-state shape, over a collection that is not paged.
@@ -75,7 +76,8 @@ export interface AllergenListState {
     readonly closeView: () => void;
 }
 
-export function useAllergenList(): AllergenListState {
+/** `view` is the route's `?view=` — the class whose page is open (`use-viewed-record.ts`). */
+export function useAllergenList(view?: string): AllergenListState {
     const { locale } = useLocale();
     const classes = useAllergenClassesQuery();
 
@@ -86,9 +88,15 @@ export function useAllergenList(): AllergenListState {
     // the one order that does not change with the reader's language.
     const [sortKey, setSortKey] = useState<AllergenSortKey>('regulation');
     const [sortDirection, setSortDirection] = useState<AllergenSortDirection>('asc');
-    const [viewing, setViewing] = useState<AllergenClass | null>(null);
 
     const all = useMemo(() => classes.data ?? [], [classes.data]);
+    // Found in the whole register, not the filtered rows: the filters are not remembered.
+    const viewed = useViewedRecord(
+        view,
+        all,
+        (entry) => String(entry.code),
+        classes.isSuccess && !classes.isFetching,
+    );
 
     const rows = useMemo(() => {
         const needle = query.trim().toLocaleLowerCase();
@@ -181,10 +189,10 @@ export function useAllergenList(): AllergenListState {
         withdrawnCount: all.filter((entry) => !entry.isActive).length,
         thresholdCount: all.filter((entry) => entry.declarationThreshold !== null).length,
 
-        viewing,
-        openView: setViewing,
+        viewing: viewed.viewing,
+        openView: viewed.setViewing,
         closeView: () => {
-            setViewing(null);
+            viewed.setViewing(null);
         },
     };
 }

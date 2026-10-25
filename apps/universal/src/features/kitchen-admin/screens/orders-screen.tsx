@@ -1,3 +1,4 @@
+import { OrderId } from '@healthy360/domain-types';
 import type {
     KitchenOrder,
     KitchenOrderCancellationReason,
@@ -77,6 +78,14 @@ import {
     useRememberedOpened,
     useRememberedQuery,
 } from '../list-memory.ts';
+import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
+
+/** The order `?view=` names, read on its own when the loaded page does not hold it. */
+function useOrderById(id: string | null) {
+    const parsed = OrderId.safeParse(id);
+    const record = useKitchenOrderQuery(parsed);
+    return parsed === null ? RECORD_NOT_FOUND : record;
+}
 
 /**
  * `/kitchen/orders` — the order book (O6), drawn as the Operations handoff draws it: the Catalogue
@@ -134,19 +143,19 @@ const MEDIUM_DATE: Intl.DateTimeFormatOptions = { dateStyle: 'medium' };
 /** A timeline step: the day and the minute, because "when did it leave" is a time question. */
 const STEP_TIME: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
 
-export function OrdersScreen() {
+export function OrdersScreen({ view }: { readonly view?: string | undefined }) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [ORDER_VIEW_PERMISSION] }}
             testID="kitchen-orders"
         >
-            <Orders />
+            <Orders view={view} />
         </Gate>
     );
 }
 
-function Orders() {
+function Orders({ view }: { readonly view?: string | undefined }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
 
@@ -166,8 +175,6 @@ function Orders() {
     /** The pages already read for the active filter. The current page is appended at render. */
     const [carried, setCarried] = useState<readonly KitchenOrder[]>([]);
 
-    const [selected, setSelected] = useState<KitchenOrder | null>(null);
-
     const trimmed = query.trim();
     const filters = useMemo<KitchenOrderFilters>(
         () => ({
@@ -182,6 +189,14 @@ function Orders() {
     const orders = useKitchenOrdersQuery(filters);
     const page = orders.data ?? null;
     const rows = useMemo(() => [...carried, ...(page?.items ?? [])], [carried, page]);
+    // The open order is an address, `?view=`, so Back and a refresh keep it open.
+    const { viewing: selected, setViewing: setSelected } = useViewedRecord(
+        view,
+        rows,
+        (row) => String(row.id),
+        orders.isSuccess && !orders.isFetching,
+        { useLookup: useOrderById },
+    );
 
     /** A filter change is a new list: the cursor and everything carried under the old one go. */
     function changeStatus(next: StatusFilter) {

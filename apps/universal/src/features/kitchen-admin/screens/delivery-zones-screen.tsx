@@ -1,3 +1,4 @@
+import { DeliveryZoneId } from '@healthy360/domain-types';
 import type {
     DeliveryWindow,
     DeliveryZoneAdmin,
@@ -19,7 +20,7 @@ import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
@@ -30,6 +31,7 @@ import {
     useDeliveryWindowsQuery,
     useDeliveryZonePageQuery,
     useDeliveryZoneWholeSetQuery,
+    useAdminZoneQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
@@ -66,6 +68,15 @@ import {
     useRememberedQuery,
     useRestoredPageFallback,
 } from '../list-memory.ts';
+import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+
+/** The zone `?view=` names, read on its own when the loaded page does not hold it. */
+function useZoneById(id: string | null) {
+    const parsed = DeliveryZoneId.safeParse(id);
+    const record = useAdminZoneQuery(parsed);
+    return parsed === null ? RECORD_NOT_FOUND : record;
+}
 
 /**
  * `/kitchen/delivery-zones` — where this kitchen delivers, for how much, and when (Commercial §3.4).
@@ -90,14 +101,14 @@ import {
  * "3 windows · 6 days covered", "None of them are active", "No windows" — whether Saturday is reached
  * is the question a person opens this list to answer.
  */
-export function DeliveryZonesScreen() {
+export function DeliveryZonesScreen({ view }: { readonly view?: string | undefined }) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
             testID="kitchen-zones"
         >
-            <DeliveryZonesList />
+            <DeliveryZonesList view={view} />
         </Gate>
     );
 }
@@ -107,7 +118,7 @@ const NO_WINDOWS: readonly DeliveryWindow[] = [];
 const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'retired'];
 type StatusSegmentValue = PublishableStatus | 'all';
 
-function DeliveryZonesList() {
+function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
@@ -118,7 +129,6 @@ function DeliveryZonesList() {
     const memory = useListMemory('kitchen.delivery-zones');
     const [query, setQuery] = useRememberedQuery(memory);
     const [status, setStatus] = useRememberedFilter<StatusSegmentValue>(memory, 'status', 'all');
-    const [viewing, setViewing] = useState<DeliveryZoneAdmin | null>(null);
     const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
 
     const trimmed = query.trim();
@@ -141,13 +151,27 @@ function DeliveryZonesList() {
     const coverageOf = (row: DeliveryZoneAdmin) =>
         summariseWindows(assignedWindows(row.windowIds, allWindows));
     const rows = useMemo(() => zones.data?.items ?? [], [zones.data]);
+    // The open record is an address, `?view=`, so its editor can come back to it.
+    const { viewing, viewingId, setViewing } = useViewedRecord(
+        view,
+        rows,
+        (row) => String(row.id),
+        zones.isSuccess && !zones.isFetching,
+        { useLookup: useZoneById },
+    );
     const total = zones.data?.totalCount ?? null;
     const totalPages = pagesInResult(zones.data) ?? 0;
 
+    /** From the record's page, the editor's Cancel, Save and trail come back to it. */
     const openEditor = (row: DeliveryZoneAdmin) => {
-        setViewing(null);
-        rememberOpened(String(row.id));
-        router.push(`/kitchen/delivery-zones/${String(row.id)}` as never);
+        const id = String(row.id);
+        rememberOpened(id);
+        router.push(
+            withReturnTo(
+                `/kitchen/delivery-zones/${id}`,
+                viewingId === id ? withQuery('/kitchen/delivery-zones', { view: id }) : null,
+            ) as never,
+        );
     };
 
     const columns: readonly ControlledColumn<

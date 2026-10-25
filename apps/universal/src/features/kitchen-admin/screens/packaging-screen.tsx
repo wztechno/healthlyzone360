@@ -106,26 +106,26 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  * row's Edit land in one place. Archive is offered only where the server would accept it: the
  * permission, the row's own `isEditable`, and a row that is not already archived.
  */
-export function PackagingScreen() {
+export function PackagingScreen({ view }: { readonly view?: string | undefined }) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
             testID="kitchen-packaging"
         >
-            <PackagingList />
+            <PackagingList view={view} />
         </Gate>
     );
 }
 
-function PackagingList() {
+function PackagingList({ view }: { readonly view?: string | undefined }) {
     const { t } = useTranslation();
     const { locale } = useLocale();
     const formatter = useFormatter();
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
 
-    const list = usePackagingList();
+    const list = usePackagingList(view);
 
     /**
      * Code → the taxonomy's own name for it.
@@ -196,8 +196,8 @@ function PackagingList() {
                 primaryAction={{
                     label: t('kitchen:catalogue.edit'),
                     testID: 'kitchen-packaging-view-edit',
+                    // The page stays open underneath: the editor's way back is this view.
                     onPress: () => {
-                        list.closeView();
                         list.openEditor(String(viewing.id));
                     },
                 }}

@@ -16,7 +16,7 @@ import {
     Text,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
-import { SupplierId } from '@healthy360/domain-types';
+import { PurchaseOrderId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -31,6 +31,7 @@ import {
     usePurchaseOrdersQuery,
     useSuppliersQuery,
     useSupplyNeedsCountQuery,
+    usePurchaseOrderQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
@@ -65,6 +66,15 @@ import {
     useRememberedQuery,
     useRestoredPageFallback,
 } from '../list-memory.ts';
+import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+
+/** The order `?view=` names, read on its own when the loaded page does not hold it. */
+function useOrderById(id: string | null) {
+    const parsed = PurchaseOrderId.safeParse(id);
+    const record = usePurchaseOrderQuery(parsed);
+    return parsed === null ? RECORD_NOT_FOUND : record;
+}
 
 /**
  * `/kitchen/supply-orders` — the order book, and what the branch is short of (SUP3), on the
@@ -172,16 +182,18 @@ export interface SupplyOrdersScreenProps {
      * drafts it has just raised (SUP7). Absent on every other way of arriving here.
      */
     readonly created?: string | undefined;
+    /** `?view=` — the order whose page is open (`use-viewed-record.ts`). */
+    readonly view?: string | undefined;
 }
 
-export function SupplyOrdersScreen({ created }: SupplyOrdersScreenProps) {
+export function SupplyOrdersScreen({ created, view }: SupplyOrdersScreenProps) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [INVENTORY_ORDER_SUPPLIES_PERMISSION] }}
             testID="kitchen-supply-orders"
         >
-            <SupplyOrders created={created} />
+            <SupplyOrders created={created} view={view} />
         </Gate>
     );
 }
@@ -194,7 +206,7 @@ function supplierName(row: PurchaseOrder, locale: string): string {
         : displayName({ en: row.supplier.nameEn, ar: row.supplier.nameAr ?? '' }, locale).value;
 }
 
-function SupplyOrders({ created }: SupplyOrdersScreenProps) {
+function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const { locale } = useLocale();
@@ -209,7 +221,6 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
     const [status, setStatus] = useRememberedFilter<StatusSegmentValue>(memory, 'status', 'all');
     /** The Supplier header's choice. Sent with the request — `PurchaseOrderFilter.supplierId`. */
     const [supplier, setSupplier] = useRememberedFilter<string | null>(memory, 'supplier', null);
-    const [viewing, setViewing] = useState<PurchaseOrder | null>(null);
     const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
     // `cursors[n - 1]` opens page n of the book: page one has none, and each loaded page with more
     // behind it adds the next page's — the purchases ledger's pager. Remembered with the page, so
@@ -276,6 +287,14 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
             ),
         );
     }, [orders.data, trimmed, locale]);
+    // The open order is an address, `?view=`, so the order's page can come back to it.
+    const { viewing, viewingId, setViewing } = useViewedRecord(
+        view,
+        searched,
+        (row) => String(row.id),
+        orders.isSuccess && !orders.isFetching,
+        { useLookup: useOrderById },
+    );
 
     const shortage = proposal.data?.items ?? NO_PROPOSAL_ITEMS;
     const shortageFailure = toFailure(needs.error ?? proposal.error);
@@ -289,10 +308,16 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
         .map((segment) => segment.trim())
         .filter((segment) => segment !== '');
 
+    /** From the order's view, the order page's Cancel and trail come back to it. */
     const openOrder = (row: PurchaseOrder) => {
-        setViewing(null);
-        rememberOpened(String(row.id));
-        router.push(`/kitchen/supply-orders/${String(row.id)}` as never);
+        const id = String(row.id);
+        rememberOpened(id);
+        router.push(
+            withReturnTo(
+                `/kitchen/supply-orders/${id}`,
+                viewingId === id ? withQuery('/kitchen/supply-orders', { view: id }) : null,
+            ) as never,
+        );
     };
 
     const prepare = () => {

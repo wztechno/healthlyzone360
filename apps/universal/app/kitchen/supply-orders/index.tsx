@@ -16,6 +16,7 @@ const SupplyOrdersScreen = lazyScreen(
 );
 
 export default function KitchenSupplyOrders() {
-    const { created } = useLocalSearchParams<{ created?: string }>();
-    return <SupplyOrdersScreen created={created} />;
+    // `?view=`: the order whose page is open, so the order page sent from it comes back to it.
+    const { created, view } = useLocalSearchParams<{ created?: string; view?: string }>();
+    return <SupplyOrdersScreen created={created} view={view} />;
 }

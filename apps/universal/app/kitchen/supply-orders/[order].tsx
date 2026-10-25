@@ -17,6 +17,7 @@ const SupplyOrderDetailScreen = lazyScreen(
 );
 
 export default function KitchenSupplyOrderDetail() {
-    const { order } = useLocalSearchParams<{ order?: string }>();
-    return <SupplyOrderDetailScreen order={order} />;
+    // `?returnTo=`: the page that sent the reader here — the order book, on this order's view.
+    const { order, returnTo } = useLocalSearchParams<{ order?: string; returnTo?: string }>();
+    return <SupplyOrderDetailScreen order={order} returnTo={returnTo} />;
 }

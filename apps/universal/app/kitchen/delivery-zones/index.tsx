@@ -1,3 +1,5 @@
+import { useLocalSearchParams } from 'expo-router';
+
 import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
 
 /** `/kitchen/delivery-zones` — where this kitchen delivers, for how much, and how quickly. */
@@ -8,5 +10,7 @@ const DeliveryZonesScreen = lazyScreen(
 );
 
 export default function KitchenDeliveryZones() {
-    return <DeliveryZonesScreen />;
+    // `?view=`: the record whose page is open, so an editor sent from it comes back to it.
+    const { view } = useLocalSearchParams<{ view?: string }>();
+    return <DeliveryZonesScreen view={view} />;
 }

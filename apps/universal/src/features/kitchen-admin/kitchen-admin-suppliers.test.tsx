@@ -20,6 +20,7 @@ import type { ReactNode } from 'react';
 import { kitchenManagerSession, testActiveContext } from '../../testing/session-fixtures.ts';
 import type { RepositoryOverrides } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { withReturnTo } from '../../navigation/return-to.ts';
 import {
     suppliedItemRowTestId,
     supplierContactRowTestId,
@@ -67,16 +68,18 @@ jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
 jest.mock('expo-router', () => {
     const push = jest.fn();
     const replace = jest.fn();
+    const setParams = jest.fn();
+    const dismissTo = jest.fn();
     return {
         __esModule: true,
         useRouter: () => ({
             push,
             replace,
-            setParams: jest.fn(),
+            setParams,
             back: jest.fn(),
             // No history in a suite: the supplier record's Cancel opens the list.
             canGoBack: () => false,
-            dismissTo: jest.fn(),
+            dismissTo,
             prefetch: jest.fn(),
         }),
         usePathname: () => '/kitchen/suppliers',
@@ -87,15 +90,24 @@ jest.mock('expo-router', () => {
         Stack: () => null,
         __push: push,
         __replace: replace,
+        __setParams: setParams,
+        __dismissTo: dismissTo,
     };
 });
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const routerMock = require('expo-router') as { __push: jest.Mock; __replace: jest.Mock };
+const routerMock = require('expo-router') as {
+    __push: jest.Mock;
+    __replace: jest.Mock;
+    __setParams: jest.Mock;
+    __dismissTo: jest.Mock;
+};
 
 beforeEach(() => {
     routerMock.__push.mockClear();
     routerMock.__replace.mockClear();
+    routerMock.__setParams.mockClear();
+    routerMock.__dismissTo.mockClear();
 });
 
 /** Waits for an element, with the same contention headroom the other kitchen suites document. */
@@ -305,6 +317,41 @@ describe('suppliers list', () => {
         expect(screen.queryByTestId(`${supplierRowTestId(String(RETIRED.id))}-name`)).toBeNull();
     });
 
+    it('keeps the View page as an address, and opens the record with the way back to it', async () => {
+        await renderStubScreen(<SuppliersScreen />, {
+            session: kitchenManagerSession(),
+            repositories: bookOverrides(),
+        });
+        await untilVisible('kitchen-suppliers-table');
+
+        const gulf = supplierRowTestId(String(GULF.id));
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${gulf}-view`));
+        });
+        await untilVisible('kitchen-suppliers-view');
+        expect(routerMock.__setParams).toHaveBeenLastCalledWith({ view: String(GULF.id) });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-suppliers-view-primary'));
+        });
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            withReturnTo(
+                `/kitchen/suppliers/${String(GULF.id)}`,
+                `/kitchen/suppliers?view=${String(GULF.id)}`,
+            ),
+        );
+    });
+
+    it('opens the record the address names', async () => {
+        await renderStubScreen(<SuppliersScreen view={String(GULF.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: bookOverrides(),
+        });
+
+        await untilVisible('kitchen-suppliers-view');
+        expect(screen.queryByTestId('kitchen-suppliers-table')).toBeNull();
+    });
+
     it('searches the English name, the Arabic name and the code', async () => {
         await renderStubScreen(<SuppliersScreen />, {
             session: kitchenManagerSession(),
@@ -405,6 +452,23 @@ describe('supplier detail', () => {
         const card = supplierContactRowTestId(String(contactId(1)));
         expect(screen.getByTestId(`${card}-name-input`).props.value).toBe('Samir Haddad');
         expect(screen.getByTestId(`${card}-primary-badge`)).toBeTruthy();
+    });
+
+    it('goes back to the page it was opened from on Cancel', async () => {
+        const from = `/kitchen/suppliers?view=${String(GULF.id)}`;
+        await renderStubScreen(
+            <SupplierDetailScreen supplier={String(GULF.id)} returnTo={from} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: { kitchenOps: { getSupplier: async () => GULF_DETAIL } },
+            },
+        );
+        await untilVisible('kitchen-supplier-details');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-supplier-screen-back'));
+        });
+        expect(routerMock.__dismissTo).toHaveBeenCalledWith(from);
     });
 
     it('refuses a lead time the server would refuse, before anything is sent', async () => {

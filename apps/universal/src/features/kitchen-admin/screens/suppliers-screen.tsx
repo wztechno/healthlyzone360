@@ -13,7 +13,7 @@ import type { MenuItem } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -44,6 +44,8 @@ import {
     useRememberedOpened,
     useRememberedQuery,
 } from '../list-memory.ts';
+import { useViewedRecord } from '../use-viewed-record.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
 /**
  * `/kitchen/suppliers` — who this kitchen buys from (SUP1), on the Catalogue list (Operations
@@ -78,14 +80,14 @@ import {
  * Stat cards are counted over the rows in hand, like every Catalogue list.
  */
 
-export function SuppliersScreen() {
+export function SuppliersScreen({ view }: { readonly view?: string | undefined }) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [INVENTORY_VIEW_PERMISSION] }}
             testID="kitchen-suppliers"
         >
-            <SuppliersList />
+            <SuppliersList view={view} />
         </Gate>
     );
 }
@@ -166,7 +168,7 @@ function itemsText(row: Supplier, t: TFunction): string {
         : t('kitchen:ops.suppliers.itemCount', { count: row.suppliedItemCount });
 }
 
-function SuppliersList() {
+function SuppliersList({ view }: { readonly view?: string | undefined }) {
     const { t } = useTranslation();
     const { locale } = useLocale();
     const router = useRouter();
@@ -176,7 +178,6 @@ function SuppliersList() {
     const memory = useListMemory('kitchen.suppliers');
     const [query, setQuery] = useRememberedQuery(memory);
     const [segment, setSegment] = useRememberedFilter<ArchiveSegment>(memory, 'segment', 'active');
-    const [viewing, setViewing] = useState<Supplier | null>(null);
     const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
 
     const includeArchived = segment === 'withArchived';
@@ -196,11 +197,24 @@ function SuppliersList() {
             ),
         );
     }, [suppliers.data, trimmed, locale]);
+    // The open record is an address, `?view=`, so the supplier page can come back to it.
+    const { viewing, viewingId, setViewing } = useViewedRecord(
+        view,
+        searched,
+        (row) => String(row.id),
+        suppliers.isSuccess && !suppliers.isFetching,
+    );
 
+    /** From the record's page, the supplier page's Cancel and trail come back to it. */
     const openRecord = (row: Supplier) => {
-        setViewing(null);
-        rememberOpened(String(row.id));
-        router.push(`/kitchen/suppliers/${String(row.id)}` as never);
+        const id = String(row.id);
+        rememberOpened(id);
+        router.push(
+            withReturnTo(
+                `/kitchen/suppliers/${id}`,
+                viewingId === id ? withQuery('/kitchen/suppliers', { view: id }) : null,
+            ) as never,
+        );
     };
 
     const columns: readonly ControlledColumn<Supplier, CatalogueColumn<Supplier>>[] = [

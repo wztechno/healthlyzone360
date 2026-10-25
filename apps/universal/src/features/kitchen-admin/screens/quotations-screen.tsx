@@ -1,3 +1,4 @@
+import { QuotationId } from '@healthy360/domain-types';
 import { KITCHEN_QUOTATION_STATUSES } from '@healthy360/api-client/contracts';
 import type {
     KitchenQuotation,
@@ -20,7 +21,7 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
-import type { CurrencyCode, QuotationId } from '@healthy360/domain-types';
+import type { CurrencyCode } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -62,6 +63,14 @@ import { focusField } from '../field-focus.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
+import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
+
+/** The request `?view=` names, read on its own when the loaded page does not hold it. */
+function useQuotationById(id: string | null) {
+    const parsed = QuotationId.safeParse(id);
+    const record = useKitchenQuotationQuery(parsed);
+    return parsed === null ? RECORD_NOT_FOUND : record;
+}
 
 /**
  * `/kitchen/quotations` — what corporate buyers have asked this kitchen to price (B4), as
@@ -128,19 +137,19 @@ const FILTER_STATUSES: Readonly<Record<StatusFilter, readonly KitchenQuotationSt
     closed: ['accepted', 'declined', 'expired'],
 };
 
-export function QuotationsScreen() {
+export function QuotationsScreen({ view }: { readonly view?: string | undefined }) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [B2B_QUOTATION_VIEW_PERMISSION] }}
             testID="kitchen-quotations"
         >
-            <Quotations />
+            <Quotations view={view} />
         </Gate>
     );
 }
 
-function Quotations() {
+function Quotations({ view }: { readonly view?: string | undefined }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const { locale } = useLocale();
@@ -148,10 +157,17 @@ function Quotations() {
     const [filter, setFilter] = useState<StatusFilter>('all');
     const [search, setSearch] = useState('');
     const [openId, setOpenId] = useState<QuotationId | null>(null);
-    const [viewing, setViewing] = useState<KitchenQuotation | null>(null);
 
     const quotations = useKitchenQuotationsQuery();
     const all: readonly KitchenQuotation[] = quotations.data ?? NO_QUOTATIONS;
+    // The open request is an address, `?view=`, so Back and a refresh keep it open.
+    const { viewing, setViewing } = useViewedRecord(
+        view,
+        all,
+        (row) => String(row.id),
+        quotations.isSuccess && !quotations.isFetching,
+        { useLookup: useQuotationById },
+    );
 
     const rows = useMemo(() => {
         const allowed = FILTER_STATUSES[filter];
@@ -315,10 +331,9 @@ function Quotations() {
                 primaryAction={{
                     label: t('kitchen:ops.quotations.open'),
                     icon: null,
+                    // The request stays open underneath, so closing the quote comes back to it.
                     onPress: () => {
-                        const id = viewing.id;
-                        setViewing(null);
-                        setOpenId(id);
+                        setOpenId(viewing.id);
                     },
                 }}
             />

@@ -17,7 +17,12 @@ jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
 
 jest.mock('expo-router', () => ({
     __esModule: true,
-    useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
+    useRouter: () => ({
+        push: jest.fn(),
+        replace: jest.fn(),
+        setParams: jest.fn(),
+        back: jest.fn(),
+    }),
     usePathname: () => '/kitchen/stock',
     useLocalSearchParams: () => ({}),
     Redirect: () => null,

@@ -139,14 +139,14 @@ import { useListMemory, useRememberedFilter } from '../list-memory.ts';
  * the catalogue — the server's own guard on that route. Archive is still the recipe's. The action
  * column measures the widest row on the page, so most rows' three leave its end padded.
  */
-export function RecipesScreen() {
+export function RecipesScreen({ view }: { readonly view?: string | undefined }) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [RECIPE_VIEW_PERMISSION] }}
             testID="kitchen-recipes"
         >
-            <RecipesList />
+            <RecipesList view={view} />
         </Gate>
     );
 }
@@ -195,7 +195,7 @@ const CREATE_LABEL_KEYS: Readonly<Record<RecipeKind, string>> = {
     preparation: 'kitchen:recipes.createPreparation',
 };
 
-function RecipesList() {
+function RecipesList({ view }: { readonly view?: string | undefined }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const { locale } = useLocale();
@@ -203,7 +203,7 @@ function RecipesList() {
     const canManage = useCan(RECIPE_MANAGE_PERMISSION);
     const canManageCatalogue = useCan(CATALOGUE_MANAGE_PERMISSION);
     const canWithdraw = useCan(CATALOGUE_PUBLISH_PERMISSION);
-    const list = useRecipeList();
+    const list = useRecipeList(view);
     const kindCounts = useRecipeKindCountsQuery(list.sells);
     /*
      * Table or cards — two drawings of the same `list.rows`. Screen state rather than list state:
@@ -331,8 +331,8 @@ function RecipesList() {
                 primaryAction={{
                     label: t('kitchen:catalogue.edit'),
                     testID: 'kitchen-recipes-view-edit',
+                    // The page stays open underneath: the editor's way back is this view.
                     onPress: () => {
-                        list.closeView();
                         list.openEditor(String(viewed.id));
                     },
                 }}

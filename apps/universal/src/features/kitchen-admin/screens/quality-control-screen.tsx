@@ -16,6 +16,7 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
+import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -55,6 +56,7 @@ import {
     useRememberedPage,
     useRememberedQuery,
 } from '../list-memory.ts';
+import { useViewedRecord } from '../use-viewed-record.ts';
 
 /** The subject as a reader names it, for sorting: its label, or the bare id when it has none. */
 function subjectName(row: QualityCheck): string {
@@ -79,19 +81,20 @@ function subjectName(row: QualityCheck): string {
  * `QualityCheck` is an id, a subject (named by the server where it still resolves) and a status. The design's Opened, Opened by and Outcome
  * columns have no field behind them, so they are not drawn.
  */
-export function QualityControlScreen() {
+export function QualityControlScreen({ view }: { readonly view?: string | undefined }) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [INVENTORY_VIEW_PERMISSION] }}
             testID="kitchen-qc"
         >
-            <QualityControl />
+            <QualityControl view={view} />
         </Gate>
     );
 }
 
 const PAGE_SIZE = 18;
+const NO_CHECKS: readonly QualityCheck[] = [];
 const SEGMENT_STATUSES: readonly QualityCheckStatus[] = ['pending', 'hold', 'released'];
 type StatusSegmentValue = QualityCheckStatus | 'all';
 
@@ -99,7 +102,8 @@ function shortId(id: string): string {
     return `${id.slice(0, 8)}…`;
 }
 
-function QualityControl() {
+function QualityControl({ view }: { readonly view?: string | undefined }) {
+    const router = useRouter();
     const [creating, setCreating] = useState(false);
     // A check the editor sent the reader to — its duplicate warning's "Open" — shown on arrival.
     const [opening, setOpening] = useState<QualityCheck | null>(null);
@@ -111,10 +115,12 @@ function QualityControl() {
             onOpenCheck={(check) => {
                 setOpening(check);
                 setCreating(false);
+                router.setParams({ view: String(check.id) } as never);
             }}
         />
     ) : (
         <QualityCheckList
+            view={view}
             initialViewing={opening}
             onCreate={() => {
                 setOpening(null);
@@ -125,9 +131,12 @@ function QualityControl() {
 }
 
 function QualityCheckList({
+    view,
     initialViewing,
     onCreate,
 }: {
+    readonly view: string | undefined;
+    /** The check the create form sent the reader to, when the address does not name one yet. */
     readonly initialViewing: QualityCheck | null;
     readonly onCreate: () => void;
 }) {
@@ -144,7 +153,14 @@ function QualityCheckList({
     const memory = useListMemory('kitchen.quality-checks');
     const [query, setQuery] = useRememberedQuery(memory);
     const [status, setStatus] = useRememberedFilter<StatusSegmentValue>(memory, 'status', 'all');
-    const [viewing, setViewing] = useState<QualityCheck | null>(initialViewing);
+    // The open check is an address, `?view=`, so Back and a refresh keep it open.
+    const { viewing, setViewing } = useViewedRecord(
+        view,
+        checks.data ?? NO_CHECKS,
+        (row) => String(row.id),
+        checks.isSuccess && !checks.isFetching,
+        { seed: initialViewing },
+    );
     const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
     const openView = (row: QualityCheck) => {
         rememberOpened(String(row.id));

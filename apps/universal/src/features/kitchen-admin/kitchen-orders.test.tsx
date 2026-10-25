@@ -18,7 +18,12 @@ import { OrdersScreen } from './screens/orders-screen.tsx';
 
 jest.mock('expo-router', () => ({
     __esModule: true,
-    useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
+    useRouter: () => ({
+        push: jest.fn(),
+        replace: jest.fn(),
+        setParams: jest.fn(),
+        back: jest.fn(),
+    }),
     usePathname: () => '/kitchen/orders',
     useLocalSearchParams: () => ({}),
     Redirect: () => null,

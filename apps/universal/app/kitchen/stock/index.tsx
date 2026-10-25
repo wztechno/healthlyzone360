@@ -1,3 +1,5 @@
+import { useLocalSearchParams } from 'expo-router';
+
 import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
 
 const StockScreen = lazyScreen(
@@ -6,5 +8,7 @@ const StockScreen = lazyScreen(
 );
 
 export default function KitchenStock() {
-    return <StockScreen />;
+    // `?view=`: the record whose page is open, so an editor sent from it comes back to it.
+    const { view } = useLocalSearchParams<{ view?: string }>();
+    return <StockScreen view={view} />;
 }

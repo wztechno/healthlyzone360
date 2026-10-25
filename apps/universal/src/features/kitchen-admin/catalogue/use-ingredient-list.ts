@@ -1,3 +1,4 @@
+import { IngredientId } from '@healthy360/domain-types';
 import type { AllergenCode } from '@healthy360/domain-types';
 
 import type {
@@ -14,9 +15,10 @@ import {
 import type { IngredientReferenceSeries } from '@healthy360/api-client/contracts';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { toFailure } from '../../../data/hooks.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import {
     KITCHEN_PAGE_SIZE,
     pagesInResult,
@@ -26,6 +28,7 @@ import {
     useIngredientCategoriesQuery,
     useIngredientPageQuery,
     useIngredientWholeSetQuery,
+    useIngredientQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
 import { useDestructiveRow } from './use-destructive-row.ts';
@@ -37,6 +40,14 @@ import {
     useRememberedPage,
     useRestoredPageFallback,
 } from '../list-memory.ts';
+import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
+
+/** The ingredient `?view=` names, read on its own when the loaded page does not hold it. */
+function useIngredientById(id: string | null) {
+    const parsed = IngredientId.safeParse(id);
+    const record = useIngredientQuery(parsed);
+    return parsed === null ? RECORD_NOT_FOUND : record;
+}
 
 /**
  * Everything `/kitchen/ingredients` knows that is not a pixel — handoff §4.6.
@@ -207,7 +218,8 @@ export interface IngredientListState {
     readonly archiveFailure: ApiFailure | null;
 }
 
-export function useIngredientList(): IngredientListState {
+/** `view` is the route's `?view=` — the record whose page is open (`use-viewed-record.ts`). */
+export function useIngredientList(view?: string): IngredientListState {
     const router = useRouter();
     const { locale } = useLocale();
     // Search, filters, sort, page and the row last opened survive leaving the list for a record.
@@ -241,7 +253,6 @@ export function useIngredientList(): IngredientListState {
         'sortDirection',
         'asc',
     );
-    const [viewing, setViewing] = useState<IngredientAdmin | null>(null);
     const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
 
     const filter = useMemo(
@@ -310,6 +321,13 @@ export function useIngredientList(): IngredientListState {
      * identity for the three counts below and for everything downstream memoising on `rows`.
      */
     const pageRows = rows ?? NO_ROWS;
+    const viewed = useViewedRecord(
+        view,
+        pageRows,
+        (row) => String(row.id),
+        ingredients.isSuccess && !ingredients.isFetching,
+        { useLookup: useIngredientById },
+    );
 
     // The cards count every page the filters match, not the eighteen rows on this one.
     const everyRow = wholeSet.data ?? NO_ROWS;
@@ -371,20 +389,28 @@ export function useIngredientList(): IngredientListState {
 
         openEditor: (ingredientId) => {
             rememberOpened(ingredientId);
-            router.push(`/kitchen/ingredients/${ingredientId}` as never);
+            // From the record's page, the editor's Cancel, Save and trail come back to it.
+            router.push(
+                withReturnTo(
+                    `/kitchen/ingredients/${ingredientId}`,
+                    viewed.viewingId === ingredientId
+                        ? withQuery('/kitchen/ingredients', { view: ingredientId })
+                        : null,
+                ) as never,
+            );
         },
         createNew: () => {
             router.push('/kitchen/ingredients/new' as never);
         },
         lastOpenedId,
 
-        viewing,
+        viewing: viewed.viewing,
         openView: (row) => {
             rememberOpened(String(row.id));
-            setViewing(row);
+            viewed.setViewing(row);
         },
         closeView: () => {
-            setViewing(null);
+            viewed.setViewing(null);
         },
 
         archiving: archive.target,

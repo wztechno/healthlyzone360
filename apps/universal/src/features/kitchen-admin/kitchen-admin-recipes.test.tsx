@@ -58,6 +58,7 @@ import {
 } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { withReturnTo } from '../../navigation/return-to.ts';
 import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
 import { recipePhotoId } from './catalogue/recipe-columns.tsx';
 import {
@@ -1841,6 +1842,55 @@ describe('the recipe list at desk width', () => {
         expect(screen.getByTestId('kitchen-recipes-view-field-updatedBy')).toHaveTextContent(
             /Rana Haddad/,
         );
+    });
+
+    it('keeps the View page as an address, and sends Edit with the way back to it', async () => {
+        const kept = recipe({ ordinal: 1, name: 'Tabbouleh' });
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => [kept]),
+                    getRecipe: async () => kept,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipes-table');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`kitchen-recipe-${String(kept.id)}-view`));
+        });
+        await untilVisible('kitchen-recipes-view');
+        expect(routerMock.__setParams).toHaveBeenLastCalledWith({ view: String(kept.id) });
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-view-edit'));
+        });
+        // The editor's Cancel, Save and trail come back to this record's page, not the bare list.
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            withReturnTo(
+                `/kitchen/recipes/${String(kept.id)}`,
+                `/kitchen/recipes?view=${String(kept.id)}`,
+            ),
+        );
+    });
+
+    it('opens the record the address names', async () => {
+        const kept = recipe({ ordinal: 1, name: 'Tabbouleh' });
+
+        await renderStubScreen(<RecipesScreen view={String(kept.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listRecipes: recipeListing(() => [kept]),
+                    getRecipe: async () => kept,
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipes-view');
+        expect(screen.queryByTestId('kitchen-recipes-table')).toBeNull();
     });
 
     it('shows the label a meal seller carries in the shop, read off the meal itself', async () => {
@@ -4367,9 +4417,7 @@ describe('adding an ingredient from the line picker', () => {
         await waitFor(() => {
             expect(routerMock.__push).toHaveBeenCalledWith(
                 expect.stringMatching(
-                    new RegExp(
-                        `^/kitchen/ingredients/${String(sumac.id)}\\?returnTo=.+`,
-                    ),
+                    new RegExp(`^/kitchen/ingredients/${String(sumac.id)}\\?returnTo=.+`),
                 ),
             );
         });

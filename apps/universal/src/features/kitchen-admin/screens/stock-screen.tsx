@@ -79,6 +79,7 @@ import {
     useRememberedOpened,
     useRememberedQuery,
 } from '../list-memory.ts';
+import { useViewedRecord } from '../use-viewed-record.ts';
 
 /**
  * The photograph of what is on the shelf: the ingredient's own, or the product's.
@@ -132,14 +133,14 @@ function stockPhotoId(item: StockItem): string {
  * whole library in one query string is what the edge refused with a `414`. Three cells, kept three:
  * **Hidden** without the cost permission, an actual price with it, and *never bought*.
  */
-export function StockScreen() {
+export function StockScreen({ view }: { readonly view?: string | undefined }) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [INVENTORY_VIEW_PERMISSION] }}
             testID="kitchen-stock"
         >
-            <Stock />
+            <Stock view={view} />
         </Gate>
     );
 }
@@ -203,7 +204,7 @@ function compareDecimal(
     return compareNumber(Number(left), Number(right), direction);
 }
 
-function Stock() {
+function Stock({ view }: { readonly view?: string | undefined }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
@@ -226,7 +227,6 @@ function Stock() {
         key: RESTORED_PAGING,
         page: memory.initial.page,
     });
-    const [viewing, setViewing] = useState<StockRow | null>(null);
     const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
     const [editing, setEditing] = useState<StockRow | null>(null);
     const { locale } = useLocale();
@@ -240,21 +240,34 @@ function Stock() {
         return byItem;
     }, [levels.data]);
 
+    const shelfRows = useMemo(
+        () =>
+            (items.data ?? []).map((item): StockRow => {
+                const level = levelByItem.get(String(item.id)) ?? null;
+                return { item, level, state: levelState(level) };
+            }),
+        [items.data, levelByItem],
+    );
     // The server's ranking — stocked first, then ever-moved, then by name — survives because
     // `filter` preserves order.
     const bookRows = useMemo(
         () =>
-            (items.data ?? [])
-                .filter((item) =>
-                    kind === 'ingredients'
-                        ? item.backing === 'ingredient'
-                        : item.backing === 'product',
-                )
-                .map((item): StockRow => {
-                    const level = levelByItem.get(String(item.id)) ?? null;
-                    return { item, level, state: levelState(level) };
-                }),
-        [items.data, kind, levelByItem],
+            shelfRows.filter((row) =>
+                kind === 'ingredients'
+                    ? row.item.backing === 'ingredient'
+                    : row.item.backing === 'product',
+            ),
+        [shelfRows, kind],
+    );
+    /*
+     * The open shelf is an address, `?view=`, so Back and a refresh keep it open. Found on every
+     * shelf rather than this kind's: a scan opens whichever shelf the code is linked to.
+     */
+    const { viewing, setViewing } = useViewedRecord(
+        view,
+        shelfRows,
+        (row) => String(row.item.id),
+        items.isSuccess && !items.isFetching,
     );
 
     const trimmed = query.trim().toLowerCase();

@@ -61,6 +61,7 @@ import {
     useRememberedQuery,
     useRestoredPageFallback,
 } from '../list-memory.ts';
+import { useViewedRecord } from '../use-viewed-record.ts';
 
 /**
  * `/kitchen/purchases-ledger` — the browsable record behind the monthly spend figure (INV1.1), and
@@ -137,21 +138,23 @@ export interface PurchasesLedgerScreenProps {
     readonly item?: string | undefined;
     /** Open straight into a summary, from `?mode=weekly` or `?mode=monthly`. */
     readonly mode?: string | undefined;
+    /** `?view=` — the line whose page is open (`use-viewed-record.ts`). */
+    readonly view?: string | undefined;
 }
 
-export function PurchasesLedgerScreen({ supplier, item, mode }: PurchasesLedgerScreenProps) {
+export function PurchasesLedgerScreen({ supplier, item, mode, view }: PurchasesLedgerScreenProps) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [INVENTORY_VIEW_COSTS_PERMISSION] }}
             testID="kitchen-purchases-ledger"
         >
-            <PurchasesLedger supplier={supplier} item={item} mode={mode} />
+            <PurchasesLedger supplier={supplier} item={item} mode={mode} view={view} />
         </Gate>
     );
 }
 
-function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
+function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const { locale } = useLocale();
@@ -196,7 +199,6 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
     const cursor = cursors[page - 1];
     const [expandedCharges, setExpandedCharges] = useState<readonly string[]>([]);
     const [query, setQuery] = useRememberedQuery(memory);
-    const [viewing, setViewing] = useState<PurchaseLedgerLine | null>(null);
     const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
     const openView = (row: PurchaseLedgerLine) => {
         rememberOpened(row.id);
@@ -260,6 +262,13 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
     }
 
     const pageRows = useMemo(() => ledger.data?.items ?? [], [ledger.data]);
+    // The open line is an address, `?view=`, so Back and a refresh keep it open.
+    const { viewing, setViewing } = useViewedRecord(
+        view,
+        pageRows,
+        (row) => row.id,
+        ledger.isSuccess && !ledger.isFetching,
+    );
     const nextCursor = ledger.data?.nextCursor ?? null;
     const hasMore = (ledger.data?.hasMore ?? false) && nextCursor !== null;
 

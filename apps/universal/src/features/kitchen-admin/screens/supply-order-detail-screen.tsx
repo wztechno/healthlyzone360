@@ -38,6 +38,7 @@ import {
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
 import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { focusField } from '../field-focus.ts';
+import { returnCrumbLabel } from '../came-from.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import {
     canCancelPurchaseOrder,
@@ -133,16 +134,21 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 export interface SupplyOrderDetailScreenProps {
     /** The route parameter. Anything that is not an identifier lands on the not-found state. */
     readonly order?: string | undefined;
+    /**
+     * `?returnTo=` — the page that sent the reader here (the list, on this record's view), as
+     * written. Cancel and the trail's crumb above the record go back to it.
+     */
+    readonly returnTo?: string | undefined;
 }
 
-export function SupplyOrderDetailScreen({ order }: SupplyOrderDetailScreenProps) {
+export function SupplyOrderDetailScreen({ order, returnTo }: SupplyOrderDetailScreenProps) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [INVENTORY_ORDER_SUPPLIES_PERMISSION] }}
             testID="kitchen-supply-order-detail"
         >
-            <SupplyOrderDetail order={order} />
+            <SupplyOrderDetail order={order} returnTo={returnTo} />
         </Gate>
     );
 }
@@ -185,12 +191,13 @@ function lineDraft(line: PurchaseOrderLine): LineDraft {
     };
 }
 
-function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
+function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
     // Back steps to wherever the order was opened from — the book on its filter and page.
-    const back = useReturnTo(undefined, '/kitchen/supply-orders').leave;
+    const detour = useReturnTo(returnTo, '/kitchen/supply-orders');
+    const back = detour.leave;
     const toast = useToast();
 
     const parsed = order === undefined ? null : PurchaseOrderId.safeParse(order);
@@ -219,10 +226,17 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
 
     const data = record.data;
 
+    // Opened as a detour, the crumb above the order is the page it came from.
     useKitchenTrailLeaf(
         data === undefined
             ? null
             : t('kitchen:ops.supplyOrders.detailTitle', { number: data.number }),
+        detour.returnTo === null
+            ? undefined
+            : () => {
+                  guard.intercept(back);
+              },
+        detour.returnTo === null ? undefined : returnCrumbLabel(detour.returnTo, t),
     );
 
     /**

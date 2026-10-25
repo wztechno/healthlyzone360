@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react';
 
 import { useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import {
     KITCHEN_PAGE_SIZE,
     pagesInResult,
@@ -38,6 +39,7 @@ import {
     useRememberedPage,
     useRestoredPageFallback,
 } from '../list-memory.ts';
+import { useViewedRecord } from '../use-viewed-record.ts';
 
 /**
  * Everything `/kitchen/recipes` knows that is not a pixel — the recipe book's list state.
@@ -202,7 +204,8 @@ export interface RecipeListState {
     readonly withdrawFailure: ApiFailure | null;
 }
 
-export function useRecipeList(): RecipeListState {
+/** `view` is the route's `?view=` — the record whose page is open (`use-viewed-record.ts`). */
+export function useRecipeList(view?: string): RecipeListState {
     const router = useRouter();
     const { locale } = useLocale();
     const sells = useCan(CATALOGUE_VIEW_PERMISSION);
@@ -245,7 +248,6 @@ export function useRecipeList(): RecipeListState {
         'sortDirection',
         'asc',
     );
-    const [viewing, setViewing] = useState<RecipeAdminSummary | null>(null);
     const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
     const [draftOpeningFor, setDraftOpeningFor] = useState<RecipeId | null>(null);
 
@@ -325,6 +327,22 @@ export function useRecipeList(): RecipeListState {
             );
         });
     }, [rows, sortKey, sortDirection, locale]);
+    const viewed = useViewedRecord(
+        view,
+        sorted,
+        (row) => String(row.id),
+        recipes.isSuccess && !recipes.isFetching,
+        {
+            // No by-id read answers a summary row; the whole set the cards count holds every match.
+            useLookup: (id) => {
+                const match = everyRow.find((row) => String(row.id) === id);
+                return {
+                    data: match,
+                    isError: match === undefined && wholeSet.isSuccess && !wholeSet.isFetching,
+                };
+            },
+        },
+    );
 
     const draftCount = everyRow.filter((row) => row.meta.status === 'draft').length;
     const reviewCount = everyRow.filter((row) => row.meta.status === 'review_required').length;
@@ -333,7 +351,15 @@ export function useRecipeList(): RecipeListState {
 
     const openEditor = (recipeId: string) => {
         rememberOpened(recipeId);
-        router.push(`/kitchen/recipes/${recipeId}` as never);
+        // From the record's page, the editor's Cancel, Save and trail come back to it.
+        router.push(
+            withReturnTo(
+                `/kitchen/recipes/${recipeId}`,
+                viewed.viewingId === recipeId
+                    ? withQuery('/kitchen/recipes', { kind, view: recipeId })
+                    : null,
+            ) as never,
+        );
     };
     const setKind = (next: RecipeKind | null) => {
         router.setParams({ kind: next ?? '' });
@@ -404,13 +430,13 @@ export function useRecipeList(): RecipeListState {
             router.push(`/kitchen/recipes/new?kind=${next}` as never);
         },
 
-        viewing,
+        viewing: viewed.viewing,
         openView: (row) => {
             rememberOpened(String(row.id));
-            setViewing(row);
+            viewed.setViewing(row);
         },
         closeView: () => {
-            setViewing(null);
+            viewed.setViewing(null);
         },
 
         // A published or retired version is frozen by the contract, so the only way to change it is

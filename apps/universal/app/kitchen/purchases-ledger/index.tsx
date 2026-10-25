@@ -17,11 +17,13 @@ const PurchasesLedgerScreen = lazyScreen(
  * landed on, and to switch back to the lines behind it.
  */
 export default function KitchenPurchasesLedger() {
-    const { supplier, item, mode } = useLocalSearchParams<{
+    // `?view=`: the line whose page is open, so Back and a refresh keep it open.
+    const { supplier, item, mode, view } = useLocalSearchParams<{
         supplier?: string;
         item?: string;
         mode?: string;
+        view?: string;
     }>();
 
-    return <PurchasesLedgerScreen supplier={supplier} item={item} mode={mode} />;
+    return <PurchasesLedgerScreen supplier={supplier} item={item} mode={mode} view={view} />;
 }

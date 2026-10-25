@@ -63,6 +63,7 @@ import { ServiceAreaPicker } from '../delivery-row-editors.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import { ISO_WEEKDAYS, displayName, minorAmountToInput, statusKey, statusTone } from '../format.ts';
+import { returnCrumbLabel } from '../came-from.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
@@ -147,6 +148,11 @@ function detailsFrom(zone: DeliveryZoneAdmin): DetailsDraft {
 export interface DeliveryZoneEditScreenProps {
     /** The route parameter. `'new'` opens the create form; anything else is an identifier. */
     readonly zone: string | undefined;
+    /**
+     * `?returnTo=` — the page that sent the reader here (the list, on this record's view), as
+     * written. Cancel and the trail's crumb above the record go back to it.
+     */
+    readonly returnTo?: string | undefined;
 }
 
 const ZONE_STEPS = ['zone', 'areas', 'windows'] as const;
@@ -157,14 +163,14 @@ function activeWindowIds(windows: readonly DeliveryWindow[]): readonly DeliveryW
     return windows.filter((window) => window.isActive).map((window) => window.id);
 }
 
-export function DeliveryZoneEditScreen({ zone }: DeliveryZoneEditScreenProps) {
+export function DeliveryZoneEditScreen({ zone, returnTo }: DeliveryZoneEditScreenProps) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
             testID="kitchen-zone-editor"
         >
-            <DeliveryZoneEditor zone={zone} />
+            <DeliveryZoneEditor zone={zone} returnTo={returnTo} />
         </Gate>
     );
 }
@@ -232,7 +238,7 @@ function ReadOnlyCell({
     );
 }
 
-function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
+function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const { locale } = useLocale();
@@ -241,7 +247,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
     const organisationCountry = useOrganisationCountry();
     // Cancel, the not-found link and a finished save all step back to wherever the reader came
     // from — the list as they left it — and only open a fresh list when there is no history.
-    const back = useReturnTo(undefined, '/kitchen/delivery-zones');
+    const back = useReturnTo(returnTo, '/kitchen/delivery-zones');
 
     const isCreating = zone === undefined || zone === 'new';
     const parsed = isCreating ? null : DeliveryZoneId.safeParse(zone);
@@ -287,7 +293,16 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
           ? t('kitchen:zones.editTitle')
           : displayName(data.name, locale).value;
     // The trail's last crumb. A saved zone waits for its record rather than naming a placeholder.
-    useKitchenTrailLeaf(isCreating || data !== undefined ? title : null);
+    // Opened as a detour, the crumb above it is the page it came from.
+    useKitchenTrailLeaf(
+        isCreating || data !== undefined ? title : null,
+        back.returnTo === null
+            ? undefined
+            : () => {
+                  guard.intercept(back.leave);
+              },
+        back.returnTo === null ? undefined : returnCrumbLabel(back.returnTo, t),
+    );
     const branchNames = useZoneBranches(data?.branchIds);
     const serverKey =
         data === undefined ? null : `${String(data.id)}:${String(data.meta.lockVersion)}`;

@@ -1,3 +1,4 @@
+import { IngredientId } from '@healthy360/domain-types';
 import type {
     ApiFailure,
     IngredientCategoryAdmin,
@@ -6,9 +7,10 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { toFailure } from '../../../data/hooks.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import {
     KITCHEN_PAGE_SIZE,
     pagesInResult,
@@ -16,6 +18,7 @@ import {
     usePackagingCategoriesQuery,
     usePackagingPageQuery,
     usePackagingWholeSetQuery,
+    useIngredientQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
 import { missingLast } from './catalogue-column-spec.ts';
@@ -28,6 +31,14 @@ import {
     useRememberedPage,
     useRestoredPageFallback,
 } from '../list-memory.ts';
+import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
+
+/** The packaging item `?view=` names, read on its own when the loaded page does not hold it. */
+function usePackagingById(id: string | null) {
+    const parsed = IngredientId.safeParse(id);
+    const record = useIngredientQuery(parsed);
+    return parsed === null ? RECORD_NOT_FOUND : record;
+}
 
 /**
  * The state behind `/kitchen/packaging`.
@@ -160,7 +171,8 @@ export interface PackagingListState {
     readonly archiveFailure: ApiFailure | null;
 }
 
-export function usePackagingList(): PackagingListState {
+/** `view` is the route's `?view=` — the record whose page is open (`use-viewed-record.ts`). */
+export function usePackagingList(view?: string): PackagingListState {
     const router = useRouter();
     const { locale } = useLocale();
     // Search, filters, sort, page and the row last opened survive leaving the list for a record.
@@ -189,7 +201,6 @@ export function usePackagingList(): PackagingListState {
         'sortDirection',
         'asc',
     );
-    const [viewing, setViewing] = useState<IngredientAdmin | null>(null);
     const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
 
     const filter = useMemo(
@@ -293,6 +304,13 @@ export function usePackagingList(): PackagingListState {
             );
         });
     }, [rows, sortKey, sortDirection, locale]);
+    const viewed = useViewedRecord(
+        view,
+        sorted,
+        (row) => String(row.id),
+        packaging.isSuccess && !packaging.isFetching,
+        { useLookup: usePackagingById },
+    );
 
     return {
         rows: sorted,
@@ -349,16 +367,24 @@ export function usePackagingList(): PackagingListState {
         openEditor: (itemId) => {
             // `new` is the create form, not a row to come back to.
             if (itemId !== 'new') rememberOpened(itemId);
-            router.push(`/kitchen/packaging/${itemId}` as never);
+            // From the record's page, the editor's Cancel, Save and trail come back to it.
+            router.push(
+                withReturnTo(
+                    `/kitchen/packaging/${itemId}`,
+                    viewed.viewingId === itemId
+                        ? withQuery('/kitchen/packaging', { view: itemId })
+                        : null,
+                ) as never,
+            );
         },
         lastOpenedId,
-        viewing,
+        viewing: viewed.viewing,
         openView: (row) => {
             rememberOpened(String(row.id));
-            setViewing(row);
+            viewed.setViewing(row);
         },
         closeView: () => {
-            setViewing(null);
+            viewed.setViewing(null);
         },
 
         archiving: archive.target,
