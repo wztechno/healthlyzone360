@@ -159,7 +159,11 @@ export function RolePagesTab({ codes, onChange, disabled = false, testID }: Role
                                                     // Off again drops to View where the page has
                                                     // one, and to nothing where it does not.
                                                     setLevel(
-                                                        editOn ? (hasView ? 'view' : 'none') : 'manage',
+                                                        editOn
+                                                            ? hasView
+                                                                ? 'view'
+                                                                : 'none'
+                                                            : 'manage',
                                                     );
                                                 }}
                                             />
