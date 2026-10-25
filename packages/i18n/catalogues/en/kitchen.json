@@ -45,8 +45,14 @@
         "attentionTitle": "Needs attention",
         "attentionClear": "Nothing is waiting on you right now.",
         "dateLine": "{{date}} · {{branch}}",
-        "newSale": "New sale",
+        "newSale": "New order",
         "orderSupplies": "Order supplies",
+        "attention": {
+            "review": "Records to review",
+            "stockGaps": "Unresolved stock gaps",
+            "shortfalls": "Ingredients short in the next 7 days",
+            "cutOffs": "Days with an order cut-off"
+        },
         "action": {
             "review": "Review",
             "fix": "Fix",

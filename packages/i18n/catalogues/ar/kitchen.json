@@ -65,8 +65,14 @@
         "attentionTitle": "بحاجة إلى انتباه",
         "attentionClear": "لا شيء بانتظارك الآن.",
         "dateLine": "{{date}} · {{branch}}",
-        "newSale": "بيع جديد",
+        "newSale": "طلب جديد",
         "orderSupplies": "طلب مستلزمات",
+        "attention": {
+            "review": "سجلات بحاجة إلى مراجعة",
+            "stockGaps": "نواقص مخزون غير محلولة",
+            "shortfalls": "مكوّنات ناقصة خلال الأيام السبعة القادمة",
+            "cutOffs": "أيام لها موعد إغلاق للطلبات"
+        },
         "action": {
             "review": "مراجعة",
             "fix": "إصلاح",

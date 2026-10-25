@@ -252,8 +252,13 @@ interface AttentionCheck {
     readonly key: string;
     readonly count: number | null;
     readonly pending: boolean;
-    /** The line, with its count — "4 need review", or the check's own all-clear. */
+    /**
+     * The line, without its count — "Records to review" — or the check's own all-clear. The count
+     * is the pill beside it, so the line no longer repeats it.
+     */
     readonly text: string;
+    /** The line as a screen reader hears it, count included — "4 need review". */
+    readonly spoken?: string | undefined;
     readonly tone: Tone;
     readonly actionLabel: string;
     readonly href: string;
@@ -477,7 +482,8 @@ export function KitchenHomeScreen() {
                     ? t('kitchen:hub.countUnavailable')
                     : total === 0
                       ? t('kitchen:review.clearBadge')
-                      : t('kitchen:review.waitingCount', { count: total }),
+                      : t('kitchen:hub.attention.review'),
+            spoken: total === null ? undefined : t('kitchen:review.waitingCount', { count: total }),
             tone: waitingTone(total),
             actionLabel: t('kitchen:hub.action.review'),
             href: '/kitchen/review',
@@ -505,7 +511,11 @@ export function KitchenHomeScreen() {
                     ? t('kitchen:hub.countUnavailable')
                     : exceptionCount === 0
                       ? t('kitchen:ops.exceptions.clearBadge')
-                      : t('kitchen:ops.exceptions.unresolvedCount', { count: exceptionCount }),
+                      : t('kitchen:hub.attention.stockGaps'),
+            spoken:
+                exceptionCount === null
+                    ? undefined
+                    : t('kitchen:ops.exceptions.unresolvedCount', { count: exceptionCount }),
             tone: waitingTone(exceptionCount),
             actionLabel: t('kitchen:hub.action.fix'),
             href: '/kitchen/consumption-exceptions',
@@ -517,7 +527,8 @@ export function KitchenHomeScreen() {
             key: 'requirement-shortfalls',
             count: shortfallCount,
             pending: shortfalls.isPending,
-            text: t('kitchen:ops.requirements.shortfallCount', { count: shortfallCount ?? 0 }),
+            text: t('kitchen:hub.attention.shortfalls'),
+            spoken: t('kitchen:ops.requirements.shortfallCount', { count: shortfallCount ?? 0 }),
             tone: waitingTone(shortfallCount),
             actionLabel: t('kitchen:hub.action.plan'),
             href: '/kitchen/order-desk/requirements',
@@ -533,6 +544,10 @@ export function KitchenHomeScreen() {
             text:
                 withCutOff === null
                     ? t('kitchen:hub.countUnavailable')
+                    : t('kitchen:hub.attention.cutOffs'),
+            spoken:
+                withCutOff === null
+                    ? undefined
                     : t('kitchen:branchHours.cutOffDayCount', { count: withCutOff }),
             // No cut-off on any open day is the thing to fix; any number of them is fine.
             tone: withCutOff === 0 ? 'warning' : 'ok',
@@ -701,7 +716,7 @@ export function KitchenHomeScreen() {
                                         <PanelRow
                                             key={check.key}
                                             testID={`kitchen-home-attention-${check.key}`}
-                                            accessibilityLabel={check.text}
+                                            accessibilityLabel={check.spoken ?? check.text}
                                             onPress={open(check.href)}
                                         >
                                             {check.pending ? (

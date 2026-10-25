@@ -979,8 +979,11 @@ describe('the hub’s needs-review card', () => {
         await untilVisible('kitchen-family-review-total');
 
         // One quarantine is authored, and a quarantine is blocking, so both badges are present and
-        // both say one.
+        // both say one. The line names the queue; its count is the pill, and the row's spoken label.
         expect(screen.getByTestId('kitchen-family-review-total')).toHaveTextContent(
+            /Records to review/,
+        );
+        expect(screen.getByTestId('kitchen-home-attention-review')).toHaveAccessibleName(
             /1 needs? review/i,
         );
         // A regex, because `Badge` renders its icon glyph inside the same text content.
