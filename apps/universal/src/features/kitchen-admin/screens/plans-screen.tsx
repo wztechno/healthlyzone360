@@ -53,9 +53,16 @@ import {
     summarisePlanPrices,
 } from '../format.ts';
 import type { PlanPriceCoverage } from '../format.ts';
-import { useListPage } from '../use-list-page.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import {
+    useListMemory,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedPage,
+    useRememberedQuery,
+    useRestoredPageFallback,
+} from '../list-memory.ts';
 
 /**
  * `/kitchen/plans` — the plans this kitchen sells, and how much of each is decided (Commercial §3.3).
@@ -97,9 +104,12 @@ function PlansList() {
     const { locale } = useLocale();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
 
-    const [query, setQuery] = useState('');
-    const [status, setStatus] = useState<StatusSegmentValue>('all');
+    // Search, status, page and the row last opened survive leaving the list for a plan.
+    const memory = useListMemory('kitchen.plans');
+    const [query, setQuery] = useRememberedQuery(memory);
+    const [status, setStatus] = useRememberedFilter<StatusSegmentValue>(memory, 'status', 'all');
     const [viewing, setViewing] = useState<PlanAdmin | null>(null);
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
 
     const trimmed = query.trim();
     const filter = useMemo(
@@ -109,8 +119,11 @@ function PlansList() {
         }),
         [trimmed, status],
     );
-    const [page, setPage] = useListPage(filter);
+    const [page, setPage] = useRememberedPage(memory, filter);
     const plans = useAdminPlanPageQuery(filter, page);
+    useRestoredPageFallback(memory, page, plans.isError, () => {
+        setPage(1);
+    });
     const wholeSet = useAdminPlanWholeSetQuery(filter);
     const priceLists = usePriceListsQuery({ limit: 100 });
 
@@ -150,6 +163,7 @@ function PlansList() {
 
     const openEditor = (row: PlanAdmin) => {
         setViewing(null);
+        rememberOpened(String(row.id));
         router.push(`/kitchen/plans/${String(row.id)}` as never);
     };
 
@@ -509,6 +523,7 @@ function PlansList() {
                         rows={controls.rows}
                         rowKey={(row) => String(row.id)}
                         density="sm"
+                        highlightedId={lastOpenedId}
                         onRowPress={openEditor}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={(row): readonly MenuItem[] => [
@@ -518,6 +533,7 @@ function PlansList() {
                                 icon: CATALOGUE_ROW_ICONS.view,
                                 testID: `${planRowTestId(String(row.id))}-view`,
                                 onSelect: () => {
+                                    rememberOpened(String(row.id));
                                     setViewing(row);
                                 },
                             },

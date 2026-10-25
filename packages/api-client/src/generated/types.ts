@@ -7594,7 +7594,7 @@ export type MonthlyCostReportCollection = {
 export type ConsumptionExceptionReasonCode = 'no_branch' | 'no_catalogue_item' | 'no_recipe_version' | 'no_yield_piece_count' | 'unquantified_recipe_line' | 'no_ingredient_link' | 'no_stock_item' | 'no_stock_unit' | 'unit_conversion_unsupported' | 'no_ingredient_cost' | 'insufficient_stock' | 'no_net_content' | 'reserved_for_production';
 
 /**
- * One thing a confirmed order could not deduct honestly (INV1.2), with its resolution state (INV1.5), joined to the human-readable names of the order, sold item and branch it points at. Nothing confidential — no recipe line, formulation quantity, ingredient cost or supplier term — passes through.
+ * One thing a confirmed order could not deduct honestly (INV1.2), with its resolution state (INV1.5), joined to the human-readable names of the order, sold item, ingredient and branch it points at, and to where the sold item's recipe opens. Nothing confidential — no recipe line, formulation quantity, ingredient cost or supplier term — passes through.
  */
 export type ConsumptionException = {
     id: Uuid;
@@ -7603,6 +7603,22 @@ export type ConsumptionException = {
     order_line_id: Uuid | null;
     catalogue_item_id: Uuid | null;
     item_name_en: string | null;
+    /**
+     * The sold catalogue item's type; null when the item is gone or none was named.
+     */
+    item_type: CatalogueItemType | null;
+    /**
+     * The recipe the sold catalogue item is made from, when it has one.
+     */
+    recipe_id: Uuid | null;
+    /**
+     * The ingredient the detail names, read out of it; null when the detail names none.
+     */
+    ingredient_id: Uuid | null;
+    /**
+     * The English name of ingredient_id; null when there is none or it is gone.
+     */
+    ingredient_name_en: string | null;
     branch_id: Uuid | null;
     branch_name: string | null;
     reason_code: ConsumptionExceptionReasonCode;

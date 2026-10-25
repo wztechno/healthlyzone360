@@ -14,6 +14,7 @@ import {
     FormSection,
     RecordSkeleton,
     RecordWindowFieldGrid,
+    Stack,
     TableSkeleton,
     Text,
     useToast,
@@ -57,6 +58,7 @@ import {
     kitchenQuotationTotalMinor,
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { focusField } from '../field-focus.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
@@ -554,7 +556,15 @@ function QuotationPricing({
         : kitchenQuotationTotalMinor(lines);
 
     function submitPrices() {
-        if (quotation === null || parsedPrices === null) return;
+        if (quotation === null) return;
+        if (parsedPrices === null) {
+            // Every line needs a price: Send takes the reader to the first one that has none.
+            const first = lines.find(
+                (line) => parseMinorAmount(prices[line.id] ?? '', currency) === null,
+            );
+            if (first !== undefined) focusField(`kitchen-quotation-line-${first.id}-price`);
+            return;
+        }
         quote.mutate(
             { id: quotation.id, lockVersion: quotation.lockVersion, prices: parsedPrices },
             {
@@ -672,7 +682,7 @@ function QuotationPricing({
                                 testID="kitchen-quotations-send"
                                 label={t('kitchen:ops.quotations.send')}
                                 loading={quote.isPending}
-                                disabled={quote.isPending || parsedPrices === null}
+                                disabled={quote.isPending || lines.length === 0}
                                 onPress={submitPrices}
                             />
                         ) : null}
@@ -680,53 +690,52 @@ function QuotationPricing({
                 }
             />
 
-            {editable ? (
-                <Callout
-                    testID="kitchen-quotations-price-guidance"
-                    tone="info"
-                    title={t('kitchen:ops.quotations.guidanceTitle')}
-                    body={t('kitchen:ops.quotations.guidanceBody', { currency })}
-                />
-            ) : null}
-
-            {quoteFailure === null ? null : isConflict || isStale ? (
-                <Callout
-                    testID="kitchen-quotations-conflict"
-                    tone="warning"
-                    role="alert"
-                    title={t(
-                        isStale
-                            ? 'kitchen:ops.quotations.staleTitle'
-                            : 'kitchen:ops.quotations.conflictTitle',
-                    )}
-                    body={t(
-                        isStale
-                            ? 'kitchen:ops.quotations.staleBody'
-                            : 'kitchen:ops.quotations.conflictBody',
-                    )}
-                    actions={
-                        <Button
-                            testID="kitchen-quotations-conflict-refresh"
-                            size="sm"
-                            variant="secondary"
-                            label={t('kitchen:ops.quotations.conflictRefresh')}
-                            loading={detail.isFetching}
-                            onPress={() => {
-                                quote.reset();
-                                void detail.refetch();
-                                onListChanged();
-                            }}
+            {/* The pricing notices, one band under the opening. */}
+            {!editable && quoteFailure === null ? null : (
+                <Stack space="xs" testID="kitchen-quotations-notices">
+                    {editable ? (
+                        <Callout
+                            testID="kitchen-quotations-price-guidance"
+                            tone="info"
+                            title={t('kitchen:ops.quotations.guidanceTitle')}
                         />
-                    }
-                />
-            ) : (
-                <Callout
-                    testID="kitchen-quotations-action-error"
-                    tone="danger"
-                    role="alert"
-                    title={t('kitchen:editor.saveError')}
-                    body={quoteFailure.message}
-                />
+                    ) : null}
+
+                    {quoteFailure === null ? null : isConflict || isStale ? (
+                        <Callout
+                            testID="kitchen-quotations-conflict"
+                            tone="warning"
+                            role="alert"
+                            title={t(
+                                isStale
+                                    ? 'kitchen:ops.quotations.staleTitle'
+                                    : 'kitchen:ops.quotations.conflictTitle',
+                            )}
+                            actions={
+                                <Button
+                                    testID="kitchen-quotations-conflict-refresh"
+                                    size="sm"
+                                    variant="secondary"
+                                    label={t('kitchen:ops.quotations.conflictRefresh')}
+                                    loading={detail.isFetching}
+                                    onPress={() => {
+                                        quote.reset();
+                                        void detail.refetch();
+                                        onListChanged();
+                                    }}
+                                />
+                            }
+                        />
+                    ) : (
+                        <Callout
+                            testID="kitchen-quotations-action-error"
+                            tone="danger"
+                            role="alert"
+                            title={t('kitchen:editor.saveError')}
+                            body={quoteFailure.message}
+                        />
+                    )}
+                </Stack>
             )}
 
             <View

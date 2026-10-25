@@ -15,7 +15,7 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { TabItem } from '@healthy360/design-system';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -33,7 +33,7 @@ import {
     useTeamMemberQuery,
 } from '../../../data/access-admin-hooks.ts';
 import { toFailure } from '../../../data/hooks.ts';
-import { TabStepNavigation } from '../editor-steps.tsx';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
     MEMBERSHIP_END_PERMISSION,
     MEMBERSHIP_UPDATE_PERMISSION,
@@ -41,10 +41,12 @@ import {
     ROLE_MANAGE_PERMISSION,
 } from '../entity-registry.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { focusField } from '../field-focus.ts';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { RoleChoiceList } from '../role-choice-list.tsx';
 import { RolePermissionsTab } from '../role-permissions-tab.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
+import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { memberDisplayName } from './team-screen.tsx';
@@ -55,11 +57,12 @@ import { memberDisplayName } from './team-screen.tsx';
  * ## It opens the way every other kitchen record form does
  *
  * `RecordFormOpening` — their name, their status and address beside it, then Cancel, Suspend or
- * Let back in and Remove at the inline end — over three numbered steps walked with the Previous /
- * Next footer, whose last Next is Save: the roles they hold, where they work, and what that adds up to. The last
- * is the role editor's Advanced matrix in its read-only mode, drawn from the permissions the
- * membership read already carries, so "what can this person actually do" reads in the same grid a
- * role is built in.
+ * Let back in, Remove and Save at the inline end — over three numbered steps: the roles they hold,
+ * where they work, and what that adds up to. Save is in the header, so it is on screen on every
+ * step; a refusal opens the step it is about and counts on that step's tab. The last step is the
+ * role editor's Advanced matrix in its read-only mode, drawn from the permissions the membership
+ * read already carries, so "what can this person actually do" reads in the same grid a role is
+ * built in.
  *
  * ## The roles are a set, and save as a whole
  *
@@ -142,8 +145,10 @@ function heldDomains(codes: readonly string[]): readonly PermissionDomain[] {
 
 function TeamMemberEditor() {
     const { t } = useTranslation();
-    const router = useRouter();
     const toast = useToast();
+    // Cancel, and leaving after a removal, step back to wherever the reader came from — the team
+    // list as they left it — and only open a fresh list when there is no history to return to.
+    const back = useReturnTo(undefined, '/kitchen/team');
 
     const params = useLocalSearchParams<{ readonly membership?: string }>();
     const membershipId = params.membership;
@@ -249,6 +254,47 @@ function TeamMemberEditor() {
         );
     }
 
+    const stepLabels: Readonly<Record<MemberStep, string>> = {
+        roles: t('accessAdmin:member.rolesHeading'),
+        scope: t('accessAdmin:member.scopeHeading'),
+        permissions: t('accessAdmin:member.permissionsHeading'),
+    };
+
+    /*
+     * What the server may refuse, and the step each lives on — listed in step order, so the first
+     * one refused is on the first step that holds a problem.
+     */
+    const serverTargets: Readonly<
+        Record<string, ServerFieldTarget & { readonly step: MemberStep }>
+    > = {
+        roles: { label: stepLabels.roles, fieldId: 'kitchen-team-member-roles', step: 'roles' },
+        'roles.*.role_id': {
+            label: stepLabels.roles,
+            fieldId: 'kitchen-team-member-roles',
+            step: 'roles',
+        },
+        branch_id: {
+            label: stepLabels.scope,
+            fieldId: 'kitchen-team-member-scope-select',
+            step: 'scope',
+        },
+    };
+
+    /**
+     * A refused write: the conflict dialog's question when it was a lost race, and otherwise the
+     * step holding the first field the server named, with that field focused.
+     */
+    function showRefusal(error: unknown) {
+        if (concurrency.capture(error)) return;
+        const refused = serverFieldErrors(toFailure(error), serverTargets);
+        const first = Object.entries(serverTargets).find(
+            ([field]) => refused.errorFor(field) !== undefined,
+        )?.[1];
+        if (first === undefined) return;
+        setStep(first.step);
+        focusField(first.fieldId);
+    }
+
     /**
      * One Save for both halves of the record.
      *
@@ -271,9 +317,7 @@ function TeamMemberEditor() {
                     onSuccess: (result) => {
                         saveRoles(result.membership.lockVersion);
                     },
-                    onError: (error: unknown) => {
-                        concurrency.capture(error);
-                    },
+                    onError: showRefusal,
                 },
             );
             return;
@@ -312,9 +356,7 @@ function TeamMemberEditor() {
                         }),
                     });
                 },
-                onError: (error: unknown) => {
-                    concurrency.capture(error);
-                },
+                onError: showRefusal,
             },
         );
     }
@@ -330,7 +372,7 @@ function TeamMemberEditor() {
             onSuccess: () => {
                 setConfirmingEnd(false);
                 toast.show({ message: t(`accessAdmin:member.${action}d` as never, { name }) });
-                if (action === 'end') router.back();
+                if (action === 'end') back.leave();
             },
             onError: (error: unknown) => {
                 setConfirmingEnd(false);
@@ -339,19 +381,12 @@ function TeamMemberEditor() {
         });
     }
 
-    const stepLabels: Readonly<Record<MemberStep, string>> = {
-        roles: t('accessAdmin:member.rolesHeading'),
-        scope: t('accessAdmin:member.scopeHeading'),
-        permissions: t('accessAdmin:member.permissionsHeading'),
-    };
-
-    // What the server refused, put on the fields it named (BUG-06). No issue banner on this form,
-    // so the callout stays and the fields carry the reasons.
-    const server = serverFieldErrors(writeFailure, {
-        roles: { label: stepLabels.roles, fieldId: 'kitchen-team-member-roles' },
-        'roles.*.role_id': { label: stepLabels.roles, fieldId: 'kitchen-team-member-roles' },
-        branch_id: { label: stepLabels.scope, fieldId: 'kitchen-team-member-scope-select' },
-    });
+    // What the server refused, put on the fields it named (BUG-06). No issue banner on this form:
+    // the fields carry the reasons and each step's tab counts them.
+    const server = serverFieldErrors(writeFailure, serverTargets);
+    const refusedOn = (key: MemberStep): number =>
+        server.items.filter((item) => serverTargets[item.key.slice('server-'.length)]?.step === key)
+            .length;
 
     const stepItems: readonly TabItem<MemberStep>[] = MEMBER_STEPS.map((key) => ({
         value: key,
@@ -361,6 +396,15 @@ function TeamMemberEditor() {
             : key === 'permissions'
               ? { count: record.permissions.length }
               : {}),
+        ...(refusedOn(key) > 0
+            ? {
+                  issues: {
+                      count: refusedOn(key),
+                      tone: 'danger' as const,
+                      label: t('kitchen:forms.toFixCount', { count: refusedOn(key) }),
+                  },
+              }
+            : {}),
         testID: `kitchen-team-member-tabs-tab-${key}`,
     }));
 
@@ -398,9 +442,7 @@ function TeamMemberEditor() {
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
                                 onPress={() => {
-                                    guard.intercept(() => {
-                                        router.back();
-                                    });
+                                    guard.intercept(back.leave);
                                 }}
                             />
                             {canUpdate && isWorkingMember(record.status) ? (
@@ -435,6 +477,23 @@ function TeamMemberEditor() {
                                     }}
                                 />
                             ) : null}
+                            {/*
+                             * Save, last, on every step. Hidden rather than disabled for somebody
+                             * who may not assign roles: the whole record is theirs to read, and a
+                             * Save that could never work is noise.
+                             */}
+                            {canAssignRoles ? (
+                                <Button
+                                    testID="kitchen-team-member-save"
+                                    label={t('accessAdmin:member.save')}
+                                    // Both halves of the chain: a scope write still running is a
+                                    // save still running, and a button that came back to life
+                                    // between the two would take a second press.
+                                    loading={scopeWrite.isPending || setRoles.isPending}
+                                    disabled={scopeWrite.isPending || setRoles.isPending}
+                                    onPress={save}
+                                />
+                            ) : null}
                         </>
                     }
                     steps={{
@@ -445,7 +504,8 @@ function TeamMemberEditor() {
                     }}
                 />
 
-                {writeFailure === null ? null : (
+                {writeFailure === null ||
+                (server.isValidation && server.unplaced === null) ? null : (
                     <Callout
                         testID="kitchen-team-member-write-error"
                         tone="danger"
@@ -572,32 +632,6 @@ function TeamMemberEditor() {
                         </Stack>
                     )}
                 </View>
-
-                {/*
-                 * Save is the last step's Next, not a header button, as on the role editor. Hidden
-                 * rather than disabled for somebody who may not assign roles: the whole record is
-                 * theirs to read, and a Save that could never work is noise.
-                 */}
-                <TabStepNavigation<MemberStep>
-                    testID="kitchen-team-member-steps-nav"
-                    items={stepItems}
-                    value={step}
-                    onChange={setStep}
-                    finalAction={
-                        canAssignRoles ? (
-                            <Button
-                                testID="kitchen-team-member-save"
-                                label={t('accessAdmin:member.save')}
-                                // Both halves of the chain: a scope write still running is a save
-                                // still running, and a button that came back to life between the
-                                // two would take a second press.
-                                loading={scopeWrite.isPending || setRoles.isPending}
-                                disabled={scopeWrite.isPending || setRoles.isPending}
-                                onPress={save}
-                            />
-                        ) : undefined
-                    }
-                />
             </Cascade>
 
             <EditorGuardDialogs

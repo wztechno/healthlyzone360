@@ -24,12 +24,14 @@ import { MealId, ProductId, RecipeId } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
+import { safeReturnTo, withQuery } from '../../../navigation/return-to.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
     useAdminMealQuery,
     useCreateMealMutation,
@@ -47,7 +49,9 @@ import {
     RECIPE_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
+import type { HostSave } from '../host-save.ts';
 import { MealListing } from '../meal-listing.tsx';
+import { parseStockGapFix } from '../recipe-stock-gap-fix.ts';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import { ProductEditScreen } from './product-edit-screen.tsx';
 import { RecipeEditScreen } from './recipe-edit-screen.tsx';
@@ -178,11 +182,27 @@ function sellerKind(value: unknown): RecipeSellerKind | null {
  * The recipe book's editor
  * ---------------------------------------------------------------------------------------------- */
 
-export interface RecipeBookEditScreenProps {
+/**
+ * What a stock gap hands the recipe it is fixed in (`recipe-stock-gap-fix.ts`): the exact Stock gaps
+ * view to return to, the gap's reason and the ingredient it is about. All three as the route reads
+ * them; the editor validates each.
+ */
+export interface StockGapFixParams {
+    readonly returnTo?: string | undefined;
+    readonly fix?: string | undefined;
+    readonly ingredient?: string | undefined;
+}
+
+export interface RecipeBookEditScreenProps extends StockGapFixParams {
     /** The route parameter — a recipe id, or `new` for the create form. */
     readonly recipe?: string | undefined;
     /** `?kind=` — what a new recipe is created as. Ignored once the recipe exists. */
     readonly kind?: string | undefined;
+    /** `?tab=` — the tab to open on, so a detour comes back where it left. */
+    readonly tab?: string | undefined;
+    /** `?swapFrom=&swapTo=` — a library ingredient the detour replaced with this kitchen's copy. */
+    readonly swapFrom?: string | undefined;
+    readonly swapTo?: string | undefined;
 }
 
 export function RecipeBookEditScreen(props: RecipeBookEditScreenProps) {
@@ -202,11 +222,22 @@ export function RecipeBookEditScreen(props: RecipeBookEditScreenProps) {
     );
 }
 
-function RecipeBookEditor({ recipe, kind: requested }: RecipeBookEditScreenProps) {
+function RecipeBookEditor({
+    recipe,
+    kind: requested,
+    returnTo,
+    fix,
+    ingredient,
+    tab,
+    swapFrom,
+    swapTo,
+}: RecipeBookEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const toast = useToast();
     const canManageItems = useCan(CATALOGUE_MANAGE_PERMISSION);
+    // Memoised on the two strings, so the editor is handed the same fix on every render.
+    const stockGapFix = useMemo(() => parseStockGapFix(fix, ingredient), [fix, ingredient]);
 
     const isCreating = recipe === undefined || recipe === 'new';
     // The cache entry the editor below reads, so naming the sellers costs no request of its own.
@@ -223,6 +254,18 @@ function RecipeBookEditor({ recipe, kind: requested }: RecipeBookEditScreenProps
     // The listing's unsaved state, so the page's own exits ask before dropping it.
     const [listingDirty, setListingDirty] = useState(false);
     const [chosenSeller, setChosenSeller] = useState<string | null>(null);
+    /*
+     * The listing's save, handed over so the recipe's one Save draft writes it too
+     * (`host-save.ts`). A ref: it changes with the listing, and nothing here draws from it.
+     */
+    const listingSave = useRef<HostSave | null>(null);
+    const registerListingSave = useCallback((save: HostSave | null) => {
+        listingSave.current = save;
+    }, []);
+    const saveListing = useCallback(
+        async () => (listingSave.current === null ? true : listingSave.current()),
+        [],
+    );
 
     const createMeal = useCreateMealMutation();
     const createItem = useCreateProductMutation();
@@ -296,6 +339,7 @@ function RecipeBookEditor({ recipe, kind: requested }: RecipeBookEditScreenProps
                 key={seller.id}
                 meal={MealId.unsafe(seller.id)}
                 onDirtyChange={setListingDirty}
+                onRegisterSave={registerListingSave}
             />
         ) : (
             <ProductEditScreen
@@ -305,13 +349,20 @@ function RecipeBookEditor({ recipe, kind: requested }: RecipeBookEditScreenProps
                 routeBase="/kitchen/recipes"
                 embedded
                 onDirtyChange={setListingDirty}
+                onRegisterSave={registerListingSave}
             />
         );
 
     return (
         <RecipeEditScreen
             recipe={recipe}
+            initialTab={tab}
+            kind={requested}
+            swapFrom={swapFrom}
+            swapTo={swapTo}
             backTo={kind === null ? '/kitchen/recipes' : `/kitchen/recipes?kind=${kind}`}
+            returnTo={returnTo}
+            stockGapFix={stockGapFix}
             classification={classification}
             referenceSeries={cooked === null ? undefined : REFERENCE_SERIES[cooked]}
             onCreated={
@@ -347,6 +398,7 @@ function RecipeBookEditor({ recipe, kind: requested }: RecipeBookEditScreenProps
                                   </View>
                               ),
                           isDirty: listingDirty,
+                          save: saveListing,
                       }
             }
         />
@@ -357,7 +409,7 @@ function RecipeBookEditor({ recipe, kind: requested }: RecipeBookEditScreenProps
  * An item, before it is known by its recipe
  * ---------------------------------------------------------------------------------------------- */
 
-export interface CookedItemEditScreenProps {
+export interface CookedItemEditScreenProps extends StockGapFixParams {
     /** The route parameter — a catalogue item id. */
     readonly item?: string | undefined;
     /** `?kind=` — which cooked kind the id names; a meal and a packaged kind are read apart. */
@@ -385,7 +437,13 @@ export function CookedItemEditScreen(props: CookedItemEditScreenProps) {
     );
 }
 
-function CookedItemEditor({ item: routeItem, kind }: CookedItemEditScreenProps) {
+function CookedItemEditor({
+    item: routeItem,
+    kind,
+    returnTo,
+    fix,
+    ingredient,
+}: CookedItemEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const { locale } = useLocale();
@@ -402,6 +460,11 @@ function CookedItemEditor({ item: routeItem, kind }: CookedItemEditScreenProps) 
 
     const itemType = sellerKind(kind);
     const isMeal = itemType === 'meal';
+    // The not-found notice steps back the way the reader came, or to the book's tab for the kind.
+    const back = useReturnTo(
+        returnTo,
+        itemType === null ? '/kitchen/recipes' : `/kitchen/recipes?kind=${itemType}`,
+    );
 
     /*
      * Both reads, always, with the one this kind does not use given no id — hooks are called in the
@@ -425,12 +488,24 @@ function CookedItemEditor({ item: routeItem, kind }: CookedItemEditScreenProps) 
      * effect and every later render from replacing again.
      */
     const recipeId = record.data?.recipeId ?? null;
+    /*
+     * A stock gap that sent the reader to the item still means the recipe: the fix, the line and
+     * the way back travel with the hand-over. Nothing to carry leaves the address exactly as it was.
+     */
+    const carried = useMemo(() => {
+        const parsedFix = parseStockGapFix(fix, ingredient);
+        return {
+            fix: parsedFix?.reason,
+            ingredient: parsedFix?.ingredientId,
+            returnTo: safeReturnTo(returnTo),
+        };
+    }, [fix, ingredient, returnTo]);
     const replaced = useRef(false);
     useEffect(() => {
         if (recipeId === null || replaced.current) return;
         replaced.current = true;
-        router.replace(`/kitchen/recipes/${String(recipeId)}` as never);
-    }, [recipeId, router]);
+        router.replace(withQuery(`/kitchen/recipes/${String(recipeId)}`, carried) as never);
+    }, [recipeId, router, carried]);
 
     if (itemType === null || parsed === null) {
         return (
@@ -440,19 +515,12 @@ function CookedItemEditor({ item: routeItem, kind }: CookedItemEditScreenProps) 
                     role="alert"
                     tone="warning"
                     title={t('kitchen:products.notFoundTitle')}
-                    body={t('kitchen:products.notFoundBody')}
                     actions={
                         <Button
                             testID="kitchen-cooked-item-not-found-back"
                             variant="quiet"
                             label={t('kitchen:recipes.backToList')}
-                            onPress={() => {
-                                router.push(
-                                    (itemType === null
-                                        ? '/kitchen/recipes'
-                                        : `/kitchen/recipes?kind=${itemType}`) as never,
-                                );
-                            }}
+                            onPress={back.leave}
                         />
                     }
                 />
@@ -575,7 +643,6 @@ function CookedItemEditor({ item: routeItem, kind }: CookedItemEditScreenProps) 
                 role="note"
                 tone="info"
                 title={t('kitchen:products.recipeMissingTitle')}
-                body={t('kitchen:products.recipeMissingBody')}
                 actions={
                     canManage ? (
                         <Button

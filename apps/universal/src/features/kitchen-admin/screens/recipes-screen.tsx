@@ -23,7 +23,7 @@ import { MealId } from '@healthy360/domain-types';
 import type { AllergenCode, KitchenId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -82,6 +82,7 @@ import {
     statusTone,
 } from '../format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { useListMemory, useRememberedFilter } from '../list-memory.ts';
 
 /**
  * `/kitchen/recipes` — the recipe book: everything this kitchen cooks, on one list.
@@ -207,9 +208,11 @@ function RecipesList() {
     /*
      * Table or cards — two drawings of the same `list.rows`. Screen state rather than list state:
      * it changes nothing about which rows are asked for, so it has no business in the query key,
-     * and the page, sort and filters survive the switch untouched.
+     * and the page, sort and filters survive the switch untouched. Remembered with the list, so
+     * coming back from a recipe finds the drawing it was opened from.
      */
-    const [layout, setLayout] = useState<RecipeLayout>('table');
+    const layoutMemory = useListMemory('kitchen.recipes');
+    const [layout, setLayout] = useRememberedFilter<RecipeLayout>(layoutMemory, 'layout', 'table');
 
     /*
      * A recipe's `kitchenId` is the id of the organisation that owns it, and the session already
@@ -486,6 +489,7 @@ function RecipesList() {
                         rowKey={(row) => String(row.id)}
                         // Fixed, not switchable: the S/M/L control is gone.
                         density="sm"
+                        highlightedId={list.lastOpenedId}
                         onRowPress={(row) => {
                             list.openEditor(String(row.id));
                         }}

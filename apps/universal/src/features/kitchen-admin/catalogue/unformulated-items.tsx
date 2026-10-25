@@ -16,6 +16,12 @@ const SELLER_KINDS: readonly SellerKind[] = ['meal', 'sauce', 'dressing', 'froze
 /** One page holds every one in practice; the endpoint's own ceiling. */
 const PAGE = 100;
 
+/**
+ * How many items the notice offers to open. The count in the title is still all of them; past five,
+ * the buttons wrapped into a wall that pushed the recipe book off the screen.
+ */
+const UNFORMULATED_SHOWN = 5;
+
 interface UnformulatedRow {
     readonly id: string;
     readonly kind: SellerKind;
@@ -27,9 +33,9 @@ interface UnformulatedRow {
  *
  * The recipe book is a list of recipes, so an imported meal or frozen meal with no formulation had
  * no row in it — on sale at the counter and on the web, and unreachable from the screen that fixes
- * it. They are listed here, above the book, for the kind on screen (every cooked kind under "All"),
- * each opening its item page, which offers to start the formulation. Nothing is drawn when there
- * are none.
+ * it. They are counted here, above the book, for the kind on screen (every cooked kind under "All"),
+ * and the first {@link UNFORMULATED_SHOWN} are offered as buttons, each opening its item page, which
+ * offers to start the formulation. Nothing is drawn when there are none.
  */
 export function UnformulatedItems({
     kind,
@@ -93,7 +99,7 @@ export function UnformulatedItems({
                 'kitchen:stockBlockers.unformulatedCount',
                 { count: rows.length },
             )}`}
-            actions={rows.map((row) => (
+            actions={rows.slice(0, UNFORMULATED_SHOWN).map((row) => (
                 <Button
                     key={row.id}
                     testID={`${testID}-${row.id}`}

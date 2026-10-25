@@ -17,7 +17,7 @@ import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -46,7 +46,14 @@ import {
     MEMBERSHIP_VIEW_PERMISSION,
     USER_MANAGE_PERMISSION,
 } from '../entity-registry.ts';
-import { useListPage } from '../use-list-page.ts';
+import {
+    useListMemory,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedPage,
+    useRememberedQuery,
+    useRestoredPageFallback,
+} from '../list-memory.ts';
 
 /**
  * `/kitchen/team` — everybody who can sign in to this kitchen (AA1), on the Catalogue list.
@@ -247,8 +254,11 @@ function TeamList() {
     const router = useRouter();
     const canAdd = useCan([MEMBERSHIP_INVITE_PERMISSION, USER_MANAGE_PERMISSION], 'any');
 
-    const [segment, setSegment] = useState<TeamSegment>('working');
-    const [query, setQuery] = useState('');
+    // Segment, search, page and the member last opened survive leaving the list for a member.
+    const memory = useListMemory('kitchen.team');
+    const [segment, setSegment] = useRememberedFilter<TeamSegment>(memory, 'segment', 'working');
+    const [query, setQuery] = useRememberedQuery(memory);
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
 
     // Absent rather than `'active'` for Everyone: the endpoint's default is every status, and
     // asking for all four one at a time is not a thing the segment can express.
@@ -257,8 +267,11 @@ function TeamList() {
         [segment],
     );
 
-    const [page, setPage] = useListPage(filter);
+    const [page, setPage] = useRememberedPage(memory, filter);
     const team = useTeamQuery({ ...filter, page, perPage: TEAM_PAGE_SIZE });
+    useRestoredPageFallback(memory, page, team.isError, () => {
+        setPage(1);
+    });
     const wholeTeam = useTeamWholeSetQuery(filter);
     const invitations = useStaffInvitationsQuery('live');
 
@@ -289,6 +302,7 @@ function TeamList() {
             : formatter.formatDate(row.joinedAt, { dateStyle: 'medium' });
 
     const openMember = (row: TeamMemberSummary) => {
+        rememberOpened(String(row.membershipId));
         router.push(`/kitchen/team/${String(row.membershipId)}` as never);
     };
 
@@ -550,6 +564,7 @@ function TeamList() {
                         rows={controls.rows}
                         rowKey={(row) => String(row.membershipId)}
                         density="sm"
+                        highlightedId={lastOpenedId}
                         onRowPress={openMember}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={(row): readonly MenuItem[] => [

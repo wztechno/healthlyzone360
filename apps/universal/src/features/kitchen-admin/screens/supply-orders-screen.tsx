@@ -57,6 +57,14 @@ import {
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import {
+    useListMemory,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedPageNumber,
+    useRememberedQuery,
+    useRestoredPageFallback,
+} from '../list-memory.ts';
 
 /**
  * `/kitchen/supply-orders` — the order book, and what the branch is short of (SUP3), on the
@@ -120,6 +128,9 @@ const EM_DASH = '—';
 
 /** A stable empty queue, so the preview's controls are not handed a fresh array per render. */
 const NO_PROPOSAL_ITEMS: readonly OrderProposalItem[] = [];
+
+/** The book's first page: no cursor opens it. */
+const FIRST_PAGE_CURSORS: readonly (string | undefined)[] = [undefined];
 
 type StatusSegmentValue = PurchaseOrderStatus | 'all';
 
@@ -192,15 +203,23 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
 
     const branchId = access.branch?.id ?? null;
 
-    const [query, setQuery] = useState('');
-    const [status, setStatus] = useState<StatusSegmentValue>('all');
+    // Search, filters, the page of the book and the order last opened survive leaving the list.
+    const memory = useListMemory('kitchen.supply-orders');
+    const [query, setQuery] = useRememberedQuery(memory);
+    const [status, setStatus] = useRememberedFilter<StatusSegmentValue>(memory, 'status', 'all');
     /** The Supplier header's choice. Sent with the request — `PurchaseOrderFilter.supplierId`. */
-    const [supplier, setSupplier] = useState<string | null>(null);
+    const [supplier, setSupplier] = useRememberedFilter<string | null>(memory, 'supplier', null);
     const [viewing, setViewing] = useState<PurchaseOrder | null>(null);
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
     // `cursors[n - 1]` opens page n of the book: page one has none, and each loaded page with more
-    // behind it adds the next page's — the purchases ledger's pager.
-    const [cursors, setCursors] = useState<readonly (string | undefined)[]>([undefined]);
-    const [page, setPage] = useState(1);
+    // behind it adds the next page's — the purchases ledger's pager. Remembered with the page, so
+    // the book reopens on the page it was left on.
+    const [cursors, setCursors] = useRememberedFilter<readonly (string | undefined)[]>(
+        memory,
+        'cursors',
+        FIRST_PAGE_CURSORS,
+    );
+    const [page, setPage] = useRememberedPageNumber(memory);
     const cursor = cursors[page - 1];
     /** The queue's page, remembered against the header filters it was chosen under. */
     const [queuePaging, setQueuePaging] = useState<{
@@ -210,7 +229,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
 
     /** A status or supplier change is a new book: back to page one, and out of any record. */
     const resetBook = () => {
-        setCursors([undefined]);
+        setCursors(FIRST_PAGE_CURSORS);
         setPage(1);
         setViewing(null);
     };
@@ -232,6 +251,11 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
         [status, supplier, cursor],
     );
     const orders = usePurchaseOrdersQuery(bookFilter, branchId !== null);
+    // A remembered cursor the book no longer honours starts the book again.
+    useRestoredPageFallback(memory, page, orders.isError, () => {
+        setCursors(FIRST_PAGE_CURSORS);
+        setPage(1);
+    });
     const supplierBook = useSuppliersQuery(SUPPLIER_BOOK, branchId !== null);
 
     const nextCursor = orders.data?.nextCursor ?? null;
@@ -267,6 +291,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
 
     const openOrder = (row: PurchaseOrder) => {
         setViewing(null);
+        rememberOpened(String(row.id));
         router.push(`/kitchen/supply-orders/${String(row.id)}` as never);
     };
 
@@ -699,6 +724,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                         rows={controls.rows}
                         rowKey={(row) => String(row.id)}
                         density="sm"
+                        highlightedId={lastOpenedId}
                         onRowPress={openOrder}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={(row): readonly MenuItem[] => [
@@ -708,6 +734,7 @@ function SupplyOrders({ created }: SupplyOrdersScreenProps) {
                                 icon: CATALOGUE_ROW_ICONS.view,
                                 testID: `${purchaseOrderRowTestId(String(row.id))}-view`,
                                 onSelect: () => {
+                                    rememberOpened(String(row.id));
                                     setViewing(row);
                                 },
                             },

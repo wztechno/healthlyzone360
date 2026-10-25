@@ -9,8 +9,8 @@ import {
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { RowDensity } from '@healthy360/design-tokens';
-import type { ReactNode } from 'react';
-import { useState } from 'react';
+import type { ReactNode, RefObject } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, View } from 'react-native';
 
@@ -108,6 +108,20 @@ export interface CatalogueListProps<Row> {
      * than arrival.
      */
     readonly rowEntrance?: boolean | undefined;
+    /**
+     * The row the reader opened last, by `rowKey`. Drawn on the brand's subtle ground — the same
+     * ground a selected row takes — and brought into view once as the list comes back, so the
+     * reader returns to where they were rather than to the top of page one.
+     */
+    readonly highlightedId?: string | null | undefined;
+    /**
+     * Where a list this component pages itself starts, when it is being returned to. The page
+     * holding `highlightedId` wins over it until the reader pages; a list the screen pages on the
+     * server never reads it.
+     */
+    readonly initialPage?: number | undefined;
+    /** Told when the reader pages a list this component pages itself — for the list's memory. */
+    readonly onPageChange?: ((page: number) => void) | undefined;
     readonly testID: string;
 }
 
@@ -121,14 +135,23 @@ export interface CatalogueListProps<Row> {
  */
 export function CatalogueList<Row>(props: CatalogueListProps<Row>) {
     const { t } = useTranslation();
-    const { rows, testID } = props;
-    const [requested, setPage] = useState(1);
+    const { rows, rowKey, highlightedId, initialPage, onPageChange, testID } = props;
+    // `null` until the reader pages: before that the list opens where it was left.
+    const [requested, setRequested] = useState<number | null>(null);
 
     const totalPages = Math.max(1, Math.ceil(rows.length / CATALOGUE_PAGE_SIZE));
     if (totalPages === 1) return <CatalogueTable {...props} />;
 
+    const setPage = (next: number) => {
+        setRequested(next);
+        onPageChange?.(next);
+    };
+
     // Clamped rather than reset: a filter that shrinks the set lands on its last page, not past it.
-    const page = Math.min(requested, totalPages);
+    const page = Math.min(
+        requested ?? pageHolding(rows, rowKey, highlightedId) ?? initialPage ?? 1,
+        totalPages,
+    );
     const from = (page - 1) * CATALOGUE_PAGE_SIZE;
 
     return (
@@ -145,6 +168,17 @@ export function CatalogueList<Row>(props: CatalogueListProps<Row>) {
     );
 }
 
+/** The 1-based page of {@link CATALOGUE_PAGE_SIZE} rows holding `id`, or `undefined`. */
+function pageHolding<Row>(
+    rows: readonly Row[],
+    rowKey: (row: Row) => string,
+    id: string | null | undefined,
+): number | undefined {
+    if (id === null || id === undefined) return undefined;
+    const index = rows.findIndex((row) => rowKey(row) === id);
+    return index < 0 ? undefined : Math.floor(index / CATALOGUE_PAGE_SIZE) + 1;
+}
+
 function CatalogueTable<Row>({
     columns,
     rows,
@@ -156,14 +190,29 @@ function CatalogueTable<Row>({
     rowActionsLabel,
     emptyState,
     rowEntrance = true,
+    highlightedId,
     testID,
 }: CatalogueListProps<Row>) {
     const { atLeast } = useBreakpoint();
     const port = useCataloguePort();
+    const wide = atLeast('md');
+    const frame = useRef<View | null>(null);
+    const highlighted =
+        highlightedId === null || highlightedId === undefined
+            ? null
+            : (rows.find((row) => rowKey(row) === highlightedId) ?? null);
+    useRevealRow(
+        frame,
+        highlighted === null ? null : `${testID}-row-${rowKey(highlighted)}`,
+        // The narrow row paints itself through `ListItem`'s `selected`; `DataList` has no such
+        // state, so the wide row is painted here.
+        wide,
+    );
 
-    if (!atLeast('md')) {
+    if (!wide) {
         return (
             <View
+                ref={frame}
                 testID={testID}
                 role="list"
                 aria-label={label}
@@ -190,6 +239,7 @@ function CatalogueTable<Row>({
                                         }
                               }
                               divider={index < rows.length - 1}
+                              highlighted={row === highlighted}
                               testID={`${testID}-row-${rowKey(row)}`}
                           />
                       ))}
@@ -224,7 +274,7 @@ function CatalogueTable<Row>({
          * `getBoundingClientRect`, which includes a border, so a frame on the measured box would
          * fit tracks two pixels wider than the space inside it.
          */
-        <View className={rows.length === 0 ? 'flex-col' : FRAME_CLASS}>
+        <View ref={frame} className={rows.length === 0 ? 'flex-col' : FRAME_CLASS}>
             <View
                 testID={`${testID}-port`}
                 // Both measurement paths, and each is inert on the other's platform: `onLayout` never
@@ -266,6 +316,52 @@ function CatalogueTable<Row>({
             </View>
         </View>
     );
+}
+
+/**
+ * The highlighted row's ground — the token `bg-surface-brand-subtle` resolves to, so a palette
+ * change reaches it like any other.
+ */
+const HIGHLIGHT_GROUND = 'rgb(var(--h360-color-brand-surface-subtle))';
+
+/**
+ * Brings the highlighted row into view once as the list mounts, and paints it when asked to.
+ *
+ * Web only, and by the element React Native Web writes out for the row's `testID`. The wide row
+ * belongs to `DataList`, which has no highlighted state to set, and a scroll belongs to the
+ * document — the shell's scroll port is what moves, and `scrollIntoView` scrolls whichever
+ * ancestor does. On native the narrow row still paints itself, and nothing is scrolled.
+ *
+ * The paint is re-applied after every commit, because a page change or the row's entrance can
+ * hand the row a new element; the cleanup takes it off the old one.
+ */
+function useRevealRow(
+    frame: RefObject<View | null>,
+    rowTestID: string | null,
+    paint: boolean,
+): void {
+    const revealed = useRef(false);
+
+    useEffect(() => {
+        if (Platform.OS !== 'web' || rowTestID === null) return undefined;
+        const root = frame.current as unknown as HTMLElement | null;
+        const row = root?.querySelector<HTMLElement>(
+            `[data-testid="${rowTestID.replace(/["\\]/g, '\\$&')}"]`,
+        );
+        if (row === null || row === undefined) return undefined;
+
+        if (!revealed.current) {
+            revealed.current = true;
+            // Optional: jsdom implements no scrolling, and a missing scroll is no reason to fail.
+            row.scrollIntoView?.({ block: 'center' });
+        }
+
+        if (!paint) return undefined;
+        row.style.backgroundColor = HIGHLIGHT_GROUND;
+        return () => {
+            row.style.backgroundColor = '';
+        };
+    });
 }
 
 function cellText<Row>(column: CatalogueColumn<Row> | undefined, row: Row): string {

@@ -74,6 +74,9 @@ jest.mock('expo-router', () => {
             replace,
             setParams: jest.fn(),
             back: jest.fn(),
+            // No history in a suite: the supplier record's Cancel opens the list.
+            canGoBack: () => false,
+            dismissTo: jest.fn(),
             prefetch: jest.fn(),
         }),
         usePathname: () => '/kitchen/suppliers',
@@ -420,7 +423,7 @@ describe('supplier detail', () => {
             fireEvent.changeText(screen.getByTestId('kitchen-supplier-lead-time-input'), '400');
         });
         await untilVisible('kitchen-supplier-screen-issues-errors');
-        // Save is the last step's Next.
+        // Save is in the header on every step, the last included.
         await openSupplierStep('items');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-supplier-screen-save'));
@@ -450,7 +453,7 @@ describe('supplier detail', () => {
                 'Net 45',
             );
         });
-        // Save is the last step's Next.
+        // Save is in the header on every step, the last included.
         await openSupplierStep('items');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-supplier-screen-save'));
@@ -571,11 +574,11 @@ describe('supplier detail', () => {
         expect(screen.queryByTestId('kitchen-supplier-contacts-save')).toBeNull();
         expect(screen.queryByTestId('kitchen-supplier-contacts-add')).toBeNull();
 
-        // The last step offers no save either — Next stays, disabled.
+        // The last step offers no save either, and there is no step bar to offer one.
         await openSupplierStep('items');
         await untilVisible('kitchen-supplier-supplied-items');
         expect(screen.queryByTestId('kitchen-supplier-screen-save')).toBeNull();
-        expect(screen.getByTestId('kitchen-supplier-screen-steps-nav-next')).toBeDisabled();
+        expect(screen.queryByTestId('kitchen-supplier-screen-steps-nav')).toBeNull();
     });
 
     it('is one step — details — until the first save, so it draws no progress row', async () => {

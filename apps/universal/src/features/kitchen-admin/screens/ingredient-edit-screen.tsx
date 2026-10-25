@@ -28,6 +28,7 @@ import {
     FormIssueBanner,
     FormSection,
     FormSkeleton,
+    Icon,
     Inline,
     QuantityInput,
     Select,
@@ -39,7 +40,7 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { FormIssueItem, SelectOption, TagTone } from '@healthy360/design-system';
-import { IngredientId } from '@healthy360/domain-types';
+import { IngredientId, RecipeId } from '@healthy360/domain-types';
 import { isCurrencyCode } from '@healthy360/domain-types';
 import type { CurrencyCode } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -49,8 +50,9 @@ import type { MeasureUnit } from '@healthy360/nutrition';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -70,11 +72,14 @@ import {
     useIngredientPageQuery,
     useIngredientQuery,
     useNextReferenceQuery,
+    useRecipeQuery,
     useSaveRecordPhotoMutation,
     useSetIngredientAllergensMutation,
     useUpdateIngredientMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { resolveEntityImage } from '../../../media/entity-image.tsx';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { DerivedPanel } from '../catalogue/derived-panel.tsx';
@@ -106,12 +111,16 @@ import {
     withoutMinus,
 } from '../format.ts';
 import { ImageSlot } from '../image-slot.tsx';
+import { parseIngredientNeeds } from '../ingredient-fix.ts';
+import type { IngredientNeed } from '../ingredient-fix.ts';
 import { IngredientAssistPanel } from '../ingredient-assist-panel.tsx';
 import { AllergenReferencePicker } from '../allergen-reference-picker.tsx';
 import { IngredientAllergenEditor } from '../ingredient-allergen-editor.tsx';
 import { IngredientBarcodesSection } from '../ingredient-barcodes-section.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { focusFirstRefusal } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
+import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -387,6 +396,16 @@ function packagingFrom(ingredient: IngredientAdmin): PackagingDraft {
 const WASTE_WARNING_PERCENT = 10;
 
 /**
+ * Where a recipe's "fix allergens / nutrition" lands: the line at the top of that section saying
+ * what to do. The two have no single field — a determination is fourteen choices, a reference is a
+ * search — so the reader is taken to the section, and the line is what they read first.
+ */
+const NEED_TARGET = {
+    allergens: 'kitchen-ingredient-need-allergens',
+    nutrition: 'kitchen-ingredient-need-nutrition',
+} as const;
+
+/**
  * A typed positive figure, or null for blank and for anything that is not one.
  *
  * Both of this form's bare numeric fields — items per pack, grams per unit — answer `null` to the
@@ -506,21 +525,43 @@ export interface IngredientEditScreenProps {
     readonly ingredient: string | undefined;
     /** Defaults to the ingredient family, which is every existing caller. */
     readonly family?: IngredientEditFamily | undefined;
+    /**
+     * `?returnTo=` — the page that sent the reader here to fix something, as written: a recipe, on
+     * the tab its raw material is on. Cancel and a successful Save go back to it.
+     */
+    readonly returnTo?: string | undefined;
+    /** `?needs=` — what that page needs fixed here (`ingredient-fix.ts`), as the route reads it. */
+    readonly needs?: string | undefined;
 }
 
-export function IngredientEditScreen({ ingredient, family }: IngredientEditScreenProps) {
+export function IngredientEditScreen({
+    ingredient,
+    family,
+    returnTo,
+    needs,
+}: IngredientEditScreenProps) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
             testID="kitchen-ingredient-editor"
         >
-            <IngredientEditor ingredient={ingredient} family={family} />
+            <IngredientEditor
+                ingredient={ingredient}
+                family={family}
+                returnTo={returnTo}
+                needs={needs}
+            />
         </Gate>
     );
 }
 
-function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: IngredientEditScreenProps) {
+function IngredientEditor({
+    ingredient,
+    family = INGREDIENT_FAMILY,
+    returnTo,
+    needs: neededRaw,
+}: IngredientEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const { locale } = useLocale();
@@ -572,6 +613,23 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const [noAllergens, setNoAllergens] = useState(false);
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
+    /*
+     * Cancel and the not-found page's way out go back a step, the way the browser's arrow does —
+     * to the list as it was left, its filter and page included — and only fall back to opening the
+     * list afresh when there is nothing behind this page (a deep link, a refresh). Sent here from a
+     * recipe to fix something, they go back to that recipe instead, and so does a successful Save.
+     */
+    const back = useReturnTo(returnTo, family.listRoute);
+    const needs = useMemo(() => parseIngredientNeeds(neededRaw), [neededRaw]);
+    /*
+     * The recipe a fix was sent from, by name, so the way back says where it goes. Read from the
+     * cache the recipe page filled; a member who may not read recipes gets the plain label.
+     */
+    const returnRecipeId = useMemo(() => {
+        const match = /^\/kitchen\/recipes\/([^/?#]+)/.exec(back.returnTo ?? '');
+        return match === null ? null : RecipeId.safeParse(match[1]);
+    }, [back.returnTo]);
+    const returnRecipe = useRecipeQuery(returnRecipeId);
 
     /** Whether Save has been pressed — what lets an empty required field call itself out. */
     const [attempted, setAttempted] = useState(false);
@@ -803,6 +861,123 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
 
     const concurrency = useOptimisticConcurrency({ onReload: reload });
 
+    /* ── what a recipe sent the reader here to fix ───────────────────────────────────────────── */
+
+    /*
+     * Each thing `?needs=` asks for, as this page answers it: the section it is in, the element to
+     * take the reader to, what to do in one short line, and whether the saved record has done it
+     * yet — read from the record, so the list ticks itself off as each save lands. Allergens and
+     * nutrition are food's alone; a box is only ever asked about its unit or its price.
+     */
+    const savedAllergens = data?.allergens ?? [];
+    const needItems: readonly {
+        readonly key: IngredientNeed;
+        readonly section: string;
+        readonly message: string;
+        readonly targetId: string;
+        readonly resolved: boolean;
+    }[] = needs
+        .filter((need) => family.food || need === 'unit' || need === 'price')
+        .map((need) => {
+            switch (need) {
+                case 'allergens':
+                    return {
+                        key: need,
+                        section: t('kitchen:forms.allergensTitle'),
+                        message: t('kitchen:ingredientFix.allergens'),
+                        targetId: NEED_TARGET.allergens,
+                        resolved:
+                            data !== undefined &&
+                            !quarantined &&
+                            !allergensDirty &&
+                            (savedAllergens.length > 0 || data.allergensAssessedClear === true),
+                    };
+                case 'nutrition':
+                    return {
+                        key: need,
+                        section: t('kitchen:forms.nutritionTitle'),
+                        message: t('kitchen:ingredientFix.nutrition'),
+                        targetId: NEED_TARGET.nutrition,
+                        resolved:
+                            data !== undefined &&
+                            data.pendingNutrition == null &&
+                            data.per100g != null,
+                    };
+                case 'unit':
+                    return {
+                        key: need,
+                        section: t(
+                            family.food
+                                ? 'kitchen:editor.sectionMeasurement'
+                                : 'kitchen:forms.pack',
+                        ),
+                        message: t('kitchen:ingredientFix.unit', {
+                            unit: t(unitShortKey(details.measurementUnit)),
+                        }),
+                        targetId:
+                            unitDimension(details.measurementUnit) === 'mass'
+                                ? 'kitchen-ingredient-unit'
+                                : 'kitchen-ingredient-grams-per-unit',
+                        resolved:
+                            data !== undefined &&
+                            (unitDimension(data.measurementUnit) === 'mass' ||
+                                data.gramsPerUnit !== null),
+                    };
+                case 'price':
+                    return family.food
+                        ? {
+                              key: need,
+                              section: t('kitchen:editor.sectionMeasurement'),
+                              message: t('kitchen:ingredientFix.priceFood'),
+                              targetId: 'kitchen-ingredient-unit-price',
+                              resolved:
+                                  data !== undefined &&
+                                  (data.purchasePrice !== null ||
+                                      data.costPer100g !== null ||
+                                      (latestPurchase?.unitPriceAmount ?? null) !== null),
+                          }
+                        : {
+                              key: need,
+                              section: t('kitchen:forms.cost'),
+                              message: t('kitchen:ingredientFix.pricePack'),
+                              targetId: 'kitchen-ingredient-pack-price',
+                              resolved: data?.purchasePrice != null,
+                          };
+            }
+        });
+    const openNeed = (key: IngredientNeed) =>
+        needItems.find((item) => item.key === key && !item.resolved);
+    const needsDone = needItems.length > 0 && needItems.every((item) => item.resolved);
+    const returnName =
+        returnRecipe.data === undefined ? null : displayName(returnRecipe.data.name, locale).value;
+
+    /*
+     * Back to the recipe once a save has done what it was sent here for — by this page's Save, or
+     * by the moment the last thing asked for is done (allergens have a Save of their own, and a
+     * reader who has just pressed it should not have to find a second button). Once: a ref, so the
+     * re-read that follows a save never sends the reader back twice.
+     */
+    const returned = useRef(false);
+    const goBackToRecipe = useCallback(() => {
+        if (returned.current) return;
+        returned.current = true;
+        toast.show({
+            testID: 'kitchen-ingredient-saved-toast',
+            tone: 'success',
+            message:
+                returnName === null
+                    ? t('kitchen:ingredientFix.savedBack')
+                    : t('kitchen:ingredientFix.savedBackNamed', { name: returnName }),
+        });
+        back.finish();
+    }, [back, returnName, t, toast]);
+    const wasDone = useRef(needsDone);
+    useEffect(() => {
+        const became = needsDone && !wasDone.current;
+        wasDone.current = needsDone;
+        if (became && back.returnTo !== null && !guard.isDirty) goBackToRecipe();
+    }, [needsDone, back.returnTo, guard.isDirty, goBackToRecipe]);
+
     /* ── option lists ────────────────────────────────────────────────────────────────────────── */
 
     const classByCode = useMemo(() => {
@@ -1026,6 +1201,11 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
      * The guard is not consulted. A platform row has no editable field, so
      * there is no draft to lose; `settle` is likewise unnecessary for the same
      * reason.
+     *
+     * Sent here from a recipe, the copy keeps the fix and the way back — and the way back carries
+     * `swapFrom` / `swapTo`, because the server leaves existing recipes on the library row: the
+     * recipe swaps its line to this kitchen's copy when the reader returns, or the fix made here
+     * would never reach it.
      */
     const forkForKitchen = (): void => {
         if (data === undefined) return;
@@ -1039,7 +1219,19 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                         name: displayName(created.name, locale).value,
                     }),
                 });
-                router.replace(`${family.listRoute}/${String(created.id)}` as never);
+                router.replace(
+                    withReturnTo(
+                        withQuery(`${family.listRoute}/${String(created.id)}`, {
+                            needs: needs.length === 0 ? null : needs.join(','),
+                        }),
+                        back.returnTo === null
+                            ? null
+                            : withQuery(back.returnTo, {
+                                  swapFrom: String(data.id),
+                                  swapTo: String(created.id),
+                              }),
+                    ) as never,
+                );
             },
         });
     };
@@ -1185,7 +1377,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
     const blockerItems: readonly FormIssueItem[] = shownBlockers.map((entry) => ({
         key: entry.key,
         label: entry.label,
-        // The chip says what the field's own line would, so the field drops that line.
+        // The chip names the field; the field still says what is wrong under itself.
         fieldId: entry.fieldId,
         onPress: () => {
             focusField(entry.fieldId);
@@ -1274,7 +1466,63 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
         }
     };
 
+    /*
+     * What the server can refuse, by its field name, and where that field is on this page — in the
+     * order the page draws them, so a refused save takes the reader to the first one (BUG-06).
+     */
+    const serverTargets: Readonly<Record<string, ServerFieldTarget>> = {
+        name_en: {
+            label: t('kitchen:bilingual.englishShort', { field: t('kitchen:list.columnItem') }),
+            fieldId: 'kitchen-ingredient-name-en',
+        },
+        name_ar: {
+            label: t('kitchen:bilingual.arabicShort', { field: t('kitchen:list.columnItem') }),
+            fieldId: 'kitchen-ingredient-name-ar',
+        },
+        ingredient_category_id: {
+            label: t('kitchen:fields.category'),
+            fieldId: 'kitchen-ingredient-category',
+        },
+        ingredient_subcategory_id: {
+            label: t('kitchen:fields.subcategory'),
+            fieldId: 'kitchen-ingredient-subcategory',
+        },
+        purchase_unit_id: {
+            label: t('kitchen:fields.purchaseUnit'),
+            fieldId: 'kitchen-ingredient-purchase-unit',
+        },
+        default_unit_id: {
+            label: t(family.food ? 'kitchen:fields.stockUnit' : 'kitchen:forms.issueUnit'),
+            fieldId: 'kitchen-ingredient-unit',
+        },
+        capacity_quantity: {
+            label: t('kitchen:forms.holds'),
+            fieldId: 'kitchen-ingredient-capacity',
+        },
+        purchase_price_amount: {
+            label: t('kitchen:packaging.columnPackPrice'),
+            fieldId: 'kitchen-ingredient-pack-price',
+        },
+        waste_percent: {
+            label: t('kitchen:forms.waste'),
+            fieldId: 'kitchen-ingredient-waste',
+        },
+        b2b_price_amount: {
+            label: t('kitchen:sale.b2bPrice'),
+            fieldId: 'kitchen-ingredient-b2b-price',
+        },
+        b2c_price_amount: {
+            label: t('kitchen:sale.b2cPrice'),
+            fieldId: 'kitchen-ingredient-b2c-price',
+        },
+    };
+
     const showSaved = () => {
+        // Sent here from a recipe: the save is the end of the detour, so it goes straight back.
+        if (back.returnTo !== null) {
+            goBackToRecipe();
+            return;
+        }
         toast.show({
             testID: 'kitchen-ingredient-saved-toast',
             tone: 'success',
@@ -1355,6 +1603,9 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                             router.replace(`${family.listRoute}/${String(created.id)}` as never);
                         })();
                     },
+                    onError: (error) => {
+                        focusFirstRefusal(error, serverTargets);
+                    },
                 },
             );
             return;
@@ -1420,14 +1671,14 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     });
                 },
                 onError: (error) => {
-                    concurrency.capture(error);
+                    if (!concurrency.capture(error)) focusFirstRefusal(error, serverTargets);
                 },
             },
         );
     };
 
     const goBack = () => {
-        router.push(family.listRoute as never);
+        back.leave();
     };
 
     /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
@@ -1440,7 +1691,6 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     role="alert"
                     tone="warning"
                     title={t('kitchen:editor.notFoundTitle')}
-                    body={t('kitchen:editor.notFoundBody')}
                     actions={
                         <Button
                             testID="kitchen-ingredient-not-found-back"
@@ -1486,52 +1736,7 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
 
     const saveFailure = toFailure(update.error ?? create.error);
     // What the server refused, put on the fields it named (BUG-06).
-    const server = serverFieldErrors(saveFailure, {
-        name_en: {
-            label: t('kitchen:bilingual.englishShort', { field: t('kitchen:list.columnItem') }),
-            fieldId: 'kitchen-ingredient-name-en',
-        },
-        name_ar: {
-            label: t('kitchen:bilingual.arabicShort', { field: t('kitchen:list.columnItem') }),
-            fieldId: 'kitchen-ingredient-name-ar',
-        },
-        ingredient_category_id: {
-            label: t('kitchen:fields.category'),
-            fieldId: 'kitchen-ingredient-category',
-        },
-        ingredient_subcategory_id: {
-            label: t('kitchen:fields.subcategory'),
-            fieldId: 'kitchen-ingredient-subcategory',
-        },
-        purchase_unit_id: {
-            label: t('kitchen:fields.purchaseUnit'),
-            fieldId: 'kitchen-ingredient-purchase-unit',
-        },
-        default_unit_id: {
-            label: t(family.food ? 'kitchen:fields.stockUnit' : 'kitchen:forms.issueUnit'),
-            fieldId: 'kitchen-ingredient-unit',
-        },
-        b2b_price_amount: {
-            label: t('kitchen:sale.b2bPrice'),
-            fieldId: 'kitchen-ingredient-b2b-price',
-        },
-        b2c_price_amount: {
-            label: t('kitchen:sale.b2cPrice'),
-            fieldId: 'kitchen-ingredient-b2c-price',
-        },
-        purchase_price_amount: {
-            label: t('kitchen:packaging.columnPackPrice'),
-            fieldId: 'kitchen-ingredient-pack-price',
-        },
-        waste_percent: {
-            label: t('kitchen:forms.waste'),
-            fieldId: 'kitchen-ingredient-waste',
-        },
-        capacity_quantity: {
-            label: t('kitchen:forms.holds'),
-            fieldId: 'kitchen-ingredient-capacity',
-        },
-    });
+    const server = serverFieldErrors(saveFailure, serverTargets);
     // The chosen match's figures until the save returns the record's own — otherwise the cards
     // would sit empty (or show the old reference) while a selection is pending.
     const preview =
@@ -1857,6 +2062,8 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 placeholder={t('kitchen:fields.gramsPerUnitPlaceholder')}
                 unit={t(unitShortKey('g'))}
                 value={details.gramsPerUnit}
+                // What a recipe could not convert, said on the field that converts it.
+                {...(openNeed('unit') === undefined ? {} : { warning: openNeed('unit')?.message })}
                 // A recipe-derived row's mass comes from the recipe and is not saved from here.
                 disabled={!editable || nutritionDerived !== null}
                 onChangeText={(next) => {
@@ -1883,6 +2090,103 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 onChangeText={() => undefined}
             />
         );
+
+    /*
+     * The page's notices, one band under the opening rather than a band each: a title on a line
+     * per notice, with its action where it has one. What went wrong on a save keeps the server's
+     * own words, because those are the message; a notice that only explains is its title alone.
+     */
+    const notices = [
+        platformNotice ? (
+            /*
+             * The notice offers the way out of the constraint in the same breath — the row *can*
+             * be edited, once the kitchen takes a copy. The action is withheld from a reader
+             * without manage permission rather than shown disabled: forking is a write, and a
+             * control that exists only to be refused tells them less than its absence does.
+             */
+            <Callout
+                key="platform"
+                testID="kitchen-ingredient-platform-library"
+                role="note"
+                tone="info"
+                title={t('kitchen:editor.platformLibraryTitle')}
+                {...(canManage
+                    ? {
+                          actions: (
+                              <Button
+                                  testID="kitchen-ingredient-fork"
+                                  variant="secondary"
+                                  size="sm"
+                                  label={t('kitchen:editor.forkAction')}
+                                  loading={fork.isPending}
+                                  disabled={fork.isPending}
+                                  onPress={forkForKitchen}
+                              />
+                          ),
+                      }
+                    : {})}
+            />
+        ) : null,
+        forkFailure === null ? null : (
+            <Callout
+                key="fork-error"
+                testID="kitchen-ingredient-fork-error"
+                role="alert"
+                tone="danger"
+                title={t('kitchen:editor.forkError')}
+                body={forkFailure.message}
+            />
+        ),
+        quarantined ? (
+            <Callout
+                key="quarantine"
+                testID="kitchen-ingredient-quarantine"
+                role="alert"
+                tone="warning"
+                title={t('kitchen:allergens.quarantineTitle')}
+            />
+        ) : null,
+        // Added from the recipe editor: AI-filled and owing its confirmed reference.
+        data?.pendingNutrition == null ? null : (
+            <Callout
+                key="pending-nutrition"
+                testID="kitchen-ingredient-pending-nutrition"
+                role="note"
+                tone="warning"
+                icon="sparkle"
+                title={t('kitchen:editor.pendingNutritionTitle')}
+            />
+        ),
+        saveFailure === null || (server.isValidation && server.unplaced === null) ? null : (
+            <Callout
+                key="save-error"
+                testID="kitchen-ingredient-save-error"
+                role="alert"
+                tone="danger"
+                title={t('kitchen:editor.saveError')}
+                body={server.unplaced ?? saveFailure.message}
+            />
+        ),
+        photoFailure === null ? null : (
+            <Callout
+                key="photo-error"
+                testID="kitchen-ingredient-photo-error"
+                role="alert"
+                tone="danger"
+                title={t('kitchen:editor.saveError')}
+                body={photoFailure.message}
+            />
+        ),
+        currencyMissing ? (
+            <Callout
+                key="currency-missing"
+                testID="kitchen-ingredient-currency-missing"
+                role="alert"
+                tone="warning"
+                title={t('kitchen:sale.currencyUnknown')}
+            />
+        ) : null,
+    ].filter((notice): notice is ReactElement => notice !== null);
 
     return (
         <Cascade space="md" testID="kitchen-ingredient-editor-screen">
@@ -1961,8 +2265,88 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                     }
                 />
 
+                {/*
+                 * What a recipe sent the reader here to fix: each thing by the section it is in
+                 * and what to do, each a press away from its place on the page, ticked off as it
+                 * is saved — and the way back to the recipe, which a Save takes by itself.
+                 */}
+                {needItems.length === 0 ? null : (
+                    <Callout
+                        testID="kitchen-ingredient-fix"
+                        role="status"
+                        tone={needsDone ? 'success' : 'warning'}
+                        title={
+                            needsDone
+                                ? t('kitchen:ingredientFix.doneTitle')
+                                : t('kitchen:ingredientFix.title', {
+                                      count: needItems.filter((item) => !item.resolved).length,
+                                  })
+                        }
+                        actions={
+                            back.returnTo === null ? undefined : (
+                                <Button
+                                    testID="kitchen-ingredient-fix-back"
+                                    size="sm"
+                                    variant={needsDone ? 'primary' : 'secondary'}
+                                    label={
+                                        returnName === null
+                                            ? t('kitchen:ingredientFix.back')
+                                            : t('kitchen:ingredientFix.backNamed', {
+                                                  name: returnName,
+                                              })
+                                    }
+                                    onPress={() => {
+                                        guard.intercept(back.leave);
+                                    }}
+                                />
+                            )
+                        }
+                    >
+                        <Stack space="xs">
+                            {needItems.map((item) => (
+                                <Pressable
+                                    key={item.key}
+                                    testID={`kitchen-ingredient-fix-${item.key}`}
+                                    role="link"
+                                    accessibilityRole="link"
+                                    accessibilityLabel={`${item.section}: ${item.resolved ? t('kitchen:ingredientFix.doneItem') : item.message}`}
+                                    disabled={item.resolved}
+                                    onPress={() => {
+                                        focusField(item.targetId);
+                                    }}
+                                    className="flex-row flex-wrap items-center gap-tight"
+                                >
+                                    <Icon
+                                        name={item.resolved ? 'check' : 'warning'}
+                                        size="sm"
+                                        className={
+                                            item.resolved
+                                                ? 'text-success-strong'
+                                                : 'text-warning-strong'
+                                        }
+                                    />
+                                    <Text variant="label">{item.section}</Text>
+                                    <Text tone={item.resolved ? 'success' : 'primary'}>
+                                        {item.resolved
+                                            ? t('kitchen:ingredientFix.doneItem')
+                                            : item.message}
+                                    </Text>
+                                    {item.resolved ? null : (
+                                        <Icon
+                                            name="chevronEnd"
+                                            size="sm"
+                                            className="text-content-secondary"
+                                        />
+                                    )}
+                                </Pressable>
+                            ))}
+                        </Stack>
+                    </Callout>
+                )}
+
+                {/* One strip above the other, each the full width — never squeezed side by side. */}
                 {issueItems.length === 0 && warningItems.length === 0 ? null : (
-                    <Inline space="xs" wrap testID="kitchen-ingredient-issues">
+                    <Stack space="xs" testID="kitchen-ingredient-issues">
                         {issueItems.length === 0 ? null : (
                             <FormIssueBanner
                                 testID="kitchen-ingredient-issues-errors"
@@ -1986,100 +2370,17 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 items={warningItems}
                             />
                         )}
-                    </Inline>
+                    </Stack>
                 )}
 
                 <View className="border-b border-stroke" />
             </Stack>
 
-            {platformNotice ? (
-                /*
-                 * The notice states the constraint and offers the way out of it in the same breath.
-                 * It used to state the constraint alone, which left "cannot be edited here" as a
-                 * dead end — the row *can* be edited, once the kitchen takes a copy.
-                 *
-                 * The action is withheld from a reader without manage permission rather than shown
-                 * disabled: forking is a write, and a control that exists only to be refused tells
-                 * them less than its absence does.
-                 */
-                <Callout
-                    testID="kitchen-ingredient-platform-library"
-                    role="note"
-                    tone="info"
-                    title={t('kitchen:editor.platformLibraryTitle')}
-                    body={t('kitchen:editor.platformLibraryBody')}
-                    {...(canManage
-                        ? {
-                              actions: (
-                                  <Button
-                                      testID="kitchen-ingredient-fork"
-                                      variant="secondary"
-                                      size="sm"
-                                      label={t('kitchen:editor.forkAction')}
-                                      loading={fork.isPending}
-                                      disabled={fork.isPending}
-                                      onPress={forkForKitchen}
-                                  />
-                              ),
-                          }
-                        : {})}
-                />
-            ) : null}
-            {forkFailure === null ? null : (
-                <Callout
-                    testID="kitchen-ingredient-fork-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:editor.forkError')}
-                    body={forkFailure.message}
-                />
+            {notices.length === 0 ? null : (
+                <Stack space="xs" testID="kitchen-ingredient-notices">
+                    {notices}
+                </Stack>
             )}
-            {quarantined ? (
-                <Callout
-                    testID="kitchen-ingredient-quarantine"
-                    role="alert"
-                    tone="warning"
-                    title={t('kitchen:allergens.quarantineTitle')}
-                    body={t('kitchen:allergens.quarantineBody')}
-                />
-            ) : null}
-            {/* Added from the recipe editor: AI-filled and owing its confirmed reference. */}
-            {data?.pendingNutrition == null ? null : (
-                <Callout
-                    testID="kitchen-ingredient-pending-nutrition"
-                    role="note"
-                    tone="warning"
-                    icon="sparkle"
-                    title={t('kitchen:editor.pendingNutritionTitle')}
-                    body={t('kitchen:editor.pendingNutritionBody')}
-                />
-            )}
-            {saveFailure === null || (server.isValidation && server.unplaced === null) ? null : (
-                <Callout
-                    testID="kitchen-ingredient-save-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:editor.saveError')}
-                    body={server.unplaced ?? saveFailure.message}
-                />
-            )}
-            {photoFailure === null ? null : (
-                <Callout
-                    testID="kitchen-ingredient-photo-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:editor.saveError')}
-                    body={photoFailure.message}
-                />
-            )}
-            {currencyMissing ? (
-                <Callout
-                    testID="kitchen-ingredient-currency-missing"
-                    role="alert"
-                    tone="warning"
-                    title={t('kitchen:sale.currencyUnknown')}
-                />
-            ) : null}
 
             {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
             <View className="z-auto flex-col gap-loose">
@@ -2267,6 +2568,9 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 label={t('kitchen:fields.unitPrice')}
                                 placeholder={currentPricePlaceholder}
                                 value={currentPriceValue}
+                                {...(openNeed('price') === undefined
+                                    ? {}
+                                    : { warning: openNeed('price')?.message })}
                                 {...(latestPurchase === null ||
                                 latestPurchase.unitPriceAmount === null
                                     ? {}
@@ -2342,6 +2646,9 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                                 {...priceUnit}
                                 {...flag('pack-price', t('kitchen:sale.priceInvalid'))}
                                 {...server.flag('purchase_price_amount')}
+                                {...(openNeed('price') === undefined
+                                    ? {}
+                                    : { warning: openNeed('price')?.message })}
                                 onChangeText={(next) => {
                                     editPackaging({ packPrice: next });
                                 }}
@@ -2534,6 +2841,10 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                             </Inline>
                         }
                     >
+                        <NeedLine
+                            nativeID={NEED_TARGET.nutrition}
+                            message={openNeed('nutrition')?.message}
+                        />
                         {nutritionDerived === null ? (
                             <Stack space="sm">
                                 {/*
@@ -2634,6 +2945,10 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                             </Inline>
                         }
                     >
+                        <NeedLine
+                            nativeID={NEED_TARGET.allergens}
+                            message={openNeed('allergens')?.message}
+                        />
                         {isCreating && classes.data !== undefined ? (
                             <AllergenReferencePicker
                                 key={details.name.en}
@@ -2787,5 +3102,27 @@ function IngredientEditor({ ingredient, family = INGREDIENT_FAMILY }: Ingredient
                 )}
             </Dialog>
         </Cascade>
+    );
+}
+
+/**
+ * What a recipe needs from this section, said at the top of it — the line a fix lands on
+ * (`NEED_TARGET`). Nothing at all once it is done, or when no recipe asked.
+ */
+function NeedLine({
+    message,
+    nativeID,
+}: {
+    readonly message: string | undefined;
+    readonly nativeID: string;
+}) {
+    if (message === undefined) return null;
+    return (
+        <View nativeID={nativeID} testID={nativeID} className="flex-row items-center gap-tight">
+            <Icon name="warning" size="sm" className="text-warning-strong" />
+            <Text variant="label" tone="warning">
+                {message}
+            </Text>
+        </View>
     );
 }

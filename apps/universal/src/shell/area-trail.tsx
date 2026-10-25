@@ -31,6 +31,12 @@ export interface TrailLeaf {
      * where the crumb above navigates instead.
      */
     readonly back: (() => void) | null;
+    /**
+     * The page `back` returns to, where that is not the area's own parent of this route — a recipe
+     * opened from Stock gaps reads `… › Stock gaps › Lentil Soup`, and its crumb goes back there.
+     * `null` when the crumb above is the route's own parent, as it usually is.
+     */
+    readonly parentLabel: string | null;
 }
 
 interface TrailLeafState extends TrailLeaf {
@@ -39,11 +45,13 @@ interface TrailLeafState extends TrailLeaf {
 
 const TrailLeafContext = createContext<TrailLeafState | undefined>(undefined);
 
+const NO_LEAF: TrailLeaf = { leaf: null, back: null, parentLabel: null };
+
 /** Holds the trail's leaf for everything under an area layout — the top bar and the page. */
 export function TrailLeafProvider({ children }: { readonly children: ReactNode }) {
-    const [state, setTrail] = useState<TrailLeaf>({ leaf: null, back: null });
+    const [state, setTrail] = useState<TrailLeaf>(NO_LEAF);
     const trail = useMemo<TrailLeafState>(
-        () => ({ leaf: state.leaf, back: state.back, setTrail }),
+        () => ({ leaf: state.leaf, back: state.back, parentLabel: state.parentLabel, setTrail }),
         [state],
     );
 
@@ -56,8 +64,15 @@ export function TrailLeafProvider({ children }: { readonly children: ReactNode }
  * Pass the record's display name once it has loaded, and `null` while it has not. Outside a
  * provider it does nothing rather than throwing: screens render in unit tests with no shell around
  * them, and a screen that will not mount is a worse failure than a trail that is not there.
+ *
+ * `parentLabel`, with `onBack`, names the page the screen was opened from when that is not the
+ * route's own parent — the crumb above the leaf then reads that name and goes back to it.
  */
-export function useTrailLeaf(leaf: string | null, onBack?: (() => void) | undefined): void {
+export function useTrailLeaf(
+    leaf: string | null,
+    onBack?: (() => void) | undefined,
+    parentLabel?: string | null | undefined,
+): void {
     const trail = useContext(TrailLeafContext);
     const setTrail = trail?.setTrail;
 
@@ -72,6 +87,7 @@ export function useTrailLeaf(leaf: string | null, onBack?: (() => void) | undefi
         backRef.current = onBack;
     });
     const hasBack = onBack !== undefined;
+    const parent = hasBack ? (parentLabel ?? null) : null;
 
     useEffect(() => {
         if (setTrail === undefined) return undefined;
@@ -82,17 +98,22 @@ export function useTrailLeaf(leaf: string | null, onBack?: (() => void) | undefi
                       backRef.current?.();
                   }
                 : null,
+            parentLabel: parent,
         });
         return () => {
-            setTrail({ leaf: null, back: null });
+            setTrail(NO_LEAF);
         };
-    }, [setTrail, leaf, hasBack]);
+    }, [setTrail, leaf, hasBack, parent]);
 }
 
 /** The leaf the current screen has named — read by an area's crumb builder. */
 export function useTrailLeafState(): TrailLeaf {
     const context = useContext(TrailLeafContext);
-    return { leaf: context?.leaf ?? null, back: context?.back ?? null };
+    return {
+        leaf: context?.leaf ?? null,
+        back: context?.back ?? null,
+        parentLabel: context?.parentLabel ?? null,
+    };
 }
 
 /**

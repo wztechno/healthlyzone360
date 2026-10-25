@@ -184,3 +184,60 @@ describe('useKitchenTrail with a record open inside its list', () => {
         expect(screen.getByTestId('crumb-stock')).toHaveTextContent(/\|current$/);
     });
 });
+
+/** A page opened from another page than its own list — a recipe opened from Stock gaps. */
+function OpenedFrom({ onBack }: { readonly onBack: () => void }) {
+    useKitchenTrailLeaf(
+        'Lentil Soup',
+        () => {
+            onBack();
+        },
+        'Stock gaps',
+    );
+    return <RNText testID="record">record</RNText>;
+}
+
+describe('useKitchenTrail with a page that names where it was opened from', () => {
+    it('puts that page above the leaf, as the way back, in place of the route’s own family', async () => {
+        const onBack = jest.fn();
+        await renderStubScreen(
+            <KitchenTrailProvider>
+                <TrailProbe />
+                <OpenedFrom onBack={onBack} />
+            </KitchenTrailProvider>,
+            { session: kitchenManagerSession() },
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('crumb-leaf')).toHaveTextContent('Lentil Soup|current');
+        });
+        expect(screen.getByTestId('crumb-hub')).toHaveTextContent(/\|link$/);
+        expect(screen.getByTestId('crumb-return')).toHaveTextContent('Stock gaps|link');
+        // The route's own family crumb gives way to it — "… › Stock gaps › Lentil Soup".
+        expect(screen.queryByTestId('crumb-stock')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('crumb-return'));
+        });
+        expect(onBack).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the family crumb when a page names a parent but gives no way back to it', async () => {
+        function NoBack() {
+            useKitchenTrailLeaf('Lentil Soup', undefined, 'Stock gaps');
+            return null;
+        }
+        await renderStubScreen(
+            <KitchenTrailProvider>
+                <TrailProbe />
+                <NoBack />
+            </KitchenTrailProvider>,
+            { session: kitchenManagerSession() },
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('crumb-stock')).toBeTruthy();
+        });
+        expect(screen.queryByTestId('crumb-return')).toBeNull();
+    });
+});

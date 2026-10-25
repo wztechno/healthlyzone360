@@ -1,5 +1,6 @@
-import { fireEvent, screen } from '@testing-library/react-native';
+import { fireEvent, screen, within } from '@testing-library/react-native';
 
+import { DensityProvider } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
 import { Text } from '../primitives/text.tsx';
 import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
@@ -547,6 +548,105 @@ describe('Callout', () => {
     it('uses no physical direction utility anywhere in its tree', async () => {
         await renderWithI18n(<Callout testID="note" title="تنبيه" body="نص" />, 'ar');
         assertSubtreeIsLogical(screen.getByTestId('note'));
+    });
+
+    it('always takes the full width, so it never shares a line with a sibling', async () => {
+        await renderWithI18n(<Callout testID="note" title="Review" />);
+        expect(screen.getByTestId('note').props.className).toMatch(/(^|\s)w-full(\s|$)/);
+        // The regular panel keeps its padded frame.
+        expect(screen.getByTestId('note').props.className).toContain('py-2.5');
+    });
+});
+
+describe('Callout, compact', () => {
+    it('is the one-line strip: full width, 32px at least, the strip’s inset', async () => {
+        await renderWithI18n(
+            <Callout testID="strip" size="compact" tone="warning" title="Short" />,
+        );
+
+        const classes: string = screen.getByTestId('strip').props.className;
+        for (const token of ['w-full', 'min-h-8', 'py-1', 'pe-1', 'ps-2.5', 'rounded-md']) {
+            expect(classes.split(' ')).toContain(token);
+        }
+        expect(classes).toContain('bg-warning-subtle');
+        expect(classes).not.toMatch(/(^|\s)border(\s|$)/);
+    });
+
+    it('sets the title and the body as one run of text', async () => {
+        await renderWithI18n(
+            <Callout testID="strip" size="compact" title="Stock gap" body="Two lines short." />,
+        );
+
+        const run = screen.getByTestId('strip-text');
+        expect(within(run).getByTestId('strip-title')).toHaveTextContent('Stock gap');
+        expect(within(run).getByTestId('strip-body')).toHaveTextContent('Two lines short.');
+        expect(run).toHaveTextContent('Stock gap Two lines short.');
+        expect(screen.getByTestId('strip-title').props.className).toContain('font-semibold');
+        // The mark sits on the row's centre line, not pushed down onto a first line.
+        expect(screen.getByTestId('strip-icon').props.className ?? '').not.toContain('mt-1');
+    });
+
+    it('keeps the actions on the strip’s row and structured content on a row below', async () => {
+        await renderWithI18n(
+            <Callout
+                testID="strip"
+                size="compact"
+                title="Weekly check"
+                actions={<Text testID="act">Show that week</Text>}
+            >
+                <Text testID="line">Flour short 2 kg</Text>
+            </Callout>,
+        );
+
+        expect(within(screen.getByTestId('strip-actions')).getByTestId('act')).toBeTruthy();
+        const below = screen.getByTestId('strip-children');
+        expect(within(below).getByTestId('line')).toBeTruthy();
+        expect(within(below).queryByTestId('act')).toBeNull();
+        expect(within(screen.getByTestId('strip-text')).queryByTestId('line')).toBeNull();
+    });
+
+    it('keeps its role and its live region', async () => {
+        await renderWithI18n(
+            <>
+                <Callout testID="alarm" size="compact" role="alert" tone="danger" title="Refused" />
+                <Callout testID="news" size="compact" role="status" title="Saved" />
+            </>,
+        );
+
+        expect(screen.getByTestId('alarm').props.role).toBe('alert');
+        expect(screen.getByTestId('alarm').props.accessibilityRole).toBe('alert');
+        expect(screen.getByTestId('news').props.role).toBe('status');
+        expect(screen.getByTestId('news').props['aria-live']).toBe('polite');
+    });
+
+    it('is the default under the compact density, and a caller can still ask for the panel', async () => {
+        await renderWithI18n(
+            <DensityProvider value="compact">
+                <Callout testID="strip" title="Heads up" body="Body" />
+                <Callout testID="panel" size="regular" title="Heads up" body="Body" />
+            </DensityProvider>,
+        );
+
+        expect(screen.getByTestId('strip').props.className).toContain('min-h-8');
+        expect(screen.getByTestId('strip-text')).toBeTruthy();
+        expect(screen.getByTestId('panel').props.className).not.toContain('min-h-8');
+        expect(screen.queryByTestId('panel-text')).toBeNull();
+    });
+
+    it('uses no physical direction utility anywhere in its tree', async () => {
+        await renderWithI18n(
+            <Callout
+                testID="strip"
+                size="compact"
+                title="تنبيه"
+                body="نص"
+                actions={<Text>زر</Text>}
+            >
+                <Text>سطر</Text>
+            </Callout>,
+            'ar',
+        );
+        assertSubtreeIsLogical(screen.getByTestId('strip'));
     });
 });
 

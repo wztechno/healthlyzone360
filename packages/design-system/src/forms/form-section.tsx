@@ -131,7 +131,17 @@ export function FormSection({
                 </View>
             </View>
 
-            {children}
+            {/*
+             * The section's content as one column with a 12px gap, so a notice, a grid and a table
+             * passed side by side never touch. `z-auto` for the same reason as the root: a dropdown
+             * opened in a field here has to escape this box.
+             */}
+            <View
+                testID={testID === undefined ? undefined : `${testID}-content`}
+                className="z-auto flex-col gap-snug"
+            >
+                {children}
+            </View>
         </View>
     );
 }

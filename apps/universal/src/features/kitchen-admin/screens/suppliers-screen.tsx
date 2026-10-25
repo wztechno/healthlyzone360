@@ -38,6 +38,12 @@ import { displayName } from '../format.ts';
 import { supplierRowTestId } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import {
+    useListMemory,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedQuery,
+} from '../list-memory.ts';
 
 /**
  * `/kitchen/suppliers` — who this kitchen buys from (SUP1), on the Catalogue list (Operations
@@ -166,9 +172,12 @@ function SuppliersList() {
     const router = useRouter();
     const canManage = useCan(INVENTORY_MANAGE_PERMISSION);
 
-    const [query, setQuery] = useState('');
-    const [segment, setSegment] = useState<ArchiveSegment>('active');
+    // Search, segment, page and the supplier last opened survive leaving the list for a record.
+    const memory = useListMemory('kitchen.suppliers');
+    const [query, setQuery] = useRememberedQuery(memory);
+    const [segment, setSegment] = useRememberedFilter<ArchiveSegment>(memory, 'segment', 'active');
     const [viewing, setViewing] = useState<Supplier | null>(null);
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
 
     const includeArchived = segment === 'withArchived';
     const filter = useMemo(
@@ -190,6 +199,7 @@ function SuppliersList() {
 
     const openRecord = (row: Supplier) => {
         setViewing(null);
+        rememberOpened(String(row.id));
         router.push(`/kitchen/suppliers/${String(row.id)}` as never);
     };
 
@@ -449,6 +459,11 @@ function SuppliersList() {
                     rows={controls.rows}
                     rowKey={(row) => String(row.id)}
                     density="sm"
+                    highlightedId={lastOpenedId}
+                    initialPage={memory.initial.page}
+                    onPageChange={(page) => {
+                        memory.remember({ page });
+                    }}
                     onRowPress={openRecord}
                     rowActionsLabel={t('kitchen:list.rowActions')}
                     // View and Open. Archive lives on the record, behind its confirmation.
@@ -459,6 +474,7 @@ function SuppliersList() {
                             icon: CATALOGUE_ROW_ICONS.view,
                             testID: `${supplierRowTestId(String(row.id))}-view`,
                             onSelect: () => {
+                                rememberOpened(String(row.id));
                                 setViewing(row);
                             },
                         },

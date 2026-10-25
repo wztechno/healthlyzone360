@@ -17,8 +17,8 @@ import {
 import type { FormIssueItem } from '@healthy360/design-system';
 import { PriceListId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
+import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -36,6 +36,7 @@ import {
     usePublishPriceListMutation,
     useSetPriceListEntriesMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useOnlineStatus } from '../../../online/online-status.tsx';
 import { useSession } from '../../../session/session-provider.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
@@ -65,8 +66,13 @@ import {
     usePriceProblemText,
 } from '../price-row-editors.tsx';
 import type { PriceEntryDraft, PriceEntryProblem, PriceItemOption } from '../price-row-editors.tsx';
-import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
+import {
+    EditorGuardDialogs,
+    RecordFormOpening,
+    focusFirstRefusal,
+} from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
+import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -88,7 +94,8 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * - **The opening**: the name, its status and when it last changed, the facts, *Back to price
  *   lists* and — on a list not yet published — *Publish*. Once a save has been refused, the error
  *   summary lists each entry that stopped it, and each chip takes the reader to the row.
- * - **Notices**: offline, a draft's "Not charged yet", the quarantine and the confidential rates.
+ * - **Notices**, one band of one-line titles: a draft's "Not charged yet", the quarantine, the
+ *   confidential rates and a refused save. Offline is the shell's to say, not this page's.
  * - **The missing-items bar**: what is on sale on this list's channels and has no entry, with *Add
  *   them as pending* — rows that keep the item from being forgotten without inventing a price.
  * - **The entries** (`../price-row-editors.tsx`): filter, search, bulk change, the grouped grid.
@@ -146,7 +153,6 @@ export function PriceListEditScreen({ priceList }: PriceListEditScreenProps) {
 
 function PriceListEditor({ priceList }: PriceListEditScreenProps) {
     const { t } = useTranslation();
-    const router = useRouter();
     const { locale } = useLocale();
     const formatter = useFormatter();
     const toast = useToast();
@@ -183,6 +189,11 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
     const publish = usePublishPriceListMutation();
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
+    /*
+     * "Back to price lists" goes back a step, as the browser's arrow does — to the list as it was
+     * left — and opens the list afresh only when nothing is behind this page.
+     */
+    const back = useReturnTo(undefined, BOOK_ROUTE);
 
     const [entries, setEntries] = useState<readonly PriceEntryDraft[]>([]);
     const [baseline, setBaseline] = useState<ReadonlyMap<string, PriceEntryDraft>>(() => new Map());
@@ -374,15 +385,26 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
     const shownProblems = submitted ? problems : NO_PROBLEMS;
     const problemText = usePriceProblemText(currency);
 
+    /** The control a problem is about; dates have no single field, so the row itself. */
+    const problemFieldId = (row: PriceEntryDraft, problem: PriceEntryProblem) => {
+        const rowId = `${PAGE_ID}-entries-row-${row.key}`;
+        const field = priceProblemField(problem);
+        return {
+            rowId,
+            fieldId:
+                field === 'item'
+                    ? `${rowId}-item`
+                    : field === 'amount'
+                      ? `${rowId}-amount`
+                      : undefined,
+        };
+    };
+
     const issueItems: readonly FormIssueItem[] = entries.flatMap((row) => {
         const first = shownProblems.get(row.key)?.[0];
         if (first === undefined) return [];
         const name = nameOf(row);
-        const rowId = `${PAGE_ID}-entries-row-${row.key}`;
-        const field = priceProblemField(first);
-        // The field the chip names takes the message; dates have no single field to name.
-        const fieldId =
-            field === 'item' ? `${rowId}-item` : field === 'amount' ? `${rowId}-amount` : undefined;
+        const { rowId, fieldId } = problemFieldId(row, first);
         return [
             {
                 key: row.key,
@@ -461,10 +483,67 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
 
     const isPublished = data?.meta.status === 'published';
 
+    /*
+     * What the server can refuse, put on the row and field it named (BUG-06), in the order the
+     * grid draws them — so a refused save also takes the reader to the first one. `entries.N` is
+     * the N-th row `priceEntryRequest` sent, which drops only a row with no item.
+     */
+    const serverTargets = (
+        list: NonNullable<typeof data>,
+    ): Readonly<Record<string, ServerFieldTarget>> =>
+        Object.fromEntries(
+            entries
+                .filter((row) => row.item !== null)
+                .flatMap((row, index) => {
+                    const name = nameOf(row);
+                    const rowId = `${PAGE_ID}-entries-row-${row.key}`;
+                    const at = `entries.${String(index)}`;
+                    const item = {
+                        label: t('kitchen:priceLists.issueChip', {
+                            name,
+                            problem: t('kitchen:priceLists.itemLabel'),
+                        }),
+                        // A saved row's item is text, not a control: the chip takes the reader to
+                        // the row.
+                        fieldId: baseline.has(row.key) ? rowId : `${rowId}-item`,
+                    };
+                    return [
+                        [`${at}.catalogue_item_id`, item],
+                        [`${at}.catalogue_item_variant_id`, item],
+                        [
+                            `${at}.unit_amount_minor`,
+                            {
+                                label: t('kitchen:priceLists.amountFieldLabel', {
+                                    name,
+                                    currency: list.currency,
+                                }),
+                                fieldId: `${rowId}-amount`,
+                            },
+                        ],
+                        [
+                            `${at}.price_status`,
+                            {
+                                label: t('kitchen:priceLists.basisFieldLabel', { name }),
+                                fieldId: rowId,
+                            },
+                        ],
+                    ] as const;
+                }),
+        );
+
     const attemptSave = () => {
         if (data === undefined || !online) return;
         setSubmitted(true);
-        if (problems.size > 0) return;
+        if (problems.size > 0) {
+            // Every row says what is wrong with it; the first one is where the reader is taken.
+            const row = entries.find((entry) => problems.has(entry.key));
+            const first = row === undefined ? undefined : problems.get(row.key)?.[0];
+            if (row !== undefined && first !== undefined) {
+                const { rowId, fieldId } = problemFieldId(row, first);
+                focusField(fieldId ?? rowId);
+            }
+            return;
+        }
 
         save.mutate(
             {
@@ -487,7 +566,7 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
                     });
                 },
                 onError: (error) => {
-                    concurrency.capture(error);
+                    if (!concurrency.capture(error)) focusFirstRefusal(error, serverTargets(data));
                 },
             },
         );
@@ -507,7 +586,7 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
     };
 
     const backToBook = () => {
-        router.push(BOOK_ROUTE as never);
+        back.leave();
     };
 
     /* ── refusal and not-found ───────────────────────────────────────────────────────────────── */
@@ -520,7 +599,6 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
                     role="alert"
                     tone="warning"
                     title={t('kitchen:priceLists.notFoundTitle')}
-                    body={t('kitchen:priceLists.notFoundBody')}
                     actions={
                         <Button
                             testID={`${PAGE_ID}-not-found-back`}
@@ -569,50 +647,8 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
     if (data === undefined) return null;
 
     const saveFailure = toFailure(save.error);
-    /*
-     * What the server refused, put on the row and field it named (BUG-06). `entries.N` is the
-     * N-th row `priceEntryRequest` sent, which drops only a row with no item.
-     */
+    const server = serverFieldErrors(saveFailure, serverTargets(data));
     const sentEntries = entries.filter((row) => row.item !== null);
-    const server = serverFieldErrors(
-        saveFailure,
-        Object.fromEntries(
-            sentEntries.flatMap((row, index) => {
-                const name = nameOf(row);
-                const rowId = `${PAGE_ID}-entries-row-${row.key}`;
-                const at = `entries.${String(index)}`;
-                const item = {
-                    label: t('kitchen:priceLists.issueChip', {
-                        name,
-                        problem: t('kitchen:priceLists.itemLabel'),
-                    }),
-                    // A saved row's item is text, not a control: the chip takes the reader to the row.
-                    fieldId: baseline.has(row.key) ? rowId : `${rowId}-item`,
-                };
-                return [
-                    [`${at}.catalogue_item_id`, item],
-                    [`${at}.catalogue_item_variant_id`, item],
-                    [
-                        `${at}.unit_amount_minor`,
-                        {
-                            label: t('kitchen:priceLists.amountFieldLabel', {
-                                name,
-                                currency: data.currency,
-                            }),
-                            fieldId: `${rowId}-amount`,
-                        },
-                    ],
-                    [
-                        `${at}.price_status`,
-                        {
-                            label: t('kitchen:priceLists.basisFieldLabel', { name }),
-                            fieldId: rowId,
-                        },
-                    ],
-                ] as const;
-            }),
-        ),
-    );
     const refusals = new Map(
         sentEntries.flatMap((row, index) => {
             const at = (field: string) => server.errorFor(`entries.${String(index)}.${field}`);
@@ -677,10 +713,48 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
         .filter((part): part is string => part !== null)
         .join(' · ');
 
-    const readAt = formatter.formatDate(new Date(record.dataUpdatedAt), {
-        hour: '2-digit',
-        minute: '2-digit',
-    });
+    /*
+     * The page's notices, one band under the opening rather than a band each: a title on a line
+     * per notice. A refused save keeps the server's own words, because those are the message.
+     */
+    const notices = [
+        quarantined ? (
+            <Callout
+                key="quarantine"
+                testID={`${PAGE_ID}-quarantine`}
+                role="alert"
+                tone="warning"
+                title={t('kitchen:publish.quarantineTitle')}
+            />
+        ) : isPublished ? null : (
+            <Callout
+                key="draft-note"
+                testID={`${PAGE_ID}-draft-note`}
+                role="note"
+                tone="warning"
+                title={t('kitchen:priceLists.draftNoteTitle')}
+            />
+        ),
+        confidential ? (
+            <Callout
+                key="confidential"
+                testID={`${PAGE_ID}-confidential`}
+                role="note"
+                tone="warning"
+                title={t('kitchen:priceLists.confidentialTitle')}
+            />
+        ) : null,
+        saveFailure === null || (server.isValidation && server.unplaced === null) ? null : (
+            <Callout
+                key="save-error"
+                testID={`${PAGE_ID}-save-error`}
+                role="alert"
+                tone="danger"
+                title={t('kitchen:priceLists.saveFailedTitle')}
+                body={server.unplaced ?? saveFailure.message}
+            />
+        ),
+    ].filter((notice): notice is ReactElement => notice !== null);
 
     return (
         <Stack space="md" testID={SCREEN_ID}>
@@ -776,53 +850,10 @@ function PriceListEditor({ priceList }: PriceListEditScreenProps) {
                     }}
                 />
 
-                {online ? null : (
-                    <Callout
-                        testID={`${PAGE_ID}-offline`}
-                        role="status"
-                        tone="warning"
-                        title={t('kitchen:priceLists.offlineTitle')}
-                        body={t('kitchen:priceLists.offlineBody', { time: readAt })}
-                    />
-                )}
-
-                {quarantined ? (
-                    <Callout
-                        testID={`${PAGE_ID}-quarantine`}
-                        role="alert"
-                        tone="warning"
-                        title={t('kitchen:publish.quarantineTitle')}
-                        body={t('kitchen:publish.quarantineBody')}
-                    />
-                ) : isPublished ? null : (
-                    <Callout
-                        testID={`${PAGE_ID}-draft-note`}
-                        role="note"
-                        tone="warning"
-                        title={t('kitchen:priceLists.draftNoteTitle')}
-                        body={t('kitchen:priceLists.draftNoteBody')}
-                    />
-                )}
-
-                {confidential ? (
-                    <Callout
-                        testID={`${PAGE_ID}-confidential`}
-                        role="note"
-                        tone="warning"
-                        title={t('kitchen:priceLists.confidentialTitle')}
-                        body={t('kitchen:priceLists.confidentialBody')}
-                    />
-                ) : null}
-
-                {saveFailure === null ||
-                (server.isValidation && server.unplaced === null) ? null : (
-                    <Callout
-                        testID={`${PAGE_ID}-save-error`}
-                        role="alert"
-                        tone="danger"
-                        title={t('kitchen:priceLists.saveFailedTitle')}
-                        body={server.unplaced ?? saveFailure.message}
-                    />
+                {notices.length === 0 ? null : (
+                    <Stack space="xs" testID={`${PAGE_ID}-notices`}>
+                        {notices}
+                    </Stack>
                 )}
 
                 {gaps.length === 0 || entries.length === 0 ? null : (

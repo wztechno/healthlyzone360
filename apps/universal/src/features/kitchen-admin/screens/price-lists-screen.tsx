@@ -51,9 +51,16 @@ import {
     statusTone,
     summarisePriceEntries,
 } from '../format.ts';
-import { useListPage } from '../use-list-page.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import {
+    useListMemory,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedPage,
+    useRememberedQuery,
+    useRestoredPageFallback,
+} from '../list-memory.ts';
 
 /**
  * `/kitchen/price-lists` — what this kitchen charges, and how much of it is actually decided
@@ -107,10 +114,13 @@ function PriceListsList() {
     const formatter = useFormatter();
     const { locale } = useLocale();
 
-    const [query, setQuery] = useState('');
-    const [status, setStatus] = useState<StatusSegmentValue>('all');
-    const [channel, setChannel] = useState<SalesChannel | null>(null);
+    // Search, filters, page and the row last opened survive leaving the list for a price list.
+    const memory = useListMemory('kitchen.price-lists');
+    const [query, setQuery] = useRememberedQuery(memory);
+    const [status, setStatus] = useRememberedFilter<StatusSegmentValue>(memory, 'status', 'all');
+    const [channel, setChannel] = useRememberedFilter<SalesChannel | null>(memory, 'channel', null);
     const [viewing, setViewing] = useState<PriceListAdmin | null>(null);
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
 
     const trimmed = query.trim();
     const filter = useMemo(
@@ -121,8 +131,11 @@ function PriceListsList() {
         }),
         [trimmed, status, channel],
     );
-    const [page, setPage] = useListPage(filter);
+    const [page, setPage] = useRememberedPage(memory, filter);
     const priceLists = usePriceListPageQuery(filter, page);
+    useRestoredPageFallback(memory, page, priceLists.isError, () => {
+        setPage(1);
+    });
     const wholeSet = usePriceListWholeSetQuery(filter);
     const rows = useMemo(() => priceLists.data?.items ?? [], [priceLists.data]);
     const total = priceLists.data?.totalCount ?? null;
@@ -130,6 +143,7 @@ function PriceListsList() {
 
     const openEditor = (row: PriceListAdmin) => {
         setViewing(null);
+        rememberOpened(String(row.id));
         router.push(`/kitchen/price-lists/${String(row.id)}` as never);
     };
 
@@ -409,6 +423,7 @@ function PriceListsList() {
                         rows={controls.rows}
                         rowKey={(row) => String(row.id)}
                         density="sm"
+                        highlightedId={lastOpenedId}
                         onRowPress={openEditor}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         // View and Edit. No Archive: the contract publishes no retire (§6.1).
@@ -419,6 +434,7 @@ function PriceListsList() {
                                 icon: CATALOGUE_ROW_ICONS.view,
                                 testID: `${priceListRowTestId(String(row.id))}-view`,
                                 onSelect: () => {
+                                    rememberOpened(String(row.id));
                                     setViewing(row);
                                 },
                             },

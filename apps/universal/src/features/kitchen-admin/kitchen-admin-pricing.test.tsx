@@ -103,7 +103,14 @@ jest.mock('expo-router', () => {
     const replace = jest.fn();
     return {
         __esModule: true,
-        useRouter: () => ({ push, replace, setParams: jest.fn(), back: jest.fn() }),
+        useRouter: () => ({
+            push,
+            replace,
+            setParams: jest.fn(),
+            back: jest.fn(),
+            canGoBack: () => false,
+            dismissTo: jest.fn(),
+        }),
         usePathname: () => '/kitchen/price-lists',
         useLocalSearchParams: () => ({}),
         Redirect: () => null,
@@ -1425,13 +1432,14 @@ describe('editing a price list', () => {
         });
 
         await untilVisible('kitchen-price-list-editor-screen-unsaved-dialog');
-        expect(routerMock.__push).not.toHaveBeenCalledWith('/kitchen/price-lists');
+        expect(routerMock.__replace).not.toHaveBeenCalledWith('/kitchen/price-lists');
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-price-list-editor-screen-unsaved-discard'));
         });
+        // Back steps out of the editor; with no history under it, it lands on the list.
         await waitFor(() => {
-            expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/price-lists');
+            expect(routerMock.__replace).toHaveBeenCalledWith('/kitchen/price-lists');
         });
     });
 });

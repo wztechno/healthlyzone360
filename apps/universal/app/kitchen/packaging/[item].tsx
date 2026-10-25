@@ -18,6 +18,11 @@ const PackagingEditScreen = lazyScreen(
 );
 
 export default function KitchenPackagingEditor() {
-    const { item } = useLocalSearchParams<{ item?: string }>();
-    return <PackagingEditScreen item={item} />;
+    // `?returnTo=` and `?needs=`: a recipe sent the reader here to fix this item, and back.
+    const { item, returnTo, needs } = useLocalSearchParams<{
+        item?: string;
+        returnTo?: string;
+        needs?: string;
+    }>();
+    return <PackagingEditScreen item={item} returnTo={returnTo} needs={needs} />;
 }

@@ -310,14 +310,6 @@ function OrderDeskRequirements() {
 
     return (
         <Cascade space="md" testID="kitchen-order-desk-requirements-screen">
-            <WeeklyStockCheckBanner
-                branchId={branchId}
-                onShowWindow={(windowFrom, windowTo) => {
-                    setFrom(windowFrom);
-                    setTo(windowTo);
-                }}
-            />
-
             {/*
              * The figures as cards, from the first frame. While the window is in flight each card
              * holds a placeholder where its figure goes — a zero there would claim an answer the
@@ -393,6 +385,19 @@ function OrderDeskRequirements() {
                     min={from}
                 />
             </ToolbarPanel>
+
+            {/*
+             * What Monday's check found, just above the list it is read against — the snapshot
+             * beside "where we stand", not a banner over the page's figures. Nothing is drawn when
+             * the check found nothing short.
+             */}
+            <WeeklyStockCheckBanner
+                branchId={branchId}
+                onShowWindow={(windowFrom, windowTo) => {
+                    setFrom(windowFrom);
+                    setTo(windowTo);
+                }}
+            />
 
             {branchId === null ? (
                 // Friendly rather than an error: the reader did nothing wrong, the list simply

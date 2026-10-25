@@ -104,6 +104,14 @@ import {
  * the trail draws the leaf and makes the family crumb that callback. That is what lets the view
  * pages drop their own Back button: the trail is the one way back, on every page that has a record
  * open, whether the record is a route of its own or not.
+ *
+ * ## A page opened from elsewhere names where it came from
+ *
+ * A recipe opened from Stock gaps to fix a gap is a route of the recipe book, but the reader came
+ * from Stock gaps and Back goes there. So such a page names that parent too (`parentLabel`, the
+ * hook's third argument, with its way back), and the trail reads `Kitchen workspace › Stock gaps ›
+ * Lentil Soup` with **Stock gaps** as the link back — the same page the browser's Back returns to,
+ * rather than a Recipes crumb that would lead somewhere the reader never was.
  */
 
 export interface KitchenOpsShellProps {
@@ -117,6 +125,10 @@ export interface KitchenOpsShellProps {
  * stays two crumbs until then. Calling this is what makes the family crumb above it a link, so a
  * detail screen that wants a way back to its list wants this hook. The leaf context is the shell's,
  * not the kitchen's, so a view page reused in another desk area names its crumb there too.
+ *
+ * `useKitchenTrailLeaf(title, onBack, parentLabel)`: with both of the last two, the crumb above the
+ * leaf is `parentLabel` and presses `onBack` — for a page opened from somewhere other than its own
+ * list.
  */
 export const useKitchenTrailLeaf = useTrailLeaf;
 
@@ -132,12 +144,36 @@ export function useKitchenTrail(): readonly BreadcrumbItem[] {
     const router = useRouter();
     const pathname = usePathname();
     const accessState = useAccessState();
-    const { leaf, back } = useTrailLeafState();
+    const { leaf, back, parentLabel } = useTrailLeafState();
 
     return useMemo<readonly BreadcrumbItem[]>(() => {
         // The hub is its own page; a trail that says "Kitchen workspace" on the kitchen workspace
         // is furniture.
         if (isKitchenNavActive(pathname, OVERVIEW_HREF)) return [];
+
+        const hub: BreadcrumbItem = {
+            key: 'hub',
+            label: t('kitchen:hub.title'),
+            testID: 'kitchen-crumb-hub',
+            onPress: () => {
+                router.push(OVERVIEW_HREF as never);
+            },
+        };
+
+        // Opened from somewhere that is not this route's parent — a recipe from Stock gaps — and
+        // handed the way back: the crumb above the leaf is that page, and goes back to it.
+        if (leaf !== null && back !== null && parentLabel !== null) {
+            return [
+                hub,
+                {
+                    key: 'return',
+                    label: parentLabel,
+                    testID: 'kitchen-crumb-family',
+                    onPress: back,
+                },
+                { key: 'leaf', label: leaf, testID: 'kitchen-crumb-leaf' },
+            ];
+        }
 
         const items = kitchenNavSections(accessState).flatMap((section) => section.items);
         const activeHref = activeKitchenNavHref(
@@ -157,14 +193,7 @@ export function useKitchenTrail(): readonly BreadcrumbItem[] {
         // what is showing, so the crumb is a link again — to the list, by closing the record.
         const viewOpen = onFamilyRoute && leaf !== null && back !== null;
         return [
-            {
-                key: 'hub',
-                label: t('kitchen:hub.title'),
-                testID: 'kitchen-crumb-hub',
-                onPress: () => {
-                    router.push(OVERVIEW_HREF as never);
-                },
-            },
+            hub,
             {
                 key: family.key,
                 label: t(family.nameKey),
@@ -186,7 +215,7 @@ export function useKitchenTrail(): readonly BreadcrumbItem[] {
                 ? []
                 : [{ key: 'leaf', label: leaf, testID: 'kitchen-crumb-leaf' }]),
         ];
-    }, [accessState, pathname, router, t, leaf, back]);
+    }, [accessState, pathname, router, t, leaf, back, parentLabel]);
 }
 
 /** The trail as the top bar draws it. `kitchen-breadcrumbs` is a print-stylesheet contract. */

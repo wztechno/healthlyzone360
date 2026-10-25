@@ -18,7 +18,7 @@ import {
  * The Advanced step — every code a role can hold, as a matrix of area × action.
  *
  * ```
- * Area            View      Manage     Publish    See costs    Other
+ * Area            View      Edit       Publish    See costs    Other
  * ────────────────────────────────────────────────────────────────────────────────────
  * Recipe          [ ✓ ]     [    ]     [    ]     [ ✓ ⚠ ]      —
  * Order           [ ✓ ]     [ ✓  ]     —          —            [✓ Create on behalf] [Customer contact]
@@ -163,7 +163,6 @@ export function RolePermissionsTab({
             <MatrixCell
                 key={permission.code}
                 testID={`${testID}-code-${permission.code}`}
-                kind="checkbox"
                 on={codes.has(permission.code)}
                 word={word}
                 label={[
@@ -198,7 +197,8 @@ export function RolePermissionsTab({
         { key: 'other', label: t('accessAdmin:advanced.actions.other'), weight: OTHER_WEIGHT },
     ];
 
-    const floor = useMatrixFloor([...ACTION_COLUMNS.map(() => 1), OTHER_WEIGHT]);
+    // An area is a word or two, so the names take the narrow track — see `MatrixRowWidth`.
+    const floor = useMatrixFloor([...ACTION_COLUMNS.map(() => 1), OTHER_WEIGHT], 'narrow');
 
     return (
         <View testID={testID} className="z-auto flex-col gap-base">
@@ -220,6 +220,7 @@ export function RolePermissionsTab({
                 testID={`${testID}-matrix`}
                 label={t('accessAdmin:advanced.tableLabel')}
                 floor={floor}
+                rows="narrow"
             >
                 <MatrixHeader
                     rowHeader={t('accessAdmin:advanced.columns.area')}

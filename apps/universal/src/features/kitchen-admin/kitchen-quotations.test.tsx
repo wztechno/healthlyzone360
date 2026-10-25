@@ -9,6 +9,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { focusField } from './field-focus.ts';
 import { QuotationsScreen } from './screens/quotations-screen.tsx';
 
 /*
@@ -20,6 +21,9 @@ jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
     __esModule: true,
     default: () => ({ width: 1280, height: 900, scale: 1, fontScale: 1 }),
 }));
+
+// Send with a line unpriced takes the reader to it; the focus itself is the browser's to do.
+jest.mock('./field-focus.ts', () => ({ focusField: jest.fn() }));
 
 jest.mock('expo-router', () => ({
     __esModule: true,
@@ -434,8 +438,11 @@ describe('kitchen quotations', () => {
             screen.getByTestId('kitchen-quotation-line-test-quotation-line-1-price'),
             '18.00',
         );
+        // Send is always pressable now; what it waits for is the typed price having landed.
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-quotations-send')).not.toBeDisabled();
+            expect(
+                screen.getByTestId('kitchen-quotation-line-test-quotation-line-1-total'),
+            ).toHaveTextContent(/216\.00/);
         });
         fireEvent.press(screen.getByTestId('kitchen-quotations-send'));
 
@@ -448,7 +455,7 @@ describe('kitchen quotations', () => {
         expect(screen.getByTestId('kitchen-quotations-conflict-refresh')).toBeTruthy();
     });
 
-    it('keeps the send control shut until every line parses, then prices them all at once', async () => {
+    it('takes Send to the first line without a price until every line parses, then prices them all at once', async () => {
         const book = createQuotationBook();
         await renderQuotations(book);
 
@@ -456,29 +463,48 @@ describe('kitchen quotations', () => {
         fireEvent.press(screen.getByTestId(`kitchen-quotation-${String(quotationIdAt(1))}-open`));
         await waitForDetail();
 
-        const send = screen.getByTestId('kitchen-quotations-send');
-        expect(send).toBeDisabled();
+        const before = book.quotations().find((record) => record.id === quotationIdAt(1));
+        /** Presses Send and answers where it took the reader, once the typing has landed. */
+        const sendLandsOn = async (line: number) => {
+            await waitFor(() => {
+                jest.mocked(focusField).mockClear();
+                fireEvent.press(screen.getByTestId('kitchen-quotations-send'));
+                expect(focusField).toHaveBeenCalledWith(
+                    `kitchen-quotation-line-test-quotation-line-${String(line)}-price`,
+                );
+            });
+        };
 
-        // One line priced is still a partial set the server would refuse.
+        // Send is never a dead button: pressed with nothing priced, it goes to the first line.
+        expect(screen.getByTestId('kitchen-quotations-send')).not.toBeDisabled();
+        await sendLandsOn(1);
+
+        // One line priced is still a partial set the server would refuse: Send goes to the next.
         fireEvent.changeText(
             screen.getByTestId('kitchen-quotation-line-test-quotation-line-1-price'),
             '18.00',
         );
-        expect(screen.getByTestId('kitchen-quotations-send')).toBeDisabled();
+        await sendLandsOn(2);
 
         // A figure with more decimal places than the currency has is a typo, not half a cent.
         fireEvent.changeText(
             screen.getByTestId('kitchen-quotation-line-test-quotation-line-2-price'),
             '20.005',
         );
-        expect(screen.getByTestId('kitchen-quotations-send')).toBeDisabled();
+        await sendLandsOn(2);
+
+        // None of those presses reached the server.
+        expect(book.quotations().find((record) => record.id === quotationIdAt(1))).toEqual(before);
 
         fireEvent.changeText(
             screen.getByTestId('kitchen-quotation-line-test-quotation-line-2-price'),
             '20.00',
         );
+        // Every line now reads: the last one's total is worked out from what was typed.
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-quotations-send')).not.toBeDisabled();
+            expect(
+                screen.getByTestId('kitchen-quotation-line-test-quotation-line-2-total'),
+            ).toHaveTextContent(/80\.00/);
         });
 
         fireEvent.press(screen.getByTestId('kitchen-quotations-send'));

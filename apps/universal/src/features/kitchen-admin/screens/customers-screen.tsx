@@ -12,7 +12,7 @@ import type { BadgeTone } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -32,6 +32,12 @@ import {
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { ORDER_VIEW_CUSTOMER_CONTACT_PERMISSION } from '../entity-registry.ts';
 import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
+import {
+    useListMemory,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedQuery,
+} from '../list-memory.ts';
 
 /**
  * `/kitchen/customers` — the kitchen's customer book, for reference (Access group).
@@ -93,8 +99,11 @@ function CustomersList() {
     const formatter = useFormatter();
     const router = useRouter();
 
-    const [query, setQuery] = useState('');
-    const [segment, setSegment] = useState<TypeSegment>('all');
+    // Search, segment, page and the customer last opened survive leaving the list for a record.
+    const memory = useListMemory('kitchen.customers');
+    const [query, setQuery] = useRememberedQuery(memory);
+    const [segment, setSegment] = useRememberedFilter<TypeSegment>(memory, 'segment', 'all');
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
     const settledQuery = useDebouncedValue(query.trim(), SEARCH_DEBOUNCE_MS);
 
     const filter = useMemo(
@@ -227,6 +236,7 @@ function CustomersList() {
     ];
 
     const openRecord = (row: KitchenCustomer) => {
+        rememberOpened(row.id);
         router.push(`/kitchen/customers/${row.id}` as never);
     };
 
@@ -290,6 +300,11 @@ function CustomersList() {
                     rows={controls.rows}
                     rowKey={(row) => row.id}
                     density="sm"
+                    highlightedId={lastOpenedId}
+                    initialPage={memory.initial.page}
+                    onPageChange={(page) => {
+                        memory.remember({ page });
+                    }}
                     onRowPress={openRecord}
                     rowActionsLabel={t('kitchen:list.rowActions')}
                 />

@@ -25,7 +25,7 @@ import type { BadgeTone, MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, View } from 'react-native';
 
@@ -73,6 +73,12 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
+import {
+    useListMemory,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedQuery,
+} from '../list-memory.ts';
 
 /**
  * The photograph of what is on the shelf: the ingredient's own, or the product's.
@@ -141,6 +147,13 @@ export function StockScreen() {
 /** Client-side pages over a book the stock read answers whole. Capped for the `414` reason above. */
 const PAGE_SIZE = 18;
 
+/**
+ * The paging key a list coming back starts under: "the remembered page, under whatever header
+ * filters the first render has". Swapped for that render's real key at once, so a later header
+ * change still lands on page one.
+ */
+const RESTORED_PAGING: object = {};
+
 type Kind = 'ingredients' | 'products';
 type LevelSegment = 'all' | 'low' | 'out' | 'ok' | 'none';
 type LevelState = Exclude<LevelSegment, 'all'>;
@@ -200,18 +213,21 @@ function Stock() {
     const items = useStockItemsQuery();
     const levels = useStockLevelsQuery();
 
-    const [query, setQuery] = useState('');
-    const [kind, setKind] = useState<Kind>('ingredients');
-    const [segment, setSegment] = useState<LevelSegment>('all');
+    // Search, kind, segment, page and the row last opened survive leaving the list.
+    const memory = useListMemory('kitchen.stock');
+    const [query, setQuery] = useRememberedQuery(memory);
+    const [kind, setKind] = useRememberedFilter<Kind>(memory, 'kind', 'ingredients');
+    const [segment, setSegment] = useRememberedFilter<LevelSegment>(memory, 'segment', 'all');
     /**
      * The page, remembered against the header filters it was chosen under — so narrowing a column
      * lands on page one without an effect. `null` is "page one, whatever the filters".
      */
     const [paging, setPaging] = useState<{ readonly key: object | null; readonly page: number }>({
-        key: null,
-        page: 1,
+        key: RESTORED_PAGING,
+        page: memory.initial.page,
     });
     const [viewing, setViewing] = useState<StockRow | null>(null);
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
     const [editing, setEditing] = useState<StockRow | null>(null);
     const { locale } = useLocale();
     const resolveScan = useResolveBarcodeScan();
@@ -416,8 +432,18 @@ function Stock() {
     ];
 
     const controls = useColumnControls(filteredRows, columns, 'kitchen-stock');
+    // The remembered page binds to the first header filters it meets — adjusted during render.
+    if (paging.key === RESTORED_PAGING) setPaging({ key: controls.key, page: paging.page });
+    const chosenPage =
+        paging.key === controls.key || paging.key === RESTORED_PAGING ? paging.page : 1;
     const totalPages = Math.max(1, Math.ceil(controls.rows.length / PAGE_SIZE));
-    const currentPage = paging.key === controls.key ? Math.min(paging.page, totalPages) : 1;
+    const currentPage = Math.min(chosenPage, totalPages);
+    const { remember } = memory;
+    // The page chosen rather than the page drawn: before the rows land every list is one page
+    // long, and that must not overwrite the page the reader left.
+    useEffect(() => {
+        remember({ page: chosenPage });
+    }, [remember, chosenPage]);
     const from = (currentPage - 1) * PAGE_SIZE;
     const visible = controls.rows.slice(from, from + PAGE_SIZE);
 
@@ -526,7 +552,13 @@ function Stock() {
 
     const openEditor = (row: StockRow) => {
         setViewing(null);
+        rememberOpened(String(row.item.id));
         setEditing(row);
+    };
+
+    const openView = (row: StockRow) => {
+        rememberOpened(String(row.item.id));
+        setViewing(row);
     };
 
     /**
@@ -555,7 +587,7 @@ function Stock() {
                 const row: StockRow = { item, level, state: levelState(level) };
                 setQuery('');
                 if (canManage) openEditor(row);
-                else setViewing(row);
+                else openView(row);
             },
             (error: unknown) => {
                 const failure = toFailure(error);
@@ -572,6 +604,7 @@ function Stock() {
     };
 
     const openHistory = (row: StockRow) => {
+        rememberOpened(String(row.item.id));
         router.push(`/kitchen/purchases-ledger?item=${String(row.item.id)}` as never);
     };
 
@@ -589,7 +622,7 @@ function Stock() {
                 icon: CATALOGUE_ROW_ICONS.view,
                 testID: `${testID}-view`,
                 onSelect: () => {
-                    setViewing(row);
+                    openView(row);
                 },
             },
             ...(canManage
@@ -845,7 +878,8 @@ function Stock() {
                         rows={visible}
                         rowKey={(row) => String(row.item.id)}
                         density="sm"
-                        onRowPress={canManage ? openEditor : setViewing}
+                        highlightedId={lastOpenedId}
+                        onRowPress={canManage ? openEditor : openView}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={rowActions}
                     />

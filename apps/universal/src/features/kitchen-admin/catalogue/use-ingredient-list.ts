@@ -28,9 +28,15 @@ import {
     useIngredientWholeSetQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
-import { useListPage } from '../use-list-page.ts';
-import { useCatalogueFilters } from './use-catalogue-filters.ts';
 import { useDestructiveRow } from './use-destructive-row.ts';
+import {
+    useListMemory,
+    useRememberedCatalogueFilters,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedPage,
+    useRestoredPageFallback,
+} from '../list-memory.ts';
 
 /**
  * Everything `/kitchen/ingredients` knows that is not a pixel — handoff §4.6.
@@ -179,6 +185,8 @@ export interface IngredientListState {
 
     readonly openEditor: (ingredientId: string) => void;
     readonly createNew: () => void;
+    /** The row the reader opened last — marked when they come back to the list. */
+    readonly lastOpenedId: string | null;
 
     /**
      * The record the read-only View panel is showing, or `null`.
@@ -202,6 +210,8 @@ export interface IngredientListState {
 export function useIngredientList(): IngredientListState {
     const router = useRouter();
     const { locale } = useLocale();
+    // Search, filters, sort, page and the row last opened survive leaving the list for a record.
+    const memory = useListMemory('kitchen.ingredients');
 
     const {
         query,
@@ -211,15 +221,28 @@ export function useIngredientList(): IngredientListState {
         setStatuses,
         isUnfiltered: searchAndStatusUnset,
         clear: clearSearchAndStatus,
-    } = useCatalogueFilters();
-    const [category, setCategory] = useState<string | null>(null);
-    const [allergen, setAllergen] = useState<AllergenCode | null>(null);
+    } = useRememberedCatalogueFilters(memory);
+    const [category, setCategory] = useRememberedFilter<string | null>(memory, 'category', null);
+    const [allergen, setAllergen] = useRememberedFilter<AllergenCode | null>(
+        memory,
+        'allergen',
+        null,
+    );
     // Reference ascending, which is the order the codes were issued in and so the order a
     // kitchen already knows the library by. Sorting by name instead put the list in an order
     // that changes with the language.
-    const [sortKey, setSortKey] = useState<IngredientSortKey>('reference');
-    const [sortDirection, setSortDirection] = useState<IngredientSortDirection>('asc');
+    const [sortKey, setSortKey] = useRememberedFilter<IngredientSortKey>(
+        memory,
+        'sortKey',
+        'reference',
+    );
+    const [sortDirection, setSortDirection] = useRememberedFilter<IngredientSortDirection>(
+        memory,
+        'sortDirection',
+        'asc',
+    );
     const [viewing, setViewing] = useState<IngredientAdmin | null>(null);
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
 
     const filter = useMemo(
         () => ({
@@ -264,8 +287,11 @@ export function useIngredientList(): IngredientListState {
         [trimmed, statuses, category, allergen, sortKey, sortDirection, locale],
     );
 
-    const [page, setPage] = useListPage(filter);
+    const [page, setPage] = useRememberedPage(memory, filter);
     const ingredients = useIngredientPageQuery(filter, page);
+    useRestoredPageFallback(memory, page, ingredients.isError, () => {
+        setPage(1);
+    });
     const wholeSet = useIngredientWholeSetQuery(filter);
     const categories = useIngredientCategoriesQuery();
     const allergenClasses = useAllergenClassesQuery();
@@ -344,14 +370,19 @@ export function useIngredientList(): IngredientListState {
         uncostedCount,
 
         openEditor: (ingredientId) => {
+            rememberOpened(ingredientId);
             router.push(`/kitchen/ingredients/${ingredientId}` as never);
         },
         createNew: () => {
             router.push('/kitchen/ingredients/new' as never);
         },
+        lastOpenedId,
 
         viewing,
-        openView: setViewing,
+        openView: (row) => {
+            rememberOpened(String(row.id));
+            setViewing(row);
+        },
         closeView: () => {
             setViewing(null);
         },

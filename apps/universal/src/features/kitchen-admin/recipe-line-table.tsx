@@ -24,7 +24,7 @@ import type { MeasureUnit } from '@healthy360/nutrition';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { TextInput, View } from 'react-native';
+import { Pressable, Text as RNText, TextInput, View } from 'react-native';
 
 import { useIngredientWholeSetQuery } from '../../data/kitchen-admin-hooks.ts';
 import { displayName, formatMoney, humaniseCode, parseQuantity, unitShortKey } from './format.ts';
@@ -215,6 +215,23 @@ export interface RecipeLineTableProps {
      * message is listed under the table beside the row's designation.
      */
     readonly fieldError?: ((row: LineDraft, column: LineColumn) => string | undefined) | undefined;
+    /**
+     * What is wrong with a row's quantity before anything is sent — a blank the save stopped on, or
+     * the line a stock gap is about. Drawn under the row's Qty cell, which turns red with it: the
+     * reader is taken to that cell, so the reason has to be standing there too.
+     */
+    readonly quantityMessage?: ((row: LineDraft) => string | undefined) | undefined;
+    /**
+     * What the row's ingredient still owes the recipe — no allergens recorded, no price — said
+     * under its designation in one short line. Fixed on the ingredient, not here, so the line is a
+     * link to it (see {@link onOpenIngredient}).
+     */
+    readonly ingredientIssue?: ((row: LineDraft) => string | undefined) | undefined;
+    /**
+     * Opens the row's ingredient. With it, every designation is a link — the row's name is where a
+     * reader looks for "what is this, and why is it flagged".
+     */
+    readonly onOpenIngredient?: ((row: LineDraft) => void) | undefined;
     readonly canManage: boolean;
     /** Mints a stable row key. The editor owns the counter so keys never collide across tables. */
     readonly nextKey: () => string;
@@ -233,6 +250,14 @@ export interface RecipeLineTableProps {
 
 /** What a server refusal of one row can be about. */
 export type LineColumn = 'line' | 'quantity' | 'comment';
+
+/**
+ * The element id of one row's cell input — its testID, which the cell also carries as `nativeID`,
+ * so `focusField` can take the reader to it.
+ */
+export function lineCellId(tableTestID: string, rowKey: string, cell: 'qty' | 'comment'): string {
+    return `${tableTestID}-row-${rowKey}-${cell}`;
+}
 
 /**
  * An ingredient as the picker sees it.
@@ -298,6 +323,9 @@ export function RecipeLineTable({
     warnZeroQuantity = false,
     costs,
     fieldError,
+    quantityMessage,
+    ingredientIssue,
+    onOpenIngredient,
     canManage,
     nextKey,
     onChange,
@@ -457,36 +485,99 @@ export function RecipeLineTable({
             render: (row) => {
                 const entry =
                     row.ingredientId === null ? undefined : byId.get(String(row.ingredientId));
+                const name =
+                    entry === undefined
+                        ? t('kitchen:recipes.unnamedLine')
+                        : displayName(entry.name, locale).value;
+                const issue = ingredientIssue?.(row);
+                const opens = onOpenIngredient !== undefined && row.ingredientId !== null;
+                const open = () => {
+                    onOpenIngredient?.(row);
+                };
                 return (
-                    <View className="min-w-0 flex-1 flex-row items-baseline gap-hair">
-                        <Text variant="label" numberOfLines={1} testID={`${rowTestId(row)}-name`}>
-                            {entry === undefined
-                                ? t('kitchen:recipes.unnamedLine')
-                                : displayName(entry.name, locale).value}
-                        </Text>
-                        {entry?.reference == null ? null : (
-                            <Text variant="micro" tone="secondary">
-                                {entry.reference}
-                            </Text>
+                    <View className="min-w-0 flex-1 flex-col py-hair">
+                        <View className="min-w-0 flex-row items-baseline gap-hair">
+                            {opens ? (
+                                <Pressable
+                                    testID={`${rowTestId(row)}-open`}
+                                    role="link"
+                                    accessibilityRole="link"
+                                    accessibilityLabel={t('kitchen:recipes.openIngredient', {
+                                        name,
+                                    })}
+                                    onPress={open}
+                                    className="min-w-0 shrink"
+                                >
+                                    <RNText
+                                        testID={`${rowTestId(row)}-name`}
+                                        numberOfLines={1}
+                                        className="text-role-body font-medium text-content-primary underline decoration-stroke-strong hover:decoration-current"
+                                    >
+                                        {name}
+                                    </RNText>
+                                </Pressable>
+                            ) : (
+                                <Text
+                                    variant="label"
+                                    numberOfLines={1}
+                                    testID={`${rowTestId(row)}-name`}
+                                >
+                                    {name}
+                                </Text>
+                            )}
+                            {entry?.reference == null ? null : (
+                                <Text variant="micro" tone="secondary">
+                                    {entry.reference}
+                                </Text>
+                            )}
+                            {row.ingredientId !== null &&
+                            flaggedIngredientIds.includes(String(row.ingredientId)) ? (
+                                <Icon
+                                    testID={`${rowTestId(row)}-flag`}
+                                    name="warning"
+                                    size="sm"
+                                    className="text-warning-strong"
+                                />
+                            ) : null}
+                            {isZero(row) ? (
+                                <Icon
+                                    testID={`${rowTestId(row)}-zero`}
+                                    name="warning"
+                                    size="sm"
+                                    label={t('kitchen:forms.zeroQuantity')}
+                                    className="text-warning-strong"
+                                />
+                            ) : null}
+                        </View>
+                        {/*
+                         * What the ingredient still owes, and the way to it in the same line: the
+                         * reader is told what is wrong and where it is fixed without having to know
+                         * that an ingredient has a page of its own.
+                         */}
+                        {issue === undefined ? null : (
+                            <Pressable
+                                testID={`${rowTestId(row)}-issue`}
+                                role="link"
+                                accessibilityRole="link"
+                                accessibilityLabel={t('kitchen:recipes.fixIngredient', {
+                                    name,
+                                    issue,
+                                })}
+                                disabled={!opens}
+                                onPress={open}
+                                className="min-w-0 flex-row items-center gap-hair"
+                            >
+                                <Icon name="warning" size="sm" className="text-warning-strong" />
+                                <RNText
+                                    numberOfLines={1}
+                                    className="min-w-0 shrink text-role-caption text-warning-strong hover:underline"
+                                >
+                                    {opens
+                                        ? t('kitchen:recipes.ingredientIssueFix', { issue })
+                                        : issue}
+                                </RNText>
+                            </Pressable>
                         )}
-                        {row.ingredientId !== null &&
-                        flaggedIngredientIds.includes(String(row.ingredientId)) ? (
-                            <Icon
-                                testID={`${rowTestId(row)}-flag`}
-                                name="warning"
-                                size="sm"
-                                className="text-warning-strong"
-                            />
-                        ) : null}
-                        {isZero(row) ? (
-                            <Icon
-                                testID={`${rowTestId(row)}-zero`}
-                                name="warning"
-                                size="sm"
-                                label={t('kitchen:forms.zeroQuantity')}
-                                className="text-warning-strong"
-                            />
-                        ) : null}
                     </View>
                 );
             },
@@ -510,26 +601,39 @@ export function RecipeLineTable({
             priority: UNDROPPABLE_PRIORITY,
             grow: false,
             mono: true,
-            render: (row) => (
-                <View className="w-full py-hair">
-                    <CellInput
-                        testID={`${rowTestId(row)}-qty`}
-                        value={row.quantity}
-                        disabled={!canManage}
-                        error={fieldError?.(row, 'quantity')}
-                        align="center"
-                        mono
-                        // The zero warning lives here and on the designation's mark: `DataList`
-                        // draws its own row, so the old row-wide fill has nowhere to go.
-                        caution={isZero(row)}
-                        label={t('kitchen:recipes.lineQuantity')}
-                        placeholder={t('kitchen:fields.quantityPlaceholder')}
-                        onChangeText={(next) => {
-                            patch(row.key, { quantity: next });
-                        }}
-                    />
-                </View>
-            ),
+            render: (row) => {
+                const message = quantityMessage?.(row);
+                return (
+                    <View className="w-full flex-col gap-hair py-hair">
+                        <CellInput
+                            testID={lineCellId(testID, row.key, 'qty')}
+                            value={row.quantity}
+                            disabled={!canManage}
+                            error={fieldError?.(row, 'quantity') ?? message}
+                            align="center"
+                            mono
+                            // The zero warning lives here and on the designation's mark: `DataList`
+                            // draws its own row, so the old row-wide fill has nowhere to go.
+                            caution={isZero(row)}
+                            label={t('kitchen:recipes.lineQuantity')}
+                            placeholder={t('kitchen:fields.quantityPlaceholder')}
+                            onChangeText={(next) => {
+                                patch(row.key, { quantity: next });
+                            }}
+                        />
+                        {/* `DataList` rows are a height floor, so the row grows to hold it. */}
+                        {message === undefined ? null : (
+                            <Text
+                                testID={`${lineCellId(testID, row.key, 'qty')}-error`}
+                                variant="caption"
+                                tone="danger"
+                            >
+                                {message}
+                            </Text>
+                        )}
+                    </View>
+                );
+            },
         },
         {
             /*
@@ -569,7 +673,7 @@ export function RecipeLineTable({
             render: (row) => (
                 <View className="w-full py-hair">
                     <CellInput
-                        testID={`${rowTestId(row)}-comment`}
+                        testID={lineCellId(testID, row.key, 'comment')}
                         value={row.note}
                         disabled={!canManage}
                         error={fieldError?.(row, 'comment')}
@@ -713,7 +817,7 @@ export function RecipeLineTable({
                 )}
             </View>
 
-            {/* `nativeID`: the issue banner's chip for these rows scrolls here. */}
+            {/* `nativeID`: a refused save with no cell to land on scrolls here. */}
             {refusals.length === 0 ? null : (
                 <View nativeID={`${testID}-refusals`} className="flex-col gap-hair">
                     {refusals.map(({ row, message }) => (
@@ -902,6 +1006,8 @@ function CellInput({
         >
             <TextInput
                 testID={testID}
+                // The same id, so a save that stops on this cell can take the reader to it.
+                nativeID={testID}
                 value={value}
                 editable={!disabled}
                 placeholder={placeholder}

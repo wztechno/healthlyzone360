@@ -13,7 +13,11 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { toFailure } from '../../data/hooks.ts';
 import { CataloguePageHeader } from './catalogue/catalogue-page-header.tsx';
+import { focusField } from './field-focus.ts';
+import { serverFieldErrors } from './server-field-errors.ts';
+import type { ServerFieldTarget } from './server-field-errors.ts';
 import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
 
@@ -37,7 +41,8 @@ import type { UnsavedGuard } from './use-unsaved-guard.ts';
  *   and the page's actions at the inline end, Cancel first and the commit last.
  * - **The banners**, when there is something to say: the danger one names what stops the save and
  *   each chip takes the reader to it; the warning one names what does not stop it but should be
- *   seen. Neither is drawn empty.
+ *   seen. Neither is drawn empty, and each takes its own full-width line. They are the map, never
+ *   the only place a problem is said: every field it names still says it under itself.
  * - **The steps**, when the form has more than one: numbered tabs on a sunken track, each with its
  *   count and — when something on it needs attention — a pill. The row is the map; the page draws
  *   `TabStepNavigation` under its form as the way through. Without steps a hairline closes the
@@ -127,8 +132,12 @@ export function RecordFormOpening<Step extends string>({
 
             {details === undefined ? null : <View testID={`${testID}-details`}>{details}</View>}
 
+            {/*
+             * One strip above the other, each the full width: side by side they squeezed each
+             * other into columns a few words wide, and the chips wrapped into a pile.
+             */}
             {!showErrors && !showWarnings ? null : (
-                <Inline space="xs" wrap testID={`${testID}-issues`}>
+                <Stack space="xs" testID={`${testID}-issues`}>
                     {showErrors ? (
                         <FormIssueBanner
                             testID={`${testID}-issues-errors`}
@@ -145,7 +154,7 @@ export function RecordFormOpening<Step extends string>({
                             items={warnings.items}
                         />
                     ) : null}
-                </Inline>
+                </Stack>
             )}
 
             {steps === undefined || steps.items.length <= 1 ? (
@@ -244,4 +253,28 @@ export function EditorGuardDialogs({
             )}
         </>
     );
+}
+
+/**
+ * After a save the server refused field by field, the reader is taken to the first field it named —
+ * what a Save over a blank already does for the form's own checks, so a refusal is never only a
+ * strip at the top of a long page.
+ *
+ * `targets` is the form's description of its fields, the shape `serverFieldErrors` reads, written
+ * **in the order the form draws them**: the first one refused is the one focused. A screen whose
+ * banner names a whole table by one wildcard can pass a finer map here — one entry per row and
+ * column — so the cursor lands in the cell rather than on the table.
+ *
+ * Answers whether there was a field to go to. A refusal that names none stays with the callout.
+ */
+export function focusFirstRefusal(
+    error: unknown,
+    targets: Readonly<Record<string, ServerFieldTarget>>,
+): boolean {
+    const refused = serverFieldErrors(toFailure(error), targets);
+    if (!refused.isValidation) return false;
+    const first = Object.entries(targets).find(([field]) => refused.errorFor(field) !== undefined);
+    if (first === undefined) return false;
+    focusField(first[1].fieldId);
+    return true;
 }

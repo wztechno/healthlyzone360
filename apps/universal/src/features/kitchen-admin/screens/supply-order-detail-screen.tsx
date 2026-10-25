@@ -27,6 +27,7 @@ import { Platform, View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
     useCancelPurchaseOrderMutation,
     useIssuePurchaseOrderMutation,
@@ -36,6 +37,7 @@ import {
 } from '../../../data/kitchen-ops-hooks.ts';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
 import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
+import { focusField } from '../field-focus.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import {
     canCancelPurchaseOrder,
@@ -47,9 +49,14 @@ import {
     purchaseOrderStatusKey,
     purchaseOrderStatusTone,
 } from '../ops-format.ts';
-import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
+import {
+    EditorGuardDialogs,
+    RecordFormOpening,
+    focusFirstRefusal,
+} from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
+import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { readQuantity } from '../supply-order-model.ts';
 import { trimDecimal } from '../format.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
@@ -182,6 +189,8 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
+    // Back steps to wherever the order was opened from — the book on its filter and page.
+    const back = useReturnTo(undefined, '/kitchen/supply-orders').leave;
     const toast = useToast();
 
     const parsed = order === undefined ? null : PurchaseOrderId.safeParse(order);
@@ -285,13 +294,10 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
      */
     const updateFailure = toFailure(update.error);
     const otherFailure = toFailure(issue.error ?? cancel.error);
-    const server = serverFieldErrors(updateFailure, {
-        notes: {
-            label: t('kitchen:ops.supplyOrders.notesLabel'),
-            fieldId: 'kitchen-supply-order-detail-notes-input',
-        },
+    /** The fields a save can be refused on, in the order the page draws them. */
+    const saveTargets = (sentIds: readonly string[]): Record<string, ServerFieldTarget> => ({
         ...Object.fromEntries(
-            savedLineIds.map((stockItemId, index) => [
+            sentIds.map((stockItemId, index) => [
                 `lines.${String(index)}.quantity`,
                 {
                     label: t('kitchen:ops.supplyOrders.quantityLabel', {
@@ -303,7 +309,12 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                 },
             ]),
         ),
+        notes: {
+            label: t('kitchen:ops.supplyOrders.notesLabel'),
+            fieldId: 'kitchen-supply-order-detail-notes-input',
+        },
     });
+    const server = serverFieldErrors(updateFailure, saveTargets(savedLineIds));
     const actionError: string | null =
         updateFailure !== null
             ? server.isValidation
@@ -316,9 +327,18 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
     };
 
     function save(): void {
-        if (parsed === null || !editable || invalid || empty) return;
+        if (parsed === null || !editable || empty) return;
+        if (invalid) {
+            // Each box already says what is wrong with it; Save takes the reader to the first.
+            const first = lines.find((_, index) => readings[index]?.value === null);
+            if (first !== undefined) {
+                focusField(`${purchaseOrderLineTestId(first.stockItemId)}-quantity`);
+            }
+            return;
+        }
 
-        setSavedLineIds(lines.map((line) => line.stockItemId));
+        const sentIds = lines.map((line) => line.stockItemId);
+        setSavedLineIds(sentIds);
         update.mutate(
             {
                 purchaseOrderId: parsed,
@@ -341,6 +361,10 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                         tone: 'success',
                         message: t('kitchen:ops.supplyOrders.savedToast'),
                     });
+                },
+                // A refused save takes the reader to the first field the server named.
+                onError: (error) => {
+                    focusFirstRefusal(error, saveTargets(sentIds));
                 },
             },
         );
@@ -396,10 +420,6 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                 });
             },
         });
-    }
-
-    function back(): void {
-        router.push('/kitchen/supply-orders' as never);
     }
 
     /* ── the three states that are not the record ────────────────────────────────────────────── */
@@ -651,6 +671,12 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
     const sideBySide = bodyWidth >= ASIDE_WIDTH + FORM_MIN_WIDTH + COLUMN_GAP;
     const lineCount = t('kitchen:ops.supplyOrders.receiptLineCount', { count: lines.length });
     const issueBlocked = dirty || invalid || empty;
+    const hasNotices =
+        status === 'cancelled' ||
+        data.issuedAt !== null ||
+        data.closeShortReason !== null ||
+        actionError !== null ||
+        data.supplier?.archivedAt != null;
 
     return (
         <Cascade space="md" testID="kitchen-supply-order-detail-screen">
@@ -738,7 +764,8 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                                 variant={issuable ? 'secondary' : 'primary'}
                                 label={t('kitchen:ops.supplyOrders.saveLines')}
                                 loading={update.isPending}
-                                disabled={!dirty || invalid || empty || update.isPending}
+                                // A wrong box does not disable Save: pressing it takes you there.
+                                disabled={!dirty || empty || update.isPending}
                                 onPress={save}
                             />
                         ) : null}
@@ -756,65 +783,63 @@ function SupplyOrderDetail({ order }: SupplyOrderDetailScreenProps) {
                 }
             />
 
-            {status === 'cancelled' ? (
-                <Callout
-                    testID="kitchen-supply-order-detail-cancelled-notice"
-                    tone="info"
-                    title={t('kitchen:ops.supplyOrders.cancelledNoticeTitle')}
-                    body={t('kitchen:ops.supplyOrders.cancelledNoticeBody')}
-                />
-            ) : data.issuedAt !== null ? (
-                /*
-                 * "Issued", never "sent" (§2). Nothing left this system through any channel — the
-                 * person printed the sheet and handed it over.
-                 */
-                <Callout
-                    testID="kitchen-supply-order-detail-issued-notice"
-                    tone="info"
-                    title={t('kitchen:ops.supplyOrders.issuedNoticeTitle', {
-                        date: formatter.formatDate(data.issuedAt, { dateStyle: 'medium' }),
-                    })}
-                    // "You can still cancel it" only while it can be: a received order has no
-                    // Cancel, and the line promised one.
-                    {...(cancellable
-                        ? { body: t('kitchen:ops.supplyOrders.issuedNoticeBody') }
-                        : {})}
-                />
-            ) : null}
+            {/* The order's notices, one band under the opening. */}
+            {!hasNotices ? null : (
+                <Stack space="xs" testID="kitchen-supply-order-detail-notices">
+                    {status === 'cancelled' ? (
+                        <Callout
+                            testID="kitchen-supply-order-detail-cancelled-notice"
+                            tone="info"
+                            title={t('kitchen:ops.supplyOrders.cancelledNoticeTitle')}
+                        />
+                    ) : data.issuedAt !== null ? (
+                        /*
+                         * "Issued", never "sent" (§2). Nothing left this system through any channel — the
+                         * person printed the sheet and handed it over.
+                         */
+                        <Callout
+                            testID="kitchen-supply-order-detail-issued-notice"
+                            tone="info"
+                            title={t('kitchen:ops.supplyOrders.issuedNoticeTitle', {
+                                date: formatter.formatDate(data.issuedAt, { dateStyle: 'medium' }),
+                            })}
+                        />
+                    ) : null}
 
-            {data.closeShortReason === null ? null : (
-                /*
-                 * §3.5 allows a short delivery to be closed "with an explicit reason", and the
-                 * reason is shown here rather than left in the audit log: seeing *that* it closed
-                 * short but not *why* would be the worse half of the two.
-                 */
-                <Callout
-                    testID="kitchen-supply-order-detail-close-short-notice"
-                    tone="warning"
-                    title={t('kitchen:ops.supplyOrders.closedShortTitle')}
-                    body={data.closeShortReason}
-                />
-            )}
+                    {data.closeShortReason === null ? null : (
+                        /*
+                         * §3.5 allows a short delivery to be closed "with an explicit reason", and the
+                         * reason is shown here rather than left in the audit log: seeing *that* it closed
+                         * short but not *why* would be the worse half of the two.
+                         */
+                        <Callout
+                            testID="kitchen-supply-order-detail-close-short-notice"
+                            tone="warning"
+                            title={t('kitchen:ops.supplyOrders.closedShortTitle')}
+                            body={data.closeShortReason}
+                        />
+                    )}
 
-            {actionError === null ? null : (
-                // A save, issue or cancel the server refused. Field refusals are already on their
-                // fields; this says what is left, so a refused action never looks like nothing.
-                <Callout
-                    testID="kitchen-supply-order-detail-action-error"
-                    tone="danger"
-                    role="alert"
-                    title={t('kitchen:editor.saveError')}
-                    body={actionError}
-                />
-            )}
+                    {actionError === null ? null : (
+                        // A save, issue or cancel the server refused. Field refusals are already on their
+                        // fields; this says what is left, so a refused action never looks like nothing.
+                        <Callout
+                            testID="kitchen-supply-order-detail-action-error"
+                            tone="danger"
+                            role="alert"
+                            title={t('kitchen:editor.saveError')}
+                            body={actionError}
+                        />
+                    )}
 
-            {data.supplier?.archivedAt == null ? null : (
-                <Callout
-                    testID="kitchen-supply-order-detail-archived-notice"
-                    tone="warning"
-                    title={t('kitchen:ops.supplyOrders.supplierArchivedTitle')}
-                    body={t('kitchen:ops.supplyOrders.supplierArchivedBody')}
-                />
+                    {data.supplier?.archivedAt == null ? null : (
+                        <Callout
+                            testID="kitchen-supply-order-detail-archived-notice"
+                            tone="warning"
+                            title={t('kitchen:ops.supplyOrders.supplierArchivedTitle')}
+                        />
+                    )}
+                </Stack>
             )}
 
             <View

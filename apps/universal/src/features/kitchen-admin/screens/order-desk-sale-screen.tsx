@@ -1385,7 +1385,7 @@ function Ticket({
                             tone="danger"
                             role="alert"
                             title={t('kitchen:desk.sale.quoteErrorTitle')}
-                            body={quoteFailureMessage ?? t('kitchen:desk.sale.quoteErrorBody')}
+                            body={quoteFailureMessage ?? undefined}
                         />
                     ) : (
                         <Totals quote={quote} money={money} showOrderRefusals={paying} />
@@ -1426,11 +1426,6 @@ function Ticket({
                             tone="danger"
                             role="alert"
                             title={t('kitchen:desk.sale.refusedTitle')}
-                            body={
-                                refusalReasons.length === 0
-                                    ? t('kitchen:desk.sale.refusedBody')
-                                    : undefined
-                            }
                         >
                             {refusalReasons.length === 0 ? null : (
                                 <View

@@ -113,7 +113,15 @@ jest.mock('expo-router', () => {
     const replace = jest.fn();
     return {
         __esModule: true,
-        useRouter: () => ({ push, replace, setParams: jest.fn(), back: jest.fn() }),
+        useRouter: () => ({
+            push,
+            replace,
+            setParams: jest.fn(),
+            back: jest.fn(),
+            // No history in a suite: the plan editor's Cancel opens the list.
+            canGoBack: () => false,
+            dismissTo: jest.fn(),
+        }),
         usePathname: () => '/kitchen/plans',
         useLocalSearchParams: () => ({}),
         Redirect: () => null,
@@ -218,6 +226,29 @@ function untilVisible(testID: string) {
         },
         { timeout: 20_000 },
     );
+}
+
+/**
+ * Waits for a step tab's red count. The pill is hidden from assistive technology — the tab's own
+ * name says it — so it is found with the hidden elements included.
+ */
+function untilStepPill(step: 'variants' | 'matrix' | 'durations' | 'plan' | 'menu') {
+    return waitFor(
+        () => {
+            expect(
+                screen.getByTestId(`kitchen-plan-editor-screen-steps-${step}-issues`, {
+                    includeHiddenElements: true,
+                }),
+            ).toBeTruthy();
+        },
+        { timeout: 20_000 },
+    );
+}
+
+function stepPill(step: 'variants' | 'matrix' | 'durations' | 'plan' | 'menu') {
+    return screen.queryByTestId(`kitchen-plan-editor-screen-steps-${step}-issues`, {
+        includeHiddenElements: true,
+    });
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -1630,7 +1661,7 @@ describe('editing the matrix', () => {
         expect(world.read().variants).toHaveLength(1);
     });
 
-    it('offers Save the plan on every step of a saved plan, and only at the end of a new one', async () => {
+    it('offers Save the plan in the header on every step, with no step bar under the form', async () => {
         const spread = spreadPlan({ meta: meta({ status: 'draft' }) });
         const world = planWorld(spread, pricedVariants(spread));
 
@@ -1640,15 +1671,15 @@ describe('editing the matrix', () => {
         });
         await untilVisible('kitchen-plan-details');
 
-        // The first step: Save sits beside Next rather than waiting at the fifth.
+        // The first step: Save is in the header rather than waiting at the fifth.
         expect(screen.getByTestId('kitchen-plan-editor-screen-save')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-plan-steps-nav-next')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-plan-steps-nav')).toBeNull();
 
         await openPlanStep('durations');
         expect(screen.getByTestId('kitchen-plan-editor-screen-save')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-plan-steps-nav-next')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-plan-steps-nav')).toBeNull();
 
-        // ...and the header still offers only Cancel and Publish.
+        // ...beside Publish.
         expect(screen.getByTestId('kitchen-plan-publish')).toBeTruthy();
     });
 
@@ -1671,14 +1702,16 @@ describe('editing the matrix', () => {
         });
 
         await untilVisible('kitchen-plan-editor-screen-unsaved-dialog');
-        expect(routerMock.__push).not.toHaveBeenCalledWith('/kitchen/plans');
+        expect(routerMock.__replace).not.toHaveBeenCalledWith('/kitchen/plans');
 
+        // With no history to step back through, leaving opens the list in this page's place.
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-plan-editor-screen-unsaved-discard'));
         });
         await waitFor(() => {
-            expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/plans');
+            expect(routerMock.__replace).toHaveBeenCalledWith('/kitchen/plans');
         });
+        expect(routerMock.__push).not.toHaveBeenCalledWith('/kitchen/plans');
     });
 });
 
@@ -1800,7 +1833,7 @@ describe('editing the plan', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-plan-editor-screen-save'));
         });
-        await untilVisible('kitchen-plan-issues');
+        await untilStepPill('plan');
         expect(repositories.kitchenAdmin.updatePlan).not.toHaveBeenCalled();
 
         // Back within the range, the save goes through with the figure.
@@ -2374,14 +2407,17 @@ describe('publishing a plan', () => {
         const configuration = 'kitchen-plan-variants-row-variant-starter';
         await untilVisible(configuration);
         expect(screen.queryByTestId(`${configuration}-remove`)).toBeNull();
-        expect(screen.queryByTestId('kitchen-plan-issues')).toBeNull();
+        expect(stepPill('variants')).toBeNull();
 
-        // Save is the last step's Next — the menu, on a new plan as on a saved one.
+        // Saved from the last step, as somebody who walked the whole form would.
         await openPlanStep('menu');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-plan-editor-screen-save'));
         });
-        await untilVisible('kitchen-plan-issues');
+        // The press opens the first step that stops it and counts what is wrong on each.
+        await untilStepPill('variants');
+        expect(stepPill('durations')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-plan-variants-section')).toBeTruthy();
         expect(repositories.kitchenAdmin.createPlan).not.toHaveBeenCalled();
         await openPlanStep('variants');
 
@@ -2603,9 +2639,10 @@ describe('publishing a plan', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-plan-editor-screen-save'));
         });
-        await untilVisible('kitchen-plan-issues');
-        // Named beside the empty starter rows, so the reader is told before anything is written.
-        expect(screen.getByTestId('kitchen-plan-issues-menu')).toBeTruthy();
+        // Counted on its step beside the empty starter rows, so the reader is told before
+        // anything is written.
+        await untilStepPill('menu');
+        expect(stepPill('variants')).toBeTruthy();
         expect(repositories.kitchenAdmin.createPlan).not.toHaveBeenCalled();
     });
 

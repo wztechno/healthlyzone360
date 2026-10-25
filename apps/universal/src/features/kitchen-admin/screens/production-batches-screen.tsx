@@ -37,6 +37,13 @@ import {
     formatLot,
     yieldSummary,
 } from '../production-desk/batch-figures.ts';
+import {
+    useListMemory,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedPageNumber,
+    useRestoredPageFallback,
+} from '../list-memory.ts';
 
 /**
  * `/kitchen/production-desk/batches` — the batches nobody has to move any more (PROD1).
@@ -100,8 +107,11 @@ function ProductionBatches() {
     const access = useAccessState();
     const branchId = access.branch?.id ?? null;
 
-    const [status, setStatus] = useState<SettledStatus>('completed');
-    const [page, setPage] = useState(1);
+    // Status, page and the batch last opened survive leaving the register for a batch.
+    const memory = useListMemory('kitchen.production-batches');
+    const [status, setStatus] = useRememberedFilter<SettledStatus>(memory, 'status', 'completed');
+    const [page, setPage] = useRememberedPageNumber(memory);
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
     const [scan, setScan] = useState('');
     const [scanMessage, setScanMessage] = useState<string | null>(null);
     const lookup = useProductionOrderLookupMutation();
@@ -131,6 +141,9 @@ function ProductionBatches() {
         status,
         ...(branchId === null ? {} : { branchId }),
         page,
+    });
+    useRestoredPageFallback(memory, page, batches.isError, () => {
+        setPage(1);
     });
 
     const rows = batches.data?.orders ?? [];
@@ -373,7 +386,9 @@ function ProductionBatches() {
                         columns={controls.columns}
                         rows={controls.rows}
                         rowKey={(row) => String(row.id)}
+                        highlightedId={lastOpenedId}
                         onRowPress={(row) => {
+                            rememberOpened(String(row.id));
                             router.push(`/kitchen/production-desk/${String(row.id)}`);
                         }}
                         rowActionsLabel={t('kitchen:list.rowActions')}

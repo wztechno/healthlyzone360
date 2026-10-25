@@ -16,6 +16,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { TEST_BRANCH_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { focusField } from './field-focus.ts';
 import { ReceiveDeliveryScreen } from './screens/receive-delivery-screen.tsx';
 
 /**
@@ -23,9 +24,12 @@ import { ReceiveDeliveryScreen } from './screens/receive-delivery-screen.tsx';
  *
  * The rules themselves are pinned in `receive-delivery-model.test.ts`; this pins that the page uses
  * them: the first scan replaces the prefilled outstanding quantity, a second lot becomes its own
- * line on the same order line, an unverified lot holds Post back until it is ticked, and what was
- * scanned reaches the request.
+ * line on the same order line, an unverified lot holds Post back until it is ticked — Post takes the
+ * reader to the tick rather than doing nothing — and what was scanned reaches the request.
  */
+
+// Where Post takes the reader is the assertion; the focus itself is the browser's to do.
+jest.mock('./field-focus.ts', () => ({ focusField: jest.fn() }));
 
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
     __esModule: true,
@@ -165,11 +169,13 @@ it('replaces the prefill, splits a second lot, and holds an unverified lot until
     // 25 + 25 of 50: neither short nor over, so nothing asks to close the order short.
     expect(screen.queryByTestId('kitchen-receive-close-short')).toBeNull();
     expect(screen.queryByTestId('kitchen-receive-over-receipt')).toBeNull();
-    expect(
-        screen.getByTestId('kitchen-receive-screen-save').props.accessibilityState,
-    ).toMatchObject({
-        disabled: true,
+    // Post is held, never dead: pressed now, it opens no confirmation and goes to the lot to tick.
+    jest.mocked(focusField).mockClear();
+    await act(async () => {
+        fireEvent.press(screen.getByTestId('kitchen-receive-screen-save'));
     });
+    expect(screen.queryByTestId('kitchen-receive-confirm-post')).toBeNull();
+    expect(focusField).toHaveBeenCalledWith('kitchen-receive-line-1-trace-lot-checked');
 
     await act(async () => {
         fireEvent.press(screen.getByTestId('kitchen-receive-line-1-trace-lot-checked-control'));

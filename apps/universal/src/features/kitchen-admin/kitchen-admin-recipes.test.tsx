@@ -113,13 +113,19 @@ jest.mock('expo-router', () => {
     const push = jest.fn();
     const replace = jest.fn();
     const setParams = jest.fn();
+    // History, as the editor's Cancel reads it: there is a page to step back to.
+    const back = jest.fn();
+    const canGoBack = jest.fn(() => true);
+    const dismissTo = jest.fn();
     return {
         __esModule: true,
         useRouter: () => ({
             push,
             replace,
             setParams,
-            back: jest.fn(),
+            back,
+            canGoBack,
+            dismissTo,
             prefetch: jest.fn(),
         }),
         usePathname: () => '/kitchen/recipes',
@@ -131,6 +137,8 @@ jest.mock('expo-router', () => {
         __push: push,
         __replace: replace,
         __setParams: setParams,
+        __back: back,
+        __dismissTo: dismissTo,
     };
 });
 
@@ -139,6 +147,8 @@ const routerMock = require('expo-router') as {
     __push: jest.Mock;
     __replace: jest.Mock;
     __setParams: jest.Mock;
+    __back: jest.Mock;
+    __dismissTo: jest.Mock;
 };
 
 beforeEach(() => {
@@ -146,6 +156,8 @@ beforeEach(() => {
     routerMock.__push.mockClear();
     routerMock.__replace.mockClear();
     routerMock.__setParams.mockClear();
+    routerMock.__back.mockClear();
+    routerMock.__dismissTo.mockClear();
 });
 
 afterEach(() => {
@@ -2317,8 +2329,6 @@ describe('creating a recipe', () => {
             );
         });
 
-        // Save draft is the last step's Next.
-        await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
@@ -2618,8 +2628,6 @@ describe('the line editor', () => {
         expect(screen.getAllByTestId(LINE_ROWS)).toHaveLength(seededCount);
 
         // ── save ─────────────────────────────────────────────────────────────────────────────
-        // Save draft is the last step's Next.
-        await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
@@ -2731,8 +2739,6 @@ describe('the line editor', () => {
             });
         }
 
-        // Save draft is the last step's Next.
-        await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
@@ -2768,9 +2774,11 @@ describe('the steps', () => {
         // No footer to walk: the numbered row is both the map and the way through it.
         expect(screen.queryByTestId('kitchen-recipe-tab-steps')).toBeNull();
         expect(screen.queryByTestId('kitchen-recipe-tab-issues')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-steps-nav')).toBeNull();
 
-        // A shelf life that does not parse is flagged as it is typed, and the tab it is on says
-        // so — spoken as well as drawn, because a pill a screen reader cannot hear is not a signal.
+        // A shelf life that does not parse is flagged as it is typed, under the field, and the tab
+        // it is on says so — spoken as well as drawn, because a pill a screen reader cannot hear is
+        // not a signal. Nothing lists it a second time under the header.
         await openTab('packaging');
         await untilVisible('kitchen-recipe-expiry-input');
         await act(async () => {
@@ -2784,14 +2792,16 @@ describe('the steps', () => {
             },
             { timeout: 10_000 },
         );
-        expect(screen.getByTestId('kitchen-recipe-issues-errors')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-recipe-expiry-error')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-recipe-issues')).toBeNull();
 
-        // The banner's chip takes the reader back to it from anywhere.
+        // Save, from anywhere, takes the reader back to it.
         await openTab('sheet');
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-issues-errors-shelf-life'));
+            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
         await untilVisible('kitchen-recipe-expiry-input');
+        expect(screen.getByTestId('kitchen-recipe-expiry-error')).toBeTruthy();
     });
 
     it('asks no price on Costing — the Selling tab is where a recipe is priced', async () => {
@@ -3217,8 +3227,6 @@ describe('costing', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-packaging-waste-input'), '5');
         });
-        // Save draft is the last step's Next.
-        await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
@@ -3272,8 +3280,6 @@ describe('the shelf life', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), '7');
         });
-        // Save draft is the last step's Next.
-        await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
@@ -3331,8 +3337,7 @@ describe('the shelf life', () => {
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         const save = () => screen.getByTestId('kitchen-recipe-editor-screen-save');
-        // Nothing to write yet, and every version field is closed. Save is the last step's Next.
-        await openTab('sheet');
+        // Nothing to write yet, and every version field is closed. Save is in the header.
         expect(save().props.accessibilityState.disabled).toBe(true);
 
         await openTab('packaging');
@@ -3458,8 +3463,6 @@ describe('the sections this screen no longer edits', () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-name-en-input'), 'Pesto');
         });
 
-        // Save draft is the last step's Next.
-        await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
@@ -3800,9 +3803,7 @@ describe('publishing', () => {
             },
         );
 
-        // Save and publish is the last step's commit, so the walk to it comes first.
         await untilVisible('kitchen-recipe-editor-screen-header');
-        await openTab('sheet');
         await untilVisible('kitchen-recipe-publish');
         // Not published yet, and the editor says so rather than implying it.
         expect(screen.getByTestId('kitchen-recipe-editor-screen-status')).toHaveTextContent(
@@ -3879,9 +3880,14 @@ describe('publishing', () => {
         await act(async () => {
             fireEvent.press(link);
         });
+        // Opened on its allergens, with the way back to this recipe's tab.
         await waitFor(() => {
             expect(routerMock.__push).toHaveBeenCalledWith(
-                `/kitchen/ingredients/${String(UNMAPPED_INGREDIENT.id)}`,
+                expect.stringMatching(
+                    new RegExp(
+                        `^/kitchen/ingredients/${String(UNMAPPED_INGREDIENT.id)}\\?needs=allergens&returnTo=.+`,
+                    ),
+                ),
             );
         });
     });
@@ -3981,8 +3987,6 @@ describe('safety', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-name-en-input'), 'My version');
         });
-        // Save draft is the last step's Next.
-        await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
         });
@@ -4027,14 +4031,16 @@ describe('safety', () => {
         });
 
         await untilVisible('kitchen-recipe-editor-screen-unsaved-dialog');
-        expect(routerMock.__push).not.toHaveBeenCalled();
+        expect(routerMock.__back).not.toHaveBeenCalled();
 
+        // Back a step, like the browser's own arrow — to the list as it was left, not a fresh one.
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-unsaved-discard'));
         });
         await waitFor(() => {
-            expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/recipes');
+            expect(routerMock.__back).toHaveBeenCalledTimes(1);
         });
+        expect(routerMock.__push).not.toHaveBeenCalled();
     });
 });
 
@@ -4353,19 +4359,21 @@ describe('adding an ingredient from the line picker', () => {
             /created from AI suggestions/,
         );
 
-        // The link goes through the unsaved guard: the recipe holding the new line is not saved.
+        // No "discard?" on the way: the unsaved recipe is kept for the trip, and the ingredient
+        // opens with the way back.
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-quick-add-review'));
         });
-        await untilVisible('kitchen-recipe-editor-screen-unsaved-dialog');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-unsaved-discard'));
-        });
         await waitFor(() => {
             expect(routerMock.__push).toHaveBeenCalledWith(
-                `/kitchen/ingredients/${String(sumac.id)}`,
+                expect.stringMatching(
+                    new RegExp(
+                        `^/kitchen/ingredients/${String(sumac.id)}\\?returnTo=.+`,
+                    ),
+                ),
             );
         });
+        expect(screen.queryByTestId('kitchen-recipe-editor-screen-unsaved-dialog')).toBeNull();
     });
 
     it('offers the existing row for an exact match and never creates a second', async () => {
@@ -4609,7 +4617,7 @@ describe('adding an ingredient from the line picker', () => {
 
         await untilVisible('kitchen-recipe-publish-blocked');
         expect(screen.getByTestId('kitchen-recipe-publish-blocked')).toHaveTextContent(
-            /Sumac still needs its nutrition reference confirmed/,
+            /Sumac needs its nutrition confirmed/,
         );
     });
 });

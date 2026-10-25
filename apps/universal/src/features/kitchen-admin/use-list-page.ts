@@ -23,9 +23,16 @@ import { useState } from 'react';
  * `resetKey` is the filter object itself. The seven screens all build theirs in a `useMemo` over
  * the filter state, so its identity changes exactly when the filter does — which is also why it
  * must be memoised at the call site: a fresh object every render would pin the list to page 1.
+ *
+ * `initialPage` is where a list that is being returned to starts — the page it was left on, read
+ * back from the URL or from the list's memory. It only seeds the first render; a later filter
+ * change still resets to page 1.
  */
-export function useListPage(resetKey: unknown): readonly [number, (page: number) => void] {
-    const [page, setPage] = useState(1);
+export function useListPage(
+    resetKey: unknown,
+    initialPage = 1,
+): readonly [number, (page: number) => void] {
+    const [page, setPage] = useState(initialPage);
     const [appliedKey, setAppliedKey] = useState(resetKey);
 
     if (appliedKey !== resetKey) {

@@ -55,9 +55,18 @@ jest.mock('expo-router', () => {
     // The redirect the old route files render, captured rather than followed.
     const redirect = jest.fn(() => null);
     let params: Readonly<Record<string, string>> = {};
+    // Opened directly — a deep link, a refresh — so there is no page behind it to step back to.
+    const canGoBack = () => false;
     return {
         __esModule: true,
-        useRouter: () => ({ push, replace, back: jest.fn(), setParams: jest.fn() }),
+        useRouter: () => ({
+            push,
+            replace,
+            back: jest.fn(),
+            canGoBack,
+            dismissTo: jest.fn(),
+            setParams: jest.fn(),
+        }),
         usePathname: () => '/kitchen/recipes',
         useLocalSearchParams: () => params,
         Redirect: redirect,
@@ -376,7 +385,7 @@ describe('a cooked item’s page', () => {
         expect(screen.queryByTestId('kitchen-recipe-selling-seller')).toBeNull();
     });
 
-    it('saves the listing against the item’s own lock version, and writes no recipe', async () => {
+    it('saves the listing from the recipe’s one Save, against the item’s own lock version, and writes no recipe', async () => {
         const stored = sauce();
         const { repositories } = await renderSauceRecipe(stored, {
             updateProduct: async () => stored,
@@ -390,7 +399,9 @@ describe('a cooked item’s page', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId(PACK_LABEL), 'Squeeze bottle 300 g');
         });
-        await press('kitchen-product-editor-screen-save');
+        // One Save for every tab: the listing draws none of its own.
+        expect(screen.queryByTestId('kitchen-product-editor-screen-save')).toBeNull();
+        await press('kitchen-recipe-editor-screen-save');
 
         await waitFor(() => {
             expect(repositories.kitchenAdmin.updateProduct).toHaveBeenCalledWith(
@@ -410,6 +421,8 @@ describe('a cooked item’s page', () => {
             );
         });
         expect(repositories.kitchenAdmin.setRecipeLines).not.toHaveBeenCalled();
+        // And says once that everything saved.
+        await untilVisible('kitchen-recipe-editor-screen-saved');
     });
 
     it('keeps a half-typed pack through a tab switch, and asks before leaving with it', async () => {
@@ -537,7 +550,38 @@ describe('an item’s address', () => {
 
         await untilVisible('kitchen-cooked-item-not-found');
         await press('kitchen-cooked-item-not-found-back');
-        expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/recipes');
+        // Opened directly, so there is no page behind it: the book, in place of this address.
+        expect(routerMock.__replace).toHaveBeenCalledWith('/kitchen/recipes');
+        expect(routerMock.__push).not.toHaveBeenCalled();
+    });
+
+    it('carries a stock gap’s fix and its way back through the hand-over to the recipe', async () => {
+        const returnTo = '/kitchen/consumption-exceptions?reason=unquantified_recipe_line';
+        await renderStubScreen(
+            <CookedItemEditScreen
+                item={String(SAUCE_ID)}
+                kind="sauce"
+                returnTo={returnTo}
+                fix="unquantified_recipe_line"
+                ingredient={String(GARLIC_ID)}
+            />,
+            {
+                session: kitchenManagerSession(),
+                repositories: { kitchenAdmin: pageReads(sauce()) },
+            },
+        );
+
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledTimes(1);
+        });
+        const href = String(routerMock.__replace.mock.calls[0]?.[0]);
+        const [path, query = ''] = href.split('?');
+        expect(path).toBe(`/kitchen/recipes/${String(RECIPE_ID)}`);
+        const search = new URLSearchParams(query);
+        expect(search.get('fix')).toBe('unquantified_recipe_line');
+        expect(search.get('ingredient')).toBe(String(GARLIC_ID));
+        // Encoded twice, as every `returnTo` is, so the route's own decode gives it back whole.
+        expect(decodeURIComponent(search.get('returnTo') ?? '')).toBe(returnTo);
     });
 });
 
@@ -621,8 +665,6 @@ describe('a meal page', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-name-en-input'), 'Toum bowl');
         });
-        // Save draft is the last step's Next.
-        await press('kitchen-recipe-tab-sheet');
         await press('kitchen-recipe-editor-screen-save');
 
         await waitFor(() => {
@@ -657,8 +699,6 @@ describe('a meal page', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-name-en-input'), 'Toum bowl');
         });
-        // Save draft is the last step's Next.
-        await press('kitchen-recipe-tab-sheet');
         await press('kitchen-recipe-editor-screen-save');
 
         // Not a silent redirect: the recipe exists, the listing does not, and the reader is told.
@@ -688,8 +728,6 @@ describe('a meal page', () => {
                 'Cordon bleu marination',
             );
         });
-        // Save draft is the last step's Next.
-        await press('kitchen-recipe-tab-sheet');
         await press('kitchen-recipe-editor-screen-save');
 
         await waitFor(() => {

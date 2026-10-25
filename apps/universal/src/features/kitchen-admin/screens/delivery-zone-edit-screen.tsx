@@ -49,6 +49,7 @@ import {
     useUpdateZoneMutation,
     zonesFromPages,
 } from '../../../data/kitchen-admin-hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
 import { BilingualField } from '../bilingual-field.tsx';
 import { weekdayKey } from '../../marketplace/format.ts';
@@ -59,13 +60,13 @@ import {
     zoneAreaIds,
 } from '../delivery-model.ts';
 import { ServiceAreaPicker } from '../delivery-row-editors.tsx';
-import { TabStepNavigation } from '../editor-steps.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import { ISO_WEEKDAYS, displayName, minorAmountToInput, statusKey, statusTone } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
+import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -238,6 +239,9 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
     const organisationCountry = useOrganisationCountry();
+    // Cancel, the not-found link and a finished save all step back to wherever the reader came
+    // from — the list as they left it — and only open a fresh list when there is no history.
+    const back = useReturnTo(undefined, '/kitchen/delivery-zones');
 
     const isCreating = zone === undefined || zone === 'new';
     const parsed = isCreating ? null : DeliveryZoneId.safeParse(zone);
@@ -450,20 +454,75 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
      */
     const stepsUnlocked = !detailsBlocked;
 
+    const goTo = (step: ZoneStep, fieldId: string | null) => {
+        form.goTo(step);
+        if (fieldId !== null) focusField(fieldId);
+    };
+
+    /*
+     * What the server may refuse on the record, in the order the Details step draws the fields —
+     * so the first one refused is the first one the reader meets. All of them are on that step.
+     */
+    const serverTargets: Readonly<Record<string, ServerFieldTarget>> = {
+        name_en: {
+            label: t('kitchen:bilingual.englishShort', { field: t('kitchen:fields.name') }),
+            fieldId: 'kitchen-zone-name-en',
+        },
+        name_ar: {
+            label: t('kitchen:bilingual.arabicShort', { field: t('kitchen:fields.name') }),
+            fieldId: 'kitchen-zone-name-ar',
+        },
+        currency_code: {
+            label: t('kitchen:zones.currencyLabel'),
+            fieldId: 'kitchen-zone-currency-select',
+        },
+        estimated_minutes: {
+            label: t('kitchen:zones.estimatedLabel'),
+            fieldId: 'kitchen-zone-estimated',
+        },
+        delivery_fee_minor: {
+            label: t('kitchen:zones.feeLabel', { currency: currency ?? '' }),
+            fieldId: 'kitchen-zone-fee',
+        },
+        minimum_order_minor: {
+            label: t('kitchen:zones.minimumLabel', { currency: currency ?? '' }),
+            fieldId: 'kitchen-zone-minimum',
+        },
+    };
+
     /**
-     * The one save, at the end of the walk: the record, then its areas, then its windows.
+     * Where a refused save takes the reader: the step whose write failed, and on Details the first
+     * field the server named. A lost race is the conflict dialog's, and moves nothing.
+     */
+    const showRefusal = (step: ZoneStep, error: unknown) => {
+        if (concurrency.capture(error)) return;
+        if (step !== 'zone') {
+            goTo(step, null);
+            return;
+        }
+        const refused = serverFieldErrors(toFailure(error), serverTargets);
+        const first = Object.entries(serverTargets).find(
+            ([field]) => refused.errorFor(field) !== undefined,
+        )?.[1];
+        goTo('zone', first?.fieldId ?? null);
+    };
+
+    /**
+     * The one save, from the header on every step: the record, then its areas, then its windows.
      *
      * Three lock-versioned methods still, so this is three writes chained on each other's echo —
      * each one carries the `lockVersion` the previous one returned. **A later write can fail with
      * the earlier ones already applied**, which is the price of one button: the step that failed
-     * says so, its section stays dirty, and pressing Save again re-sends only what is still
-     * unsaved. Sections that have nothing to write are skipped, so a second press is not a second
-     * write of the same rows.
+     * opens and says so, its section stays dirty, and pressing Save again re-sends only what is
+     * still unsaved. Sections that have nothing to write are skipped, so a second press is not a
+     * second write of the same rows.
      */
     const finish = () => {
         if (detailsBlocked || currency === null) return;
 
         void (async () => {
+            let stage: ZoneStep = 'zone';
+            let saved: DeliveryZoneAdmin | undefined;
             try {
                 let record = data;
 
@@ -493,6 +552,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                 if (record === undefined) return;
 
                 if (areasDirty) {
+                    stage = 'areas';
                     record = await saveAreasMutation.mutateAsync({
                         zoneId: record.id,
                         request: {
@@ -506,6 +566,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
 
                 // A new zone always writes its pre-ticked set: the server creates it with none.
                 if (windowsDirty || (isCreating && windowIds.length > 0)) {
+                    stage = 'windows';
                     record = await saveWindowsMutation.mutateAsync({
                         zoneId: record.id,
                         request: { lockVersion: record.meta.lockVersion, windowIds },
@@ -513,31 +574,31 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                     setWindowIds(record.windowIds);
                     settle({ windows: false });
                 }
-
-                toast.show({
-                    testID: isCreating ? 'kitchen-zone-created-toast' : 'kitchen-zone-saved-toast',
-                    tone: 'success',
-                    message: isCreating
-                        ? t('kitchen:zones.createdToast', {
-                              name: displayName(record.name, locale).value,
-                          })
-                        : t('kitchen:editor.savedToast'),
-                });
-                router.push('/kitchen/delivery-zones' as never);
+                saved = record;
             } catch (error) {
-                concurrency.capture(error);
+                showRefusal(stage, error);
+                return;
             }
+            if (saved === undefined) return;
+
+            toast.show({
+                testID: isCreating ? 'kitchen-zone-created-toast' : 'kitchen-zone-saved-toast',
+                tone: 'success',
+                message: isCreating
+                    ? t('kitchen:zones.createdToast', {
+                          name: displayName(saved.name, locale).value,
+                      })
+                    : t('kitchen:editor.savedToast'),
+            });
+            // Back to the list the reader came from, on the filter and page they left it at.
+            back.leave();
         })();
     };
 
-    const goTo = (step: ZoneStep, fieldId: string | null) => {
-        form.goTo(step);
-        if (fieldId !== null) focusField(fieldId);
-    };
-
     /*
-     * Save the zone is pressable over an incomplete form. The press marks the form attempted and
-     * takes the reader to the first thing that stops it; only a clean form reaches `finish`.
+     * Save the zone is pressable over an incomplete form, from any step. The press marks the form
+     * attempted and takes the reader to the first thing that stops it — every client check is on
+     * Details — and only a clean form reaches `finish`.
      */
     const attemptSave = () => {
         if (!canManage) return;
@@ -566,15 +627,12 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                     role="alert"
                     tone="warning"
                     title={t('kitchen:zones.notFoundTitle')}
-                    body={t('kitchen:zones.notFoundBody')}
                     actions={
                         <Button
                             testID="kitchen-zone-not-found-back"
                             variant="quiet"
                             label={t('kitchen:zones.backToList')}
-                            onPress={() => {
-                                router.push('/kitchen/delivery-zones' as never);
-                            }}
+                            onPress={back.leave}
                         />
                     }
                 />
@@ -611,33 +669,8 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
 
     const saveFailure = toFailure(update.error ?? create.error);
     // What the server refused, put on the fields it named (BUG-06). All of them are on step one.
-    const server = serverFieldErrors(saveFailure, {
-        name_en: {
-            label: t('kitchen:bilingual.englishShort', { field: t('kitchen:fields.name') }),
-            fieldId: 'kitchen-zone-name-en',
-        },
-        name_ar: {
-            label: t('kitchen:bilingual.arabicShort', { field: t('kitchen:fields.name') }),
-            fieldId: 'kitchen-zone-name-ar',
-        },
-        currency_code: {
-            label: t('kitchen:zones.currencyLabel'),
-            fieldId: 'kitchen-zone-currency-select',
-        },
-        estimated_minutes: {
-            label: t('kitchen:zones.estimatedLabel'),
-            fieldId: 'kitchen-zone-estimated',
-        },
-        delivery_fee_minor: {
-            label: t('kitchen:zones.feeLabel', { currency: currency ?? '' }),
-            fieldId: 'kitchen-zone-fee',
-        },
-        minimum_order_minor: {
-            label: t('kitchen:zones.minimumLabel', { currency: currency ?? '' }),
-            fieldId: 'kitchen-zone-minimum',
-        },
-    });
-    // The chip opens step one first: Save is pressed from the last step, where none of these is.
+    const server = serverFieldErrors(saveFailure, serverTargets);
+    // The chip opens step one first: Save is pressed from whichever step the reader is on.
     const serverItems = server.items.map((item) => ({
         ...item,
         onPress: () => {
@@ -654,10 +687,18 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
     const isRetired = data?.meta.status === 'retired';
 
     const status = data?.meta.status ?? 'draft';
+    /*
+     * The red pill on each step: what is wrong on it, from the form's own checks and the server's.
+     * A refused area or window set has no field to mark, so its section's callout is the one thing
+     * wrong on that step — and the pill is what says which step to open to read it.
+     */
+    const refusedOn: Readonly<Record<ZoneStep, number>> = {
+        zone: serverItems.length,
+        areas: areasFailure === null ? 0 : 1,
+        windows: windowsFailure === null ? 0 : 1,
+    };
     const stepIssues = (step: ZoneStep) => {
-        const count =
-            shownIssues.filter((entry) => entry.step === step).length +
-            (step === 'zone' ? serverItems.length : 0);
+        const count = shownIssues.filter((entry) => entry.step === step).length + refusedOn[step];
         return count === 0
             ? undefined
             : {
@@ -678,6 +719,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
             value: 'areas',
             label: t('kitchen:zones.sectionAreas'),
             count: areas.length,
+            issues: stepIssues('areas'),
             disabled: !stepsUnlocked,
             testID: 'kitchen-zone-editor-screen-steps-areas',
         },
@@ -685,6 +727,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
             value: 'windows',
             label: t('kitchen:zones.sectionWindows'),
             count: windowIds.length,
+            issues: stepIssues('windows'),
             disabled: !stepsUnlocked,
             testID: 'kitchen-zone-editor-screen-steps-windows',
         },
@@ -716,9 +759,7 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                             variant="secondary"
                             label={t('kitchen:editor.cancel')}
                             onPress={() => {
-                                guard.intercept(() => {
-                                    router.push('/kitchen/delivery-zones' as never);
-                                });
+                                guard.intercept(back.leave);
                             }}
                         />
                         {isCreating || !canManage || isRetired ? null : (
@@ -731,6 +772,19 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                                 }}
                             />
                         )}
+                        {/*
+                         * The one Save, on every step: it writes the whole walk, and a reader who
+                         * changed only the first step should not have to page to the last for it.
+                         */}
+                        {canManage ? (
+                            <Button
+                                testID="kitchen-zone-editor-screen-save"
+                                label={t('kitchen:zones.saveZone')}
+                                loading={saving}
+                                disabled={saving}
+                                onPress={attemptSave}
+                            />
+                        ) : null}
                     </>
                 }
                 errors={{
@@ -741,10 +795,11 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                         { count: shownIssues.length + serverItems.length },
                     ),
                     items: [
+                        // No `fieldId`: the field keeps its own message under it, so the problem
+                        // is said where it is fixed and not only in this line.
                         ...shownIssues.map((entry) => ({
                             key: entry.key,
                             label: entry.label,
-                            fieldId: entry.fieldId ?? undefined,
                             onPress: () => {
                                 goTo(entry.step, entry.fieldId);
                             },
@@ -1042,28 +1097,6 @@ function DeliveryZoneEditor({ zone }: DeliveryZoneEditScreenProps) {
                     </Stack>
                 </FormSection>
             )}
-
-            {/*
-             * The one Save is the last step's Next: the walk writes at the end. While areas and
-             * windows are still locked, details is the last reachable step and carries it.
-             */}
-            <TabStepNavigation<ZoneStep>
-                testID="kitchen-zone-editor-screen-steps-nav"
-                items={stepItems}
-                value={form.current}
-                onChange={form.goTo}
-                finalAction={
-                    canManage ? (
-                        <Button
-                            testID="kitchen-zone-windows-save"
-                            label={t('kitchen:zones.saveZone')}
-                            loading={saving}
-                            disabled={saving}
-                            onPress={attemptSave}
-                        />
-                    ) : undefined
-                }
-            />
 
             {/* ── archive ──────────────────────────────────────────────────────────────────── */}
             <Dialog

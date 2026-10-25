@@ -61,6 +61,8 @@ import {
     INVENTORY_VIEW_PERMISSION,
 } from './entity-registry.ts';
 import { GateRailCard } from './gate-rail-card.tsx';
+import { useHostSave } from './host-save.ts';
+import type { RegisterHostSave } from './host-save.ts';
 import {
     adminReferenceUnits,
     displayName,
@@ -242,21 +244,30 @@ export interface MealListingProps {
     readonly meal: MealId;
     /** Told when the listing's unsaved state changes, so the page can guard its own exits. */
     readonly onDirtyChange?: ((dirty: boolean) => void) | undefined;
+    /**
+     * Hands this listing's save to the page, whose one Save draft then writes the meal and its
+     * service days too (see `host-save.ts`). With it the listing draws no Save of its own.
+     */
+    readonly onRegisterSave?: RegisterHostSave | undefined;
 }
 
-export function MealListing({ meal, onDirtyChange }: MealListingProps) {
+export function MealListing({ meal, onDirtyChange, onRegisterSave }: MealListingProps) {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
             testID="kitchen-meal-editor"
         >
-            <MealListingEditor meal={meal} onDirtyChange={onDirtyChange} />
+            <MealListingEditor
+                meal={meal}
+                onDirtyChange={onDirtyChange}
+                onRegisterSave={onRegisterSave}
+            />
         </Gate>
     );
 }
 
-function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
+function MealListingEditor({ meal, onDirtyChange, onRegisterSave }: MealListingProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const { locale } = useLocale();
@@ -552,25 +563,58 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
         netContentUnitId: netContent === null ? null : details.netContentUnitId,
     };
 
+    /** The meal's own write, at `lockVersion` — one body for Save draft and the host's save. */
+    const detailsRequest = (saved: MealAdmin, lockVersion: number, portionFactor: number) => ({
+        lockVersion,
+        name: details.name,
+        description: details.description,
+        // No recipe: the page is the recipe, and the writer sends only what it is given.
+        portionFactor,
+        mealTypes: details.mealTypes,
+        // Echoed back untouched so a save here cannot clear a classification set elsewhere — see
+        // the note on DetailsDraft.
+        dietClassifications: saved.dietClassifications,
+        ...finishedStockRequest,
+    });
+
+    /*
+     * The host's save (see `host-save.ts`): the meal, then its service days at the version the
+     * meal's write answered with — the two writes this listing's own buttons make one at a time,
+     * awaited in turn so the recipe can say once that everything saved.
+     */
+    useHostSave(onRegisterSave, async () => {
+        if (data === undefined || !guard.isDirty) return true;
+        if (!canManage) return false;
+        if (detailsDirty && (detailsBlocked || portion === null)) return false;
+        if (daysDirty && dayErrors.size > 0) return false;
+        try {
+            let lockVersion = data.meta.lockVersion;
+            if (detailsDirty && portion !== null) {
+                const updated = await update.mutateAsync({
+                    mealId: data.id,
+                    request: detailsRequest(data, lockVersion, portion),
+                });
+                lockVersion = updated.meta.lockVersion;
+            }
+            if (daysDirty) {
+                await setAvailability.mutateAsync({
+                    mealId: data.id,
+                    request: { lockVersion, days: availabilityRequestDays(days) },
+                });
+            }
+        } catch (error) {
+            concurrency.capture(error);
+            return false;
+        }
+        settle(false, false);
+        return true;
+    });
+
     const saveDetails = () => {
         if (detailsBlocked || portion === null) return;
         if (data === undefined) return;
         update.mutate(
-            {
-                mealId: data.id,
-                request: {
-                    lockVersion: data.meta.lockVersion,
-                    name: details.name,
-                    description: details.description,
-                    // No recipe: the page is the recipe, and the writer sends only what it is given.
-                    portionFactor: portion,
-                    mealTypes: details.mealTypes,
-                    // Echoed back untouched so a save here cannot clear a classification set
-                    // elsewhere — see the note on DetailsDraft.
-                    dietClassifications: data.dietClassifications,
-                    ...finishedStockRequest,
-                },
-            },
+            { mealId: data.id, request: detailsRequest(data, data.meta.lockVersion, portion) },
             {
                 onSuccess: () => {
                     settle(false, daysDirty);
@@ -741,6 +785,8 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
             saveLabel={t('kitchen:common.saveDraft')}
             saving={update.isPending}
             saveDisabled={!canManage || detailsBlocked}
+            // The host page's Save writes this listing when it took its save (`host-save.ts`).
+            hideSave={onRegisterSave !== undefined}
             backLabel={t('kitchen:common.cancel')}
             onBack={() => {
                 router.push('/kitchen/recipes?kind=meal' as never);
@@ -1320,7 +1366,7 @@ function MealListingEditor({ meal, onDirtyChange }: MealListingProps) {
                          * a different lock — so its control appears once there is something to
                          * save, rather than sitting under an untouched empty state.
                          */}
-                        {!canManage || !daysDirty ? null : (
+                        {!canManage || !daysDirty || onRegisterSave !== undefined ? null : (
                             <Inline space="sm" wrap justify="end">
                                 <Button
                                     testID="kitchen-meal-availability-save"

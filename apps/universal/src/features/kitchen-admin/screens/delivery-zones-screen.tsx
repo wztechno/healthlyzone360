@@ -56,9 +56,16 @@ import {
     statusTone,
     zoneRowTestId,
 } from '../format.ts';
-import { useListPage } from '../use-list-page.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import {
+    useListMemory,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedPage,
+    useRememberedQuery,
+    useRestoredPageFallback,
+} from '../list-memory.ts';
 
 /**
  * `/kitchen/delivery-zones` — where this kitchen delivers, for how much, and when (Commercial §3.4).
@@ -107,9 +114,12 @@ function DeliveryZonesList() {
     const { locale } = useLocale();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
 
-    const [query, setQuery] = useState('');
-    const [status, setStatus] = useState<StatusSegmentValue>('all');
+    // Search, status, page and the row last opened survive leaving the list for a zone.
+    const memory = useListMemory('kitchen.delivery-zones');
+    const [query, setQuery] = useRememberedQuery(memory);
+    const [status, setStatus] = useRememberedFilter<StatusSegmentValue>(memory, 'status', 'all');
     const [viewing, setViewing] = useState<DeliveryZoneAdmin | null>(null);
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
 
     const trimmed = query.trim();
     const filter = useMemo(
@@ -119,8 +129,11 @@ function DeliveryZonesList() {
         }),
         [trimmed, status],
     );
-    const [page, setPage] = useListPage(filter);
+    const [page, setPage] = useRememberedPage(memory, filter);
     const zones = useDeliveryZonePageQuery(filter, page);
+    useRestoredPageFallback(memory, page, zones.isError, () => {
+        setPage(1);
+    });
     const wholeSet = useDeliveryZoneWholeSetQuery(filter);
     // A zone carries window identifiers; the windows themselves are the kitchen's list.
     const kitchenWindows = useDeliveryWindowsQuery();
@@ -133,6 +146,7 @@ function DeliveryZonesList() {
 
     const openEditor = (row: DeliveryZoneAdmin) => {
         setViewing(null);
+        rememberOpened(String(row.id));
         router.push(`/kitchen/delivery-zones/${String(row.id)}` as never);
     };
 
@@ -520,6 +534,7 @@ function DeliveryZonesList() {
                         rows={controls.rows}
                         rowKey={(row) => String(row.id)}
                         density="sm"
+                        highlightedId={lastOpenedId}
                         onRowPress={openEditor}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={(row): readonly MenuItem[] => [
@@ -529,6 +544,7 @@ function DeliveryZonesList() {
                                 icon: CATALOGUE_ROW_ICONS.view,
                                 testID: `${zoneRowTestId(String(row.id))}-view`,
                                 onSelect: () => {
+                                    rememberOpened(String(row.id));
                                     setViewing(row);
                                 },
                             },

@@ -68,6 +68,11 @@ export interface CatalogueListItemProps {
     readonly onPress?: (() => void) | undefined;
     /** The row's bottom hairline; off for the last row inside the list's frame. */
     readonly divider?: boolean | undefined;
+    /**
+     * The row the reader opened last. `ListItem`'s selected ground, carried under the overflow too
+     * so the whole line reads as one marked row.
+     */
+    readonly highlighted?: boolean | undefined;
     readonly testID?: string | undefined;
 }
 
@@ -81,6 +86,7 @@ export function CatalogueListItem({
     actionsLabel,
     onPress,
     divider,
+    highlighted = false,
     testID,
 }: CatalogueListItemProps) {
     const overflow =
@@ -108,6 +114,7 @@ export function CatalogueListItem({
         <ListItem
             title={title}
             onPress={onPress}
+            selected={highlighted}
             // With an overflow the hairline moves to the wrapper, so it runs under the menu too.
             divider={overflow === null ? divider : false}
             testID={testID}
@@ -161,6 +168,7 @@ export function CatalogueListItem({
             className={cx(
                 'flex-row items-center pe-control-sm',
                 divider === false ? null : 'border-b border-stroke-subtle',
+                highlighted ? 'bg-surface-brand-subtle' : null,
             )}
         >
             {/* eslint-disable-next-line no-restricted-syntax -- this is the list row itself, filling its line beside the menu */}

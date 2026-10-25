@@ -13,7 +13,6 @@ import {
 } from '@healthy360/design-system';
 import { IngredientId } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -22,6 +21,7 @@ import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useIngredientQuery } from '../../../data/kitchen-admin-hooks.ts';
 import { useIngredientBarcodesQuery } from '../../../data/kitchen-ops-hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { Ean13Barcode } from '../ean13-barcode.tsx';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { usePrintSheet } from '../print-sheet.tsx';
@@ -63,11 +63,18 @@ export function IngredientBarcodeLabelScreen({ ingredient }: IngredientBarcodeLa
 function IngredientBarcodeLabel({ ingredient }: IngredientBarcodeLabelScreenProps) {
     const { t } = useTranslation();
     const { locale } = useLocale();
-    const router = useRouter();
     const sheet = usePrintSheet();
     const [typedCopies, setTypedCopies] = useState('1');
 
     const parsed = ingredient === undefined ? null : IngredientId.safeParse(ingredient);
+    /*
+     * Back to the ingredient goes back a step, as the browser's arrow does — the label is opened
+     * from the ingredient — and opens the ingredient afresh only when nothing is behind this page.
+     */
+    const back = useReturnTo(
+        undefined,
+        parsed === null ? '/kitchen/ingredients' : `/kitchen/ingredients/${String(parsed)}`,
+    );
     const record = useIngredientQuery(parsed);
     const barcodes = useIngredientBarcodesQuery(parsed);
     const failure = toFailure(record.error ?? barcodes.error);
@@ -77,6 +84,14 @@ function IngredientBarcodeLabel({ ingredient }: IngredientBarcodeLabelScreenProp
             <EmptyState
                 testID="kitchen-ingredient-label-not-found"
                 title={t('kitchen:barcodes.labelNotFound')}
+                actions={
+                    <Button
+                        testID="kitchen-ingredient-label-not-found-back"
+                        variant="secondary"
+                        label={t('kitchen:editor.backToList')}
+                        onPress={back.leave}
+                    />
+                }
             />
         );
     }
@@ -106,9 +121,7 @@ function IngredientBarcodeLabel({ ingredient }: IngredientBarcodeLabelScreenProp
             testID="kitchen-ingredient-label-back"
             variant="secondary"
             label={t('kitchen:barcodes.backToIngredient')}
-            onPress={() => {
-                router.push(`/kitchen/ingredients/${String(parsed)}`);
-            }}
+            onPress={back.leave}
         />
     );
 

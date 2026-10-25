@@ -269,6 +269,7 @@ function PackagingList() {
                     rows={list.rows}
                     rowKey={(row) => String(row.id)}
                     density="sm"
+                    highlightedId={list.lastOpenedId}
                     // The row body opens the panel, not the editor. Reading is what this page
                     // is for — what a box costs and how many a batch needs — so the cheap
                     // answer is the one a click lands on, and Edit is one control away.

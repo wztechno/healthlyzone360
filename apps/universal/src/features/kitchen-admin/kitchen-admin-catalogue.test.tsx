@@ -89,6 +89,8 @@ jest.mock('expo-router', () => {
             replace,
             setParams: jest.fn(),
             back: jest.fn(),
+            canGoBack: () => false,
+            dismissTo: jest.fn(),
             prefetch: jest.fn(),
         }),
         usePathname: () => '/kitchen/products',
@@ -1567,13 +1569,14 @@ describe('creating and editing a product', () => {
         });
 
         await untilVisible('kitchen-product-editor-screen-unsaved-dialog');
-        expect(routerMock.__push).not.toHaveBeenCalledWith('/kitchen/products');
+        expect(routerMock.__replace).not.toHaveBeenCalledWith('/kitchen/products');
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-unsaved-discard'));
         });
+        // Back steps out of the editor; with no history under it, it lands on the list.
         await waitFor(() => {
-            expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/products');
+            expect(routerMock.__replace).toHaveBeenCalledWith('/kitchen/products');
         });
     });
 });

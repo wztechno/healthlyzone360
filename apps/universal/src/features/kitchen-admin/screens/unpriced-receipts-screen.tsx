@@ -13,7 +13,7 @@ import { SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -33,6 +33,12 @@ import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { receiptCostStatusKey, receiptCostStatusTone } from '../ops-format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import {
+    useListMemory,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedQuery,
+} from '../list-memory.ts';
 
 /**
  * `/kitchen/procurement/unpriced-receipts` — the work queue (SUP5, §3.6, §7).
@@ -87,10 +93,13 @@ function UnpricedReceipts() {
     const { locale } = useLocale();
     const router = useRouter();
 
-    const [query, setQuery] = useState('');
-    const [state, setState] = useState<StateSegmentValue>('all');
+    // Search, filters, page and the receipt last opened survive leaving the queue for a receipt.
+    const memory = useListMemory('kitchen.unpriced-receipts');
+    const [query, setQuery] = useRememberedQuery(memory);
+    const [state, setState] = useRememberedFilter<StateSegmentValue>(memory, 'state', 'all');
     /** The Supplier header's choice, sent with the request — `UnpricedReceiptFilter.supplierId`. */
-    const [supplier, setSupplier] = useState<string | null>(null);
+    const [supplier, setSupplier] = useRememberedFilter<string | null>(memory, 'supplier', null);
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
 
     const queueFilter = useMemo(
         () => (supplier === null ? {} : { supplierId: SupplierId.unsafe(supplier) }),
@@ -115,6 +124,7 @@ function UnpricedReceipts() {
     );
 
     const openReceipt = (row: UnpricedReceipt) => {
+        rememberOpened(String(row.id));
         router.push(`/kitchen/procurement/unpriced-receipts/${String(row.id)}` as never);
     };
 
@@ -327,6 +337,11 @@ function UnpricedReceipts() {
                     rows={controls.rows}
                     rowKey={(row) => String(row.id)}
                     density="sm"
+                    highlightedId={lastOpenedId}
+                    initialPage={memory.initial.page}
+                    onPageChange={(page) => {
+                        memory.remember({ page });
+                    }}
                     onRowPress={openReceipt}
                     rowActionsLabel={t('kitchen:list.rowActions')}
                     // The one thing to do with a row here is finish its prices.

@@ -25,6 +25,7 @@ import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
     useAbandonProductionOrderMutation,
     useCancelProductionOrderMutation,
@@ -126,6 +127,8 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
     const split = useContentWidth().atLeast(RECORD_SPLIT_MIN);
     const formatter = useFormatter();
     const router = useRouter();
+    // Back steps to wherever the batch was opened from — the desk on its filter, or the planner.
+    const back = useReturnTo(undefined, '/kitchen/production-desk');
     const toast = useToast();
     const canManage = useCan(PRODUCTION_MANAGE_PERMISSION);
 
@@ -151,10 +154,8 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
             : detail.order.reference === null
               ? t('kitchen:ops.production.batchFallbackTitle')
               : t('kitchen:ops.production.batchTitle', { reference: detail.order.reference });
-    // The trail names the batch and its Production crumb is the way back to the desk.
-    useKitchenTrailLeaf(title, () => {
-        router.push('/kitchen/production-desk');
-    });
+    // The trail names the batch and its Production crumb is the way back, one step at a time.
+    useKitchenTrailLeaf(title, back.leave);
 
     if (parsed === null) {
         return (
@@ -275,6 +276,12 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
             noValue,
         );
 
+    const hasNotices =
+        confirmFailure !== null ||
+        startFailure !== null ||
+        batch.isExpired ||
+        batch.abandonReason !== null;
+
     const statusCaptionKey = STATUS_CAPTION[batch.status];
     const history = stamps(batch);
 
@@ -384,36 +391,41 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                 }
             />
 
-            {confirmFailure === null && startFailure === null ? null : (
-                <Callout
-                    testID="kitchen-production-batch-advance-error"
-                    tone="danger"
-                    role="alert"
-                    title={t(
-                        confirmFailure === null
-                            ? 'kitchen:ops.production.startFailedTitle'
-                            : 'kitchen:ops.production.confirmFailedTitle',
+            {/* The batch's notices, one band under the header. */}
+            {!hasNotices ? null : (
+                <Stack space="xs" testID="kitchen-production-batch-notices">
+                    {confirmFailure === null && startFailure === null ? null : (
+                        <Callout
+                            testID="kitchen-production-batch-advance-error"
+                            tone="danger"
+                            role="alert"
+                            title={t(
+                                confirmFailure === null
+                                    ? 'kitchen:ops.production.startFailedTitle'
+                                    : 'kitchen:ops.production.confirmFailedTitle',
+                            )}
+                            body={(confirmFailure ?? startFailure)?.message}
+                        />
                     )}
-                    body={(confirmFailure ?? startFailure)?.message}
-                />
-            )}
 
-            {batch.isExpired ? (
-                <Callout
-                    testID="kitchen-production-batch-expired"
-                    tone="danger"
-                    role="alert"
-                    title={t('kitchen:ops.production.expiredNotice')}
-                />
-            ) : null}
+                    {batch.isExpired ? (
+                        <Callout
+                            testID="kitchen-production-batch-expired"
+                            tone="danger"
+                            role="alert"
+                            title={t('kitchen:ops.production.expiredNotice')}
+                        />
+                    ) : null}
 
-            {batch.abandonReason === null ? null : (
-                <Callout
-                    testID="kitchen-production-batch-abandon-reason"
-                    tone="warning"
-                    title={t('kitchen:ops.production.abandonReasonLabel')}
-                    body={batch.abandonReason}
-                />
+                    {batch.abandonReason === null ? null : (
+                        <Callout
+                            testID="kitchen-production-batch-abandon-reason"
+                            tone="warning"
+                            title={t('kitchen:ops.production.abandonReasonLabel')}
+                            body={batch.abandonReason}
+                        />
+                    )}
+                </Stack>
             )}
 
             {/* The batch in four figures: what it is meant to make, and where it stands. */}
@@ -566,7 +578,6 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                             testID="kitchen-production-batch-costs-hidden"
                             tone="info"
                             title={t('kitchen:ops.production.costsHiddenTitle')}
-                            body={t('kitchen:ops.production.costsHiddenBody')}
                         />
                     )}
 
@@ -944,14 +955,7 @@ function CostCard({
                             ? 'kitchen:ops.production.costStatusPartial'
                             : 'kitchen:ops.production.costStatusUnvalued',
                     )}
-                    body={
-                        batch.valuationNote ??
-                        t(
-                            status === 'partial'
-                                ? 'kitchen:ops.production.costStatusPartialBody'
-                                : 'kitchen:ops.production.costStatusUnvaluedBody',
-                        )
-                    }
+                    body={batch.valuationNote ?? undefined}
                 />
             ) : null}
         </Card>

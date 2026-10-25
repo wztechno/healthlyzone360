@@ -27,6 +27,7 @@ import type { ReviewItem, ReviewQueue, ReviewSection } from '../review-queue.ts'
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { useListMemory, useRememberedFilter, useRememberedQuery } from '../list-memory.ts';
 
 /**
  * `/kitchen/review` — the publication review queue (K1.8), as `Workbench.dc.html` draws it.
@@ -90,8 +91,10 @@ function ReviewQueueBody() {
     const router = useRouter();
     const sources = useReviewQueueQuery();
 
-    const [search, setSearch] = useState('');
-    const [scope, setScope] = useState<ReviewScope>('all');
+    // Search and scope survive leaving the queue for a record and coming back to it.
+    const memory = useListMemory('kitchen.review');
+    const [search, setSearch] = useRememberedQuery(memory);
+    const [scope, setScope] = useRememberedFilter<ReviewScope>(memory, 'scope', 'all');
     const [viewing, setViewing] = useState<Viewing | null>(null);
 
     const queue = useMemo(

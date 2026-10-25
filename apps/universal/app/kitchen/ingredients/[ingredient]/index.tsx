@@ -9,6 +9,9 @@ import { lazyScreen } from '../../../../src/shell/lazy-screen.tsx';
  * the same form with the same validation and the same unsaved guard, and two route files would be
  * two places to keep that in step. The identifier is validated in the screen, so a hand-typed link
  * produces the designed not-found state rather than a repository failure.
+ *
+ * `?needs=` and `?returnTo=` are what a recipe sends when one of its raw materials has something
+ * to fix here: what to fix, and the recipe to go back to once it is saved (`ingredient-fix.ts`).
  */
 const IngredientEditScreen = lazyScreen(
     'kitchen-ingredient-editor-loading',
@@ -18,6 +21,10 @@ const IngredientEditScreen = lazyScreen(
 );
 
 export default function KitchenIngredientEditor() {
-    const { ingredient } = useLocalSearchParams<{ ingredient?: string }>();
-    return <IngredientEditScreen ingredient={ingredient} />;
+    const { ingredient, returnTo, needs } = useLocalSearchParams<{
+        ingredient?: string;
+        returnTo?: string;
+        needs?: string;
+    }>();
+    return <IngredientEditScreen ingredient={ingredient} returnTo={returnTo} needs={needs} />;
 }

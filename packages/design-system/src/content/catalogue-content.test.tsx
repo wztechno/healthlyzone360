@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react-native';
+import { screen, within } from '@testing-library/react-native';
 
 import { DataList, fitColumns, growWeights, spreadColumns } from './data-list.tsx';
 import type { DataListColumn } from './data-list.tsx';
@@ -354,6 +354,25 @@ describe('FormSection', () => {
         // A rule directly under a page title is a rule against nothing.
         expect(screen.getByTestId('first-title')).toBeTruthy();
         expect(screen.getByTestId('second-title')).toBeTruthy();
+    });
+
+    it('sets its content in one column with a gap, so a notice and a grid never touch', async () => {
+        await renderWithI18n(
+            compact(
+                <FormSection testID="section" title="Lines">
+                    <Text testID="notice">Two lines need a quantity</Text>
+                    <Text testID="grid">Lines</Text>
+                </FormSection>,
+            ),
+        );
+
+        const content = screen.getByTestId('section-content');
+        const classes: string[] = content.props.className.split(' ');
+        expect(classes).toEqual(expect.arrayContaining(['z-auto', 'flex-col', 'gap-snug']));
+        expect(within(content).getByTestId('notice')).toBeTruthy();
+        expect(within(content).getByTestId('grid')).toBeTruthy();
+        // The heading is not part of the gapped column.
+        expect(within(content).queryByTestId('section-title')).toBeNull();
     });
 });
 

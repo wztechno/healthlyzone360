@@ -53,6 +53,14 @@ import { displayName } from '../format.ts';
 import { receiptCostStatusKey } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import {
+    useListMemory,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedPageNumber,
+    useRememberedQuery,
+    useRestoredPageFallback,
+} from '../list-memory.ts';
 
 /**
  * `/kitchen/purchases-ledger` — the browsable record behind the monthly spend figure (INV1.1), and
@@ -115,6 +123,9 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
 const LEDGER_MODES = ['detail', 'weekly', 'monthly'] as const;
 type LedgerMode = (typeof LEDGER_MODES)[number];
 
+/** The ledger's first page: no cursor opens it. */
+const FIRST_PAGE_CURSORS: readonly (string | undefined)[] = [undefined];
+
 function isLedgerMode(value: string | undefined): value is LedgerMode {
     return value !== undefined && (LEDGER_MODES as readonly string[]).includes(value);
 }
@@ -145,22 +156,52 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
     const formatter = useFormatter();
     const { locale } = useLocale();
 
+    // Where the ledger was left — filters, mode, page, the line last opened — unless a deep link
+    // opened it: then the link is the question, and the ledger starts from it alone.
+    const linked = supplier !== undefined || item !== undefined || mode !== undefined;
+    const memory = useListMemory('kitchen.purchases-ledger', { fresh: linked });
+
     // Seeded from the deep link, then owned by the screen. A parameter that kept overriding the
     // state would make the filter unclearable for anybody who arrived through a link.
-    const [supplierId, setSupplierId] = useState<string | null>(supplier ?? null);
-    const [stockItemId, setStockItemId] = useState<string | null>(item ?? null);
-    const [from, setFrom] = useState('');
-    const [to, setTo] = useState('');
-    const [costStatus, setCostStatus] = useState<ReceiptCostStatus | null>(null);
-    const [activeMode, setActiveMode] = useState<LedgerMode>(isLedgerMode(mode) ? mode : 'detail');
+    const [supplierId, setSupplierId] = useRememberedFilter<string | null>(
+        memory,
+        'supplierId',
+        supplier ?? null,
+    );
+    const [stockItemId, setStockItemId] = useRememberedFilter<string | null>(
+        memory,
+        'stockItemId',
+        item ?? null,
+    );
+    const [from, setFrom] = useRememberedFilter(memory, 'from', '');
+    const [to, setTo] = useRememberedFilter(memory, 'to', '');
+    const [costStatus, setCostStatus] = useRememberedFilter<ReceiptCostStatus | null>(
+        memory,
+        'costStatus',
+        null,
+    );
+    const [activeMode, setActiveMode] = useRememberedFilter<LedgerMode>(
+        memory,
+        'mode',
+        isLedgerMode(mode) ? mode : 'detail',
+    );
     // `cursors[n - 1]` opens page n: page one has none, and each loaded page with more behind it
     // adds the next page's. See "Pages, like every other admin table" above.
-    const [cursors, setCursors] = useState<readonly (string | undefined)[]>([undefined]);
-    const [page, setPage] = useState(1);
+    const [cursors, setCursors] = useRememberedFilter<readonly (string | undefined)[]>(
+        memory,
+        'cursors',
+        FIRST_PAGE_CURSORS,
+    );
+    const [page, setPage] = useRememberedPageNumber(memory);
     const cursor = cursors[page - 1];
     const [expandedCharges, setExpandedCharges] = useState<readonly string[]>([]);
-    const [query, setQuery] = useState('');
+    const [query, setQuery] = useRememberedQuery(memory);
     const [viewing, setViewing] = useState<PurchaseLedgerLine | null>(null);
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
+    const openView = (row: PurchaseLedgerLine) => {
+        rememberOpened(row.id);
+        setViewing(row);
+    };
 
     const suppliers = useSuppliersQuery();
     const stockItems = useStockItemsQuery();
@@ -198,6 +239,11 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
 
     const isDetail = activeMode === 'detail';
     const ledger = usePurchasesLedgerQuery(ledgerFilter, isDetail);
+    // A remembered cursor the book no longer honours starts the book again.
+    useRestoredPageFallback(memory, page, ledger.isError, () => {
+        setCursors(FIRST_PAGE_CURSORS);
+        setPage(1);
+    });
     const summary = useSpendSummaryQuery(summaryFilter, !isDetail);
 
     // Only the label of a deep-linked item that is not on the page in hand comes from here.
@@ -208,7 +254,7 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
     }, [stockItems.data]);
 
     function resetCursor() {
-        setCursors([undefined]);
+        setCursors(FIRST_PAGE_CURSORS);
         setPage(1);
         setViewing(null);
     }
@@ -665,7 +711,8 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                             rows={controls.rows}
                             rowKey={(row) => row.id}
                             density="sm"
-                            onRowPress={setViewing}
+                            highlightedId={lastOpenedId}
+                            onRowPress={openView}
                             rowActionsLabel={t('kitchen:list.rowActions')}
                             // View only: there is nothing to write from a ledger.
                             rowActions={(row): readonly MenuItem[] => [
@@ -675,7 +722,7 @@ function PurchasesLedger({ supplier, item, mode }: PurchasesLedgerScreenProps) {
                                     icon: CATALOGUE_ROW_ICONS.view,
                                     testID: `kitchen-ledger-${row.id}-view`,
                                     onSelect: () => {
-                                        setViewing(row);
+                                        openView(row);
                                     },
                                 },
                             ]}

@@ -6,7 +6,6 @@ import { Icon } from '../icons/icon.tsx';
 import { useDensity } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
 import { FieldLabel } from './field-label';
-import { useFieldSummarised } from './form-issue-scope.tsx';
 import { InfoTip } from '../overlays/info-tip.tsx';
 import { HALF_TRACK_WIDTH } from '../primitives/grid-shared.ts';
 import type { GridSpanProps } from '../primitives/grid-shared.ts';
@@ -75,9 +74,8 @@ export interface FormFieldProps extends GridSpanProps {
     /**
      * Validation message. Its presence is what marks the control invalid.
      *
-     * Drawn under the control — unless a `FormIssueBanner` in scope names this field (its chip's
-     * `fieldId` is this field's `id`). The banner has said it once; the field then keeps its red
-     * edge and keeps the message only for assistive technology, as the control's description.
+     * Always drawn under the control, whatever a `FormIssueBanner` above the form says: the banner
+     * counts and points, the field is where the reader learns what to change.
      */
     readonly error?: string | undefined;
     /**
@@ -121,7 +119,6 @@ export function FormField({
     const generated = useId();
     const density = useDensity();
     const base = id ?? `field-${generated.replace(/:/g, '')}`;
-    const summarised = useFieldSummarised(base);
 
     // One message under the control: an error outranks a warning on the same field.
     const caution = error === undefined ? warning : undefined;
@@ -213,28 +210,7 @@ export function FormField({
 
             {children(control)}
 
-            {/*
-             * A message the banner already names stays in the tree — it is still what
-             * `aria-describedby` points at, so a screen reader landing here from the chip hears why
-             * — but takes no room and draws nothing. It stops being a live region too: the banner is
-             * the announcement, and two alerts for one refused save is how a reader learns to stop
-             * listening.
-             */}
-            {summarised && (error ?? caution) !== undefined ? (
-                <RNText
-                    nativeID={errorId ?? warningId}
-                    testID={
-                        testID === undefined
-                            ? undefined
-                            : `${testID}-${error === undefined ? 'warning' : 'error'}`
-                    }
-                    className="absolute h-px w-px overflow-hidden opacity-0"
-                >
-                    {error ?? caution}
-                </RNText>
-            ) : null}
-
-            {error === undefined || summarised ? null : (
+            {error === undefined ? null : (
                 <View className="flex-row items-center gap-1">
                     {/*
                      * An error is never signalled by colour alone: the icon carries it too. The
@@ -255,7 +231,7 @@ export function FormField({
                 </View>
             )}
 
-            {caution === undefined || summarised ? null : (
+            {caution === undefined ? null : (
                 <View className="flex-row items-center gap-1">
                     <Icon name="alert" size="sm" className="text-warning-strong" />
                     {/* `status`, not `alert`: a caution is news, not an interruption. */}

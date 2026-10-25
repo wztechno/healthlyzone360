@@ -303,6 +303,7 @@ function ProductsList({ family }: { readonly family: GoodsFamily }) {
                     rowKey={(row) => String(row.id)}
                     // Fixed, not switchable: the S/M/L control is gone.
                     density="sm"
+                    highlightedId={list.lastOpenedId}
                     onRowPress={(row) => {
                         list.openEditor(String(row.id));
                     }}

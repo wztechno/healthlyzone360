@@ -48,6 +48,13 @@ import {
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { QualityCheckCreate } from '../quality-check-create.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import {
+    useListMemory,
+    useRememberedFilter,
+    useRememberedOpened,
+    useRememberedPage,
+    useRememberedQuery,
+} from '../list-memory.ts';
 
 /** The subject as a reader names it, for sorting: its label, or the bare id when it has none. */
 function subjectName(row: QualityCheck): string {
@@ -132,9 +139,17 @@ function QualityCheckList({
     const holdCheck = useHoldQualityCheckMutation();
     const releaseCheck = useReleaseQualityCheckMutation();
 
-    const [query, setQuery] = useState('');
-    const [status, setStatus] = useState<StatusSegmentValue>('all');
+    // Search, status, page and the check last opened survive leaving the list — for another page,
+    // or for the create form this screen swaps in.
+    const memory = useListMemory('kitchen.quality-checks');
+    const [query, setQuery] = useRememberedQuery(memory);
+    const [status, setStatus] = useRememberedFilter<StatusSegmentValue>(memory, 'status', 'all');
     const [viewing, setViewing] = useState<QualityCheck | null>(initialViewing);
+    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
+    const openView = (row: QualityCheck) => {
+        rememberOpened(String(row.id));
+        setViewing(row);
+    };
 
     const trimmed = query.trim().toLowerCase();
     const filtered = useMemo(
@@ -149,12 +164,9 @@ function QualityCheckList({
         [checks.data, status, trimmed],
     );
 
-    const [page, setPage] = useState(1);
-    const [pageKey, setPageKey] = useState(`${trimmed}|${status}`);
-    if (pageKey !== `${trimmed}|${status}`) {
-        setPageKey(`${trimmed}|${status}`);
-        setPage(1);
-    }
+    // Back to page one whenever the search or the status changes — `useListPage`'s reset, keyed
+    // on the two as text.
+    const [page, setPage] = useRememberedPage(memory, `${trimmed}|${status}`);
 
     function onHold(check: QualityCheck) {
         holdCheck.mutate(check.id, {
@@ -436,7 +448,8 @@ function QualityCheckList({
                         columns={controls.columns}
                         rows={pageRows}
                         rowKey={(row) => String(row.id)}
-                        onRowPress={setViewing}
+                        highlightedId={lastOpenedId}
+                        onRowPress={openView}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={(row): readonly MenuItem[] => {
                             const action = lifecycleAction(row);
@@ -447,7 +460,7 @@ function QualityCheckList({
                                     icon: CATALOGUE_ROW_ICONS.view,
                                     testID: `${qualityCheckRowTestId(String(row.id))}-view`,
                                     onSelect: () => {
-                                        setViewing(row);
+                                        openView(row);
                                     },
                                 },
                                 ...(action === null

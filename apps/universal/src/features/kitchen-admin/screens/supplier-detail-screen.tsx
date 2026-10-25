@@ -40,8 +40,8 @@ import {
     useUpdateSupplierMutation,
     useUpsertSupplierLinkMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { BilingualField } from '../bilingual-field.tsx';
-import { TabStepNavigation } from '../editor-steps.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
@@ -212,6 +212,9 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
     const toast = useToast();
     const canManage = useCan(INVENTORY_MANAGE_PERMISSION);
     const canViewCosts = useCan(INVENTORY_VIEW_COSTS_PERMISSION);
+    // Cancel and the not-found link step back to wherever the reader came from — the supplier list
+    // as they left it — and only open a fresh list when there is no history to return to.
+    const back = useReturnTo(undefined, '/kitchen/suppliers');
 
     const isCreating = supplier === undefined || supplier === 'new';
     const parsed = isCreating ? null : SupplierId.safeParse(supplier);
@@ -326,6 +329,85 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
     const nameMissing = details.name.en.trim() === '';
     const detailsBlocked = nameMissing || leadTime === undefined;
 
+    /*
+     * What the server may refuse on the record, in the order the Details step draws the fields —
+     * so the first one refused is the first one the reader meets.
+     */
+    const serverTargets: Readonly<Record<string, ServerFieldTarget>> = {
+        code: { label: t('kitchen:ops.suppliers.fieldCode'), fieldId: 'kitchen-supplier-code' },
+        name_en: {
+            label: t('kitchen:bilingual.englishShort', {
+                field: t('kitchen:ops.suppliers.fieldName'),
+            }),
+            fieldId: 'kitchen-supplier-name-en',
+        },
+        name_ar: {
+            label: t('kitchen:bilingual.arabicShort', {
+                field: t('kitchen:ops.suppliers.fieldName'),
+            }),
+            fieldId: 'kitchen-supplier-name-ar',
+        },
+        contact_email: {
+            label: t('kitchen:ops.suppliers.fieldEmail'),
+            fieldId: 'kitchen-supplier-email',
+        },
+        contact_phone: {
+            label: t('kitchen:ops.suppliers.fieldPhone'),
+            fieldId: 'kitchen-supplier-phone',
+        },
+        payment_terms: {
+            label: t('kitchen:ops.suppliers.fieldPaymentTerms'),
+            fieldId: 'kitchen-supplier-payment-terms',
+        },
+        lead_time_days: {
+            label: t('kitchen:ops.suppliers.fieldLeadTime'),
+            fieldId: 'kitchen-supplier-lead-time',
+        },
+        address: {
+            label: t('kitchen:ops.suppliers.fieldAddress'),
+            fieldId: 'kitchen-supplier-address',
+        },
+        notes: {
+            label: t('kitchen:ops.suppliers.fieldNotes'),
+            fieldId: 'kitchen-supplier-notes',
+        },
+    };
+
+    /** Row paths name a card by its position in the set that was sent, which is the order drawn. */
+    const contactTargetsFor = (
+        drafts: readonly SupplierContactDraft[],
+    ): Readonly<Record<string, ServerFieldTarget>> =>
+        Object.fromEntries(
+            drafts.flatMap((draft, index) =>
+                CONTACT_FIELDS.map(
+                    ([field, suffix, labelKey]): readonly [string, ServerFieldTarget] => [
+                        `contacts.${String(index)}.${field}`,
+                        {
+                            label: t(labelKey),
+                            fieldId: `${supplierContactRowTestId(draft.key)}-${suffix}`,
+                        },
+                    ],
+                ),
+            ),
+        );
+
+    /**
+     * Where a refused save takes the reader: the step the save belongs to, with the first field the
+     * server named focused. A refusal that names no field is that step's callout.
+     */
+    const showRefusal = (
+        step: SupplierStep,
+        targets: Readonly<Record<string, ServerFieldTarget>>,
+        error: unknown,
+    ) => {
+        const refused = serverFieldErrors(toFailure(error), targets);
+        const first = Object.entries(targets).find(
+            ([field]) => refused.errorFor(field) !== undefined,
+        )?.[1];
+        form.goTo(step);
+        if (first !== undefined) focusField(first.fieldId);
+    };
+
     function saveDetails() {
         if (!editable || detailsBlocked || leadTime === undefined) return;
 
@@ -354,6 +436,9 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                         });
                         router.replace(`/kitchen/suppliers/${String(created.id)}` as never);
                     },
+                    onError: (error) => {
+                        showRefusal('details', serverTargets, error);
+                    },
                 },
             );
             return;
@@ -380,6 +465,9 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                         message: t('kitchen:ops.suppliers.savedToast'),
                     });
                 },
+                onError: (error) => {
+                    showRefusal('details', serverTargets, error);
+                },
             },
         );
     }
@@ -401,6 +489,9 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                         tone: 'success',
                         message: t('kitchen:ops.suppliers.contactsSavedToast'),
                     });
+                },
+                onError: (error) => {
+                    showRefusal('contacts', contactTargetsFor(contacts), error);
                 },
             },
         );
@@ -649,15 +740,12 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                     role="alert"
                     tone="warning"
                     title={t('kitchen:ops.suppliers.notFoundTitle')}
-                    body={t('kitchen:ops.suppliers.notFoundBody')}
                     actions={
                         <Button
                             testID="kitchen-supplier-not-found-back"
                             variant="quiet"
                             label={t('kitchen:ops.suppliers.backToList')}
-                            onPress={() => {
-                                router.push('/kitchen/suppliers' as never);
-                            }}
+                            onPress={back.leave}
                         />
                     }
                 />
@@ -694,65 +782,19 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
 
     const saveFailure = toFailure(update.error ?? create.error);
     // What the server refused, put on the fields it named (BUG-06).
-    const server = serverFieldErrors(saveFailure, {
-        name_en: {
-            label: t('kitchen:bilingual.englishShort', {
-                field: t('kitchen:ops.suppliers.fieldName'),
-            }),
-            fieldId: 'kitchen-supplier-name-en',
-        },
-        name_ar: {
-            label: t('kitchen:bilingual.arabicShort', {
-                field: t('kitchen:ops.suppliers.fieldName'),
-            }),
-            fieldId: 'kitchen-supplier-name-ar',
-        },
-        code: { label: t('kitchen:ops.suppliers.fieldCode'), fieldId: 'kitchen-supplier-code' },
-        contact_email: {
-            label: t('kitchen:ops.suppliers.fieldEmail'),
-            fieldId: 'kitchen-supplier-email',
-        },
-        contact_phone: {
-            label: t('kitchen:ops.suppliers.fieldPhone'),
-            fieldId: 'kitchen-supplier-phone',
-        },
-        address: {
-            label: t('kitchen:ops.suppliers.fieldAddress'),
-            fieldId: 'kitchen-supplier-address',
-        },
-        payment_terms: {
-            label: t('kitchen:ops.suppliers.fieldPaymentTerms'),
-            fieldId: 'kitchen-supplier-payment-terms',
-        },
-        lead_time_days: {
-            label: t('kitchen:ops.suppliers.fieldLeadTime'),
-            fieldId: 'kitchen-supplier-lead-time',
-        },
-        notes: {
-            label: t('kitchen:ops.suppliers.fieldNotes'),
-            fieldId: 'kitchen-supplier-notes',
-        },
-    });
+    const server = serverFieldErrors(saveFailure, serverTargets);
 
     const contactsFailure = toFailure(saveContacts.error);
-    // Row paths name the card by its position in the set that was sent, which is the order drawn.
-    const contactsServer = serverFieldErrors(
-        contactsFailure,
-        Object.fromEntries(
-            contacts.flatMap((draft, index) =>
-                CONTACT_FIELDS.map(
-                    ([field, suffix, labelKey]): readonly [string, ServerFieldTarget] => [
-                        `contacts.${String(index)}.${field}`,
-                        {
-                            label: t(labelKey),
-                            fieldId: `${supplierContactRowTestId(draft.key)}-${suffix}`,
-                        },
-                    ],
-                ),
-            ),
-        ),
-    );
+    const contactsServer = serverFieldErrors(contactsFailure, contactTargetsFor(contacts));
     const contactsBlocked = !supplierContactsWellFormed(contacts);
+    // Each card that cannot be saved says why itself; the step's pill counts them.
+    const malformedContacts = contacts.filter(
+        (draft) => !supplierContactsWellFormed([draft]),
+    ).length;
+    // Drawn only for what no card could carry: a refusal placed on its cards is said there.
+    const contactsCallout =
+        contactsFailure !== null &&
+        !(contactsServer.isValidation && contactsServer.unplaced === null);
 
     const linkFailure = toFailure(linkItem.error ?? unlinkItem.error);
     // The reference is typed in two places; the open dialog is where a refused one was sent from.
@@ -828,6 +870,16 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
     };
     const detailsIssueCount = shownIssues.length + server.items.length;
 
+    /*
+     * The red pill on each step: the details the form or the server turned down, the contact cards
+     * that cannot be saved or were refused, and a refused link — each counted where it is drawn.
+     */
+    const stepIssueCount: Readonly<Record<SupplierStep, number>> = {
+        details: detailsIssueCount,
+        contacts: malformedContacts + contactsServer.items.length + (contactsCallout ? 1 : 0),
+        items: linkFailure === null ? 0 : 1,
+    };
+
     const stepItems: readonly TabItem<SupplierStep>[] = (
         isCreating ? SUPPLIER_CREATE_STEPS : SUPPLIER_STEPS
     ).map((key) => ({
@@ -838,34 +890,19 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
             : key === 'items'
               ? { count: suppliedItems.length }
               : {}),
-        ...(key === 'details' && detailsIssueCount > 0
+        ...(stepIssueCount[key] > 0
             ? {
                   issues: {
-                      count: detailsIssueCount,
+                      count: stepIssueCount[key],
                       tone: 'danger' as const,
                       label: t('kitchen:forms.toFixCount', {
-                          count: detailsIssueCount,
+                          count: stepIssueCount[key],
                       }),
                   },
               }
             : {}),
         testID: `kitchen-supplier-screen-steps-${key}`,
     }));
-
-    /*
-     * Hidden rather than disabled on an archived supplier: every field is locked and the callout
-     * says why, so a Save that could never work is noise.
-     */
-    const saveButton =
-        !canManage || isArchived ? null : (
-            <Button
-                testID="kitchen-supplier-screen-save"
-                label={t('kitchen:ops.suppliers.saveDetails')}
-                loading={create.isPending || update.isPending}
-                disabled={create.isPending || update.isPending}
-                onPress={attemptSave}
-            />
-        );
 
     return (
         <Cascade space="md" testID="kitchen-supplier-screen">
@@ -897,9 +934,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                             variant="secondary"
                             label={t('kitchen:editor.cancel')}
                             onPress={() => {
-                                guard.intercept(() => {
-                                    router.push('/kitchen/suppliers' as never);
-                                });
+                                guard.intercept(back.leave);
                             }}
                         />
                         {isCreating || !canManage ? null : isArchived ? (
@@ -932,10 +967,19 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                             />
                         )}
                         {/*
-                         * Only while the form is one step: with more, Save is the last step's Next
-                         * and the header carries none.
+                         * The details' Save, last, on every step. Hidden rather than disabled on an
+                         * archived supplier: every field is locked and the callout says why, so a
+                         * Save that could never work is noise.
                          */}
-                        {stepItems.length > 1 ? null : saveButton}
+                        {!canManage || isArchived ? null : (
+                            <Button
+                                testID="kitchen-supplier-screen-save"
+                                label={t('kitchen:ops.suppliers.saveDetails')}
+                                loading={create.isPending || update.isPending}
+                                disabled={create.isPending || update.isPending}
+                                onPress={attemptSave}
+                            />
+                        )}
                     </>
                 }
                 errors={{
@@ -946,16 +990,17 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                         { count: detailsIssueCount },
                     ),
                     items: [
+                        // No `fieldId`: the field keeps its own message under it, so the problem
+                        // is said where it is fixed and not only in this line.
                         ...shownIssues.map((entry) => ({
                             key: entry.key,
                             label: entry.label,
-                            fieldId: entry.fieldId,
                             onPress: () => {
                                 form.goTo('details');
                                 focusField(entry.fieldId);
                             },
                         })),
-                        // Save is pressed from the last step; the refused field is on Details.
+                        // Save is pressed from any step; the refused field is on Details.
                         ...server.items.map((item) => ({
                             ...item,
                             onPress: () => {
@@ -1193,7 +1238,7 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                         }
                     >
                         <Stack space="md">
-                            {contactsFailure === null ? null : (
+                            {!contactsCallout || contactsFailure === null ? null : (
                                 <Callout
                                     testID="kitchen-supplier-contacts-error"
                                     role="alert"
@@ -1392,14 +1437,6 @@ function SupplierDetailEditor({ supplier }: SupplierDetailScreenProps) {
                     </FormSection>
                 )}
             </View>
-
-            <TabStepNavigation<SupplierStep>
-                testID="kitchen-supplier-screen-steps-nav"
-                items={stepItems}
-                value={form.current}
-                onChange={form.goTo}
-                finalAction={saveButton ?? undefined}
-            />
 
             {/* ── supplier item reference ──────────────────────────────────────────────────── */}
             <Dialog

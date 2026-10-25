@@ -1876,7 +1876,8 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                 <Text variant="section" tone="secondary">
                     Form issues and field tones
                 </Text>
-                <Inline space="xs" wrap>
+                {/* Each strip takes the form's full width, one under the other. */}
+                <Stack space="xs">
                     <FormIssueBanner
                         testID={id('issues-danger')}
                         tone="danger"
@@ -1899,7 +1900,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         summary="Synced"
                         items={[{ key: 'ref', label: 'ING-307', onPress: () => undefined }]}
                     />
-                </Inline>
+                </Stack>
                 <FormSection
                     testID={id('form-section-underlined')}
                     first
@@ -1951,9 +1952,8 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     </FormGrid>
                 </FormSection>
                 {/*
-                 * Badges & Callouts, 2a: a chip with a `fieldId` stands in for that field's own
-                 * line, so the field keeps its red edge and says nothing under it. `Pack price`
-                 * above is named by no chip and keeps its line.
+                 * A chip with a `fieldId` names a field; the field still says what is wrong under
+                 * its own control. The banner is never the only place a problem is written.
                  */}
                 <FormIssueBanner
                     testID={id('issues-named')}
@@ -4475,6 +4475,51 @@ export function ShowcaseScreen() {
                             body={t('designSystem:showcase.calloutBody')}
                         />
                     ))}
+                    {/*
+                     * The same notices at the kitchen admin's density: the one-line strip, the
+                     * title and body as one run, actions at the end of the row and anything
+                     * structured on a full-width row under it.
+                     */}
+                    <DensityProvider value="compact">
+                        <Stack space="xs" testID="showcase-callout-compact">
+                            {CALLOUT_TONES.map((tone) => (
+                                <Callout
+                                    key={tone}
+                                    testID={`showcase-callout-compact-${tone}`}
+                                    tone={tone}
+                                    title={t('designSystem:showcase.calloutTitle')}
+                                    body={t('designSystem:showcase.calloutBody')}
+                                />
+                            ))}
+                            <Callout
+                                testID="showcase-callout-compact-actions"
+                                tone="warning"
+                                title={t('designSystem:showcase.calloutTitle')}
+                                body={t('designSystem:showcase.calloutBody')}
+                                actions={
+                                    <Button
+                                        testID="showcase-callout-compact-action"
+                                        size="sm"
+                                        variant="secondary"
+                                        label={t('designSystem:showcase.toastAction')}
+                                        onPress={() => undefined}
+                                    />
+                                }
+                            />
+                            <Callout
+                                testID="showcase-callout-compact-children"
+                                tone="info"
+                                title={t('designSystem:showcase.calloutTitle')}
+                            >
+                                <Text variant="caption">
+                                    {t('designSystem:showcase.accordionOne')}
+                                </Text>
+                                <Text variant="caption">
+                                    {t('designSystem:showcase.accordionTwo')}
+                                </Text>
+                            </Callout>
+                        </Stack>
+                    </DensityProvider>
                     {/*
                      * Every glyph in the vocabulary, iterated from the exported constant so a new
                      * one cannot be added without appearing here. Names are shown beside the marks

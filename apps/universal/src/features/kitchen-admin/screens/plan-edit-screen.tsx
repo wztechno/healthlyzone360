@@ -24,7 +24,7 @@ import {
     useFormSteps,
     useToast,
 } from '@healthy360/design-system';
-import type { FormIssueItem, GridSpanProps } from '@healthy360/design-system';
+import type { GridSpanProps } from '@healthy360/design-system';
 import { DIET_CLASSIFICATIONS, SubscriptionPlanId } from '@healthy360/domain-types';
 import type { DietClassification } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -50,10 +50,10 @@ import {
     useSetPlanVariantsMutation,
     useUpdatePlanMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { PlanMatrixGrid } from '../commercial/plan-matrix-grid.tsx';
-import { TabStepNavigation } from '../editor-steps.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import {
@@ -99,6 +99,7 @@ import {
 } from '../plan-matrix.ts';
 import type { CombinationDraft, DurationDraft, VariantDraft } from '../plan-matrix.ts';
 import { serverFieldErrors } from '../server-field-errors.ts';
+import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -199,12 +200,6 @@ function detailsFrom(plan: PlanAdmin): DetailsDraft {
         dietClassifications: plan.dietClassifications,
         changeCutOffHours: plan.changeCutOffHours,
     };
-}
-
-/** A field-level refusal, which names a step's row — as opposed to a conflict or an outage. */
-function isRefusal(error: unknown): boolean {
-    const failure = toFailure(error);
-    return failure !== null && isValidationFailure(failure);
 }
 
 /** The same set of codes, whatever order the chips were pressed in. */
@@ -362,6 +357,9 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     const formatter = useFormatter();
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
+    // Cancel and the not-found link step back to wherever the reader came from — the plan list as
+    // they left it — and only open a fresh list when there is no history to return to.
+    const back = useReturnTo(undefined, '/kitchen/plans');
 
     const isCreating = plan === undefined || plan === 'new';
     // Every plan, new or saved, opens on the plan itself and walks the same five steps.
@@ -658,8 +656,9 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     const durationsRequiredOnly = [...durationRowErrors.keys()].every(untouchedDuration);
 
     /*
-     * Everything on the form that needs the reader, in step order, each naming the step it is on
-     * and the field that fixes it — the recipe editor's list, on the plan's five steps.
+     * Everything on the form that needs the reader, each naming the step it is on and the field
+     * that fixes it — the recipe editor's list, on the plan's five steps. Counted on each step's
+     * tab; Save takes the reader to the first of them in step order (`saveBlockers`).
      *
      * `required` separates a blank, which waits for Save to be pressed, from something already
      * typed wrong, which is named at once. `blocksSave` is what stops *this* header's Save: the
@@ -749,22 +748,15 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     /* Before the first Save, only what has already been typed wrong; after it, everything. */
     const shownIssues = attempted ? issues : issues.filter((entry) => !entry.required);
     const shows = (key: string): boolean => shownIssues.some((entry) => entry.key === key);
-    const saveBlockers = issues.filter((entry) => entry.blocksSave);
+    // In step order, so Save opens the first step that stops it rather than the first one listed.
+    const saveBlockers = issues
+        .filter((entry) => entry.blocksSave)
+        .sort((left, right) => PLAN_STEPS.indexOf(left.step) - PLAN_STEPS.indexOf(right.step));
 
     const goTo = (step: PlanStep, fieldId: string | null) => {
         form.goTo(step);
         if (fieldId !== null) focusField(fieldId);
     };
-
-    const issueItems: readonly FormIssueItem[] = shownIssues.map((entry) => ({
-        key: entry.key,
-        label: entry.label,
-        // The row sections carry no field id, so their rows keep saying what is wrong with them.
-        fieldId: entry.fieldId ?? undefined,
-        onPress: () => {
-            goTo(entry.step, entry.fieldId);
-        },
-    }));
 
     /**
      * The solid pill a step's tab carries while something on it needs attention. `refused` is what
@@ -837,6 +829,63 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
 
     /* ── saving ──────────────────────────────────────────────────────────────────────────────── */
 
+    /*
+     * What the server may refuse on the plan itself, in the order the plan step draws the fields —
+     * so the first one refused is the first one the reader meets. All of them are on that step.
+     */
+    const serverTargets: Readonly<Record<string, ServerFieldTarget>> = {
+        name_en: {
+            label: t('kitchen:bilingual.englishShort', { field: t('kitchen:fields.name') }),
+            fieldId: 'kitchen-plan-name-en',
+        },
+        name_ar: {
+            label: t('kitchen:bilingual.arabicShort', { field: t('kitchen:fields.name') }),
+            fieldId: 'kitchen-plan-name-ar',
+        },
+        summary_en: {
+            label: t('kitchen:bilingual.englishShort', { field: t('kitchen:plans.summaryLabel') }),
+            fieldId: 'kitchen-plan-summary-en',
+        },
+        summary_ar: {
+            label: t('kitchen:bilingual.arabicShort', { field: t('kitchen:plans.summaryLabel') }),
+            fieldId: 'kitchen-plan-summary-ar',
+        },
+        description_en: {
+            label: t('kitchen:bilingual.englishShort', {
+                field: t('kitchen:plans.descriptionLabel'),
+            }),
+            fieldId: 'kitchen-plan-description-en',
+        },
+        description_ar: {
+            label: t('kitchen:bilingual.arabicShort', {
+                field: t('kitchen:plans.descriptionLabel'),
+            }),
+            fieldId: 'kitchen-plan-description-ar',
+        },
+        change_cutoff_hours: {
+            label: t('kitchen:plans.cutOffLabel'),
+            fieldId: 'kitchen-plan-cut-off',
+        },
+    };
+
+    /**
+     * Where a refused write takes the reader: the step it was about — where the refused row or the
+     * section's own callout says why — and on the plan step the first field the server named. A
+     * lost race is the conflict dialog's question, and moves nothing.
+     */
+    const showRefusal = (step: PlanStep, error: unknown) => {
+        if (concurrency.capture(error)) return;
+        if (step !== 'plan') {
+            goTo(step, null);
+            return;
+        }
+        const refused = serverFieldErrors(toFailure(error), serverTargets);
+        const first = Object.entries(serverTargets).find(
+            ([field]) => refused.errorFor(field) !== undefined,
+        )?.[1];
+        goTo('plan', first?.fieldId ?? null);
+    };
+
     /**
      * The new-plan save (Commercial §3.3, `New plan`): the record, then its configurations, its
      * durations and its menu, from the one `Save the plan` button the design draws.
@@ -850,9 +899,9 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
      * it unread — nothing follows it but the navigation. The address moves to the record only once
      * every write has landed, so nothing typed is discarded by a navigation.
      *
-     * Save is pressed from the last step, so a refusal of an earlier section's rows would land out
-     * of sight: `stage` names the step each write is about, and a validation refusal opens it, where
-     * the refused row carries the server's note.
+     * Save is pressed from whichever step the reader is on, so a refusal of another section's rows
+     * would land out of sight: `stage` names the step each write is about, and a refusal opens it,
+     * where the refused row carries the server's note.
      */
     const createPlan = (changeCutOffHours: number) => {
         void (async () => {
@@ -915,8 +964,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                 });
                 router.replace(`/kitchen/plans/${String(record.id)}` as never);
             } catch (error) {
-                concurrency.capture(error);
-                if (isRefusal(error)) form.goTo(stage);
+                showRefusal(stage, error);
             }
         })();
     };
@@ -956,16 +1004,17 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     });
                 },
                 onError: (error) => {
-                    concurrency.capture(error);
+                    showRefusal('plan', error);
                 },
             },
         );
     };
 
     /*
-     * Save the plan is pressable over an incomplete form, as on the ingredient and recipe editors.
-     * The press marks the form attempted — the blank required fields say so, the banner names each
-     * — and takes the reader to the first thing that stops it, switching step on the way.
+     * Save the plan is pressable over an incomplete form, from any step, as on the ingredient and
+     * recipe editors. The press marks the form attempted — the blank required fields say so and each
+     * step's tab counts them — and takes the reader to the first thing that stops it, switching
+     * step on the way.
      */
     const attemptSave = () => {
         if (!canManage) return;
@@ -1009,10 +1058,9 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     });
                 },
                 onError: (error) => {
-                    concurrency.capture(error);
                     // The refused row is on the configurations step; a reader who moved on
                     // while the save was in flight is brought back to it.
-                    if (isRefusal(error)) form.goTo('variants');
+                    showRefusal('variants', error);
                 },
             },
         );
@@ -1041,7 +1089,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     });
                 },
                 onError: (error) => {
-                    concurrency.capture(error);
+                    showRefusal('durations', error);
                 },
             },
         );
@@ -1091,7 +1139,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                 },
                 onError: (error) => {
                     setShowWithdrawMenu(false);
-                    concurrency.capture(error);
+                    showRefusal('menu', error);
                 },
             },
         );
@@ -1107,15 +1155,12 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     role="alert"
                     tone="warning"
                     title={t('kitchen:plans.notFoundTitle')}
-                    body={t('kitchen:plans.notFoundBody')}
                     actions={
                         <Button
                             testID="kitchen-plan-not-found-back"
                             variant="quiet"
                             label={t('kitchen:plans.backToList')}
-                            onPress={() => {
-                                router.push('/kitchen/plans' as never);
-                            }}
+                            onPress={back.leave}
                         />
                     }
                 />
@@ -1157,40 +1202,7 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
 
     /* ── what the server refused, put on the fields it named (BUG-06) ──────────────────────── */
 
-    const server = serverFieldErrors(saveFailure, {
-        name_en: {
-            label: t('kitchen:bilingual.englishShort', { field: t('kitchen:fields.name') }),
-            fieldId: 'kitchen-plan-name-en',
-        },
-        name_ar: {
-            label: t('kitchen:bilingual.arabicShort', { field: t('kitchen:fields.name') }),
-            fieldId: 'kitchen-plan-name-ar',
-        },
-        summary_en: {
-            label: t('kitchen:bilingual.englishShort', { field: t('kitchen:plans.summaryLabel') }),
-            fieldId: 'kitchen-plan-summary-en',
-        },
-        summary_ar: {
-            label: t('kitchen:bilingual.arabicShort', { field: t('kitchen:plans.summaryLabel') }),
-            fieldId: 'kitchen-plan-summary-ar',
-        },
-        description_en: {
-            label: t('kitchen:bilingual.englishShort', {
-                field: t('kitchen:plans.descriptionLabel'),
-            }),
-            fieldId: 'kitchen-plan-description-en',
-        },
-        description_ar: {
-            label: t('kitchen:bilingual.arabicShort', {
-                field: t('kitchen:plans.descriptionLabel'),
-            }),
-            fieldId: 'kitchen-plan-description-ar',
-        },
-        change_cutoff_hours: {
-            label: t('kitchen:plans.cutOffLabel'),
-            fieldId: 'kitchen-plan-cut-off',
-        },
-    });
+    const server = serverFieldErrors(saveFailure, serverTargets);
     /*
      * A configuration's refusal is about one row of the configurations step, and a row there has
      * no field of its own to mark — the message becomes the row's note. The server names the row
@@ -1231,29 +1243,25 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
     const durationsServer = serverFieldErrors(durationsFailure);
     const menuServer = serverFieldErrors(menuFailure);
 
-    // Each chip opens its step first: Save is pressed from the last one.
-    const serverItems: readonly FormIssueItem[] = [
-        ...server.items.map((item) => ({
-            ...item,
-            onPress: () => {
-                form.goTo('plan');
-                item.onPress();
-            },
-        })),
-        ...variantsServer.items.map((item) => ({
-            ...item,
-            onPress: () => {
-                form.goTo('variants');
-            },
-        })),
-    ];
-    const allIssueItems: readonly FormIssueItem[] = [...issueItems, ...serverItems];
+    /*
+     * What the server turned down on each step, for that step's red pill: the plan's own fields,
+     * the configuration rows it named and anything about them it could not place, and the
+     * durations' and the menu's callouts — neither has a field of its own to mark.
+     */
     const refusedOn = (step: PlanStep): number =>
         step === 'plan'
             ? server.items.length
             : step === 'variants'
-              ? variantsServer.items.length
-              : 0;
+              ? variantsServer.items.length + (matrixErrorCallout === null ? 0 : 1)
+              : step === 'durations'
+                ? durationsFailure === null
+                    ? 0
+                    : 1
+                : step === 'menu'
+                  ? menuFailure === null
+                      ? 0
+                      : 1
+                  : 0;
     const menuLoadFailure = toFailure(menuRecord.error);
     const mealRows = mealsFromPages(meals.data?.pages);
     /*
@@ -1309,18 +1317,15 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
         testID: `kitchen-plan-editor-screen-steps-${key}`,
     }));
 
-    const goBack = () => {
-        router.push('/kitchen/plans' as never);
-    };
-
     return (
         <Cascade space="md" testID="kitchen-plan-editor-screen">
             {/*
              * The opening, as the recipe editor draws it: the title with its status beside it, the
-             * actions at the inline end, the banner naming what needs fixing, and the steps as
-             * numbered tabs on a sunken track — each carrying its count and, when something on it
-             * needs attention, a solid pill. The row is how a reader jumps; the Previous/Next footer
-             * under the form is how they walk it. No trail here — `KitchenOpsShell` draws it.
+             * actions at the inline end — Save among them, so it is on screen on every step — and
+             * the steps as numbered tabs on a sunken track, each carrying its count and, when
+             * something on it needs attention, a solid red pill. The pills are how a reader finds
+             * what needs fixing; the field itself says what. No trail here — `KitchenOpsShell`
+             * draws it.
              */}
             <Stack space="sm">
                 <CataloguePageHeader
@@ -1366,13 +1371,10 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
                                 onPress={() => {
-                                    guard.intercept(goBack);
+                                    guard.intercept(back.leave);
                                 }}
                             />
-                            {/*
-                             * Publication is never offered before the plan exists. Save is not
-                             * here: it is the last step's Next, under the form.
-                             */}
+                            {/* Publication is never offered before the plan exists. */}
                             {isCreating || !canManage ? null : isPublished ? (
                                 <Button
                                     testID="kitchen-plan-retire"
@@ -1391,23 +1393,21 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                     }}
                                 />
                             )}
+                            {/*
+                             * The commit, last, on every step: a new plan is written whole from
+                             * here, and a saved one is edited in any order.
+                             */}
+                            <Button
+                                testID="kitchen-plan-editor-screen-save"
+                                // The design's own word for this button (Commercial §3.3).
+                                label={t('kitchen:plans.savePlan')}
+                                loading={busy}
+                                disabled={!canManage || busy}
+                                onPress={attemptSave}
+                            />
                         </Inline>
                     }
                 />
-
-                {allIssueItems.length === 0 ? null : (
-                    <FormIssueBanner
-                        testID="kitchen-plan-issues"
-                        tone="danger"
-                        summary={t(
-                            serverItems.length === 0 && shownIssues.every((entry) => entry.required)
-                                ? 'kitchen:forms.requiredCount'
-                                : 'kitchen:forms.toFixCount',
-                            { count: allIssueItems.length },
-                        )}
-                        items={allIssueItems}
-                    />
-                )}
 
                 <Tabs<PlanStep>
                     testID="kitchen-plan-steps"
@@ -1417,6 +1417,20 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     onChange={form.goTo}
                     variant="steps"
                 />
+
+                {/*
+                 * What the server said about the plan and could not put on a field: one line under
+                 * the steps, on every step, since it belongs to none of them.
+                 */}
+                {saveFailure === null ||
+                (server.isValidation && server.unplaced === null) ? null : (
+                    <FormIssueBanner
+                        testID="kitchen-plan-save-error"
+                        tone="danger"
+                        summary={server.unplaced ?? saveFailure.message}
+                        items={[]}
+                    />
+                )}
             </Stack>
 
             {quarantined ? (
@@ -1425,7 +1439,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     role="alert"
                     tone="warning"
                     title={t('kitchen:publish.quarantineTitle')}
-                    body={t('kitchen:publish.quarantineBody')}
                 />
             ) : null}
 
@@ -1435,7 +1448,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     role="note"
                     tone="success"
                     title={t('kitchen:plans.publishedTitle')}
-                    body={t('kitchen:plans.publishedBody')}
                     actions={
                         <Button
                             testID="kitchen-plan-view-public"
@@ -1451,16 +1463,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     }
                 />
             ) : null}
-
-            {saveFailure === null || (server.isValidation && server.unplaced === null) ? null : (
-                <Callout
-                    testID="kitchen-plan-save-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:editor.saveError')}
-                    body={server.unplaced ?? saveFailure.message}
-                />
-            )}
 
             {/* ── the plan itself ──────────────────────────────────────────────────────────── */}
             {/*
@@ -1895,7 +1897,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                                             role="note"
                                             tone="warning"
                                             title={t('kitchen:plans.menuCutoverTitle')}
-                                            body={t('kitchen:plans.menuCutoverBody')}
                                         />
                                     ) : null}
 
@@ -2110,26 +2111,6 @@ function PlanEditor({ plan }: PlanEditScreenProps) {
                     </FormSection>
                 )}
             </View>
-
-            <TabStepNavigation<PlanStep>
-                testID="kitchen-plan-steps-nav"
-                items={tabItems}
-                value={form.current}
-                onChange={form.goTo}
-                // A new plan is written once, from the end of the walk; a saved one is edited in
-                // any order, so its Save is wherever the reader is.
-                alwaysShowFinalAction={!isCreating}
-                finalAction={
-                    <Button
-                        testID="kitchen-plan-editor-screen-save"
-                        // The design's own word for this button (Commercial §3.3).
-                        label={t('kitchen:plans.savePlan')}
-                        loading={busy}
-                        disabled={!canManage || busy}
-                        onPress={attemptSave}
-                    />
-                }
-            />
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}
             <Dialog
