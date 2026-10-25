@@ -677,8 +677,9 @@ export function RecipeLineTable({
                         value={row.note}
                         disabled={!canManage}
                         error={fieldError?.(row, 'comment')}
-                        quiet
-                        placeholder={t('kitchen:list.noValue')}
+                        // Framed like Quantity, with a placeholder that says what goes there: drawn
+                        // borderless with a "—", the column read as empty rather than as a field.
+                        placeholder={t('kitchen:recipes.lineNotePlaceholder')}
                         label={t('kitchen:recipes.lineNote')}
                         onChangeText={(next) => {
                             patch(row.key, { note: next });
@@ -902,8 +903,9 @@ function TotalsRow({
     const trackSum = columns.reduce((sum, column) => sum + column.width, 0);
     const content: Readonly<Record<string, ReactNode>> = {
         name: <Text variant="bodyStrong">{label}</Text>,
+        // Centred, as the Quantity boxes above it are — a start-aligned total sat off their axis.
         quantity: (
-            <Text variant="mono" testID={`${testID}-quantity`}>
+            <Text variant="mono" align="center" testID={`${testID}-quantity`}>
                 {quantity}
             </Text>
         ),
@@ -954,8 +956,6 @@ interface CellInputProps {
     /** `end` for a figure, `center` for a short code. Numbers read against the end edge. */
     readonly align?: 'start' | 'end' | 'center' | undefined;
     readonly mono?: boolean | undefined;
-    /** The Comments column: no frame until it is hovered or focused. */
-    readonly quiet?: boolean | undefined;
     /** The warning border — a quantity that is legal and almost certainly wrong. */
     readonly caution?: boolean | undefined;
     /** A server refusal: the danger border, and the message as the control's description. */
@@ -979,7 +979,6 @@ function CellInput({
     placeholder,
     align,
     mono,
-    quiet,
     caution = false,
     error,
     testID,
@@ -989,20 +988,14 @@ function CellInput({
 
     return (
         <View
-            className={
-                quiet === true && !focused && !invalid
-                    ? // Transparent until it is touched, and the same box underneath — so the row
-                      // does not reflow by a pixel when the frame appears.
-                      'h-control-xs flex-row items-center gap-control-xs rounded-sm border border-transparent px-control-xs'
-                    : inputFrameClassName({
-                          invalid,
-                          caution,
-                          focused,
-                          disabled,
-                          density: 'compact',
-                          size: 'xs',
-                      })
-            }
+            className={inputFrameClassName({
+                invalid,
+                caution,
+                focused,
+                disabled,
+                density: 'compact',
+                size: 'xs',
+            })}
         >
             <TextInput
                 testID={testID}

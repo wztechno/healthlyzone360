@@ -3278,6 +3278,7 @@
         "lineUnit": "الوحدة",
         "lineUnitUnknownDimension": "اختر مكوّنًا لتقتصر الوحدات على ما يمكن التحويل إليه.",
         "lineNote": "كما ورد في البطاقة",
+        "lineNotePlaceholder": "أضف ملاحظة",
         "lineNoteHint": "يُحفظ حرفيًا إلى جانب المكوّن المطابق، حتى لا يضيع اسم الصنف الأصلي.",
         "markOptional": "اجعله اختياريًا",
         "markRequired": "اجعله أساسيًا",
