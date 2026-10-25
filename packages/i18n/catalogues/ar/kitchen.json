@@ -4769,7 +4769,8 @@
     "dressings": {
         "title": "صلصات السلطة",
         "create": "صلصة سلطة جديدة",
-        "viewKind": "تتبيلة"
+        "viewKind": "تتبيلة",
+        "kindSaladDressing": "صلصة سلطة"
     },
     "sale": {
         "title": "البيع",

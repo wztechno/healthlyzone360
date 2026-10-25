@@ -4134,7 +4134,8 @@
     "dressings": {
         "title": "Dressings",
         "create": "New dressing",
-        "viewKind": "Dressing"
+        "viewKind": "Dressing",
+        "kindSaladDressing": "Salad dressing"
     },
     "sale": {
         "title": "Sale",

@@ -149,14 +149,18 @@ const REFERENCE_SERIES = {
  * The sub-category words, as the sauces sheet's own filter lists them.
  *
  * Values are the `recipe_category` column's — snake case, matching `cooking_sauce`, which the
- * import already writes for every SC- row. Dressings have no list of their own: the sheets file all
- * fourteen alike, so the page states the category and asks nothing further, and a frozen meal is
- * filed the same way — offering an empty select would be a control with nothing behind it.
+ * import already writes for every SC- row. Dressings have one, `salad_dressing` — the value the
+ * import writes for every dressing — and it is drawn even so, beside the category, so a dressing is
+ * filed the way a sauce is. A frozen meal has no list, and offering an empty select would be a
+ * control with nothing behind it.
  */
 function subcategoryOptions(
     itemType: Exclude<RecipeSellerKind, 'meal'>,
     t: TFunction,
 ): readonly SelectOption[] {
+    if (itemType === 'dressing') {
+        return [{ value: 'salad_dressing', label: t('kitchen:dressings.kindSaladDressing') }];
+    }
     if (itemType !== 'sauce') return [];
 
     return [

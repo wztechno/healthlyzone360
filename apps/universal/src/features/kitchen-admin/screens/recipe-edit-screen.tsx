@@ -763,6 +763,14 @@ function RecipeEditor({
         initialName === undefined ? EMPTY_DETAILS : { ...EMPTY_DETAILS, name: initialName },
     );
     const [lines, setLinesDraft] = useState<readonly LineDraft[]>([]);
+    /*
+     * A kind with one sub-category — a dressing's `salad_dressing` — is filed under it whatever the
+     * draft holds: the picker shows it fixed, and both saves write it, so a record imported or
+     * created without one is filed the next time it is saved.
+     */
+    const fixedSubcategory =
+        classification?.options.length === 1 ? (classification.options[0]?.value ?? null) : null;
+    const recipeCategory = fixedSubcategory ?? details.recipeCategory;
 
     /*
      * Outside `DetailsDraft` because `updateRecipe` does not write it: `packaging` has an endpoint of
@@ -1856,9 +1864,7 @@ function RecipeEditor({
                         : { yieldPieces: parseQuantity(details.yieldPieces)! }),
                     wastePercent,
                     packagingWastePercent,
-                    ...(details.recipeCategory === ''
-                        ? {}
-                        : { recipeCategory: details.recipeCategory }),
+                    ...(recipeCategory === '' ? {} : { recipeCategory }),
                     ...(typeof shelfLife === 'number' ? { shelfLifeDays: shelfLife } : {}),
                 });
 
@@ -1968,8 +1974,7 @@ function RecipeEditor({
                         ...(classification === undefined
                             ? {}
                             : {
-                                  recipeCategory:
-                                      details.recipeCategory === '' ? null : details.recipeCategory,
+                                  recipeCategory: recipeCategory === '' ? null : recipeCategory,
                               }),
                         // `null` clears it, like the prices above.
                         ...(shelfLife === undefined ? {} : { shelfLifeDays: shelfLife }),
@@ -2720,8 +2725,8 @@ function RecipeEditor({
                                     />
                                 )}
                                 {/*
-                                 * Dressings pass no options: the sheets file all fourteen alike,
-                                 * and a picker with one option is a label wearing a chevron.
+                                 * Beside the category. A frozen meal passes no options, so it
+                                 * draws none; a dressing's one option is drawn chosen and fixed.
                                  */}
                                 {classification === undefined ||
                                 classification.options.length === 0 ? null : (
@@ -2731,13 +2736,9 @@ function RecipeEditor({
                                         id="kitchen-recipe-subcategory"
                                         label={classification.subcategoryLabel}
                                         placeholder={classification.subcategoryPlaceholder}
-                                        disabled={!editable}
+                                        disabled={!editable || fixedSubcategory !== null}
                                         options={classification.options}
-                                        value={
-                                            details.recipeCategory === ''
-                                                ? null
-                                                : details.recipeCategory
-                                        }
+                                        value={recipeCategory === '' ? null : recipeCategory}
                                         {...server.flag('recipe_category')}
                                         onChange={(next) => {
                                             setDetails({ ...details, recipeCategory: next });
