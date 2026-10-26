@@ -1,25 +1,9 @@
 name: contracts
 
+# The suite runs in a Claude cloud session when a PR into dev is marked ready for review
+# (scripts/cloud-ci.sh, scripts/cloud-ci-task.md), not on Actions; run this by hand when needed.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "apps/api/openapi/**"
-      - "packages/api-client/**"
-      - "scripts/gen-api.mjs"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - ".github/workflows/contracts.yml"
-  pull_request:
-    paths:
-      - "apps/api/openapi/**"
-      - "packages/api-client/**"
-      - "scripts/gen-api.mjs"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - ".github/workflows/contracts.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
