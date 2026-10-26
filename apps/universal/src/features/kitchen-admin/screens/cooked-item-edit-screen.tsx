@@ -43,7 +43,7 @@ import {
     CATALOGUE_VIEW_PERMISSION,
     RECIPE_VIEW_PERMISSION,
 } from '../entity-registry.ts';
-import type { HostSave } from '../host-save.ts';
+import type { HostArchive, HostSave } from '../host-save.ts';
 import { MealListing } from '../meal-listing.tsx';
 import { parseStockGapFix } from '../recipe-stock-gap-fix.ts';
 import { ProductEditScreen } from './product-edit-screen.tsx';
@@ -251,6 +251,8 @@ function RecipeBookEditor({
 
     // The listing's unsaved state, so the page's own exits ask before dropping it.
     const [listingDirty, setListingDirty] = useState(false);
+    // The listing's Archive, drawn in the recipe header's row while Selling is open.
+    const [listingArchive, setListingArchive] = useState<HostArchive | null>(null);
     const [chosenSeller, setChosenSeller] = useState<string | null>(null);
     /*
      * The listing's save, handed over so the recipe's one Save draft writes it too
@@ -352,6 +354,7 @@ function RecipeBookEditor({
                 embedded
                 onDirtyChange={setListingDirty}
                 onRegisterSave={registerListingSave}
+                onRegisterArchive={setListingArchive}
             />
         );
 
@@ -401,6 +404,7 @@ function RecipeBookEditor({
                               ),
                           isDirty: listingDirty,
                           save: saveListing,
+                          archive: listingArchive,
                       }
             }
         />
@@ -477,6 +481,7 @@ function CookedItemEditor({
 
     // The listing's unsaved state and its save, handed to the recipe's one Save (`host-save.ts`).
     const [listingDirty, setListingDirty] = useState(false);
+    const [listingArchive, setListingArchive] = useState<HostArchive | null>(null);
     const listingSave = useRef<HostSave | null>(null);
     const registerListingSave = useCallback((save: HostSave | null) => {
         listingSave.current = save;
@@ -616,6 +621,7 @@ function CookedItemEditor({
             embedded
             onDirtyChange={setListingDirty}
             onRegisterSave={registerListingSave}
+            onRegisterArchive={setListingArchive}
         />
     );
 
@@ -653,6 +659,7 @@ function CookedItemEditor({
                 content: listing,
                 isDirty: listingDirty,
                 save: saveListing,
+                archive: listingArchive,
             }}
         />
     );

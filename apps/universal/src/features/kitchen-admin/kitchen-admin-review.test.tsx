@@ -813,13 +813,29 @@ describe('the review queue screen', () => {
             fireEvent.press(screen.getByTestId(`${row}-open`));
         });
 
-        // The editor, carrying the way back to this record's page in the queue.
+        // Edit pressed on the table comes back to the table, not to a record page never opened.
         expect(routerMock.__push).toHaveBeenCalledWith(
             withReturnTo(
                 `/kitchen/ingredients/${String(QUARANTINED_INGREDIENT.id)}`,
-                `/kitchen/review?view=${String(QUARANTINED_INGREDIENT.id)}`,
+                '/kitchen/review',
             ),
         );
+    });
+
+    it('closes the record page from its own Back button', async () => {
+        await renderStubScreen(<ReviewScreen view={String(QUARANTINED_INGREDIENT.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
+        });
+
+        await untilVisible('kitchen-review-window-back');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-review-window-back'));
+        });
+
+        await untilVisible('kitchen-review-screen');
+        expect(screen.queryByTestId('kitchen-review-window')).toBeNull();
+        expect(routerMock.__setParams).toHaveBeenCalledWith({ view: undefined });
     });
 
     /**

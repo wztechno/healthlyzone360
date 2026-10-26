@@ -185,6 +185,36 @@ describe('consumption exceptions at desk width', () => {
     });
 
     /*
+     * A retry past its own problem can stop on the next one — published now, but no pieces
+     * produced — which opens a row of its own. That is said by name, never as "closed".
+     */
+    it('names the next problem when a retry clears its own and stops on another', async () => {
+        await renderStubScreen(<ConsumptionExceptionsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    listConsumptionExceptions: async () => pageOf([exception()]),
+                    retryConsumptionException: async () => ({
+                        exception: exception({ resolved: true }),
+                        stillOpen: [
+                            exception({ id: 'exception-2', reasonCode: 'no_yield_piece_count' }),
+                        ],
+                    }),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-exception-exception-1-retry');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-exception-exception-1-retry'));
+        });
+        await untilVisible('kitchen-exception-retried-toast');
+        expect(screen.getByTestId('kitchen-exception-retried-toast')).toHaveTextContent(
+            /0148: that is fixed, but it is now blocked by “Recipe has no pieces produced”/,
+        );
+    });
+
+    /*
      * Retry used to say nothing either way: a 500 left the row as it was, and so did a retry that
      * ran but still could not deduct. Each now says which it was.
      */
@@ -197,7 +227,7 @@ describe('consumption exceptions at desk width', () => {
                     listConsumptionExceptions: async () => pageOf([exception()]),
                     retryConsumptionException: async () => {
                         attempt += 1;
-                        if (attempt === 1) return exception();
+                        if (attempt === 1) return { exception: exception(), stillOpen: [] };
                         throw apiFailure('server', { message: 'The server could not run it.' });
                     },
                 },
@@ -339,7 +369,7 @@ describe('consumption exceptions at desk width', () => {
             });
             expect(mockRouter.push).toHaveBeenCalledWith(
                 withReturnTo(
-                    `/kitchen/stock?ingredient=${LENTILS_ID}`,
+                    `/kitchen/procurement/new?ingredient=${LENTILS_ID}`,
                     '/kitchen/consumption-exceptions?gap=exception-1',
                 ),
             );
@@ -448,7 +478,10 @@ describe('consumption exceptions at desk width', () => {
                     repositories: {
                         kitchenOps: {
                             listConsumptionExceptions: async () => pageOf([fixableGap()]),
-                            retryConsumptionException: async () => fixableGap({ resolved: true }),
+                            retryConsumptionException: async () => ({
+                                exception: fixableGap({ resolved: true }),
+                                stillOpen: [],
+                            }),
                         },
                     },
                 },

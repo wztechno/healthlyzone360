@@ -11486,14 +11486,18 @@ paths:
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
-          description: The exception after the retry — resolved, or still open with a refreshed detail.
+          description: |
+            The exception after the retry — resolved, or still open with a refreshed
+            detail — and every other exception still open on the same order line. A
+            retry that clears its own reason can reach the next one, which opens a row
+            of its own.
           headers:
             X-Correlation-Id:
               $ref: '#/components/headers/XCorrelationId'
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ConsumptionExceptionEnvelope'
+                $ref: '#/components/schemas/ConsumptionExceptionRetryEnvelope'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
@@ -35593,6 +35597,24 @@ components:
           properties:
             exception:
               $ref: '#/components/schemas/ConsumptionException'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    ConsumptionExceptionRetryEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [exception, still_open]
+          properties:
+            exception:
+              $ref: '#/components/schemas/ConsumptionException'
+            still_open:
+              type: array
+              description: Other unresolved exceptions on the same order line, oldest first; empty for an order-level row.
+              items:
+                $ref: '#/components/schemas/ConsumptionException'
         meta:
           $ref: '#/components/schemas/Meta'
 

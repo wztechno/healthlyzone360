@@ -10,7 +10,7 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { IngredientId, KitchenId, MealId, ProductId, RecipeId } from '@healthy360/domain-types';
 import type { RecipeVersionId } from '@healthy360/domain-types';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import type { ComponentType, ReactNode } from 'react';
 
 import KitchenDressingRoute from '../../../app/kitchen/dressings/[product].tsx';
@@ -379,10 +379,31 @@ describe('a cooked item’s page', () => {
         // The page is the recipe and its kind is the category: neither is asked again here.
         expect(screen.queryByTestId('kitchen-product-recipe-select')).toBeNull();
         expect(screen.queryByTestId('kitchen-product-category')).toBeNull();
+        // Made, not bought: no last purchase price beside the B2B and B2C prices.
+        expect(screen.queryByTestId('kitchen-product-unit-price')).toBeNull();
         expect(screen.getByTestId('kitchen-product-publish')).toBeTruthy();
         expect(screen.getByTestId('kitchen-product-editor-screen-status')).toBeTruthy();
         // One seller, so nothing to choose between.
         expect(screen.queryByTestId('kitchen-recipe-selling-seller')).toBeNull();
+    });
+
+    it('draws the listing’s Archive in the header row beside Cancel, on Selling only', async () => {
+        await renderSauceRecipe(sauce());
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        expect(screen.queryByTestId('kitchen-product-archive')).toBeNull();
+
+        await press('kitchen-recipe-tab-selling');
+        await untilVisible('kitchen-product-archive');
+
+        // One Archive, and it is the header's: inside the same row as Cancel.
+        expect(screen.getAllByTestId('kitchen-product-archive')).toHaveLength(1);
+        const header = screen.getByTestId('kitchen-recipe-editor-screen-header');
+        expect(within(header).getByTestId('kitchen-product-archive')).toBeTruthy();
+        expect(within(header).getByTestId('kitchen-recipe-editor-screen-discard')).toBeTruthy();
+
+        await press('kitchen-product-archive');
+        await untilVisible('kitchen-product-archive-dialog');
     });
 
     it('saves the listing from the recipe’s one Save, against the item’s own lock version, and writes no recipe', async () => {
@@ -454,6 +475,35 @@ describe('a cooked item’s page', () => {
         await untilVisible('kitchen-recipe-editor-screen-header');
         expect(screen.getByTestId('kitchen-recipe-tab-sheet')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-recipe-tab-selling')).toBeNull();
+    });
+
+    it('asks for the pieces produced before a meal’s recipe is published, and only a meal’s', async () => {
+        await renderStubScreen(<RecipeBookEditScreen recipe={String(RECIPE_ID)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...pageReads(sauce(), soldAs(seller(), MEAL_SELLER)),
+                    getMeal: async () => mealItem(),
+                },
+            },
+        });
+
+        // Said under the tabs from the start, with the Production tab counting it.
+        await untilVisible('kitchen-recipe-issues-publish-pieces');
+        await press('kitchen-recipe-issues-publish-pieces');
+        await untilVisible('kitchen-recipe-yield-pieces-input');
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-recipe-yield-pieces-input'), '8');
+        });
+        expect(screen.queryByTestId('kitchen-recipe-issues-publish-pieces')).toBeNull();
+    });
+
+    it('owes no piece count on a recipe only a sauce sells', async () => {
+        await renderSauceRecipe(sauce());
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        expect(screen.queryByTestId('kitchen-recipe-issues-publish-pieces')).toBeNull();
     });
 
     it('switches between the listings of a recipe sold twice', async () => {

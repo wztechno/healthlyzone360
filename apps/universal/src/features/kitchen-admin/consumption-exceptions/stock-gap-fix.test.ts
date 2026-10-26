@@ -243,7 +243,7 @@ describe('stockGapFixAction', () => {
             /^\/kitchen\/recipes\/recipe-bbq\?tab=selling&returnTo=/,
         );
         expect(sauceFix({ reasonCode: 'no_stock_unit' })?.href).toMatch(/tab=selling/);
-        // Its shelf is still a shelf: stock is moved on the stock page.
+        // Its shelf is still a shelf: stock is added by posting a receipt to it.
         expect(sauceFix({ reasonCode: 'insufficient_stock' })?.kind).toBe('stock');
     });
 
@@ -272,9 +272,12 @@ describe('stockGapFixAction', () => {
         ).toMatch(/^\/kitchen\/recipes\/item\/item-1\?kind=frozen_meal&tab=selling&/);
     });
 
-    it('opens the shelf by the sold item when the gap names no ingredient', () => {
+    it('adds stock by posting a receipt, on the short shelf, and comes back', () => {
+        expect(fixOf({ reasonCode: 'insufficient_stock' })?.href).toMatch(
+            new RegExp(`^/kitchen/procurement/new\\?ingredient=${LENTILS}&returnTo=`),
+        );
         expect(fixOf({ reasonCode: 'insufficient_stock', ingredientId: null })?.href).toMatch(
-            /^\/kitchen\/stock\?item=item-1&returnTo=/,
+            /^\/kitchen\/procurement\/new\?item=item-1&returnTo=/,
         );
     });
 

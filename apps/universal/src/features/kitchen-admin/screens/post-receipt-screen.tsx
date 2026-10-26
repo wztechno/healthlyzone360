@@ -187,7 +187,21 @@ const LINE_SERVER_FIELDS: readonly (readonly [string, StockItemLineField])[] = [
 
 type ArrivalMode = 'market' | 'order';
 
-export function PostReceiptScreen() {
+/**
+ * What a page that sent the reader here to add stock already knows — a stock gap's Add stock: the
+ * ingredient (or, for finished stock, the catalogue item) whose shelf ran short, and the page to
+ * return to once the receipt is posted.
+ */
+export interface PostReceiptScreenProps {
+    /** `?ingredient=` — the first line opens on this ingredient's shelf. */
+    readonly ingredient?: string | undefined;
+    /** `?item=` — the first line opens on this catalogue item's finished-stock shelf. */
+    readonly item?: string | undefined;
+    /** `?returnTo=` — where Cancel and a posted receipt go; the procurement book without one. */
+    readonly returnTo?: string | undefined;
+}
+
+export function PostReceiptScreen(props: PostReceiptScreenProps) {
     return (
         <Gate
             area="kitchen"
@@ -195,7 +209,7 @@ export function PostReceiptScreen() {
             testID="kitchen-post-receipt"
         >
             <FormIssueScope>
-                <PostReceipt />
+                <PostReceipt {...props} />
             </FormIssueScope>
         </Gate>
     );
@@ -208,13 +222,14 @@ interface ReceiptIssue {
     readonly fieldId?: string | undefined;
 }
 
-function PostReceipt() {
+function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const { locale } = useLocale();
     const router = useRouter();
-    // Cancel steps back to wherever the form was opened from — the book on its filter and page.
-    const back = useReturnTo(undefined, BOOK_ROUTE);
+    // Cancel steps back to wherever the form was opened from — the book on its filter and page, or
+    // the stock gap that sent the reader here to add stock.
+    const back = useReturnTo(returnTo, BOOK_ROUTE);
     const toast = useToast();
     const access = useAccessState();
     const { me } = useSession();
@@ -383,6 +398,37 @@ function PostReceipt() {
         const code = itemOwnUnitCode(stockItemId);
         if (code === null) return null;
         return unitByCode.get(code)?.id ?? null;
+    }
+
+    /*
+     * Sent here to add stock to one shelf: the first line opens on it, in its own unit, once the
+     * shelves and the units are read. Once, during render rather than in an effect — so clearing
+     * the line is not undone, and the form never paints a frame with the empty line first. A shelf
+     * the kitchen does not have leaves the empty line, as an unprompted receipt opens.
+     */
+    const [prefilled, setPrefilled] = useState(false);
+    if (!prefilled && stockItems.data !== undefined && referenceData !== null) {
+        setPrefilled(true);
+        const shelf =
+            ingredient === undefined && item === undefined
+                ? undefined
+                : stockItems.data.find((candidate) =>
+                      ingredient !== undefined
+                          ? String(candidate.ingredientId) === ingredient
+                          : candidate.catalogueItemId === item,
+                  );
+        if (shelf !== undefined) {
+            const shelfId = String(shelf.id);
+            setMarketLines([
+                {
+                    key: 'line-first',
+                    stockItemId: shelfId,
+                    quantity: '',
+                    unitId: defaultUnitIdForItem(shelfId),
+                    unitPrice: '',
+                },
+            ]);
+        }
     }
 
     /*
@@ -879,9 +925,10 @@ function PostReceipt() {
                         tone: 'success',
                         message: t('kitchen:ops.procurement.postedToast', { count: risen }),
                     });
-                    // Back to the book, where the receipt now is. `replace`, so Back does not
-                    // return to a form whose receipt has already been posted.
-                    router.replace(BOOK_ROUTE as never);
+                    // Back to the book, where the receipt now is — or to the stock gap that sent
+                    // the reader, where Retry is what is left. `replace`, so Back does not return
+                    // to a form whose receipt has already been posted.
+                    router.replace((back.returnTo ?? BOOK_ROUTE) as never);
                 },
                 // A refused post takes the reader to the first field the server named, as a
                 // blocked one does.

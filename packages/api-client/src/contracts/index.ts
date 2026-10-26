@@ -450,6 +450,7 @@ export type {
     CompleteReceiptPricesRequest,
     ConsumptionException,
     ConsumptionExceptionFilter,
+    ConsumptionExceptionRetry,
     ConsumptionExceptionTotals,
     ConsumptionExceptionReasonCode,
     CreateProductionOrderRequest,

@@ -18,6 +18,7 @@ import type {
     CompleteProductionOrderRequest,
     ConsumptionException,
     ConsumptionExceptionFilter,
+    ConsumptionExceptionRetry,
     ConsumptionExceptionReasonCode,
     CreateProductionOrderRequest,
     CreatePurchaseOrdersRequest,
@@ -1950,14 +1951,19 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             return mapConsumptionException(envelope.data.exception);
         },
 
-        async retryConsumptionException(exceptionId: string): Promise<ConsumptionException> {
+        async retryConsumptionException(exceptionId: string): Promise<ConsumptionExceptionRetry> {
             const envelope = await transport.requestEnvelope<{
                 readonly exception: WireConsumptionException;
+                readonly still_open?: readonly WireConsumptionException[];
             }>({
                 method: 'POST',
                 path: `/catalogue/inventory/consumption-exceptions/${encodeURIComponent(exceptionId)}/retry`,
             });
-            return mapConsumptionException(envelope.data.exception);
+            return {
+                exception: mapConsumptionException(envelope.data.exception),
+                // Optional on the wire so an API from before the field reads as "nothing else open".
+                stillOpen: (envelope.data.still_open ?? []).map(mapConsumptionException),
+            };
         },
 
         async listProductionOrders(filters: ProductionOrderFilters = {}) {

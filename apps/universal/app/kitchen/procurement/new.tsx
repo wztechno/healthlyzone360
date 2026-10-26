@@ -1,3 +1,5 @@
+import { useLocalSearchParams } from 'expo-router';
+
 import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
 
 /**
@@ -5,6 +7,9 @@ import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
  *
  * Beside `receive.tsx`, which is the ordered delivery. Expo Router prefers this static match, so
  * "new" is never read as anything else under procurement.
+ *
+ * `?ingredient=` or `?item=` opens the first line on that shelf, and `?returnTo=` is where the
+ * posted receipt and Cancel go — a stock gap's Add stock sends all of them.
  */
 const PostReceiptScreen = lazyScreen(
     'kitchen-post-receipt-loading',
@@ -13,5 +18,10 @@ const PostReceiptScreen = lazyScreen(
 );
 
 export default function KitchenPostReceipt() {
-    return <PostReceiptScreen />;
+    const { ingredient, item, returnTo } = useLocalSearchParams<{
+        ingredient?: string;
+        item?: string;
+        returnTo?: string;
+    }>();
+    return <PostReceiptScreen ingredient={ingredient} item={item} returnTo={returnTo} />;
 }

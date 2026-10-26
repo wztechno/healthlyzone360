@@ -38,7 +38,7 @@ import {
     useToast,
     useContentWidth,
 } from '@healthy360/design-system';
-import type { CardTone, SelectOption, TagTone } from '@healthy360/design-system';
+import type { CardTone, FormIssueItem, SelectOption, TagTone } from '@healthy360/design-system';
 import { RecipeId } from '@healthy360/domain-types';
 import { IngredientId } from '@healthy360/domain-types';
 import type { RecipeVersionId } from '@healthy360/domain-types';
@@ -101,6 +101,7 @@ import {
 import { ImageSlot } from '../image-slot.tsx';
 import { EDITOR_FORM_MIN } from '../desk-layout.ts';
 import { ingredientFixHref, ingredientNeedsById } from '../ingredient-fix.ts';
+import type { HostArchive } from '../host-save.ts';
 import type { IngredientNeed } from '../ingredient-fix.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import {
@@ -616,6 +617,8 @@ export interface RecipeEditScreenProps {
               readonly content: ReactNode;
               readonly isDirty?: boolean;
               readonly save?: (() => Promise<boolean>) | undefined;
+              /** The listing's Archive, drawn in the header's action row while Selling is open. */
+              readonly archive?: HostArchive | null | undefined;
           }
         | undefined;
     /** `?tab=` — the tab to open on. A stock gap's fix still opens on Production. */
@@ -1038,6 +1041,16 @@ function RecipeEditor({
     const yieldMass = parseQuantity(details.yieldQuantity);
     const yieldPieces = parseQuantity(details.yieldPieces);
     const packagingWastePercent = parseQuantity(details.packagingWastePercent) ?? 0;
+    /*
+     * A meal's sale takes stock off per piece: one portion sold is the recipe divided by its pieces
+     * produced (`MealExplosion`). A recipe sold as a meal with no count turns every order for it into
+     * a stock gap, so the count is owed before it is published — and said from the moment it is
+     * missing, not after the first order fails.
+     */
+    const soldAsMeal =
+        data?.soldAs?.some((seller) => seller.itemType === 'meal') === true ||
+        (isCreating && kind === 'meal');
+    const piecesOwed = soldAsMeal && !(yieldPieces !== null && yieldPieces > 0);
 
     const rollupDraft: RecipeRollupDraft | null = useMemo(
         () =>
@@ -1676,7 +1689,10 @@ function RecipeEditor({
                 label: t('kitchen:forms.toFixCount', { count: errors }),
             };
         }
-        const cautions = target === 'packaging' ? zeroPackaging.length : 0;
+        // A zero packaging line, and what this tab still owes before the draft can be published.
+        const cautions =
+            (target === 'packaging' ? zeroPackaging.length : 0) +
+            publishItems.filter((item) => item.tab === target).length;
         if (cautions === 0) return undefined;
         return {
             count: cautions,
@@ -1719,7 +1735,9 @@ function RecipeEditor({
     const publishBlockers = useMemo(() => {
         type Blocker = {
             readonly text: string;
-            readonly fix?: { readonly id: string; readonly need: IngredientNeed } | undefined;
+            readonly fix?:
+                | { readonly id: string; readonly need: IngredientNeed; readonly name: string }
+                | undefined;
         };
         if (data === null || data === undefined) return [] as readonly Blocker[];
         const reasons: Blocker[] = [];
@@ -1728,6 +1746,11 @@ function RecipeEditor({
         }
         if (isTranslationIncomplete(data.name))
             reasons.push({ text: t('kitchen:publish.blockName') });
+        // Read off the saved version, which is what Publish publishes — see `soldAsMeal`.
+        const savedPieces = data.currentVersion.yieldPieces;
+        if (soldAsMeal && !(savedPieces !== null && savedPieces > 0)) {
+            reasons.push({ text: t('kitchen:publish.blockNoPieces') });
+        }
         // The description is no longer edited here (see the docblock), so it is no longer gated on:
         // a blocker with no control on the screen to clear it is a recipe that can never publish.
         if (anyDirty) reasons.push({ text: t('kitchen:publish.blockUnsaved') });
@@ -1745,7 +1768,11 @@ function RecipeEditor({
                     name: displayName(entry.name, locale).value,
                     status: t(statusKey(entry.meta.status)),
                 }),
-                fix: { id: String(entry.id), need: 'allergens' },
+                fix: {
+                    id: String(entry.id),
+                    need: 'allergens',
+                    name: displayName(entry.name, locale).value,
+                },
             });
         }
         // The server's `ingredient_nutrition_pending`, said before the press rather than after.
@@ -1760,11 +1787,15 @@ function RecipeEditor({
                 text: t('kitchen:publish.blockNutritionPending', {
                     name: displayName(entry.name, locale).value,
                 }),
-                fix: { id: String(entry.id), need: 'nutrition' },
+                fix: {
+                    id: String(entry.id),
+                    need: 'nutrition',
+                    name: displayName(entry.name, locale).value,
+                },
             });
         }
         return reasons;
-    }, [data, anyDirty, ingredients, library, locale, t]);
+    }, [data, anyDirty, soldAsMeal, ingredients, library, locale, t]);
 
     const unmappedIngredients = useMemo(() => {
         if (data === null || data === undefined) return [] as readonly IngredientAdmin[];
@@ -2155,6 +2186,128 @@ function RecipeEditor({
     const publishShown = !isCreating && canManage;
     const publishLeads = publishShown && isEditable && !anyDirty && !listingDirty;
 
+    /*
+     * What stops the save, as the red strip under the tabs: a chip per field, each taking the
+     * reader there — the unfinished raw materials as one chip, since the table marks each row. The
+     * fields keep their own messages; the strip is so a reader on another tab still sees them.
+     */
+    const lineBlockers = shownBlockers.filter((entry) => entry.key.startsWith('line-'));
+    const saveItems: readonly FormIssueItem[] = [
+        ...shownBlockers
+            .filter((entry) => !entry.key.startsWith('line-'))
+            .map((entry) => ({
+                key: entry.key,
+                label:
+                    entry.key === 'name'
+                        ? t('kitchen:bilingual.englishShort', {
+                              field: t('kitchen:recipes.columnName'),
+                          })
+                        : entry.key === 'yield'
+                          ? t('kitchen:recipes.yieldQuantity')
+                          : t('kitchen:forms.expiryPeriod'),
+                fieldId: entry.fieldId,
+                onPress: () => {
+                    goTo(entry.tab, entry.fieldId);
+                },
+            })),
+        ...(lineBlockers[0] === undefined
+            ? []
+            : [
+                  {
+                      key: 'lines',
+                      label: t('kitchen:recipes.sectionRawMaterials'),
+                      fieldId: lineBlockers[0].fieldId,
+                      onPress: () => {
+                          if (lineBlockers[0] !== undefined)
+                              goTo('production', lineBlockers[0].fieldId);
+                      },
+                  },
+              ]),
+        ...server.items,
+    ];
+
+    /*
+     * What still stands between this draft and Publish, as one amber strip under the tabs: a chip
+     * per thing to fix, each taking the reader to it — a field on this page, or the ingredient that
+     * owes something. Read off the draft on screen, so a chip goes as soon as its field is filled;
+     * the publish dialog re-reads the saved version and stays the gate. Only on a draft this
+     * reader may publish, and only what can be fixed from here.
+     */
+    const publishItems: readonly (FormIssueItem & { readonly tab: RecipeTab | null })[] =
+        !publishShown || !isEditable
+            ? []
+            : [
+                  ...(details.name.en.trim() !== '' && isTranslationIncomplete(details.name)
+                      ? [
+                            {
+                                key: 'name-ar',
+                                tab: 'description' as const,
+                                label: t('kitchen:bilingual.arabicShort', {
+                                    field: t('kitchen:recipes.columnName'),
+                                }),
+                                fieldId: 'kitchen-recipe-name-ar',
+                                onPress: () => {
+                                    goTo('description', 'kitchen-recipe-name-ar');
+                                },
+                            },
+                        ]
+                      : []),
+                  ...(lines.length === 0
+                      ? [
+                            {
+                                key: 'lines',
+                                tab: 'production' as const,
+                                label: t('kitchen:recipes.sectionRawMaterials'),
+                                onPress: () => {
+                                    goTo('production', null);
+                                },
+                            },
+                        ]
+                      : []),
+                  ...(piecesOwed
+                      ? [
+                            {
+                                key: 'pieces',
+                                tab: 'production' as const,
+                                label: t('kitchen:recipes.yieldPieces'),
+                                fieldId: 'kitchen-recipe-yield-pieces',
+                                onPress: () => {
+                                    goTo('production', 'kitchen-recipe-yield-pieces');
+                                },
+                            },
+                        ]
+                      : []),
+                  ...(lines.length > 0 && uncostedNames !== ''
+                      ? [
+                            {
+                                key: 'costs',
+                                tab: 'costing' as const,
+                                label: t('kitchen:recipes.tabCosting'),
+                                onPress: () => {
+                                    goTo('costing', null);
+                                },
+                            },
+                        ]
+                      : []),
+                  ...publishBlockers.flatMap((reason) =>
+                      reason.fix === undefined
+                          ? []
+                          : [
+                                {
+                                    key: `ingredient-${reason.fix.id}-${reason.fix.need}`,
+                                    tab: null,
+                                    label: reason.fix.name,
+                                    onPress: () => {
+                                        if (reason.fix === undefined) return;
+                                        openIngredient(reason.fix.id, 'ingredients', [
+                                            reason.fix.need,
+                                        ]);
+                                    },
+                                },
+                            ],
+                  ),
+              ];
+
     /** The stock gap, named: its reason, and the ingredient when the gap is about one. */
     const fixIngredientName =
         fixIngredientId === null
@@ -2470,7 +2623,22 @@ function RecipeEditor({
                              * One of the two commits is filled, the one that comes next: Save while
                              * there is something unsaved (or nothing to publish), Publish once the
                              * draft on screen is the saved one.
+                             *
+                             * On Selling the listing's Archive leads the row, quiet, as it does on
+                             * a resale item's own page — not on a row of its own under the header.
                              */}
+                            {tab !== 'selling' ||
+                            sellsAs?.archive === undefined ||
+                            sellsAs.archive === null ? null : (
+                                <Button
+                                    testID="kitchen-product-archive"
+                                    variant="quiet"
+                                    label={t('kitchen:list.archive')}
+                                    disabled={sellsAs.archive.disabled}
+                                    hint={sellsAs.archive.hint}
+                                    onPress={sellsAs.archive.open}
+                                />
+                            )}
                             <Button
                                 testID="kitchen-recipe-editor-screen-discard"
                                 variant="secondary"
@@ -2581,6 +2749,30 @@ function RecipeEditor({
                     onChange={setTab}
                     variant="steps"
                 />
+
+                {/*
+                 * What is left to fix, one line per tone under the tabs, each chip going to its
+                 * field: red stops the save, amber stops the publish. Nothing when there is
+                 * nothing — a clean draft has no strip at all.
+                 */}
+                {saveItems.length === 0 ? null : (
+                    <FormIssueBanner
+                        testID="kitchen-recipe-issues-errors"
+                        tone="danger"
+                        summary={t('kitchen:forms.toFixCount', { count: saveItems.length })}
+                        items={saveItems}
+                    />
+                )}
+                {publishItems.length === 0 ? null : (
+                    <FormIssueBanner
+                        testID="kitchen-recipe-issues-publish"
+                        tone="warning"
+                        summary={t('kitchen:publish.toPublishCount', {
+                            count: publishItems.length,
+                        })}
+                        items={publishItems}
+                    />
+                )}
 
                 {/*
                  * A save that failed, in one line under the tabs. A refusal the fields can hold is
@@ -2950,10 +3142,13 @@ function RecipeEditor({
                                 size="sm"
                                 value={details.yieldPieces}
                                 disabled={!editable}
-                                // What a stock gap opened this page for, until there is a count.
-                                {...(piecesFixMessage === undefined
-                                    ? {}
-                                    : { error: piecesFixMessage })}
+                                // What a stock gap opened this page for, until there is a count;
+                                // otherwise, on a meal, the count Publish is waiting for.
+                                {...(piecesFixMessage !== undefined
+                                    ? { error: piecesFixMessage }
+                                    : piecesOwed && publishShown && isEditable
+                                      ? { warning: t('kitchen:publish.blockNoPieces') }
+                                      : {})}
                                 {...server.flag('yield_piece_count')}
                                 onChangeText={(next) => {
                                     setDetails({ ...details, yieldPieces: next });

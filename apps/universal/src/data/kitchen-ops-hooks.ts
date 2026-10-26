@@ -9,6 +9,7 @@ import type {
     CompleteReceiptPricesRequest,
     ConsumptionException,
     ConsumptionExceptionFilter,
+    ConsumptionExceptionRetry,
     ConsumptionExceptionTotals,
     CreateProductionOrderRequest,
     CreatePurchaseOrdersRequest,
@@ -1050,7 +1051,7 @@ export function useResolveConsumptionExceptionMutation(): UseMutationResult<
 
 /** Retries a blocked consumption, then re-reads the ops lists. */
 export function useRetryConsumptionExceptionMutation(): UseMutationResult<
-    ConsumptionException,
+    ConsumptionExceptionRetry,
     unknown,
     string
 > {

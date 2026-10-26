@@ -272,11 +272,13 @@ function gapFix(row: GapFixFields, returnHref: string): StockGapFixAction | null
         case 'insufficient_stock':
         case 'no_stock_item':
             if (row.ingredientId === null && row.catalogueItemId === null) return null;
+            // Stock is added by posting what arrived: the receipt form, opened on the short shelf,
+            // which comes back here once posted so Retry is the one step left.
             return {
                 kind: 'stock',
                 labelKey: 'kitchen:ops.exceptions.fixAction.stock',
                 href: withReturnTo(
-                    withQuery('/kitchen/stock', {
+                    withQuery('/kitchen/procurement/new', {
                         ingredient: row.ingredientId ?? undefined,
                         item:
                             row.ingredientId === null

@@ -630,6 +630,44 @@ it('retries a blocked line once the stock item exists, deducting and auto-resolv
 });
 
 /*
+| Publishing the recipe clears `no_recipe_version`, but a version with no pieces
+| produced cannot be divided per portion: the retry settles the old row and opens
+| `no_yield_piece_count` on the same line — the row the retry endpoint returns in
+| `still_open`, so the kitchen is told the next problem rather than "closed".
+*/
+it('settles no_recipe_version on retry and opens the next problem on the same line', function (): void {
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->organisation->getKey()]);
+
+    $catalogue = Catalogue::factory()->create(['organisation_id' => $this->organisation->getKey()]);
+    $meal = CatalogueItem::factory()->meal()->create([
+        'catalogue_id' => $catalogue->getKey(),
+        'organisation_id' => $this->organisation->getKey(),
+        'recipe_id' => $recipe->getKey(),
+        'status' => CatalogueItemStatus::Published,
+    ]);
+
+    $order = orderFor($this, $meal, '1');
+    $this->lifecycle->confirm($order, 0);
+
+    $exception = OrderConsumptionException::withoutTenancy()->sole();
+    expect($exception->reason_code)->toBe('no_recipe_version');
+
+    // Published, but with the pieces produced left empty.
+    RecipeVersion::factory()->published()->create([
+        'recipe_id' => $recipe->getKey(),
+        'organisation_id' => $this->organisation->getKey(),
+        'yield_piece_count' => null,
+    ]);
+
+    $result = app(OrderConsumptionService::class)->retry($exception, (string) $this->tenant->user->getKey());
+
+    $next = OrderConsumptionException::withoutTenancy()->whereNull('resolved_at')->sole();
+    expect($result->resolved_at)->not->toBeNull()
+        ->and($next->reason_code)->toBe('no_yield_piece_count')
+        ->and($next->order_line_id)->toBe($result->order_line_id);
+});
+
+/*
 | Neither the web shop nor the order desk states a branch, and an org-wide
 | delivery zone resolves to none — so at a one-branch kitchen almost every order
 | arrives branchless. There is only one shelf it can have come off. Dev ran 39
