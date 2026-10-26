@@ -45,14 +45,13 @@ import { CataloguePageHeader } from './catalogue-page-header.tsx';
  * so Back is a state change — the list's page, sort and filters are still in the hook above it —
  * rather than a navigation that would drop them.
  *
- * ## The trail is the way back, and Edit is drawn once
+ * ## Back is a button and a crumb, and Edit is drawn once
  *
- * The header used to carry `‹ Back to list` and an Edit button, and the status card carried a second
- * Edit — two identical controls on one screen, and a Back that repeated the trail's own job. Both
- * are gone from the header. `onBack` is handed to the shell's trail instead
- * (`useKitchenTrailLeaf`), which draws `… › Ingredients › Tahini paste` with **Ingredients** as the
- * link that closes the record — so the trail means the same thing here as on a record that is a
- * route of its own. Edit lives in the status card, beside the facts that decide whether to press it.
+ * `onBack` is handed to the shell's trail (`useKitchenTrailLeaf`), which draws
+ * `… › Ingredients › Tahini paste` with **Ingredients** as the link that closes the record — so the
+ * trail means the same thing here as on a record that is a route of its own. Readers missed the
+ * crumb, so the header's inline end carries a `‹ Back` button that does the same (`-back`). Edit
+ * lives in the status card, beside the facts that decide whether to press it, and only there.
  *
  * ## One shape for every module
  *
@@ -242,6 +241,18 @@ export function RecordViewPage({
                 testID={`${testID}-header`}
                 titleTestID={`${testID}-title`}
                 title={title}
+                // The trail's list crumb closes the record too, but a crumb is easy to miss: the
+                // header names the way back as a control of its own.
+                primaryAction={
+                    <Button
+                        testID={`${testID}-back`}
+                        variant="secondary"
+                        size="sm"
+                        label={t('kitchen:common.back')}
+                        iconStart={<Icon name="chevronStart" size="sm" />}
+                        onPress={onBack}
+                    />
+                }
                 titleAside={
                     <Inline space="xs" align="center" wrap>
                         <Badge tone="neutral" label={kind} testID={`${testID}-kind`} />

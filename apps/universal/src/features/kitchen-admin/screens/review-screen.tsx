@@ -142,13 +142,18 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
         : null;
 
     /*
-     * Into the family's editor, carrying the way back to this record's page — so the editor's
-     * Cancel, its trail and a finished fix all return here, on the record, not to the top of the
-     * queue.
+     * Into the family's editor, carrying the way back to where the reader pressed Edit — so the
+     * editor's Cancel, its trail and a finished fix return there. From the record's page that is
+     * the record; from the table it is the table, never a record page the reader did not open.
      */
     const open = (item: ReviewItem) => {
         router.push(
-            withReturnTo(item.href, withQuery('/kitchen/review', { view: item.id })) as never,
+            withReturnTo(
+                item.href,
+                viewingId === item.id
+                    ? withQuery('/kitchen/review', { view: item.id })
+                    : '/kitchen/review',
+            ) as never,
         );
     };
 
