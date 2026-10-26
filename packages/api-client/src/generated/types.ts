@@ -7647,6 +7647,17 @@ export type ConsumptionExceptionEnvelope = {
     meta: Meta;
 };
 
+export type ConsumptionExceptionRetryEnvelope = {
+    data: {
+        exception: ConsumptionException;
+        /**
+         * Other unresolved exceptions on the same order line, oldest first; empty for an order-level row.
+         */
+        still_open: Array<ConsumptionException>;
+    };
+    meta: Meta;
+};
+
 export type ConsumptionExceptionCountEnvelope = {
     data: {
         /**
@@ -28989,9 +29000,13 @@ export type RetryConsumptionExceptionError = RetryConsumptionExceptionErrors[key
 
 export type RetryConsumptionExceptionResponses = {
     /**
-     * The exception after the retry — resolved, or still open with a refreshed detail.
+     * The exception after the retry — resolved, or still open with a refreshed
+     * detail — and every other exception still open on the same order line. A
+     * retry that clears its own reason can reach the next one, which opens a row
+     * of its own.
+     *
      */
-    200: ConsumptionExceptionEnvelope;
+    200: ConsumptionExceptionRetryEnvelope;
 };
 
 export type RetryConsumptionExceptionResponse = RetryConsumptionExceptionResponses[keyof RetryConsumptionExceptionResponses];

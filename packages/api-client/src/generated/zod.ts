@@ -5073,6 +5073,14 @@ export const zConsumptionExceptionEnvelope = z.object({
     meta: zMeta
 });
 
+export const zConsumptionExceptionRetryEnvelope = z.object({
+    data: z.object({
+        exception: zConsumptionException,
+        still_open: z.array(zConsumptionException)
+    }),
+    meta: zMeta
+});
+
 export const zConsumptionExceptionCountEnvelope = z.object({
     data: z.object({
         count: z.int().gte(0),
@@ -13621,9 +13629,13 @@ export const zRetryConsumptionExceptionPath = z.object({
 });
 
 /**
- * The exception after the retry — resolved, or still open with a refreshed detail.
+ * The exception after the retry — resolved, or still open with a refreshed
+ * detail — and every other exception still open on the same order line. A
+ * retry that clears its own reason can reach the next one, which opens a row
+ * of its own.
+ *
  */
-export const zRetryConsumptionExceptionResponse = zConsumptionExceptionEnvelope;
+export const zRetryConsumptionExceptionResponse = zConsumptionExceptionRetryEnvelope;
 
 export const zListPendingProductionValuationsHeaders = z.object({
     'X-Organisation-Id': zUuid,
