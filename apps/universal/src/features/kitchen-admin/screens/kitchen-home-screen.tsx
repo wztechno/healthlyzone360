@@ -653,6 +653,7 @@ export function KitchenHomeScreen() {
                             {dateLine}
                         </Text>
                     </Inline>
+                    {/* All three filled: they are the page's own ways in, of equal weight. */}
                     <Inline space="xs" wrap>
                         {canSell ? (
                             <Button
@@ -667,7 +668,6 @@ export function KitchenHomeScreen() {
                             <Button
                                 testID="kitchen-home-order-supplies"
                                 size="sm"
-                                variant="secondary"
                                 label={t('kitchen:hub.orderSupplies')}
                                 onPress={open('/kitchen/supply-orders')}
                             />
@@ -676,7 +676,6 @@ export function KitchenHomeScreen() {
                             <Button
                                 testID="kitchen-home-new-recipe"
                                 size="sm"
-                                variant="secondary"
                                 label={t('kitchen:recipes.create')}
                                 onPress={open('/kitchen/recipes/new?kind=preparation')}
                             />
