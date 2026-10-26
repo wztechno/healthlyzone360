@@ -13291,6 +13291,101 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/order-desk/orders/{order}:
+    patch:
+      operationId: amendOrderDeskOrder
+      tags: [Order desk]
+      summary: Edit an order the customer has rung back about
+      description: |
+        Changes the **lines** of an order — `lines` is the whole basket, and the
+        order's lines become exactly these — and, optionally, its delivery
+        address, its day and slot, and how it will be paid. Every field other
+        than `lines` is optional, and absent means **keep what is stored**: an
+        edit to a quantity never moves the slot, the day or the address.
+
+        Fixed for the life of the order: the customer and how it leaves. To
+        change either, cancel and re-sell.
+
+        ## Which orders
+
+        `placed` or `confirmed`, not started by the kitchen (`preparing_at`
+        null) and not marked ready (`ready_at` null), sold through the desk or
+        the web shop. `amendable` on the kitchen shape is the server's answer
+        and the screen shows Edit order on it; anything else is refused
+        **`409 order.placement_refused`** with one reason,
+        `{reason: order_not_amendable, because}`, where `because` is one of
+        `closed`, `kitchen_started`, `ready`, `agreement_priced` (a line priced
+        by a subscription or a quotation), `other_channel`, `paid_online` (a
+        payment intent exists) or `legacy_consumption` (confirmed, and its stock
+        came off the shelf before deductions named their line).
+
+        ## What is decided again
+
+        Every line is **repriced on the order's own channel** — the web shop's
+        for a web-shop order — on the day it is for. The quote answers the same
+        question when it is sent `amending_order_id`, so the total read out is
+        the total saved. The address gates run only for a new address, the slot
+        gate for a new address or slot, and the branch schedule only for a new
+        day or slot. **Staff may override the cut-off** (`cut_off_passed`) and
+        nothing else: a day in the past is `422`, a day the branch is closed is
+        refused `closed`. An override is recorded on the `order.amended` audit
+        row.
+
+        An edit that takes the total below what has already been received is
+        refused `{reason: total_below_paid, total_minor, paid_minor,
+        currency_code}`. Everything else is the placement's own refusal
+        vocabulary.
+
+        ## Stock
+
+        On a confirmed order, a line whose quantity changed or that was removed
+        is put back on the shelf and a changed or added one is consumed, line by
+        line; an unchanged line keeps its row and its deduction.
+
+        **`If-Match` is required and is the replay guard** — there is no
+        `Idempotency-Key`. A stale validator is `409 resource.conflict`.
+
+        Requires `order.create_on_behalf_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AmendOrderDeskOrderRequest'
+      responses:
+        '200':
+          description: The edited order, in the kitchen shape, with its new validator.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenOrderEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/customers:
     get:
       operationId: listKitchenCustomers
@@ -36597,7 +36692,7 @@ components:
          delivery_fee_minor, total_minor, payment_method, fulfilment_type,
          delivery, placed_at, confirmed_at, fulfilled_at, cancelled_at,
          cancellation_reason, created_by, placed_on_behalf_by, lock_version,
-         line_count, lines, created_at, updated_at]
+         amendable, line_count, lines, created_at, updated_at]
       description: |
         The seller's view of the same row. Built independently of the customer
         shape rather than as a superset of it: a wide shape and a narrow one
@@ -36698,6 +36793,14 @@ components:
         lock_version:
           type: integer
           minimum: 0
+        amendable:
+          type: boolean
+          description: |
+            Whether the Order Desk may still edit this order
+            (`PATCH /catalogue/order-desk/orders/{order}`): `placed` or
+            `confirmed`, not started, not ready, sold through the desk or the web
+            shop, no line priced by an agreement, no online payment. The server
+            decides so the Edit button and the edit cannot disagree.
         line_count:
           type: integer
           minimum: 0
@@ -37215,6 +37318,46 @@ components:
             quote refuses and the sale is refused `window_not_offered`. Not
             checked on a pickup.
 
+    AmendOrderDeskOrderRequest:
+      type: object
+      required: [lines]
+      additionalProperties: false
+      description: |
+        The whole basket, plus whatever else changed. Absent fields keep what is
+        stored. No customer, no fulfilment type, no branch — fixed for the life
+        of the order — and no amount: every line is repriced.
+      properties:
+        lines:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/OrderDeskBasketLine'
+        customer_address_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            A new delivery address, **delivery orders only** (`address_not_applicable`
+            otherwise). It must belong to the order's customer; one that does not
+            is `404`. Add one first with `POST /catalogue/order-desk/customers/
+            {account}/addresses`.
+        requested_delivery_date:
+          type: ['string', 'null']
+          format: date
+          description: A new day, `YYYY-MM-DD`, today or later (`422` otherwise).
+        delivery_window_code:
+          type: ['string', 'null']
+          maxLength: 40
+          description: A new slot. On a delivery it must be one the order's zone offers.
+        payment_method:
+          oneOf:
+            - $ref: '#/components/schemas/PaymentMethod'
+            - type: 'null'
+          description: |
+            A new intended method. It must suit how the order leaves —
+            `cash_on_delivery` on a delivery, `cash_at_counter` otherwise, `wish`
+            on either — or `422` on this field.
+
     QuoteOrderDeskRequest:
       allOf:
         - $ref: '#/components/schemas/OrderDeskSaleBase'
@@ -37245,6 +37388,20 @@ components:
                 assign` applies. Requires `order.manage_organisation`. Omit it to
                 leave the run in the unassigned pool.
           additionalProperties: false
+          properties:
+            amending_order_id:
+              oneOf:
+                - $ref: '#/components/schemas/Uuid'
+                - type: 'null'
+              description: |
+                Quote an **edit** of this order rather than a new sale. Prices on
+                the order's own channel — the web shop's for a web-shop order —
+                for its own customer, branch and fulfilment type (the body's
+                `fulfilment_type`, `customer_account_id` and `branch_id` are then
+                ignored). With no `customer_address_id` a delivery keeps its
+                stored zone and fee; the slot is checked only when it moved; and
+                a passed cut-off is not a refusal, because staff may override it.
+                Must be one of this kitchen's orders, or `404`.
           description: |
             The quote's body plus two fields, and the two do different jobs.
 

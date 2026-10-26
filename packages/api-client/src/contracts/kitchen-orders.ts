@@ -223,6 +223,13 @@ export interface KitchenOrder {
     readonly deliveryRun?: KitchenOrderDeliveryRun | null;
     /** The `If-Match` validator every lifecycle action must carry. See the file header. */
     readonly lockVersion: number;
+    /** The customer's account; `null` on a counter sale, which has no customer. */
+    readonly customerAccountId: string | null;
+    /**
+     * Whether the Order Desk may still edit this order. The server decides, so the Edit button and
+     * the edit itself cannot disagree; a client never works the rules out.
+     */
+    readonly amendable: boolean;
     /** The server's own count, so a collapsed list row can say "4 items" without holding the lines. */
     readonly lineCount: number;
     readonly lines: readonly KitchenOrderLine[];

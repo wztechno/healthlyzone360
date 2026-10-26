@@ -5785,7 +5785,23 @@ export const zOrderDeskSaleBase = z.object({
     delivery_window_code: z.string().max(40).nullish()
 });
 
-export const zQuoteOrderDeskRequest = zOrderDeskSaleBase.and(z.object({}));
+/**
+ * The whole basket, plus whatever else changed. Absent fields keep what is
+ * stored. No customer, no fulfilment type, no branch — fixed for the life
+ * of the order — and no amount: every line is repriced.
+ *
+ */
+export const zAmendOrderDeskOrderRequest = z.object({
+    lines: z.array(zOrderDeskBasketLine).min(1),
+    customer_address_id: zUuid.nullish(),
+    requested_delivery_date: z.iso.date().nullish(),
+    delivery_window_code: z.string().max(40).nullish(),
+    payment_method: zPaymentMethod.nullish()
+});
+
+export const zQuoteOrderDeskRequest = zOrderDeskSaleBase.and(z.object({
+    amending_order_id: zUuid.nullish()
+}));
 
 /**
  * Money handed over at the counter, recorded as it happens.
@@ -7732,6 +7748,7 @@ export const zKitchenOrder = z.object({
     created_by: z.uuid().nullable(),
     placed_on_behalf_by: z.uuid().nullable(),
     lock_version: z.int().gte(0),
+    amendable: z.boolean(),
     line_count: z.int().gte(0),
     lines: z.array(zKitchenOrderLine),
     created_at: z.iso.datetime({ offset: true }).nullable(),
@@ -14038,6 +14055,23 @@ export const zPlaceOrderDeskOrderHeaders = z.object({
  *
  */
 export const zPlaceOrderDeskOrderResponse = zKitchenOrderEnvelope;
+
+export const zAmendOrderDeskOrderBody = zAmendOrderDeskOrderRequest;
+
+export const zAmendOrderDeskOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zAmendOrderDeskOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The edited order, in the kitchen shape, with its new validator.
+ */
+export const zAmendOrderDeskOrderResponse = zKitchenOrderEnvelope;
 
 export const zListKitchenCustomersHeaders = z.object({
     'X-Organisation-Id': zUuid,

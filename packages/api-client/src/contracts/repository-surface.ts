@@ -344,6 +344,7 @@ export const REPOSITORY_SURFACE = {
     ],
     orderDesk: [
         'addCustomerAddress',
+        'amendOrder',
         'assignDeliveryJob',
         'countRequirementShortfalls',
         'getWeeklyStockCheck',

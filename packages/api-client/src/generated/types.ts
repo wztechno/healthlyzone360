@@ -8485,6 +8485,15 @@ export type KitchenOrder = {
      */
     placed_on_behalf_by: string | null;
     lock_version: number;
+    /**
+     * Whether the Order Desk may still edit this order
+     * (`PATCH /catalogue/order-desk/orders/{order}`): `placed` or
+     * `confirmed`, not started, not ready, sold through the desk or the web
+     * shop, no line priced by an agreement, no online payment. The server
+     * decides so the Edit button and the edit cannot disagree.
+     *
+     */
+    amendable: boolean;
     line_count: number;
     lines: Array<KitchenOrderLine>;
     created_at: string | null;
@@ -8896,7 +8905,53 @@ export type OrderDeskSaleBase = {
     delivery_window_code?: string | null;
 };
 
-export type QuoteOrderDeskRequest = OrderDeskSaleBase & {};
+/**
+ * The whole basket, plus whatever else changed. Absent fields keep what is
+ * stored. No customer, no fulfilment type, no branch — fixed for the life
+ * of the order — and no amount: every line is repriced.
+ *
+ */
+export type AmendOrderDeskOrderRequest = {
+    lines: Array<OrderDeskBasketLine>;
+    /**
+     * A new delivery address, **delivery orders only** (`address_not_applicable`
+     * otherwise). It must belong to the order's customer; one that does not
+     * is `404`. Add one first with `POST /catalogue/order-desk/customers/
+     * {account}/addresses`.
+     *
+     */
+    customer_address_id?: Uuid | null;
+    /**
+     * A new day, `YYYY-MM-DD`, today or later (`422` otherwise).
+     */
+    requested_delivery_date?: string | null;
+    /**
+     * A new slot. On a delivery it must be one the order's zone offers.
+     */
+    delivery_window_code?: string | null;
+    /**
+     * A new intended method. It must suit how the order leaves —
+     * `cash_on_delivery` on a delivery, `cash_at_counter` otherwise, `wish`
+     * on either — or `422` on this field.
+     *
+     */
+    payment_method?: PaymentMethod | null;
+};
+
+export type QuoteOrderDeskRequest = OrderDeskSaleBase & {
+    /**
+     * Quote an **edit** of this order rather than a new sale. Prices on
+     * the order's own channel — the web shop's for a web-shop order —
+     * for its own customer, branch and fulfilment type (the body's
+     * `fulfilment_type`, `customer_account_id` and `branch_id` are then
+     * ignored). With no `customer_address_id` a delivery keeps its
+     * stored zone and fee; the slot is checked only when it moved; and
+     * a passed cut-off is not a refusal, because staff may override it.
+     * Must be one of this kitchen's orders, or `404`.
+     *
+     */
+    amending_order_id?: Uuid | null;
+};
 
 export type PlaceOrderDeskRequest = OrderDeskSaleBase & {
     payment_method: PaymentMethod;
@@ -31137,6 +31192,106 @@ export type PlaceOrderDeskOrderResponses = {
 };
 
 export type PlaceOrderDeskOrderResponse = PlaceOrderDeskOrderResponses[keyof PlaceOrderDeskOrderResponses];
+
+export type AmendOrderDeskOrderData = {
+    body: AmendOrderDeskOrderRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/order-desk/orders/{order}';
+};
+
+export type AmendOrderDeskOrderErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type AmendOrderDeskOrderError = AmendOrderDeskOrderErrors[keyof AmendOrderDeskOrderErrors];
+
+export type AmendOrderDeskOrderResponses = {
+    /**
+     * The edited order, in the kitchen shape, with its new validator.
+     */
+    200: KitchenOrderEnvelope;
+};
+
+export type AmendOrderDeskOrderResponse = AmendOrderDeskOrderResponses[keyof AmendOrderDeskOrderResponses];
 
 export type ListKitchenCustomersData = {
     body?: never;

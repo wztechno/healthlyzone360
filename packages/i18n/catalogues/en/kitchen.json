@@ -2125,7 +2125,30 @@
         "dueAt": "due {{time}}",
         "drawerArea": "Area",
         "drawerAddress": "Address",
-        "lineQuantity": "×{{quantity}}"
+        "lineQuantity": "×{{quantity}}",
+        "edit": {
+            "open": "Edit order",
+            "title": "Editing order {{number}}",
+            "loadErrorTitle": "This order could not be loaded",
+            "notAmendableTitle": "This order can no longer be edited",
+            "notAmendableBody": "To change it now, cancel it and take a new sale.",
+            "backToDesk": "Back to the order desk",
+            "changeAddress": "Change address",
+            "keepAddress": "Keep this address",
+            "save": "Save changes · {{total}}",
+            "review": "Review changes · {{total}}",
+            "savedToast": "Order {{number}} updated.",
+            "totalBelowPaid": "The new total, {{total}}, is less than the {{paid}} already paid.",
+            "notAmendable": {
+                "closed": "The order is closed and can no longer be edited.",
+                "kitchen_started": "The kitchen has started this order.",
+                "ready": "The order is already marked ready.",
+                "agreement_priced": "A line is priced by a subscription or a quotation.",
+                "other_channel": "Only desk and web-shop orders can be edited.",
+                "paid_online": "The order was paid online.",
+                "legacy_consumption": "The order's stock was taken out before line-by-line tracking, so it cannot be edited."
+            }
+        }
     },
     "calendar": {
         "title": "Order calendar",

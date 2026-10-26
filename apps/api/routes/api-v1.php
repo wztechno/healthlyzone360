@@ -230,6 +230,7 @@ use Healthy360\Orders\Http\Controllers\OrderPaymentReceiptStoreController;
 use Healthy360\Orders\Http\Controllers\OrderStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\KitchenCustomerIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\KitchenCustomerShowController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskAmendmentController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCalendarController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCashReportController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAddressStoreController;
@@ -2136,6 +2137,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/order-desk/orders', OrderDeskPlacementController::class)
                     ->middleware('idempotency')
                     ->name('catalogue.order-desk.orders.store');
+
+                // Editing what was sold (a customer rang back). `If-Match` is the
+                // replay guard, so no idempotency key; see the controller.
+                Route::patch('/order-desk/orders/{order}', OrderDeskAmendmentController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.order-desk.orders.update');
 
                 // The slots a sale can be booked into, for the agent who is
                 // booking it. The admin list needs `delivery_zone.manage_

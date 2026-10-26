@@ -181,6 +181,7 @@ final class OrderDeskPresenter
      *     created_by: string|null,
      *     placed_on_behalf_by: string|null,
      *     lock_version: int,
+     *     amendable: bool,
      *     line_count: int,
      *     lines: list<array{
      *         id: string,
@@ -214,8 +215,9 @@ final class OrderDeskPresenter
         ?array $deliveryJob,
         bool $includeContact,
         ?array $contact = null,
+        ?bool $amendable = null,
     ): array {
-        $row = $this->orders->kitchen($order, $lines);
+        $row = $this->orders->kitchen($order, $lines, amendable: $amendable);
 
         $row['due_at'] = $dueAt;
 

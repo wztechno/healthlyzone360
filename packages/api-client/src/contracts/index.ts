@@ -593,6 +593,7 @@ export {
 } from './order-desk.ts';
 export type {
     AddOrderDeskCustomerAddressRequest,
+    AmendOrderDeskOrderRequest,
     AssignDeliveryJobRequest,
     AssignedDeliveryJob,
     CalendarBasis,

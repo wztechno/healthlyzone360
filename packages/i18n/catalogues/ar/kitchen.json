@@ -2392,7 +2392,30 @@
         "dueAt": "مستحق {{time}}",
         "drawerArea": "المنطقة",
         "drawerAddress": "العنوان",
-        "lineQuantity": "×{{quantity}}"
+        "lineQuantity": "×{{quantity}}",
+        "edit": {
+            "open": "تعديل الطلب",
+            "title": "تعديل الطلب {{number}}",
+            "loadErrorTitle": "تعذّر تحميل هذا الطلب",
+            "notAmendableTitle": "لم يعد بالإمكان تعديل هذا الطلب",
+            "notAmendableBody": "لتغييره الآن، ألغِه وسجّل عملية بيع جديدة.",
+            "backToDesk": "العودة إلى مكتب الطلبات",
+            "changeAddress": "تغيير العنوان",
+            "keepAddress": "الإبقاء على هذا العنوان",
+            "save": "حفظ التغييرات · {{total}}",
+            "review": "مراجعة التغييرات · {{total}}",
+            "savedToast": "تم تحديث الطلب {{number}}.",
+            "totalBelowPaid": "الإجمالي الجديد {{total}} أقل من المبلغ المدفوع {{paid}}.",
+            "notAmendable": {
+                "closed": "الطلب مغلق ولم يعد بالإمكان تعديله.",
+                "kitchen_started": "بدأ المطبخ تحضير هذا الطلب.",
+                "ready": "تم تعليم الطلب كجاهز بالفعل.",
+                "agreement_priced": "أحد البنود مسعَّر بموجب اشتراك أو عرض سعر.",
+                "other_channel": "يمكن تعديل طلبات المكتب والمتجر الإلكتروني فقط.",
+                "paid_online": "تم دفع الطلب عبر الإنترنت.",
+                "legacy_consumption": "سُحب مخزون هذا الطلب قبل التتبّع حسب البند، لذا لا يمكن تعديله."
+            }
+        }
     },
     "calendar": {
         "title": "تقويم الطلبات",

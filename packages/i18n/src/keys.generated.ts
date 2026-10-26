@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8665 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8684 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3388,6 +3388,25 @@ export interface NamespaceKeys {
     | 'desk.drawerKind'
     | 'desk.driverSays'
     | 'desk.dueAt'
+    | 'desk.edit.backToDesk'
+    | 'desk.edit.changeAddress'
+    | 'desk.edit.keepAddress'
+    | 'desk.edit.loadErrorTitle'
+    | 'desk.edit.notAmendable.agreement_priced'
+    | 'desk.edit.notAmendable.closed'
+    | 'desk.edit.notAmendable.kitchen_started'
+    | 'desk.edit.notAmendable.legacy_consumption'
+    | 'desk.edit.notAmendable.other_channel'
+    | 'desk.edit.notAmendable.paid_online'
+    | 'desk.edit.notAmendable.ready'
+    | 'desk.edit.notAmendableBody'
+    | 'desk.edit.notAmendableTitle'
+    | 'desk.edit.open'
+    | 'desk.edit.review'
+    | 'desk.edit.save'
+    | 'desk.edit.savedToast'
+    | 'desk.edit.title'
+    | 'desk.edit.totalBelowPaid'
     | 'desk.emptyBody'
     | 'desk.emptyTitle'
     | 'desk.figures.hide'
@@ -12071,6 +12090,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.drawerKind',
   'kitchen:desk.driverSays',
   'kitchen:desk.dueAt',
+  'kitchen:desk.edit.backToDesk',
+  'kitchen:desk.edit.changeAddress',
+  'kitchen:desk.edit.keepAddress',
+  'kitchen:desk.edit.loadErrorTitle',
+  'kitchen:desk.edit.notAmendable.agreement_priced',
+  'kitchen:desk.edit.notAmendable.closed',
+  'kitchen:desk.edit.notAmendable.kitchen_started',
+  'kitchen:desk.edit.notAmendable.legacy_consumption',
+  'kitchen:desk.edit.notAmendable.other_channel',
+  'kitchen:desk.edit.notAmendable.paid_online',
+  'kitchen:desk.edit.notAmendable.ready',
+  'kitchen:desk.edit.notAmendableBody',
+  'kitchen:desk.edit.notAmendableTitle',
+  'kitchen:desk.edit.open',
+  'kitchen:desk.edit.review',
+  'kitchen:desk.edit.save',
+  'kitchen:desk.edit.savedToast',
+  'kitchen:desk.edit.title',
+  'kitchen:desk.edit.totalBelowPaid',
   'kitchen:desk.emptyBody',
   'kitchen:desk.emptyTitle',
   'kitchen:desk.figures.hide',

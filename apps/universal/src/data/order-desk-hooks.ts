@@ -1,5 +1,6 @@
 import type {
     AddOrderDeskCustomerAddressRequest,
+    AmendOrderDeskOrderRequest,
     AssignDeliveryJobRequest,
     AssignedDeliveryJob,
     CreateOrderDeskCustomerRequest,
@@ -445,6 +446,31 @@ export function usePlaceOrderDeskSaleMutation(): UseMutationResult<
         retry: false,
         mutationFn: (request: PlaceOrderDeskSaleRequest) =>
             repositories.orderDesk.placeSale(request),
+        onSuccess: (order: KitchenOrder) => {
+            queryClient.setQueryData(queryKeys.kitchenOrders.order(order.id), order);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
+        },
+    });
+}
+
+/**
+ * Edit a placed order (`PATCH` with `If-Match`). Seeds the fresh record and invalidates both roots
+ * for {@link usePlaceOrderDeskSaleMutation}'s reason. No retry: a stale version is a `409` the
+ * agent resolves by reloading, and a refusal is an answer.
+ */
+export function useAmendOrderDeskOrderMutation(): UseMutationResult<
+    KitchenOrder,
+    unknown,
+    AmendOrderDeskOrderRequest
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (request: AmendOrderDeskOrderRequest) =>
+            repositories.orderDesk.amendOrder(request),
         onSuccess: (order: KitchenOrder) => {
             queryClient.setQueryData(queryKeys.kitchenOrders.order(order.id), order);
             void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });

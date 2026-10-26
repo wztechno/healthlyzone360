@@ -1,3 +1,6 @@
+import type { KitchenOrder } from '@healthy360/api-client/contracts';
+import { OrderId } from '@healthy360/domain-types';
+
 import type { BasketLine } from './order-desk/basket.ts';
 import {
     MAX_LINE_QUANTITY,
@@ -25,6 +28,7 @@ import {
     offeredDeskWindows,
     paymentMethodsFor,
     saleShortfall,
+    saleStateFromOrder,
     scheduleFor,
     windowsOverAt,
     withCustomer,
@@ -562,5 +566,94 @@ describe('desk basket — decimal quantities', () => {
         // An emptied stepper answers null, which is not a quantity.
         expect(quantityFromNumber(null)).toBe('0');
         expect(quantityFromNumber(2)).toBe('2');
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Editing a placed order
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('desk sale — an existing order as the sale it is', () => {
+    const order: KitchenOrder = {
+        id: OrderId.unsafe('order-0001'),
+        orderNumber: 'H360-2026-0148',
+        branchId: null,
+        status: 'placed',
+        currencyCode: 'AED',
+        subtotalMinor: 6_400,
+        deliveryFeeMinor: 1_000,
+        totalMinor: 7_400,
+        paymentMethod: 'cash_on_delivery',
+        fulfilmentType: 'delivery',
+        delivery: {
+            label: null,
+            lineOne: 'Villa 12',
+            lineTwo: null,
+            city: null,
+            areaNameEn: 'Al Quoz 1',
+            areaNameAr: 'القوز ١',
+            areaId: null,
+            windowCode: 'morning',
+            requestedDate: '2026-08-16',
+            zoneId: null,
+        },
+        placedAt: '2026-08-15T09:00:00.000Z',
+        confirmedAt: null,
+        fulfilledAt: null,
+        cancelledAt: null,
+        cancellationReason: null,
+        lockVersion: 3,
+        customerAccountId: 'account-1',
+        amendable: true,
+        lineCount: 1,
+        lines: [
+            {
+                id: 'line-1',
+                catalogueItemId: ITEM,
+                catalogueItemVariantId: PACK,
+                nameEn: 'Flat white',
+                nameAr: 'فلات وايت',
+                variantLabel: 'Box of 6',
+                quantity: '2.000',
+                unitPriceMinor: 3_200,
+                lineTotalMinor: 6_400,
+                currencyCode: 'AED',
+                allergens: [],
+                packSummary: null,
+                priceListId: null,
+                priceListItemId: null,
+            },
+        ],
+    };
+
+    it('carries the lines, the customer, the stored slot and the method, and no new address', () => {
+        const state = saleStateFromOrder(order);
+        expect(state).toEqual({
+            fulfilmentType: 'delivery',
+            customerAccountId: 'account-1',
+            // `null` on an edit is "keep the stored destination".
+            customerAddressId: null,
+            lines: [
+                {
+                    catalogueItemId: ITEM,
+                    catalogueItemVariantId: PACK,
+                    // Normalised, so the stepper steps from 2 rather than from "2.000".
+                    quantity: '2',
+                    name: { en: 'Flat white', ar: 'فلات وايت' },
+                    variantLabel: 'Box of 6',
+                },
+            ],
+            paymentMethod: 'cash_on_delivery',
+            payment: null,
+            requestedDeliveryDate: '2026-08-16',
+            deliveryWindowCode: 'morning',
+            driverUserId: null,
+        });
+    });
+
+    it('does not ask an edited delivery for an address it already has', () => {
+        const state = saleStateFromOrder(order);
+        expect(saleShortfall(state)).toBe('address');
+        expect(saleShortfall(state, true)).toBeNull();
     });
 });
