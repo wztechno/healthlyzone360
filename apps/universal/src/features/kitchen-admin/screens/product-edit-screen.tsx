@@ -88,7 +88,7 @@ import {
 } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import { useHostSave } from '../host-save.ts';
-import type { RegisterHostSave } from '../host-save.ts';
+import type { RegisterHostArchive, RegisterHostSave } from '../host-save.ts';
 import {
     adminReferenceUnits,
     dietClassificationKey,
@@ -366,6 +366,11 @@ export interface ProductEditScreenProps {
      */
     readonly onRegisterSave?: RegisterHostSave | undefined;
     /**
+     * Hands this listing's Archive to the host page, which draws it in its own action row (see
+     * `host-save.ts`). With it the listing draws no Archive of its own.
+     */
+    readonly onRegisterArchive?: RegisterHostArchive | undefined;
+    /**
      * `?returnTo=` — the page that sent the reader here (the review queue, on this record), as
      * written. Cancel and the trail's crumb above the record go back to it.
      */
@@ -379,6 +384,7 @@ export function ProductEditScreen({
     embedded = false,
     onDirtyChange,
     onRegisterSave,
+    onRegisterArchive,
     returnTo,
 }: ProductEditScreenProps) {
     return (
@@ -394,6 +400,7 @@ export function ProductEditScreen({
                 embedded={embedded}
                 onDirtyChange={onDirtyChange}
                 onRegisterSave={onRegisterSave}
+                onRegisterArchive={onRegisterArchive}
                 returnTo={returnTo}
             />
         </Gate>
@@ -407,6 +414,7 @@ function ProductEditor({
     embedded = false,
     onDirtyChange,
     onRegisterSave,
+    onRegisterArchive,
     returnTo,
 }: ProductEditScreenProps) {
     const { t } = useTranslation();
@@ -443,7 +451,11 @@ function ProductEditor({
         () => (stockItemId === null ? [] : [stockItemId]),
         [stockItemId],
     );
-    const latestPurchases = useItemLatestPurchasesQuery(latestPurchaseIds, canViewCosts);
+    // Not read on a Selling tab, which draws no last price (see the Sale card).
+    const latestPurchases = useItemLatestPurchasesQuery(
+        latestPurchaseIds,
+        canViewCosts && !embedded,
+    );
     const latestPurchase = latestPurchases.data?.[0] ?? null;
     /* Never a zero in the empty case: an unbought item and a free one are different facts. */
     const lastPriceValue =
@@ -1210,6 +1222,41 @@ function ProductEditor({
         back.leave();
     };
 
+    /*
+     * Archive is always drawn, and says on hover why it cannot be pressed when it cannot. A button
+     * that appears only once it works leaves a new record's header missing a control the reader
+     * then has to discover later; a disabled one with its reason says where the act lives and what
+     * it is waiting for. The reasons in the order they apply: nobody without the permission can
+     * archive anything, a record that does not exist yet has nothing to archive, and an archived
+     * one is already there.
+     */
+    const archiveBlockedKey = !canManage
+        ? 'kitchen:products.archiveNoPermission'
+        : isCreating
+          ? 'kitchen:products.archiveUnsaved'
+          : data?.meta.status === 'retired'
+            ? 'kitchen:products.archiveAlready'
+            : null;
+    const archiveHint = t(archiveBlockedKey ?? 'kitchen:products.archiveHint');
+    const archiveDisabled = archiveBlockedKey !== null;
+
+    // Embedded, the host draws Archive in its own action row (`host-save.ts`).
+    useEffect(() => {
+        onRegisterArchive?.({
+            disabled: archiveDisabled,
+            hint: archiveHint,
+            open: () => {
+                setShowArchive(true);
+            },
+        });
+    }, [onRegisterArchive, archiveDisabled, archiveHint]);
+    useEffect(
+        () => () => {
+            onRegisterArchive?.(null);
+        },
+        [onRegisterArchive],
+    );
+
     /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
 
     if (!isCreating && parsed === null) {
@@ -1314,22 +1361,6 @@ function ProductEditor({
         quarantined;
     const offersPublish =
         !isCreating && canManage && status !== 'published' && status !== 'retired';
-    /*
-     * Archive is always drawn, and says on hover why it cannot be pressed when it cannot. A button
-     * that appears only once it works leaves a new record's header missing a control the reader
-     * then has to discover later; a disabled one with its reason says where the act lives and what
-     * it is waiting for. The reasons in the order they apply: nobody without the permission can
-     * archive anything, a record that does not exist yet has nothing to archive, and an archived
-     * one is already there.
-     */
-    const archiveBlockedKey = !canManage
-        ? 'kitchen:products.archiveNoPermission'
-        : isCreating
-          ? 'kitchen:products.archiveUnsaved'
-          : status === 'retired'
-            ? 'kitchen:products.archiveAlready'
-            : null;
-
     const openRecipe = () => {
         const target = details.recipeId;
         if (target === null) return;
@@ -1368,16 +1399,18 @@ function ProductEditor({
      */
     const actions = (
         <Inline space="xs" align="center" wrap justify="end">
-            <Button
-                testID="kitchen-product-archive"
-                variant="quiet"
-                label={t('kitchen:list.archive')}
-                disabled={archiveBlockedKey !== null}
-                hint={t(archiveBlockedKey ?? 'kitchen:products.archiveHint')}
-                onPress={() => {
-                    setShowArchive(true);
-                }}
-            />
+            {onRegisterArchive !== undefined ? null : (
+                <Button
+                    testID="kitchen-product-archive"
+                    variant="quiet"
+                    label={t('kitchen:list.archive')}
+                    disabled={archiveDisabled}
+                    hint={archiveHint}
+                    onPress={() => {
+                        setShowArchive(true);
+                    }}
+                />
+            )}
             {embedded ? null : (
                 <Button
                     testID="kitchen-product-editor-screen-back"
@@ -1822,9 +1855,11 @@ function ProductEditor({
                         {/*
                          * Read-only: what the kitchen last paid, per the unit it was bought in, and
                          * from whom (the hint). Not on a new item, and not for a member who may not
-                         * see costs.
+                         * see costs. Not on a recipe's Selling tab either: a cooked item is made,
+                         * not bought, so its cost is the recipe's Costing tab and its prices are
+                         * the channels' B2B and B2C above — a purchase price there reads as a third.
                          */}
-                        {isCreating || !canViewCosts ? null : (
+                        {isCreating || !canViewCosts || embedded ? null : (
                             <FormGrid track="half" testID="kitchen-product-last-price-grid">
                                 <QuantityInput
                                     testID="kitchen-product-unit-price"
