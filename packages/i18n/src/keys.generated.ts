@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8665 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8726 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2209,6 +2209,23 @@ export interface NamespaceKeys {
     | 'myAllergens.planUnchecked'
     | 'myAllergens.yourList'
     | 'myAllergens.yourListEmpty'
+    | 'receipt.complete'
+    | 'receipt.deliveries'
+    | 'receipt.delivery'
+    | 'receipt.ends'
+    | 'receipt.idle'
+    | 'receipt.payment'
+    | 'receipt.placed'
+    | 'receipt.planComplete'
+    | 'receipt.printerLabel'
+    | 'receipt.printing'
+    | 'receipt.processing'
+    | 'receipt.reference'
+    | 'receipt.starts'
+    | 'receipt.thanks'
+    | 'receipt.title'
+    | 'receipt.viewOrder'
+    | 'receipt.viewPlan'
     | 'slots.evening'
     | 'slots.midday'
     | 'slots.morning'
@@ -2381,6 +2398,11 @@ export interface NamespaceKeys {
     | 'photoCredit.provider.unsplash'
     | 'photoCredit.provider.wikimedia'
     | 'photoCredit.via'
+    | 'process.continue'
+    | 'process.continueLabel'
+    | 'process.kind.recipeDetour'
+    | 'process.kind.stockGapFix'
+    | 'process.stop'
     | 'returnTo.account'
     | 'returnTo.basket'
     | 'returnTo.checkout'
@@ -2426,6 +2448,14 @@ export interface NamespaceKeys {
     | 'fileUpload.replace'
     | 'fileUpload.uploading'
     | 'infoTip.label'
+    | 'issueTray.allSet'
+    | 'issueTray.checking'
+    | 'issueTray.close'
+    | 'issueTray.fix'
+    | 'issueTray.openCount'
+    | 'issueTray.passed'
+    | 'issueTray.progress'
+    | 'issueTray.toFix'
     | 'numberStepper.decrease'
     | 'numberStepper.increase'
     | 'pagination.label'
@@ -3638,6 +3668,7 @@ export interface NamespaceKeys {
     | 'editor.categoryRequired'
     | 'editor.createTitle'
     | 'editor.createdToast'
+    | 'editor.draftRestoredToast'
     | 'editor.editTitle'
     | 'editor.forkAction'
     | 'editor.forkError'
@@ -6245,6 +6276,8 @@ export interface NamespaceKeys {
     | 'recipes.kindPreparations'
     | 'recipes.kitchenFilterAll'
     | 'recipes.kitchenFilterLabel'
+    | 'recipes.kitchenOnly'
+    | 'recipes.kitchenOnlyHint'
     | 'recipes.lineCount'
     | 'recipes.lineIngredient'
     | 'recipes.lineIngredientPlaceholder'
@@ -6323,11 +6356,14 @@ export interface NamespaceKeys {
     | 'recipes.quickAddNeedsDetailsToast'
     | 'recipes.quickAddReview'
     | 'recipes.quickAddUse'
+    | 'recipes.readOnly'
     | 'recipes.recipeCount'
+    | 'recipes.referenceSource'
     | 'recipes.removeLine'
     | 'recipes.restricted'
     | 'recipes.resultCount'
     | 'recipes.retire'
+    | 'recipes.retireFromMenu'
     | 'recipes.saveErrorTitle'
     | 'recipes.saveFailed'
     | 'recipes.savePublish'
@@ -6426,6 +6462,10 @@ export interface NamespaceKeys {
     | 'recipes.uncostedLines'
     | 'recipes.unnamedLine'
     | 'recipes.unnamedOutput'
+    | 'recipes.versionAudienceDraft'
+    | 'recipes.versionAudienceLive'
+    | 'recipes.versionAudienceRetired'
+    | 'recipes.versionChip'
     | 'recipes.versionCount'
     | 'recipes.versionNumber'
     | 'recipes.versionOfCount'
@@ -6612,6 +6652,27 @@ export interface NamespaceKeys {
     | 'toolbar.segmentReview'
     | 'toolbar.statusAll'
     | 'toolbar.statusLabel'
+    | 'tray.blocksRecipes'
+    | 'tray.forRecipe'
+    | 'tray.forYourRecipe'
+    | 'tray.fromStockGaps'
+    | 'tray.groupCheck'
+    | 'tray.groupForRecipe'
+    | 'tray.groupHeadsUp'
+    | 'tray.groupPublish'
+    | 'tray.groupSave'
+    | 'tray.groupStockGap'
+    | 'tray.need.allergens'
+    | 'tray.need.nutrition'
+    | 'tray.need.price'
+    | 'tray.need.unit'
+    | 'tray.passed.allergens'
+    | 'tray.passed.nutrition'
+    | 'tray.passed.price'
+    | 'tray.published'
+    | 'tray.readyToPublish'
+    | 'tray.referenceUnconfirmed'
+    | 'tray.title'
     | 'units.bag'
     | 'units.bottle'
     | 'units.can'
@@ -10898,6 +10959,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:myAllergens.planUnchecked',
   'commerce:myAllergens.yourList',
   'commerce:myAllergens.yourListEmpty',
+  'commerce:receipt.complete',
+  'commerce:receipt.deliveries',
+  'commerce:receipt.delivery',
+  'commerce:receipt.ends',
+  'commerce:receipt.idle',
+  'commerce:receipt.payment',
+  'commerce:receipt.placed',
+  'commerce:receipt.planComplete',
+  'commerce:receipt.printerLabel',
+  'commerce:receipt.printing',
+  'commerce:receipt.processing',
+  'commerce:receipt.reference',
+  'commerce:receipt.starts',
+  'commerce:receipt.thanks',
+  'commerce:receipt.title',
+  'commerce:receipt.viewOrder',
+  'commerce:receipt.viewPlan',
   'commerce:slots.evening',
   'commerce:slots.midday',
   'commerce:slots.morning',
@@ -11069,6 +11147,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:photoCredit.provider.unsplash',
   'common:photoCredit.provider.wikimedia',
   'common:photoCredit.via',
+  'common:process.continue',
+  'common:process.continueLabel',
+  'common:process.kind.recipeDetour',
+  'common:process.kind.stockGapFix',
+  'common:process.stop',
   'common:returnTo.account',
   'common:returnTo.basket',
   'common:returnTo.checkout',
@@ -11113,6 +11196,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:fileUpload.replace',
   'designSystem:fileUpload.uploading',
   'designSystem:infoTip.label',
+  'designSystem:issueTray.allSet',
+  'designSystem:issueTray.checking',
+  'designSystem:issueTray.close',
+  'designSystem:issueTray.fix',
+  'designSystem:issueTray.openCount',
+  'designSystem:issueTray.passed',
+  'designSystem:issueTray.progress',
+  'designSystem:issueTray.toFix',
   'designSystem:numberStepper.decrease',
   'designSystem:numberStepper.increase',
   'designSystem:pagination.label',
@@ -12321,6 +12412,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:editor.categoryRequired',
   'kitchen:editor.createTitle',
   'kitchen:editor.createdToast',
+  'kitchen:editor.draftRestoredToast',
   'kitchen:editor.editTitle',
   'kitchen:editor.forkAction',
   'kitchen:editor.forkError',
@@ -14928,6 +15020,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.kindPreparations',
   'kitchen:recipes.kitchenFilterAll',
   'kitchen:recipes.kitchenFilterLabel',
+  'kitchen:recipes.kitchenOnly',
+  'kitchen:recipes.kitchenOnlyHint',
   'kitchen:recipes.lineCount',
   'kitchen:recipes.lineIngredient',
   'kitchen:recipes.lineIngredientPlaceholder',
@@ -15006,11 +15100,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.quickAddNeedsDetailsToast',
   'kitchen:recipes.quickAddReview',
   'kitchen:recipes.quickAddUse',
+  'kitchen:recipes.readOnly',
   'kitchen:recipes.recipeCount',
+  'kitchen:recipes.referenceSource',
   'kitchen:recipes.removeLine',
   'kitchen:recipes.restricted',
   'kitchen:recipes.resultCount',
   'kitchen:recipes.retire',
+  'kitchen:recipes.retireFromMenu',
   'kitchen:recipes.saveErrorTitle',
   'kitchen:recipes.saveFailed',
   'kitchen:recipes.savePublish',
@@ -15109,6 +15206,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.uncostedLines',
   'kitchen:recipes.unnamedLine',
   'kitchen:recipes.unnamedOutput',
+  'kitchen:recipes.versionAudienceDraft',
+  'kitchen:recipes.versionAudienceLive',
+  'kitchen:recipes.versionAudienceRetired',
+  'kitchen:recipes.versionChip',
   'kitchen:recipes.versionCount',
   'kitchen:recipes.versionNumber',
   'kitchen:recipes.versionOfCount',
@@ -15295,6 +15396,27 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:toolbar.segmentReview',
   'kitchen:toolbar.statusAll',
   'kitchen:toolbar.statusLabel',
+  'kitchen:tray.blocksRecipes',
+  'kitchen:tray.forRecipe',
+  'kitchen:tray.forYourRecipe',
+  'kitchen:tray.fromStockGaps',
+  'kitchen:tray.groupCheck',
+  'kitchen:tray.groupForRecipe',
+  'kitchen:tray.groupHeadsUp',
+  'kitchen:tray.groupPublish',
+  'kitchen:tray.groupSave',
+  'kitchen:tray.groupStockGap',
+  'kitchen:tray.need.allergens',
+  'kitchen:tray.need.nutrition',
+  'kitchen:tray.need.price',
+  'kitchen:tray.need.unit',
+  'kitchen:tray.passed.allergens',
+  'kitchen:tray.passed.nutrition',
+  'kitchen:tray.passed.price',
+  'kitchen:tray.published',
+  'kitchen:tray.readyToPublish',
+  'kitchen:tray.referenceUnconfirmed',
+  'kitchen:tray.title',
   'kitchen:units.bag',
   'kitchen:units.bottle',
   'kitchen:units.can',

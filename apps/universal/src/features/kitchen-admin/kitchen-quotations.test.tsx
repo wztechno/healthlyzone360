@@ -23,7 +23,7 @@ jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
 }));
 
 // Send with a line unpriced takes the reader to it; the focus itself is the browser's to do.
-jest.mock('./field-focus.ts', () => ({ focusField: jest.fn() }));
+jest.mock('./field-focus.ts', () => ({ focusField: jest.fn(), focusSection: jest.fn() }));
 
 jest.mock('expo-router', () => ({
     __esModule: true,

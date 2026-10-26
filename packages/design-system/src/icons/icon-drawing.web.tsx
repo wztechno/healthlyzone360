@@ -209,6 +209,13 @@ const GRID_24_DRAWINGS: Partial<Record<IconName, ReactElement>> = {
             <path d="m21.854 2.147-10.94 10.939" />
         </>
     ),
+    /** The recipe editor's "kitchen only" mark and its "Read only" — a closed padlock. */
+    lock: (
+        <>
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </>
+    ),
     lockOpen: (
         <>
             <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />

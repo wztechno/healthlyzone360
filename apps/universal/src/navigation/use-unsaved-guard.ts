@@ -45,9 +45,51 @@ export interface UnsavedGuardOptions {
     readonly message: string;
     /** Set `false` to disable the guard entirely — a read-only screen, a closed editor. */
     readonly enabled?: boolean | undefined;
+    /**
+     * The editor keeps its unsaved work as a session draft and restores it on return — the recipe
+     * and ingredient editors. Leaving it through the app's own chrome (the sidebar, the page search,
+     * a crumb) then asks nothing: the work is kept, and the top bar's Continue leads back to it.
+     * A function when it depends on state the guard is created before — read at navigation time.
+     */
+    readonly keepsDraft?: boolean | (() => boolean) | undefined;
 }
 
-export function useUnsavedGuard({ message, enabled = true }: UnsavedGuardOptions): UnsavedGuard {
+/**
+ * The guards of the editors on screen, for the chrome to ask before it navigates.
+ *
+ * The rail, the page search and the crumbs are drawn by the shell, outside every editor, so they
+ * cannot call an editor's `intercept` themselves — and on their own they replaced the page with no
+ * question, losing whatever was typed (2026-10-26). Each guard registers here while it is mounted;
+ * `guardNavigation` runs the chrome's navigation through the first one that has something to lose.
+ */
+interface RegisteredGuard {
+    readonly isDirty: () => boolean;
+    readonly keepsDraft: () => boolean;
+    readonly intercept: (navigate: () => void) => boolean;
+}
+
+const registered = new Set<RegisteredGuard>();
+
+/**
+ * Navigates for the app's chrome — a sidebar item, a page-search result, a crumb — through the
+ * unsaved guard of the editor on screen. An editor that keeps a draft lets the reader go; one that
+ * does not opens its "Leave without saving?" confirmation first.
+ */
+export function guardNavigation(navigate: () => void): void {
+    for (const guard of registered) {
+        if (!guard.keepsDraft() && guard.isDirty()) {
+            guard.intercept(navigate);
+            return;
+        }
+    }
+    navigate();
+}
+
+export function useUnsavedGuard({
+    message,
+    enabled = true,
+    keepsDraft = false,
+}: UnsavedGuardOptions): UnsavedGuard {
     const [isDirty, setDirty] = useState(false);
     const [pending, setPending] = useState<(() => void) | null>(null);
 
@@ -95,6 +137,29 @@ export function useUnsavedGuard({ message, enabled = true }: UnsavedGuardOptions
         },
         [enabled],
     );
+
+    // Registered for the chrome while mounted; read through refs, so one entry serves the lifetime.
+    const interceptRef = useRef(intercept);
+    const keepsDraftRef = useRef(keepsDraft);
+    useEffect(() => {
+        interceptRef.current = intercept;
+        keepsDraftRef.current = keepsDraft;
+    });
+    useEffect(() => {
+        if (!enabled) return;
+        const entry: RegisteredGuard = {
+            isDirty: () => dirtyRef.current,
+            keepsDraft: () => {
+                const keeps = keepsDraftRef.current;
+                return typeof keeps === 'function' ? keeps() : keeps;
+            },
+            intercept: (navigate) => interceptRef.current(navigate),
+        };
+        registered.add(entry);
+        return () => {
+            registered.delete(entry);
+        };
+    }, [enabled]);
 
     const confirmDiscard = useCallback(() => {
         const navigate = pending;

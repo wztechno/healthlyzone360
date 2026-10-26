@@ -27,6 +27,13 @@ export interface BreadcrumbsProps {
      * `content-secondary`, the trail is 2.16:1 on the canopy.
      */
     readonly tone?: BreadcrumbTone | undefined;
+    /**
+     * One line that shortens itself — "Kitchen workspace › Ingred… › Vermicel…" — rather than
+     * wrapping. For a trail in a bar it shares with other controls: there it is given what is left
+     * over, and a trail that kept its full width drew its last crumb underneath them (the top bar's
+     * Continue, 2026-10-26). Every crumb gives way; the current one keeps at least a few letters.
+     */
+    readonly truncate?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -47,6 +54,7 @@ export interface BreadcrumbsProps {
  * the active locale, so the trail points the right way in Arabic without a transform.
  */
 export function Breadcrumbs({
+    truncate = false,
     items,
     label,
     tone = 'default',
@@ -74,7 +82,11 @@ export function Breadcrumbs({
             aria-label={label ?? t('designSystem:breadcrumbs.label')}
             accessibilityLabel={label ?? t('designSystem:breadcrumbs.label')}
             className={cx(
-                'flex-row flex-wrap items-center',
+                truncate
+                    ? // `shrink` as well as `min-w-0`: a react-native-web View does not shrink by
+                      // default, so without it the trail kept its full width and was cut off.
+                      'min-w-0 shrink flex-row flex-nowrap items-center overflow-hidden'
+                    : 'flex-row flex-wrap items-center',
                 density === 'compact' ? 'gap-control-xs' : 'gap-1',
                 className,
             )}
@@ -87,6 +99,7 @@ export function Breadcrumbs({
                         className={cx(
                             'flex-row items-center',
                             density === 'compact' ? 'gap-control-xs' : 'gap-1',
+                            truncate ? (isCurrent ? 'min-w-16 shrink' : 'min-w-0 shrink') : null,
                         )}
                     >
                         {index === 0 ? null : (
@@ -111,6 +124,7 @@ export function Breadcrumbs({
                                     sizeClass,
                                     'text-start',
                                     isCurrent ? currentClass : mutedClass,
+                                    truncate ? 'min-w-0 shrink' : null,
                                 )}
                             >
                                 {item.label}
@@ -128,6 +142,7 @@ export function Breadcrumbs({
                                     density === 'compact'
                                         ? 'h-control-xs rounded-sm px-control-xs hover:bg-surface-sunken'
                                         : 'min-h-touch px-1',
+                                    truncate ? 'min-w-0 shrink' : null,
                                 )}
                             >
                                 <RNText

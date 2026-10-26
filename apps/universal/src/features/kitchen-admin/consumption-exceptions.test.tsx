@@ -6,6 +6,7 @@ import { Dimensions } from 'react-native';
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { ConsumptionExceptionsScreen } from './screens/consumption-exceptions-screen.tsx';
+import { endProcess, readActiveProcess, startProcess } from '../../navigation/active-process.ts';
 import { withReturnTo } from '../../navigation/return-to.ts';
 
 /** An ingredient id, as a gap reads it out of its detail line. */
@@ -31,6 +32,7 @@ jest.mock('expo-router', () => ({
 
 beforeEach(() => {
     jest.clearAllMocks();
+    endProcess();
 });
 
 /**
@@ -468,9 +470,24 @@ describe('consumption exceptions at desk width', () => {
             });
             const href = String(mockRouter.push.mock.calls[0]?.[0]);
             expect(href.startsWith('/kitchen/recipes/recipe-1?')).toBe(true);
+            // Remembered as a process, so stepping out of it by the sidebar can lead back here.
+            expect(readActiveProcess()).toEqual(
+                expect.objectContaining({
+                    kind: 'stockGapFix',
+                    resumeHref: href,
+                    originPath: '/kitchen/consumption-exceptions',
+                }),
+            );
         });
 
-        it('makes Retry the next step once the recipe comes back fixed', async () => {
+        it('retries by itself once the recipe comes back fixed, and ends the fix', async () => {
+            startProcess({
+                kind: 'stockGapFix',
+                subject: 'Grilled chicken bowl',
+                resumeHref: '/kitchen/recipes/recipe-1?fix=no_recipe_version',
+                originPath: '/kitchen/consumption-exceptions',
+                stepPaths: ['/kitchen/recipes/recipe-1'],
+            });
             const harness = await renderStubScreen(
                 <ConsumptionExceptionsScreen gap="exception-1" fixed="1" />,
                 {
@@ -487,19 +504,11 @@ describe('consumption exceptions at desk width', () => {
                 },
             );
 
-            await untilVisible('kitchen-consumption-exceptions-window-primary');
-            expect(
-                screen.getByTestId('kitchen-consumption-exceptions-window-primary'),
-            ).toHaveTextContent(/Retry the deduction$/);
-            expect(screen.queryByTestId('kitchen-consumption-exceptions-window-fix')).toBeNull();
-
-            await act(async () => {
-                fireEvent.press(
-                    screen.getByTestId('kitchen-consumption-exceptions-window-primary'),
-                );
-            });
-
+            // Retry was the one step left, so it is taken — once — without being pressed.
             await untilVisible('kitchen-exception-retried-toast');
+            expect(harness.repositories.kitchenOps.retryConsumptionException).toHaveBeenCalledTimes(
+                1,
+            );
             expect(harness.repositories.kitchenOps.retryConsumptionException).toHaveBeenCalledWith(
                 'exception-1',
             );
@@ -507,6 +516,8 @@ describe('consumption exceptions at desk width', () => {
             expect(mockRouter.setParams).toHaveBeenLastCalledWith(
                 expect.objectContaining({ gap: undefined, fixed: undefined }),
             );
+            // The gap is closed, so the process that was fixing it is over.
+            expect(readActiveProcess()).toBeNull();
         });
 
         it('asks for the raised-between window the URL holds, both ends inclusive', async () => {

@@ -227,7 +227,10 @@ export function usePlaceOrderMutation(
     return useMutation({
         retry: 0,
         mutationFn: (request: PlaceOrderRequest) => repositories.commerce.placeOrder(request),
-        onSuccess: async () => {
+        onSuccess: async (order) => {
+            // The confirmation reads this order straight back; seeded, it draws without a skeleton,
+            // which is what lets the receipt printer carry on printing across the route change.
+            queryClient.setQueryData(queryKeys.commerce.myOrder(order.id), order);
             await Promise.all([
                 queryClient.invalidateQueries({ queryKey: queryKeys.commerce.cart(channelCode) }),
                 // The new order belongs at the top of the history.

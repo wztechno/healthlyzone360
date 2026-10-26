@@ -41,6 +41,11 @@ export interface IngredientAllergenEditorProps {
      * this set, and its save remounts this editor, so without it a change here was lost (HA-39).
      */
     readonly onDirtyChange?: ((dirty: boolean) => void) | undefined;
+    /**
+     * Leave "not assessed" unsaid here: the ingredient editor says it once, in its issue tray, with
+     * the way to this section.
+     */
+    readonly hideUnassessed?: boolean | undefined;
 }
 
 /**
@@ -58,6 +63,7 @@ export function IngredientAllergenEditor({
     ingredient,
     classes,
     onDirtyChange,
+    hideUnassessed = false,
 }: IngredientAllergenEditorProps) {
     const { t } = useTranslation();
     const { locale } = useLocale();
@@ -214,7 +220,7 @@ export function IngredientAllergenEditor({
                     }}
                 />
             )}
-            {assessed ? null : (
+            {assessed || hideUnassessed ? null : (
                 <Callout
                     testID="kitchen-ingredient-mapping-unassessed"
                     tone="warning"
