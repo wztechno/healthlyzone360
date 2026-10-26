@@ -288,17 +288,28 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
     const runRetry = (row: ConsumptionException) => {
         setPendingId(row.id);
         retry.mutate(row.id, {
-            // A retry that still cannot deduct leaves the row where it was, so say which it was.
-            onSuccess: (result) => {
+            /*
+             * Say which it was: deducted, still stuck on the same thing, or past this problem and
+             * stuck on the next one — a published recipe with no pieces produced, say — which the
+             * retry opened as a row of its own. That last is not "closed", so it is named.
+             */
+            onSuccess: ({ exception, stillOpen }) => {
+                const next = stillOpen[0];
                 toast.show({
                     testID: 'kitchen-exception-retried-toast',
-                    tone: result.resolved ? 'success' : 'warning',
-                    message: t(
-                        result.resolved
-                            ? 'kitchen:ops.exceptions.retryDeductedToast'
-                            : 'kitchen:ops.exceptions.retryStillOpenToast',
-                        { order: orderLabel(row) },
-                    ),
+                    tone: exception.resolved && next === undefined ? 'success' : 'warning',
+                    message:
+                        exception.resolved && next !== undefined
+                            ? t('kitchen:ops.exceptions.retryNextProblemToast', {
+                                  order: orderLabel(row),
+                                  reason: t(`kitchen:ops.exceptions.reasons.${next.reasonCode}`),
+                              })
+                            : t(
+                                  exception.resolved
+                                      ? 'kitchen:ops.exceptions.retryDeductedToast'
+                                      : 'kitchen:ops.exceptions.retryStillOpenToast',
+                                  { order: orderLabel(row) },
+                              ),
                 });
             },
             onError: showFailure,

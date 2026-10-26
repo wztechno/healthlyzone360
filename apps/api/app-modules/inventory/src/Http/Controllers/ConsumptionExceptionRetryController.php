@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Inventory\Http\Controllers;
 
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Inventory\Models\OrderConsumptionException;
 use Healthy360\Inventory\Presenters\OrderConsumptionExceptionPresenter;
 use Healthy360\Inventory\Services\OrderConsumptionService;
 use Healthy360\Support\Api\ApiResponse;
@@ -24,6 +25,11 @@ use Illuminate\Http\JsonResponse;
  * line now consumes cleanly the exception auto-resolves; when it still cannot, its
  * detail is refreshed and it stays open. Either way the (possibly settled) row is
  * returned so the caller re-renders without a second read.
+ *
+ * `still_open` is every other open exception on the same order line after the
+ * re-run. A retry that clears its own reason can reach the next one — the recipe
+ * is published now, but states no pieces produced — and that opens a row of its
+ * own. Returned so the caller can say "fixed, but now this" instead of "closed".
  *
  * Idempotent: retrying an already-resolved exception is a no-op. Requires
  * `inventory.manage_organisation`; audited.
@@ -56,8 +62,19 @@ final class ConsumptionExceptionRetryController
             ],
         );
 
+        $stillOpen = $result->order_line_id === null
+            ? collect()
+            : OrderConsumptionException::query()
+                ->where('order_id', $result->order_id)
+                ->where('order_line_id', $result->order_line_id)
+                ->whereNull('resolved_at')
+                ->whereKeyNot($result->getKey())
+                ->orderBy('created_at')
+                ->get();
+
         return ApiResponse::data([
             'exception' => $this->presenter->collection(collect([$result]))[0],
+            'still_open' => $this->presenter->collection($stillOpen),
         ]);
     }
 }

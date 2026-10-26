@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8662 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8665 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4388,6 +4388,7 @@ export interface NamespaceKeys {
     | 'ops.exceptions.resolvedToast'
     | 'ops.exceptions.retry'
     | 'ops.exceptions.retryDeductedToast'
+    | 'ops.exceptions.retryNextProblemToast'
     | 'ops.exceptions.retryStillOpenToast'
     | 'ops.exceptions.searchPlaceholder'
     | 'ops.exceptions.statResolvedCaption'
@@ -6134,6 +6135,7 @@ export interface NamespaceKeys {
     | 'publish.blockIngredientState'
     | 'publish.blockName'
     | 'publish.blockNoLines'
+    | 'publish.blockNoPieces'
     | 'publish.blockNutritionPending'
     | 'publish.blockUnsaved'
     | 'publish.blockedTitle'
@@ -6155,6 +6157,7 @@ export interface NamespaceKeys {
     | 'publish.quarantineTitle'
     | 'publish.title'
     | 'publish.titleVersion'
+    | 'publish.toPublishCount'
     | 'publish.unmappedBody'
     | 'publish.unmappedTitle'
     | 'recipes.addIngredientPlaceholder'
@@ -13068,6 +13071,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.resolvedToast',
   'kitchen:ops.exceptions.retry',
   'kitchen:ops.exceptions.retryDeductedToast',
+  'kitchen:ops.exceptions.retryNextProblemToast',
   'kitchen:ops.exceptions.retryStillOpenToast',
   'kitchen:ops.exceptions.searchPlaceholder',
   'kitchen:ops.exceptions.statResolvedCaption',
@@ -14814,6 +14818,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:publish.blockIngredientState',
   'kitchen:publish.blockName',
   'kitchen:publish.blockNoLines',
+  'kitchen:publish.blockNoPieces',
   'kitchen:publish.blockNutritionPending',
   'kitchen:publish.blockUnsaved',
   'kitchen:publish.blockedTitle',
@@ -14835,6 +14840,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:publish.quarantineTitle',
   'kitchen:publish.title',
   'kitchen:publish.titleVersion',
+  'kitchen:publish.toPublishCount',
   'kitchen:publish.unmappedBody',
   'kitchen:publish.unmappedTitle',
   'kitchen:recipes.addIngredientPlaceholder',

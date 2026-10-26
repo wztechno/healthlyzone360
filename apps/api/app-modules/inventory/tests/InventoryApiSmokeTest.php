@@ -432,7 +432,9 @@ it('retries a consumption exception through the endpoint', function (): void {
     $this->postJson('/api/v1/catalogue/inventory/consumption-exceptions/'.$exception->getKey().'/retry', [], $this->headers)
         ->assertOk()
         ->assertJsonPath('data.exception.id', (string) $exception->getKey())
-        ->assertJsonPath('data.exception.resolved', false);
+        ->assertJsonPath('data.exception.resolved', false)
+        // An order-level row has no line for another problem to be open on.
+        ->assertJsonPath('data.still_open', []);
 
     expect($exception->refresh()->detail)->toBe('Retry could not run: the order no longer exists.');
 });

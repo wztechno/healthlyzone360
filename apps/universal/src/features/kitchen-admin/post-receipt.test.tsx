@@ -17,6 +17,7 @@ import {
     SupplierId,
 } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { useRouter } from 'expo-router';
 
 import { TEST_BRANCH_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
@@ -267,6 +268,42 @@ describe('post a goods receipt — a market purchase', () => {
             ],
         });
         expect(posted[0]?.lines[0]).not.toHaveProperty('purchaseOrderLineId');
+    });
+
+    it('opens on the short shelf a stock gap sent it to, and goes back there once posted', async () => {
+        const posted: PostGoodsReceiptRequest[] = [];
+        const QUINOA_INGREDIENT = IngredientId.unsafe('01935f6d-0000-7000-8000-0000000000f2');
+        const base = world(posted);
+        const gapReturn = '/kitchen/consumption-exceptions?gap=exception-1';
+        await renderStubScreen(
+            <PostReceiptScreen ingredient={String(QUINOA_INGREDIENT)} returnTo={gapReturn} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenOps: {
+                        ...base.kitchenOps,
+                        listStockItems: async () =>
+                            STOCK_ITEMS.map((entry) =>
+                                entry.id === QUINOA
+                                    ? { ...entry, ingredientId: QUINOA_INGREDIENT }
+                                    : entry,
+                            ),
+                    },
+                },
+            },
+        );
+
+        // The quantity is the one thing left to type: the shelf and its unit are already there.
+        await untilVisible(`${LINES}-row-line-first-quantity-input`);
+        await type(`${LINES}-row-line-first-quantity-input`, '5');
+        await type(`${LINES}-row-line-first-unit-price-input`, '3.00');
+        await press('kitchen-procurement-post-confirm');
+
+        await waitFor(() => {
+            expect(posted).toHaveLength(1);
+        });
+        expect(posted[0]?.lines[0]).toMatchObject({ stockItemId: QUINOA, quantity: 5, unitId: KG });
+        expect(useRouter().replace).toHaveBeenCalledWith(gapReturn);
     });
 
     it('flags a price ten per cent or more from the last one paid', async () => {

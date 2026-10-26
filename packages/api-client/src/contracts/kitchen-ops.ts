@@ -1611,6 +1611,19 @@ export interface ConsumptionException {
     readonly createdAt: IsoDateTime | null;
 }
 
+/**
+ * What a retry answers: the row it ran for, and every other gap still open on the same order line.
+ *
+ * A retry that clears its own reason can reach the next one — the recipe is published now, but
+ * states no pieces produced — and that opens a row of its own. `stillOpen` is that row, so the
+ * caller can say "fixed, but now this" rather than "closed".
+ */
+export interface ConsumptionExceptionRetry {
+    readonly exception: ConsumptionException;
+    /** Oldest first; empty for an order-level row, or when the line is clear. */
+    readonly stillOpen: readonly ConsumptionException[];
+}
+
 /** Resolution-state and date filters over the consumption-exception list, plus the cursor. */
 export interface ConsumptionExceptionFilter extends CursorPageRequest, OffsetPageRequest {
     /** `true` for resolved only, `false` for still-open only; omit for both. */
@@ -2312,10 +2325,10 @@ export interface KitchenOpsRepository {
     ): Promise<ConsumptionException>;
     /**
      * Re-runs the consumption an exception blocks, returning the row after — resolved if the line now
-     * consumes cleanly, still open with a refreshed detail otherwise. Idempotent; never double-deducts.
-     * Needs `inventory.manage_organisation`.
+     * consumes cleanly, still open with a refreshed detail otherwise — and the other gaps still open
+     * on its order line. Idempotent; never double-deducts. Needs `inventory.manage_organisation`.
      */
-    retryConsumptionException(exceptionId: string): Promise<ConsumptionException>;
+    retryConsumptionException(exceptionId: string): Promise<ConsumptionExceptionRetry>;
 
     /**
      * The production desk queue — fifty per page, newest first, `hasMore` stated rather than
