@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8674 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8775 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -6621,6 +6621,107 @@ export interface NamespaceKeys {
     | 'toolbar.segmentReview'
     | 'toolbar.statusAll'
     | 'toolbar.statusLabel'
+    | 'transfer.columns.ingredients.availability'
+    | 'transfer.columns.ingredients.b2bPrice'
+    | 'transfer.columns.ingredients.b2cPrice'
+    | 'transfer.columns.ingredients.capacity'
+    | 'transfer.columns.ingredients.capacityUnit'
+    | 'transfer.columns.ingredients.category'
+    | 'transfer.columns.ingredients.composition'
+    | 'transfer.columns.ingredients.gramsPerUnit'
+    | 'transfer.columns.ingredients.itemsPerUnit'
+    | 'transfer.columns.ingredients.nameAr'
+    | 'transfer.columns.ingredients.nameEn'
+    | 'transfer.columns.ingredients.notes'
+    | 'transfer.columns.ingredients.priceCurrency'
+    | 'transfer.columns.ingredients.purchaseCurrency'
+    | 'transfer.columns.ingredients.purchasePrice'
+    | 'transfer.columns.ingredients.purchaseUnit'
+    | 'transfer.columns.ingredients.reference'
+    | 'transfer.columns.ingredients.sellable'
+    | 'transfer.columns.ingredients.unit'
+    | 'transfer.columns.ingredients.unitPrice'
+    | 'transfer.columns.ingredients.wastePercent'
+    | 'transfer.columns.ingredients.yieldFactor'
+    | 'transfer.columns.recipes.category'
+    | 'transfer.columns.recipes.comment'
+    | 'transfer.columns.recipes.ingredient'
+    | 'transfer.columns.recipes.ingredientRef'
+    | 'transfer.columns.recipes.nameAr'
+    | 'transfer.columns.recipes.nameEn'
+    | 'transfer.columns.recipes.notes'
+    | 'transfer.columns.recipes.quantity'
+    | 'transfer.columns.recipes.reference'
+    | 'transfer.columns.recipes.shelfLifeDays'
+    | 'transfer.columns.recipes.unit'
+    | 'transfer.columns.recipes.yieldPieces'
+    | 'transfer.columns.recipes.yieldQuantity'
+    | 'transfer.columns.recipes.yieldUnit'
+    | 'transfer.columns.stock.code'
+    | 'transfer.columns.stock.countedQuantity'
+    | 'transfer.columns.stock.item'
+    | 'transfer.columns.stock.parLevel'
+    | 'transfer.columns.stock.reorderThreshold'
+    | 'transfer.dropZone.choose'
+    | 'transfer.dropZone.label'
+    | 'transfer.dropZone.limits'
+    | 'transfer.dropZone.replace'
+    | 'transfer.dropZone.title'
+    | 'transfer.error.failed'
+    | 'transfer.error.rejectedTitle'
+    | 'transfer.error.throttled'
+    | 'transfer.error.tooLarge'
+    | 'transfer.error.unreadable'
+    | 'transfer.error.wrongType'
+    | 'transfer.export.excel'
+    | 'transfer.export.failed'
+    | 'transfer.export.menuLabel'
+    | 'transfer.export.pdf'
+    | 'transfer.export.pdfSheets'
+    | 'transfer.export.pdfTable'
+    | 'transfer.export.sheetsTooMany'
+    | 'transfer.export.templateFailed'
+    | 'transfer.guide.acceptedValues'
+    | 'transfer.guide.columnsCaption'
+    | 'transfer.guide.downloadTemplate'
+    | 'transfer.guide.heading'
+    | 'transfer.guide.matchRule'
+    | 'transfer.guide.matchRuleRecipes'
+    | 'transfer.guide.matchRuleStock'
+    | 'transfer.guide.required'
+    | 'transfer.guide.rowCap'
+    | 'transfer.guide.templateHint'
+    | 'transfer.import.action'
+    | 'transfer.import.description'
+    | 'transfer.import.done'
+    | 'transfer.ingredients.importTitle'
+    | 'transfer.ingredients.printTitle'
+    | 'transfer.print.action'
+    | 'transfer.print.expiredBody'
+    | 'transfer.print.expiredTitle'
+    | 'transfer.print.nativeUnavailable'
+    | 'transfer.print.printed'
+    | 'transfer.print.rowCount'
+    | 'transfer.recipes.importTitle'
+    | 'transfer.recipes.printTitle'
+    | 'transfer.result.created'
+    | 'transfer.result.failed'
+    | 'transfer.result.ignoredColumns'
+    | 'transfer.result.issuesHeading'
+    | 'transfer.result.noIssues'
+    | 'transfer.result.row'
+    | 'transfer.result.skipped'
+    | 'transfer.result.title'
+    | 'transfer.result.truncated'
+    | 'transfer.result.unchanged'
+    | 'transfer.result.updated'
+    | 'transfer.sheets.missing'
+    | 'transfer.sheets.title'
+    | 'transfer.sheets.truncated'
+    | 'transfer.stock.branchRequiredBody'
+    | 'transfer.stock.branchRequiredTitle'
+    | 'transfer.stock.importTitle'
+    | 'transfer.stock.printTitle'
     | 'units.bag'
     | 'units.bottle'
     | 'units.can'
@@ -15313,6 +15414,107 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:toolbar.segmentReview',
   'kitchen:toolbar.statusAll',
   'kitchen:toolbar.statusLabel',
+  'kitchen:transfer.columns.ingredients.availability',
+  'kitchen:transfer.columns.ingredients.b2bPrice',
+  'kitchen:transfer.columns.ingredients.b2cPrice',
+  'kitchen:transfer.columns.ingredients.capacity',
+  'kitchen:transfer.columns.ingredients.capacityUnit',
+  'kitchen:transfer.columns.ingredients.category',
+  'kitchen:transfer.columns.ingredients.composition',
+  'kitchen:transfer.columns.ingredients.gramsPerUnit',
+  'kitchen:transfer.columns.ingredients.itemsPerUnit',
+  'kitchen:transfer.columns.ingredients.nameAr',
+  'kitchen:transfer.columns.ingredients.nameEn',
+  'kitchen:transfer.columns.ingredients.notes',
+  'kitchen:transfer.columns.ingredients.priceCurrency',
+  'kitchen:transfer.columns.ingredients.purchaseCurrency',
+  'kitchen:transfer.columns.ingredients.purchasePrice',
+  'kitchen:transfer.columns.ingredients.purchaseUnit',
+  'kitchen:transfer.columns.ingredients.reference',
+  'kitchen:transfer.columns.ingredients.sellable',
+  'kitchen:transfer.columns.ingredients.unit',
+  'kitchen:transfer.columns.ingredients.unitPrice',
+  'kitchen:transfer.columns.ingredients.wastePercent',
+  'kitchen:transfer.columns.ingredients.yieldFactor',
+  'kitchen:transfer.columns.recipes.category',
+  'kitchen:transfer.columns.recipes.comment',
+  'kitchen:transfer.columns.recipes.ingredient',
+  'kitchen:transfer.columns.recipes.ingredientRef',
+  'kitchen:transfer.columns.recipes.nameAr',
+  'kitchen:transfer.columns.recipes.nameEn',
+  'kitchen:transfer.columns.recipes.notes',
+  'kitchen:transfer.columns.recipes.quantity',
+  'kitchen:transfer.columns.recipes.reference',
+  'kitchen:transfer.columns.recipes.shelfLifeDays',
+  'kitchen:transfer.columns.recipes.unit',
+  'kitchen:transfer.columns.recipes.yieldPieces',
+  'kitchen:transfer.columns.recipes.yieldQuantity',
+  'kitchen:transfer.columns.recipes.yieldUnit',
+  'kitchen:transfer.columns.stock.code',
+  'kitchen:transfer.columns.stock.countedQuantity',
+  'kitchen:transfer.columns.stock.item',
+  'kitchen:transfer.columns.stock.parLevel',
+  'kitchen:transfer.columns.stock.reorderThreshold',
+  'kitchen:transfer.dropZone.choose',
+  'kitchen:transfer.dropZone.label',
+  'kitchen:transfer.dropZone.limits',
+  'kitchen:transfer.dropZone.replace',
+  'kitchen:transfer.dropZone.title',
+  'kitchen:transfer.error.failed',
+  'kitchen:transfer.error.rejectedTitle',
+  'kitchen:transfer.error.throttled',
+  'kitchen:transfer.error.tooLarge',
+  'kitchen:transfer.error.unreadable',
+  'kitchen:transfer.error.wrongType',
+  'kitchen:transfer.export.excel',
+  'kitchen:transfer.export.failed',
+  'kitchen:transfer.export.menuLabel',
+  'kitchen:transfer.export.pdf',
+  'kitchen:transfer.export.pdfSheets',
+  'kitchen:transfer.export.pdfTable',
+  'kitchen:transfer.export.sheetsTooMany',
+  'kitchen:transfer.export.templateFailed',
+  'kitchen:transfer.guide.acceptedValues',
+  'kitchen:transfer.guide.columnsCaption',
+  'kitchen:transfer.guide.downloadTemplate',
+  'kitchen:transfer.guide.heading',
+  'kitchen:transfer.guide.matchRule',
+  'kitchen:transfer.guide.matchRuleRecipes',
+  'kitchen:transfer.guide.matchRuleStock',
+  'kitchen:transfer.guide.required',
+  'kitchen:transfer.guide.rowCap',
+  'kitchen:transfer.guide.templateHint',
+  'kitchen:transfer.import.action',
+  'kitchen:transfer.import.description',
+  'kitchen:transfer.import.done',
+  'kitchen:transfer.ingredients.importTitle',
+  'kitchen:transfer.ingredients.printTitle',
+  'kitchen:transfer.print.action',
+  'kitchen:transfer.print.expiredBody',
+  'kitchen:transfer.print.expiredTitle',
+  'kitchen:transfer.print.nativeUnavailable',
+  'kitchen:transfer.print.printed',
+  'kitchen:transfer.print.rowCount',
+  'kitchen:transfer.recipes.importTitle',
+  'kitchen:transfer.recipes.printTitle',
+  'kitchen:transfer.result.created',
+  'kitchen:transfer.result.failed',
+  'kitchen:transfer.result.ignoredColumns',
+  'kitchen:transfer.result.issuesHeading',
+  'kitchen:transfer.result.noIssues',
+  'kitchen:transfer.result.row',
+  'kitchen:transfer.result.skipped',
+  'kitchen:transfer.result.title',
+  'kitchen:transfer.result.truncated',
+  'kitchen:transfer.result.unchanged',
+  'kitchen:transfer.result.updated',
+  'kitchen:transfer.sheets.missing',
+  'kitchen:transfer.sheets.title',
+  'kitchen:transfer.sheets.truncated',
+  'kitchen:transfer.stock.branchRequiredBody',
+  'kitchen:transfer.stock.branchRequiredTitle',
+  'kitchen:transfer.stock.importTitle',
+  'kitchen:transfer.stock.printTitle',
   'kitchen:units.bag',
   'kitchen:units.bottle',
   'kitchen:units.can',
