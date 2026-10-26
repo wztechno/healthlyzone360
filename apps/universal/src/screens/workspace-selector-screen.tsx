@@ -38,9 +38,16 @@ import { useAccessState, useSession } from '../session/session-provider.tsx';
  * ## A greeting, then one panel, centred, at a size that does not move
  *
  * The page opens on a soft-green band — the person's name with the part of the day, today's date and
- * the time, and the organisation and branch they are working in — and the choice sits in a single
- * centred panel under it: the destinations inside it, and the context switches under a rule at its
- * foot. Everything on the page shares one centre line and one width.
+ * the time, the organisation and branch they are working in, and at its inline end the switches
+ * that change them — and the choice sits in a single centred panel under it. Everything on the page
+ * shares one centre line and one width.
+ *
+ * ## One screen, no scroll
+ *
+ * The hub is a place to pick from, not to read, so the whole of it fits a laptop's viewport: the
+ * switches sit in the band beside what they switch rather than under a rule at the panel's foot, and
+ * the band, the panel and the tiles are set compact. Two rows of tiles and the band clear a 1366×768
+ * screen with the browser's own chrome.
  *
  * The panel's width and the tiles inside it are **fixed**, and that is the point rather than an
  * accident. How many areas a person's role grants is a property of their role, and it must not
@@ -65,7 +72,7 @@ import { useAccessState, useSession } from '../session/session-provider.tsx';
  */
 const PANEL_WIDTH = 960;
 const TILE_WIDTH = 170;
-const TILE_HEIGHT = 130;
+const TILE_HEIGHT = 112;
 
 const MINUTE_MS = 60_000;
 
@@ -193,48 +200,55 @@ export function WorkspaceSelectorScreen() {
 
     return (
         <View style={{ width: PANEL_WIDTH, maxWidth: '100%', alignSelf: 'center' }}>
-            <Cascade testID="workspace-selector-screen" space="lg">
+            <Cascade testID="workspace-selector-screen" space="md">
                 {/*
                  * The product's soft green — `Card tone="brand"`, the fill behind the tiles' icons
                  * — rather than the dark canopy of `PageHero`. Every word on it is the dark green
                  * that `colour.test.ts` checks against that fill; no other ink is tested there.
                  */}
-                <Card testID="workspace-hero" tone="brand" padding="lg">
-                    <Stack space="sm">
+                <Card testID="workspace-hero" tone="brand" padding="md">
+                    <Inline space="md" align="end" justify="between" wrap>
+                        <Stack space="xs">
+                            {/*
+                             * React Native's `Text`, because no `Heading` level is this size: the
+                             * greeting is set large, one step under `PageHero`'s title.
+                             */}
+                            <RNText
+                                testID="workspace-hero-title"
+                                accessibilityRole="header"
+                                aria-level={1}
+                                className="text-4xl leading-[1.05] tracking-display text-content-on-brand-subtle text-start"
+                            >
+                                {greeting}
+                            </RNText>
+                            <Text testID="workspace-hero-subtitle" tone="brand">
+                                {today}
+                            </Text>
+                            <View
+                                testID="workspace-hero-chips"
+                                className="flex-row flex-wrap items-center gap-2 pt-1"
+                            >
+                                {(branch === undefined
+                                    ? [organisationName]
+                                    : [organisationName, branch.name]
+                                ).map((chip) => (
+                                    <View
+                                        key={chip}
+                                        className="rounded-full bg-surface-raised px-4 py-1.5"
+                                    >
+                                        <RNText className="text-sm font-medium text-content-on-brand-subtle">
+                                            {chip}
+                                        </RNText>
+                                    </View>
+                                ))}
+                            </View>
+                        </Stack>
                         {/*
-                         * React Native's `Text`, because no `Heading` level is this size: the
-                         * greeting is set as large as `PageHero` sets its title.
+                         * Beside the organisation and branch they change. Not with no
+                         * destinations: the empty state carries its own switch.
                          */}
-                        <RNText
-                            testID="workspace-hero-title"
-                            accessibilityRole="header"
-                            aria-level={1}
-                            className="text-5xl leading-[1.05] tracking-display text-content-on-brand-subtle text-start"
-                        >
-                            {greeting}
-                        </RNText>
-                        <Text testID="workspace-hero-subtitle" tone="brand">
-                            {today}
-                        </Text>
-                        <View
-                            testID="workspace-hero-chips"
-                            className="flex-row flex-wrap items-center gap-2 pt-1"
-                        >
-                            {(branch === undefined
-                                ? [organisationName]
-                                : [organisationName, branch.name]
-                            ).map((chip) => (
-                                <View
-                                    key={chip}
-                                    className="rounded-full bg-surface-raised px-4 py-1.5"
-                                >
-                                    <RNText className="text-sm font-medium text-content-on-brand-subtle">
-                                        {chip}
-                                    </RNText>
-                                </View>
-                            ))}
-                        </View>
-                    </Stack>
+                        {areas.length === 0 ? null : contextSwitches}
+                    </Inline>
                 </Card>
 
                 {areas.length === 0 ? (
@@ -253,7 +267,7 @@ export function WorkspaceSelectorScreen() {
                         }
                     />
                 ) : (
-                    <Card testID="workspace-area-panel" padding="lg">
+                    <Card testID="workspace-area-panel" padding="md">
                         <Stack space="md">
                             <Heading level={2} testID="workspace-selector-title" align="center">
                                 {t('access:workspaceSelector.title')}
@@ -293,15 +307,6 @@ export function WorkspaceSelectorScreen() {
                                     </FadeIn>
                                 ))}
                             </View>
-
-                            {/*
-                             * A rule, then the context switches. Changing organisation or branch is
-                             * a different kind of action from picking a destination — it changes
-                             * what the destinations *are* — so it is separated rather than left to
-                             * read as a sixth tile.
-                             */}
-                            <View className="self-stretch border-t border-stroke-subtle" />
-                            {contextSwitches}
                         </Stack>
                     </Card>
                 )}
@@ -363,7 +368,7 @@ function WorkspaceTile({ testID, name, icon, accessibilityLabel, onPress }: Work
                 // `flex-1` fills the fixed box around it rather than `h-full`, which `card.tsx`
                 // warns against: a percentage height resolved against a ScrollView's grown content
                 // is not the height you meant.
-                'flex-1 items-center justify-center gap-3 rounded-xl border bg-surface-raised p-4',
+                'flex-1 items-center justify-center gap-2 rounded-xl border bg-surface-raised p-3',
                 // The lift and the press are the card's own utilities, so they are already in the
                 // stylesheet; the state only has to say what colour the tile is.
                 'transition duration-normal ease-standard hover:-translate-y-1 active:opacity-80',
