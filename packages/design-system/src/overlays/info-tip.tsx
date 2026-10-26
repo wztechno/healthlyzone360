@@ -5,6 +5,7 @@ import { Platform, Pressable, Text as RNText, View } from 'react-native';
 import { showFloatingLabel } from '../actions/floating-label.ts';
 import type { FloatingLabel } from '../actions/floating-label.ts';
 import { Icon } from '../icons/icon.tsx';
+import type { IconName } from '../icons/icon.tsx';
 import { KEYS, keyDownProps } from '../internal/web-props.ts';
 import type { WebKeyEvent } from '../internal/web-props.ts';
 
@@ -13,6 +14,11 @@ export interface InfoTipProps {
     readonly label: string;
     /** The sentence itself. One or two short lines; anything longer is a page, not a tip. */
     readonly text: string;
+    /**
+     * The glyph. The circled `i` by default; a mark that *is* the fact — the recipe editor's lock
+     * for "kitchen only" — can stand in for it, with the sentence behind it all the same.
+     */
+    readonly icon?: IconName | undefined;
     readonly testID?: string | undefined;
 }
 
@@ -44,7 +50,7 @@ export interface InfoTipProps {
  * Hover opens it for a mouse, focus for a keyboard, and a press toggles it — the only way in on a
  * touch screen. Escape, blur and a press elsewhere close it.
  */
-export function InfoTip({ label, text, testID }: InfoTipProps) {
+export function InfoTip({ label, text, icon = 'infoCircle', testID }: InfoTipProps) {
     const { t } = useTranslation();
     const generated = useId();
     const base = testID ?? `info-tip-${generated.replace(/:/g, '')}`;
@@ -147,7 +153,7 @@ export function InfoTip({ label, text, testID }: InfoTipProps) {
                 className="items-center justify-center rounded-full"
             >
                 {/* The drawn circle, not `info`: that one is the font's ⓘ, soft at 14px. */}
-                <Icon name="infoCircle" size="sm" className="text-content-secondary" />
+                <Icon name={icon} size="sm" className="text-content-secondary" />
             </Pressable>
 
             {/* What `aria-describedby` points at: present, unseen, never a second announcement. */}

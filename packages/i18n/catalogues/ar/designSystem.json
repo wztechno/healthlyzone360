@@ -240,6 +240,21 @@
         "overflow_two": "+{{count}}",
         "overflow_zero": "+{{count}}"
     },
+    "issueTray": {
+        "toFix": "للإصلاح",
+        "allSet": "كل شيء جاهز",
+        "openCount_zero": "لا شيء للإصلاح",
+        "openCount_one": "شيء واحد للإصلاح",
+        "openCount_two": "شيئان للإصلاح",
+        "openCount_few": "{{count}} أشياء للإصلاح",
+        "openCount_many": "{{count}} شيئًا للإصلاح",
+        "openCount_other": "{{count}} شيء للإصلاح",
+        "progress": "تم {{done}} من {{total}}",
+        "fix": "إصلاح",
+        "close": "إغلاق",
+        "checking": "جارٍ التحقق",
+        "passed": "مكتمل"
+    },
     "timeField": {
         "hour": "الساعة",
         "minute": "الدقيقة",

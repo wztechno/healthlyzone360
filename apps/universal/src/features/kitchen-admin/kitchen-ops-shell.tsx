@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { guardNavigation } from '../../navigation/use-unsaved-guard.ts';
 import { useAccessState } from '../../session/session-provider.tsx';
 import {
     AreaTrail,
@@ -156,7 +157,9 @@ export function useKitchenTrail(): readonly BreadcrumbItem[] {
             label: t('kitchen:hub.title'),
             testID: 'kitchen-crumb-hub',
             onPress: () => {
-                router.push(OVERVIEW_HREF as never);
+                guardNavigation(() => {
+                    router.push(OVERVIEW_HREF as never);
+                });
             },
         };
 
@@ -207,7 +210,9 @@ export function useKitchenTrail(): readonly BreadcrumbItem[] {
                       ? {}
                       : {
                             onPress: () => {
-                                router.push(family.href as never);
+                                guardNavigation(() => {
+                                    router.push(family.href as never);
+                                });
                             },
                         }),
             },

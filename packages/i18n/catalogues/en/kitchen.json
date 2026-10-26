@@ -2592,6 +2592,7 @@
         "columnComposition": "Composition"
     },
     "editor": {
+        "draftRestoredToast": "Your unsaved changes are back.",
         "createTitle": "New ingredient",
         "editTitle": "Edit ingredient",
         "backToList": "Back to ingredients",
@@ -3121,6 +3122,16 @@
         "sheetAllergensDerived": "Allergens (derived)",
         "sheetRestrictedValue": "Yes — not for circulation",
         "publishChecksTitle": "Publish checks",
+        "versionChip": "{{status}} v{{number}}",
+        "versionAudienceDraft": "Only the kitchen sees it",
+        "versionAudienceLive": "On the menu now",
+        "versionAudienceRetired": "Withdrawn from the menu",
+        "retireFromMenu": "Withdraw from the menu",
+        "kitchenOnly": "Kitchen only",
+        "kitchenOnlyHint": "Never shared outside the kitchen.",
+        "readOnly": "Read only",
+        "newDraft": "New draft",
+        "referenceSource": "Imported from {{source}}",
         "checkLanguages": "Both languages present",
         "checkLanguagesOk": "The item name is filled in English and Arabic",
         "checkLanguagesMissing": "Add the item name in both English and Arabic",
@@ -4453,5 +4464,32 @@
         "backNamed": "Back to {{name}}",
         "savedBack": "Saved. Back to your recipe.",
         "savedBackNamed": "Saved. Back to {{name}}."
+    },
+    "tray": {
+        "title": "To fix",
+        "groupSave": "Blocks save",
+        "groupPublish": "Blocks publish",
+        "groupStockGap": "Stock gap",
+        "groupHeadsUp": "Check before publishing",
+        "groupForRecipe": "For the recipe",
+        "groupCheck": "Check",
+        "readyToPublish": "Ready to publish",
+        "published": "Published",
+        "fromStockGaps": "From Stock gaps",
+        "forRecipe": "For {{name}}",
+        "forYourRecipe": "For your recipe",
+        "referenceUnconfirmed": "Confirm the nutrition match to save",
+        "blocksRecipes": "Recipes using it can't be published",
+        "need": {
+            "allergens": "Allergens not recorded",
+            "nutrition": "Nutrition not confirmed",
+            "unit": "Weight per unit missing",
+            "price": "No price yet"
+        },
+        "passed": {
+            "allergens": "Allergens recorded",
+            "nutrition": "Nutrition confirmed",
+            "price": "Unit price on file"
+        }
     }
 }

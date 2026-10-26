@@ -4949,6 +4949,13 @@ export function ShowcaseScreen() {
                             label={t('designSystem:showcase.popoverTitle')}
                             text={t('designSystem:showcase.popoverBody')}
                         />
+                        {/* A mark that is itself the fact — the recipe editor's "kitchen only". */}
+                        <InfoTip
+                            testID="showcase-info-tip-lock"
+                            icon="lock"
+                            label={t('kitchen:recipes.kitchenOnly')}
+                            text={t('kitchen:recipes.kitchenOnlyHint')}
+                        />
                     </Inline>
 
                     <Dialog

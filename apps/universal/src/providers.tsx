@@ -1,4 +1,4 @@
-import { FormIssueScope, ToastProvider } from '@healthy360/design-system';
+import { FormIssueScope, IssueTrayProvider, ToastProvider } from '@healthy360/design-system';
 import type { Repositories, SessionTokenStore } from '@healthy360/api-client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
@@ -95,7 +95,9 @@ export function AppProviders({
                         <AppRepositoryProvider repositories={repositories} tokenStore={tokenStore}>
                             <SessionProvider>
                                 <ToastProvider>
-                                    <FormIssueScope>{children}</FormIssueScope>
+                                    <IssueTrayProvider>
+                                        <FormIssueScope>{children}</FormIssueScope>
+                                    </IssueTrayProvider>
                                 </ToastProvider>
                             </SessionProvider>
                         </AppRepositoryProvider>

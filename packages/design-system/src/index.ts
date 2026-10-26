@@ -145,6 +145,28 @@ export type {
     FormIssueItem,
     FormIssueTone,
 } from './forms/form-issue-banner.tsx';
+export {
+    ISSUE_TONES,
+    IssueTrayProvider,
+    useIssueTrayContext,
+    useIssueTrayController,
+} from './issues/issue-tray-context.tsx';
+export type {
+    IssueTone,
+    IssueTrayController,
+    IssueTraySummary,
+} from './issues/issue-tray-context.tsx';
+export { IssueTrayFrame } from './issues/issue-tray.tsx';
+export type {
+    IssueAction,
+    IssueCardItem,
+    IssueGroup,
+    IssuePassedItem,
+    IssueTrayContent,
+    IssueTrayFrameProps,
+} from './issues/issue-tray.tsx';
+export { IssueTrayButton } from './issues/issue-tray-button.tsx';
+export { SPOTLIGHT_DURATION_MS, spotlightElement } from './issues/spotlight.ts';
 export { FormNavigation } from './forms/form-navigation.tsx';
 export type { FormNavigationProps } from './forms/form-navigation.tsx';
 export { SearchInput } from './forms/search-input.tsx';

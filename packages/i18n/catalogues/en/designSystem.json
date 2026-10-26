@@ -224,6 +224,17 @@
         "overflow_one": "+{{count}}",
         "overflow_other": "+{{count}}"
     },
+    "issueTray": {
+        "toFix": "To fix",
+        "allSet": "All set",
+        "openCount_one": "{{count}} to fix",
+        "openCount_other": "{{count}} to fix",
+        "progress": "{{done}} of {{total}} done",
+        "fix": "Fix",
+        "close": "Close",
+        "checking": "Checking",
+        "passed": "Passed"
+    },
     "timeField": {
         "hour": "Hour",
         "minute": "Minute",

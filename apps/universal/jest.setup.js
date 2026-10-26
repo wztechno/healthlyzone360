@@ -46,3 +46,18 @@ jest.mock('expo-font', () => ({
  */
 const { configure } = require('@testing-library/react-native');
 configure({ asyncUtilTimeout: 5000 });
+
+/**
+ * Every test starts with no kept drafts and no process in progress.
+ *
+ * The recipe and ingredient editors keep unsaved work as a session draft and put it back when the
+ * same record is opened again (`navigation/session-draft.ts`), and a stock-gap fix is remembered as
+ * the tab's process (`navigation/active-process.ts`). Both live in module memory for the life of
+ * the test file — which is the point in the app, and in a test file means one test's typing would
+ * be restored into the next test's editor of the same recipe. Cleared after each test, as sign-out
+ * clears them.
+ */
+const { clearAllSessionDrafts } = require('./src/navigation/session-draft.ts');
+afterEach(() => {
+    clearAllSessionDrafts();
+});

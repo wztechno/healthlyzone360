@@ -66,7 +66,7 @@ jest.mock('expo-router', () => ({
 }));
 
 // Where a press takes the reader is the assertion; the focus itself is the browser's to do.
-jest.mock('./field-focus.ts', () => ({ focusField: jest.fn() }));
+jest.mock('./field-focus.ts', () => ({ focusField: jest.fn(), focusSection: jest.fn() }));
 
 beforeEach(() => {
     mockHistory.canGoBack = true;

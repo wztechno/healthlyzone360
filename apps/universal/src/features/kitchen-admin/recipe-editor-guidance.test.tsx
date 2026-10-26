@@ -11,6 +11,7 @@ import { IngredientId, KitchenId, RecipeId } from '@healthy360/domain-types';
 import type { RecipeVersionId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import { Dimensions } from 'react-native';
 
 import { TEST_ORGANISATION_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
@@ -39,7 +40,7 @@ import type { RecipeEditScreenProps } from './screens/recipe-edit-screen.tsx';
  * which element the editor asked for is the thing worth asserting.
  */
 
-jest.mock('./field-focus.ts', () => ({ focusField: jest.fn() }));
+jest.mock('./field-focus.ts', () => ({ focusField: jest.fn(), focusSection: jest.fn() }));
 
 jest.mock('expo-router', () => {
     const push = jest.fn();
@@ -450,6 +451,22 @@ describe('errors at the field', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('a recipe opened from a stock gap', () => {
+    /*
+     * At a desk's width, where the issue tray is docked beside the page and open: the stock gap is
+     * a card in it now, not a strip above the tabs. Below `lg` the tray is a closed bottom sheet.
+     */
+    const narrowWindow = Dimensions.get('window');
+    const narrowScreen = Dimensions.get('screen');
+    beforeAll(() => {
+        Dimensions.set({
+            window: { ...narrowWindow, width: 1440, height: 900 },
+            screen: { ...narrowScreen, width: 1440, height: 900 },
+        });
+    });
+    afterAll(() => {
+        Dimensions.set({ window: narrowWindow, screen: narrowScreen });
+    });
+
     it('opens on the line at fault, marks it, names the gap, and goes back to the same view', async () => {
         const stored = recipe(version({ lines: [line(BURGHUL, 200), line(OLIVE_OIL, 0)] }));
         await renderEditor(
@@ -469,7 +486,7 @@ describe('a recipe opened from a stock gap', () => {
             expect(focusMock).toHaveBeenCalledWith('kitchen-recipe-lines-table-row-line-1-qty');
         });
 
-        // The strip names the gap and the line; the line says what to do and carries the mark.
+        // The tray's card names the gap and the line; the line says what to do and carries the mark.
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-recipe-stock-gap')).toHaveTextContent(
                 /Stock gap to fix: Recipe line has no quantity — Olive oil/,
@@ -540,7 +557,7 @@ describe('a recipe opened from a stock gap', () => {
             /Stock gap to fix: Recipe has no pieces produced/,
         );
 
-        // The strip's own Publish, through the usual dialog.
+        // The card's own Publish, through the usual dialog.
         await press('kitchen-recipe-stock-gap-publish');
         await untilVisible('kitchen-recipe-publish-confirm');
         await press('kitchen-recipe-publish-confirm');
@@ -548,11 +565,16 @@ describe('a recipe opened from a stock gap', () => {
             expect(repositories.kitchenAdmin.publishRecipe).toHaveBeenCalledTimes(1);
         });
 
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-recipe-stock-gap')).toHaveTextContent(
-                /Fixed and published\. Retry the stock gap next\./,
-            );
-        });
+        // The card ticks and goes; the tray says it is done and offers the way back.
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-recipe-tray-clear')).toHaveTextContent(
+                    /Fixed and published\. Retry the stock gap next\./,
+                );
+            },
+            { timeout: 5000 },
+        );
+        expect(screen.queryByTestId('kitchen-recipe-stock-gap')).toBeNull();
         // The toast offers the same way back.
         await untilVisible('kitchen-recipe-published-back');
         expect(screen.queryByTestId('kitchen-recipe-yield-pieces-error')).toBeNull();
@@ -563,7 +585,7 @@ describe('a recipe opened from a stock gap', () => {
         );
     });
 
-    it('opens a draft from a published version, from the strip', async () => {
+    it('opens a draft from a published version, from the card', async () => {
         const published = version({
             status: 'published',
             publishedAt: '2026-08-03T09:00:00.000Z',
@@ -599,5 +621,50 @@ describe('a recipe opened from a stock gap', () => {
         // Cancel still goes back to where it came from.
         await press('kitchen-recipe-editor-screen-discard');
         expect(routerMock.__dismissTo).toHaveBeenCalledWith(RETURN_TO);
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Leaving with unsaved work
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('leaving the recipe with unsaved work', () => {
+    it('keeps it when the reader leaves another way than Cancel, and puts it back on return', async () => {
+        const stored = recipe();
+        const first = await renderEditor({}, () => stored);
+
+        await untilVisible('kitchen-recipe-name-en-input');
+        await type('kitchen-recipe-name-en-input', 'Burghul salad, extra lemon');
+        // Gone by the sidebar, say: the page is simply replaced.
+        await act(async () => {
+            first.view.unmount();
+        });
+
+        await renderEditor({}, () => stored);
+        await untilVisible('kitchen-recipe-detour-restored-toast');
+        expect(screen.getByTestId('kitchen-recipe-name-en-input').props.value).toBe(
+            'Burghul salad, extra lemon',
+        );
+    });
+
+    it('keeps nothing once the reader discards it with Cancel', async () => {
+        const stored = recipe();
+        const first = await renderEditor({ returnTo: RETURN_TO }, () => stored);
+
+        await untilVisible('kitchen-recipe-name-en-input');
+        await type('kitchen-recipe-name-en-input', 'Burghul salad, extra lemon');
+        await press('kitchen-recipe-editor-screen-discard');
+        await untilVisible('kitchen-recipe-editor-screen-unsaved-dialog');
+        await press('kitchen-recipe-editor-screen-unsaved-discard');
+        await act(async () => {
+            first.view.unmount();
+        });
+
+        await renderEditor({}, () => stored);
+        await untilVisible('kitchen-recipe-name-en-input');
+        expect(screen.queryByTestId('kitchen-recipe-detour-restored-toast')).toBeNull();
+        expect(screen.getByTestId('kitchen-recipe-name-en-input').props.value).not.toBe(
+            'Burghul salad, extra lemon',
+        );
     });
 });
