@@ -11,6 +11,7 @@ use Healthy360\B2b\Contracts\InvitationMembershipGranter;
 use Healthy360\B2b\Models\OrganisationInvitation;
 use Healthy360\Organisations\Enums\MembershipStatus;
 use Healthy360\Organisations\Models\OrganisationMembership;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -54,7 +55,24 @@ use Illuminate\Support\Facades\DB;
  */
 final readonly class MembershipGranter implements InvitationMembershipGranter
 {
+    public function __construct(private DatabaseTenantContext $database) {}
+
+    /**
+     * Run as the organisation being joined: its roles are its own rows now,
+     * and `roles` carries row-level security the acceptor's session — which
+     * belongs to no organisation yet — cannot see past.
+     */
     public function grant(OrganisationInvitation $invitation, User $acceptor): ?string
+    {
+        return $this->database->during(
+            (string) $acceptor->getKey(),
+            $invitation->organisation_id,
+            null,
+            fn (): ?string => $this->grantInContext($invitation, $acceptor),
+        );
+    }
+
+    private function grantInContext(OrganisationInvitation $invitation, User $acceptor): ?string
     {
         $role = $this->role($invitation);
 

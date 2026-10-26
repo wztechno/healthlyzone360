@@ -8,6 +8,7 @@ use Healthy360\B2b\Http\Concerns\ReadsPrecondition;
 use Healthy360\B2b\Http\Concerns\ResolvesAuthenticatedUser;
 use Healthy360\B2b\Http\Requests\DeclineApplicationRequest;
 use Healthy360\B2b\Presenters\B2bApplicationPresenter;
+use Healthy360\B2b\Services\ApplicationNotices;
 use Healthy360\B2b\Services\ApplicationService;
 use Healthy360\B2b\Services\B2bLocator;
 use Healthy360\Support\Api\ApiResponse;
@@ -45,6 +46,7 @@ final class PlatformB2bApplicationDeclineController
         private readonly B2bLocator $locator,
         private readonly ApplicationService $applications,
         private readonly B2bApplicationPresenter $presenter,
+        private readonly ApplicationNotices $notices,
     ) {}
 
     /**
@@ -62,6 +64,8 @@ final class PlatformB2bApplicationDeclineController
             $payload['internal_note'],
             $this->requiredLockVersion($request),
         );
+
+        $this->notices->declined($declined);
 
         return ApiResponse::data(['application' => $this->presenter->review($declined)])
             ->withHeaders(['ETag' => '"'.$declined->lock_version.'"']);

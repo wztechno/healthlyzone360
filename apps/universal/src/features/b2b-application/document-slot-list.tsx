@@ -25,6 +25,12 @@ import { View } from 'react-native';
  * It is shown, with the reviewer's reason, above the control that replaces it. Hiding it would lose
  * the one piece of information that makes the re-upload useful — *why* the first one was not good
  * enough — and would make the slot look untouched when somebody had in fact already tried.
+ *
+ * ## Replace, never remove
+ *
+ * A held document offers "Replace" (the upload control's own label once a file is attached) and
+ * nothing that deletes it: there is no endpoint that does, and a replacement keeps the old row as
+ * `superseded` so the reviewer's trail survives.
  */
 
 /** One kind's slot: what is required, what is held, and what a reviewer said about it. */
@@ -75,8 +81,8 @@ export interface DocumentSlotListProps {
     readonly editable: boolean;
     /** The slot currently in flight, if any — only that one shows the spinner. */
     readonly uploadingKind?: B2BDocumentKind | null | undefined;
+    /** `replaces` names the live document in the slot — picking again supersedes it. */
     readonly onPick: (kind: B2BDocumentKind, file: PickedFile, replaces: string | null) => void;
-    readonly onRemove: (documentId: string) => void;
     /** Refused before anything was sent — too large, wrong type, unreadable. */
     readonly rejection?:
         { readonly kind: B2BDocumentKind; readonly message: string } | null | undefined;
@@ -88,7 +94,6 @@ export function DocumentSlotList({
     editable,
     uploadingKind = null,
     onPick,
-    onRemove,
     rejection = null,
     testID = 'b2b-documents',
 }: DocumentSlotListProps) {
@@ -183,13 +188,6 @@ export function DocumentSlotList({
                                               attachment: {
                                                   name: slot.current.fileName,
                                                   size: slot.current.byteSize,
-                                              },
-                                          })}
-                                    {...(slot.current === null
-                                        ? {}
-                                        : {
-                                              onRemove: () => {
-                                                  onRemove(slot.current?.id ?? '');
                                               },
                                           })}
                                     onPick={(file) => {

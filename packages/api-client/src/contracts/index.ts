@@ -18,6 +18,7 @@ import type { OrderDeskRepository } from './order-desk.ts';
 import type { MealPlanRepository } from './planner.ts';
 import type { AccessAdminRepository } from './access-admin.ts';
 import type { PlatformAdminRepository } from './platform-admin.ts';
+import type { PlatformB2bRepository } from './platform-b2b.ts';
 import type { ProfessionalRepository } from './professional.ts';
 import type { ContextRepository, DeviceRepository, SessionRepository } from './session.ts';
 import type { VerificationRepository } from './verification.ts';
@@ -418,6 +419,21 @@ export type {
     UpdateProductRequest,
     UpdateRecipeRequest,
 } from './kitchen-admin.ts';
+export {
+    SALES_CHANNEL_KINDS,
+    WHOLESALE_CHANNEL_KINDS,
+    isWholesaleChannelKind,
+} from './kitchen-wholesale.ts';
+export type {
+    CreatePriceListRequest,
+    CreateSalesChannelRequest,
+    ItemChannelOffering,
+    PriceListChannels,
+    PriceListCustomerScope,
+    SalesChannelKind,
+    SalesChannelRecord,
+    SetPriceListChannelsRequest,
+} from './kitchen-wholesale.ts';
 
 export {
     CONSUMPTION_EXCEPTION_REASON_CODES,
@@ -800,6 +816,7 @@ export {
     B2B_APPLICATION_SECTIONS,
     B2B_APPLICATION_STATES,
     B2B_BUSINESS_TYPES,
+    B2B_CONTACT_ROLES,
     B2B_DELIVERY_WINDOWS,
     B2B_DOCUMENT_KINDS,
     B2B_ORDER_FREQUENCIES,
@@ -816,11 +833,14 @@ export {
     SETTLEMENT_STATUSES,
 } from './b2b-application.ts';
 export type {
+    AgreementSeller,
     AgreementSignatureKind,
     AgreementStatus,
     AgreementTerms,
     B2BAgreement,
     B2BApplication,
+    B2BApplicationContact,
+    B2BApplicationLocation,
     B2BApplicationRepository,
     B2BApplicationSection,
     B2BApplicationSectionState,
@@ -828,6 +848,7 @@ export type {
     B2BApplicationState,
     B2BBusinessType,
     B2BCompanySection,
+    B2BContactRole,
     B2BDeliveryWindow,
     B2BDocumentKind,
     B2BLogisticsSection,
@@ -862,6 +883,21 @@ export type {
     SignatureEvidence,
     UploadDocumentRequest,
 } from './b2b-application.ts';
+
+export { PLATFORM_APPLICATION_STATUSES, PLATFORM_INVITATION_STATUSES } from './platform-b2b.ts';
+export type {
+    AgreementTermsInput,
+    PlatformApplicationFilter,
+    PlatformApplicationStatus,
+    PlatformB2bApplication,
+    PlatformB2bApplicationSummary,
+    PlatformB2bRepository,
+    PlatformInvitation,
+    PlatformInvitationStatus,
+    PlatformKycDocument,
+    ProvisionOutcome,
+    SellerPriceListOption,
+} from './platform-b2b.ts';
 
 /* ------------------------------------------------------------------------------------------------
  * PA1 — platform administration of kitchen tenants.
@@ -1081,6 +1117,13 @@ export interface Repositories {
      * the API implementations cover the same surface.
      */
     readonly platformAdmin: PlatformAdminRepository;
+
+    /**
+     * The platform reviewer's half of B2B onboarding — queue, file, decision, agreement,
+     * provisioning. Not a branch of `b2bApplication`: a reviewer sees internal notes, drafts and
+     * duplicate matches an applicant's client must never receive. See `./platform-b2b.ts`.
+     */
+    readonly platformB2b: PlatformB2bRepository;
 
     /**
      * Taking up an offer of membership (PA1) — the twentieth field.

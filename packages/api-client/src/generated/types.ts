@@ -11362,6 +11362,10 @@ export type B2bAgreement = {
      *
      */
     price_list_id?: Uuid | null;
+    /**
+     * The kitchen that owns `price_list_id` — who the company buys from. Null until a list is chosen.
+     */
+    seller?: B2bAgreementSeller | null;
     payment_terms?: B2bPaymentTerms | null;
     credit_limit_minor?: number | null;
     minimum_order_minor?: number | null;
@@ -11372,6 +11376,13 @@ export type B2bAgreement = {
     auto_renews: boolean;
     terms_summary?: string | null;
     signature_document_sha256?: string | null;
+    /**
+     * What a signature now would be against: the digest recorded at
+     * signing, or before that the digest of the terms as they stand. The
+     * signing screen echoes it back.
+     *
+     */
+    document_sha256: string;
     signatory_name?: string | null;
     signatory_title?: string | null;
     signatory_user_id?: Uuid | null;
@@ -12541,6 +12552,18 @@ export type B2bApplicationDetailEnvelope = {
         application: B2bApplication;
         contacts: Array<B2bApplicationContact>;
         locations: Array<B2bApplicationLocation>;
+        /**
+         * The required fields still empty — the server's own definition of complete.
+         */
+        missing_fields: Array<string>;
+        /**
+         * The required document kinds not yet uploaded.
+         */
+        missing_documents: Array<B2bDocumentKind>;
+        /**
+         * Every document kind submission requires. The server's list, never a client constant.
+         */
+        required_documents: Array<B2bDocumentKind>;
     };
     meta: Meta;
 };
@@ -12589,6 +12612,94 @@ export type KycDocumentDownloadEnvelope = {
     data: {
         download: KycDocumentDownload;
     };
+    meta: Meta;
+};
+
+export type B2bAgreementSeller = {
+    organisation_id: Uuid;
+    organisation_name: string;
+    price_list_name_en: string;
+    price_list_name_ar: string | null;
+};
+
+/**
+ * A draft's title and any terms known so far. Absent terms stay empty.
+ */
+export type CreateB2bAgreementRequest = {
+    title: string;
+    /**
+     * Optional when a price list is given — it follows the list, and must match it.
+     */
+    currency_code?: string | null;
+    /**
+     * A seller kitchen's `agreement`-scoped list, not already behind another company's live agreement.
+     */
+    price_list_id?: Uuid | null;
+    payment_terms?: B2bPaymentTerms | null;
+    credit_limit_minor?: number | null;
+    minimum_order_minor?: number | null;
+    delivery_lead_time_days?: number | null;
+    notice_period_days?: number | null;
+    starts_on?: string | null;
+    ends_on?: string | null;
+    auto_renews?: boolean;
+    terms_summary?: string | null;
+};
+
+/**
+ * Only the keys sent change. Only a draft can be edited.
+ */
+export type UpdateB2bAgreementRequest = {
+    title?: string;
+    /**
+     * Optional when a price list is given — it follows the list, and must match it.
+     */
+    currency_code?: string | null;
+    /**
+     * A seller kitchen's `agreement`-scoped list, not already behind another company's live agreement.
+     */
+    price_list_id?: Uuid | null;
+    payment_terms?: B2bPaymentTerms | null;
+    credit_limit_minor?: number | null;
+    minimum_order_minor?: number | null;
+    delivery_lead_time_days?: number | null;
+    notice_period_days?: number | null;
+    starts_on?: string | null;
+    ends_on?: string | null;
+    auto_renews?: boolean;
+    terms_summary?: string | null;
+};
+
+export type B2bAgreementListEnvelope = {
+    data: Array<B2bAgreement>;
+    meta: Meta;
+};
+
+/**
+ * A kitchen's negotiated list, as the agreement editor's seller picker shows it.
+ */
+export type SellerPriceList = {
+    id: Uuid;
+    organisation_id: Uuid;
+    organisation_name: string;
+    code: string;
+    name_en: string;
+    name_ar: string | null;
+    currency_code: string;
+    status: 'draft' | 'active';
+    /**
+     * The application whose live agreement already holds this list. A taken list cannot be chosen for another company.
+     */
+    bound_to_application_id: Uuid | null;
+};
+
+export type SellerPriceListListEnvelope = {
+    data: Array<SellerPriceList>;
+    meta: Meta;
+};
+
+export type OrganisationInvitationListEnvelope = {
+    data: Array<OrganisationInvitation>;
     meta: Meta;
 };
 
@@ -12997,6 +13108,10 @@ export type PublicInvitation = {
          * The organisation's own default language, so the name renders in the right script and direction.
          */
         language_code: string;
+        /**
+         * The organisation type code, so an accepted invitation can land on the right workspace — `corporate_customer` on the buyer's, a kitchen on the kitchen's.
+         */
+        type: string | null;
     };
 };
 
@@ -13037,9 +13152,10 @@ export type AcceptedInvitationEnvelope = {
 };
 
 /**
- * What now exists. `agreement` is null when no version is in force —
- * provisioning does not require a signed agreement, because approval is
- * the gate and the terms may still be under negotiation.
+ * What now exists. Provisioning is refused with
+ * `b2b.application_state_invalid` until the agreement is signed
+ * (active), so `agreement` is null only on a replay of an application
+ * provisioned before that rule.
  *
  */
 export type B2bProvisioningEnvelope = {
@@ -13054,10 +13170,17 @@ export type B2bProvisioningEnvelope = {
          * whose email address is malformed is skipped rather than
          * aborting the transaction — the alternative would strand an
          * approved company behind a field its applicant can no longer
-         * edit.
+         * edit. The applicant's own address is not invited: the
+         * applicant is made the owner directly.
          *
          */
         invitations_issued: number;
+        /**
+         * Whether this call made the applicant `organisation_owner` of
+         * the new organisation. False on a replay.
+         *
+         */
+        owner_membership_created: boolean;
     };
     meta: Meta;
 };
@@ -37889,6 +38012,617 @@ export type ProvisionB2bApplicationResponses = {
 };
 
 export type ProvisionB2bApplicationResponse = ProvisionB2bApplicationResponses[keyof ProvisionB2bApplicationResponses];
+
+export type ListPlatformB2bAgreementsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+    };
+    query?: never;
+    url: '/platform/b2b/applications/{application}/agreements';
+};
+
+export type ListPlatformB2bAgreementsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListPlatformB2bAgreementsError = ListPlatformB2bAgreementsErrors[keyof ListPlatformB2bAgreementsErrors];
+
+export type ListPlatformB2bAgreementsResponses = {
+    /**
+     * Every version, newest first.
+     */
+    200: B2bAgreementListEnvelope;
+};
+
+export type ListPlatformB2bAgreementsResponse = ListPlatformB2bAgreementsResponses[keyof ListPlatformB2bAgreementsResponses];
+
+export type CreatePlatformB2bAgreementData = {
+    body: CreateB2bAgreementRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+    };
+    query?: never;
+    url: '/platform/b2b/applications/{application}/agreements';
+};
+
+export type CreatePlatformB2bAgreementErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The application cannot make the move that was asked for.
+     * `details.status` is where it is, `details.requested_status` is where
+     * the caller wanted it, and `details.allowed_transitions` is what it
+     * *can* do — so a client learns the state machine from the refusal
+     * rather than from documentation it may not have read.
+     *
+     * Distinct from a plain `resource.conflict` on purpose: a reviewer's
+     * console has to tell "somebody got there first" from "that is not a
+     * move this application can make", and those are different screens.
+     *
+     * `details.current_lock_version` rides along, because a caller that lost
+     * an `If-Match` race needs the current validator to retry with.
+     *
+     * The section PATCH answers this code for a second reason — writing to a
+     * section the reviewer has not reopened — and then carries
+     * `details.writable_sections` instead.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreatePlatformB2bAgreementError = CreatePlatformB2bAgreementErrors[keyof CreatePlatformB2bAgreementErrors];
+
+export type CreatePlatformB2bAgreementResponses = {
+    /**
+     * The new draft.
+     */
+    201: B2bAgreementEnvelope;
+};
+
+export type CreatePlatformB2bAgreementResponse = CreatePlatformB2bAgreementResponses[keyof CreatePlatformB2bAgreementResponses];
+
+export type UpdatePlatformB2bAgreementData = {
+    body: UpdateB2bAgreementRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The agreement version's identifier. Always resolved inside the application in the path.
+         */
+        agreement: Uuid;
+    };
+    query?: never;
+    url: '/platform/b2b/agreements/{agreement}';
+};
+
+export type UpdatePlatformB2bAgreementErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdatePlatformB2bAgreementError = UpdatePlatformB2bAgreementErrors[keyof UpdatePlatformB2bAgreementErrors];
+
+export type UpdatePlatformB2bAgreementResponses = {
+    /**
+     * The updated draft.
+     */
+    200: B2bAgreementEnvelope;
+};
+
+export type UpdatePlatformB2bAgreementResponse = UpdatePlatformB2bAgreementResponses[keyof UpdatePlatformB2bAgreementResponses];
+
+export type SendPlatformB2bAgreementData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The agreement version's identifier. Always resolved inside the application in the path.
+         */
+        agreement: Uuid;
+    };
+    query?: never;
+    url: '/platform/b2b/agreements/{agreement}/send';
+};
+
+export type SendPlatformB2bAgreementErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SendPlatformB2bAgreementError = SendPlatformB2bAgreementErrors[keyof SendPlatformB2bAgreementErrors];
+
+export type SendPlatformB2bAgreementResponses = {
+    /**
+     * The agreement, waiting for signature.
+     */
+    200: B2bAgreementEnvelope;
+};
+
+export type SendPlatformB2bAgreementResponse = SendPlatformB2bAgreementResponses[keyof SendPlatformB2bAgreementResponses];
+
+export type RevisePlatformB2bAgreementData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The agreement version's identifier. Always resolved inside the application in the path.
+         */
+        agreement: Uuid;
+    };
+    query?: never;
+    url: '/platform/b2b/agreements/{agreement}/revise';
+};
+
+export type RevisePlatformB2bAgreementErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RevisePlatformB2bAgreementError = RevisePlatformB2bAgreementErrors[keyof RevisePlatformB2bAgreementErrors];
+
+export type RevisePlatformB2bAgreementResponses = {
+    /**
+     * The new draft version.
+     */
+    201: B2bAgreementEnvelope;
+};
+
+export type RevisePlatformB2bAgreementResponse = RevisePlatformB2bAgreementResponses[keyof RevisePlatformB2bAgreementResponses];
+
+export type ListSellerPriceListsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Case-insensitive match on the list's English name or code.
+         */
+        query?: string;
+    };
+    url: '/platform/b2b/seller-price-lists';
+};
+
+export type ListSellerPriceListsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListSellerPriceListsError = ListSellerPriceListsErrors[keyof ListSellerPriceListsErrors];
+
+export type ListSellerPriceListsResponses = {
+    /**
+     * The lists, grouped by kitchen.
+     */
+    200: SellerPriceListListEnvelope;
+};
+
+export type ListSellerPriceListsResponse = ListSellerPriceListsResponses[keyof ListSellerPriceListsResponses];
+
+export type ListPlatformB2bInvitationsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+    };
+    query?: never;
+    url: '/platform/b2b/applications/{application}/invitations';
+};
+
+export type ListPlatformB2bInvitationsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListPlatformB2bInvitationsError = ListPlatformB2bInvitationsErrors[keyof ListPlatformB2bInvitationsErrors];
+
+export type ListPlatformB2bInvitationsResponses = {
+    /**
+     * The invitations.
+     */
+    200: OrganisationInvitationListEnvelope;
+};
+
+export type ListPlatformB2bInvitationsResponse = ListPlatformB2bInvitationsResponses[keyof ListPlatformB2bInvitationsResponses];
+
+export type ResendPlatformB2bInvitationData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The application identifier, or its `reference`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, and a person reading an email holds `B2B-2026-7F3A9C21`
+         * — and a reference cannot be mistaken for a UUID.
+         *
+         */
+        application: Uuid | string;
+        /**
+         * The invitation identifier. Always resolved inside the organisation in the path.
+         */
+        invitation: Uuid;
+    };
+    query?: never;
+    url: '/platform/b2b/applications/{application}/invitations/{invitation}/resend';
+};
+
+export type ResendPlatformB2bInvitationErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ResendPlatformB2bInvitationError = ResendPlatformB2bInvitationErrors[keyof ResendPlatformB2bInvitationErrors];
+
+export type ResendPlatformB2bInvitationResponses = {
+    /**
+     * The new invitation.
+     */
+    201: OrganisationInvitationEnvelope;
+};
+
+export type ResendPlatformB2bInvitationResponse = ResendPlatformB2bInvitationResponses[keyof ResendPlatformB2bInvitationResponses];
 
 export type DownloadPlatformKycDocumentData = {
     body?: never;

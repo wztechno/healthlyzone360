@@ -105,6 +105,8 @@ import {
     type WireItemChannelPrices,
 } from './kitchen-admin-mappers.ts';
 import { createApiKitchenAdminReads } from './kitchen-admin-repository.ts';
+import { createApiKitchenAdminWholesale } from './kitchen-admin-wholesale.ts';
+import type { ApiKitchenAdminWholesale } from './kitchen-admin-wholesale.ts';
 import { MultipartBody } from './transport.ts';
 import type { Transport } from './transport.ts';
 
@@ -165,7 +167,8 @@ export type ApiKitchenAdminWrites = Pick<
     | 'updateDeliveryWindow'
     | 'archiveDeliveryWindow'
     | 'setBranchOperating'
->;
+> &
+    ApiKitchenAdminWholesale;
 
 function ifMatch(lockVersion: number): Readonly<Record<string, string>> {
     return { 'If-Match': `"${lockVersion}"` };
@@ -709,6 +712,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
     }
 
     return {
+        ...createApiKitchenAdminWholesale(transport),
         async searchAllergenReferences(request) {
             const params = new URLSearchParams();
             if (request.barcode) params.set('barcode', request.barcode);

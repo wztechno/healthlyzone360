@@ -2314,6 +2314,10 @@
         "deliveryWindows": {
             "name": "Delivery windows",
             "description": "The delivery slots this kitchen runs — names, days and hours — and which zones offer each one."
+        },
+        "wholesale": {
+            "name": "Wholesale setup",
+            "description": "What a business customer needs before they can order from this kitchen."
         }
     },
     "analytics": {
@@ -3694,7 +3698,31 @@
         "saveDraft": "Save draft",
         "savedToastPublished": "Saved. The new prices apply from now.",
         "savedToastDraft": "Draft saved.",
-        "setOnMeal": "Set on the meal"
+        "setOnMeal": "Set on the meal",
+        "create": "New price list",
+        "createTitle": "New price list",
+        "createAgreementTitle": "New agreement price list",
+        "createBody": "It starts as a draft with no prices. Add them and publish it on the next page.",
+        "createNameLabel": "Name",
+        "createCodeLabel": "Code",
+        "createCodeHint": "A short handle, such as acme-2026. It cannot be changed later.",
+        "createCurrencyLabel": "Currency",
+        "createCurrencyHint": "Three letters, such as USD.",
+        "createScopeLabel": "Who it prices",
+        "scopePublic": "Everyone on its channels",
+        "scopeAgreement": "One business customer (agreement)",
+        "createConfirm": "Create and add prices",
+        "createdToast": "“{{name}}” created as a draft.",
+        "createNameRequired": "Give the list an English name.",
+        "createCodeRequired": "Give the list a code.",
+        "createCurrencyInvalid": "Use a three-letter currency code.",
+        "channelsTitle": "Channels",
+        "channelsBody": "Where this list’s prices apply. A business customer’s order reads the list on the wholesale channel.",
+        "channelsNone": "This kitchen has no sales channels yet.",
+        "channelsSave": "Save channels",
+        "channelsSavedToast": "Channels saved.",
+        "channelsLoadError": "The list’s channels could not be read.",
+        "channelInactive": "Inactive"
     },
     "plans": {
         "title": "Plans",
@@ -4482,5 +4510,42 @@
         "backNamed": "Back to {{name}}",
         "savedBack": "Saved. Back to your recipe.",
         "savedBackNamed": "Saved. Back to {{name}}."
+    },
+    "wholesale": {
+        "subtitle": "The platform picks one of these agreement price lists when it drafts a business customer’s agreement, and each list prices exactly one company.",
+        "loadErrorTitle": "The wholesale setup could not be read",
+        "done": "Done",
+        "todo": "To do",
+        "channelName": "Wholesale",
+        "channelTitle": "Wholesale channel",
+        "channelDone": "“{{name}}” is open for business customers.",
+        "channelMissing": "Business customers order through a wholesale channel. This kitchen has none yet.",
+        "channelOpen": "Open wholesale channel",
+        "channelOpenedToast": "Wholesale channel opened.",
+        "listsTitle": "Agreement price list",
+        "listsNone": "No agreement price list yet. Create one, add its prices and publish it.",
+        "listsSummary_one": "{{count}} agreement list · {{published}} published",
+        "listsSummary_other": "{{count}} agreement lists · {{published}} published",
+        "listsNew": "New agreement price list",
+        "assignTitle": "Assigned to the wholesale channel",
+        "assignNeedsChannel": "Open the wholesale channel first.",
+        "assignNeedsList": "Create an agreement price list first.",
+        "assignSummary": "{{assigned}} of {{total}} agreement lists are on “{{channel}}”.",
+        "assign": "Assign",
+        "assigned": "Assigned",
+        "assignedToast": "“{{name}}” is now on “{{channel}}”.",
+        "openList": "Open",
+        "itemsTitle": "Items offered on wholesale",
+        "itemsNone": "Nothing is priced on an agreement list yet.",
+        "itemsNeedsChannel": "Open the wholesale channel first.",
+        "itemsSummary": "{{offered}} of {{total}} priced items offered on wholesale",
+        "itemsOffer": "Offer priced items on wholesale",
+        "itemsProgress": "Offering {{done}} of {{total}}…",
+        "itemsOfferedToast_one": "{{count}} item is now offered on wholesale.",
+        "itemsOfferedToast_other": "{{count}} items are now offered on wholesale.",
+        "itemsFailedTitle_one": "{{count}} item could not be offered",
+        "itemsFailedTitle_other": "{{count}} items could not be offered",
+        "itemFailure": "{{name}}: {{message}}",
+        "itemsReadError": "Which items are on the channel could not be read."
     }
 }

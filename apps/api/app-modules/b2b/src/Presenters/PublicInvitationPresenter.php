@@ -63,7 +63,7 @@ final class PublicInvitationPresenter
      *     role_code: string,
      *     email_masked: string,
      *     expires_at: string,
-     *     organisation: array{name: string, language_code: string}
+     *     organisation: array{name: string, language_code: string, type: string|null}
      * }
      */
     public function invitation(OrganisationInvitation $invitation, Organisation $organisation): array
@@ -77,6 +77,9 @@ final class PublicInvitationPresenter
             'organisation' => [
                 'name' => $organisation->name,
                 'language_code' => $organisation->default_language_code,
+                // Where the accepted invitation leads: a corporate customer's
+                // people land on the buyer workspace, a kitchen's on the kitchen.
+                'type' => $organisation->type?->code,
             ],
         ];
     }

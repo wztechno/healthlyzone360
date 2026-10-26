@@ -91,8 +91,8 @@ export type B2BApplicationState = (typeof B2B_APPLICATION_STATES)[number];
  *
  * **Contacts and delivery locations are also not sections** — the backend gives them their own
  * tables (`b2b_application_contacts`, `b2b_application_locations`) and their own collection
- * endpoints. This contract does not publish those operations yet; see the gap noted on
- * {@link B2BApplicationRepository}.
+ * endpoints, each replaced whole: {@link B2BApplicationRepository.replaceContacts} and
+ * {@link B2BApplicationRepository.replaceLocations}.
  */
 export const B2B_APPLICATION_SECTIONS = [
     'company',
@@ -295,6 +295,8 @@ export interface B2BApplication {
      */
     readonly requiredDocumentKinds: readonly B2BDocumentKind[];
     readonly documents: readonly KycDocument[];
+    readonly contacts: readonly B2BApplicationContact[];
+    readonly locations: readonly B2BApplicationLocation[];
     /** Newest first. Unresolved requests are what the status panel acts on. */
     readonly reviewerRequests: readonly ReviewerRequest[];
     /**
@@ -311,6 +313,43 @@ export interface B2BApplication {
     readonly submittedAt: IsoDateTime | null;
     readonly decidedAt: IsoDateTime | null;
     readonly lockVersion: number;
+}
+
+/* ── contacts and delivery locations ──────────────────────────────────────────────────────────── */
+
+/**
+ * The people a company names, by what they do. Verbatim the backend's contact roles.
+ *
+ * At provisioning the applicant becomes the owner and every other contact with an email is invited:
+ * the primary contact (failing that the signatory, then billing, then operations) as an owner,
+ * everybody else as a member.
+ */
+export const B2B_CONTACT_ROLES = ['primary', 'signatory', 'billing', 'operations'] as const;
+export type B2BContactRole = (typeof B2B_CONTACT_ROLES)[number];
+
+export interface B2BApplicationContact {
+    readonly role: B2BContactRole;
+    readonly name: string;
+    readonly title: string | null;
+    readonly email: string | null;
+    readonly phone: string | null;
+    readonly notes: string | null;
+}
+
+/** A site the company wants deliveries to. */
+export interface B2BApplicationLocation {
+    readonly label: string;
+    readonly deliveryAreaId: string | null;
+    readonly addressLine1: string;
+    readonly addressLine2: string | null;
+    readonly city: string | null;
+    readonly countryCode: string | null;
+    readonly contactName: string | null;
+    readonly contactPhone: string | null;
+    readonly deliveryNotes: string | null;
+    readonly isPrimary: boolean;
+    readonly isBillingAddress: boolean;
+    readonly expectedHeadcount: number | null;
 }
 
 /* ── documents ────────────────────────────────────────────────────────────────────────────────── */
@@ -498,6 +537,10 @@ export interface B2BAgreement {
     readonly version: number;
     readonly status: AgreementStatus;
     readonly title: string;
+    /** The seller kitchen's negotiated list the company buys at. */
+    readonly priceListId: string | null;
+    /** Who the company buys from. `null` until the reviewer chooses a list. */
+    readonly seller: AgreementSeller | null;
     /** The full text, per locale, authored on the server. Never machine-translated at render time. */
     readonly documentText: string;
     readonly documentSha256: string;
@@ -509,6 +552,14 @@ export interface B2BAgreement {
     readonly signature: SignatureEvidence | null;
     readonly supersedesAgreementId: string | null;
     readonly lockVersion: number;
+}
+
+/** The kitchen behind an agreement's price list. */
+export interface AgreementSeller {
+    readonly organisationId: string;
+    readonly organisationName: string;
+    readonly priceListNameEn: string;
+    readonly priceListNameAr: string | null;
 }
 
 /**
@@ -735,10 +786,8 @@ export interface SignOffOffboardingRequest {
  * `getApplication` answers `null` rather than rejecting when the person has no live application —
  * "you have not applied yet" is a state the entry screen draws, not an error.
  *
- * **Contract gap.** `b2b_application_contacts` and `b2b_application_locations` exist in the backend
- * and have no operations here: the B1 frontend builds the four field sections and the document
- * vault, and the two collection editors are deferred. Adding speculative method signatures for them
- * would be inventing a shape the API wave then has to honour.
+ * Contacts and locations are replaced whole, like the backend's collection endpoints: a list
+ * editor sends what is on screen, and a row missing from it is a row removed.
  */
 export interface B2BApplicationRepository {
     /** The applicant's live application, or `null` if they have never started one. */
@@ -749,9 +798,22 @@ export interface B2BApplicationRepository {
         readonly applicationId: string;
         readonly section: B2BApplicationSection;
         readonly payload: B2BSectionPayload;
-        /** Marks the step finished — the applicant's claim, not a readiness verdict. */
+        /**
+         * Kept for the wizard's call sites; not sent. The server marks a section complete as a
+         * consequence of saving it and refuses a client's claim.
+         */
         readonly markComplete?: boolean | undefined;
         readonly lockVersion: number;
+    }): Promise<B2BApplication>;
+
+    replaceContacts(request: {
+        readonly applicationId: string;
+        readonly contacts: readonly B2BApplicationContact[];
+    }): Promise<B2BApplication>;
+
+    replaceLocations(request: {
+        readonly applicationId: string;
+        readonly locations: readonly B2BApplicationLocation[];
     }): Promise<B2BApplication>;
 
     uploadDocument(request: UploadDocumentRequest): Promise<B2BApplication>;
@@ -782,6 +844,11 @@ export interface B2BApplicationRepository {
     }): Promise<B2BApplication>;
 
     getAgreement(request: { readonly applicationId: string }): Promise<B2BAgreement | null>;
+    /** The signatory's passcode, raised against the agreement being signed. */
+    issueSignatureChallenge(request: {
+        readonly applicationId: string;
+        readonly agreementId: string;
+    }): Promise<OtpChallenge>;
     signAgreement(request: SignAgreementRequest): Promise<B2BApplication>;
 
     /* ── B2: the wind-down, from the buyer's side ────────────────────────────────────────────── */

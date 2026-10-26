@@ -7528,58 +7528,6 @@ export const zKycDocumentDownload = z.object({
 });
 
 /**
- * One version of the terms between the platform and a corporate buyer.
- *
- * The signature block is **evidence**: the digest of the bytes shown,
- * the typed name, the stated capacity and the consent wording verbatim.
- * What is absent is anything replayable — the hashed address and user
- * agent stay server-side, and the passcode challenge is reduced to
- * `signature_otp_verified`.
- *
- * **Never a qualified electronic signature.** This is a record that
- * somebody clicked, with good evidence about who and when (INT-007
- * covers real e-sign).
- *
- * Money is integers of minor units beside `currency_code`, never
- * formatted.
- *
- */
-export const zB2bAgreement = z.object({
-    id: zUuid,
-    b2b_application_id: zUuid,
-    organisation_id: zUuid.nullish(),
-    version: z.int().gte(1),
-    supersedes_agreement_id: zUuid.nullish(),
-    status: zB2bAgreementStatus,
-    title: z.string(),
-    currency_code: z.string().length(3).nullish(),
-    price_list_id: zUuid.nullish(),
-    payment_terms: zB2bPaymentTerms.nullish(),
-    credit_limit_minor: z.int().gte(0).nullish(),
-    minimum_order_minor: z.int().gte(0).nullish(),
-    delivery_lead_time_days: z.int().gte(0).nullish(),
-    notice_period_days: z.int().gte(0).nullish(),
-    starts_on: z.iso.date().nullish(),
-    ends_on: z.iso.date().nullish(),
-    auto_renews: z.boolean(),
-    terms_summary: z.string().nullish(),
-    signature_document_sha256: z.string().regex(/^[0-9a-f]{64}$/).nullish(),
-    signatory_name: z.string().nullish(),
-    signatory_title: z.string().nullish(),
-    signatory_user_id: zUuid.nullish(),
-    signature_consent_statement: z.string().nullish(),
-    signature_otp_verified: z.boolean(),
-    signed_at: z.iso.datetime({ offset: true }).nullish(),
-    activated_at: z.iso.datetime({ offset: true }).nullish(),
-    suspended_at: z.iso.datetime({ offset: true }).nullish(),
-    terminated_at: z.iso.datetime({ offset: true }).nullish(),
-    termination_reason: z.string().nullish(),
-    lock_version: z.int(),
-    created_at: z.iso.datetime({ offset: true }).nullish(),
-    updated_at: z.iso.datetime({ offset: true }).nullish()
-});
-
-/**
  * An offer of membership. **There is no `token` field and there never
  * may be** — the plaintext is delivered once, in the email, and only its
  * SHA-256 is stored.
@@ -8357,7 +8305,10 @@ export const zB2bApplicationDetailEnvelope = z.object({
     data: z.object({
         application: zB2bApplication,
         contacts: z.array(zB2bApplicationContact),
-        locations: z.array(zB2bApplicationLocation)
+        locations: z.array(zB2bApplicationLocation),
+        missing_fields: z.array(z.string()),
+        missing_documents: z.array(zB2bDocumentKind),
+        required_documents: z.array(zB2bDocumentKind)
     }),
     meta: zMeta
 });
@@ -8400,6 +8351,133 @@ export const zKycDocumentDownloadEnvelope = z.object({
     data: z.object({
         download: zKycDocumentDownload
     }),
+    meta: zMeta
+});
+
+export const zB2bAgreementSeller = z.object({
+    organisation_id: zUuid,
+    organisation_name: z.string(),
+    price_list_name_en: z.string(),
+    price_list_name_ar: z.string().nullable()
+});
+
+/**
+ * One version of the terms between the platform and a corporate buyer.
+ *
+ * The signature block is **evidence**: the digest of the bytes shown,
+ * the typed name, the stated capacity and the consent wording verbatim.
+ * What is absent is anything replayable — the hashed address and user
+ * agent stay server-side, and the passcode challenge is reduced to
+ * `signature_otp_verified`.
+ *
+ * **Never a qualified electronic signature.** This is a record that
+ * somebody clicked, with good evidence about who and when (INT-007
+ * covers real e-sign).
+ *
+ * Money is integers of minor units beside `currency_code`, never
+ * formatted.
+ *
+ */
+export const zB2bAgreement = z.object({
+    id: zUuid,
+    b2b_application_id: zUuid,
+    organisation_id: zUuid.nullish(),
+    version: z.int().gte(1),
+    supersedes_agreement_id: zUuid.nullish(),
+    status: zB2bAgreementStatus,
+    title: z.string(),
+    currency_code: z.string().length(3).nullish(),
+    price_list_id: zUuid.nullish(),
+    seller: zB2bAgreementSeller.nullish(),
+    payment_terms: zB2bPaymentTerms.nullish(),
+    credit_limit_minor: z.int().gte(0).nullish(),
+    minimum_order_minor: z.int().gte(0).nullish(),
+    delivery_lead_time_days: z.int().gte(0).nullish(),
+    notice_period_days: z.int().gte(0).nullish(),
+    starts_on: z.iso.date().nullish(),
+    ends_on: z.iso.date().nullish(),
+    auto_renews: z.boolean(),
+    terms_summary: z.string().nullish(),
+    signature_document_sha256: z.string().regex(/^[0-9a-f]{64}$/).nullish(),
+    document_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+    signatory_name: z.string().nullish(),
+    signatory_title: z.string().nullish(),
+    signatory_user_id: zUuid.nullish(),
+    signature_consent_statement: z.string().nullish(),
+    signature_otp_verified: z.boolean(),
+    signed_at: z.iso.datetime({ offset: true }).nullish(),
+    activated_at: z.iso.datetime({ offset: true }).nullish(),
+    suspended_at: z.iso.datetime({ offset: true }).nullish(),
+    terminated_at: z.iso.datetime({ offset: true }).nullish(),
+    termination_reason: z.string().nullish(),
+    lock_version: z.int(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+/**
+ * A draft's title and any terms known so far. Absent terms stay empty.
+ */
+export const zCreateB2bAgreementRequest = z.object({
+    title: z.string().max(160),
+    currency_code: z.string().length(3).nullish(),
+    price_list_id: zUuid.nullish(),
+    payment_terms: zB2bPaymentTerms.nullish(),
+    credit_limit_minor: z.int().gte(0).nullish(),
+    minimum_order_minor: z.int().gte(0).nullish(),
+    delivery_lead_time_days: z.int().gte(0).lte(365).nullish(),
+    notice_period_days: z.int().gte(0).lte(3650).nullish(),
+    starts_on: z.iso.date().nullish(),
+    ends_on: z.iso.date().nullish(),
+    auto_renews: z.boolean().optional(),
+    terms_summary: z.string().max(4000).nullish()
+});
+
+/**
+ * Only the keys sent change. Only a draft can be edited.
+ */
+export const zUpdateB2bAgreementRequest = z.object({
+    title: z.string().max(160).optional(),
+    currency_code: z.string().length(3).nullish(),
+    price_list_id: zUuid.nullish(),
+    payment_terms: zB2bPaymentTerms.nullish(),
+    credit_limit_minor: z.int().gte(0).nullish(),
+    minimum_order_minor: z.int().gte(0).nullish(),
+    delivery_lead_time_days: z.int().gte(0).lte(365).nullish(),
+    notice_period_days: z.int().gte(0).lte(3650).nullish(),
+    starts_on: z.iso.date().nullish(),
+    ends_on: z.iso.date().nullish(),
+    auto_renews: z.boolean().optional(),
+    terms_summary: z.string().max(4000).nullish()
+});
+
+export const zB2bAgreementListEnvelope = z.object({
+    data: z.array(zB2bAgreement),
+    meta: zMeta
+});
+
+/**
+ * A kitchen's negotiated list, as the agreement editor's seller picker shows it.
+ */
+export const zSellerPriceList = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    organisation_name: z.string(),
+    code: z.string(),
+    name_en: z.string(),
+    name_ar: z.string().nullable(),
+    currency_code: z.string(),
+    status: z.enum(['draft', 'active']),
+    bound_to_application_id: zUuid.nullable()
+});
+
+export const zSellerPriceListListEnvelope = z.object({
+    data: z.array(zSellerPriceList),
+    meta: zMeta
+});
+
+export const zOrganisationInvitationListEnvelope = z.object({
+    data: z.array(zOrganisationInvitation),
     meta: zMeta
 });
 
@@ -8591,7 +8669,8 @@ export const zPublicInvitation = z.object({
     expires_at: z.iso.datetime({ offset: true }),
     organisation: z.object({
         name: z.string(),
-        language_code: z.string()
+        language_code: z.string(),
+        type: z.string().nullable()
     })
 });
 
@@ -8622,9 +8701,10 @@ export const zAcceptedInvitationEnvelope = z.object({
 });
 
 /**
- * What now exists. `agreement` is null when no version is in force —
- * provisioning does not require a signed agreement, because approval is
- * the gate and the terms may still be under negotiation.
+ * What now exists. Provisioning is refused with
+ * `b2b.application_state_invalid` until the agreement is signed
+ * (active), so `agreement` is null only on a replay of an application
+ * provisioned before that rule.
  *
  */
 export const zB2bProvisioningEnvelope = z.object({
@@ -8633,7 +8713,8 @@ export const zB2bProvisioningEnvelope = z.object({
         organisation: zOrganisation,
         customer_account: zB2bCustomerAccount,
         agreement: zB2bAgreement.nullable(),
-        invitations_issued: z.int().gte(0)
+        invitations_issued: z.int().gte(0),
+        owner_membership_created: z.boolean()
     }),
     meta: zMeta
 });
@@ -15591,6 +15672,138 @@ export const zProvisionB2bApplicationPath = z.object({
  * What now exists.
  */
 export const zProvisionB2bApplicationResponse = zB2bProvisioningEnvelope;
+
+export const zListPlatformB2bAgreementsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPlatformB2bAgreementsPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * Every version, newest first.
+ */
+export const zListPlatformB2bAgreementsResponse = zB2bAgreementListEnvelope;
+
+export const zCreatePlatformB2bAgreementBody = zCreateB2bAgreementRequest;
+
+export const zCreatePlatformB2bAgreementHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCreatePlatformB2bAgreementPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The new draft.
+ */
+export const zCreatePlatformB2bAgreementResponse = zB2bAgreementEnvelope;
+
+export const zUpdatePlatformB2bAgreementBody = zUpdateB2bAgreementRequest;
+
+export const zUpdatePlatformB2bAgreementHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdatePlatformB2bAgreementPath = z.object({
+    agreement: zUuid
+});
+
+/**
+ * The updated draft.
+ */
+export const zUpdatePlatformB2bAgreementResponse = zB2bAgreementEnvelope;
+
+export const zSendPlatformB2bAgreementHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSendPlatformB2bAgreementPath = z.object({
+    agreement: zUuid
+});
+
+/**
+ * The agreement, waiting for signature.
+ */
+export const zSendPlatformB2bAgreementResponse = zB2bAgreementEnvelope;
+
+export const zRevisePlatformB2bAgreementHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRevisePlatformB2bAgreementPath = z.object({
+    agreement: zUuid
+});
+
+/**
+ * The new draft version.
+ */
+export const zRevisePlatformB2bAgreementResponse = zB2bAgreementEnvelope;
+
+export const zListSellerPriceListsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListSellerPriceListsQuery = z.object({
+    query: z.string().optional()
+});
+
+/**
+ * The lists, grouped by kitchen.
+ */
+export const zListSellerPriceListsResponse = zSellerPriceListListEnvelope;
+
+export const zListPlatformB2bInvitationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPlatformB2bInvitationsPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The invitations.
+ */
+export const zListPlatformB2bInvitationsResponse = zOrganisationInvitationListEnvelope;
+
+export const zResendPlatformB2bInvitationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zResendPlatformB2bInvitationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ]),
+    invitation: zUuid
+});
+
+/**
+ * The new invitation.
+ */
+export const zResendPlatformB2bInvitationResponse = zOrganisationInvitationEnvelope;
 
 export const zDownloadPlatformKycDocumentHeaders = z.object({
     'X-Organisation-Id': zUuid,
