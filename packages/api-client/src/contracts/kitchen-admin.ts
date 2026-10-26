@@ -346,7 +346,26 @@ export interface IngredientAssistSuggestion {
         readonly relation: 'same' | 'more_specific' | 'different' | null;
         readonly reason: string | null;
     } | null;
-    readonly unavailable: readonly ('assistant' | 'nutrition')[];
+    /** How the kitchen buys and stocks it — a model estimate. */
+    readonly unit: 'kg' | 'l' | 'piece' | null;
+    /** The mass of one litre or one piece in grams, a bounded model estimate; null for kg. */
+    readonly gramsPerUnit: number | null;
+    readonly allergens: {
+        /** The Open Food Facts search the allergen picker runs. */
+        readonly candidates: readonly AllergenReferenceCandidate[];
+        readonly notices: readonly string[];
+        /** The importable product that is plainly this ingredient, if one is. */
+        readonly pick: number | null;
+        /** The model's own read for when no product fits; `null` when it did not answer. */
+        readonly codes:
+            | readonly {
+                  readonly allergenCode: AllergenCode;
+                  readonly containment: AllergenContainment;
+              }[]
+            | null;
+        readonly reason: string | null;
+    };
+    readonly unavailable: readonly ('assistant' | 'nutrition' | 'allergens')[];
 }
 
 export interface ConfirmIngredientAllergensRequest {

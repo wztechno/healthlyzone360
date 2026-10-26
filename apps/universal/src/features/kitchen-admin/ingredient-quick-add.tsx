@@ -90,8 +90,13 @@ export function useIngredientQuickAdd({
                 ...(assisted && result.subcategoryCode !== null
                     ? { subcategoryCode: result.subcategoryCode }
                     : {}),
-                // The new-ingredient form's default; the line takes whatever the row says.
-                measurementUnit: 'g',
+                // The assistant's unit when it gave one (bought and stocked alike), with the mass
+                // of one litre or piece; otherwise the new-ingredient form's default.
+                measurementUnit: assisted && result.unit !== null ? result.unit : 'g',
+                ...(assisted && result.unit !== null ? { purchaseUnit: result.unit } : {}),
+                ...(assisted && result.gramsPerUnit !== null
+                    ? { gramsPerUnit: result.gramsPerUnit }
+                    : {}),
                 nutritionPending: {
                     suggestion:
                         pick === undefined ? null : { ref: pick.ref, sourceHash: pick.source_hash },

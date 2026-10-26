@@ -9,6 +9,7 @@ import type {
     AllergenClass,
     CostAmount,
     IngredientAdmin,
+    IngredientAllergenMapping,
     LocalisedText,
     ReferenceSeries,
 } from '@healthy360/api-client/contracts';
@@ -35,12 +36,14 @@ import {
     Stack,
     Switch,
     Tag,
+    TagRow,
     Text,
     TextInputField,
     useToast,
 } from '@healthy360/design-system';
 import type { FormIssueItem, SelectOption, TagTone } from '@healthy360/design-system';
 import { IngredientId, RecipeId } from '@healthy360/domain-types';
+import type { AllergenCode } from '@healthy360/domain-types';
 import { isCurrencyCode } from '@healthy360/domain-types';
 import type { CurrencyCode } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -98,6 +101,7 @@ import {
     UNIT_DIMENSIONS,
     adminUnitsWith,
     amountToInput,
+    containmentKey,
     displayName,
     humaniseCode,
     marginPercent,
@@ -722,9 +726,28 @@ function IngredientEditor({
     const aiFilled = useRef<{
         arabic: string | null;
         pair: { readonly categoryCode: string; readonly subcategoryCode: string } | null;
-    }>({ arabic: null, pair: null });
+        unit: MeasureUnit | null;
+        grams: string | null;
+    }>({ arabic: null, pair: null, unit: null, grams: null });
+    /** The unit and the mass of one litre or piece the assistant wrote; markers hold while unchanged. */
+    const [unitFromAi, setUnitFromAi] = useState<MeasureUnit | null>(null);
+    const [gramsFromAi, setGramsFromAi] = useState<string | null>(null);
+    /**
+     * The cook's confirmation of the allergens the assistant indicated, for the name it was given.
+     * Only shown when no Open Food Facts product is chosen; confirmed, it is written as the kitchen's
+     * own declaration after the record is created.
+     */
+    const [aiAllergensConfirmedFor, setAiAllergensConfirmedFor] = useState<string | null>(null);
     const assistForName =
         assisted !== null && assisted.name === details.name.en.trim() ? assisted.result : undefined;
+    /** The assistant's allergen read for this name; empty when it found none or did not answer. */
+    const aiAllergenCodes = assistForName?.allergens.codes ?? [];
+    const aiAllergensConfirmed =
+        aiAllergenCodes.length > 0 && aiAllergensConfirmedFor === details.name.en.trim();
+    const allergenClassName = (code: AllergenCode): string => {
+        const known = classes.data?.find((entry) => entry.code === code);
+        return known === undefined ? String(code) : displayName(known.name, locale).value;
+    };
     const isPackaging = details.categoryCode.startsWith('packaging-disposables');
     const referenceRequired =
         !isPackaging &&
@@ -1466,13 +1489,29 @@ function IngredientEditor({
         }
     };
 
-    /** The ticked "no allergens" box, written against the record just created. Answers the failure, or null. */
+    /**
+     * The allergens declared on the new-ingredient form, written against the record just created:
+     * the assistant's read once the cook confirmed it, or the ticked "no allergens" box. A chosen
+     * Open Food Facts product is imported by the create itself. Answers the failure, or null.
+     */
     const confirmNoAllergens = async (created: IngredientAdmin): Promise<unknown> => {
-        if (!noAllergens || allergenReference !== undefined || isPackaging) return null;
+        if (allergenReference !== undefined || isPackaging) return null;
+        const mappings: IngredientAllergenMapping[] | null = aiAllergensConfirmed
+            ? aiAllergenCodes.map((entry) => ({
+                  allergenCode: entry.allergenCode,
+                  containment: entry.containment,
+                  marketScope: [],
+                  verification: 'operator_confirmed',
+                  sourceNote: t('kitchen:assist.allergenSourceNote'),
+              }))
+            : noAllergens
+              ? []
+              : null;
+        if (mappings === null) return null;
         try {
             await allergenSave.mutateAsync({
                 ingredientId: created.id,
-                request: { lockVersion: created.meta.lockVersion, mappings: [] },
+                request: { lockVersion: created.meta.lockVersion, mappings },
             });
             return null;
         } catch (error) {
@@ -1855,7 +1894,40 @@ function IngredientEditor({
             result.subcategoryCode !== null &&
             current.categoryCode === result.categoryCode &&
             current.subcategoryCode === '';
-        if (fillArabic || fillPair || fillLeaf) {
+        /*
+         * The unit pair (purchase and stock, set together) and the mass of one litre or piece:
+         * untouched or still the assistant's own, the same rule as the Arabic. Food only — packaging
+         * buys by the pack and stocks by the piece on purpose.
+         */
+        const { unit: lastUnit, grams: lastGrams } = aiFilled.current;
+        const unitUntouched =
+            current.purchaseUnit === '' &&
+            current.measurementUnit === EMPTY_DETAILS.measurementUnit;
+        const unitIsAi =
+            lastUnit !== null &&
+            current.purchaseUnit === lastUnit &&
+            current.measurementUnit === lastUnit;
+        const fillUnit = family.food && (unitIsAi || (result.unit !== null && unitUntouched));
+        const unitAfter = fillUnit
+            ? (result.unit ?? EMPTY_DETAILS.measurementUnit)
+            : current.measurementUnit;
+        const gramsIsAi = lastGrams !== null && current.gramsPerUnit === lastGrams;
+        const gramsAnswer =
+            result.unit === unitAfter && result.gramsPerUnit !== null
+                ? String(result.gramsPerUnit)
+                : '';
+        const fillGrams =
+            family.food &&
+            (fillUnit || ((gramsIsAi || current.gramsPerUnit === '') && gramsAnswer !== ''));
+        if (fillArabic || fillPair || fillLeaf || fillUnit || fillGrams) {
+            if (fillUnit) {
+                aiFilled.current.unit = result.unit;
+                setUnitFromAi(result.unit);
+            }
+            if (fillGrams) {
+                aiFilled.current.grams = gramsAnswer === '' ? null : gramsAnswer;
+                setGramsFromAi(gramsAnswer === '' ? null : gramsAnswer);
+            }
             if (fillArabic) {
                 aiFilled.current.arabic = result.nameAr;
                 setArabicFromAi(result.nameAr);
@@ -1879,8 +1951,33 @@ function IngredientEditor({
                       }
                     : {}),
                 ...(fillLeaf ? { subcategoryCode: result.subcategoryCode ?? '' } : {}),
+                ...(fillUnit
+                    ? {
+                          purchaseUnit: result.unit ?? '',
+                          measurementUnit: unitAfter,
+                          // Items per unit is a piece question; off the piece it goes with the field.
+                          ...(unitAfter === 'piece' ? {} : { itemsPerUnit: '' }),
+                      }
+                    : {}),
+                ...(fillGrams ? { gramsPerUnit: gramsAnswer } : {}),
             }));
             markDetailsDirty();
+        }
+
+        // The Open Food Facts product that is plainly this ingredient: preselected, never confirmed.
+        const allergenPick =
+            result.allergens.pick === null
+                ? undefined
+                : result.allergens.candidates[result.allergens.pick];
+        if (allergenPick !== undefined) {
+            setAllergenDraft((previous) =>
+                previous.name === current.name.en && previous.selection !== undefined
+                    ? previous
+                    : {
+                          name: current.name.en,
+                          selection: { candidate: allergenPick, confirmed: false },
+                      },
+            );
         }
 
         // A pick that contradicts the name is shown, never preselected: the cook chooses.
@@ -2012,8 +2109,21 @@ function IngredientEditor({
             ]}
             value={details.purchaseUnit === '' ? 'none' : details.purchaseUnit}
             onChange={(next) => {
+                const purchaseUnit = next === 'none' ? '' : (next as DetailsDraft['purchaseUnit']);
+                /*
+                 * A food is stocked in the unit it is bought in, so the purchase unit is copied into
+                 * the stock unit — which stays editable. The mass goes with the old unit (see the
+                 * stock unit's own handler), and items per unit with the piece.
+                 */
+                const copies =
+                    family.food && purchaseUnit !== '' && purchaseUnit !== details.measurementUnit;
+                const stockUnit = copies ? purchaseUnit : details.measurementUnit;
                 edit({
-                    purchaseUnit: next === 'none' ? '' : (next as DetailsDraft['purchaseUnit']),
+                    purchaseUnit,
+                    ...(copies ? { measurementUnit: purchaseUnit, gramsPerUnit: '' } : {}),
+                    ...(family.food && purchaseUnit !== 'piece' && stockUnit !== 'piece'
+                        ? { itemsPerUnit: '' }
+                        : {}),
                 });
             }}
         />,
@@ -2038,22 +2148,35 @@ function IngredientEditor({
                  * it too, for the callers that are not this screen; here it also has to leave the
                  * field looking like what will be saved.
                  */
-                edit({ measurementUnit: next as MeasureUnit, gramsPerUnit: '' });
+                edit({
+                    measurementUnit: next as MeasureUnit,
+                    gramsPerUnit: '',
+                    ...(family.food && next !== 'piece' && details.purchaseUnit !== 'piece'
+                        ? { itemsPerUnit: '' }
+                        : {}),
+                });
             }}
         />,
-        <QuantityInput
-            key="items-per-unit"
-            testID="kitchen-ingredient-items-per-unit"
-            id="kitchen-ingredient-items-per-unit"
-            size="sm"
-            label={t(family.food ? 'kitchen:forms.itemsPerUnit' : 'kitchen:forms.itemsPerPack')}
-            placeholder={t('kitchen:fields.itemsPerUnitPlaceholder')}
-            value={details.itemsPerUnit}
-            disabled={!editable}
-            onChangeText={(next) => {
-                edit({ itemsPerUnit: next });
-            }}
-        />,
+        // A food counts its items only when it is bought or stocked by the piece; a value saved
+        // before keeps the field so it is never sent unseen.
+        !family.food ||
+        details.purchaseUnit === 'piece' ||
+        details.measurementUnit === 'piece' ||
+        details.itemsPerUnit !== '' ? (
+            <QuantityInput
+                key="items-per-unit"
+                testID="kitchen-ingredient-items-per-unit"
+                id="kitchen-ingredient-items-per-unit"
+                size="sm"
+                label={t(family.food ? 'kitchen:forms.itemsPerUnit' : 'kitchen:forms.itemsPerPack')}
+                placeholder={t('kitchen:fields.itemsPerUnitPlaceholder')}
+                value={details.itemsPerUnit}
+                disabled={!editable}
+                onChangeText={(next) => {
+                    edit({ itemsPerUnit: next });
+                }}
+            />
+        ) : null,
     ];
 
     /*
@@ -2540,6 +2663,21 @@ function IngredientEditor({
                             result={assistForName}
                             pending={assist.isPending}
                             arabicFromAi={arabicFromAi !== null && details.name.ar === arabicFromAi}
+                            unitFromAi={
+                                unitFromAi !== null &&
+                                details.measurementUnit === unitFromAi &&
+                                details.purchaseUnit === unitFromAi
+                                    ? t(unitKey(unitFromAi))
+                                    : null
+                            }
+                            gramsFromAi={
+                                gramsFromAi !== null && details.gramsPerUnit === gramsFromAi
+                                    ? {
+                                          grams: gramsFromAi,
+                                          unit: t(unitShortKey(details.measurementUnit)),
+                                      }
+                                    : null
+                            }
                             categorySuggestion={categorySuggestion}
                             onOpen={(id) => {
                                 router.push(`/kitchen/ingredients/${String(id)}`);
@@ -2969,12 +3107,62 @@ function IngredientEditor({
                                 name={details.name.en}
                                 classes={classes.data}
                                 value={allergenReference}
+                                suggestion={assistForName?.allergens}
                                 onChange={(selection) =>
                                     setAllergenDraft({ name: details.name.en, selection })
                                 }
                             />
                         ) : null}
-                        {isCreating && allergenReference === undefined ? (
+                        {isCreating &&
+                        allergenReference === undefined &&
+                        aiAllergenCodes.length > 0 ? (
+                            <Callout
+                                testID="kitchen-ingredient-ai-allergens"
+                                tone="warning"
+                                icon="sparkle"
+                                title={t('kitchen:assist.allergensIndicated')}
+                                {...(assistForName?.allergens.reason == null
+                                    ? {}
+                                    : { body: assistForName.allergens.reason })}
+                            >
+                                <Stack space="xs">
+                                    <TagRow
+                                        items={aiAllergenCodes.map((entry) => ({
+                                            key: String(entry.allergenCode),
+                                            tone:
+                                                entry.containment === 'contains'
+                                                    ? 'danger'
+                                                    : 'warning',
+                                            label: `${allergenClassName(entry.allergenCode)} · ${t(containmentKey(entry.containment))}`,
+                                        }))}
+                                    />
+                                    <Checkbox
+                                        testID="kitchen-ingredient-ai-allergens-confirm"
+                                        label={t('kitchen:assist.allergensConfirm')}
+                                        checked={aiAllergensConfirmed}
+                                        disabled={!editable}
+                                        onChange={(checked) => {
+                                            setAiAllergensConfirmedFor(
+                                                checked ? details.name.en.trim() : null,
+                                            );
+                                            guard.markDirty();
+                                        }}
+                                    />
+                                </Stack>
+                            </Callout>
+                        ) : null}
+                        {isCreating &&
+                        allergenReference === undefined &&
+                        assistForName?.allergens.codes?.length === 0 ? (
+                            <Text
+                                testID="kitchen-ingredient-ai-allergens-none"
+                                variant="caption"
+                                tone="secondary"
+                            >
+                                {t('kitchen:assist.allergensNone')}
+                            </Text>
+                        ) : null}
+                        {isCreating && allergenReference === undefined && !aiAllergensConfirmed ? (
                             <Checkbox
                                 testID="kitchen-ingredient-no-allergens"
                                 label={t('kitchen:allergens.createNone')}

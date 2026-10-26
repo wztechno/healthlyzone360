@@ -1,4 +1,5 @@
 import {
+    AllergenCode,
     DeliveryZoneId,
     IngredientId,
     MealId,
@@ -15,6 +16,7 @@ import type {
 import type { MeasureUnit } from '@healthy360/nutrition';
 
 import type {
+    AllergenReferenceCandidate,
     BranchOperating,
     CostAmount,
     CreateDeliveryWindowRequest,
@@ -762,6 +764,20 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                               relation: wire.nutrition.relation,
                               reason: wire.nutrition.reason,
                           },
+                unit: wire.unit,
+                gramsPerUnit: wire.grams_per_unit,
+                allergens: {
+                    candidates: wire.allergens
+                        .candidates as unknown as readonly AllergenReferenceCandidate[],
+                    notices: wire.allergens.notices,
+                    pick: wire.allergens.pick,
+                    codes:
+                        wire.allergens.codes?.map((entry) => ({
+                            allergenCode: AllergenCode.unsafe(entry.code),
+                            containment: entry.containment,
+                        })) ?? null,
+                    reason: wire.allergens.reason,
+                },
                 unavailable: wire.unavailable,
             };
         },

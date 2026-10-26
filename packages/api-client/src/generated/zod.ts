@@ -605,7 +605,27 @@ export const zIngredientAssistSuggestion = z.object({
         ]).nullable(),
         reason: z.string().nullable()
     }).nullable(),
-    unavailable: z.array(z.enum(['assistant', 'nutrition']))
+    unit: z.enum([
+        'kg',
+        'l',
+        'piece'
+    ]).nullable(),
+    grams_per_unit: z.number().nullable(),
+    allergens: z.object({
+        candidates: z.array(zAllergenReferenceCandidate),
+        notices: z.array(z.string()),
+        pick: z.int().nullable(),
+        codes: z.array(z.object({
+            code: z.string(),
+            containment: z.enum(['contains', 'may_contain'])
+        })).nullable(),
+        reason: z.string().nullable()
+    }),
+    unavailable: z.array(z.enum([
+        'assistant',
+        'nutrition',
+        'allergens'
+    ]))
 });
 
 export const zConfirmIngredientAllergensRequest = z.object({

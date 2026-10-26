@@ -1674,8 +1674,10 @@ describe('the ingredient editor', () => {
         });
 
         await openIngredientStep('measurement');
-        await untilVisible('kitchen-ingredient-items-per-unit-input');
+        await untilVisible('kitchen-ingredient-unit-trigger');
         expect(screen.queryByTestId('kitchen-ingredient-grams-per-unit')).toBeNull();
+        // Nor how many items a kilogram holds: that question is asked only of pieces.
+        expect(screen.queryByTestId('kitchen-ingredient-items-per-unit')).toBeNull();
     });
 
     it('clears the mass when the stock unit moves, so a litre never weighs a kilogram', async () => {
@@ -2642,6 +2644,9 @@ describe('the ingredient assistant', () => {
                 relation: 'same',
                 reason: 'Plain.',
             },
+            unit: null,
+            gramsPerUnit: null,
+            allergens: { candidates: [], notices: [], pick: null, codes: null, reason: null },
             unavailable: [],
             ...overrides,
         };
@@ -2904,6 +2909,180 @@ describe('the ingredient assistant', () => {
             ).not.toHaveTextContent(/Grains/);
         });
         expect(screen.getByTestId('kitchen-ingredient-name-ar-input').props.value).toBe('حمّص');
+    });
+
+    it('fills the unit pair and the mass of one litre, and asks items per unit only of pieces', async () => {
+        await openForm(async () => suggestion({ unit: 'l', gramsPerUnit: 915 }));
+
+        await typeName('Olive oil');
+        await leaveName();
+
+        await untilVisible('kitchen-ingredient-assist-unit');
+        expect(screen.getByTestId('kitchen-ingredient-purchase-unit-trigger')).toHaveTextContent(
+            /Litres/,
+        );
+        expect(screen.getByTestId('kitchen-ingredient-unit-trigger')).toHaveTextContent(/Litres/);
+        expect(screen.getByTestId('kitchen-ingredient-grams-per-unit-input').props.value).toBe(
+            '915',
+        );
+        expect(screen.getByTestId('kitchen-ingredient-assist-grams')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-ingredient-items-per-unit')).toBeNull();
+
+        // Corrected by the cook, the estimate is theirs and loses its AI marker.
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-ingredient-grams-per-unit-input'),
+                '920',
+            );
+        });
+        expect(screen.queryByTestId('kitchen-ingredient-assist-grams')).toBeNull();
+    });
+
+    it('copies the purchase unit into the stock unit, which stays editable', async () => {
+        await openForm(async () => suggestion());
+
+        const choosePurchase = async (unit: string) => {
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-ingredient-purchase-unit-trigger'));
+            });
+            await untilVisible(`kitchen-ingredient-purchase-unit-option-${unit}`);
+            await act(async () => {
+                fireEvent.press(
+                    screen.getByTestId(`kitchen-ingredient-purchase-unit-option-${unit}`),
+                );
+            });
+        };
+
+        await choosePurchase('piece');
+        expect(screen.getByTestId('kitchen-ingredient-unit-trigger')).toHaveTextContent(/Pieces/);
+        expect(screen.getByTestId('kitchen-ingredient-items-per-unit')).toBeTruthy();
+
+        await choosePurchase('kg');
+        expect(screen.getByTestId('kitchen-ingredient-unit-trigger')).toHaveTextContent(
+            /Kilograms/,
+        );
+        expect(screen.queryByTestId('kitchen-ingredient-items-per-unit')).toBeNull();
+
+        // Still the cook's to change on its own.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-unit-trigger'));
+        });
+        await untilVisible('kitchen-ingredient-unit-option-l');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-unit-option-l'));
+        });
+        expect(screen.getByTestId('kitchen-ingredient-unit-trigger')).toHaveTextContent(/Litres/);
+        expect(screen.getByTestId('kitchen-ingredient-purchase-unit-trigger')).toHaveTextContent(
+            /Kilograms/,
+        );
+    });
+
+    it('preselects the Open Food Facts product it judged to be this ingredient, unconfirmed', async () => {
+        await openForm(async () =>
+            suggestion({
+                allergens: {
+                    candidates: [ALLERGEN_CANDIDATE],
+                    notices: [],
+                    pick: 0,
+                    codes: [{ allergenCode: AllergenCode.unsafe('milk'), containment: 'contains' }],
+                    reason: 'Butter is made from milk.',
+                },
+            }),
+        );
+
+        await typeName('Butter');
+        await leaveName();
+
+        await untilVisible('allergen-reference-ai-pick');
+        expect(screen.getByTestId('allergen-reference-confirm-control')).not.toBeChecked();
+        // A chosen product is the answer; the AI's own read stands aside.
+        expect(screen.queryByTestId('kitchen-ingredient-ai-allergens')).toBeNull();
+    });
+
+    it("writes the allergens the AI indicated, once confirmed, as the kitchen's own", async () => {
+        const created = ingredient(9, {
+            name: { en: 'Burghul', ar: 'برغل' },
+            reference: null,
+            meta: meta({ status: 'draft', lockVersion: 3 }),
+        });
+        const { repositories } = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => []),
+                    assistIngredient: async () =>
+                        suggestion({
+                            allergens: {
+                                candidates: [],
+                                notices: ['open_food_facts.throttled'],
+                                pick: null,
+                                codes: [
+                                    {
+                                        allergenCode: AllergenCode.unsafe('gluten'),
+                                        containment: 'contains',
+                                    },
+                                ],
+                                reason: 'Bulgur is cracked wheat.',
+                            },
+                            unavailable: ['allergens'],
+                        }),
+                    createIngredient: async () => created,
+                    searchNutritionReferences: async () => [USDA_CANDIDATE],
+                    setIngredientAllergens: async () => created,
+                },
+            },
+        });
+        await untilVisible('kitchen-ingredient-name-en-input');
+
+        await typeName('Burghul');
+        await leaveName();
+        await untilVisible('kitchen-ingredient-ai-allergens');
+        expect(screen.getByTestId('kitchen-ingredient-no-allergens')).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-ai-allergens-confirm-control'));
+        });
+        // Confirmed allergens and "none" are two answers; only one is offered at a time.
+        expect(screen.queryByTestId('kitchen-ingredient-no-allergens')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('nutrition-reference-confirm-control'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.setIngredientAllergens).toHaveBeenCalledWith(
+                created.id,
+                {
+                    lockVersion: 3,
+                    mappings: [
+                        {
+                            allergenCode: AllergenCode.unsafe('gluten'),
+                            containment: 'contains',
+                            marketScope: [],
+                            verification: 'operator_confirmed',
+                            sourceNote: expect.stringMatching(/AI/),
+                        },
+                    ],
+                },
+            );
+        });
+    });
+
+    it('says when the AI found no allergens, and ticks nothing for the cook', async () => {
+        await openForm(async () =>
+            suggestion({
+                allergens: { candidates: [], notices: [], pick: null, codes: [], reason: null },
+            }),
+        );
+
+        await typeName('Rice');
+        await leaveName();
+
+        await untilVisible('kitchen-ingredient-ai-allergens-none');
+        expect(screen.getByTestId('kitchen-ingredient-no-allergens-control')).not.toBeChecked();
     });
 
     it('lists exact and possible duplicates, and says which parts were unavailable', async () => {

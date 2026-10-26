@@ -26550,6 +26550,9 @@ components:
         - category_code
         - subcategory_code
         - nutrition
+        - unit
+        - grams_per_unit
+        - allergens
         - unavailable
       properties:
         existing_matches:
@@ -26604,6 +26607,67 @@ components:
                     - string
                     - 'null'
               additionalProperties: false
+        unit:
+          type:
+            - string
+            - 'null'
+          enum:
+            - kg
+            - l
+            - piece
+            - null
+          description: How the kitchen buys and stocks it. A model estimate.
+        grams_per_unit:
+          type:
+            - number
+            - 'null'
+          description: The mass of one litre or one piece in grams, bounded; null for kg.
+        allergens:
+          type: object
+          required:
+            - candidates
+            - notices
+            - pick
+            - codes
+            - reason
+          properties:
+            candidates:
+              type: array
+              items:
+                $ref: '#/components/schemas/AllergenReferenceCandidate'
+            notices:
+              type: array
+              items:
+                type: string
+            pick:
+              type:
+                - integer
+                - 'null'
+              description: Index of the importable Open Food Facts product that is plainly this ingredient.
+            codes:
+              description: The model's own allergen read, for when no product fits. Null when it did not answer; empty means none.
+              oneOf:
+                - type: 'null'
+                - type: array
+                  items:
+                    type: object
+                    required:
+                      - code
+                      - containment
+                    properties:
+                      code:
+                        type: string
+                      containment:
+                        type: string
+                        enum:
+                          - contains
+                          - may_contain
+                    additionalProperties: false
+            reason:
+              type:
+                - string
+                - 'null'
+          additionalProperties: false
         unavailable:
           type: array
           items:
@@ -26611,6 +26675,7 @@ components:
             enum:
               - assistant
               - nutrition
+              - allergens
       additionalProperties: false
     ConfirmIngredientAllergensRequest:
       type: object
