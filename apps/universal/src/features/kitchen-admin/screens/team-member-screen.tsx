@@ -3,18 +3,19 @@ import { isReactivatableMember, isWorkingMember } from '@healthy360/api-client/c
 import {
     Badge,
     Button,
-    Callout,
     Cascade,
     Dialog,
     ErrorState,
     FormGrid,
     FormSkeleton,
+    IssueTrayFrame,
     Select,
     Stack,
     Text,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { TabItem } from '@healthy360/design-system';
+import type { IssueCardItem, IssueTrayContent, TabItem } from '@healthy360/design-system';
 import { useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -47,6 +48,7 @@ import { RoleChoiceList } from '../role-choice-list.tsx';
 import { RolePermissionsTab } from '../role-permissions-tab.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';
+import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { memberDisplayName } from './team-screen.tsx';
@@ -83,8 +85,8 @@ import { memberDisplayName } from './team-screen.tsx';
  *
  * ## The last-administrator warning is on the read, not the write
  *
- * `remainingRoleAdministrators` arrives with the member, so the banner is up **before** anybody
- * presses Remove rather than after. Zero on your own row means nobody else can administer access —
+ * `remainingRoleAdministrators` arrives with the member, so the warning is in the issue tray
+ * **before** anybody presses Remove rather than after. Zero on your own row means nobody else can administer access —
  * which is the one thing worth knowing before you go on holiday.
  */
 
@@ -217,8 +219,8 @@ function TeamMemberEditor() {
     const scopeMoved = scope !== undefined && scope !== savedScope;
 
     const failure = toFailure(member.error);
-    // A captured conflict belongs to the dialog; repeating it in the banner would state the same
-    // race twice, and the banner is the copy with no way out of it.
+    // A captured conflict belongs to the dialog; repeating it in the tray would state the same
+    // race twice, and the tray's card is the copy with no way out of it.
     const writeFailure =
         concurrency.conflict !== null
             ? null
@@ -227,6 +229,21 @@ function TeamMemberEditor() {
               toFailure(suspend.error) ??
               toFailure(reactivate.error) ??
               toFailure(end.error));
+
+    // The page's issue tray; a refused write opens it. On the raw errors, which keep their identity
+    // from one render to the next.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+    useNudgeOnRefusal(
+        concurrency.conflict !== null
+            ? null
+            : (scopeWrite.error ??
+                  setRoles.error ??
+                  suspend.error ??
+                  reactivate.error ??
+                  end.error),
+        nudgeTray,
+    );
 
     if (member.isPending) {
         return (
@@ -381,9 +398,19 @@ function TeamMemberEditor() {
         });
     }
 
-    // What the server refused, put on the fields it named (BUG-06). No issue banner on this form:
-    // the fields carry the reasons and each step's tab counts them.
+    // What the server refused, put on the fields it named (BUG-06), counted on each step's tab and
+    // named in the tray, whose card opens the step before it focuses the field.
     const server = serverFieldErrors(writeFailure, serverTargets);
+    const serverItems = server.items.map((item) => {
+        const on = serverTargets[item.key.slice('server-'.length)]?.step;
+        return {
+            ...item,
+            onPress: () => {
+                if (on !== undefined) setStep(on);
+                item.onPress();
+            },
+        };
+    });
     const refusedOn = (key: MemberStep): number =>
         server.items.filter((item) => serverTargets[item.key.slice('server-'.length)]?.step === key)
             .length;
@@ -408,8 +435,61 @@ function TeamMemberEditor() {
         testID: `kitchen-team-member-tabs-tab-${key}`,
     }));
 
+    /*
+     * The page's problems, in its issue tray rather than in bands under the opening. A refused
+     * save keeps the words it was always said in; a refused suspend, let-back-in or removal is an
+     * act that did not go through, not a save.
+     */
+    const writeCards: IssueCardItem[] =
+        writeFailure === null || (server.isValidation && server.unplaced === null)
+            ? []
+            : [
+                  {
+                      key: 'write-error',
+                      tone: 'danger',
+                      label:
+                          writeFailure.code === 'access.self_lockout'
+                              ? t('accessAdmin:member.selfLockout')
+                              : (server.unplaced ?? writeFailure.message),
+                      testID: 'kitchen-team-member-write-error',
+                  },
+              ];
+    const lifecycleRefused = scopeWrite.error === null && setRoles.error === null;
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-team-member-tray',
+        groups: [
+            {
+                key: 'save',
+                title: t('kitchen:tray.groupSave'),
+                items: lifecycleRefused ? [] : writeCards,
+            },
+            {
+                key: 'failed',
+                title: t('kitchen:tray.groupFailed'),
+                items: lifecycleRefused ? writeCards : [],
+            },
+            {
+                key: 'check',
+                title: t('kitchen:tray.groupCheck'),
+                // On the read, not the refusal: the server reports the count and never enforces it.
+                items:
+                    remaining === 0
+                        ? [
+                              {
+                                  key: 'last-administrator',
+                                  tone: 'warning',
+                                  label: t('accessAdmin:member.lastAdministrator'),
+                                  testID: 'kitchen-team-member-last-administrator',
+                              },
+                          ]
+                        : [],
+            },
+        ],
+    };
+
     return (
-        <>
+        <IssueTrayFrame tray={trayContent} controller={issueTray}>
             <Cascade space="md" testID="kitchen-team-member-screen">
                 <RecordFormOpening<MemberStep>
                     testID="kitchen-team-member"
@@ -496,6 +576,10 @@ function TeamMemberEditor() {
                             ) : null}
                         </>
                     }
+                    errors={{
+                        summary: t('kitchen:forms.toFixCount', { count: serverItems.length }),
+                        items: serverItems,
+                    }}
                     steps={{
                         label: t('kitchen:editor.stepsLabel'),
                         items: stepItems,
@@ -503,28 +587,6 @@ function TeamMemberEditor() {
                         onChange: setStep,
                     }}
                 />
-
-                {writeFailure === null ||
-                (server.isValidation && server.unplaced === null) ? null : (
-                    <Callout
-                        testID="kitchen-team-member-write-error"
-                        tone="danger"
-                        role="alert"
-                        title={
-                            writeFailure.code === 'access.self_lockout'
-                                ? t('accessAdmin:member.selfLockout')
-                                : (server.unplaced ?? writeFailure.message)
-                        }
-                    />
-                )}
-
-                {remaining === 0 ? (
-                    <Callout
-                        testID="kitchen-team-member-last-administrator"
-                        tone="warning"
-                        title={t('accessAdmin:member.lastAdministrator')}
-                    />
-                ) : null}
 
                 {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
                 <View className="z-auto flex-col">
@@ -670,6 +732,6 @@ function TeamMemberEditor() {
                     </>
                 }
             />
-        </>
+        </IssueTrayFrame>
     );
 }

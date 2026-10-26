@@ -5,13 +5,14 @@ import {
     Dialog,
     Icon,
     Inline,
+    IssueTrayFrame,
     Menu,
     SegmentedControl,
     Stack,
     Text,
     useToast,
 } from '@healthy360/design-system';
-import type { IconName, MenuItem } from '@healthy360/design-system';
+import type { IconName, IssueTrayContent, MenuItem } from '@healthy360/design-system';
 import { RECIPE_KINDS } from '@healthy360/api-client/contracts';
 import type {
     PublishableStatus,
@@ -368,228 +369,239 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
     // The empty state offers the tab's own kind, and a preparation on All.
     const emptyKind = list.kind ?? 'preparation';
 
-    return (
-        <Cascade space="md" testID="kitchen-recipes-screen">
-            <CatalogueStatCards
-                testID="kitchen-recipes-stats"
-                cards={statCards(list, t)}
-                pending={list.isPending}
-                countsPending={list.countsPending}
-            />
+    // The book's issue tray. What it holds — the items on the menu with no recipe — registers itself.
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-recipes-tray',
+        // A list page has no "done" to show: the tray appears only while it has something.
+        hideWhenClear: true,
+        groups: [],
+    };
 
-            {/*
-             * The search and filter bar, then the kind strip under it, both directly over the list
-             * they narrow — two matching cards at 8px, so they read as one set of controls. The
-             * strip does not wait on the list, so the tabs do not blink while a new tab's page
-             * loads.
-             */}
-            <Stack space="sm">
-                <CatalogueToolbar<StatusSegmentValue>
-                    testID="kitchen-recipes-toolbar"
-                    search={list.query}
-                    onSearchChange={list.setQuery}
-                    searchLabel={t('kitchen:toolbar.searchLabel')}
-                    searchPlaceholder={t('kitchen:toolbar.searchRecipes')}
-                    statusLabel={t('kitchen:toolbar.statusLabel')}
-                    statusSegments={segments.segments}
-                    status={segments.value}
-                    onStatusChange={segments.onChange}
-                    filters={
-                        <SegmentedControl<RecipeLayout>
-                            testID="kitchen-recipes-layout"
-                            label={t('kitchen:list.layoutLabel')}
-                            value={layout}
-                            onChange={setLayout}
-                            items={[
-                                {
-                                    value: 'table',
-                                    label: t('kitchen:list.layoutTable'),
-                                    icon: 'list',
-                                    testID: 'kitchen-recipes-layout-table',
-                                },
-                                {
-                                    value: 'cards',
-                                    label: t('kitchen:list.layoutCards'),
-                                    icon: 'layoutGrid',
-                                    testID: 'kitchen-recipes-layout-cards',
-                                },
-                            ]}
+    return (
+        <IssueTrayFrame tray={trayContent}>
+            <Cascade space="md" testID="kitchen-recipes-screen">
+                <CatalogueStatCards
+                    testID="kitchen-recipes-stats"
+                    cards={statCards(list, t)}
+                    pending={list.isPending}
+                    countsPending={list.countsPending}
+                />
+
+                {/*
+                 * The search and filter bar, then the kind strip under it, both directly over the list
+                 * they narrow — two matching cards at 8px, so they read as one set of controls. The
+                 * strip does not wait on the list, so the tabs do not blink while a new tab's page
+                 * loads.
+                 */}
+                <Stack space="sm">
+                    <CatalogueToolbar<StatusSegmentValue>
+                        testID="kitchen-recipes-toolbar"
+                        search={list.query}
+                        onSearchChange={list.setQuery}
+                        searchLabel={t('kitchen:toolbar.searchLabel')}
+                        searchPlaceholder={t('kitchen:toolbar.searchRecipes')}
+                        statusLabel={t('kitchen:toolbar.statusLabel')}
+                        statusSegments={segments.segments}
+                        status={segments.value}
+                        onStatusChange={segments.onChange}
+                        filters={
+                            <SegmentedControl<RecipeLayout>
+                                testID="kitchen-recipes-layout"
+                                label={t('kitchen:list.layoutLabel')}
+                                value={layout}
+                                onChange={setLayout}
+                                items={[
+                                    {
+                                        value: 'table',
+                                        label: t('kitchen:list.layoutTable'),
+                                        icon: 'list',
+                                        testID: 'kitchen-recipes-layout-table',
+                                    },
+                                    {
+                                        value: 'cards',
+                                        label: t('kitchen:list.layoutCards'),
+                                        icon: 'layoutGrid',
+                                        testID: 'kitchen-recipes-layout-cards',
+                                    },
+                                ]}
+                            />
+                        }
+                    >
+                        {/* Columns are a table's question; a card draws every field it has. */}
+                        {layout === 'table' ? <ColumnPicker {...controls.picker} /> : null}
+                        {canManage ? (
+                            <Inline space="xs" align="center">
+                                <CatalogueTransferActions testID="kitchen-recipes-toolbar" />
+                                <RecipeCreateControl
+                                    kind={list.kind}
+                                    mayCreate={mayCreate}
+                                    onCreate={list.createNew}
+                                />
+                            </Inline>
+                        ) : undefined}
+                    </CatalogueToolbar>
+                    {list.sells ? (
+                        <RecipeKindStrip
+                            value={list.kind}
+                            onChange={list.setKind}
+                            counts={kindCounts.data}
                         />
+                    ) : null}
+                </Stack>
+
+                {list.sells ? (
+                    <UnformulatedItems testID="kitchen-recipes-unformulated" kind={list.kind} />
+                ) : null}
+
+                <CatalogueListBody
+                    testID="kitchen-recipes"
+                    list={list}
+                    empty={{
+                        title: t('kitchen:recipes.emptyTitle'),
+                        body: t('kitchen:recipes.emptyBody'),
+                    }}
+                    filteredEmpty={{
+                        title: t('kitchen:recipes.filteredEmptyTitle'),
+                        body: t('kitchen:recipes.filteredEmptyBody'),
+                    }}
+                    create={
+                        mayCreate(emptyKind)
+                            ? {
+                                  label: t(CREATE_LABEL_KEYS[emptyKind]),
+                                  onPress: () => {
+                                      list.createNew(emptyKind);
+                                  },
+                              }
+                            : undefined
                     }
                 >
-                    {/* Columns are a table's question; a card draws every field it has. */}
-                    {layout === 'table' ? <ColumnPicker {...controls.picker} /> : null}
-                    {canManage ? (
-                        <Inline space="xs" align="center">
-                            <CatalogueTransferActions testID="kitchen-recipes-toolbar" />
-                            <RecipeCreateControl
-                                kind={list.kind}
-                                mayCreate={mayCreate}
-                                onCreate={list.createNew}
+                    {layout === 'cards' ? (
+                        <RecipeCardGrid
+                            testID="kitchen-recipes-cards"
+                            rows={list.rows}
+                            t={t}
+                            locale={locale}
+                            kitchenName={kitchenName}
+                            onOpen={(row) => {
+                                list.openEditor(String(row.id));
+                            }}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            rowActions={(row) =>
+                                rowActions(row, list, t, toast, canManage, canWithdraw)
+                            }
+                        />
+                    ) : (
+                        <CatalogueList
+                            testID="kitchen-recipes-table"
+                            label={t('kitchen:recipes.caption')}
+                            columns={controls.columns}
+                            rows={list.rows}
+                            rowKey={(row) => String(row.id)}
+                            // Fixed, not switchable: the S/M/L control is gone.
+                            density="sm"
+                            highlightedId={list.lastOpenedId}
+                            onRowPress={(row) => {
+                                list.openEditor(String(row.id));
+                            }}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            rowActions={(row) =>
+                                rowActions(row, list, t, toast, canManage, canWithdraw)
+                            }
+                        />
+                    )}
+                </CatalogueListBody>
+
+                {/*
+                 * Retiring *is* the archive: the contract has no `archiveRecipe`, and nothing is
+                 * deleted because meals, products and cost snapshots still point at the version. A
+                 * refusal — a recipe a published item still sells — arrives as the server's own
+                 * sentence, which this dialog already renders.
+                 */}
+                <Dialog
+                    testID="kitchen-recipes-archive-dialog"
+                    open={list.archiving !== null}
+                    onClose={list.cancelArchive}
+                    title={t('kitchen:recipes.archiveTitle')}
+                    description={t('kitchen:recipes.archiveBody')}
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-recipes-archive-cancel"
+                                variant="quiet"
+                                label={t('kitchen:common.cancel')}
+                                onPress={list.cancelArchive}
                             />
-                        </Inline>
-                    ) : undefined}
-                </CatalogueToolbar>
-                {list.sells ? (
-                    <RecipeKindStrip
-                        value={list.kind}
-                        onChange={list.setKind}
-                        counts={kindCounts.data}
-                    />
-                ) : null}
-            </Stack>
-
-            {list.sells ? (
-                <UnformulatedItems testID="kitchen-recipes-unformulated" kind={list.kind} />
-            ) : null}
-
-            <CatalogueListBody
-                testID="kitchen-recipes"
-                list={list}
-                empty={{
-                    title: t('kitchen:recipes.emptyTitle'),
-                    body: t('kitchen:recipes.emptyBody'),
-                }}
-                filteredEmpty={{
-                    title: t('kitchen:recipes.filteredEmptyTitle'),
-                    body: t('kitchen:recipes.filteredEmptyBody'),
-                }}
-                create={
-                    mayCreate(emptyKind)
-                        ? {
-                              label: t(CREATE_LABEL_KEYS[emptyKind]),
-                              onPress: () => {
-                                  list.createNew(emptyKind);
-                              },
-                          }
-                        : undefined
-                }
-            >
-                {layout === 'cards' ? (
-                    <RecipeCardGrid
-                        testID="kitchen-recipes-cards"
-                        rows={list.rows}
-                        t={t}
-                        locale={locale}
-                        kitchenName={kitchenName}
-                        onOpen={(row) => {
-                            list.openEditor(String(row.id));
-                        }}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActions={(row) =>
-                            rowActions(row, list, t, toast, canManage, canWithdraw)
-                        }
-                    />
-                ) : (
-                    <CatalogueList
-                        testID="kitchen-recipes-table"
-                        label={t('kitchen:recipes.caption')}
-                        columns={controls.columns}
-                        rows={list.rows}
-                        rowKey={(row) => String(row.id)}
-                        // Fixed, not switchable: the S/M/L control is gone.
-                        density="sm"
-                        highlightedId={list.lastOpenedId}
-                        onRowPress={(row) => {
-                            list.openEditor(String(row.id));
-                        }}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActions={(row) =>
-                            rowActions(row, list, t, toast, canManage, canWithdraw)
-                        }
-                    />
-                )}
-            </CatalogueListBody>
-
-            {/*
-             * Retiring *is* the archive: the contract has no `archiveRecipe`, and nothing is
-             * deleted because meals, products and cost snapshots still point at the version. A
-             * refusal — a recipe a published item still sells — arrives as the server's own
-             * sentence, which this dialog already renders.
-             */}
-            <Dialog
-                testID="kitchen-recipes-archive-dialog"
-                open={list.archiving !== null}
-                onClose={list.cancelArchive}
-                title={t('kitchen:recipes.archiveTitle')}
-                description={t('kitchen:recipes.archiveBody')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-recipes-archive-cancel"
-                            variant="quiet"
-                            label={t('kitchen:common.cancel')}
-                            onPress={list.cancelArchive}
-                        />
-                        <Button
-                            testID="kitchen-recipes-archive-confirm"
-                            variant="danger"
-                            label={t('kitchen:recipes.archiveConfirm')}
-                            loading={list.isArchivePending}
-                            onPress={() => {
-                                list.confirmArchive((name) => {
-                                    toast.show({
-                                        testID: 'kitchen-recipes-archived-toast',
-                                        tone: 'success',
-                                        message: t('kitchen:recipes.archivedToast', { name }),
+                            <Button
+                                testID="kitchen-recipes-archive-confirm"
+                                variant="danger"
+                                label={t('kitchen:recipes.archiveConfirm')}
+                                loading={list.isArchivePending}
+                                onPress={() => {
+                                    list.confirmArchive((name) => {
+                                        toast.show({
+                                            testID: 'kitchen-recipes-archived-toast',
+                                            tone: 'success',
+                                            message: t('kitchen:recipes.archivedToast', { name }),
+                                        });
                                     });
-                                });
-                            }}
-                        />
-                    </>
-                }
-            >
-                {list.archiveFailure === null ? null : (
-                    <Text testID="kitchen-recipes-archive-error" tone="danger">
-                        {list.archiveFailure.message ?? t('kitchen:recipes.archiveFailed')}
-                    </Text>
-                )}
-            </Dialog>
+                                }}
+                            />
+                        </>
+                    }
+                >
+                    {list.archiveFailure === null ? null : (
+                        <Text testID="kitchen-recipes-archive-error" tone="danger">
+                            {list.archiveFailure.message ?? t('kitchen:recipes.archiveFailed')}
+                        </Text>
+                    )}
+                </Dialog>
 
-            {/*
-             * Withdrawing takes the item off the menu and every channel; the recipe stays, and
-             * nothing is deleted — orders and price lists still point at the item. The dialog says
-             * so because "withdraw" and "delete" must not read as one word.
-             */}
-            <Dialog
-                testID="kitchen-recipes-withdraw-dialog"
-                open={list.withdrawing !== null}
-                onClose={list.cancelWithdraw}
-                title={t('kitchen:recipes.withdrawTitle')}
-                description={t('kitchen:recipes.withdrawBody')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-recipes-withdraw-cancel"
-                            variant="quiet"
-                            label={t('kitchen:common.cancel')}
-                            onPress={list.cancelWithdraw}
-                        />
-                        <Button
-                            testID="kitchen-recipes-withdraw-confirm"
-                            variant="danger"
-                            label={t('kitchen:meals.retireConfirm')}
-                            loading={list.isWithdrawPending}
-                            onPress={() => {
-                                list.confirmWithdraw((name) => {
-                                    toast.show({
-                                        testID: 'kitchen-recipes-withdrawn-toast',
-                                        tone: 'success',
-                                        message: t('kitchen:recipes.withdrawnToast', { name }),
+                {/*
+                 * Withdrawing takes the item off the menu and every channel; the recipe stays, and
+                 * nothing is deleted — orders and price lists still point at the item. The dialog says
+                 * so because "withdraw" and "delete" must not read as one word.
+                 */}
+                <Dialog
+                    testID="kitchen-recipes-withdraw-dialog"
+                    open={list.withdrawing !== null}
+                    onClose={list.cancelWithdraw}
+                    title={t('kitchen:recipes.withdrawTitle')}
+                    description={t('kitchen:recipes.withdrawBody')}
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-recipes-withdraw-cancel"
+                                variant="quiet"
+                                label={t('kitchen:common.cancel')}
+                                onPress={list.cancelWithdraw}
+                            />
+                            <Button
+                                testID="kitchen-recipes-withdraw-confirm"
+                                variant="danger"
+                                label={t('kitchen:meals.retireConfirm')}
+                                loading={list.isWithdrawPending}
+                                onPress={() => {
+                                    list.confirmWithdraw((name) => {
+                                        toast.show({
+                                            testID: 'kitchen-recipes-withdrawn-toast',
+                                            tone: 'success',
+                                            message: t('kitchen:recipes.withdrawnToast', { name }),
+                                        });
                                     });
-                                });
-                            }}
-                        />
-                    </>
-                }
-            >
-                {list.withdrawFailure === null ? null : (
-                    <Text testID="kitchen-recipes-withdraw-error" tone="danger">
-                        {list.withdrawFailure.message ?? t('kitchen:recipes.withdrawFailed')}
-                    </Text>
-                )}
-            </Dialog>
-        </Cascade>
+                                }}
+                            />
+                        </>
+                    }
+                >
+                    {list.withdrawFailure === null ? null : (
+                        <Text testID="kitchen-recipes-withdraw-error" tone="danger">
+                            {list.withdrawFailure.message ?? t('kitchen:recipes.withdrawFailed')}
+                        </Text>
+                    )}
+                </Dialog>
+            </Cascade>
+        </IssueTrayFrame>
     );
 }
 

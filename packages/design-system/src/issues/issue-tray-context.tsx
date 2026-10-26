@@ -36,6 +36,11 @@ export interface IssueTrayController {
 
 const IssueTrayContext = createContext<IssueTrayController | null>(null);
 
+/** The controller of the nearest `IssueTrayFrame`, so a part inside it nudges that tray. */
+const FrameControllerContext = createContext<IssueTrayController | null>(null);
+
+export const IssueTrayFrameControllerProvider = FrameControllerContext.Provider;
+
 /**
  * The tray's state, shared by the two places that draw it: the pill in the top bar and the panel
  * beside the page. They are siblings — the bar is the shell's, the panel the screen's — so neither
@@ -108,10 +113,12 @@ export function useIssueTrayContext(): IssueTrayController | null {
  * screen rendered without the shell still draws its tray, open from `lg` as it would be in the app.
  *
  * A screen that needs to open its tray — a refused save calls `nudge()` — takes the controller
- * here and hands it to `IssueTrayFrame`, so both are talking about the same tray.
+ * here and hands it to `IssueTrayFrame`, so both are talking about the same tray. Inside a frame —
+ * a listing embedded in a recipe's tab — it is that frame's controller, the tray its cards are in.
  */
 export function useIssueTrayController(): IssueTrayController {
+    const frame = useContext(FrameControllerContext);
     const shared = useContext(IssueTrayContext);
     const local = useIssueTrayState();
-    return shared ?? local;
+    return frame ?? shared ?? local;
 }

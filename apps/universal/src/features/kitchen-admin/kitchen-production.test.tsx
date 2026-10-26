@@ -20,6 +20,7 @@ import {
     kitchenManagerSession,
     testActiveContext,
 } from '../../testing/session-fixtures.ts';
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { ProductionBatchLabelScreen } from './screens/production-batch-label-screen.tsx';
 import { ProductionBatchScreen } from './screens/production-batch-screen.tsx';
@@ -281,21 +282,24 @@ describe('one batch', () => {
             });
         });
 
+    // The batch's problems are cards in its issue tray, docked and open at a desk's width.
     it('says on the batch why it could not be confirmed', async () => {
-        await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenOps: {
-                    getProductionOrder: async () => detail(),
-                    confirmProductionOrder: recipeHoleRefusal(),
+        await withDeskWidth(async () => {
+            await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenOps: {
+                        getProductionOrder: async () => detail(),
+                        confirmProductionOrder: recipeHoleRefusal(),
+                    },
                 },
-            },
-        });
+            });
 
-        fireEvent.press(await screen.findByTestId('kitchen-production-batch-confirm'));
-        const notice = await screen.findByTestId('kitchen-production-batch-advance-error');
-        expect(notice).toHaveTextContent(/The batch was not confirmed/);
-        expect(notice).toHaveTextContent(/could not be turned into a quantity/);
+            fireEvent.press(await screen.findByTestId('kitchen-production-batch-confirm'));
+            const notice = await screen.findByTestId('kitchen-production-batch-advance-error');
+            expect(notice).toHaveTextContent(/The batch was not confirmed/);
+            expect(notice).toHaveTextContent(/could not be turned into a quantity/);
+        });
     });
 
     it('says on the desk why a batch could not be confirmed', async () => {
@@ -321,22 +325,26 @@ describe('one batch', () => {
     });
 
     it('shows a draft its live plan, holes and all', async () => {
-        await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
-            session: kitchenManagerSession(),
-            repositories: { kitchenOps: { getProductionOrder: async () => detail() } },
-        });
+        await withDeskWidth(async () => {
+            await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+                session: kitchenManagerSession(),
+                repositories: { kitchenOps: { getProductionOrder: async () => detail() } },
+            });
 
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-production-batch-plan')).toBeTruthy();
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-production-batch-plan')).toBeTruthy();
+            });
+            // "Need nothing for that" and "we could not work out what this needs" are opposite
+            // statements; the hole is its own card in the tray rather than a zero in the table.
+            await waitFor(() => {
+                expect(
+                    within(screen.getByTestId('kitchen-production-batch-plan-holes')).getByText(
+                        'Lemon juice has no shelf.',
+                    ),
+                ).toBeTruthy();
+            });
+            expect(screen.queryByTestId('kitchen-production-batch-lines')).toBeNull();
         });
-        // "Need nothing for that" and "we could not work out what this needs" are opposite
-        // statements; the hole is its own notice rather than a zero in the table.
-        expect(
-            within(screen.getByTestId('kitchen-production-batch-plan-holes')).getByText(
-                'Lemon juice has no shelf.',
-            ),
-        ).toBeTruthy();
-        expect(screen.queryByTestId('kitchen-production-batch-lines')).toBeNull();
     });
 
     it('shows a confirmed batch its lines rather than a plan', async () => {
@@ -367,43 +375,45 @@ describe('one batch', () => {
     });
 
     it('withholds the unit cost of a batch whose valuation could not complete', async () => {
-        await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenOps: {
-                    getProductionOrder: async () =>
-                        detail({
-                            order: batch({
-                                status: 'completed',
-                                producedQuantity: '38.0000',
-                                rejectedQuantity: '1.0000',
-                                usableYieldQuantity: '37.0000',
-                                actualCostAmount: '52.000000',
-                                actualCostCurrencyCode: 'AED',
-                                actualUnitCostAmount: null,
-                                actualCostStatus: 'partial',
-                                valuationNote: 'Salt carried no moving average.',
+        await withDeskWidth(async () => {
+            await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenOps: {
+                        getProductionOrder: async () =>
+                            detail({
+                                order: batch({
+                                    status: 'completed',
+                                    producedQuantity: '38.0000',
+                                    rejectedQuantity: '1.0000',
+                                    usableYieldQuantity: '37.0000',
+                                    actualCostAmount: '52.000000',
+                                    actualCostCurrencyCode: 'AED',
+                                    actualUnitCostAmount: null,
+                                    actualCostStatus: 'partial',
+                                    valuationNote: 'Salt carried no moving average.',
+                                }),
+                                lines: [line()],
+                                plan: null,
                             }),
-                            lines: [line()],
-                            plan: null,
-                        }),
+                    },
                 },
-            },
-        });
+            });
 
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-production-batch-cost-unit')).toBeTruthy();
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-production-batch-cost-unit')).toBeTruthy();
+            });
+            // A partial total reads exactly like a whole one and is smaller. "Withheld" is the
+            // only honest thing to print, and the reason is the tray's card on the batch.
+            expect(screen.getByTestId('kitchen-production-batch-cost-unit')).toHaveTextContent(
+                'Withheld',
+            );
+            expect(
+                within(screen.getByTestId('kitchen-production-batch-cost-status')).getByText(
+                    'Salt carried no moving average.',
+                ),
+            ).toBeTruthy();
         });
-        // A partial total reads exactly like a whole one and is smaller. "Withheld" is the only
-        // honest thing to print, and the reason sits beside it.
-        expect(screen.getByTestId('kitchen-production-batch-cost-unit')).toHaveTextContent(
-            'Withheld',
-        );
-        expect(
-            within(screen.getByTestId('kitchen-production-batch-cost-status')).getByText(
-                'Salt carried no moving average.',
-            ),
-        ).toBeTruthy();
     });
 
     it('shows a chef every quantity and no money at all', async () => {

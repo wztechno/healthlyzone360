@@ -27,6 +27,7 @@ import {
     FilterChip,
     Icon,
     Inline,
+    IssueTrayFrame,
     SearchInput,
     SegmentedControl,
     Select,
@@ -35,9 +36,10 @@ import {
     TableSkeleton,
     Text,
     TextInputField,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type { IssueCardItem, IssueTrayContent, MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -95,6 +97,7 @@ import { DeskAmount, DeskFact } from '../order-desk/desk-parts.tsx';
 import { DueBadge, PaymentCell } from '../order-desk/queue-cells.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
+import { useNudgeOnRefusal } from '../tray-nudge.ts';
 
 /**
  * `/kitchen/order-desk` — the open order book in the order somebody at a desk has to work it.
@@ -962,6 +965,11 @@ function OrderDeskQueueList() {
     const actionFailure = toFailure(confirmOrder.error) ?? toFailure(fulfilOrder.error);
     const isConflict = actionFailure?.code === 'resource.conflict';
 
+    // The record page's issue tray; a refused confirm or fulfil opens it.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+    useNudgeOnRefusal(confirmOrder.error ?? fulfilOrder.error, nudgeTray);
+
     function toggleStatus(status: OrderDeskQueueStatus, selected: boolean) {
         setStatuses((current) =>
             selected ? [...current, status] : current.filter((entry) => entry !== status),
@@ -1400,8 +1408,53 @@ function OrderDeskQueueList() {
                     ? ('fulfil' as const)
                     : undefined;
 
+        /*
+         * A confirm or fulfil the server turned down, in the record page's issue tray rather than
+         * above the status card's button. Somebody else moving the order is its own card, whose way
+         * out is to re-read and show what actually happened — never a silent retry, which would
+         * resolve the race in favour of whoever clicked last. Anything else keeps the server's words.
+         */
+        const failedCards: IssueCardItem[] =
+            actionFailure === null
+                ? []
+                : isConflict
+                  ? [
+                        {
+                            key: 'conflict',
+                            tone: 'warning',
+                            label: t('kitchen:ops.orders.conflictTitle'),
+                            action: {
+                                label: t('kitchen:ops.orders.conflictRefresh'),
+                                loading: detail.isFetching,
+                                onPress: () => {
+                                    clearActionState();
+                                    void detail.refetch();
+                                    void queue.refetch();
+                                },
+                                testID: 'kitchen-order-desk-detail-conflict-refresh',
+                            },
+                            testID: 'kitchen-order-desk-detail-conflict',
+                        },
+                    ]
+                  : [
+                        {
+                            key: 'action',
+                            tone: 'danger',
+                            label: t('kitchen:ops.orders.saveFailed'),
+                            detail: actionFailure.message,
+                            testID: 'kitchen-order-desk-detail-action-error',
+                        },
+                    ];
+        const trayContent: IssueTrayContent = {
+            title: t('kitchen:tray.title'),
+            testID: 'kitchen-order-desk-view-tray',
+            // A list page has no "done" to show: the tray appears only while it has something.
+            hideWhenClear: true,
+            groups: [{ key: 'failed', title: t('kitchen:tray.groupFailed'), items: failedCards }],
+        };
+
         return (
-            <>
+            <IssueTrayFrame tray={trayContent} controller={issueTray}>
                 <RecordViewPage
                     testID="kitchen-order-desk-view"
                     onBack={closeDetail}
@@ -1852,39 +1905,6 @@ function OrderDeskQueueList() {
                                         </Text>
                                     </View>
                                 )}
-                                {actionFailure === null ? null : isConflict ? (
-                                    // Somebody else moved this order. The remedy is to re-read and show
-                                    // what actually happened — never a silent retry, which would resolve
-                                    // the race in favour of whoever clicked last.
-                                    <Callout
-                                        testID="kitchen-order-desk-detail-conflict"
-                                        tone="warning"
-                                        role="alert"
-                                        title={t('kitchen:ops.orders.conflictTitle')}
-                                        body={t('kitchen:ops.orders.conflictBody')}
-                                        actions={
-                                            <Button
-                                                testID="kitchen-order-desk-detail-conflict-refresh"
-                                                size="sm"
-                                                variant="secondary"
-                                                label={t('kitchen:ops.orders.conflictRefresh')}
-                                                loading={detail.isFetching}
-                                                onPress={() => {
-                                                    clearActionState();
-                                                    void detail.refetch();
-                                                    void queue.refetch();
-                                                }}
-                                            />
-                                        }
-                                    />
-                                ) : (
-                                    <Text
-                                        testID="kitchen-order-desk-detail-action-error"
-                                        tone="danger"
-                                    >
-                                        {actionFailure.message}
-                                    </Text>
-                                )}
                             </>
                         )
                     }
@@ -1911,7 +1931,7 @@ function OrderDeskQueueList() {
                     }
                 />
                 {dialogs}
-            </>
+            </IssueTrayFrame>
         );
     }
 

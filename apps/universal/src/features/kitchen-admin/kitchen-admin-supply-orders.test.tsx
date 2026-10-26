@@ -1076,6 +1076,33 @@ describe('purchase order detail', () => {
         expect(screen.getByTestId('kitchen-supply-order-detail-cancel')).toBeTruthy();
     });
 
+    it('puts an archived supplier on a draft in the tray, its Fix opening the supplier', async () => {
+        await renderStubScreen(<SupplyOrderDetailScreen order={String(purchaseOrderId(1))} />, {
+            session: kitchenManagerSession(),
+            repositories: detailOverrides(
+                purchaseOrder(1, {
+                    supplier: {
+                        id: supplierId(1),
+                        code: 'SUP-01',
+                        nameEn: 'Supplier 1',
+                        nameAr: null,
+                        archivedAt: '2026-08-18T09:00:00+00:00',
+                    },
+                }),
+            ),
+        });
+
+        // The server refuses to issue to an archived supplier, so on a draft it is a card to fix
+        // rather than a note — and the fix is on the supplier's page, where Restore is.
+        await untilVisible('kitchen-supply-order-detail-archived-notice');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-supply-order-detail-archived-notice-fix'));
+        });
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            expect.stringMatching(new RegExp(`^/kitchen/suppliers/${String(supplierId(1))}`)),
+        );
+    });
+
     it.each([
         ['draft', { save: true, issue: true, cancel: true, print: true }],
         ['issued', { save: false, issue: false, cancel: true, print: true }],

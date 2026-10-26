@@ -27,6 +27,7 @@ import {
     FormSkeleton,
     Icon,
     Inline,
+    IssueRevealScope,
     IssueTrayFrame,
     QuantityInput,
     Select,
@@ -780,6 +781,10 @@ function RecipeEditor({
     const [tab, setTab] = useState<RecipeTab>(
         fix === null ? (recipeTabOf(initialTab) ?? 'description') : 'production',
     );
+    // What a Selling card's Fix does first: the listing's fields are on that tab.
+    const revealSelling = useCallback(() => {
+        setTab('selling');
+    }, []);
     /** Set by a save that wrote everything; the header says so until the next edit. */
     const [allSaved, setAllSaved] = useState(false);
     const [listingSaving, setListingSaving] = useState(false);
@@ -3650,10 +3655,16 @@ function RecipeEditor({
                  * It is its own `CascadeItem` so that `hidden` lands on the band's box: hidden one level
                  * further in, the band would still stand in the page and take a gap on every other tab.
                  */}
+                {/*
+                 * The listing's problems are cards in this page's tray (`useIssueGroup`), under the
+                 * tab's name and on every tab; each one's Fix switches here first.
+                 */}
                 {sellsAs === undefined ? null : (
                     <CascadeItem index={0} className={tab === 'selling' ? undefined : 'hidden'}>
                         <View className="relative z-raised" testID="kitchen-recipe-selling">
-                            {sellsAs.content}
+                            <IssueRevealScope reveal={revealSelling}>
+                                {sellsAs.content}
+                            </IssueRevealScope>
                         </View>
                     </CascadeItem>
                 )}

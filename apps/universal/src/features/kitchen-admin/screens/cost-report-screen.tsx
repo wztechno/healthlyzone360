@@ -1,16 +1,15 @@
 import type { MonthlyCostReportRow } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
-    Callout,
     Cascade,
     DatePickerButton,
     EmptyState,
     ErrorState,
+    IssueTrayFrame,
     RecordSkeleton,
-    Stack,
     Text,
 } from '@healthy360/design-system';
+import type { IssueTrayContent } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
@@ -42,8 +41,6 @@ import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
  * ```
  * Monthly cost report  [ COSTS ]
  * From month [ 2026-03 ▦ ]  To month [ 2026-08 ▦ ]  Currency [ USD ▾ ]
- * ⚠ This month's COGS may be understated                 Open stock gaps
- * ⓘ Some purchases are still waiting on their prices  2026-08, 2026-07
  * ┌ SPEND ┐ ┌ COGS ┐ ┌ REVENUE ┐ ┌ MARGIN ┐
  * REVENUE AND COGS BY MONTH            REVENUE BY LINE OF BUSINESS  2026-08
  * MONTHLY COST REPORT
@@ -52,16 +49,17 @@ import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
  *
  * Real repository figures, behind `inventory.view_costs_organisation`: the report *is* the valuation.
  *
- * ## Two banners, because two different figures can be short
+ * ## Two cards, because two different figures can be short
  *
  * `dataQuality` (warning) when a month in range has unresolved consumption exceptions — COGS is
- * understated, and the banner links to the exceptions queue because that is where the fix is.
+ * understated, and the card links to the exceptions queue because that is where the fix is.
  * `spendIncomplete` (info) when a receipt line has no usable price — spend is understated. Merging
  * them would leave a manager unable to tell which number to distrust. The `Understated` badge on a
  * month row is the warning's row-level echo, and both are derived from the same rows.
  *
- * Both are one-line strips in one band: the title, and for the spend the months it is short in —
- * the only fact the strip carries that the table does not. The why is not spelled out on screen.
+ * Both are cards in the page's issue tray, under Check, rather than strips over the figures: the
+ * title, and for the spend the months it is short in — the only fact the card carries that the
+ * table does not. The why is not spelled out on screen.
  *
  * ## One currency at a time
  *
@@ -439,158 +437,183 @@ function CostReport() {
         </ToolbarPanel>
     );
 
+    /*
+     * The two shortfalls, as cards in the page's issue tray under Check — see the file header. The
+     * COGS one carries the way to the stock gaps; the spend one names its months and is an `info`
+     * card, never counted, so the two still read as two different figures to distrust.
+     */
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-cost-report-tray',
+        // A list page has no "done" to show: the tray appears only while it has something.
+        hideWhenClear: true,
+        groups: [
+            {
+                key: 'check',
+                title: t('kitchen:tray.groupCheck'),
+                testID: 'kitchen-cost-report-notices',
+                items: [
+                    ...(flaggedCount === 0
+                        ? []
+                        : [
+                              {
+                                  key: 'data-quality',
+                                  tone: 'warning' as const,
+                                  label: t('kitchen:ops.costReport.dataQualityTitle', {
+                                      count: flaggedCount,
+                                  }),
+                                  action: {
+                                      label: t('kitchen:ops.costReport.openExceptions'),
+                                      onPress: () => {
+                                          router.push('/kitchen/consumption-exceptions' as never);
+                                      },
+                                      testID: 'kitchen-cost-report-open-exceptions',
+                                  },
+                                  testID: 'kitchen-cost-report-data-quality',
+                              },
+                          ]),
+                    ...(incompleteSpend.months.length === 0
+                        ? []
+                        : [
+                              {
+                                  key: 'spend-quality',
+                                  tone: 'info' as const,
+                                  label: t('kitchen:ops.costReport.spendIncompleteTitle'),
+                                  detail: incompleteSpend.months.join(', '),
+                                  testID: 'kitchen-cost-report-spend-quality',
+                              },
+                          ]),
+                ],
+            },
+        ],
+    };
+
     return (
-        <Cascade space="md" testID="kitchen-cost-report-screen">
-            {showsReport ? null : filterBar}
-            {report.isPending ? (
-                <RecordSkeleton
-                    testID="kitchen-cost-report-loading"
-                    heading={false}
-                    tiles={4}
-                    rows={6}
-                />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-cost-report-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void report.refetch();
-                    }}
-                    retrying={report.isFetching}
-                />
-            ) : currencyRows.length === 0 || latest === null ? (
-                <EmptyState
-                    testID="kitchen-cost-report-empty"
-                    title={t('kitchen:ops.costReport.emptyTitle')}
-                    body={t('kitchen:ops.costReport.emptyBody')}
-                />
-            ) : (
-                /*
-                 * The report's own run of sections, as a cascade that continues the page's count:
-                 * when the months land they arrive in order in place of the skeleton, rather than
-                 * all at once.
-                 */
-                <Cascade space="md">
-                    {flaggedCount === 0 && incompleteSpend.months.length === 0 ? null : (
-                        <Stack space="xs" testID="kitchen-cost-report-notices">
-                            {flaggedCount > 0 ? (
-                                <Callout
-                                    testID="kitchen-cost-report-data-quality"
-                                    role="alert"
-                                    tone="warning"
-                                    title={t('kitchen:ops.costReport.dataQualityTitle', {
-                                        count: flaggedCount,
-                                    })}
-                                    actions={
-                                        <Button
-                                            testID="kitchen-cost-report-open-exceptions"
-                                            variant="ghost"
-                                            size="sm"
-                                            label={t('kitchen:ops.costReport.openExceptions')}
-                                            onPress={() => {
-                                                router.push(
-                                                    '/kitchen/consumption-exceptions' as never,
-                                                );
-                                            }}
-                                        />
-                                    }
-                                />
-                            ) : null}
-                            {incompleteSpend.months.length > 0 ? (
-                                <Callout
-                                    testID="kitchen-cost-report-spend-quality"
-                                    role="note"
-                                    tone="info"
-                                    title={t('kitchen:ops.costReport.spendIncompleteTitle')}
-                                    body={incompleteSpend.months.join(', ')}
-                                />
-                            ) : null}
-                        </Stack>
-                    )}
-                    <CatalogueStatCards
-                        testID="kitchen-cost-report-tile"
-                        cards={(
-                            [
-                                [
-                                    'spend',
-                                    'tileSpend',
-                                    latest.spendAmount,
-                                    'hintSpend',
-                                    'shoppingCart',
-                                ],
-                                ['cogs', 'tileCogs', latest.cogsAmount, 'hintCogs', 'cookingPot'],
-                                [
-                                    'revenue',
-                                    'tileRevenue',
-                                    latest.revenueAmount,
-                                    'hintRevenue',
-                                    'trendingUp',
-                                ],
-                                [
-                                    'margin',
-                                    'tileMargin',
-                                    latest.grossMarginAmount,
-                                    'hintMargin',
-                                    'percent',
-                                ],
-                            ] as const
-                        ).map(([key, labelKey, value, hintKey, mark]) => ({
-                            key,
-                            label: t(`kitchen:ops.costReport.${labelKey}`, { month: latest.month }),
-                            value: amount(value),
-                            ...(activeCurrency === null ? {} : { unit: activeCurrency }),
-                            caption: t(`kitchen:ops.costReport.${hintKey}`),
-                            mark,
-                            tone: key === 'margin' ? ('brand' as const) : ('default' as const),
-                        }))}
+        <IssueTrayFrame tray={trayContent}>
+            <Cascade space="md" testID="kitchen-cost-report-screen">
+                {showsReport ? null : filterBar}
+                {report.isPending ? (
+                    <RecordSkeleton
+                        testID="kitchen-cost-report-loading"
+                        heading={false}
+                        tiles={4}
+                        rows={6}
                     />
-                    {filterBar}
-                    <View className="flex-row flex-wrap gap-4">
-                        <View className="min-w-[300px] flex-1 flex-col gap-snug">
-                            <WorkbenchSectionHeading
-                                title={t('kitchen:ops.costReport.chartRevenueCogs')}
-                            />
-                            <PairedBars
-                                testID="kitchen-cost-report-chart-revenue-cogs"
-                                aLabel={t('kitchen:ops.costReport.columnRevenue')}
-                                bLabel={t('kitchen:ops.costReport.columnCogs')}
-                                series={chronological.map((row) => ({
-                                    tick: row.month.slice(5),
-                                    a: Number(row.revenueAmount),
-                                    b: Number(row.cogsAmount),
-                                    aTitle: `${row.month} · ${t('kitchen:ops.costReport.columnRevenue')} ${withCode(row.revenueAmount)}`,
-                                    bTitle: `${row.month} · ${t('kitchen:ops.costReport.columnCogs')} ${withCode(row.cogsAmount)}`,
-                                }))}
-                            />
-                        </View>
-                        {mixRows.length === 0 ? null : (
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-cost-report-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void report.refetch();
+                        }}
+                        retrying={report.isFetching}
+                    />
+                ) : currencyRows.length === 0 || latest === null ? (
+                    <EmptyState
+                        testID="kitchen-cost-report-empty"
+                        title={t('kitchen:ops.costReport.emptyTitle')}
+                        body={t('kitchen:ops.costReport.emptyBody')}
+                    />
+                ) : (
+                    /*
+                     * The report's own run of sections, as a cascade that continues the page's count:
+                     * when the months land they arrive in order in place of the skeleton, rather than
+                     * all at once.
+                     */
+                    <Cascade space="md">
+                        <CatalogueStatCards
+                            testID="kitchen-cost-report-tile"
+                            cards={(
+                                [
+                                    [
+                                        'spend',
+                                        'tileSpend',
+                                        latest.spendAmount,
+                                        'hintSpend',
+                                        'shoppingCart',
+                                    ],
+                                    [
+                                        'cogs',
+                                        'tileCogs',
+                                        latest.cogsAmount,
+                                        'hintCogs',
+                                        'cookingPot',
+                                    ],
+                                    [
+                                        'revenue',
+                                        'tileRevenue',
+                                        latest.revenueAmount,
+                                        'hintRevenue',
+                                        'trendingUp',
+                                    ],
+                                    [
+                                        'margin',
+                                        'tileMargin',
+                                        latest.grossMarginAmount,
+                                        'hintMargin',
+                                        'percent',
+                                    ],
+                                ] as const
+                            ).map(([key, labelKey, value, hintKey, mark]) => ({
+                                key,
+                                label: t(`kitchen:ops.costReport.${labelKey}`, {
+                                    month: latest.month,
+                                }),
+                                value: amount(value),
+                                ...(activeCurrency === null ? {} : { unit: activeCurrency }),
+                                caption: t(`kitchen:ops.costReport.${hintKey}`),
+                                mark,
+                                tone: key === 'margin' ? ('brand' as const) : ('default' as const),
+                            }))}
+                        />
+                        {filterBar}
+                        <View className="flex-row flex-wrap gap-4">
                             <View className="min-w-[300px] flex-1 flex-col gap-snug">
                                 <WorkbenchSectionHeading
-                                    title={t('kitchen:ops.costReport.chartRevenueMixTitle')}
-                                    aside={latest.month}
+                                    title={t('kitchen:ops.costReport.chartRevenueCogs')}
                                 />
-                                <RatioBars
-                                    testID="kitchen-cost-report-chart-mix"
-                                    labelWidth={88}
-                                    valueWidth={84}
-                                    rows={mixRows}
+                                <PairedBars
+                                    testID="kitchen-cost-report-chart-revenue-cogs"
+                                    aLabel={t('kitchen:ops.costReport.columnRevenue')}
+                                    bLabel={t('kitchen:ops.costReport.columnCogs')}
+                                    series={chronological.map((row) => ({
+                                        tick: row.month.slice(5),
+                                        a: Number(row.revenueAmount),
+                                        b: Number(row.cogsAmount),
+                                        aTitle: `${row.month} · ${t('kitchen:ops.costReport.columnRevenue')} ${withCode(row.revenueAmount)}`,
+                                        bTitle: `${row.month} · ${t('kitchen:ops.costReport.columnCogs')} ${withCode(row.cogsAmount)}`,
+                                    }))}
                                 />
                             </View>
-                        )}
-                    </View>
-                    <WithColumnPicker picker={controls.picker}>
-                        <CatalogueList<MonthlyCostReportRow>
-                            testID="kitchen-cost-report-table"
-                            label={t('kitchen:ops.costReport.caption')}
-                            columns={controls.columns}
-                            rows={controls.rows}
-                            rowKey={(row) => `${row.month}-${row.currencyCode}`}
-                            onRowPress={setViewing}
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                        />
-                    </WithColumnPicker>
-                </Cascade>
-            )}
-        </Cascade>
+                            {mixRows.length === 0 ? null : (
+                                <View className="min-w-[300px] flex-1 flex-col gap-snug">
+                                    <WorkbenchSectionHeading
+                                        title={t('kitchen:ops.costReport.chartRevenueMixTitle')}
+                                        aside={latest.month}
+                                    />
+                                    <RatioBars
+                                        testID="kitchen-cost-report-chart-mix"
+                                        labelWidth={88}
+                                        valueWidth={84}
+                                        rows={mixRows}
+                                    />
+                                </View>
+                            )}
+                        </View>
+                        <WithColumnPicker picker={controls.picker}>
+                            <CatalogueList<MonthlyCostReportRow>
+                                testID="kitchen-cost-report-table"
+                                label={t('kitchen:ops.costReport.caption')}
+                                columns={controls.columns}
+                                rows={controls.rows}
+                                rowKey={(row) => `${row.month}-${row.currencyCode}`}
+                                onRowPress={setViewing}
+                                rowActionsLabel={t('kitchen:list.rowActions')}
+                            />
+                        </WithColumnPicker>
+                    </Cascade>
+                )}
+            </Cascade>
+        </IssueTrayFrame>
     );
 }

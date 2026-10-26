@@ -431,6 +431,8 @@
             "notStocked": "Not stocked"
         },
         "supplyOrders": {
+            "cancelFailed": "The order could not be cancelled.",
+            "issueFailed": "The order could not be issued.",
             "title": "Supply orders",
             "subtitle": "What this branch is short of, and the order that fixes it.",
             "metrics": {
@@ -4466,6 +4468,14 @@
         "savedBackNamed": "Saved. Back to {{name}}."
     },
     "tray": {
+        "noChannel": "No sales channel",
+        "groupIssue": "Blocks issuing",
+        "groupNote": "Note",
+        "onPublicMenu": "On the public menu",
+        "mealNoServiceDay": "No service day yet",
+        "mealUnsaved": "Changes not saved",
+        "mealNameMissing": "Arabic name missing",
+        "groupFailed": "Didn't go through",
         "title": "To fix",
         "groupSave": "Blocks save",
         "groupPublish": "Blocks publish",

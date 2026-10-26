@@ -55,6 +55,29 @@ export function ContentWidthProvider({ value, children }: ContentWidthProviderPr
     return <ContentInsetContext.Provider value={inset}>{children}</ContentInsetContext.Provider>;
 }
 
+/**
+ * A column docked beside the page — the issue tray, from `lg` — takes `width` from the content
+ * column, so what is under it lays out for the room that is left. `0` when nothing is docked: the
+ * provider stays, so the page under it is never remounted when the column comes and goes.
+ */
+export function ContentWidthBeside({
+    width,
+    children,
+}: {
+    readonly width: number;
+    readonly children: ReactNode;
+}) {
+    const outer = useContext(ContentInsetContext);
+    const inset = useMemo(
+        () =>
+            width === 0
+                ? outer
+                : { chrome: (outer?.chrome ?? 0) + width, padding: outer?.padding ?? 0 },
+        [outer, width],
+    );
+    return <ContentInsetContext.Provider value={inset}>{children}</ContentInsetContext.Provider>;
+}
+
 /** The arithmetic, exported for the shell's tests and for anything that has to reason ahead. */
 export function contentWidthFor(windowWidth: number, inset: ContentInset | null): number {
     if (inset === null) return windowWidth;

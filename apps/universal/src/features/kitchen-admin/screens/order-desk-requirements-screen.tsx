@@ -5,9 +5,11 @@ import {
     DatePickerButton,
     EmptyState,
     ErrorState,
+    IssueTrayFrame,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
+import type { IssueTrayContent } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -308,144 +310,155 @@ function OrderDeskRequirements() {
         },
     });
 
+    // The page's issue tray. Its one card is the weekly check's, which registers itself.
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-order-desk-requirements-tray',
+        // A list page has no "done" to show: the tray appears only while it has something.
+        hideWhenClear: true,
+        groups: [],
+    };
+
     return (
-        <Cascade space="md" testID="kitchen-order-desk-requirements-screen">
-            {/*
-             * The figures as cards, from the first frame. While the window is in flight each card
-             * holds a placeholder where its figure goes — a zero there would claim an answer the
-             * screen does not have yet.
-             */}
-            {branchId === null || filters === null || failure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-order-desk-requirements-figures"
-                    cards={[
-                        {
-                            key: 'ingredients',
-                            label: t('kitchen:ops.requirements.kpiIngredients'),
-                            value: formatter.formatNumber(rows.length),
-                            caption: t('kitchen:ops.requirements.kpiIngredientsCaption'),
-                            mark: 'wheat',
-                            tone: 'brand',
-                        },
-                        {
-                            key: 'short',
-                            label: t('kitchen:ops.requirements.kpiShort'),
-                            value: formatter.formatNumber(shortCount),
-                            caption: t('kitchen:ops.requirements.kpiShortCaption'),
-                            mark: 'alert',
-                            tone: shortCount > 0 ? 'danger' : 'default',
-                        },
-                        {
-                            key: 'notComputable',
-                            label: t('kitchen:ops.requirements.kpiNotComputable'),
-                            value: formatter.formatNumber(notComputable?.days ?? 0),
-                            // The one caption that is an answer rather than a description, so
-                            // while the window is in flight it says so instead of "every day was
-                            // worked out".
-                            caption: requirements.isPending
-                                ? t('common:state.loading')
-                                : notComputable !== null && notComputable.days > 0
-                                  ? reasonSummary(notComputable.reasons)
-                                  : t('kitchen:ops.requirements.kpiNotComputableNone'),
-                            mark: 'circleHelp',
-                            tone:
-                                notComputable !== null && notComputable.days > 0
-                                    ? 'warning'
-                                    : 'default',
-                        },
-                    ]}
-                    pending={requirements.isPending}
-                />
-            )}
+        <IssueTrayFrame tray={trayContent}>
+            <Cascade space="md" testID="kitchen-order-desk-requirements-screen">
+                {/*
+                 * The figures as cards, from the first frame. While the window is in flight each card
+                 * holds a placeholder where its figure goes — a zero there would claim an answer the
+                 * screen does not have yet.
+                 */}
+                {branchId === null || filters === null || failure !== null ? null : (
+                    <CatalogueStatCards
+                        testID="kitchen-order-desk-requirements-figures"
+                        cards={[
+                            {
+                                key: 'ingredients',
+                                label: t('kitchen:ops.requirements.kpiIngredients'),
+                                value: formatter.formatNumber(rows.length),
+                                caption: t('kitchen:ops.requirements.kpiIngredientsCaption'),
+                                mark: 'wheat',
+                                tone: 'brand',
+                            },
+                            {
+                                key: 'short',
+                                label: t('kitchen:ops.requirements.kpiShort'),
+                                value: formatter.formatNumber(shortCount),
+                                caption: t('kitchen:ops.requirements.kpiShortCaption'),
+                                mark: 'alert',
+                                tone: shortCount > 0 ? 'danger' : 'default',
+                            },
+                            {
+                                key: 'notComputable',
+                                label: t('kitchen:ops.requirements.kpiNotComputable'),
+                                value: formatter.formatNumber(notComputable?.days ?? 0),
+                                // The one caption that is an answer rather than a description, so
+                                // while the window is in flight it says so instead of "every day was
+                                // worked out".
+                                caption: requirements.isPending
+                                    ? t('common:state.loading')
+                                    : notComputable !== null && notComputable.days > 0
+                                      ? reasonSummary(notComputable.reasons)
+                                      : t('kitchen:ops.requirements.kpiNotComputableNone'),
+                                mark: 'circleHelp',
+                                tone:
+                                    notComputable !== null && notComputable.days > 0
+                                        ? 'warning'
+                                        : 'default',
+                            },
+                        ]}
+                        pending={requirements.isPending}
+                    />
+                )}
 
-            {/*
-             * The window, below the figures it produces, on the raised toolbar panel — with the
-             * column picker at its inline end rather than floating above the table. The branch is
-             * the workspace's — see the file header.
-             */}
-            <ToolbarPanel
-                testID="kitchen-order-desk-requirements-content"
-                end={<ColumnPicker {...controls.picker} />}
-            >
-                <DatePickerButton
-                    testID="kitchen-order-desk-requirements-from"
-                    label={t('kitchen:ops.requirements.filterFrom')}
-                    value={from}
-                    onChange={setFrom}
-                    max={to}
-                />
-                <Text variant="caption" tone="secondary" aria-hidden>
-                    {t('kitchen:ops.requirements.windowTo')}
-                </Text>
-                <DatePickerButton
-                    testID="kitchen-order-desk-requirements-to"
-                    label={t('kitchen:ops.requirements.filterTo')}
-                    value={to}
-                    onChange={setTo}
-                    min={from}
-                />
-            </ToolbarPanel>
+                {/*
+                 * The window, below the figures it produces, on the raised toolbar panel — with the
+                 * column picker at its inline end rather than floating above the table. The branch is
+                 * the workspace's — see the file header.
+                 */}
+                <ToolbarPanel
+                    testID="kitchen-order-desk-requirements-content"
+                    end={<ColumnPicker {...controls.picker} />}
+                >
+                    <DatePickerButton
+                        testID="kitchen-order-desk-requirements-from"
+                        label={t('kitchen:ops.requirements.filterFrom')}
+                        value={from}
+                        onChange={setFrom}
+                        max={to}
+                    />
+                    <Text variant="caption" tone="secondary" aria-hidden>
+                        {t('kitchen:ops.requirements.windowTo')}
+                    </Text>
+                    <DatePickerButton
+                        testID="kitchen-order-desk-requirements-to"
+                        label={t('kitchen:ops.requirements.filterTo')}
+                        value={to}
+                        onChange={setTo}
+                        min={from}
+                    />
+                </ToolbarPanel>
 
-            {/*
-             * What Monday's check found, just above the list it is read against — the snapshot
-             * beside "where we stand", not a banner over the page's figures. Nothing is drawn when
-             * the check found nothing short.
-             */}
-            <WeeklyStockCheckBanner
-                branchId={branchId}
-                onShowWindow={(windowFrom, windowTo) => {
-                    setFrom(windowFrom);
-                    setTo(windowTo);
-                }}
-            />
-
-            {branchId === null ? (
-                // Friendly rather than an error: the reader did nothing wrong, the list simply
-                // needs a shelf to compare against.
-                <EmptyState
-                    testID="kitchen-order-desk-requirements-branch-required"
-                    title={t('kitchen:ops.requirements.branchRequiredTitle')}
-                    body={t('kitchen:ops.requirements.branchRequiredBody')}
-                />
-            ) : filters === null ? (
-                <Callout
-                    testID="kitchen-order-desk-requirements-window-invalid"
-                    tone="info"
-                    title={t('kitchen:ops.requirements.windowInvalidTitle')}
-                    body={t('kitchen:ops.requirements.windowInvalidBody')}
-                />
-            ) : requirements.isPending ? (
-                <TableSkeleton testID="kitchen-order-desk-requirements-loading" rows={6} />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-order-desk-requirements-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void requirements.refetch();
+                {/*
+                 * What Monday's check found — the snapshot beside "where we stand" — as a card in the
+                 * page's issue tray, with its way to point the window at that week. Nothing is said
+                 * when the check found nothing short, and nothing is drawn here either way.
+                 */}
+                <WeeklyStockCheckBanner
+                    branchId={branchId}
+                    onShowWindow={(windowFrom, windowTo) => {
+                        setFrom(windowFrom);
+                        setTo(windowTo);
                     }}
-                    retrying={requirements.isFetching}
                 />
-            ) : (
-                <View className="flex-col gap-snug">
-                    {rows.length === 0 ? (
-                        <EmptyState
-                            testID="kitchen-order-desk-requirements-empty"
-                            title={t('kitchen:ops.requirements.noRowsTitle')}
-                            body={t('kitchen:ops.requirements.noRowsBody')}
-                        />
-                    ) : (
-                        <CatalogueList<OrderDeskRequirement>
-                            testID="kitchen-order-desk-requirements-table"
-                            label={t('kitchen:ops.requirements.title')}
-                            columns={controls.columns}
-                            rows={controls.rows}
-                            rowKey={(row) => row.stockItemId}
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                        />
-                    )}
-                </View>
-            )}
-        </Cascade>
+
+                {branchId === null ? (
+                    // Friendly rather than an error: the reader did nothing wrong, the list simply
+                    // needs a shelf to compare against.
+                    <EmptyState
+                        testID="kitchen-order-desk-requirements-branch-required"
+                        title={t('kitchen:ops.requirements.branchRequiredTitle')}
+                        body={t('kitchen:ops.requirements.branchRequiredBody')}
+                    />
+                ) : filters === null ? (
+                    <Callout
+                        testID="kitchen-order-desk-requirements-window-invalid"
+                        tone="info"
+                        title={t('kitchen:ops.requirements.windowInvalidTitle')}
+                        body={t('kitchen:ops.requirements.windowInvalidBody')}
+                    />
+                ) : requirements.isPending ? (
+                    <TableSkeleton testID="kitchen-order-desk-requirements-loading" rows={6} />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-order-desk-requirements-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void requirements.refetch();
+                        }}
+                        retrying={requirements.isFetching}
+                    />
+                ) : (
+                    <View className="flex-col gap-snug">
+                        {rows.length === 0 ? (
+                            <EmptyState
+                                testID="kitchen-order-desk-requirements-empty"
+                                title={t('kitchen:ops.requirements.noRowsTitle')}
+                                body={t('kitchen:ops.requirements.noRowsBody')}
+                            />
+                        ) : (
+                            <CatalogueList<OrderDeskRequirement>
+                                testID="kitchen-order-desk-requirements-table"
+                                label={t('kitchen:ops.requirements.title')}
+                                columns={controls.columns}
+                                rows={controls.rows}
+                                rowKey={(row) => row.stockItemId}
+                                rowActionsLabel={t('kitchen:list.rowActions')}
+                            />
+                        )}
+                    </View>
+                )}
+            </Cascade>
+        </IssueTrayFrame>
     );
 }
 

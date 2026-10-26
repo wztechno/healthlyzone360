@@ -1559,7 +1559,7 @@ describe('editing the matrix', () => {
         await untilVisible(firstRow);
     });
 
-    it('puts the server’s refusal of a cell on the row it named, and says the rest in a callout', async () => {
+    it('puts the server’s refusal of a cell on the row it named, and says the rest in the tray', async () => {
         const spread = spreadPlan();
         const world = planWorld(spread, pricedVariants(spread));
 
@@ -1590,7 +1590,8 @@ describe('editing the matrix', () => {
             fireEvent.press(screen.getByTestId('kitchen-plan-variants-save'));
         });
 
-        // Both land on the configurations step, where the save was pressed — not on the matrix.
+        // The row's note lands on the configurations step, where the save was pressed — not on the
+        // matrix — and what no row carries is the tray's card.
         const row = firstVariantRow(spread);
         await untilVisible(`${row}-error`);
         expect(screen.getByTestId(`${row}-error`)).toHaveTextContent(/already sold/i);
@@ -1598,6 +1599,14 @@ describe('editing the matrix', () => {
             /nothing else could be placed/i,
         );
         expect(screen.getByTestId('kitchen-plan-variants-section')).toBeTruthy();
+
+        // From another step, the card's Fix brings the reader back to the configurations.
+        await openPlanStep('matrix');
+        expect(screen.queryByTestId('kitchen-plan-variants-section')).toBeNull();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-plan-matrix-error-fix'));
+        });
+        await untilVisible('kitchen-plan-variants-section');
     });
 
     it('blocks the save while a configuration has no name', async () => {

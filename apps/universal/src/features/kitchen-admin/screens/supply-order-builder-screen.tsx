@@ -18,6 +18,7 @@ import {
     FormSection,
     Icon,
     InfoTip,
+    IssueTrayFrame,
     QuantityInput,
     Select,
     Stack,
@@ -25,7 +26,7 @@ import {
     Text,
     useToast,
 } from '@healthy360/design-system';
-import type { DataListColumn, SelectOption } from '@healthy360/design-system';
+import type { DataListColumn, IssueTrayContent, SelectOption } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -45,6 +46,7 @@ import {
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
+import { focusField } from '../field-focus.ts';
 import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { RecordFormOpening } from '../record-form-opening.tsx';
@@ -84,7 +86,6 @@ import type {
  * └────────────────────────────────────────────────────────┘  │ ──────────────────────── │
  * ┌ NOT LINKED TO A SUPPLIER YET ─ only when a row has nobody ┐ │ One draft per supplier   │
  * └────────────────────────────────────────────────────────┘  │ Beqaa Fresh     3 items  │
- *                                                             │ ⚠ 1 item won't be ordered│
  *                                                             └──────────────────────────┘
  * ```
  *
@@ -153,7 +154,9 @@ import type {
  * The confirmation states the two numbers and the rows being left behind, and the two kinds of
  * "left behind" are named separately (§4): a row with a quantity and nobody to buy it from is a job
  * left undone, and a row somebody switched off is not. Lumping them together would let a person tick
- * past four shelves they still need.
+ * past four shelves they still need. The first kind is also a card in the page's issue tray, whose
+ * Fix takes the reader to the first such row's supplier picker; the second is counted under the
+ * summary.
  *
  * **The batch is atomic**, so the failure message says so. There is no partial state to explain and
  * no half-created list to reconcile — either every draft exists or none does, and "Nothing was
@@ -561,6 +564,8 @@ function SupplyOrderBuilder() {
                         <View className="min-w-0 flex-1">
                             <Select
                                 testID={`${testID}-supplier-select`}
+                                // What the tray's "won't be ordered" card takes the reader to.
+                                id={`${testID}-supplier-select`}
                                 label={t('kitchen:ops.supplyOrders.supplierLabel', {
                                     item: row.itemNameEn,
                                 })}
@@ -623,6 +628,7 @@ function SupplyOrderBuilder() {
                             <View className="z-auto min-w-0 flex-1">
                                 <Select
                                     testID={`${testID}-supplier-select`}
+                                    id={`${testID}-supplier-select`}
                                     label={t('kitchen:ops.supplyOrders.supplierLabel', {
                                         item: row.itemNameEn,
                                     })}
@@ -691,413 +697,450 @@ function SupplyOrderBuilder() {
         setConfirmingCreate(true);
     };
 
+    // Rows with a quantity and nobody to buy it from: not a blocker — the rest still orders — but
+    // a job left undone, so it is checked, and Fix goes to the first one's supplier picker.
+    const firstUnassigned = plan.unassigned[0];
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-supply-order-builder-tray',
+        // A desk, not a form: the tray comes in only with something to say.
+        hideWhenClear: true,
+        groups: [
+            {
+                key: 'check',
+                title: t('kitchen:tray.groupCheck'),
+                items:
+                    firstUnassigned === undefined
+                        ? []
+                        : [
+                              {
+                                  key: 'unassigned',
+                                  tone: 'warning',
+                                  label: t('kitchen:ops.supplyOrders.unassignedCount', {
+                                      count: plan.unassigned.length,
+                                  }),
+                                  action: {
+                                      onPress: () => {
+                                          focusField(
+                                              `${supplyOrderRowTestId(String(firstUnassigned.stockItemId))}-supplier-select`,
+                                          );
+                                      },
+                                  },
+                                  testID: 'kitchen-supply-order-unassigned-warning',
+                              },
+                          ],
+            },
+        ],
+    };
+
     return (
-        <Cascade space="md" testID="kitchen-supply-order-builder-screen">
-            {/*
-             * The opening the record forms share, as Post receipt draws it: the title, Cancel, and the
-             * commit at the inline end. It is drawn once: the summary states what it creates.
-             */}
-            <RecordFormOpening
-                testID="kitchen-supply-order-builder-screen"
-                title={t('kitchen:ops.supplyOrders.builderTitle')}
-                dirty={touched}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-supply-order-builder-cancel"
-                            variant="secondary"
-                            label={t('kitchen:editor.cancel')}
-                            onPress={back.leave}
-                        />
-                        {loaded ? (
+        <IssueTrayFrame tray={trayContent}>
+            <Cascade space="md" testID="kitchen-supply-order-builder-screen">
+                {/*
+                 * The opening the record forms share, as Post receipt draws it: the title, Cancel,
+                 * and the commit at the inline end. It is drawn once: the summary states what it
+                 * creates.
+                 */}
+                <RecordFormOpening
+                    testID="kitchen-supply-order-builder-screen"
+                    title={t('kitchen:ops.supplyOrders.builderTitle')}
+                    dirty={touched}
+                    actions={
+                        <>
                             <Button
-                                testID="kitchen-supply-order-builder-create"
-                                label={t('kitchen:ops.supplyOrders.createDrafts', {
-                                    count: plan.groups.length,
-                                })}
-                                loading={createOrders.isPending}
-                                disabled={plan.groups.length === 0 || createOrders.isPending}
-                                onPress={openCreate}
+                                testID="kitchen-supply-order-builder-cancel"
+                                variant="secondary"
+                                label={t('kitchen:editor.cancel')}
+                                onPress={back.leave}
                             />
-                        ) : null}
-                    </>
-                }
-            />
-
-            {branchId === null ? (
-                <EmptyState
-                    testID="kitchen-supply-order-builder-branch-required"
-                    title={t('kitchen:ops.supplyOrders.branchRequiredTitle')}
-                    body={t('kitchen:ops.supplyOrders.branchRequiredBody')}
-                />
-            ) : (
-                <View
-                    ref={Platform.OS === 'web' ? port.ref : undefined}
-                    onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
-                    className={
-                        sideBySide && loaded
-                            ? 'z-auto flex-row items-start gap-base'
-                            : 'z-auto flex-col gap-base'
-                    }
-                >
-                    {/* The form is the row's filler beside the fixed summary. */}
-                    <View className="z-auto min-w-0 flex-1 flex-col gap-base">
-                        <Callout
-                            testID="kitchen-supply-order-read-at"
-                            tone="info"
-                            role="note"
-                            title={
-                                readAt === null
-                                    ? t('kitchen:ops.supplyOrders.readAtPending')
-                                    : t('kitchen:ops.supplyOrders.readAt', {
-                                          time: formatter.formatDate(readAt, {
-                                              hour: '2-digit',
-                                              minute: '2-digit',
-                                          }),
-                                      })
-                            }
-                            actions={
+                            {loaded ? (
                                 <Button
-                                    testID="kitchen-supply-order-refresh"
-                                    variant="ghost"
-                                    size="sm"
-                                    label={t('kitchen:ops.supplyOrders.refresh')}
-                                    loading={proposal.isFetching}
-                                    onPress={() => {
-                                        if (touched) {
-                                            setConfirmingRefresh(true);
-                                            return;
-                                        }
-                                        refresh();
-                                    }}
+                                    testID="kitchen-supply-order-builder-create"
+                                    label={t('kitchen:ops.supplyOrders.createDrafts', {
+                                        count: plan.groups.length,
+                                    })}
+                                    loading={createOrders.isPending}
+                                    disabled={plan.groups.length === 0 || createOrders.isPending}
+                                    onPress={openCreate}
                                 />
-                            }
-                        />
+                            ) : null}
+                        </>
+                    }
+                />
 
-                        {proposal.isPending ? (
-                            <TableSkeleton
-                                testID="kitchen-supply-order-builder-loading"
-                                partTestID="kitchen-supply-order"
-                                rows={4}
+                {branchId === null ? (
+                    <EmptyState
+                        testID="kitchen-supply-order-builder-branch-required"
+                        title={t('kitchen:ops.supplyOrders.branchRequiredTitle')}
+                        body={t('kitchen:ops.supplyOrders.branchRequiredBody')}
+                    />
+                ) : (
+                    <View
+                        ref={Platform.OS === 'web' ? port.ref : undefined}
+                        onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
+                        className={
+                            sideBySide && loaded
+                                ? 'z-auto flex-row items-start gap-base'
+                                : 'z-auto flex-col gap-base'
+                        }
+                    >
+                        {/* The form is the row's filler beside the fixed summary. */}
+                        <View className="z-auto min-w-0 flex-1 flex-col gap-base">
+                            <Callout
+                                testID="kitchen-supply-order-read-at"
+                                tone="info"
+                                role="note"
+                                title={
+                                    readAt === null
+                                        ? t('kitchen:ops.supplyOrders.readAtPending')
+                                        : t('kitchen:ops.supplyOrders.readAt', {
+                                              time: formatter.formatDate(readAt, {
+                                                  hour: '2-digit',
+                                                  minute: '2-digit',
+                                              }),
+                                          })
+                                }
+                                actions={
+                                    <Button
+                                        testID="kitchen-supply-order-refresh"
+                                        variant="ghost"
+                                        size="sm"
+                                        label={t('kitchen:ops.supplyOrders.refresh')}
+                                        loading={proposal.isFetching}
+                                        onPress={() => {
+                                            if (touched) {
+                                                setConfirmingRefresh(true);
+                                                return;
+                                            }
+                                            refresh();
+                                        }}
+                                    />
+                                }
                             />
-                        ) : failure !== null ? (
-                            <ErrorState
-                                testID="kitchen-supply-order-builder-error"
-                                failure={failure}
-                                onRetry={refresh}
-                                retrying={proposal.isFetching}
-                            />
-                        ) : (
-                            <>
-                                <FormSection
-                                    first
-                                    variant="card"
-                                    testID="kitchen-supply-order-needs"
-                                    title={t('kitchen:ops.supplyOrders.needsTitle')}
-                                    aside={
-                                        assigned.length === 0 ? undefined : (
-                                            <Text
-                                                variant="caption"
-                                                tone="secondary"
-                                                testID="kitchen-supply-order-needs-summary"
-                                            >
-                                                {outOfStock === 0
-                                                    ? t('kitchen:ops.supplyOrders.needsCount', {
-                                                          count: assigned.length,
-                                                      })
-                                                    : `${t('kitchen:ops.supplyOrders.needsCount', {
-                                                          count: assigned.length,
-                                                      })} · ${t(
-                                                          'kitchen:ops.supplyOrders.outCount',
-                                                          {
-                                                              count: outOfStock,
-                                                          },
-                                                      )}`}
-                                            </Text>
-                                        )
-                                    }
-                                >
-                                    <Stack space="sm">
-                                        {assigned.length === 0 ? (
-                                            <EmptyState
-                                                testID="kitchen-supply-order-builder-empty"
-                                                icon="success"
-                                                title={t(
-                                                    'kitchen:ops.supplyOrders.nothingNeededTitle',
-                                                )}
-                                                body={t(
-                                                    'kitchen:ops.supplyOrders.builderEmptyBody',
-                                                )}
-                                            />
-                                        ) : (
-                                            <DataList<OrderProposalItem>
-                                                testID="kitchen-supply-order-rows"
-                                                label={t('kitchen:ops.supplyOrders.builderCaption')}
-                                                columns={assignedColumns}
-                                                rows={assigned}
-                                                rowKey={(row) => String(row.stockItemId)}
-                                                density="sm"
-                                            />
-                                        )}
 
-                                        {/*
-                                         * Anything else to order, under the rows it joins. Re-query
-                                         * rather than append a row here: the server owns what a
-                                         * proposal row looks like, suppliers resolved and all, so a
-                                         * shelf somebody typed in comes back the same shape as one
-                                         * that ran out.
-                                         */}
-                                        <View
-                                            testID="kitchen-supply-order-add"
-                                            className="z-tooltip w-full max-w-field"
-                                        >
-                                            <Select
-                                                testID="kitchen-supply-order-add-select"
-                                                label={t('kitchen:ops.supplyOrders.addTitle')}
-                                                labelHidden
-                                                size="sm"
-                                                options={addOptions}
-                                                searchable
-                                                value={null}
-                                                placeholder={t(
-                                                    'kitchen:ops.supplyOrders.addPlaceholder',
-                                                )}
-                                                onChange={(value) => {
-                                                    setRequestedIds((previous) => [
-                                                        ...previous,
-                                                        value as unknown as StockItemId,
-                                                    ]);
-                                                }}
-                                            />
-                                        </View>
-                                    </Stack>
-                                </FormSection>
-
-                                {unlinked.length === 0 ? null : (
+                            {proposal.isPending ? (
+                                <TableSkeleton
+                                    testID="kitchen-supply-order-builder-loading"
+                                    partTestID="kitchen-supply-order"
+                                    rows={4}
+                                />
+                            ) : failure !== null ? (
+                                <ErrorState
+                                    testID="kitchen-supply-order-builder-error"
+                                    failure={failure}
+                                    onRetry={refresh}
+                                    retrying={proposal.isFetching}
+                                />
+                            ) : (
+                                <>
                                     <FormSection
                                         first
                                         variant="card"
-                                        testID="kitchen-supply-order-unlinked"
-                                        title={t('kitchen:ops.supplyOrders.unlinkedTitle')}
-                                        actions={
-                                            <Button
-                                                testID="kitchen-supply-order-add-supplier"
-                                                variant="ghost"
-                                                size="sm"
-                                                label={t('kitchen:ops.supplyOrders.addSupplier')}
-                                                iconStart={<Icon name="plus" size="sm" />}
-                                                onPress={() => {
-                                                    router.push('/kitchen/suppliers/new' as never);
-                                                }}
-                                            />
+                                        testID="kitchen-supply-order-needs"
+                                        title={t('kitchen:ops.supplyOrders.needsTitle')}
+                                        aside={
+                                            assigned.length === 0 ? undefined : (
+                                                <Text
+                                                    variant="caption"
+                                                    tone="secondary"
+                                                    testID="kitchen-supply-order-needs-summary"
+                                                >
+                                                    {outOfStock === 0
+                                                        ? t('kitchen:ops.supplyOrders.needsCount', {
+                                                              count: assigned.length,
+                                                          })
+                                                        : `${t(
+                                                              'kitchen:ops.supplyOrders.needsCount',
+                                                              {
+                                                                  count: assigned.length,
+                                                              },
+                                                          )} · ${t(
+                                                              'kitchen:ops.supplyOrders.outCount',
+                                                              {
+                                                                  count: outOfStock,
+                                                              },
+                                                          )}`}
+                                                </Text>
+                                            )
                                         }
                                     >
-                                        <DataList<OrderProposalItem>
-                                            testID="kitchen-supply-order-unlinked-rows"
-                                            label={t('kitchen:ops.supplyOrders.unlinkedCaption')}
-                                            columns={unlinkedColumns}
-                                            rows={unlinked}
-                                            rowKey={(row) => String(row.stockItemId)}
-                                            density="sm"
-                                        />
-                                    </FormSection>
-                                )}
-                            </>
-                        )}
-                    </View>
+                                        <Stack space="sm">
+                                            {assigned.length === 0 ? (
+                                                <EmptyState
+                                                    testID="kitchen-supply-order-builder-empty"
+                                                    icon="success"
+                                                    title={t(
+                                                        'kitchen:ops.supplyOrders.nothingNeededTitle',
+                                                    )}
+                                                    body={t(
+                                                        'kitchen:ops.supplyOrders.builderEmptyBody',
+                                                    )}
+                                                />
+                                            ) : (
+                                                <DataList<OrderProposalItem>
+                                                    testID="kitchen-supply-order-rows"
+                                                    label={t(
+                                                        'kitchen:ops.supplyOrders.builderCaption',
+                                                    )}
+                                                    columns={assignedColumns}
+                                                    rows={assigned}
+                                                    rowKey={(row) => String(row.stockItemId)}
+                                                    density="sm"
+                                                />
+                                            )}
 
-                    {loaded ? (
-                        <RecordSummaryAside
-                            testID="kitchen-supply-order-preview"
-                            title={t('kitchen:ops.supplyOrders.readyTitle')}
-                            width={sideBySide ? ASIDE_WIDTH : null}
-                            rows={[
-                                {
-                                    key: 'out',
-                                    label: t('kitchen:ops.supplyOrders.metrics.outOfStock'),
-                                    value: formatter.formatNumber(outOfStock),
-                                },
-                                {
-                                    key: 'low',
-                                    label: t('kitchen:ops.supplyOrders.metrics.low'),
-                                    value: formatter.formatNumber(lowOnly),
-                                },
-                                {
-                                    key: 'lines',
-                                    label: t('kitchen:ops.supplyOrders.summaryLines'),
-                                    value: formatter.formatNumber(plan.lineCount),
-                                },
-                                {
-                                    key: 'left-behind',
-                                    label: t('kitchen:ops.supplyOrders.summaryLeftBehind'),
-                                    value: formatter.formatNumber(leftBehind),
-                                },
-                            ]}
-                            total={{
-                                label: t('kitchen:ops.supplyOrders.summaryDrafts'),
-                                value: formatter.formatNumber(plan.groups.length),
-                            }}
-                            /*
-                             * One line per draft order: the supplier and how many items it will
-                             * carry. The lines themselves are the rows beside it; repeating them
-                             * here made the page twice as long to say the same thing.
-                             */
-                            list={{
-                                title: t('kitchen:ops.supplyOrders.summaryBySupplier'),
-                                empty: t('kitchen:ops.supplyOrders.readyEmpty'),
-                                testID: 'kitchen-supply-order-groups',
-                                emptyTestID: 'kitchen-supply-order-preview-empty',
-                                items: plan.groups.map((group) => ({
-                                    key: String(group.supplier.id),
-                                    testID: supplyOrderGroupTestId(String(group.supplier.id)),
-                                    name: displayName(
-                                        {
-                                            en: group.supplier.nameEn,
-                                            ar: group.supplier.nameAr ?? '',
-                                        },
-                                        locale,
-                                    ).value,
-                                    value: t('kitchen:ops.supplyOrders.groupCount', {
-                                        count: group.lines.length,
-                                    }),
-                                })),
-                            }}
-                            /*
-                             * The two kinds of "left behind", named apart (§4): a row with a
-                             * quantity and nobody to buy it from is a job left undone, and a row
-                             * somebody switched off is not.
-                             */
-                            note={
-                                plan.unassigned.length === 0 &&
-                                plan.excluded.length === 0 ? null : (
-                                    <Stack space="sm">
-                                        {plan.unassigned.length === 0 ? null : (
-                                            <Callout
-                                                testID="kitchen-supply-order-unassigned-warning"
-                                                tone="warning"
-                                                title={t(
-                                                    'kitchen:ops.supplyOrders.unassignedCount',
-                                                    { count: plan.unassigned.length },
-                                                )}
-                                            />
-                                        )}
-                                        {plan.excluded.length === 0 ? null : (
-                                            <Text
-                                                tone="secondary"
-                                                variant="caption"
-                                                testID="kitchen-supply-order-excluded"
+                                            {/*
+                                             * Anything else to order, under the rows it joins.
+                                             * Re-query rather than append a row here: the server
+                                             * owns what a proposal row looks like, suppliers
+                                             * resolved and all, so a shelf somebody typed in comes
+                                             * back the same shape as one that ran out.
+                                             */}
+                                            <View
+                                                testID="kitchen-supply-order-add"
+                                                className="z-tooltip w-full max-w-field"
                                             >
-                                                {t('kitchen:ops.supplyOrders.excludedCount', {
-                                                    count: plan.excluded.length,
-                                                })}
-                                            </Text>
-                                        )}
-                                    </Stack>
-                                )
-                            }
-                        />
-                    ) : null}
-                </View>
-            )}
+                                                <Select
+                                                    testID="kitchen-supply-order-add-select"
+                                                    label={t('kitchen:ops.supplyOrders.addTitle')}
+                                                    labelHidden
+                                                    size="sm"
+                                                    options={addOptions}
+                                                    searchable
+                                                    value={null}
+                                                    placeholder={t(
+                                                        'kitchen:ops.supplyOrders.addPlaceholder',
+                                                    )}
+                                                    onChange={(value) => {
+                                                        setRequestedIds((previous) => [
+                                                            ...previous,
+                                                            value as unknown as StockItemId,
+                                                        ]);
+                                                    }}
+                                                />
+                                            </View>
+                                        </Stack>
+                                    </FormSection>
 
-            <Dialog
-                open={confirmingCreate}
-                onClose={() => {
-                    setConfirmingCreate(false);
-                }}
-                title={t('kitchen:ops.supplyOrders.createConfirmTitle')}
-                description={t('kitchen:ops.supplyOrders.createConfirmBody')}
-                testID="kitchen-supply-order-create-confirm"
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-supply-order-create-cancel"
-                            variant="secondary"
-                            label={t('kitchen:ops.supplyOrders.createCancel')}
-                            onPress={() => {
-                                setConfirmingCreate(false);
-                            }}
-                        />
-                        <Button
-                            testID="kitchen-supply-order-create-confirm-action"
-                            label={t('kitchen:ops.supplyOrders.createConfirm', {
+                                    {unlinked.length === 0 ? null : (
+                                        <FormSection
+                                            first
+                                            variant="card"
+                                            testID="kitchen-supply-order-unlinked"
+                                            title={t('kitchen:ops.supplyOrders.unlinkedTitle')}
+                                            actions={
+                                                <Button
+                                                    testID="kitchen-supply-order-add-supplier"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    label={t(
+                                                        'kitchen:ops.supplyOrders.addSupplier',
+                                                    )}
+                                                    iconStart={<Icon name="plus" size="sm" />}
+                                                    onPress={() => {
+                                                        router.push(
+                                                            '/kitchen/suppliers/new' as never,
+                                                        );
+                                                    }}
+                                                />
+                                            }
+                                        >
+                                            <DataList<OrderProposalItem>
+                                                testID="kitchen-supply-order-unlinked-rows"
+                                                label={t(
+                                                    'kitchen:ops.supplyOrders.unlinkedCaption',
+                                                )}
+                                                columns={unlinkedColumns}
+                                                rows={unlinked}
+                                                rowKey={(row) => String(row.stockItemId)}
+                                                density="sm"
+                                            />
+                                        </FormSection>
+                                    )}
+                                </>
+                            )}
+                        </View>
+
+                        {loaded ? (
+                            <RecordSummaryAside
+                                testID="kitchen-supply-order-preview"
+                                title={t('kitchen:ops.supplyOrders.readyTitle')}
+                                width={sideBySide ? ASIDE_WIDTH : null}
+                                rows={[
+                                    {
+                                        key: 'out',
+                                        label: t('kitchen:ops.supplyOrders.metrics.outOfStock'),
+                                        value: formatter.formatNumber(outOfStock),
+                                    },
+                                    {
+                                        key: 'low',
+                                        label: t('kitchen:ops.supplyOrders.metrics.low'),
+                                        value: formatter.formatNumber(lowOnly),
+                                    },
+                                    {
+                                        key: 'lines',
+                                        label: t('kitchen:ops.supplyOrders.summaryLines'),
+                                        value: formatter.formatNumber(plan.lineCount),
+                                    },
+                                    {
+                                        key: 'left-behind',
+                                        label: t('kitchen:ops.supplyOrders.summaryLeftBehind'),
+                                        value: formatter.formatNumber(leftBehind),
+                                    },
+                                ]}
+                                total={{
+                                    label: t('kitchen:ops.supplyOrders.summaryDrafts'),
+                                    value: formatter.formatNumber(plan.groups.length),
+                                }}
+                                /*
+                                 * One line per draft order: the supplier and how many items it will
+                                 * carry. The lines themselves are the rows beside it; repeating them
+                                 * here made the page twice as long to say the same thing.
+                                 */
+                                list={{
+                                    title: t('kitchen:ops.supplyOrders.summaryBySupplier'),
+                                    empty: t('kitchen:ops.supplyOrders.readyEmpty'),
+                                    testID: 'kitchen-supply-order-groups',
+                                    emptyTestID: 'kitchen-supply-order-preview-empty',
+                                    items: plan.groups.map((group) => ({
+                                        key: String(group.supplier.id),
+                                        testID: supplyOrderGroupTestId(String(group.supplier.id)),
+                                        name: displayName(
+                                            {
+                                                en: group.supplier.nameEn,
+                                                ar: group.supplier.nameAr ?? '',
+                                            },
+                                            locale,
+                                        ).value,
+                                        value: t('kitchen:ops.supplyOrders.groupCount', {
+                                            count: group.lines.length,
+                                        }),
+                                    })),
+                                }}
+                                /*
+                                 * The two kinds of "left behind", named apart (§4): a row with a
+                                 * quantity and nobody to buy it from is a job left undone — the
+                                 * tray's card — and a row somebody switched off is not, so it is
+                                 * only counted.
+                                 */
+                                note={
+                                    plan.excluded.length === 0 ? null : (
+                                        <Text
+                                            tone="secondary"
+                                            variant="caption"
+                                            testID="kitchen-supply-order-excluded"
+                                        >
+                                            {t('kitchen:ops.supplyOrders.excludedCount', {
+                                                count: plan.excluded.length,
+                                            })}
+                                        </Text>
+                                    )
+                                }
+                            />
+                        ) : null}
+                    </View>
+                )}
+
+                <Dialog
+                    open={confirmingCreate}
+                    onClose={() => {
+                        setConfirmingCreate(false);
+                    }}
+                    title={t('kitchen:ops.supplyOrders.createConfirmTitle')}
+                    description={t('kitchen:ops.supplyOrders.createConfirmBody')}
+                    testID="kitchen-supply-order-create-confirm"
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-supply-order-create-cancel"
+                                variant="secondary"
+                                label={t('kitchen:ops.supplyOrders.createCancel')}
+                                onPress={() => {
+                                    setConfirmingCreate(false);
+                                }}
+                            />
+                            <Button
+                                testID="kitchen-supply-order-create-confirm-action"
+                                label={t('kitchen:ops.supplyOrders.createConfirm', {
+                                    count: plan.groups.length,
+                                })}
+                                loading={createOrders.isPending}
+                                onPress={createDrafts}
+                            />
+                        </>
+                    }
+                >
+                    <Stack space="xs">
+                        <Text testID="kitchen-supply-order-create-counts">
+                            {t('kitchen:ops.supplyOrders.createConfirmCounts', {
                                 count: plan.groups.length,
-                            })}
-                            loading={createOrders.isPending}
-                            onPress={createDrafts}
-                        />
-                    </>
-                }
-            >
-                <Stack space="xs">
-                    <Text testID="kitchen-supply-order-create-counts">
-                        {t('kitchen:ops.supplyOrders.createConfirmCounts', {
-                            count: plan.groups.length,
-                            lines: t('kitchen:ops.supplyOrders.createConfirmLines', {
-                                count: plan.lineCount,
-                            }),
-                        })}
-                    </Text>
-                    {/*
-                     * The two kinds of "left behind", named apart (§4). A row with a quantity and
-                     * nobody to buy it from is a job undone; a row somebody switched off is not.
-                     */}
-                    {plan.unassigned.length === 0 ? null : (
-                        <Text
-                            tone="warning"
-                            variant="caption"
-                            testID="kitchen-supply-order-create-unassigned"
-                        >
-                            {t('kitchen:ops.supplyOrders.unassignedCount', {
-                                count: plan.unassigned.length,
+                                lines: t('kitchen:ops.supplyOrders.createConfirmLines', {
+                                    count: plan.lineCount,
+                                }),
                             })}
                         </Text>
-                    )}
-                    {plan.excluded.length === 0 ? null : (
-                        <Text
-                            tone="secondary"
-                            variant="caption"
-                            testID="kitchen-supply-order-create-excluded"
-                        >
-                            {t('kitchen:ops.supplyOrders.excludedCount', {
-                                count: plan.excluded.length,
-                            })}
-                        </Text>
-                    )}
-                    {createFailed ? (
-                        <Text tone="danger" testID="kitchen-supply-order-create-failed">
-                            {t('kitchen:ops.supplyOrders.createFailed')}
-                        </Text>
-                    ) : null}
-                </Stack>
-            </Dialog>
+                        {/*
+                         * The two kinds of "left behind", named apart (§4). A row with a quantity
+                         * and nobody to buy it from is a job undone; a row somebody switched off
+                         * is not.
+                         */}
+                        {plan.unassigned.length === 0 ? null : (
+                            <Text
+                                tone="warning"
+                                variant="caption"
+                                testID="kitchen-supply-order-create-unassigned"
+                            >
+                                {t('kitchen:ops.supplyOrders.unassignedCount', {
+                                    count: plan.unassigned.length,
+                                })}
+                            </Text>
+                        )}
+                        {plan.excluded.length === 0 ? null : (
+                            <Text
+                                tone="secondary"
+                                variant="caption"
+                                testID="kitchen-supply-order-create-excluded"
+                            >
+                                {t('kitchen:ops.supplyOrders.excludedCount', {
+                                    count: plan.excluded.length,
+                                })}
+                            </Text>
+                        )}
+                        {createFailed ? (
+                            <Text tone="danger" testID="kitchen-supply-order-create-failed">
+                                {t('kitchen:ops.supplyOrders.createFailed')}
+                            </Text>
+                        ) : null}
+                    </Stack>
+                </Dialog>
 
-            <Dialog
-                open={confirmingRefresh}
-                onClose={() => {
-                    setConfirmingRefresh(false);
-                }}
-                title={t('kitchen:ops.supplyOrders.refreshConfirmTitle')}
-                description={t('kitchen:ops.supplyOrders.refreshConfirmBody')}
-                testID="kitchen-supply-order-refresh-confirm"
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-supply-order-refresh-cancel"
-                            variant="secondary"
-                            label={t('kitchen:ops.supplyOrders.refreshCancel')}
-                            onPress={() => {
-                                setConfirmingRefresh(false);
-                            }}
-                        />
-                        <Button
-                            testID="kitchen-supply-order-refresh-confirm-action"
-                            label={t('kitchen:ops.supplyOrders.refreshConfirm')}
-                            onPress={refresh}
-                        />
-                    </>
-                }
-            />
-        </Cascade>
+                <Dialog
+                    open={confirmingRefresh}
+                    onClose={() => {
+                        setConfirmingRefresh(false);
+                    }}
+                    title={t('kitchen:ops.supplyOrders.refreshConfirmTitle')}
+                    description={t('kitchen:ops.supplyOrders.refreshConfirmBody')}
+                    testID="kitchen-supply-order-refresh-confirm"
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-supply-order-refresh-cancel"
+                                variant="secondary"
+                                label={t('kitchen:ops.supplyOrders.refreshCancel')}
+                                onPress={() => {
+                                    setConfirmingRefresh(false);
+                                }}
+                            />
+                            <Button
+                                testID="kitchen-supply-order-refresh-confirm-action"
+                                label={t('kitchen:ops.supplyOrders.refreshConfirm')}
+                                onPress={refresh}
+                            />
+                        </>
+                    }
+                />
+            </Cascade>
+        </IssueTrayFrame>
     );
 }

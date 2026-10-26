@@ -39,6 +39,7 @@ import {
     testMembership,
     testOrganisation,
 } from '../../testing/session-fixtures.ts';
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { availabilityErrors, firstPackErrorColumn, packErrors } from './catalogue-row-editors.tsx';
@@ -907,11 +908,13 @@ describe('creating and editing a product', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId(`${secondRow}-code-input`), first.code);
         });
-        await untilVisible('kitchen-product-issues-errors');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-product-issues-errors-packs');
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
+            });
+            expect(screen.getByTestId('kitchen-product-issues-errors-packs')).toBeTruthy();
         });
-        expect(screen.getByTestId('kitchen-product-issues-errors')).toBeTruthy();
         expect(repositories.kitchenAdmin.updateProduct).not.toHaveBeenCalled();
 
         await act(async () => {
@@ -1267,20 +1270,25 @@ describe('creating and editing a product', () => {
         });
         await untilVisible('kitchen-product-name-en-input');
 
-        // Nothing is flagged before anyone has typed — a page of red on arrival is not help.
-        expect(screen.queryByTestId('kitchen-product-issues-errors')).toBeNull();
+        await withDeskWidth(async () => {
+            // Nothing is flagged before anyone has typed — a page of red on arrival is not help.
+            expect(screen.queryByTestId('kitchen-product-issues-errors')).toBeNull();
 
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
+            });
+
+            // One card per required field, in the tray.
+            await untilVisible('kitchen-product-issues-errors');
+            for (const key of ['name', 'category', 'packs']) {
+                expect(screen.getByTestId(`kitchen-product-issues-errors-${key}`)).toBeTruthy();
+            }
         });
-
-        await untilVisible('kitchen-product-issues-errors');
-        expect(screen.getByTestId('kitchen-product-issues-errors')).toHaveTextContent(/3 required/);
         expect(screen.getByTestId('kitchen-product-packs-required')).toBeTruthy();
         expect(repositories.kitchenAdmin.createProduct).not.toHaveBeenCalled();
     });
 
-    it('puts a refusal on the fields the server named and names them in the banner (BUG-06)', async () => {
+    it('puts a refusal on the fields the server named and names them in the tray (BUG-06)', async () => {
         const stored = product({ ordinal: 1, name: 'Pomegranate molasses' });
 
         await renderStubScreen(<ProductEditScreen product={String(stored.id)} />, {
@@ -1324,12 +1332,13 @@ describe('creating and editing a product', () => {
         expect(
             screen.getAllByTestId(/^kitchen-product-pack-editor-row-.*-quantity-error$/)[0],
         ).toHaveTextContent('The pack quantity must be greater than 0.');
-        const banner = screen.getByTestId('kitchen-product-issues-errors');
-        expect(banner).toHaveTextContent(/2 to fix/);
-        expect(banner).toHaveTextContent(/Item \(AR\)/);
-        expect(banner).toHaveTextContent(/Net quantity/);
-        // Every refusal was placed, so the generic callout has nothing left to say.
-        expect(screen.queryByTestId('kitchen-product-save-error')).toBeNull();
+        await withDeskWidth(async () => {
+            const group = screen.getByTestId('kitchen-product-issues-errors');
+            expect(group).toHaveTextContent(/Item \(AR\)/);
+            expect(group).toHaveTextContent(/Net quantity/);
+            // Every refusal was placed, so the generic card has nothing left to say.
+            expect(screen.queryByTestId('kitchen-product-save-error')).toBeNull();
+        });
     });
 
     it('publishes through the generic item endpoint, and the button waits for the gate', async () => {
@@ -1989,7 +1998,9 @@ describe('publishing a meal', () => {
         expect(repositories.kitchenAdmin.updateMeal).not.toHaveBeenCalled();
 
         // …and only now does the editor say it is public, and offer the way to go and look at it.
-        await untilVisible('kitchen-meal-published');
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-meal-published');
+        });
         await untilVisible('kitchen-meal-view-public');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-meal-view-public'));
@@ -2052,7 +2063,9 @@ describe('publishing a meal', () => {
                 lockVersion: 1,
             });
         });
-        await untilVisible('kitchen-meal-published');
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-meal-published');
+        });
     });
 
     it('gives a new meal no allergen label it did not earn', async () => {

@@ -12,6 +12,7 @@ import type { OrderId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Dimensions } from 'react-native';
 
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { TEST_BRANCH_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { OrdersScreen } from './screens/orders-screen.tsx';
@@ -548,6 +549,48 @@ describe('kitchen orders', () => {
         expect(screen.queryByTestId('kitchen-orders-confirm')).toBeNull();
         expect(screen.queryByTestId('kitchen-orders-fulfil')).toBeNull();
         expect(screen.queryByTestId('kitchen-orders-mark-delivered')).toBeNull();
+    });
+
+    it('says in the tray when somebody else moved the order first, and refreshes it from there', async () => {
+        const book = createOrderBook();
+        // At a desk's width, where the record's issue tray is docked and open.
+        await withDeskWidth(async () => {
+            await renderOrders(book);
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
+            });
+            const placed = book.orders().find((order) => order.status === 'placed');
+            if (placed === undefined) throw new Error('this test authored no placed order');
+
+            fireEvent.press(screen.getByTestId(`kitchen-orders-table-row-${String(placed.id)}`));
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-orders-confirm')).toBeTruthy();
+            });
+
+            // Another tablet confirms it while this record still holds the placed version.
+            book.confirmOrder({ id: placed.id, lockVersion: placed.lockVersion });
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-orders-confirm'));
+            });
+
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-orders-conflict')).toBeTruthy();
+            });
+            expect(screen.getByTestId('kitchen-orders-conflict')).toHaveTextContent(
+                /This order changed while you were working on it/,
+            );
+
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-orders-conflict-refresh'));
+            });
+            // Read again: the card goes, and the record stands where the other tablet left it.
+            await waitFor(() => {
+                expect(screen.queryByTestId('kitchen-orders-conflict')).toBeNull();
+            });
+            await waitFor(() => {
+                expect(screen.queryByTestId('kitchen-orders-confirm')).toBeNull();
+            });
+        });
     });
 
     async function openOrder(book: OrderBook, id: OrderId) {

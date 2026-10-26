@@ -18,14 +18,17 @@ import {
     Icon,
     InfoTip,
     Inline,
+    IssueTrayFrame,
     Select,
     Stack,
     Switch,
     Text,
     TextInputField,
+    useIssueGroup,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { SelectOption } from '@healthy360/design-system';
+import type { IssueCardItem, IssuePassedItem, SelectOption } from '@healthy360/design-system';
 import { MEAL_TYPES } from '@healthy360/domain-types';
 import type { MealId, MealType } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
@@ -60,7 +63,7 @@ import {
     CATALOGUE_VIEW_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
 } from './entity-registry.ts';
-import { GateRailCard } from './gate-rail-card.tsx';
+import { focusField, focusSection } from './field-focus.ts';
 import { withReturnTo } from '../../navigation/return-to.ts';
 import { useHostSave } from './host-save.ts';
 import type { RegisterHostSave } from './host-save.ts';
@@ -78,6 +81,7 @@ import {
 } from './format.ts';
 import { stockBlockersSentence } from './catalogue/recipe-columns.tsx';
 import { serverFieldErrors } from './server-field-errors.ts';
+import { useNudgeOnRefusal } from './tray-nudge.ts';
 import { useOptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from './use-unsaved-guard.ts';
 
@@ -343,6 +347,10 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
 
     const concurrency = useOptimisticConcurrency({ onReload: reload });
 
+    // The recipe page's tray, which this listing's cards join; a refused save opens it.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+
     const takeDayKey = (): string => {
         const key = `day-${String(nextDayOrdinal)}`;
         setNextDayOrdinal(nextDayOrdinal + 1);
@@ -513,9 +521,9 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
     }, [data, detailsDirty, daysDirty, t]);
 
     /**
-     * The same three predicates as {@link publishBlockers}, shaped for the gate rail: a labelled
-     * pass/fail row each, with the blocker sentence as the failing row's fix-note. Derived, never a
-     * fourth source of truth — the rail's dots and the publish button disable together.
+     * The same predicates as {@link publishBlockers}, shaped for the issue tray: a passed check, or
+     * a card saying in a few words what is missing and taking the reader to it. Derived, never a
+     * fourth source of truth — the cards and the publish button disable together.
      */
     const gateChecks = useMemo(
         () => [
@@ -523,25 +531,35 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                 key: 'name',
                 label: t('kitchen:meals.gateCheckName'),
                 passed: !isTranslationIncomplete(data?.name ?? details.name),
-                note: t('kitchen:meals.blockName'),
+                problem: t('kitchen:tray.mealNameMissing'),
+                fix: () => {
+                    focusField('kitchen-meal-name-ar');
+                },
             },
             {
                 key: 'saved',
                 label: t('kitchen:meals.gateCheckSaved'),
                 passed: !(detailsDirty || daysDirty),
-                note: t('kitchen:meals.blockUnsaved'),
+                problem: t('kitchen:tray.mealUnsaved'),
+                fix: undefined,
             },
             {
                 key: 'serviceDays',
                 label: t('kitchen:meals.gateCheckServiceDays'),
                 passed: (data?.availability.length ?? days.length) > 0,
-                note: t('kitchen:meals.blockServiceDays'),
+                problem: t('kitchen:tray.mealNoServiceDay'),
+                fix: () => {
+                    focusSection('kitchen-meal-availability');
+                },
             },
             {
                 key: 'stock',
                 label: t('kitchen:stockBlockers.gateCheck'),
                 passed: (data?.stockBlockers ?? []).length === 0,
-                note: stockBlockersSentence(data?.stockBlockers ?? [], 'publishBlocked', t),
+                problem: stockBlockersSentence(data?.stockBlockers ?? [], 'publishBlocked', t),
+                fix: () => {
+                    focusSection('kitchen-meal-production');
+                },
             },
         ],
         [data, details.name, days.length, detailsDirty, daysDirty, t],
@@ -589,8 +607,13 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
     useHostSave(onRegisterSave, async () => {
         if (data === undefined || !guard.isDirty) return true;
         if (!canManage) return false;
-        if (detailsDirty && (detailsBlocked || portion === null)) return false;
-        if (daysDirty && dayErrors.size > 0) return false;
+        if (
+            (detailsDirty && (detailsBlocked || portion === null)) ||
+            (daysDirty && dayErrors.size > 0)
+        ) {
+            nudgeTray();
+            return false;
+        }
         try {
             let lockVersion = data.meta.lockVersion;
             if (detailsDirty && portion !== null) {
@@ -662,42 +685,12 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
         );
     };
 
-    /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
-
-    if (record.isPending) {
-        return (
-            <FormSkeleton
-                testID="kitchen-meal-editor-loading"
-                partTestID="kitchen-meal"
-                sections={3}
-                heading={false}
-            />
-        );
-    }
-
-    const loadFailure = toFailure(record.error);
-    if (loadFailure !== null) {
-        return (
-            <Stack space="lg" testID="kitchen-meal-editor-screen">
-                <ErrorState
-                    testID="kitchen-meal-load-error"
-                    failure={loadFailure}
-                    title={t('kitchen:meals.loadErrorTitle')}
-                    onRetry={() => {
-                        void record.refetch();
-                    }}
-                    retrying={record.isFetching}
-                />
-            </Stack>
-        );
-    }
-
     const saveFailure = toFailure(update.error);
     const availabilityFailure = toFailure(setAvailability.error);
     /*
-     * What the server refused, put on the fields it named (BUG-06). This listing has no issue
-     * banner, so the callouts stay and carry only what no field shows. Net content is described
-     * only while it is drawn: a refusal of a hidden field belongs in the callout.
+     * What the server refused, put on the fields it named (BUG-06); what no field shows is a card.
+     * Net content is described only while it is drawn: a refusal of a hidden field belongs on the
+     * card.
      */
     const netContentDrawn = details.sellsFromFinishedStock && !unitsUnavailable;
     const server = serverFieldErrors(saveFailure, {
@@ -777,8 +770,134 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
     const publishRefusedByStatus = Object.keys(publishFields).includes('status');
     const quarantined = data?.meta.status === 'review_required';
     const isPublished = data?.meta.status === 'published';
+    const isRetired = data?.meta.status === 'retired';
+    useNudgeOnRefusal(update.error ?? setAvailability.error, nudgeTray);
 
-    return (
+    /*
+     * The listing's problems, as cards in the recipe page's tray under the tab's name: what stops
+     * publication while it is still a draft, then whatever a save was refused with.
+     */
+    const gateShown = data !== undefined && !isPublished && !isRetired;
+    const listingCards: IssueCardItem[] = [
+        ...(quarantined
+            ? [
+                  {
+                      key: 'quarantine',
+                      tone: 'warning' as const,
+                      label: t('kitchen:publish.quarantineTitle'),
+                      testID: 'kitchen-meal-quarantine',
+                  },
+              ]
+            : []),
+        ...(!gateShown
+            ? []
+            : gateChecks
+                  .filter((check) => !check.passed)
+                  .map((check) => ({
+                      key: `gate-${check.key}`,
+                      tone: 'warning' as const,
+                      label: check.problem,
+                      detail: t('kitchen:tray.groupPublish'),
+                      action: check.fix === undefined ? undefined : { onPress: check.fix },
+                      testID: `kitchen-meal-gate-check-${check.key}`,
+                  }))),
+        ...(saveFailure === null
+            ? []
+            : [
+                  {
+                      key: 'save-error',
+                      tone: 'danger' as const,
+                      label: t('kitchen:editor.saveError'),
+                      detail: server.unplaced ?? saveFailure.message,
+                      testID: 'kitchen-meal-save-error',
+                  },
+              ]),
+        ...(availabilityFailure === null
+            ? []
+            : [
+                  {
+                      key: 'availability-error',
+                      tone: 'danger' as const,
+                      label: t('kitchen:availability.saveError'),
+                      detail: dayServer.unplaced ?? availabilityFailure.message,
+                      action: {
+                          onPress: () => {
+                              focusSection('kitchen-meal-availability');
+                          },
+                      },
+                      testID: 'kitchen-meal-availability-error',
+                  },
+              ]),
+        ...(isRetired
+            ? [
+                  {
+                      key: 'retired',
+                      tone: 'info' as const,
+                      label: t('kitchen:meals.retiredTitle'),
+                      testID: 'kitchen-meal-retired',
+                  },
+              ]
+            : []),
+    ];
+    const listingPassed: IssuePassedItem[] = [
+        ...(isPublished
+            ? [
+                  {
+                      key: 'published',
+                      label: t('kitchen:tray.onPublicMenu'),
+                      testID: 'kitchen-meal-published',
+                  },
+              ]
+            : []),
+        ...(!gateShown
+            ? []
+            : gateChecks
+                  .filter((check) => check.passed)
+                  .map((check) => ({
+                      key: `gate-${check.key}`,
+                      label: check.label,
+                      testID: `kitchen-meal-gate-check-${check.key}`,
+                  }))),
+    ];
+    const listingGroup = {
+        key: 'selling',
+        title: t('kitchen:recipes.tabSelling'),
+        items: listingCards,
+        testID: 'kitchen-meal-issues',
+    };
+    const inHostTray = useIssueGroup(listingGroup, { passed: listingPassed });
+
+    /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
+
+    if (record.isPending) {
+        return (
+            <FormSkeleton
+                testID="kitchen-meal-editor-loading"
+                partTestID="kitchen-meal"
+                sections={3}
+                heading={false}
+            />
+        );
+    }
+
+    const loadFailure = toFailure(record.error);
+    if (loadFailure !== null) {
+        return (
+            <Stack space="lg" testID="kitchen-meal-editor-screen">
+                <ErrorState
+                    testID="kitchen-meal-load-error"
+                    failure={loadFailure}
+                    title={t('kitchen:meals.loadErrorTitle')}
+                    onRetry={() => {
+                        void record.refetch();
+                    }}
+                    retrying={record.isFetching}
+                />
+            </Stack>
+        );
+    }
+
+    const editor = (
         <EditorFrame
             testID="kitchen-meal-editor-screen"
             title={t('kitchen:meals.editTitle')}
@@ -800,32 +919,12 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
             embedded
             rail={
                 /*
-                 * Three cards, in the order the handoff stacks them: what stops publication, what
-                 * the recipe decided, and the number nobody outside the kitchen sees. All three
-                 * render on an unsaved meal too — an empty gate and two empty states say more about
-                 * what this record still needs than a blank column does.
+                 * Two cards: what the recipe decided, and the number nobody outside the kitchen
+                 * sees. Both render on an unsaved meal too — two empty states say more about what
+                 * this record still needs than a blank column does. What stops publication is in the
+                 * page's issue tray.
                  */
                 <Stack space="md">
-                    <GateRailCard
-                        testID="kitchen-meal-gate"
-                        title={t('kitchen:meals.gateTitle')}
-                        checks={gateChecks}
-                        action={
-                            !canManage || isPublished ? undefined : (
-                                <Button
-                                    testID="kitchen-meal-publish"
-                                    label={t('kitchen:publish.action')}
-                                    // The acceptance check: visibly disabled while any gate check
-                                    // fails. The dialog's confirm keeps the same guard.
-                                    disabled={publishBlockers.length > 0 || quarantined}
-                                    onPress={() => {
-                                        setShowPublish(true);
-                                    }}
-                                />
-                            )
-                        }
-                    />
-
                     {/*
                      * Derived and frozen — see the module note. The provenance line stays because
                      * "which version of the recipe is this label from?" is the question a person has
@@ -916,89 +1015,53 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                 </Stack>
             }
             primaryAction={
-                !canManage ? null : (
-                    <Inline space="xs" wrap justify="end">
-                        {isPublished ? (
-                            <Button
-                                testID="kitchen-meal-retire"
-                                variant="secondary"
-                                label={t('kitchen:meals.retire')}
-                                onPress={() => {
-                                    setShowRetire(true);
-                                }}
-                            />
-                        ) : // Publish lives on the gate rail now, beside the checks that gate it.
-                        null}
-                    </Inline>
-                )
-            }
-            banner={
-                <Stack space="sm">
-                    {quarantined ? (
-                        <Callout
-                            testID="kitchen-meal-quarantine"
-                            role="alert"
-                            tone="warning"
-                            title={t('kitchen:publish.quarantineTitle')}
-                            body={t('kitchen:publish.quarantineBody')}
-                        />
-                    ) : null}
-
+                <Inline space="xs" wrap justify="end">
                     {/*
                      * The proof, offered where it is useful. In this world the marketplace reads
                      * the same catalogue, so this link goes to the page a customer sees — which is
                      * the only way the person who pressed Publish can check what they published.
                      */}
                     {isPublished && data !== undefined ? (
-                        <Callout
-                            testID="kitchen-meal-published"
-                            role="note"
-                            tone="success"
-                            title={t('kitchen:meals.publishedTitle')}
-                            body={t('kitchen:meals.publishedBody')}
-                            actions={
-                                <Button
-                                    testID="kitchen-meal-view-public"
-                                    size="sm"
-                                    variant="secondary"
-                                    label={t('kitchen:meals.viewPublic')}
-                                    onPress={() => {
-                                        guard.intercept(() => {
-                                            // With the way back to this page, which the
-                                            // shop offers staff above its trail.
-                                            router.push(
-                                                withReturnTo(
-                                                    `/meals/${String(data.id)}`,
-                                                    returnHref,
-                                                ) as never,
-                                            );
-                                        });
-                                    }}
-                                />
-                            }
+                        <Button
+                            testID="kitchen-meal-view-public"
+                            variant="quiet"
+                            label={t('kitchen:meals.viewPublic')}
+                            onPress={() => {
+                                guard.intercept(() => {
+                                    // With the way back to this page, which the shop offers
+                                    // staff above its trail.
+                                    router.push(
+                                        withReturnTo(
+                                            `/meals/${String(data.id)}`,
+                                            returnHref,
+                                        ) as never,
+                                    );
+                                });
+                            }}
                         />
                     ) : null}
-
-                    {data?.meta.status === 'retired' ? (
-                        <Callout
-                            testID="kitchen-meal-retired"
-                            role="note"
-                            tone="info"
-                            title={t('kitchen:meals.retiredTitle')}
-                            body={t('kitchen:meals.retiredBody')}
+                    {!canManage ? null : isPublished ? (
+                        <Button
+                            testID="kitchen-meal-retire"
+                            variant="secondary"
+                            label={t('kitchen:meals.retire')}
+                            onPress={() => {
+                                setShowRetire(true);
+                            }}
                         />
-                    ) : null}
-
-                    {saveFailure === null ? null : (
-                        <Callout
-                            testID="kitchen-meal-save-error"
-                            role="alert"
-                            tone="danger"
-                            title={t('kitchen:editor.saveError')}
-                            body={server.unplaced ?? saveFailure.message}
+                    ) : (
+                        <Button
+                            testID="kitchen-meal-publish"
+                            label={t('kitchen:publish.action')}
+                            // Visibly disabled while any check in the tray fails. The dialog's
+                            // confirm keeps the same guard.
+                            disabled={publishBlockers.length > 0 || quarantined}
+                            onPress={() => {
+                                setShowPublish(true);
+                            }}
                         />
                     )}
-                </Stack>
+                </Inline>
             }
         >
             {/*
@@ -1106,6 +1169,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                 <FormSection
                     variant="card"
                     testID="kitchen-meal-production"
+                    nativeID="kitchen-meal-production"
                     title={t('kitchen:meals.sectionProduction')}
                 >
                     <Stack space="md">
@@ -1313,6 +1377,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                 <FormSection
                     variant="card"
                     testID="kitchen-meal-availability"
+                    nativeID="kitchen-meal-availability"
                     title={t('kitchen:availability.sectionServiceDays')}
                     aside={
                         <Text
@@ -1342,16 +1407,6 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                     }
                 >
                     <Stack space="md">
-                        {availabilityFailure === null ? null : (
-                            <Callout
-                                testID="kitchen-meal-availability-error"
-                                role="alert"
-                                tone="danger"
-                                title={t('kitchen:availability.saveError')}
-                                body={dayServer.unplaced ?? availabilityFailure.message}
-                            />
-                        )}
-
                         {days.length === 0 ? (
                             <EmptyState
                                 testID="kitchen-meal-availability-empty"
@@ -1579,5 +1634,22 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                 </Text>
             </Dialog>
         </EditorFrame>
+    );
+
+    // In the recipe page's tray when there is one; drawn alone, the listing keeps its own.
+    return inHostTray ? (
+        editor
+    ) : (
+        <IssueTrayFrame
+            tray={{
+                title: t('kitchen:tray.title'),
+                testID: 'kitchen-meal-tray',
+                groups: [listingGroup],
+                passed: listingPassed,
+            }}
+            controller={issueTray}
+        >
+            {editor}
+        </IssueTrayFrame>
     );
 }

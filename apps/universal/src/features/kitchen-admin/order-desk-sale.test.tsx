@@ -4,6 +4,7 @@ import type {
     KitchenOrder,
     MealAdmin,
     OrderDeskCustomer,
+    OrderDeskCustomerAddress,
     OrderDeskCustomerCreated,
     OrderDeskQuote,
     OrderDeskQuoteLine,
@@ -16,6 +17,7 @@ import type {
 import { KitchenId, MealId, OrderId, ProductId, ServiceAreaId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { todayIso } from '../commerce/dates.ts';
@@ -227,6 +229,7 @@ interface SaleStubs {
     readonly listProducts?: (filter?: ProductAdminFilter) => Promise<CursorPage<ProductAdmin>>;
     readonly listDeliveryAreas?: () => Promise<readonly ServiceArea[]>;
     readonly listServiceAreas?: () => Promise<CursorPage<ServiceArea>>;
+    readonly addCustomerAddress?: () => Promise<OrderDeskCustomerAddress>;
 }
 
 async function renderSale(stubs: SaleStubs = {}) {
@@ -262,6 +265,9 @@ async function renderSale(stubs: SaleStubs = {}) {
                 createCustomer:
                     stubs.createCustomer ??
                     (async () => ({ customer: customer(), possibleDuplicates: [] })),
+                ...(stubs.addCustomerAddress === undefined
+                    ? {}
+                    : { addCustomerAddress: stubs.addCustomerAddress }),
             },
         },
     });
@@ -616,25 +622,62 @@ describe('sale — a counter sale', () => {
                 ],
             });
         });
-        await renderSale({ placeSale });
-        await tapMeal();
-        await chooseKind('counter');
-        await waitFor(() => {
-            expect(screen.getByTestId(SUBMIT)).toBeEnabled();
-        });
+        // At a desk's width, where the issue tray the refusal is said in is docked and open.
+        await withDeskWidth(async () => {
+            await renderSale({ placeSale });
+            await tapMeal();
+            await chooseKind('counter');
+            await waitFor(() => {
+                expect(screen.getByTestId(SUBMIT)).toBeEnabled();
+            });
 
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(SUBMIT));
-        });
+            await act(async () => {
+                fireEvent.press(screen.getByTestId(SUBMIT));
+            });
 
-        await untilVisible('kitchen-order-desk-sale-refusal');
-        expect(screen.getByTestId('kitchen-order-desk-sale-refusal-cut_off_passed')).toBeTruthy();
-        expect(
-            screen.getByTestId('kitchen-order-desk-sale-refusal-channel_unavailable'),
-        ).toBeTruthy();
-        // The ticket is still there, nothing sold and nothing auto-retried.
-        expect(screen.getByTestId(MEAL_LINE)).toBeTruthy();
-        expect(placeSale).toHaveBeenCalledTimes(1);
+            await untilVisible('kitchen-order-desk-sale-refusal');
+            const refusal = screen.getByTestId('kitchen-order-desk-sale-refusal');
+            expect(refusal).toHaveTextContent(/The cut-off for that day has passed/);
+            expect(refusal).toHaveTextContent(/not offered at the counter/);
+            // The ticket is still there, nothing sold and nothing auto-retried.
+            expect(screen.getByTestId(MEAL_LINE)).toBeTruthy();
+            expect(placeSale).toHaveBeenCalledTimes(1);
+
+            // Changing the ticket clears it: the sale it was about is no longer the one on screen.
+            await act(async () => {
+                fireEvent.press(
+                    screen.getByTestId(`kitchen-order-desk-sale-line-${String(MEAL_ID)}-increment`),
+                );
+            });
+            await waitFor(() => {
+                expect(screen.queryByTestId('kitchen-order-desk-sale-refusal')).toBeNull();
+            });
+        });
+    });
+
+    it('says a total that could not be worked out in the tray, and charges nothing', async () => {
+        await withDeskWidth(async () => {
+            await renderSale({
+                quoteSale: async (request) => {
+                    // The shelf's one-of-each quote still answers; the ticket's does not.
+                    if (request.lines.some((line) => line.quantity !== '1')) {
+                        throw new ApiError({
+                            ...apiFailure('server'),
+                            message: 'Pricing is down.',
+                        });
+                    }
+                    return quoteFor(request);
+                },
+            });
+            await tapMeal(2);
+
+            await untilVisible('kitchen-order-desk-sale-quote-error');
+            expect(screen.getByTestId('kitchen-order-desk-sale-quote-error')).toHaveTextContent(
+                /The total could not be worked out/,
+            );
+            expect(screen.getByTestId('kitchen-order-desk-sale-total')).toHaveTextContent('—');
+            expect(screen.getByTestId(CHARGE)).toBeDisabled();
+        });
     });
 });
 
@@ -786,6 +829,72 @@ describe('sale — collections and deliveries', () => {
         expect(listServiceAreas).not.toHaveBeenCalled();
     });
 
+    it('warns in the tray when nobody delivers to the saved address, and Fix reopens it', async () => {
+        const served: ServiceArea = {
+            id: ServiceAreaId.unsafe('0198e3a0-0000-7000-8000-00000000a001'),
+            name: { en: 'Achrafieh', ar: 'الأشرفية' },
+            countryCode: 'LB',
+            parentName: null,
+            isActive: true,
+        };
+        await withDeskWidth(async () => {
+            await renderSale({
+                listDeliveryAreas: async () => [served],
+                addCustomerAddress: async () => ({
+                    id: 'test-0000-address-001',
+                    label: null,
+                    lineOne: 'Rue Sursock 12',
+                    lineTwo: null,
+                    deliveryAreaId: String(served.id),
+                    isDeliverable: false,
+                }),
+            });
+            await tapMeal();
+            await chooseKind('delivery');
+            await untilVisible('kitchen-order-desk-sale-customer');
+            await chooseLayla();
+            await untilVisible('kitchen-order-desk-sale-address-area-trigger');
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-address-area-trigger'));
+            });
+            await untilVisible(`kitchen-order-desk-sale-address-area-option-${String(served.id)}`);
+            await act(async () => {
+                fireEvent.press(
+                    screen.getByTestId(
+                        `kitchen-order-desk-sale-address-area-option-${String(served.id)}`,
+                    ),
+                );
+            });
+            await act(async () => {
+                fireEvent.changeText(
+                    screen.getByTestId('kitchen-order-desk-sale-address-line-one-input'),
+                    'Rue Sursock 12',
+                );
+            });
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-address-save'));
+            });
+
+            // Saved and folded, and the warning is the tray's, naming the street.
+            await untilVisible('kitchen-order-desk-sale-address-saved');
+            await untilVisible('kitchen-order-desk-sale-address-undeliverable');
+            expect(
+                screen.getByTestId('kitchen-order-desk-sale-address-undeliverable'),
+            ).toHaveTextContent(/Rue Sursock 12/);
+
+            // Fix opens the address again to change it; the warning stays until it is changed.
+            await act(async () => {
+                fireEvent.press(
+                    screen.getByTestId('kitchen-order-desk-sale-address-undeliverable-fix'),
+                );
+            });
+            await untilVisible('kitchen-order-desk-sale-address-line-one');
+            expect(
+                screen.getByTestId('kitchen-order-desk-sale-address-undeliverable'),
+            ).toBeTruthy();
+        });
+    });
+
     it('says so when this kitchen delivers nowhere yet', async () => {
         await renderSale({ listDeliveryAreas: async () => [] });
         await tapMeal();
@@ -897,43 +1006,57 @@ describe('sale — collections and deliveries', () => {
 
     it('surfaces possible duplicates as a warning with a way to use the other record', async () => {
         const other = customer({ id: 'test-0000-account-002', displayName: 'L. Haddad' });
-        await renderSale({
-            createCustomer: async () => ({
-                customer: customer({ id: 'test-0000-account-003' }),
-                possibleDuplicates: [other],
-            }),
-        });
-        await tapMeal();
-        await chooseKind('pickup');
-        await untilVisible('kitchen-order-desk-sale-customer');
+        // At a desk's width, where the issue tray the warning is said in is docked and open.
+        await withDeskWidth(async () => {
+            await renderSale({
+                createCustomer: async () => ({
+                    customer: customer({ id: 'test-0000-account-003' }),
+                    possibleDuplicates: [other],
+                }),
+            });
+            await tapMeal();
+            await chooseKind('pickup');
+            await untilVisible('kitchen-order-desk-sale-customer');
 
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-customer-new'));
-        });
-        await untilVisible('kitchen-order-desk-sale-customer-form');
-        await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId('kitchen-order-desk-sale-customer-name-input'),
-                'Layla Haddad',
-            );
-            fireEvent.changeText(
-                screen.getByTestId('kitchen-order-desk-sale-customer-phone-input'),
-                '+9613000111',
-            );
-        });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-customer-create'));
-        });
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-customer-new'));
+            });
+            await untilVisible('kitchen-order-desk-sale-customer-form');
+            await act(async () => {
+                fireEvent.changeText(
+                    screen.getByTestId('kitchen-order-desk-sale-customer-name-input'),
+                    'Layla Haddad',
+                );
+                fireEvent.changeText(
+                    screen.getByTestId('kitchen-order-desk-sale-customer-phone-input'),
+                    '+9613000111',
+                );
+            });
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-customer-create'));
+            });
 
-        // A warning, never a refusal — a household genuinely shares a telephone — held open so it
-        // is read, with the other record one press away.
-        await untilVisible('kitchen-order-desk-sale-customer-duplicates');
-        expect(
-            screen.getByTestId(`kitchen-order-desk-sale-customer-duplicate-${other.id}-choose`),
-        ).toBeTruthy();
-        // The new customer was chosen straight away, so the ticket no longer asks for one.
-        await settle();
-        expect(screen.queryByTestId('kitchen-order-desk-sale-shortfall')).toBeNull();
+            // A warning, never a refusal — a household genuinely shares a telephone — in the
+            // tray, with the other record one press away.
+            const card = `kitchen-order-desk-sale-customer-duplicate-${other.id}`;
+            await untilVisible(card);
+            expect(screen.getByTestId(card)).toHaveTextContent(/L\. Haddad/);
+            // The new customer was chosen straight away, so the ticket no longer asks for one.
+            await settle();
+            expect(screen.queryByTestId('kitchen-order-desk-sale-shortfall')).toBeNull();
+
+            // Using the other record is the fix: the sale is now theirs, and the warning goes.
+            await act(async () => {
+                fireEvent.press(screen.getByTestId(`${card}-choose`));
+            });
+            await untilVisible('kitchen-order-desk-sale-customer-chosen');
+            expect(screen.getByTestId('kitchen-order-desk-sale-customer-chosen')).toHaveTextContent(
+                /L\. Haddad/,
+            );
+            await waitFor(() => {
+                expect(screen.queryByTestId(card)).toBeNull();
+            });
+        });
     });
 
     async function openNewCustomer(createCustomer?: () => Promise<OrderDeskCustomerCreated>) {

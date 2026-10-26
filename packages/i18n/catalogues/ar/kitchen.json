@@ -463,6 +463,8 @@
             "notStocked": "غير مخزَّن"
         },
         "supplyOrders": {
+            "cancelFailed": "تعذّر إلغاء الطلب.",
+            "issueFailed": "تعذّر إصدار الطلب.",
             "title": "طلبات التوريد",
             "subtitle": "ما ينقص هذا الفرع، والطلب الذي يعالجه.",
             "metrics": {
@@ -5129,6 +5131,14 @@
         "savedBackNamed": "تم الحفظ. عدت إلى {{name}}."
     },
     "tray": {
+        "noChannel": "لا توجد قناة بيع",
+        "groupIssue": "يمنع الإصدار",
+        "groupNote": "ملاحظة",
+        "onPublicMenu": "على قائمة الطعام العامة",
+        "mealNoServiceDay": "لا يوم خدمة بعد",
+        "mealUnsaved": "تغييرات غير محفوظة",
+        "mealNameMissing": "الاسم العربي مفقود",
+        "groupFailed": "لم يكتمل",
         "title": "للإصلاح",
         "groupSave": "يمنع الحفظ",
         "groupPublish": "يمنع النشر",

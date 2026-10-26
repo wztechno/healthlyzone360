@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8726 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8736 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -5446,6 +5446,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.cancelConfirm'
     | 'ops.supplyOrders.cancelConfirmBody'
     | 'ops.supplyOrders.cancelConfirmTitle'
+    | 'ops.supplyOrders.cancelFailed'
     | 'ops.supplyOrders.cancelKeep'
     | 'ops.supplyOrders.cancelOrder'
     | 'ops.supplyOrders.cancelledNoticeBody'
@@ -5486,6 +5487,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.issueConfirm'
     | 'ops.supplyOrders.issueConfirmBody'
     | 'ops.supplyOrders.issueConfirmTitle'
+    | 'ops.supplyOrders.issueFailed'
     | 'ops.supplyOrders.issueKeepEditing'
     | 'ops.supplyOrders.issuedNoticeBody'
     | 'ops.supplyOrders.issuedNoticeTitle'
@@ -6657,15 +6659,23 @@ export interface NamespaceKeys {
     | 'tray.forYourRecipe'
     | 'tray.fromStockGaps'
     | 'tray.groupCheck'
+    | 'tray.groupFailed'
     | 'tray.groupForRecipe'
     | 'tray.groupHeadsUp'
+    | 'tray.groupIssue'
+    | 'tray.groupNote'
     | 'tray.groupPublish'
     | 'tray.groupSave'
     | 'tray.groupStockGap'
+    | 'tray.mealNameMissing'
+    | 'tray.mealNoServiceDay'
+    | 'tray.mealUnsaved'
     | 'tray.need.allergens'
     | 'tray.need.nutrition'
     | 'tray.need.price'
     | 'tray.need.unit'
+    | 'tray.noChannel'
+    | 'tray.onPublicMenu'
     | 'tray.passed.allergens'
     | 'tray.passed.nutrition'
     | 'tray.passed.price'
@@ -14190,6 +14200,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.cancelConfirm',
   'kitchen:ops.supplyOrders.cancelConfirmBody',
   'kitchen:ops.supplyOrders.cancelConfirmTitle',
+  'kitchen:ops.supplyOrders.cancelFailed',
   'kitchen:ops.supplyOrders.cancelKeep',
   'kitchen:ops.supplyOrders.cancelOrder',
   'kitchen:ops.supplyOrders.cancelledNoticeBody',
@@ -14230,6 +14241,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.issueConfirm',
   'kitchen:ops.supplyOrders.issueConfirmBody',
   'kitchen:ops.supplyOrders.issueConfirmTitle',
+  'kitchen:ops.supplyOrders.issueFailed',
   'kitchen:ops.supplyOrders.issueKeepEditing',
   'kitchen:ops.supplyOrders.issuedNoticeBody',
   'kitchen:ops.supplyOrders.issuedNoticeTitle',
@@ -15401,15 +15413,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:tray.forYourRecipe',
   'kitchen:tray.fromStockGaps',
   'kitchen:tray.groupCheck',
+  'kitchen:tray.groupFailed',
   'kitchen:tray.groupForRecipe',
   'kitchen:tray.groupHeadsUp',
+  'kitchen:tray.groupIssue',
+  'kitchen:tray.groupNote',
   'kitchen:tray.groupPublish',
   'kitchen:tray.groupSave',
   'kitchen:tray.groupStockGap',
+  'kitchen:tray.mealNameMissing',
+  'kitchen:tray.mealNoServiceDay',
+  'kitchen:tray.mealUnsaved',
   'kitchen:tray.need.allergens',
   'kitchen:tray.need.nutrition',
   'kitchen:tray.need.price',
   'kitchen:tray.need.unit',
+  'kitchen:tray.noChannel',
+  'kitchen:tray.onPublicMenu',
   'kitchen:tray.passed.allergens',
   'kitchen:tray.passed.nutrition',
   'kitchen:tray.passed.price',

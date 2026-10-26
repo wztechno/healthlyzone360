@@ -165,7 +165,15 @@ it('replaces the prefill, splits a second lot, and holds an unverified lot until
     await waitFor(() => {
         expect(screen.getByTestId('kitchen-receive-line-1-quantity-input').props.value).toBe('25');
     });
-    expect(screen.getByTestId('kitchen-receive-lot-check')).toBeTruthy();
+    // The tray's card for that line (the window is a desk's, so the tray is docked and open).
+    expect(screen.getByTestId('kitchen-receive-lot-check-1-label')).toHaveTextContent(
+        'Line 2 — check the lot',
+    );
+    jest.mocked(focusField).mockClear();
+    await act(async () => {
+        fireEvent.press(screen.getByTestId('kitchen-receive-lot-check-1-fix'));
+    });
+    expect(focusField).toHaveBeenCalledWith('kitchen-receive-line-1-trace-lot-checked');
     // 25 + 25 of 50: neither short nor over, so nothing asks to close the order short.
     expect(screen.queryByTestId('kitchen-receive-close-short')).toBeNull();
     expect(screen.queryByTestId('kitchen-receive-over-receipt')).toBeNull();
@@ -181,7 +189,7 @@ it('replaces the prefill, splits a second lot, and holds an unverified lot until
         fireEvent.press(screen.getByTestId('kitchen-receive-line-1-trace-lot-checked-control'));
     });
     await waitFor(() => {
-        expect(screen.queryByTestId('kitchen-receive-lot-check')).toBeNull();
+        expect(screen.queryByTestId('kitchen-receive-lot-check-1')).toBeNull();
     });
 
     await act(async () => {

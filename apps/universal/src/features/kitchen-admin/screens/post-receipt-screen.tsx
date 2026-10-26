@@ -15,14 +15,22 @@ import {
     FormSection,
     FormSkeleton,
     Icon,
+    InfoTip,
+    IssueTrayFrame,
     PickerField,
     Select,
     Stack,
     Text,
     TextInputField,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { FormIssueItem, SelectOption } from '@healthy360/design-system';
+import type {
+    FormIssueItem,
+    IssueCardItem,
+    IssueTrayContent,
+    SelectOption,
+} from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -50,7 +58,8 @@ import {
 } from '../receive-delivery-model.ts';
 import type { ScannedPack } from '../receive-delivery-model.ts';
 import { ReceiveLineTrace } from '../receive-line-trace.tsx';
-import { ReceiveScanBar } from '../receive-scan-bar.tsx';
+import { ReceiveScanBar, placedScanNotice } from '../receive-scan-bar.tsx';
+import type { PlacedScan } from '../receive-scan-bar.tsx';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
@@ -80,6 +89,7 @@ import { RecordFormOpening, focusFirstRefusal } from '../record-form-opening.tsx
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';
+import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
@@ -87,7 +97,6 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * ```
  * Post a goods receipt  ⚠ Unsaved                                     [ Cancel ] [ Post receipt ]
- * ✖ 2 things to fix before this can post  [ Line 2 — quantity ] [ Date received — after today ]
  * ┌ WHAT ARRIVED ──────────────────────────────────────┐  ┌ THIS RECEIPT ────────────┐
  * │ (•) A market purchase    ( ) A delivery against an order │ Kind      Market purchase │
  * └────────────────────────────────────────────────────┘  │ Supplier  Beqaa Fresh     │
@@ -95,11 +104,14 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * │ Supplier [ BEQAA — Beqaa Fresh ▾ ]  Delivery note [ ] │ ─────────────────────────  │
  * │ + New supplier                                      │  │ Stock at Beirut rises by │
  * │ Invoice number [ Not arrived yet ]  Date received [ ] │ Chicken breast   +24 Kg  │
- * └────────────────────────────────────────────────────┘  │ ⚠ 1 line has no price…   │
- * ┌ LINES  3 lines · 1 without a price ─────────────────┐  │ ─────────────────────────  │
+ * └────────────────────────────────────────────────────┘  │ ─────────────────────────  │
+ * ┌ LINES  3 lines · 1 without a price ─────────────────┐  │                          │
  * │ Stock item   Quantity  Unit  Unit price  Line total │  └──────────────────────────┘
  * └────────────────────────────────────────────────────┘
  * ```
+ *
+ * What stops the post, a refused post, the variance to declare, the lines without a price and what
+ * the last scan had to say are cards in the page's issue tray, beside the page from `lg`.
  *
  * ## One page for both ways goods arrive
  *
@@ -125,10 +137,10 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * ## Refused on press, not before
  *
- * Post is never disabled for an incomplete form. Pressing it names what stops it in the banner
- * under the title — each chip takes the reader to its field — and marks the fields, which a greyed
- * button could not: it only says *no*, never *why*. A price is not one of those things. A line with
- * no price posts and waits in Prices to finish, and the aside says so while there is one.
+ * Post is never disabled for an incomplete form. Pressing it names what stops it in the issue tray
+ * — each card's Fix takes the reader to its field — and marks the fields, which a greyed button
+ * could not: it only says *no*, never *why*. A price is not one of those things. A line with no
+ * price posts and waits in Prices to finish, and the tray says so under "Check" while there is one.
  *
  * What is *incomplete* waits for the press; what is *wrong* does not. A quantity typed as `-5` or a
  * price that does not read is marked the moment it is typed, in the slot under the field, because
@@ -283,8 +295,16 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
     const [newSupplierEmail, setNewSupplierEmail] = useState('');
     const [newSupplierPhone, setNewSupplierPhone] = useState('');
 
-    /** What the last scan's placement has to say — a lot kept apart, a pack left to type. */
-    const [scanNotice, setScanNotice] = useState<string | null>(null);
+    // The page's issue tray; a refused post opens it.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+    useNudgeOnRefusal(postReceipt.error, nudgeTray);
+
+    /**
+     * What the last scan's placement has to say — a lot kept apart, a pack left to type — with the
+     * row it landed on and that row's quantity then, so the notice goes once the quantity is typed.
+     */
+    const [scanPlaced, setScanPlaced] = useState<PlacedScan | null>(null);
     /** Lots and dates: shown once a row has any, until somebody folds them away. */
     const [showTrace, setShowTrace] = useState<boolean | null>(null);
 
@@ -579,12 +599,15 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
         });
         latestLines.current = placed.drafts;
         edited(setLines)(placed.drafts);
-        setScanNotice(
-            placed.keptApart
-                ? t('kitchen:barcodes.keptApart')
-                : placed.needsQuantity
-                  ? t('kitchen:barcodes.typeQuantity')
-                  : null,
+        setScanPlaced(
+            placed.keptApart || placed.needsQuantity
+                ? {
+                      kind: placed.keptApart ? 'keptApart' : 'typeQuantity',
+                      key: placed.key,
+                      quantity:
+                          placed.drafts.find((line) => line.key === placed.key)?.quantity ?? '',
+                  }
+                : null,
         );
         if (placed.needsQuantity) {
             focusField(stockItemLineFieldId(LINES_ID, placed.key, 'quantity'));
@@ -868,9 +891,10 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
     function attemptPost() {
         setSubmitted(true);
         if (issues.length > 0) {
-            // The banner names every problem; the first one with a field is where Post takes you.
+            // The tray names every problem; the first one with a field is where Post takes you.
             const first = issues.find((issue) => issue.fieldId !== undefined);
             if (first?.fieldId !== undefined) focusField(first.fieldId);
+            nudgeTray();
             return;
         }
         if (branchId === null) return;
@@ -996,371 +1020,472 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
         ...server.items,
     ];
 
+    const scanNotice = placedScanNotice(scanPlaced, lines, t, (key) =>
+        stockItemLineFieldId(LINES_ID, key, 'quantity'),
+    );
+
+    /*
+     * The page's issue tray. What stops the post is the opening's (`RecordFormOpening` registers
+     * it under "Blocks save"), and the last scan's word is the scan bar's. A refused post keeps the
+     * server's own words — and goes once the opening names every field it refused (BUG-06).
+     */
+    const failedCards: IssueCardItem[] =
+        postFailure === null || (server.unplaced === null && server.items.length > 0)
+            ? []
+            : [
+                  {
+                      key: 'post-error',
+                      tone: 'danger',
+                      label: t('kitchen:ops.procurement.postFailed'),
+                      detail: server.unplaced ?? postFailure.message,
+                      testID: 'kitchen-procurement-post-error',
+                  },
+              ];
+    // §3.5: a delivery that differs from its order is declared — confirmed and explained — and the
+    // card stays until both are given.
+    const varianceOpen =
+        needsVarianceNote && ((hasOverReceipt && !overConfirmed) || varianceNote.trim() === '');
+    const firstUnpriced = canViewCosts
+        ? risingLines.find((line) => readAmount(line.unitPrice ?? '') === null)
+        : undefined;
+    const checkCards: IssueCardItem[] = [
+        ...(varianceOpen
+            ? [
+                  {
+                      key: 'variance',
+                      tone: 'warning' as const,
+                      label: t(
+                          hasOverReceipt
+                              ? 'kitchen:ops.receiving.overReceiptTitle'
+                              : 'kitchen:ops.procurement.unplannedTitle',
+                      ),
+                      action: {
+                          onPress: () => {
+                              focusField(
+                                  hasOverReceipt && !overConfirmed
+                                      ? 'kitchen-procurement-post-over-confirm'
+                                      : 'kitchen-procurement-post-variance-note',
+                              );
+                          },
+                      },
+                      testID: 'kitchen-procurement-post-variance',
+                  },
+              ]
+            : []),
+        // A line with no price still posts; it waits in Prices, so it is a check, not a blocker.
+        ...(firstUnpriced === undefined
+            ? []
+            : [
+                  {
+                      key: 'unpriced',
+                      tone: 'warning' as const,
+                      label: t('kitchen:ops.production.uncostedLines', { count: unpricedCount }),
+                      action: {
+                          onPress: () => {
+                              focusField(
+                                  stockItemLineFieldId(LINES_ID, firstUnpriced.key, 'unitPrice'),
+                              );
+                          },
+                      },
+                      testID: 'kitchen-post-receipt-unpriced-note',
+                  },
+              ]),
+    ];
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-post-receipt-tray',
+        groups: [
+            { key: 'save', title: t('kitchen:tray.groupSave'), items: [] },
+            { key: 'failed', title: t('kitchen:tray.groupFailed'), items: failedCards },
+            { key: 'check', title: t('kitchen:tray.groupCheck'), items: checkCards },
+        ],
+    };
+
     return (
-        <Cascade space="md" testID="kitchen-post-receipt-screen">
-            <RecordFormOpening
-                testID="kitchen-post-receipt-screen"
-                title={title}
-                dirty={guard.isDirty}
-                errors={{
-                    summary: t('kitchen:ops.procurement.issuesSummary', {
-                        count: issueItems.length,
-                    }),
-                    items: issueItems,
-                }}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-procurement-post-cancel"
-                            variant="secondary"
-                            label={t('kitchen:editor.cancel')}
-                            onPress={() => {
-                                guard.intercept(back.leave);
-                            }}
-                        />
-                        <Button
-                            testID="kitchen-procurement-post-confirm"
-                            label={postLabel}
-                            loading={postReceipt.isPending}
-                            disabled={loading || postReceipt.isPending}
-                            onPress={attemptPost}
-                        />
-                    </>
-                }
-            />
-
-            {loading ? (
-                <FormSkeleton
-                    testID="kitchen-post-receipt-loading"
-                    heading={false}
-                    sections={3}
-                    fields={2}
-                />
-            ) : (
-                <View
-                    ref={Platform.OS === 'web' ? port.ref : undefined}
-                    onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
-                    className={
-                        sideBySide
-                            ? 'z-auto flex-row items-start gap-base'
-                            : 'z-auto flex-col gap-base'
-                    }
-                >
-                    {/* The form is the row's filler beside the fixed summary. */}
-                    <View className="z-auto min-w-0 flex-1 flex-col gap-base">
-                        {/* Gone once the banner names every refused field (BUG-06). */}
-                        {postFailure === null ||
-                        (server.unplaced === null && server.items.length > 0) ? null : (
-                            <Callout
-                                testID="kitchen-procurement-post-error"
-                                tone="danger"
-                                role="alert"
-                                title={t('kitchen:ops.procurement.postFailed')}
-                                body={server.unplaced ?? postFailure.message}
-                            />
-                        )}
-
-                        <FormSection
-                            first
-                            variant="card"
-                            testID="kitchen-post-receipt-arrival-section"
-                            title={t('kitchen:ops.procurement.arrivalSection')}
-                        >
-                            <ChoiceTiles<ArrivalMode>
-                                testID="kitchen-post-receipt-arrival"
-                                label={t('kitchen:ops.procurement.arrivalSection')}
-                                tiles={[
-                                    {
-                                        value: 'market',
-                                        title: t('kitchen:ops.procurement.modeMarketTitle'),
-                                        body: t('kitchen:ops.procurement.modeMarketBody'),
-                                    },
-                                    {
-                                        value: 'order',
-                                        title: t('kitchen:ops.procurement.modeOrderTitle'),
-                                        body: t('kitchen:ops.procurement.modeOrderBody'),
-                                    },
-                                ]}
-                                value={mode}
-                                onChange={(next) => {
-                                    setMode(next);
-                                    guard.markDirty();
+        <IssueTrayFrame tray={loading ? null : trayContent} controller={issueTray}>
+            <Cascade space="md" testID="kitchen-post-receipt-screen">
+                <RecordFormOpening
+                    testID="kitchen-post-receipt-screen"
+                    title={title}
+                    dirty={guard.isDirty}
+                    errors={{
+                        summary: t('kitchen:ops.procurement.issuesSummary', {
+                            count: issueItems.length,
+                        }),
+                        items: issueItems,
+                    }}
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-procurement-post-cancel"
+                                variant="secondary"
+                                label={t('kitchen:editor.cancel')}
+                                onPress={() => {
+                                    guard.intercept(back.leave);
                                 }}
                             />
-                        </FormSection>
+                            <Button
+                                testID="kitchen-procurement-post-confirm"
+                                label={postLabel}
+                                loading={postReceipt.isPending}
+                                disabled={loading || postReceipt.isPending}
+                                onPress={attemptPost}
+                            />
+                        </>
+                    }
+                />
 
-                        <FormSection
-                            first
-                            variant="card"
-                            testID="kitchen-post-receipt-details"
-                            title={t('kitchen:ops.procurement.receiptSection')}
-                        >
-                            {/* The design's two 280px tracks, the order spanning both above them. */}
-                            <Stack space="md">
-                                {orderMode ? (
-                                    orders.isPending ? (
-                                        <Text variant="caption" tone="secondary">
-                                            {t('kitchen:ops.procurement.ordersLoading')}
-                                        </Text>
-                                    ) : orderRows.length === 0 ? (
-                                        <Callout
-                                            testID="kitchen-procurement-post-orders-empty"
-                                            tone="info"
-                                            title={t('kitchen:ops.receiving.emptyTitle')}
-                                        />
-                                    ) : (
-                                        <View className="max-w-[580px]">
-                                            <Select
-                                                testID="kitchen-procurement-post-order"
-                                                id="kitchen-procurement-post-order"
-                                                label={t('kitchen:ops.procurement.fieldOrder')}
-                                                size="sm"
-                                                options={orderOptions}
-                                                value={orderId}
-                                                onChange={chooseOrder}
-                                                fullWidth
-                                                {...(submitted && order === null
-                                                    ? {
-                                                          error: t(
-                                                              'kitchen:ops.procurement.issueNoOrder',
-                                                          ),
-                                                      }
-                                                    : {})}
-                                                {...server.flag('purchase_order_id')}
-                                                searchable
+                {loading ? (
+                    <FormSkeleton
+                        testID="kitchen-post-receipt-loading"
+                        heading={false}
+                        sections={3}
+                        fields={2}
+                    />
+                ) : (
+                    <View
+                        ref={Platform.OS === 'web' ? port.ref : undefined}
+                        onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
+                        className={
+                            sideBySide
+                                ? 'z-auto flex-row items-start gap-base'
+                                : 'z-auto flex-col gap-base'
+                        }
+                    >
+                        {/* The form is the row's filler beside the fixed summary. */}
+                        <View className="z-auto min-w-0 flex-1 flex-col gap-base">
+                            <FormSection
+                                first
+                                variant="card"
+                                testID="kitchen-post-receipt-arrival-section"
+                                title={t('kitchen:ops.procurement.arrivalSection')}
+                            >
+                                <ChoiceTiles<ArrivalMode>
+                                    testID="kitchen-post-receipt-arrival"
+                                    label={t('kitchen:ops.procurement.arrivalSection')}
+                                    tiles={[
+                                        {
+                                            value: 'market',
+                                            title: t('kitchen:ops.procurement.modeMarketTitle'),
+                                            body: t('kitchen:ops.procurement.modeMarketBody'),
+                                        },
+                                        {
+                                            value: 'order',
+                                            title: t('kitchen:ops.procurement.modeOrderTitle'),
+                                            body: t('kitchen:ops.procurement.modeOrderBody'),
+                                        },
+                                    ]}
+                                    value={mode}
+                                    onChange={(next) => {
+                                        setMode(next);
+                                        guard.markDirty();
+                                    }}
+                                />
+                            </FormSection>
+
+                            <FormSection
+                                first
+                                variant="card"
+                                testID="kitchen-post-receipt-details"
+                                title={t('kitchen:ops.procurement.receiptSection')}
+                            >
+                                {/* The design's two 280px tracks, the order spanning both above them. */}
+                                <Stack space="md">
+                                    {orderMode ? (
+                                        orders.isPending ? (
+                                            <Text variant="caption" tone="secondary">
+                                                {t('kitchen:ops.procurement.ordersLoading')}
+                                            </Text>
+                                        ) : orderRows.length === 0 ? (
+                                            <Callout
+                                                testID="kitchen-procurement-post-orders-empty"
+                                                tone="info"
+                                                title={t('kitchen:ops.receiving.emptyTitle')}
                                             />
-                                        </View>
-                                    )
-                                ) : null}
-                                <FormGrid maxColumns={2} testID="kitchen-post-receipt-details-grid">
-                                    <Stack space="xs">
-                                        <Select
-                                            testID="kitchen-procurement-post-supplier"
-                                            id="kitchen-procurement-post-supplier"
-                                            {...server.flag('supplier_id')}
-                                            label={t('kitchen:ops.procurement.fieldSupplier')}
-                                            size="sm"
-                                            placeholder={t(
-                                                'kitchen:ops.procurement.supplierPlaceholder',
-                                            )}
-                                            options={supplierOptions}
-                                            value={shownSupplierId}
-                                            onChange={edited(setSupplierId)}
-                                            // An order brings its supplier; the paperwork is this
-                                            // delivery's.
-                                            disabled={orderMode}
-                                            searchable
-                                        />
-                                        {/*
-                                         * "New supplier" belongs to the picker above it: a ghost
-                                         * button under the control it feeds is the shape of an
-                                         * action *about* that field.
-                                         */}
-                                        {canManage && !orderMode ? (
-                                            <View className="flex-row">
-                                                <Button
-                                                    testID="kitchen-procurement-post-new-supplier"
+                                        ) : (
+                                            <View className="max-w-[580px]">
+                                                <Select
+                                                    testID="kitchen-procurement-post-order"
+                                                    id="kitchen-procurement-post-order"
+                                                    label={t('kitchen:ops.procurement.fieldOrder')}
                                                     size="sm"
-                                                    variant="ghost"
-                                                    iconStart={<Icon name="plus" size="sm" />}
-                                                    label={t('kitchen:ops.procurement.newSupplier')}
-                                                    onPress={() => {
-                                                        setCreatingSupplier(true);
-                                                    }}
+                                                    options={orderOptions}
+                                                    value={orderId}
+                                                    onChange={chooseOrder}
+                                                    fullWidth
+                                                    {...(submitted && order === null
+                                                        ? {
+                                                              error: t(
+                                                                  'kitchen:ops.procurement.issueNoOrder',
+                                                              ),
+                                                          }
+                                                        : {})}
+                                                    {...server.flag('purchase_order_id')}
+                                                    searchable
                                                 />
                                             </View>
-                                        ) : null}
-                                    </Stack>
-                                    <TextInputField
-                                        testID="kitchen-procurement-post-document-ref"
-                                        id="kitchen-procurement-post-document-ref"
-                                        {...server.flag('document_ref')}
-                                        label={t('kitchen:ops.procurement.fieldDeliveryNote')}
-                                        placeholder={t(
-                                            'kitchen:ops.procurement.deliveryNotePlaceholder',
-                                        )}
-                                        size="sm"
-                                        value={documentRef}
-                                        onChangeText={edited(setDocumentRef)}
-                                    />
-                                    <TextInputField
-                                        testID="kitchen-procurement-post-invoice-ref"
-                                        id="kitchen-procurement-post-invoice-ref"
-                                        {...server.flag('supplier_invoice_ref')}
-                                        label={t('kitchen:ops.procurement.fieldInvoiceRef')}
-                                        placeholder={t(
-                                            'kitchen:ops.procurement.invoicePlaceholder',
-                                        )}
-                                        size="sm"
-                                        value={invoiceRef}
-                                        onChangeText={edited(setInvoiceRef)}
-                                    />
-                                    {/*
-                                     * The compact date control — a 28px box with the browser's own
-                                     * calendar behind its glyph. It takes no `max`, so a date after
-                                     * today is refused here, where it was typed.
-                                     */}
-                                    <PickerField
-                                        kind="date"
-                                        testID="kitchen-procurement-post-received-on"
-                                        label={t('kitchen:ops.procurement.fieldReceivedOn')}
-                                        value={receivedOn}
-                                        error={
-                                            receivedInFuture
-                                                ? t('kitchen:ops.procurement.receivedOnFuture')
-                                                : server.errorFor('received_on')
-                                        }
-                                        onChange={(next) => {
-                                            setReceivedOn(next);
-                                            guard.markDirty();
-                                        }}
-                                    />
-                                </FormGrid>
-                            </Stack>
-                        </FormSection>
-
-                        <FormSection
-                            first
-                            variant="card"
-                            testID="kitchen-post-receipt-lines"
-                            title={t('kitchen:ops.procurement.linesSection')}
-                            aside={
-                                <View className="min-w-0 flex-1 flex-row items-center justify-between gap-tight">
-                                    <Text
-                                        variant="caption"
-                                        tone="secondary"
-                                        testID="kitchen-post-receipt-line-count"
+                                        )
+                                    ) : null}
+                                    <FormGrid
+                                        maxColumns={2}
+                                        testID="kitchen-post-receipt-details-grid"
                                     >
-                                        {unpricedCount > 0
-                                            ? t('kitchen:ops.procurement.lineCountUnpriced', {
-                                                  lines: t('kitchen:ops.procurement.lineCount', {
-                                                      count: lines.length,
-                                                  }),
-                                                  count: unpricedCount,
-                                              })
-                                            : t('kitchen:ops.procurement.lineCount', {
-                                                  count: lines.length,
-                                              })}
-                                    </Text>
-                                    {canViewCosts ? null : (
-                                        <Badge
-                                            variant="label"
-                                            tone="neutral"
-                                            icon={null}
-                                            testID="kitchen-post-receipt-quantities-only"
-                                            label={t('kitchen:ops.procurement.quantitiesOnly')}
-                                        />
-                                    )}
-                                </View>
-                            }
-                        >
-                            <Stack space="md">
-                                <ReceiveScanBar
-                                    testID="kitchen-procurement-post-scan"
-                                    stockItems={stockItems.data ?? []}
-                                    onScanned={placeScan}
-                                    notice={scanNotice}
-                                />
-                                <StockItemLineEditor
-                                    testID={LINES_ID}
-                                    lines={lines}
-                                    onChange={edited(setLines)}
-                                    stockItemOptions={stockItemOptions}
-                                    itemLabel={t('kitchen:ops.procurement.fieldLineItem')}
-                                    quantityLabel={t('kitchen:ops.procurement.fieldLineQuantity')}
-                                    addLabel={t('kitchen:ops.procurement.addLine')}
-                                    removeLabel={t('kitchen:ops.procurement.removeLine')}
-                                    rowFieldLabel={(field, line) =>
-                                        t('kitchen:ops.procurement.lineFieldLabel', { field, line })
-                                    }
-                                    withUnit
-                                    unitLabel={t('kitchen:ops.procurement.fieldLineUnit')}
-                                    unitPlaceholder={t('kitchen:list.noValue')}
-                                    unitOptionsForItem={unitOptionsForItem}
-                                    defaultUnitIdForItem={defaultUnitIdForItem}
-                                    unitLabelFor={unitLabelFor}
-                                    withCost={canViewCosts}
-                                    unitPriceLabel={t(
-                                        'kitchen:ops.procurement.fieldLineUnitPrice',
-                                        {
-                                            currency: RECEIPT_CURRENCY,
-                                        },
-                                    )}
-                                    unitPricePlaceholder={t(
-                                        'kitchen:ops.procurement.pricePlaceholder',
-                                    )}
-                                    lineTotalLabel={t('kitchen:ops.procurement.lineTotal')}
-                                    receiptTotalLabel={t('kitchen:ops.procurement.receiptTotal')}
-                                    formatMoney={formatAmount}
-                                    priceNoteFor={priceNoteFor}
-                                    issues={shownLineIssues}
-                                />
-
-                                {/*
-                                 * Lots and dates (ingredient barcodes): filled by a scan, or typed off
-                                 * the pack. Folded away until a row has any, because most market
-                                 * purchases carry none.
-                                 */}
-                                {lines.some((line) => line.stockItemId !== null) ? (
-                                    <Stack space="sm" testID="kitchen-procurement-post-trace">
-                                        <Button
-                                            testID="kitchen-procurement-post-trace-toggle"
-                                            variant="ghost"
-                                            size="sm"
-                                            label={t(
-                                                traceOpen
-                                                    ? 'kitchen:barcodes.hideLots'
-                                                    : 'kitchen:barcodes.showLots',
+                                        <Stack space="xs">
+                                            <Select
+                                                testID="kitchen-procurement-post-supplier"
+                                                id="kitchen-procurement-post-supplier"
+                                                {...server.flag('supplier_id')}
+                                                label={t('kitchen:ops.procurement.fieldSupplier')}
+                                                size="sm"
+                                                placeholder={t(
+                                                    'kitchen:ops.procurement.supplierPlaceholder',
+                                                )}
+                                                options={supplierOptions}
+                                                value={shownSupplierId}
+                                                onChange={edited(setSupplierId)}
+                                                // An order brings its supplier; the paperwork is this
+                                                // delivery's.
+                                                disabled={orderMode}
+                                                searchable
+                                            />
+                                            {/*
+                                             * "New supplier" belongs to the picker above it: a ghost
+                                             * button under the control it feeds is the shape of an
+                                             * action *about* that field.
+                                             */}
+                                            {canManage && !orderMode ? (
+                                                <View className="flex-row">
+                                                    <Button
+                                                        testID="kitchen-procurement-post-new-supplier"
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        iconStart={<Icon name="plus" size="sm" />}
+                                                        label={t(
+                                                            'kitchen:ops.procurement.newSupplier',
+                                                        )}
+                                                        onPress={() => {
+                                                            setCreatingSupplier(true);
+                                                        }}
+                                                    />
+                                                </View>
+                                            ) : null}
+                                        </Stack>
+                                        <TextInputField
+                                            testID="kitchen-procurement-post-document-ref"
+                                            id="kitchen-procurement-post-document-ref"
+                                            {...server.flag('document_ref')}
+                                            label={t('kitchen:ops.procurement.fieldDeliveryNote')}
+                                            placeholder={t(
+                                                'kitchen:ops.procurement.deliveryNotePlaceholder',
                                             )}
-                                            onPress={() => {
-                                                setShowTrace(!traceOpen);
+                                            size="sm"
+                                            value={documentRef}
+                                            onChangeText={edited(setDocumentRef)}
+                                        />
+                                        <TextInputField
+                                            testID="kitchen-procurement-post-invoice-ref"
+                                            id="kitchen-procurement-post-invoice-ref"
+                                            {...server.flag('supplier_invoice_ref')}
+                                            label={t('kitchen:ops.procurement.fieldInvoiceRef')}
+                                            placeholder={t(
+                                                'kitchen:ops.procurement.invoicePlaceholder',
+                                            )}
+                                            size="sm"
+                                            value={invoiceRef}
+                                            onChangeText={edited(setInvoiceRef)}
+                                        />
+                                        {/*
+                                         * The compact date control — a 28px box with the browser's own
+                                         * calendar behind its glyph. It takes no `max`, so a date after
+                                         * today is refused here, where it was typed.
+                                         */}
+                                        <PickerField
+                                            kind="date"
+                                            testID="kitchen-procurement-post-received-on"
+                                            label={t('kitchen:ops.procurement.fieldReceivedOn')}
+                                            value={receivedOn}
+                                            error={
+                                                receivedInFuture
+                                                    ? t('kitchen:ops.procurement.receivedOnFuture')
+                                                    : server.errorFor('received_on')
+                                            }
+                                            onChange={(next) => {
+                                                setReceivedOn(next);
+                                                guard.markDirty();
                                             }}
                                         />
-                                        {traceOpen
-                                            ? lines.map((line, index) =>
-                                                  line.stockItemId === null ? null : (
-                                                      <ReceiveLineTrace
-                                                          key={line.key}
-                                                          testID={`kitchen-procurement-post-trace-${line.key}`}
-                                                          title={t('kitchen:barcodes.lineTitle', {
-                                                              line: index + 1,
-                                                              item:
-                                                                  itemById.get(line.stockItemId)
-                                                                      ?.name ?? '',
-                                                          })}
-                                                          trace={line}
-                                                          onChange={(patch) => {
-                                                              edited(setLines)(
-                                                                  lines.map((row) =>
-                                                                      row.key === line.key
-                                                                          ? { ...row, ...patch }
-                                                                          : row,
-                                                                  ),
-                                                              );
-                                                          }}
-                                                      />
-                                                  ),
-                                              )
-                                            : null}
-                                    </Stack>
-                                ) : null}
+                                    </FormGrid>
+                                </Stack>
+                            </FormSection>
 
-                                {/*
-                                 * §3.5: an over-receipt takes a confirmation *and* a note — one
-                                 * records that somebody said so, the other what they knew. An item
-                                 * that was never on the order takes the note.
-                                 */}
-                                {needsVarianceNote ? (
-                                    <Callout
-                                        tone="warning"
-                                        testID="kitchen-procurement-post-variance"
-                                        title={t(
-                                            hasOverReceipt
-                                                ? 'kitchen:ops.receiving.overReceiptTitle'
-                                                : 'kitchen:ops.procurement.unplannedTitle',
+                            <FormSection
+                                first
+                                variant="card"
+                                testID="kitchen-post-receipt-lines"
+                                title={t('kitchen:ops.procurement.linesSection')}
+                                aside={
+                                    <View className="min-w-0 flex-1 flex-row items-center justify-between gap-tight">
+                                        <Text
+                                            variant="caption"
+                                            tone="secondary"
+                                            testID="kitchen-post-receipt-line-count"
+                                        >
+                                            {unpricedCount > 0
+                                                ? t('kitchen:ops.procurement.lineCountUnpriced', {
+                                                      lines: t(
+                                                          'kitchen:ops.procurement.lineCount',
+                                                          {
+                                                              count: lines.length,
+                                                          },
+                                                      ),
+                                                      count: unpricedCount,
+                                                  })
+                                                : t('kitchen:ops.procurement.lineCount', {
+                                                      count: lines.length,
+                                                  })}
+                                        </Text>
+                                        {/*
+                                         * Without the cost code the prices are somebody else's to
+                                         * add — said behind the badge's (i), not as a sentence.
+                                         */}
+                                        {canViewCosts ? null : (
+                                            <>
+                                                <Badge
+                                                    variant="label"
+                                                    tone="neutral"
+                                                    icon={null}
+                                                    testID="kitchen-post-receipt-quantities-only"
+                                                    label={t(
+                                                        'kitchen:ops.procurement.quantitiesOnly',
+                                                    )}
+                                                />
+                                                <InfoTip
+                                                    testID="kitchen-post-receipt-quantities-note"
+                                                    label={t(
+                                                        'kitchen:ops.procurement.quantitiesOnly',
+                                                    )}
+                                                    text={t(
+                                                        'kitchen:ops.procurement.quantitiesOnlyNote',
+                                                    )}
+                                                />
+                                            </>
                                         )}
-                                    >
-                                        <Stack space="sm">
+                                    </View>
+                                }
+                            >
+                                <Stack space="md">
+                                    <ReceiveScanBar
+                                        testID="kitchen-procurement-post-scan"
+                                        stockItems={stockItems.data ?? []}
+                                        onScanned={placeScan}
+                                        notice={scanNotice}
+                                    />
+                                    <StockItemLineEditor
+                                        testID={LINES_ID}
+                                        lines={lines}
+                                        onChange={edited(setLines)}
+                                        stockItemOptions={stockItemOptions}
+                                        itemLabel={t('kitchen:ops.procurement.fieldLineItem')}
+                                        quantityLabel={t(
+                                            'kitchen:ops.procurement.fieldLineQuantity',
+                                        )}
+                                        addLabel={t('kitchen:ops.procurement.addLine')}
+                                        removeLabel={t('kitchen:ops.procurement.removeLine')}
+                                        rowFieldLabel={(field, line) =>
+                                            t('kitchen:ops.procurement.lineFieldLabel', {
+                                                field,
+                                                line,
+                                            })
+                                        }
+                                        withUnit
+                                        unitLabel={t('kitchen:ops.procurement.fieldLineUnit')}
+                                        unitPlaceholder={t('kitchen:list.noValue')}
+                                        unitOptionsForItem={unitOptionsForItem}
+                                        defaultUnitIdForItem={defaultUnitIdForItem}
+                                        unitLabelFor={unitLabelFor}
+                                        withCost={canViewCosts}
+                                        unitPriceLabel={t(
+                                            'kitchen:ops.procurement.fieldLineUnitPrice',
+                                            {
+                                                currency: RECEIPT_CURRENCY,
+                                            },
+                                        )}
+                                        unitPricePlaceholder={t(
+                                            'kitchen:ops.procurement.pricePlaceholder',
+                                        )}
+                                        lineTotalLabel={t('kitchen:ops.procurement.lineTotal')}
+                                        receiptTotalLabel={t(
+                                            'kitchen:ops.procurement.receiptTotal',
+                                        )}
+                                        formatMoney={formatAmount}
+                                        priceNoteFor={priceNoteFor}
+                                        issues={shownLineIssues}
+                                    />
+
+                                    {/*
+                                     * Lots and dates (ingredient barcodes): filled by a scan, or typed off
+                                     * the pack. Folded away until a row has any, because most market
+                                     * purchases carry none.
+                                     */}
+                                    {lines.some((line) => line.stockItemId !== null) ? (
+                                        <Stack space="sm" testID="kitchen-procurement-post-trace">
+                                            <Button
+                                                testID="kitchen-procurement-post-trace-toggle"
+                                                variant="ghost"
+                                                size="sm"
+                                                label={t(
+                                                    traceOpen
+                                                        ? 'kitchen:barcodes.hideLots'
+                                                        : 'kitchen:barcodes.showLots',
+                                                )}
+                                                onPress={() => {
+                                                    setShowTrace(!traceOpen);
+                                                }}
+                                            />
+                                            {traceOpen
+                                                ? lines.map((line, index) =>
+                                                      line.stockItemId === null ? null : (
+                                                          <ReceiveLineTrace
+                                                              key={line.key}
+                                                              testID={`kitchen-procurement-post-trace-${line.key}`}
+                                                              title={t(
+                                                                  'kitchen:barcodes.lineTitle',
+                                                                  {
+                                                                      line: index + 1,
+                                                                      item:
+                                                                          itemById.get(
+                                                                              line.stockItemId,
+                                                                          )?.name ?? '',
+                                                                  },
+                                                              )}
+                                                              trace={line}
+                                                              onChange={(patch) => {
+                                                                  edited(setLines)(
+                                                                      lines.map((row) =>
+                                                                          row.key === line.key
+                                                                              ? { ...row, ...patch }
+                                                                              : row,
+                                                                      ),
+                                                                  );
+                                                              }}
+                                                          />
+                                                      ),
+                                                  )
+                                                : null}
+                                        </Stack>
+                                    ) : null}
+
+                                    {/*
+                                     * §3.5: an over-receipt takes a confirmation *and* a note — one
+                                     * records that somebody said so, the other what they knew. An item
+                                     * that was never on the order takes the note. What differs is the
+                                     * tray's card; the two answers are here, under the lines.
+                                     */}
+                                    {needsVarianceNote ? (
+                                        <Stack
+                                            space="sm"
+                                            testID="kitchen-procurement-post-variance-fields"
+                                        >
                                             {hasOverReceipt ? (
                                                 <Checkbox
                                                     testID="kitchen-procurement-post-over-confirm"
@@ -1387,212 +1512,194 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                                 onChangeText={edited(setVarianceNote)}
                                             />
                                         </Stack>
-                                    </Callout>
-                                ) : null}
-                            </Stack>
-                        </FormSection>
+                                    ) : null}
+                                </Stack>
+                            </FormSection>
+                        </View>
+
+                        <RecordSummaryAside
+                            testID="kitchen-post-receipt-summary"
+                            title={t('kitchen:ops.procurement.summaryTitle')}
+                            width={sideBySide ? ASIDE_WIDTH : null}
+                            rows={[
+                                {
+                                    key: 'kind',
+                                    label: t('kitchen:ops.procurement.summaryKind'),
+                                    value:
+                                        orderMode && order !== null
+                                            ? t('kitchen:ops.procurement.kindOrder', {
+                                                  number: order.number,
+                                              })
+                                            : orderMode
+                                              ? t('kitchen:ops.procurement.kindOrderUnpicked')
+                                              : t('kitchen:ops.procurement.kindMarket'),
+                                },
+                                {
+                                    key: 'supplier',
+                                    label: t('kitchen:ops.procurement.fieldSupplier'),
+                                    value: supplierName,
+                                },
+                                {
+                                    key: 'received',
+                                    label: t('kitchen:ops.procurement.columnReceivedAt'),
+                                    value:
+                                        receivedOn.trim() === ''
+                                            ? '—'
+                                            : formatter.formatDate(receivedOn, {
+                                                  dateStyle: 'medium',
+                                              }),
+                                },
+                                {
+                                    key: 'lines',
+                                    label: t('kitchen:ops.procurement.columnLines'),
+                                    value: formatter.formatNumber(lines.length),
+                                },
+                            ]}
+                            total={
+                                canViewCosts
+                                    ? {
+                                          label: t('kitchen:ops.procurement.receiptTotal'),
+                                          value: `${formatAmount(receiptTotal)} ${RECEIPT_CURRENCY}`,
+                                      }
+                                    : null
+                            }
+                            list={{
+                                title:
+                                    branchName === null
+                                        ? t('kitchen:ops.procurement.risesTitleNoBranch')
+                                        : t('kitchen:ops.procurement.risesTitle', {
+                                              branch: branchName,
+                                          }),
+                                empty: t('kitchen:ops.procurement.risesEmpty'),
+                                testID: 'kitchen-post-receipt-rises',
+                                emptyTestID: 'kitchen-post-receipt-rises-empty',
+                                items: risingLines.map((line) => ({
+                                    key: line.key,
+                                    name: itemById.get(line.stockItemId ?? '')?.name ?? '',
+                                    tone: 'success' as const,
+                                    value: t('kitchen:ops.procurement.risesQuantity', {
+                                        quantity: formatter.formatNumber(
+                                            readQuantity(line.quantity) ?? 0,
+                                            { maximumFractionDigits: 3 },
+                                        ),
+                                        unit: unitLabelFor(line.stockItemId, line.unitId ?? null),
+                                    }),
+                                })),
+                            }}
+                        />
                     </View>
+                )}
 
-                    <RecordSummaryAside
-                        testID="kitchen-post-receipt-summary"
-                        title={t('kitchen:ops.procurement.summaryTitle')}
-                        width={sideBySide ? ASIDE_WIDTH : null}
-                        rows={[
-                            {
-                                key: 'kind',
-                                label: t('kitchen:ops.procurement.summaryKind'),
-                                value:
-                                    orderMode && order !== null
-                                        ? t('kitchen:ops.procurement.kindOrder', {
-                                              number: order.number,
-                                          })
-                                        : orderMode
-                                          ? t('kitchen:ops.procurement.kindOrderUnpicked')
-                                          : t('kitchen:ops.procurement.kindMarket'),
-                            },
-                            {
-                                key: 'supplier',
-                                label: t('kitchen:ops.procurement.fieldSupplier'),
-                                value: supplierName,
-                            },
-                            {
-                                key: 'received',
-                                label: t('kitchen:ops.procurement.columnReceivedAt'),
-                                value:
-                                    receivedOn.trim() === ''
-                                        ? '—'
-                                        : formatter.formatDate(receivedOn, { dateStyle: 'medium' }),
-                            },
-                            {
-                                key: 'lines',
-                                label: t('kitchen:ops.procurement.columnLines'),
-                                value: formatter.formatNumber(lines.length),
-                            },
-                        ]}
-                        total={
-                            canViewCosts
-                                ? {
-                                      label: t('kitchen:ops.procurement.receiptTotal'),
-                                      value: `${formatAmount(receiptTotal)} ${RECEIPT_CURRENCY}`,
-                                  }
-                                : null
-                        }
-                        list={{
-                            title:
-                                branchName === null
-                                    ? t('kitchen:ops.procurement.risesTitleNoBranch')
-                                    : t('kitchen:ops.procurement.risesTitle', {
-                                          branch: branchName,
-                                      }),
-                            empty: t('kitchen:ops.procurement.risesEmpty'),
-                            testID: 'kitchen-post-receipt-rises',
-                            emptyTestID: 'kitchen-post-receipt-rises-empty',
-                            items: risingLines.map((line) => ({
-                                key: line.key,
-                                name: itemById.get(line.stockItemId ?? '')?.name ?? '',
-                                tone: 'success' as const,
-                                value: t('kitchen:ops.procurement.risesQuantity', {
-                                    quantity: formatter.formatNumber(
-                                        readQuantity(line.quantity) ?? 0,
-                                        { maximumFractionDigits: 3 },
-                                    ),
-                                    unit: unitLabelFor(line.stockItemId, line.unitId ?? null),
-                                }),
-                            })),
-                        }}
-                        note={
-                            canViewCosts ? (
-                                unpricedCount > 0 ? (
-                                    <Callout
-                                        testID="kitchen-post-receipt-unpriced-note"
-                                        tone="warning"
-                                        icon="coins"
-                                        title={t('kitchen:ops.procurement.unpricedNote', {
-                                            count: unpricedCount,
-                                        })}
-                                    />
-                                ) : null
-                            ) : (
-                                <Callout
-                                    testID="kitchen-post-receipt-quantities-note"
-                                    tone="info"
-                                    title={t('kitchen:ops.procurement.quantitiesOnlyNote')}
-                                />
-                            )
-                        }
-                    />
-                </View>
-            )}
+                <Dialog
+                    testID="kitchen-procurement-supplier-dialog"
+                    open={creatingSupplier}
+                    onClose={closeCreateSupplier}
+                    title={t('kitchen:ops.procurement.newSupplierTitle')}
+                    description={t('kitchen:ops.procurement.newSupplierBody')}
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-procurement-supplier-cancel"
+                                variant="quiet"
+                                label={t('kitchen:common.cancel')}
+                                onPress={closeCreateSupplier}
+                            />
+                            <Button
+                                testID="kitchen-procurement-supplier-confirm"
+                                label={t('kitchen:ops.procurement.newSupplierSave')}
+                                loading={createSupplier.isPending}
+                                onPress={submitNewSupplier}
+                            />
+                        </>
+                    }
+                >
+                    <Stack space="md">
+                        {createSupplier.error === null ? null : (
+                            <Text testID="kitchen-procurement-supplier-error" tone="danger">
+                                {supplierServer.unplaced ??
+                                    supplierFailure?.message ??
+                                    t('kitchen:ops.procurement.newSupplierFailed')}
+                            </Text>
+                        )}
+                        {/*
+                         * No currency picker: the receipt books in RECEIPT_CURRENCY regardless, and a
+                         * picker whose answer changes nothing is a question that should not be asked.
+                         * The line under the fields says so instead.
+                         */}
+                        <FormGrid maxColumns={2} testID="kitchen-procurement-supplier-grid">
+                            <TextInputField
+                                testID="kitchen-procurement-supplier-name"
+                                id="kitchen-procurement-supplier-name"
+                                label={t('kitchen:ops.procurement.fieldSupplierName')}
+                                placeholder={t('kitchen:ops.procurement.supplierNamePlaceholder')}
+                                size="sm"
+                                value={newSupplierName}
+                                onChangeText={setNewSupplierName}
+                                {...(newSupplierTried && newSupplierName.trim() === ''
+                                    ? { error: t('kitchen:ops.procurement.supplierNameRequired') }
+                                    : {})}
+                                {...supplierServer.flag('name_en')}
+                            />
+                            <TextInputField
+                                testID="kitchen-procurement-supplier-code"
+                                id="kitchen-procurement-supplier-code"
+                                {...supplierServer.flag('code')}
+                                label={t('kitchen:ops.procurement.fieldSupplierCode')}
+                                placeholder={t('kitchen:ops.procurement.supplierCodePlaceholder')}
+                                size="sm"
+                                value={newSupplierCode}
+                                onChangeText={setNewSupplierCode}
+                            />
+                            <TextInputField
+                                testID="kitchen-procurement-supplier-email"
+                                id="kitchen-procurement-supplier-email"
+                                {...supplierServer.flag('contact_email')}
+                                label={t('kitchen:ops.procurement.fieldSupplierEmail')}
+                                placeholder={t('kitchen:ops.suppliers.emailPlaceholder')}
+                                size="sm"
+                                value={newSupplierEmail}
+                                onChangeText={setNewSupplierEmail}
+                                keyboardType="email-address"
+                            />
+                            <TextInputField
+                                testID="kitchen-procurement-supplier-phone"
+                                id="kitchen-procurement-supplier-phone"
+                                {...supplierServer.flag('contact_phone')}
+                                label={t('kitchen:ops.procurement.fieldSupplierPhone')}
+                                placeholder={t('kitchen:ops.suppliers.phonePlaceholder')}
+                                size="sm"
+                                value={newSupplierPhone}
+                                onChangeText={setNewSupplierPhone}
+                                keyboardType="phone-pad"
+                            />
+                        </FormGrid>
+                    </Stack>
+                </Dialog>
 
-            <Dialog
-                testID="kitchen-procurement-supplier-dialog"
-                open={creatingSupplier}
-                onClose={closeCreateSupplier}
-                title={t('kitchen:ops.procurement.newSupplierTitle')}
-                description={t('kitchen:ops.procurement.newSupplierBody')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-procurement-supplier-cancel"
-                            variant="quiet"
-                            label={t('kitchen:common.cancel')}
-                            onPress={closeCreateSupplier}
-                        />
-                        <Button
-                            testID="kitchen-procurement-supplier-confirm"
-                            label={t('kitchen:ops.procurement.newSupplierSave')}
-                            loading={createSupplier.isPending}
-                            onPress={submitNewSupplier}
-                        />
-                    </>
-                }
-            >
-                <Stack space="md">
-                    {createSupplier.error === null ? null : (
-                        <Text testID="kitchen-procurement-supplier-error" tone="danger">
-                            {supplierServer.unplaced ??
-                                supplierFailure?.message ??
-                                t('kitchen:ops.procurement.newSupplierFailed')}
-                        </Text>
-                    )}
-                    {/*
-                     * No currency picker: the receipt books in RECEIPT_CURRENCY regardless, and a
-                     * picker whose answer changes nothing is a question that should not be asked.
-                     * The line under the fields says so instead.
-                     */}
-                    <FormGrid maxColumns={2} testID="kitchen-procurement-supplier-grid">
-                        <TextInputField
-                            testID="kitchen-procurement-supplier-name"
-                            id="kitchen-procurement-supplier-name"
-                            label={t('kitchen:ops.procurement.fieldSupplierName')}
-                            placeholder={t('kitchen:ops.procurement.supplierNamePlaceholder')}
-                            size="sm"
-                            value={newSupplierName}
-                            onChangeText={setNewSupplierName}
-                            {...(newSupplierTried && newSupplierName.trim() === ''
-                                ? { error: t('kitchen:ops.procurement.supplierNameRequired') }
-                                : {})}
-                            {...supplierServer.flag('name_en')}
-                        />
-                        <TextInputField
-                            testID="kitchen-procurement-supplier-code"
-                            id="kitchen-procurement-supplier-code"
-                            {...supplierServer.flag('code')}
-                            label={t('kitchen:ops.procurement.fieldSupplierCode')}
-                            placeholder={t('kitchen:ops.procurement.supplierCodePlaceholder')}
-                            size="sm"
-                            value={newSupplierCode}
-                            onChangeText={setNewSupplierCode}
-                        />
-                        <TextInputField
-                            testID="kitchen-procurement-supplier-email"
-                            id="kitchen-procurement-supplier-email"
-                            {...supplierServer.flag('contact_email')}
-                            label={t('kitchen:ops.procurement.fieldSupplierEmail')}
-                            placeholder={t('kitchen:ops.suppliers.emailPlaceholder')}
-                            size="sm"
-                            value={newSupplierEmail}
-                            onChangeText={setNewSupplierEmail}
-                            keyboardType="email-address"
-                        />
-                        <TextInputField
-                            testID="kitchen-procurement-supplier-phone"
-                            id="kitchen-procurement-supplier-phone"
-                            {...supplierServer.flag('contact_phone')}
-                            label={t('kitchen:ops.procurement.fieldSupplierPhone')}
-                            placeholder={t('kitchen:ops.suppliers.phonePlaceholder')}
-                            size="sm"
-                            value={newSupplierPhone}
-                            onChangeText={setNewSupplierPhone}
-                            keyboardType="phone-pad"
-                        />
-                    </FormGrid>
-                </Stack>
-            </Dialog>
-
-            <Dialog
-                testID="kitchen-post-receipt-screen-unsaved-dialog"
-                open={guard.isPrompting}
-                onClose={guard.cancelDiscard}
-                title={t('kitchen:ops.procurement.discardTitle')}
-                description={t('kitchen:ops.procurement.discardBody', { count: lines.length })}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-post-receipt-screen-unsaved-keep"
-                            variant="quiet"
-                            label={t('kitchen:unsaved.keepEditing')}
-                            onPress={guard.cancelDiscard}
-                        />
-                        <Button
-                            testID="kitchen-post-receipt-screen-unsaved-discard"
-                            variant="danger"
-                            label={t('kitchen:common.discard')}
-                            onPress={guard.confirmDiscard}
-                        />
-                    </>
-                }
-            />
-        </Cascade>
+                <Dialog
+                    testID="kitchen-post-receipt-screen-unsaved-dialog"
+                    open={guard.isPrompting}
+                    onClose={guard.cancelDiscard}
+                    title={t('kitchen:ops.procurement.discardTitle')}
+                    description={t('kitchen:ops.procurement.discardBody', { count: lines.length })}
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-post-receipt-screen-unsaved-keep"
+                                variant="quiet"
+                                label={t('kitchen:unsaved.keepEditing')}
+                                onPress={guard.cancelDiscard}
+                            />
+                            <Button
+                                testID="kitchen-post-receipt-screen-unsaved-discard"
+                                variant="danger"
+                                label={t('kitchen:common.discard')}
+                                onPress={guard.confirmDiscard}
+                            />
+                        </>
+                    }
+                />
+            </Cascade>
+        </IssueTrayFrame>
     );
 }
