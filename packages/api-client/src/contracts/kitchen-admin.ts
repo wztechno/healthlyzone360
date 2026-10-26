@@ -2526,12 +2526,16 @@ export interface KitchenAdminRepository {
     /** A new draft list with no entries and no channels. Needs `price_list.manage_organisation`. */
     createPriceList(request: CreatePriceListRequest): Promise<PriceListAdmin>;
     getPriceListChannels(priceListId: PriceListId): Promise<PriceListChannels>;
+    /** Every list's scope and channels in one read — the price-list index with its channels. */
+    listPriceListChannels(): Promise<readonly PriceListChannels[]>;
     /** Replaces the list's channel assignments; the list's lock version guards it. */
     setPriceListChannels(
         priceListId: PriceListId,
         request: SetPriceListChannelsRequest,
     ): Promise<PriceListChannels>;
     getItemChannelOffering(itemId: string): Promise<ItemChannelOffering>;
+    /** The named items' channels, a hundred to a request — the items index with its channels. */
+    listItemChannelOfferings(itemIds: readonly string[]): Promise<readonly ItemChannelOffering[]>;
     /**
      * Offers the item on one more channel, keeping every assignment it already has. The item's
      * channel write replaces the whole set, so this reads it first; already offered is a no-op.

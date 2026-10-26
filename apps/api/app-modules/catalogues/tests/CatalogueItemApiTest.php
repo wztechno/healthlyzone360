@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Audit\Models\AuditLog;
+use Healthy360\Catalogues\Enums\SalesChannelKind;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
+use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\ProductCategory;
+use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Tests\Fixtures\CatalogueWorld;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientCategory;
@@ -787,4 +790,39 @@ it('turns finished-stock selling on and off again over the update endpoint', fun
         // The link and the mode survive the flag being cleared: a kitchen that
         // stops selling a salad off the shelf still produces it.
         ->and($stored->ingredient_id)->toBe((string) $ingredient->getKey());
+});
+
+it('serves the named items with their channels in one read', function (): void {
+    $this->actingAs($this->a->user);
+
+    $make = fn (): CatalogueItem => CatalogueItem::factory()->meal()->create([
+        'catalogue_id' => $this->a->catalogue->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+    ]);
+    $offered = $make();
+    $other = $make();
+    $make();
+
+    $wholesale = SalesChannel::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'code' => 'wholesale',
+        'channel_kind' => SalesChannelKind::B2b,
+    ]);
+    ChannelCatalogueItem::factory()->create([
+        'catalogue_item_id' => $offered->getKey(),
+        'sales_channel_id' => $wholesale->getKey(),
+    ]);
+
+    $rows = collect($this->getJson(
+        '/api/v1/catalogue/items?include=channels&ids='.$offered->getKey().','.$other->getKey(),
+        CatalogueWorld::headers($this->a),
+    )->assertOk()->json('data'))->keyBy('id');
+
+    expect($rows->keys()->all())->toEqualCanonicalizing([(string) $offered->getKey(), (string) $other->getKey()])
+        ->and($rows[(string) $offered->getKey()]['channels'][0]['sales_channel_id'])->toBe((string) $wholesale->getKey())
+        ->and($rows[(string) $other->getKey()]['channels'])->toBe([]);
+
+    $this->getJson('/api/v1/catalogue/items?ids=not-a-uuid', CatalogueWorld::headers($this->a))
+        ->assertStatus(400)
+        ->assertJsonPath('error.details.parameter', 'ids');
 });

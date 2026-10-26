@@ -8,7 +8,7 @@ import type {
     SetPriceListChannelsRequest,
 } from '@healthy360/api-client/contracts';
 import type { PriceListId } from '@healthy360/domain-types';
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
 import { queryKeys } from './query-keys.ts';
@@ -25,11 +25,12 @@ const wholesaleKeys = {
     salesChannels: () => [...queryKeys.kitchenAdmin.all(), 'sales-channel-rows'] as const,
     priceListChannels: (id: PriceListId) =>
         [...queryKeys.kitchenAdmin.all(), 'price-list-channels', id] as const,
-    itemOffering: (itemId: string) =>
-        [...queryKeys.kitchenAdmin.all(), 'item-channel-offering', itemId] as const,
+    priceListChannelsAll: () => [...queryKeys.kitchenAdmin.all(), 'price-list-channels'] as const,
+    itemOfferings: (itemIds: readonly string[]) =>
+        [...queryKeys.kitchenAdmin.all(), 'item-channel-offerings', itemIds.join(',')] as const,
 };
 
-/** Many reads, one per id, gathered into a map once every one has answered. */
+/** Rows keyed by id, with the read's pending and failed states. */
 export interface ManyReads<T> {
     readonly byId: ReadonlyMap<string, T>;
     readonly pending: boolean;
@@ -65,63 +66,52 @@ export function usePriceListChannelsQuery(
     });
 }
 
-/** Every list's scope and channels — one read per list; a kitchen has a handful. */
+/** Every list's scope and channels, from one index read. */
 export function usePriceListChannelsMany(
     priceListIds: readonly PriceListId[],
 ): ManyReads<PriceListChannels> {
     const { repositories } = useRepositoryContext();
-    return useQueries({
-        queries: priceListIds.map((id) => ({
-            queryKey: wholesaleKeys.priceListChannels(id),
-            enabled: repositories !== null,
-            queryFn: () => {
-                if (repositories === null) throw new Error('Repositories are not ready.');
-                return repositories.kitchenAdmin.getPriceListChannels(id);
-            },
-        })),
-        combine: (results) => gather(results, (row) => String(row.priceListId)),
+    const query = useQuery({
+        queryKey: wholesaleKeys.priceListChannelsAll(),
+        enabled: repositories !== null && priceListIds.length > 0,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenAdmin.listPriceListChannels();
+        },
     });
+    return asManyReads(query, priceListIds.length, (row) => String(row.priceListId));
 }
 
-/**
- * Which channels each item is offered on — one read per item.
- * ponytail: N reads for N items; the items index has no channel filter. Add one server-side if a
- * kitchen's agreement lists ever price hundreds of articles.
- */
+/** Which channels each item is offered on, a hundred items to a request. */
 export function useItemChannelOfferings(
     itemIds: readonly string[],
     enabled = true,
 ): ManyReads<ItemChannelOffering> {
     const { repositories } = useRepositoryContext();
-    return useQueries({
-        queries: itemIds.map((id) => ({
-            queryKey: wholesaleKeys.itemOffering(id),
-            enabled: enabled && repositories !== null,
-            queryFn: () => {
-                if (repositories === null) throw new Error('Repositories are not ready.');
-                return repositories.kitchenAdmin.getItemChannelOffering(id);
-            },
-        })),
-        combine: (results) => gather(results, (row) => row.itemId),
+    const sorted = [...itemIds].sort();
+    const query = useQuery({
+        queryKey: wholesaleKeys.itemOfferings(sorted),
+        enabled: enabled && repositories !== null && sorted.length > 0,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenAdmin.listItemChannelOfferings(sorted);
+        },
     });
+    return asManyReads(query, sorted.length, (row) => row.itemId);
 }
 
-function gather<T>(
-    results: readonly {
-        readonly data?: T | undefined;
-        readonly isPending: boolean;
-        readonly isError: boolean;
-    }[],
+/** A batched read as the per-id map the screen reads; nothing asked for is not pending. */
+function asManyReads<T>(
+    query: UseQueryResult<readonly T[]>,
+    asked: number,
     idOf: (row: T) => string,
 ): ManyReads<T> {
     const byId = new Map<string, T>();
-    for (const result of results) {
-        if (result.data !== undefined) byId.set(idOf(result.data), result.data);
-    }
+    for (const row of query.data ?? []) byId.set(idOf(row), row);
     return {
         byId,
-        pending: results.some((result) => result.isPending),
-        failed: results.some((result) => result.isError),
+        pending: asked > 0 && query.isPending,
+        failed: query.isError,
     };
 }
 

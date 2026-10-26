@@ -4865,6 +4865,19 @@ paths:
           schema:
             type: string
             maxLength: 20
+        - name: ids
+          in: query
+          required: false
+          description: Up to 100 comma-separated item identifiers.
+          schema:
+            type: string
+        - name: include
+          in: query
+          required: false
+          description: '`channels` adds each item''s channel assignments, as the item''s own read serves them.'
+          schema:
+            type: string
+            enum: [channels]
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
@@ -4881,7 +4894,7 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/AdminCatalogueItem'
+                      $ref: '#/components/schemas/AdminCatalogueItemIndexRow'
                   meta:
                     $ref: '#/components/schemas/PaginatedOrNumberedMeta'
         '400':
@@ -5973,6 +5986,16 @@ paths:
           description: Restrict to public tariffs or to negotiated agreements.
           schema:
             $ref: '#/components/schemas/PriceListCustomerScope'
+        - name: include
+          in: query
+          required: false
+          description: |
+            Comma-separated: `entries` adds each list's open entries (the rows the
+            entries index serves), `channels` its channel assignments. One request
+            for a screen that draws every list whole.
+          schema:
+            type: string
+            examples: [entries, 'entries,channels']
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
@@ -5989,7 +6012,7 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/AdminPriceList'
+                      $ref: '#/components/schemas/AdminPriceListIndexRow'
                   meta:
                     $ref: '#/components/schemas/PaginatedOrNumberedMeta'
         '400':
@@ -28460,6 +28483,32 @@ components:
       type: string
       enum: [breakfast, lunch, dinner, snack]
       description: When in the day a meal is eaten.
+
+    AdminPriceListIndexRow:
+      description: A price list row; `entries` and `channels` are present when `include` asks for them.
+      allOf:
+        - $ref: '#/components/schemas/AdminPriceList'
+        - type: object
+          properties:
+            entries:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminPriceListEntry'
+            channels:
+              type: array
+              items:
+                $ref: '#/components/schemas/PriceListChannelAssignment'
+
+    AdminCatalogueItemIndexRow:
+      description: A catalogue item row; `channels` is present when `include=channels` asks for it.
+      allOf:
+        - $ref: '#/components/schemas/AdminCatalogueItem'
+        - type: object
+          properties:
+            channels:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminChannelAssignment'
 
     AdminCatalogueItem:
       type: object

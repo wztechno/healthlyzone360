@@ -187,16 +187,13 @@ function stubs(world: World): RepositoryOverrides {
         kitchenAdmin: {
             listSalesChannels: async () => world.channels,
             listPriceLists: async () => page(world.lists),
-            getPriceListChannels: async (id) => {
-                const found = world.scopes.get(String(id));
-                if (found === undefined) throw new Error(`no scope for ${String(id)}`);
-                return found;
-            },
-            getItemChannelOffering: async (id) => {
-                const found = world.offerings.get(id);
-                if (found === undefined) throw new Error(`no offering for ${id}`);
-                return found;
-            },
+            // One read each, as the screen now makes them — never one per list or per item.
+            listPriceListChannels: async () => [...world.scopes.values()],
+            listItemChannelOfferings: async (ids) =>
+                ids.flatMap((id) => {
+                    const found = world.offerings.get(id);
+                    return found === undefined ? [] : [found];
+                }),
         },
     };
 }

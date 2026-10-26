@@ -2405,6 +2405,21 @@ export type UpdateSalesChannelRequest = {
 export type MealTypeCode = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
 /**
+ * A price list row; `entries` and `channels` are present when `include` asks for them.
+ */
+export type AdminPriceListIndexRow = AdminPriceList & {
+    entries?: Array<AdminPriceListEntry>;
+    channels?: Array<PriceListChannelAssignment>;
+};
+
+/**
+ * A catalogue item row; `channels` is present when `include=channels` asks for it.
+ */
+export type AdminCatalogueItemIndexRow = AdminCatalogueItem & {
+    channels?: Array<AdminChannelAssignment>;
+};
+
+/**
  * The administrative shape of a sellable item. Carries **both** names and
  * ignores `Accept-Language` for them: a bilingual editor has to see what
  * it is editing.
@@ -20698,6 +20713,14 @@ export type ListCatalogueItemsData = {
          *
          */
         allergen?: string;
+        /**
+         * Up to 100 comma-separated item identifiers.
+         */
+        ids?: string;
+        /**
+         * `channels` adds each item's channel assignments, as the item's own read serves them.
+         */
+        include?: 'channels';
     };
     url: '/catalogue/items';
 };
@@ -20734,7 +20757,7 @@ export type ListCatalogueItemsResponses = {
      * A page of catalogue items.
      */
     200: {
-        data: Array<AdminCatalogueItem>;
+        data: Array<AdminCatalogueItemIndexRow>;
         meta: PaginatedOrNumberedMeta;
     };
 };
@@ -22116,6 +22139,13 @@ export type ListPriceListsData = {
          * Restrict to public tariffs or to negotiated agreements.
          */
         customer_scope?: PriceListCustomerScope;
+        /**
+         * Comma-separated: `entries` adds each list's open entries (the rows the
+         * entries index serves), `channels` its channel assignments. One request
+         * for a screen that draws every list whole.
+         *
+         */
+        include?: string;
     };
     url: '/catalogue/price-lists';
 };
@@ -22152,7 +22182,7 @@ export type ListPriceListsResponses = {
      * A page of price lists.
      */
     200: {
-        data: Array<AdminPriceList>;
+        data: Array<AdminPriceListIndexRow>;
         meta: PaginatedOrNumberedMeta;
     };
 };

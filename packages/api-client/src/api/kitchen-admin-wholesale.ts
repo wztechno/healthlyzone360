@@ -10,8 +10,10 @@ import type {
     SetPriceListChannelsRequest,
 } from '../contracts/kitchen-wholesale.ts';
 import type {
+    AdminCatalogueItemIndexRow,
     AdminChannelAssignment,
     AdminPriceList,
+    AdminPriceListIndexRow,
     AdminSalesChannel,
     PriceListChannelAssignment,
 } from '../generated/types.ts';
@@ -32,6 +34,8 @@ export type ApiKitchenAdminWholesale = Pick<
     | 'createSalesChannel'
     | 'createPriceList'
     | 'getPriceListChannels'
+    | 'listPriceListChannels'
+    | 'listItemChannelOfferings'
     | 'setPriceListChannels'
     | 'getItemChannelOffering'
     | 'offerItemOnChannel'
@@ -157,6 +161,53 @@ export function createApiKitchenAdminWholesale(transport: Transport): ApiKitchen
                 },
             });
             return mapPriceListChannels(data);
+        },
+
+        async listPriceListChannels() {
+            // One request per hundred lists, channels included; a kitchen has a handful.
+            const lists: PriceListChannels[] = [];
+            let cursor: string | undefined;
+            do {
+                const search = new URLSearchParams({ include: 'channels', limit: '100' });
+                if (cursor !== undefined) search.set('cursor', cursor);
+                const envelope = await transport.requestEnvelope<AdminPriceListIndexRow[]>({
+                    method: 'GET',
+                    path: `/catalogue/price-lists?${search.toString()}`,
+                });
+                for (const row of envelope.data) {
+                    lists.push(
+                        mapPriceListChannels({ price_list: row, channels: row.channels ?? [] }),
+                    );
+                }
+                const meta = envelope.meta as { has_more?: boolean; next_cursor?: string | null };
+                cursor =
+                    meta.has_more === true && typeof meta.next_cursor === 'string'
+                        ? meta.next_cursor
+                        : undefined;
+            } while (cursor !== undefined);
+            return lists;
+        },
+
+        async listItemChannelOfferings(itemIds: readonly string[]) {
+            const offerings: ItemChannelOffering[] = [];
+            for (let start = 0; start < itemIds.length; start += 100) {
+                const chunk = itemIds.slice(start, start + 100);
+                const search = new URLSearchParams({
+                    ids: chunk.join(','),
+                    include: 'channels',
+                    limit: '100',
+                });
+                const rows = await transport.request<AdminCatalogueItemIndexRow[]>({
+                    method: 'GET',
+                    path: `/catalogue/items?${search.toString()}`,
+                });
+                for (const row of rows) {
+                    offerings.push(
+                        mapItemChannelOffering({ item: row, channels: row.channels ?? [] }),
+                    );
+                }
+            }
+            return offerings;
         },
 
         async getItemChannelOffering(itemId: string) {

@@ -6,7 +6,9 @@ namespace Healthy360\Pricing\Http\Controllers;
 
 use Healthy360\Pricing\Enums\CustomerScope;
 use Healthy360\Pricing\Enums\PriceListStatus;
+use Healthy360\Pricing\Models\ChannelPriceList;
 use Healthy360\Pricing\Models\PriceList;
+use Healthy360\Pricing\Models\PriceListItem;
 use Healthy360\Pricing\Presenters\PriceListAdminPresenter;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\CursorPage;
@@ -46,10 +48,12 @@ final class PriceListIndexController
     public function __invoke(Request $request): JsonResponse
     {
         $query = PriceList::query();
+        $includes = $this->includes($request);
 
         $this->applyStatus($request, $query);
         $this->applyScope($request, $query);
         $this->applySearch($request, $query);
+        $this->eagerLoad($includes, $query);
 
         $requestedPage = OffsetPage::page($request);
 
@@ -65,7 +69,7 @@ final class PriceListIndexController
             $rows = $query->get();
 
             return ApiResponse::data(
-                $rows->map(fn (PriceList $list): array => $this->presenter->priceList($list))->all(),
+                $rows->map(fn (PriceList $list): array => $this->row($list, $includes))->all(),
                 OffsetPage::meta($rows, $requestedPage, $perPage, $total),
             );
         }
@@ -76,7 +80,7 @@ final class PriceListIndexController
         $page = CursorPage::page($query->get(), $limit);
 
         return ApiResponse::data(
-            $page['items']->map(fn (PriceList $list): array => $this->presenter->priceList($list))->all(),
+            $page['items']->map(fn (PriceList $list): array => $this->row($list, $includes))->all(),
             $page['meta'],
         );
     }
@@ -149,5 +153,72 @@ final class PriceListIndexController
                 ->orWhereRaw('lower(name_ar) like ?', [$needle])
                 ->orWhereRaw('lower(code) like ?', [$needle]);
         });
+    }
+
+    /**
+     * `include=entries,channels` — the open entries and the channel
+     * assignments each list's own reads serve, so a screen drawing every list
+     * whole makes one request rather than two or three per list. Off by
+     * default: most callers want the rows only.
+     *
+     * @return array{entries: bool, channels: bool}
+     *
+     * @throws ApiException
+     */
+    private function includes(Request $request): array
+    {
+        $raw = $request->query('include');
+        $named = is_string($raw) && trim($raw) !== '' ? array_map('trim', explode(',', $raw)) : [];
+
+        if (array_diff($named, ['entries', 'channels']) !== []) {
+            throw new ApiException(
+                ErrorCode::RequestInvalid,
+                'The include parameter takes entries and channels.',
+                ['parameter' => 'include'],
+            );
+        }
+
+        return ['entries' => in_array('entries', $named, true), 'channels' => in_array('channels', $named, true)];
+    }
+
+    /**
+     * @param  array{entries: bool, channels: bool}  $includes
+     * @param  Builder<PriceList>  $query
+     */
+    private function eagerLoad(array $includes, Builder $query): void
+    {
+        if ($includes['entries']) {
+            // The same open rows, item and variant the entries index serves.
+            $query->with(['entries' => static fn ($entries) => $entries->openRows()->with(['catalogueItem', 'variant'])->orderBy('id')]);
+        }
+
+        if ($includes['channels']) {
+            $query->with(['channelAssignments' => static fn ($assignments) => $assignments->orderBy('priority')->orderBy('sales_channel_id')]);
+        }
+    }
+
+    /**
+     * @param  array{entries: bool, channels: bool}  $includes
+     * @return array<string, mixed>
+     */
+    private function row(PriceList $list, array $includes): array
+    {
+        $row = $this->presenter->priceList($list);
+
+        if ($includes['entries']) {
+            $row['entries'] = $list->entries
+                ->map(fn (PriceListItem $entry): array => $this->presenter->entry($entry, $list->currency_code))
+                ->values()
+                ->all();
+        }
+
+        if ($includes['channels']) {
+            $row['channels'] = $list->channelAssignments
+                ->map(fn (ChannelPriceList $assignment): array => $this->presenter->channelAssignment($assignment))
+                ->values()
+                ->all();
+        }
+
+        return $row;
     }
 }

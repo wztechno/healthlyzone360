@@ -143,3 +143,46 @@ describe('getPriceList', () => {
         expect(paths.some((path) => path.startsWith('/catalogue/items/'))).toBe(false);
     });
 });
+
+describe('listPriceLists', () => {
+    it('draws every list whole from one index request', async () => {
+        const paths: string[] = [];
+        const transport = createTransport({
+            baseUrl: 'https://api.example',
+            tokenStore: createMemoryTokenStore('token'),
+            fetch: async (input) => {
+                const url = input instanceof Request ? input.url : String(input);
+                const path = decodeURIComponent(url.replace('https://api.example/api/v1', ''));
+                paths.push(path);
+                const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
+
+                if (path === '/catalogue/sales-channels') return json({ data: [] });
+                if (path.startsWith('/catalogue/price-lists?')) {
+                    return json({
+                        data: [
+                            {
+                                ...PRICE_LIST,
+                                entries: [entry('e1', MEAL_UUID, 'meal', null)],
+                                channels: [],
+                            },
+                        ],
+                        meta: { has_more: false, next_cursor: null },
+                    });
+                }
+                return new Response(JSON.stringify({ error: { code: 'request.invalid' } }), {
+                    status: 500,
+                });
+            },
+        });
+
+        const page = await createApiKitchenAdminReads(transport).listPriceLists();
+
+        expect(page.items[0]?.entries.map((row) => row.item)).toEqual([
+            { kind: 'meal', mealId: MEAL_UUID },
+        ]);
+        // The index carries entries and channels; no per-list detail or entries read follows.
+        expect(paths.filter((path) => path.startsWith('/catalogue/price-lists'))).toEqual([
+            '/catalogue/price-lists?include=entries,channels',
+        ]);
+    });
+});

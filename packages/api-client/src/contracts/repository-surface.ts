@@ -215,6 +215,8 @@ export const REPOSITORY_SURFACE = {
         'createSalesChannel',
         'getItemChannelOffering',
         'getPriceListChannels',
+        'listItemChannelOfferings',
+        'listPriceListChannels',
         'listSalesChannels',
         'offerItemOnChannel',
         'setPriceListChannels',

@@ -917,11 +917,17 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     getPriceListChannels() {
         return notImplemented(`GET ${BASE}/catalogue/price-lists/{price_list}`);
     },
+    listPriceListChannels() {
+        return notImplemented(`GET ${BASE}/catalogue/price-lists?include=channels`);
+    },
     setPriceListChannels() {
         return notImplemented(`PUT ${BASE}/catalogue/price-lists/{price_list}/channels`);
     },
     getItemChannelOffering() {
         return notImplemented(`GET ${BASE}/catalogue/items/{item}`);
+    },
+    listItemChannelOfferings() {
+        return notImplemented(`GET ${BASE}/catalogue/items?ids=&include=channels`);
     },
     offerItemOnChannel() {
         return notImplemented(`PUT ${BASE}/catalogue/items/{item}/channels`);

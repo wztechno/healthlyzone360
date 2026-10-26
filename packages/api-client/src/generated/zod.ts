@@ -1648,6 +1648,13 @@ export const zAdminChannelAssignment = z.object({
     available_to: z.iso.date().nullable()
 });
 
+/**
+ * A catalogue item row; `channels` is present when `include=channels` asks for it.
+ */
+export const zAdminCatalogueItemIndexRow = zAdminCatalogueItem.and(z.object({
+    channels: z.array(zAdminChannelAssignment).optional()
+}));
+
 export const zDerivedAllergen = z.object({
     allergen_code: zAllergenCode,
     containment: z.enum(['contains', 'may_contain']),
@@ -2029,6 +2036,14 @@ export const zPriceListChannelAssignment = z.object({
     price_list_id: zUuid,
     priority: z.int()
 });
+
+/**
+ * A price list row; `entries` and `channels` are present when `include` asks for them.
+ */
+export const zAdminPriceListIndexRow = zAdminPriceList.and(z.object({
+    entries: z.array(zAdminPriceListEntry).optional(),
+    channels: z.array(zPriceListChannelAssignment).optional()
+}));
 
 /**
  * How many standing rows the list has, and how many of those are real
@@ -11830,14 +11845,16 @@ export const zListCatalogueItemsQuery = z.object({
     item_type: zCatalogueItemType.optional(),
     has_recipe: z.enum(['true', 'false']).optional(),
     product_category_id: zUuid.optional(),
-    allergen: z.string().max(20).optional()
+    allergen: z.string().max(20).optional(),
+    ids: z.string().optional(),
+    include: z.enum(['channels']).optional()
 });
 
 /**
  * A page of catalogue items.
  */
 export const zListCatalogueItemsResponse = z.object({
-    data: z.array(zAdminCatalogueItem),
+    data: z.array(zAdminCatalogueItemIndexRow),
     meta: zPaginatedOrNumberedMeta
 });
 
@@ -12183,14 +12200,15 @@ export const zListPriceListsQuery = z.object({
     per_page: z.int().gte(1).lte(100).optional().default(25),
     query: z.string().max(160).optional(),
     status: zPriceListStatus.optional(),
-    customer_scope: zPriceListCustomerScope.optional()
+    customer_scope: zPriceListCustomerScope.optional(),
+    include: z.string().optional()
 });
 
 /**
  * A page of price lists.
  */
 export const zListPriceListsResponse = z.object({
-    data: z.array(zAdminPriceList),
+    data: z.array(zAdminPriceListIndexRow),
     meta: zPaginatedOrNumberedMeta
 });
 

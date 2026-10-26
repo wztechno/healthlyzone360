@@ -98,6 +98,46 @@ function harness(itemChannels: readonly Record<string, unknown>[] = [RETAIL_ROW]
             if (path === '/catalogue/price-lists' && method === 'POST') {
                 return json({ data: { price_list: PRICE_LIST } }, 201);
             }
+            if (path.startsWith('/catalogue/price-lists?')) {
+                return json({
+                    data: [
+                        {
+                            ...PRICE_LIST,
+                            channels: [
+                                {
+                                    id: 'p2',
+                                    sales_channel_id: WHOLESALE,
+                                    price_list_id: LIST,
+                                    priority: 2,
+                                },
+                                {
+                                    id: 'p1',
+                                    sales_channel_id: RETAIL,
+                                    price_list_id: LIST,
+                                    priority: 1,
+                                },
+                            ],
+                        },
+                    ],
+                    meta: { has_more: false, next_cursor: null },
+                });
+            }
+            if (path.startsWith('/catalogue/items?')) {
+                return json({
+                    data: [
+                        {
+                            id: ITEM,
+                            lock_version: 7,
+                            name_en: 'Granola',
+                            name_ar: 'غرانولا',
+                            channels: [
+                                RETAIL_ROW,
+                                { ...RETAIL_ROW, id: 'a2', sales_channel_id: WHOLESALE },
+                            ],
+                        },
+                    ],
+                });
+            }
             if (path === `/catalogue/price-lists/${LIST}`) {
                 return json({
                     data: {
@@ -259,5 +299,34 @@ describe('kitchen wholesale client', () => {
 
         expect(offering.salesChannelIds).toEqual([WHOLESALE]);
         expect(calls.map((call) => call.method)).toEqual(['GET']);
+    });
+
+    it('reads the scope and channels of every list in one request', async () => {
+        const { client, calls } = harness();
+
+        const lists = await client.listPriceListChannels();
+
+        expect(calls.map((call) => call.path)).toEqual([
+            '/catalogue/price-lists?include=channels&limit=100',
+        ]);
+        expect(lists).toEqual([
+            {
+                priceListId: PriceListId.unsafe(LIST),
+                lockVersion: 4,
+                customerScope: 'agreement',
+                salesChannelIds: [RETAIL, WHOLESALE],
+            },
+        ]);
+    });
+
+    it('reads the channels of the named items in one request', async () => {
+        const { client, calls } = harness();
+
+        const offerings = await client.listItemChannelOfferings([ITEM]);
+
+        expect(calls).toHaveLength(1);
+        expect(calls[0]?.path).toBe(`/catalogue/items?ids=${ITEM}&include=channels&limit=100`);
+        expect(offerings[0]?.name.en).toBe('Granola');
+        expect(offerings[0]?.salesChannelIds).toEqual([RETAIL, WHOLESALE]);
     });
 });
