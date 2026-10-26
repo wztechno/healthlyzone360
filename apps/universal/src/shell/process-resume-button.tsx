@@ -1,4 +1,4 @@
-import { DensityProvider, Icon, IconButton } from '@healthy360/design-system';
+import { DensityProvider, Icon, IconButton, useBreakpoint } from '@healthy360/design-system';
 import { usePathname, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
@@ -12,12 +12,17 @@ import { endProcess, isOutsideProcess, useActiveProcess } from '../navigation/ac
  * Drawn only off the process's own pages: on a step the reader is already where Continue would
  * go. The ✕ ends the process; it is the reader deciding to stop, not a problem being waved away.
  * See `navigation/active-process.ts`.
+ *
+ * It shares the bar with the page's trail, which gives way to it. So the record's name is said
+ * only where there is room for both (from `xl`); below that the button is "‹ Continue" alone, and
+ * the name stays in its accessible label.
  */
 export function ProcessResumeButton() {
     const { t } = useTranslation();
     const router = useRouter();
     const pathname = usePathname();
     const process = useActiveProcess();
+    const roomy = useBreakpoint().atLeast('xl');
 
     if (process === null || !isOutsideProcess(process, pathname)) return null;
 
@@ -27,7 +32,7 @@ export function ProcessResumeButton() {
         <DensityProvider value="compact">
             <View
                 testID="process-resume"
-                className="h-8 max-w-[320px] flex-row items-center self-center rounded-full border border-stroke-strong bg-surface-sunken pe-0.5"
+                className="h-8 max-w-[280px] flex-row items-center self-center rounded-full border border-stroke-strong bg-surface-sunken pe-0.5"
             >
                 <Pressable
                     testID="process-resume-continue"
@@ -43,12 +48,14 @@ export function ProcessResumeButton() {
                     <RNText className="text-xs font-semibold text-content-primary">
                         {t('common:process.continue')}
                     </RNText>
-                    <RNText
-                        numberOfLines={1}
-                        className="min-w-0 shrink text-xs text-content-secondary"
-                    >
-                        {title}
-                    </RNText>
+                    {roomy ? (
+                        <RNText
+                            numberOfLines={1}
+                            className="min-w-0 shrink text-xs text-content-secondary"
+                        >
+                            {title}
+                        </RNText>
+                    ) : null}
                 </Pressable>
                 <IconButton
                     testID="process-resume-stop"

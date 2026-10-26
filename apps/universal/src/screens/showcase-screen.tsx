@@ -1532,6 +1532,18 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         { key: 'tahini', label: 'Tahini paste' },
                     ]}
                 />
+                {/* In a bar shared with other controls: one line, shortened rather than wrapped. */}
+                <View className="w-64">
+                    <Breadcrumbs
+                        testID={id('trail-truncated')}
+                        truncate
+                        items={[
+                            { key: 'hub', label: 'Kitchen workspace', onPress: () => undefined },
+                            { key: 'ingredients', label: 'Ingredients', onPress: () => undefined },
+                            { key: 'vermicelli', label: 'Vermicelli rice noodles, thin' },
+                        ]}
+                    />
+                </View>
                 <View className="rounded-md bg-surface-canopy p-3">
                     <Breadcrumbs
                         testID={id('trail-canopy')}
