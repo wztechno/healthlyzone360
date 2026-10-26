@@ -42,6 +42,7 @@ import type { OtpChallenge } from '../contracts/verification.ts';
 import type {
     B2bAgreement as WireAgreement,
     B2bApplication as WireApplication,
+    B2bApplicationEnvelope,
     KycDocument as WireDocument,
     KycDocumentDownload as WireDownload,
     Offboarding as WireOffboarding,
@@ -117,6 +118,9 @@ import { mapIssuedChallenge } from './verification-repository.ts';
  * removed is the worse outcome by a distance. Re-uploading with `replacesDocumentId` supersedes,
  * which is the operation that does exist.
  */
+
+/** The body of every single-application response. The detail read adds contacts and locations. */
+type ApplicationBody = B2bApplicationEnvelope['data'];
 
 /** Which flat wire fields belong to which section — read one way, written the other. */
 const SECTION_FIELDS: Readonly<Record<B2BApplicationSection, readonly string[]>> = {
@@ -580,8 +584,13 @@ export function createApiB2bApplicationRepository(transport: Transport): B2BAppl
         }
     }
 
-    /** One application, whole: the row, its documents and its agreement, in parallel. */
-    async function hydrate(wire: WireApplication): Promise<B2BApplication> {
+    /**
+     * One application, whole: the row, its documents and its agreement, in parallel.
+     *
+     * Every single-application endpoint answers `{ application, … }`, never the bare row — reading
+     * the body as the row is what sent `/b2b/applications/undefined/documents` on the deployed web.
+     */
+    async function hydrate({ application: wire }: ApplicationBody): Promise<B2BApplication> {
         const [documents, agreement] = await Promise.all([
             transport
                 .request<WireDocument[]>({ method: 'GET', path: path(wire.id, '/documents') })
@@ -658,7 +667,7 @@ export function createApiB2bApplicationRepository(transport: Transport): B2BAppl
 
             // The list projection is a summary on some deployments and the full row on others; the
             // detail endpoint is the one that is guaranteed to carry every section field.
-            const wire = await transport.request<WireApplication>({
+            const wire = await transport.request<ApplicationBody>({
                 method: 'GET',
                 path: path(live.id),
             });
@@ -666,7 +675,7 @@ export function createApiB2bApplicationRepository(transport: Transport): B2BAppl
         },
 
         async startApplication(): Promise<B2BApplication> {
-            const wire = await transport.request<WireApplication>({
+            const wire = await transport.request<ApplicationBody>({
                 method: 'POST',
                 path: '/b2b/applications',
             });
@@ -680,7 +689,7 @@ export function createApiB2bApplicationRepository(transport: Transport): B2BAppl
             readonly markComplete?: boolean | undefined;
             readonly lockVersion: number;
         }): Promise<B2BApplication> {
-            const wire = await transport.request<WireApplication>({
+            const wire = await transport.request<ApplicationBody>({
                 method: 'PATCH',
                 path: path(
                     request.applicationId,
@@ -721,7 +730,7 @@ export function createApiB2bApplicationRepository(transport: Transport): B2BAppl
                 body: new MultipartBody(form),
             });
 
-            const wire = await transport.request<WireApplication>({
+            const wire = await transport.request<ApplicationBody>({
                 method: 'GET',
                 path: path(request.applicationId),
             });
@@ -781,7 +790,7 @@ export function createApiB2bApplicationRepository(transport: Transport): B2BAppl
             readonly applicationId: string;
             readonly lockVersion: number;
         }): Promise<B2BApplication> {
-            const wire = await transport.request<WireApplication>({
+            const wire = await transport.request<ApplicationBody>({
                 method: 'POST',
                 path: path(request.applicationId, '/submit'),
                 headers: ifMatch(request.lockVersion),
@@ -793,7 +802,7 @@ export function createApiB2bApplicationRepository(transport: Transport): B2BAppl
             readonly applicationId: string;
             readonly lockVersion: number;
         }): Promise<B2BApplication> {
-            const wire = await transport.request<WireApplication>({
+            const wire = await transport.request<ApplicationBody>({
                 method: 'POST',
                 path: path(request.applicationId, '/withdraw'),
                 headers: ifMatch(request.lockVersion),
@@ -878,7 +887,7 @@ export function createApiB2bApplicationRepository(transport: Transport): B2BAppl
                 },
             });
 
-            const wire = await transport.request<WireApplication>({
+            const wire = await transport.request<ApplicationBody>({
                 method: 'GET',
                 path: path(application.id),
             });
