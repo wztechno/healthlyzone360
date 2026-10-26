@@ -48,6 +48,7 @@ final class CartItemUpdateController
 
         $account = $this->locator->shopper();
         $basket = $this->locator->cart($account, $cart);
+        $this->locator->assertShopperMayTradeOnCart($account, $basket);
         $line = $this->locator->line($basket, $item);
 
         $updated = $this->carts->setQuantity($basket, $line, $payload['quantity']);

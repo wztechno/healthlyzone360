@@ -16,6 +16,7 @@ import { useCurrentHref, useGoToAuth } from '../../navigation/use-return-to.ts';
 import { useFailureMessage } from '../../screens/form-helpers.ts';
 import { useSession } from '../../session/session-provider.tsx';
 import { recordResumeIntent } from '../marketplace/resume-intent.ts';
+import { useShopViewOnly } from '../marketplace/shop-view-only.tsx';
 import { clashingAllergens, useAllergenNames, useMyAllergenCodes } from './my-allergens.tsx';
 import { writePendingAdd } from './pending-add.ts';
 
@@ -232,6 +233,7 @@ export function useBasketAdd({
     const toast = useToast();
     const failureMessage = useFailureMessage();
     const { phase } = useSession();
+    const viewOnly = useShopViewOnly();
     const queryClient = useQueryClient();
     const addToBasket = useBasketAddMutation();
     const myAllergens = useMyAllergenCodes();
@@ -345,6 +347,9 @@ export function useBasketAdd({
     };
 
     const add = (meal: BasketMeal, quantity = 1) => {
+        // Staff and business buyers buy nothing from the shop. Every Add is already hidden from
+        // them; this is the backstop for one that is not (`shop-view-only.tsx`).
+        if (viewOnly) return;
         const choice: Asked = { meal, quantity };
         switch (phase) {
             case 'restoring':

@@ -19719,14 +19719,10 @@ paths:
         - Access administration
       summary: The roles this kitchen can assign
       description: |
-        Platform templates and the kitchen's own, in one list, distinguished by
-        `is_system`.
-
-        One list because from the **assigning** side they are one set: when an
-        administrator picks a role for somebody, a template and a bespoke role
-        are equally valid choices. The roles *screen* draws them as two
-        sections because they are edited differently — templates offer Copy,
-        never Edit — but the member editor draws one picker.
+        The kitchen's own roles, every one editable. Each organisation owns a
+        copy of every platform template, made when the organisation is
+        created; the templates themselves are blueprints and are never listed,
+        so `is_system` is always `false` here.
 
         Templates first, then the kitchen's own by code: a person scanning this
         is usually looking for the standard role.
@@ -19792,6 +19788,10 @@ paths:
         platform-defined, and a body that could set the flag could create a
         role its own author could never edit.
 
+        **403** for an administrator whose membership is bound to one branch:
+        a role is shared by every branch of the kitchen, so only a
+        whole-kitchen administrator may define one.
+
         Requires `role.manage_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -19834,15 +19834,11 @@ paths:
         - Access administration
       summary: One role and everything it grants
       description: |
-        A platform template is readable here, deliberately: Copy is "open
-        `kitchen_manager`, see its codes, save them as your own", and a read
-        that refused a template would make the only supported way of changing
-        one impossible.
+        One of this organisation's own roles. Platform templates are
+        blueprints and answer **404**.
 
         The `ETag` is the role's `lock_version` and is what a later `PATCH`
-        must echo in `If-Match`. Served on a template too, where it is always
-        `0` and will never be checked — a client that had to branch on whether
-        a response carried a validator would branch wrongly once.
+        must echo in `If-Match`.
 
         Requires `role.view_organisation`.
       parameters:
@@ -19887,9 +19883,10 @@ paths:
         "take this away", and a role editor whose whole job is taking things
         away would need a second endpoint for the half that matters.
 
-        A platform template answers **404**: from the writing side there is no
-        role at that identifier belonging to you. `RolePolicy` and the `roles`
-        row-level-security policy refuse it twice more behind that.
+        Every role the kitchen owns is editable, including its copies of the
+        platform defaults. A platform template itself answers **404**: there is
+        no role at that identifier belonging to you. **403** for a
+        branch-bound administrator — a role is shared by every branch.
 
         `If-Match` is required. Two administrators editing one role — one
         removing `order.manage_organisation` while the other adds a cost code —
@@ -23520,9 +23517,7 @@ components:
       in: path
       required: true
       description: |
-        A role of this organisation, or a platform template. Reads accept
-        either; writes answer **404** for a template, because from the writing
-        side there is no role at that identifier belonging to you.
+        A role of this organisation. A platform template answers **404**.
       schema:
         $ref: '#/components/schemas/Uuid'
     MembershipPath:
@@ -25040,6 +25035,7 @@ components:
         - guest.session_invalid
         - cart.line_refused
         - cart.channel_refused
+        - shop.view_only
         - order.placement_refused
         - b2b.application_state_invalid
         - b2b.documents_incomplete
@@ -44890,7 +44886,7 @@ components:
           format: email
         role_code:
           type: string
-          description: The role the person is being invited into. A platform template role, or one this organisation defined.
+          description: The code of one of this organisation's own roles; any other code is refused with **422**. A branch-bound administrator invites into their own branch only.
         status:
           $ref: '#/components/schemas/OrganisationInvitationStatus'
         message:
@@ -46798,7 +46794,7 @@ components:
         role_code:
           type: string
           maxLength: 60
-          description: A platform template role, or one this organisation defined. Resolved inside the tenant scope.
+          description: One of this organisation's own roles. Resolved inside the tenant scope.
         branch_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
@@ -47184,10 +47180,9 @@ components:
         is_system:
           type: boolean
           description: |
-            A platform template: visible in every tenant, editable in none.
-            The console offers **Copy** on these rather than Edit — forking one
-            into a role of your own is how a kitchen changes what a template
-            means inside its walls, and `MembershipGranter` prefers the fork.
+            Always `false` for a role served to a tenant: every organisation
+            owns its roles, copied from the platform defaults when it was
+            created. Kept for compatibility.
         holder_count:
           type: integer
           minimum: 0
@@ -47201,7 +47196,7 @@ components:
         lock_version:
           type: integer
           minimum: 0
-          description: Always `0` on a template, which is never written from here.
+          description: Moves on every save; echo it in `If-Match`.
         updated_at:
           type:
             - string

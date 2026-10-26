@@ -6,6 +6,7 @@ namespace Healthy360\B2b\Services;
 
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Healthy360\AccessControl\Services\OrganisationRoles;
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\B2b\Enums\AgreementStatus;
 use Healthy360\B2b\Enums\ApplicationContactRole;
@@ -150,6 +151,7 @@ final readonly class ProvisionApplication
         private CustomerAccountNumbers $accountNumbers,
         private DatabaseTenantContext $database,
         private AuditRecorder $audit,
+        private OrganisationRoles $roles,
     ) {}
 
     /**
@@ -305,6 +307,8 @@ final readonly class ProvisionApplication
         $organisation->status = OrganisationStatus::Active;
         $organisation->created_by = (string) $actor->getKey();
         $organisation->save();
+
+        $this->roles->provision((string) $organisation->getKey());
 
         return $organisation;
     }

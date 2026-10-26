@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Healthy360\AccessAdministration\Tests\Fixtures\AccessWorld;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\AccessControl\Models\MembershipRole;
+use Healthy360\AccessControl\Models\Role;
+use Healthy360\AccessControl\Services\OrganisationRoles;
 use Healthy360\AccessControl\Services\PermissionCache;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationBranch;
@@ -148,22 +150,28 @@ it('refuses another kitchen’s role', function (): void {
         ->assertJsonPath('error.details.refused_role_ids', [(string) $theirs->getKey()]);
 });
 
-it('assigns a platform template as readily as a bespoke role', function (): void {
-    // From the assigning side the two are one set, which is why the roles index
-    // serves them in one list.
+it('assigns the kitchen’s own copy of a standard role, and never the platform template', function (): void {
     $tenant = AccessWorld::kitchen('admin@verdant.test');
     $cook = AccessWorld::colleague($tenant, 'cook@verdant.test', [], 'line_cook');
+    app(OrganisationRoles::class)->provision((string) $tenant->organisation->getKey());
+
     $template = AccessWorld::template('kitchen_staff');
+    $own = Role::withoutTenancy()
+        ->where('organisation_id', $tenant->organisation->getKey())
+        ->where('code', 'kitchen_staff')
+        ->sole();
+
+    $path = "/api/v1/organisations/{$tenant->organisation->getKey()}/memberships/{$cook->membership->getKey()}/roles";
 
     $this->actingAs($tenant->user)
-        ->putJson(
-            "/api/v1/organisations/{$tenant->organisation->getKey()}/memberships/{$cook->membership->getKey()}/roles",
-            ['roles' => [['role_id' => (string) $template->getKey()]]],
-            AccessWorld::headers($tenant) + AccessWorld::ifMatch((int) $cook->membership->lock_version),
-        )
+        ->putJson($path, ['roles' => [['role_id' => (string) $template->getKey()]]], AccessWorld::headers($tenant) + AccessWorld::ifMatch((int) $cook->membership->lock_version))
+        ->assertUnprocessable();
+
+    $this->actingAs($tenant->user)
+        ->putJson($path, ['roles' => [['role_id' => (string) $own->getKey()]]], AccessWorld::headers($tenant) + AccessWorld::ifMatch((int) $cook->membership->lock_version))
         ->assertOk()
         ->assertJsonPath('data.membership.roles.0.code', 'kitchen_staff')
-        ->assertJsonPath('data.membership.roles.0.is_system', true);
+        ->assertJsonPath('data.membership.roles.0.is_system', false);
 });
 
 it('demands the membership’s validator and detects a lost race', function (): void {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Kitchens\Import\Runtime;
 
+use Healthy360\AccessControl\Services\OrganisationRoles;
 use Healthy360\Catalogues\Enums\CatalogueStatus;
 use Healthy360\Catalogues\Enums\SalesChannelKind;
 use Healthy360\Catalogues\Enums\SalesChannelStatus;
@@ -76,6 +77,7 @@ final readonly class KitchenWorkbookWorld
     public function __construct(
         private TenantContext $context,
         private DatabaseTenantContext $database,
+        private OrganisationRoles $roles,
     ) {}
 
     /**
@@ -142,6 +144,8 @@ final readonly class KitchenWorkbookWorld
         $organisation->default_language_code = 'en';
         $organisation->status = OrganisationStatus::Active;
         $organisation->save();
+
+        $this->roles->provision((string) $organisation->getKey());
 
         return $organisation;
     }

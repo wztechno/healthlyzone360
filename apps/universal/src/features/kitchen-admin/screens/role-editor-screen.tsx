@@ -1,7 +1,6 @@
 import { apiFailure, isDeletableRole, isValidationFailure } from '@healthy360/api-client/contracts';
 import type { ApiFailure } from '@healthy360/api-client/contracts';
 import {
-    Badge,
     Button,
     Callout,
     Cascade,
@@ -25,6 +24,7 @@ import { Gate, useCan } from '../../../access/gate.tsx';
 import {
     useCreateRoleMutation,
     useDeleteRoleMutation,
+    useIsBranchBoundAdmin,
     useOrganisationRoleQuery,
     usePermissionCatalogueQuery,
     useUpdateRoleMutation,
@@ -47,9 +47,9 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 /**
  * `/kitchen/roles/{role}` and `/kitchen/roles/new` — one editor, three jobs.
  *
- * It creates a role, edits one, and reads a platform template it cannot change. They are one screen
- * because they are one form: the difference between them is which fields are writable and which
- * button appears, not which controls exist.
+ * It creates a role, edits one, and shows one read-only to somebody who may not change it. They are
+ * one screen because they are one form: the difference between them is which fields are writable
+ * and which button appears, not which controls exist.
  *
  * ## It opens the way every other kitchen record form does
  *
@@ -61,10 +61,8 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * ## Copy is a create seeded from a read
  *
- * `/kitchen/roles/new?from={role}` fetches the source and pre-fills from it. That is the only
- * supported way to change what a platform template means inside a kitchen — acceptance prefers a
- * tenant's own role of the same code — so the code field is left editable and pre-filled with the
- * source's, and the form warns if it is kept rather than refusing it.
+ * `/kitchen/roles/new?from={role}` fetches the source and pre-fills from it, code included; the
+ * code has to be changed before the save, because the kitchen already has a role with it.
  *
  * ## Pages and Advanced write the same state
  *
@@ -73,10 +71,12 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * `page-permissions.ts` states and its test pins. Advanced can reach everything. Switching between
  * them mid-edit loses nothing, because there is nothing to lose: one set, two views of it.
  *
- * ## A template is read-only and says so once
+ * ## Every role is editable — by a whole-kitchen administrator
  *
- * Save is not drawn, every field is disabled and a callout explains why and what to do instead.
- * Refusing on submit would be the same rule stated at the worst possible moment.
+ * Each kitchen owns its copy of every standard role, so there is no template to protect. A role is
+ * shared by every branch, though, so somebody bound to one branch (`useIsBranchBoundAdmin`), or
+ * without `role.manage_organisation`, gets the form read-only: Save is not drawn and every field
+ * is disabled.
  */
 
 export function RoleEditorScreen() {
@@ -147,7 +147,8 @@ function RoleEditor() {
     const isNew = params.role === undefined || params.role === 'new';
     const sourceId = isNew ? params.from : params.role;
 
-    const canManage = useCan(ROLE_MANAGE_PERMISSION);
+    const branchBound = useIsBranchBoundAdmin();
+    const canManage = useCan(ROLE_MANAGE_PERMISSION) && !branchBound;
 
     const source = useOrganisationRoleQuery(sourceId);
     const catalogue = usePermissionCatalogueQuery();
@@ -165,8 +166,7 @@ function RoleEditor() {
     const guard = useUnsavedGuard({ message: t('kitchen:editor.unsavedMessage') });
 
     const record = source.data;
-    const isTemplate = !isNew && record?.isSystem === true;
-    const readOnly = isTemplate || !canManage;
+    const readOnly = !canManage;
 
     const title = isNew
         ? record === undefined
@@ -479,15 +479,6 @@ function RoleEditor() {
                     dirty={guard.isDirty}
                     badges={
                         <>
-                            {isTemplate ? (
-                                <Badge
-                                    variant="label"
-                                    testID="kitchen-role-editor-kind"
-                                    tone="neutral"
-                                    icon={null}
-                                    label={t('accessAdmin:roles.kindTemplate')}
-                                />
-                            ) : null}
                             {isNew || record === undefined ? null : (
                                 <Text
                                     testID="kitchen-role-editor-reference"
@@ -571,28 +562,6 @@ function RoleEditor() {
                         onChange: setStep,
                     }}
                 />
-
-                {isTemplate ? (
-                    <Callout
-                        testID="kitchen-role-editor-template-notice"
-                        tone="info"
-                        title={t('accessAdmin:role.templateNotice')}
-                        actions={
-                            canManage ? (
-                                <Button
-                                    testID="kitchen-role-editor-copy"
-                                    size="sm"
-                                    label={t('accessAdmin:roles.copy')}
-                                    onPress={() => {
-                                        router.replace(
-                                            `/kitchen/roles/new?from=${encodeURIComponent(String(record?.id ?? ''))}` as never,
-                                        );
-                                    }}
-                                />
-                            ) : null
-                        }
-                    />
-                ) : null}
 
                 {create.data?.shadowsTemplate === true ? (
                     <Callout

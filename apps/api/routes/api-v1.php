@@ -2885,8 +2885,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         | DELETE stamps `revoked_at`; nothing is removed. Who was invited and who
         | withdrew it is exactly the trail an access review reads.
         |
+        | `branch.context` resolves (never requires) a branch, so a branch-bound
+        | administrator passes `PermissionChecker`'s branch-scope step and then
+        | manages invitations to their own branch only.
+        |
         */
-        Route::middleware('org.context')->prefix('/organisations/{organisation}')->group(function (): void {
+        Route::middleware(['org.context', 'branch.context'])->prefix('/organisations/{organisation}')->group(function (): void {
             Route::post('/invitations', OrganisationInvitationStoreController::class)
                 ->middleware('permission:membership.invite_organisation')
                 ->name('organisations.invitations.store');
@@ -2920,11 +2924,14 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         | and a mismatch is **404** — "no such organisation, as far as you are
         | concerned", the same answer and the same reason as next door.
         |
-        | **No `branch.context`, anywhere in this block.** Roles and memberships
-        | are organisation-wide. A membership's `branch_id` is data these endpoints
-        | *write* — it is how a kitchen says "this person works the airport branch"
-        | — not context they read, and requiring a selected branch to edit it would
-        | make the organisation-wide case unreachable from a branch-scoped session.
+        | **`branch.context` resolves, it never requires.** A membership's
+        | `branch_id` is data these endpoints *write* — it is how a kitchen says
+        | "this person works the airport branch". The middleware is here so that a
+        | branch-bound administrator passes `PermissionChecker`'s branch-scope step
+        | (without it, the context branch is null and they are refused
+        | everywhere); `AccessAdministrationLocator` then confines them to their
+        | own branch's people and keeps role definitions, which every branch
+        | shares, with whole-kitchen administrators.
         |
         | **No `org.trading`, anywhere in this block, and that is deliberate.**
         | A suspended kitchen may not sell: `org.trading` guards every catalogue
@@ -2950,7 +2957,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         | catalogue that offered one would be a form with a trap in it.
         |
         */
-        Route::middleware('org.context')->prefix('/organisations/{organisation}')->group(function (): void {
+        Route::middleware(['org.context', 'branch.context'])->prefix('/organisations/{organisation}')->group(function (): void {
             Route::middleware('permission:role.view_organisation')->group(function (): void {
                 Route::get('/permissions', PermissionCatalogueIndexController::class)
                     ->name('organisations.permissions.index');

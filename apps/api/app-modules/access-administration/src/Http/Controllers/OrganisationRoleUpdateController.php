@@ -75,6 +75,7 @@ final class OrganisationRoleUpdateController
     {
         $this->locator->contextOrganisation($organisation);
         $record = $this->locator->ownRole($role);
+        $this->locator->assertWholeKitchenActor();
 
         Gate::authorize('update', $record);
 

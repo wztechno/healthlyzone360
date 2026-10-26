@@ -17,16 +17,12 @@ use Illuminate\Http\JsonResponse;
  * GET /api/v1/organisations/{organisation}/roles/{role} — one role and
  * everything it grants.
  *
- * Resolved through {@see AccessAdministrationLocator::visibleRole()} rather
- * than `ownRole()`, because a template has to be readable: the console's
- * **Copy** affordance is "open `kitchen_manager`, see its forty-one codes, save
- * them as your own", and a read that 404'd on a template would make the one
- * supported way of changing what a template means impossible.
+ * Resolved through {@see AccessAdministrationLocator::ownRole()}: every
+ * organisation owns a copy of each platform template, so the blueprints
+ * themselves are never served to a tenant.
  *
  * The `ETag` is the role's `lock_version`, and it is what a subsequent `PATCH`
- * must echo in `If-Match`. Served on a template too, where it is always `0` and
- * will never be checked — a client that had to branch on whether a response
- * carried a validator would branch wrongly once.
+ * must echo in `If-Match`.
  */
 final class OrganisationRoleShowController
 {
@@ -42,7 +38,7 @@ final class OrganisationRoleShowController
     public function __invoke(string $organisation, string $role): JsonResponse
     {
         $this->locator->contextOrganisation($organisation);
-        $record = $this->locator->visibleRole($role);
+        $record = $this->locator->ownRole($role);
 
         $detail = $this->presenter->detail(
             $record,

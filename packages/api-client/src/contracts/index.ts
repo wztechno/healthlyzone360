@@ -904,7 +904,6 @@ export {
     STAFF_INVITATION_STATUSES,
     TEAM_MEMBER_STATUSES,
     isDeletableRole,
-    isEditableRole,
     isReactivatableMember,
     isWorkingMember,
 } from './access-admin.ts';

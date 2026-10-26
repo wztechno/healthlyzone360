@@ -24,7 +24,7 @@ export type Meta = {
  * `Healthy360\Support\Api\ErrorCode`; a Pest test asserts the two agree.
  *
  */
-export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'cart.channel_refused' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'b2b.quotation_state_invalid' | 'b2b.quotation_empty' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'payment.refund_exceeds_capture' | 'inventory.insufficient_stock' | 'production.state_invalid' | 'production.plan_refused' | 'production.consumption_recorded' | 'unit.conversion_unsupported' | 'barcode.taken' | 'barcode.invalid' | 'access.self_lockout' | 'rate_limit.exceeded' | 'server.internal_error' | 'allergens.provider_unavailable' | 'nutrition.provider_unavailable' | 'nutrition.provider_configuration';
+export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'cart.channel_refused' | 'shop.view_only' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'b2b.quotation_state_invalid' | 'b2b.quotation_empty' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'payment.refund_exceeds_capture' | 'inventory.insufficient_stock' | 'production.state_invalid' | 'production.plan_refused' | 'production.consumption_recorded' | 'unit.conversion_unsupported' | 'barcode.taken' | 'barcode.invalid' | 'access.self_lockout' | 'rate_limit.exceeded' | 'server.internal_error' | 'allergens.provider_unavailable' | 'nutrition.provider_unavailable' | 'nutrition.provider_configuration';
 
 export type Error = {
     code: ErrorCode;
@@ -11408,7 +11408,7 @@ export type OrganisationInvitation = {
     branch_id?: Uuid | null;
     email: string;
     /**
-     * The role the person is being invited into. A platform template role, or one this organisation defined.
+     * The code of one of this organisation's own roles; any other code is refused with **422**. A branch-bound administrator invites into their own branch only.
      */
     role_code: string;
     status: OrganisationInvitationStatus;
@@ -12519,7 +12519,7 @@ export type CreateOrganisationInvitationRequest = {
      */
     email: string;
     /**
-     * A platform template role, or one this organisation defined. Resolved inside the tenant scope.
+     * One of this organisation's own roles. Resolved inside the tenant scope.
      */
     role_code: string;
     /**
@@ -12729,10 +12729,9 @@ export type OrganisationRoleSummary = {
     description_en: string | null;
     description_ar: string | null;
     /**
-     * A platform template: visible in every tenant, editable in none.
-     * The console offers **Copy** on these rather than Edit — forking one
-     * into a role of your own is how a kitchen changes what a template
-     * means inside its walls, and `MembershipGranter` prefers the fork.
+     * Always `false` for a role served to a tenant: every organisation
+     * owns its roles, copied from the platform defaults when it was
+     * created. Kept for compatibility.
      *
      */
     is_system: boolean;
@@ -12745,7 +12744,7 @@ export type OrganisationRoleSummary = {
     holder_count: number;
     permission_count: number;
     /**
-     * Always `0` on a template, which is never written from here.
+     * Moves on every save; echo it in `If-Match`.
      */
     lock_version: number;
     updated_at: string | null;
@@ -14821,9 +14820,7 @@ export type B2bCatalogueLanguage = 'en' | 'ar';
 export type OrganisationPath = Uuid;
 
 /**
- * A role of this organisation, or a platform template. Reads accept
- * either; writes answer **404** for a template, because from the writing
- * side there is no role at that identifier belonging to you.
+ * A role of this organisation. A platform template answers **404**.
  *
  */
 export type RolePath = Uuid;
@@ -38373,9 +38370,7 @@ export type DeleteOrganisationRoleData = {
          */
         organisation: Uuid;
         /**
-         * A role of this organisation, or a platform template. Reads accept
-         * either; writes answer **404** for a template, because from the writing
-         * side there is no role at that identifier belonging to you.
+         * A role of this organisation. A platform template answers **404**.
          *
          */
         role: Uuid;
@@ -38466,9 +38461,7 @@ export type ShowOrganisationRoleData = {
          */
         organisation: Uuid;
         /**
-         * A role of this organisation, or a platform template. Reads accept
-         * either; writes answer **404** for a template, because from the writing
-         * side there is no role at that identifier belonging to you.
+         * A role of this organisation. A platform template answers **404**.
          *
          */
         role: Uuid;
@@ -38545,9 +38538,7 @@ export type UpdateOrganisationRoleData = {
          */
         organisation: Uuid;
         /**
-         * A role of this organisation, or a platform template. Reads accept
-         * either; writes answer **404** for a template, because from the writing
-         * side there is no role at that identifier belonging to you.
+         * A role of this organisation. A platform template answers **404**.
          *
          */
         role: Uuid;

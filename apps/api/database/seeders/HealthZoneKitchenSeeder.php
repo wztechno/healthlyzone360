@@ -8,6 +8,7 @@ use App\Models\User;
 use Closure;
 use Healthy360\AccessControl\Models\MembershipRole;
 use Healthy360\AccessControl\Models\Role;
+use Healthy360\AccessControl\Services\OrganisationRoles;
 use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Organisations\Enums\MembershipStatus;
 use Healthy360\Organisations\Models\Organisation;
@@ -136,8 +137,10 @@ class HealthZoneKitchenSeeder extends Seeder
         );
 
         foreach ($templateRoleCodes as $code) {
+            app(OrganisationRoles::class)->provision((string) $organisation->getKey());
+
             $role = Role::withoutTenancy()
-                ->whereNull('organisation_id')
+                ->where('organisation_id', $organisation->getKey())
                 ->where('code', $code)
                 ->firstOrFail();
 

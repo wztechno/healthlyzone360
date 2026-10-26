@@ -39,7 +39,6 @@ import { availableWorkspaceAreas } from '../navigation/items.ts';
 import { withQuery } from '../navigation/return-to.ts';
 import { useCurrentHref, useGoToAuth } from '../navigation/use-return-to.ts';
 import { useOnlineStatus } from '../online/online-status.tsx';
-import { isBusinessCustomer } from '../session/machine.ts';
 import { useAccessState, useSession } from '../session/session-provider.tsx';
 import { LocaleToggle } from './locale-toggle.tsx';
 import { ThemeToggle } from './theme-toggle.tsx';
@@ -178,7 +177,7 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
     const goToAuthWith = useGoToAuth();
     const { locale, setLocale } = useLocale();
     const { state: connectivity } = useOnlineStatus();
-    const { phase, me } = useSession();
+    const { phase } = useSession();
     const accessState = useAccessState();
     const signedIn = phase !== 'anonymous' && phase !== 'restoring';
     /** Staff look at the shop as customers see it, and act on nothing (`shop-view-only.tsx`). */
@@ -186,13 +185,14 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
     const logout = useLogoutMutation();
     // Count only while signed in: `getCart` opens a basket lazily, and an anonymous visit must not
     // create one just to paint a zero. A signed-out Add asks the person to sign in first, and the
-    // add is made here once they have (`usePendingAddReplay`).
-    const cart = useCartQuery(signedIn);
+    // add is made here once they have (`usePendingAddReplay`). Neither for a view-only shopper, who
+    // has no basket to count and may not add — the server refuses both.
+    const cart = useCartQuery(signedIn && !viewOnly);
     const replayBasket = useBasketAdd({
         labelKey: 'marketplace:resume.thisPage',
         testID: 'marketplace-replay',
     });
-    usePendingAddReplay(replayBasket, !cart.isPending);
+    usePendingAddReplay(replayBasket, !viewOnly && !cart.isPending);
     const cartCount = cart.data?.itemCount ?? 0;
     const cartLabel = t('marketplace:consumer.nav.cart');
     const cartButtonLabel =
@@ -227,7 +227,6 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
         [pathname, router],
     );
 
-    const businessCustomer = isBusinessCustomer(me?.memberships ?? []);
     const navigation = useMemo<readonly NavigationItem[]>(
         () =>
             marketplaceNavigation()
@@ -243,31 +242,8 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                     onPress: () => {
                         navigateTo(item.href);
                     },
-                }))
-                .concat(
-                    /*
-                     * Business customers only: the way from the shop to the corporate area, where
-                     * they order at their wholesale prices. A destination rather than an icon, so
-                     * it is labelled in the bar and still reachable from the phone menu, where the
-                     * bar has no room. `/workspace` picks the organisation first when none is.
-                     */
-                    // Staff have the Workspaces button in the bar instead.
-                    businessCustomer && !viewOnly
-                        ? [
-                              {
-                                  key: 'workspaces',
-                                  label: t('marketplace:nav.workspaces'),
-                                  icon: 'layoutGrid' as const,
-                                  active: false,
-                                  testID: 'marketplace-workspaces',
-                                  onPress: () => {
-                                      router.push('/workspace' as never);
-                                  },
-                              },
-                          ]
-                        : [],
-                ),
-        [businessCustomer, navigateTo, pathname, router, t, viewOnly],
+                })),
+        [navigateTo, pathname, t],
     );
 
     /*

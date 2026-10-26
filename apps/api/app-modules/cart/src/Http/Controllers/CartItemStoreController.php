@@ -51,6 +51,7 @@ final class CartItemStoreController
 
         $account = $this->locator->shopper();
         $basket = $this->locator->cart($account, $cart);
+        $this->locator->assertShopperMayTradeOnCart($account, $basket);
 
         $deliveryDate = $payload['delivery_date'] ?? null;
         $quantity = $payload['quantity'] ?? null;

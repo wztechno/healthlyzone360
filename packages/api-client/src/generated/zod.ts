@@ -58,6 +58,7 @@ export const zErrorCode = z.enum([
     'guest.session_invalid',
     'cart.line_refused',
     'cart.channel_refused',
+    'shop.view_only',
     'order.placement_refused',
     'b2b.application_state_invalid',
     'b2b.documents_incomplete',
@@ -10139,9 +10140,7 @@ export const zB2bCatalogueLanguage = z.enum(['en', 'ar']).default('en');
 export const zOrganisationPath = zUuid;
 
 /**
- * A role of this organisation, or a platform template. Reads accept
- * either; writes answer **404** for a template, because from the writing
- * side there is no role at that identifier belonging to you.
+ * A role of this organisation. A platform template answers **404**.
  *
  */
 export const zRolePath = zUuid;

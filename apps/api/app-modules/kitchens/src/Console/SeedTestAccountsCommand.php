@@ -7,6 +7,7 @@ namespace Healthy360\Kitchens\Console;
 use App\Models\User;
 use Healthy360\AccessControl\Models\MembershipRole;
 use Healthy360\AccessControl\Models\Role;
+use Healthy360\AccessControl\Services\OrganisationRoles;
 use Healthy360\B2b\Enums\AgreementStatus;
 use Healthy360\B2b\Enums\ApplicationStatus;
 use Healthy360\B2b\Enums\PaymentTerms;
@@ -220,6 +221,10 @@ final class SeedTestAccountsCommand extends Command
             ],
         );
         $companyId = (string) $company->getKey();
+
+        app(OrganisationRoles::class)->provision($companyId);
+
+        $ownerRole = Role::withoutTenancy()->where('organisation_id', $companyId)->where('code', 'organisation_owner')->firstOrFail();
 
         $account = $database->during((string) $buyer->getKey(), $companyId, null, function () use ($company, $companyId, $buyer, $ownerRole, $accountNumbers, $addresses, $areaId): CustomerAccount {
             $membership = OrganisationMembership::withoutTenancy()->firstOrCreate(

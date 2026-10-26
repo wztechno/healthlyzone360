@@ -12,6 +12,8 @@ use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Customers\Enums\CustomerAccountType;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Services\ShopperResolver;
+use Healthy360\Organisations\Enums\MembershipStatus;
+use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 
@@ -65,31 +67,92 @@ final class CartLocator
      * Private-pricing channels — wholesale, corporate and insurance desks —
      * refuse every account shape except a corporate buyer account. A consumer
      * seeing a negotiated tariff is the commercial failure K1.5 drew the
-     * boundary against.
+     * boundary against: **403 `cart.channel_refused`**.
+     *
+     * The public retail channels are the other way round. The shop is
+     * view-only for anybody who belongs to an organisation, so they refuse
+     * **403 `shop.view_only`** to:
+     *
+     * - **a corporate buyer account** — a business orders at its own prices,
+     *   on its private channel, never at the retail till;
+     * - **a consumer account whose person holds an active membership** of any
+     *   organisation — kitchen staff look at the shop, and a business buyer
+     *   signed in without their organisation is still a business buyer.
+     *
+     * A guest account belongs to nobody and is never refused here.
      *
      * @throws ApiException
      */
     public function assertShopperMayUseChannel(CustomerAccount $shopper, SalesChannel $channel): void
     {
-        if (! $channel->channel_kind->hasPrivatePricing()) {
-            return;
+        if ($channel->channel_kind->hasPrivatePricing()) {
+            if ($shopper->account_type === CustomerAccountType::B2b) {
+                return;
+            }
+
+            throw new ApiException(
+                ErrorCode::CartChannelRefused,
+                'This sales channel is only available to corporate buyer accounts.',
+                [
+                    'reasons' => [[
+                        'reason' => 'channel_buyer_required',
+                        'channel_kind' => $channel->channel_kind->value,
+                        'required_account_type' => CustomerAccountType::B2b->value,
+                    ]],
+                ],
+            );
         }
 
-        if ($shopper->account_type === CustomerAccountType::B2b) {
+        if ($shopper->account_type !== CustomerAccountType::B2b && ! $this->belongsToAnOrganisation($shopper)) {
             return;
         }
 
         throw new ApiException(
-            ErrorCode::CartChannelRefused,
-            'This sales channel is only available to corporate buyer accounts.',
-            [
+            ErrorCode::ShopViewOnly,
+            details: [
                 'reasons' => [[
-                    'reason' => 'channel_buyer_required',
+                    'reason' => 'shop_view_only',
                     'channel_kind' => $channel->channel_kind->value,
-                    'required_account_type' => CustomerAccountType::B2b->value,
                 ]],
             ],
         );
+    }
+
+    /**
+     * Whether this shopper may trade on the basket they already hold.
+     *
+     * Asked of the channel the basket was **opened on**, not of the one a new
+     * basket would open on today: a basket opened before its owner joined a
+     * kitchen is still a retail basket, and joining is what shuts the till.
+     * Every write that fills or prices a basket asks — adding a line,
+     * changing a quantity, the checkout preview, placing the order. Removing
+     * a line does not, so a refused basket can still be emptied.
+     *
+     * @throws ApiException
+     */
+    public function assertShopperMayTradeOnCart(CustomerAccount $shopper, Cart $cart): void
+    {
+        $this->assertShopperMayUseChannel(
+            $shopper,
+            SalesChannel::withoutTenancy()->whereKey($cart->sales_channel_id)->firstOrFail(),
+        );
+    }
+
+    /**
+     * Whether the person behind a consumer account holds an active membership
+     * of any organisation. Read without tenancy: the shopper has selected no
+     * organisation, and the question is about all of them.
+     */
+    private function belongsToAnOrganisation(CustomerAccount $shopper): bool
+    {
+        if ($shopper->user_id === null) {
+            return false;
+        }
+
+        return OrganisationMembership::withoutTenancy()
+            ->where('user_id', $shopper->user_id)
+            ->where('status', MembershipStatus::Active)
+            ->exists();
     }
 
     /**

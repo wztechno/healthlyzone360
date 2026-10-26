@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8690 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8674 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -224,45 +224,29 @@ export interface NamespaceKeys {
     | 'role.tabs.advanced'
     | 'role.tabs.details'
     | 'role.tabs.pages'
-    | 'role.templateNotice'
     | 'roles.caption'
     | 'roles.columns.description'
     | 'roles.columns.holders'
-    | 'roles.columns.kind'
     | 'roles.columns.pages'
     | 'roles.columns.role'
     | 'roles.copy'
     | 'roles.create'
     | 'roles.edit'
-    | 'roles.emptyBody'
-    | 'roles.emptyTitle'
     | 'roles.filteredEmptyBody'
     | 'roles.filteredEmptyTitle'
     | 'roles.holders'
     | 'roles.holdersNone'
-    | 'roles.kindOwn'
-    | 'roles.kindTemplate'
     | 'roles.noDescription'
     | 'roles.open'
     | 'roles.ownHeading'
-    | 'roles.ownHint'
     | 'roles.permissionCount'
     | 'roles.searchHint'
     | 'roles.searchLabel'
-    | 'roles.segmentAll'
-    | 'roles.segmentLabel'
-    | 'roles.segmentOwn'
-    | 'roles.segmentTemplates'
-    | 'roles.statOwn'
-    | 'roles.statOwnCaption'
     | 'roles.statRoles'
-    | 'roles.statTemplates'
-    | 'roles.statTemplatesCaption'
     | 'roles.statUnheld'
     | 'roles.statUnheldCaption'
     | 'roles.subtitle'
     | 'roles.templatesHeading'
-    | 'roles.templatesHint'
     | 'roles.title'
     | 'signIn.organisation'
     | 'signIn.useFullEmail'
@@ -8944,45 +8928,29 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:role.tabs.advanced',
   'accessAdmin:role.tabs.details',
   'accessAdmin:role.tabs.pages',
-  'accessAdmin:role.templateNotice',
   'accessAdmin:roles.caption',
   'accessAdmin:roles.columns.description',
   'accessAdmin:roles.columns.holders',
-  'accessAdmin:roles.columns.kind',
   'accessAdmin:roles.columns.pages',
   'accessAdmin:roles.columns.role',
   'accessAdmin:roles.copy',
   'accessAdmin:roles.create',
   'accessAdmin:roles.edit',
-  'accessAdmin:roles.emptyBody',
-  'accessAdmin:roles.emptyTitle',
   'accessAdmin:roles.filteredEmptyBody',
   'accessAdmin:roles.filteredEmptyTitle',
   'accessAdmin:roles.holders',
   'accessAdmin:roles.holdersNone',
-  'accessAdmin:roles.kindOwn',
-  'accessAdmin:roles.kindTemplate',
   'accessAdmin:roles.noDescription',
   'accessAdmin:roles.open',
   'accessAdmin:roles.ownHeading',
-  'accessAdmin:roles.ownHint',
   'accessAdmin:roles.permissionCount',
   'accessAdmin:roles.searchHint',
   'accessAdmin:roles.searchLabel',
-  'accessAdmin:roles.segmentAll',
-  'accessAdmin:roles.segmentLabel',
-  'accessAdmin:roles.segmentOwn',
-  'accessAdmin:roles.segmentTemplates',
-  'accessAdmin:roles.statOwn',
-  'accessAdmin:roles.statOwnCaption',
   'accessAdmin:roles.statRoles',
-  'accessAdmin:roles.statTemplates',
-  'accessAdmin:roles.statTemplatesCaption',
   'accessAdmin:roles.statUnheld',
   'accessAdmin:roles.statUnheldCaption',
   'accessAdmin:roles.subtitle',
   'accessAdmin:roles.templatesHeading',
-  'accessAdmin:roles.templatesHint',
   'accessAdmin:roles.title',
   'accessAdmin:signIn.organisation',
   'accessAdmin:signIn.useFullEmail',
