@@ -297,6 +297,12 @@ final readonly class IngredientSpreadsheetService
             return ['created', $ingredient->source_ref, null];
         }
 
+        // Without a Reference the name is the key the row was found by (exactly, or as an alias),
+        // never a field: writing it back would rename the record to its alias.
+        if ($reference === null) {
+            unset($attributes['name_en']);
+        }
+
         Validator::make($this->withStoredPartners($attributes, $existing), (new UpdateIngredientRequest)->rules(), [], $this->labels())->validate();
 
         $diff = $this->diff($existing, $attributes);

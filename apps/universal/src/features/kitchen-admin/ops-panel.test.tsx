@@ -533,9 +533,9 @@ describe('the stock count — import and export', () => {
         canSave.mockReset();
     });
 
-    async function renderStock(branchId: typeof TEST_BRANCH_ID | null) {
+    async function renderStock() {
         const rendered = await renderStubScreen(<StockScreen />, {
-            session: kitchenManagerSession({ activeContext: testActiveContext({ branchId }) }),
+            session: kitchenManagerSession({ activeContext: testActiveContext() }),
             repositories: {
                 kitchenOps: {
                     listStockItems: async () => [stockItem(1)],
@@ -566,29 +566,8 @@ describe('the stock count — import and export', () => {
         });
     }
 
-    it('without a branch, says to pick one instead of asking for a file', async () => {
-        await renderStock(null);
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${TOOLBAR}-import`));
-        });
-        await waitFor(() => {
-            expect(screen.getByTestId(`${TOOLBAR}-import-blocked`)).toHaveTextContent(
-                /Choose a branch first/,
-            );
-        });
-    });
-
-    it('without a branch, offers no count sheet to download', async () => {
-        const { repositories } = await renderStock(null);
-
-        await openExport();
-        expect(screen.getByTestId(`${TOOLBAR}-export-excel`)).toBeDisabled();
-        expect(repositories.kitchenAdmin.exportStock).not.toHaveBeenCalled();
-    });
-
     it('with a branch, downloads that branch’s count sheet', async () => {
-        const { repositories } = await renderStock(TEST_BRANCH_ID);
+        const { repositories } = await renderStock();
 
         await openExport();
         expect(screen.getByTestId(`${TOOLBAR}-export-excel`)).not.toBeDisabled();

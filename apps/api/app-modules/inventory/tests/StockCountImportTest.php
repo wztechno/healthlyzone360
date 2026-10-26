@@ -59,14 +59,14 @@ beforeEach(function (): void {
  * @param  list<list<string|int|float|null>>  $rows
  * @param  array<string, string>|null  $headers
  */
-function importCountSheet(array $rows, ?array $headers = null): TestResponse
+function stockCountImport(array $rows, ?array $headers = null): TestResponse
 {
     return test()->post('/api/v1/catalogue/inventory/counts/imports', [
         'file' => xlsxUpload([StockCountSpreadsheetService::HEADERS, ...$rows]),
     ], $headers ?? test()->headers);
 }
 
-function riceLevel(): ?StockLevel
+function stockCountRiceLevel(): ?StockLevel
 {
     return StockLevel::withoutTenancy()->where('stock_item_id', test()->item->getKey())->first();
 }
@@ -74,7 +74,7 @@ function riceLevel(): ?StockLevel
 /**
  * @return list<list<string|null>>
  */
-function downloadedSheet(TestResponse $response): array
+function stockCountDownloadedSheet(TestResponse $response): array
 {
     $path = $response->baseResponse->getFile()->getPathname();
     $rows = readXlsx($path);
@@ -86,20 +86,20 @@ function downloadedSheet(TestResponse $response): array
 it('posts a count as an adjust movement and leaves the level on the counted figure', function (): void {
     $this->postJson('/api/v1/catalogue/inventory/adjustments', $this->shelf + ['quantity_delta' => 10], $this->headers)->assertCreated();
 
-    importCountSheet([['rice-01', 'Rice', 7.5, null, null]])
+    stockCountImport([['rice-01', 'Rice', 7.5, null, null]])
         ->assertOk()
         ->assertJsonPath('data.updated', 1)
         ->assertJsonPath('data.rows.0.reference', 'rice-01')
         ->assertJsonPath('data.rows.0.outcome', 'updated');
 
-    expect(riceLevel()?->quantity)->toBe('7.5000')
+    expect(stockCountRiceLevel()?->quantity)->toBe('7.5000')
         ->and(StockMovement::withoutTenancy()->where('stock_item_id', $this->item->getKey())->where('reason', 'adjust')->where('notes', 'Count sheet import')->sole()->quantity_delta)
         ->toBe('-2.5000');
 });
 
 it('posts a repeated identical count as a zero movement and leaves the level unchanged', function (): void {
-    importCountSheet([['rice-01', null, 4, null, null]])->assertOk();
-    importCountSheet([['rice-01', null, 4, null, null]])->assertOk()->assertJsonPath('data.updated', 1);
+    stockCountImport([['rice-01', null, 4, null, null]])->assertOk();
+    stockCountImport([['rice-01', null, 4, null, null]])->assertOk()->assertJsonPath('data.updated', 1);
 
     $deltas = StockMovement::withoutTenancy()
         ->where('stock_item_id', $this->item->getKey())
@@ -110,43 +110,43 @@ it('posts a repeated identical count as a zero movement and leaves the level unc
         ->all();
 
     expect($deltas)->toBe(['0.0000', '4.0000'])
-        ->and(riceLevel()?->quantity)->toBe('4.0000');
+        ->and(stockCountRiceLevel()?->quantity)->toBe('4.0000');
 });
 
 it('sets the threshold and par, audited as a threshold set', function (): void {
-    importCountSheet([['rice-01', null, null, 3, 12]])->assertOk()->assertJsonPath('data.updated', 1);
+    stockCountImport([['rice-01', null, null, 3, 12]])->assertOk()->assertJsonPath('data.updated', 1);
 
-    expect(riceLevel()?->reorder_threshold)->toBe('3.0000')
-        ->and(riceLevel()?->par_level)->toBe('12.0000')
-        ->and(AuditLog::query()->where('action', 'inventory.threshold_set')->where('subject_id', riceLevel()?->getKey())->exists())->toBeTrue();
+    expect(stockCountRiceLevel()?->reorder_threshold)->toBe('3.0000')
+        ->and(stockCountRiceLevel()?->par_level)->toBe('12.0000')
+        ->and(AuditLog::query()->where('action', 'inventory.threshold_set')->where('subject_id', stockCountRiceLevel()?->getKey())->exists())->toBeTrue();
 
     // The same figures again move nothing and say so.
-    importCountSheet([['rice-01', null, null, 3, 12]])
+    stockCountImport([['rice-01', null, null, 3, 12]])
         ->assertOk()
         ->assertJsonPath('data.unchanged', 1)
         ->assertJsonPath('data.updated', 0);
 
     // Par alone keeps the stored threshold rather than clearing it.
-    importCountSheet([['rice-01', null, null, null, 20]])->assertOk()->assertJsonPath('data.updated', 1);
+    stockCountImport([['rice-01', null, null, null, 20]])->assertOk()->assertJsonPath('data.updated', 1);
 
-    expect(riceLevel()?->reorder_threshold)->toBe('3.0000')
-        ->and(riceLevel()?->par_level)->toBe('20.0000');
+    expect(stockCountRiceLevel()?->reorder_threshold)->toBe('3.0000')
+        ->and(stockCountRiceLevel()?->par_level)->toBe('20.0000');
 });
 
 it('fails a row whose par does not sit above its threshold, and posts none of it', function (): void {
-    importCountSheet([['rice-01', null, 9, 5, 5]])
+    stockCountImport([['rice-01', null, 9, 5, 5]])
         ->assertOk()
         ->assertJsonPath('data.failed', 1)
         ->assertJsonPath('data.rows.0.outcome', 'failed')
         ->assertJsonPath('data.rows.0.message', 'The restock level must be above the reorder threshold.');
 
     // The count on the same row rolled back with it.
-    expect(riceLevel()?->quantity ?? '0.0000')->toBe('0.0000')
+    expect(stockCountRiceLevel()?->quantity ?? '0.0000')->toBe('0.0000')
         ->and(StockMovement::withoutTenancy()->where('stock_item_id', $this->item->getKey())->exists())->toBeFalse();
 });
 
 it('fails a row with a negative count against its header label', function (): void {
-    importCountSheet([['rice-01', null, -1, null, null]])
+    stockCountImport([['rice-01', null, -1, null, null]])
         ->assertOk()
         ->assertJsonPath('data.failed', 1)
         ->assertJsonPath('data.rows.0.message', fn (string $message): bool => str_contains($message, 'Counted quantity'));
@@ -155,7 +155,7 @@ it('fails a row with a negative count against its header label', function (): vo
 it('skips an unknown code and never creates a stock item, and skips the example row', function (): void {
     $before = StockItem::withoutTenancy()->count();
 
-    importCountSheet([
+    stockCountImport([
         StockCountSpreadsheetService::EXAMPLE,
         ['no-such-shelf', 'Ghost', 5, null, null],
     ])
@@ -171,11 +171,11 @@ it('skips an unknown code and never creates a stock item, and skips the example 
 it('leaves the level alone when the counted quantity is blank', function (): void {
     $this->postJson('/api/v1/catalogue/inventory/adjustments', $this->shelf + ['quantity_delta' => 6], $this->headers)->assertCreated();
 
-    importCountSheet([['rice-01', 'Rice', null, null, null]])
+    stockCountImport([['rice-01', 'Rice', null, null, null]])
         ->assertOk()
         ->assertJsonPath('data.unchanged', 1);
 
-    expect(riceLevel()?->quantity)->toBe('6.0000')
+    expect(stockCountRiceLevel()?->quantity)->toBe('6.0000')
         ->and(StockMovement::withoutTenancy()->where('notes', 'Count sheet import')->exists())->toBeFalse();
 });
 
@@ -186,7 +186,7 @@ it('refuses an organisation-wide member of a two-branch kitchen who names no bra
     ]);
     $headers = PricingWorld::headers($this->tenant) + ['Accept' => 'application/json'];
 
-    importCountSheet([['rice-01', null, 5, null, null]], $headers)
+    stockCountImport([['rice-01', null, 5, null, null]], $headers)
         ->assertStatus(400)
         ->assertJsonPath('error.code', 'context.branch_required');
 
@@ -198,7 +198,7 @@ it('refuses an organisation-wide member of a two-branch kitchen who names no bra
 });
 
 it('records one summary audit per import with the counts', function (): void {
-    importCountSheet([
+    stockCountImport([
         ['rice-01', null, 5, null, null],
         ['no-such-shelf', null, 5, null, null],
     ])->assertOk();
@@ -238,7 +238,7 @@ it('exports the header branch\'s shelves with the count blank and the ledger in 
 
     expect($response->headers->get('Content-Disposition'))->toContain('stock-count-'.now()->format('Y-m-d').'.xlsx');
 
-    $sheet = downloadedSheet($response);
+    $sheet = stockCountDownloadedSheet($response);
     $byCode = collect(array_slice($sheet, 1))->keyBy(0);
 
     expect($sheet[0])->toBe([...StockCountSpreadsheetService::HEADERS, 'Unit', 'On hand', 'Low', 'Unit cost', 'Currency'])
@@ -255,7 +255,7 @@ it('exports the header branch\'s shelves with the count blank and the ledger in 
         'country_code' => $plain->organisation->country_code,
     ]);
 
-    $plainSheet = downloadedSheet($this->actingAs($plain->user)->get('/api/v1/catalogue/inventory/levels/export', PricingWorld::headers($plain) + [
+    $plainSheet = stockCountDownloadedSheet($this->actingAs($plain->user)->get('/api/v1/catalogue/inventory/levels/export', PricingWorld::headers($plain) + [
         'X-Branch-Id' => (string) $plainBranch->getKey(),
         'Accept' => 'application/json',
     ])->assertOk());
@@ -264,7 +264,7 @@ it('exports the header branch\'s shelves with the count blank and the ledger in 
 });
 
 it('re-imports its own export without reporting the read-only columns', function (): void {
-    $sheet = downloadedSheet($this->get('/api/v1/catalogue/inventory/levels/export', $this->headers)->assertOk());
+    $sheet = stockCountDownloadedSheet($this->get('/api/v1/catalogue/inventory/levels/export', $this->headers)->assertOk());
 
     $this->post('/api/v1/catalogue/inventory/counts/imports', ['file' => xlsxUpload($sheet)], $this->headers)
         ->assertOk()
@@ -275,7 +275,7 @@ it('re-imports its own export without reporting the read-only columns', function
 });
 
 it('serves a template whose only row is the example', function (): void {
-    $sheet = downloadedSheet(
+    $sheet = stockCountDownloadedSheet(
         $this->get('/api/v1/catalogue/inventory/counts/import-template', PricingWorld::headers($this->tenant))->assertOk(),
     );
 
@@ -297,5 +297,5 @@ it('still sets a threshold through the endpoint after the move into the service,
         ->assertStatus(422)
         ->assertJsonPath('error.code', 'validation.failed');
 
-    expect(riceLevel()?->reorder_threshold)->toBe('3.0000');
+    expect(stockCountRiceLevel()?->reorder_threshold)->toBe('3.0000');
 });

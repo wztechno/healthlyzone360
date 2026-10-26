@@ -232,8 +232,13 @@ function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
     const back = useReturnTo(returnTo, '/kitchen/stock');
     const canManage = useCan(INVENTORY_MANAGE_PERMISSION);
     const canViewCosts = useCan(INVENTORY_VIEW_COSTS_PERMISSION);
-    // A count is a branch's: without one the import has nowhere to land and the export nothing to say.
-    const branchId = useAccessState().branch?.id ?? null;
+    /*
+     * No branch gate here, deliberately. A member whose membership needs a branch picked never
+     * reaches this screen without one (the landing rule sends them to the picker first), and a
+     * single-branch member arrives with no branch on the client while the server resolves the sole
+     * branch itself — the one case a client-side block would refuse is the one that works. When
+     * the server does need a branch it answers `context.branch_required`, which the dialog shows.
+     */
     const print = useListPrint();
 
     const items = useStockItemsQuery();
@@ -893,19 +898,10 @@ function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
                         <CatalogueTransferActions
                             testID="kitchen-stock-toolbar"
                             importGuide={STOCK_COUNT_IMPORT_GUIDE}
-                            importBlocked={
-                                branchId === null
-                                    ? {
-                                          title: t('kitchen:transfer.stock.branchRequiredTitle'),
-                                          body: t('kitchen:transfer.stock.branchRequiredBody'),
-                                      }
-                                    : undefined
-                            }
                             exportMenu={{
                                 excel: {
                                     load: (repositories) => repositories.kitchenAdmin.exportStock(),
                                     fallbackName: 'stock-count.xlsx',
-                                    disabled: branchId === null,
                                 },
                                 pdf: [
                                     {

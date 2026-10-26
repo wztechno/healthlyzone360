@@ -39,7 +39,7 @@ beforeEach(function (): void {
  * @param  array<string, string>  $headers
  * @param  list<list<string|int|float|null>>  $rows
  */
-function postIngredientSheet(array $headers, array $rows): TestResponse
+function ingredientSheetImport(array $headers, array $rows): TestResponse
 {
     return test()->post('/api/v1/catalogue/ingredients/imports', ['file' => xlsxUpload($rows)], $headers);
 }
@@ -47,7 +47,7 @@ function postIngredientSheet(array $headers, array $rows): TestResponse
 /**
  * @param  array<string, mixed>  $attributes
  */
-function sheetIngredient(object $tenant, array $attributes): Ingredient
+function ingredientSheetIngredient(object $tenant, array $attributes): Ingredient
 {
     return Ingredient::factory()->create(['organisation_id' => $tenant->organisation->getKey()] + $attributes);
 }
@@ -55,13 +55,13 @@ function sheetIngredient(object $tenant, array $attributes): Ingredient
 /**
  * @return list<list<string|null>>
  */
-function downloadedSheet(TestResponse $response): array
+function ingredientSheetDownload(TestResponse $response): array
 {
     return readXlsx($response->baseResponse->getFile()->getPathname());
 }
 
 it('creates a food row owing its nutrition reference, numbered ING-, audited per row and once for the import', function (): void {
-    $response = postIngredientSheet($this->headers, [
+    $response = ingredientSheetImport($this->headers, [
         ['Name (EN)', 'Unit', 'Unit price', 'Price currency'],
         ['Sheet sumac', 'KG', 4.5, 'usd'],
     ])->assertOk()
@@ -89,7 +89,7 @@ it('creates a food row owing its nutrition reference, numbered ING-, audited per
 it('creates packaging in the PKG- series without a pending-nutrition marker', function (): void {
     RecipeWorld::packagingCategory();
 
-    $response = postIngredientSheet($this->headers, [
+    $response = ingredientSheetImport($this->headers, [
         ['Name (EN)', 'Category', 'Unit', 'Purchase price', 'Purchase currency'],
         ['Sheet clamshell', 'packaging-disposables', 'piece', '0.2', 'USD'],
     ])->assertOk()->assertJsonPath('data.created', 1);
@@ -103,9 +103,9 @@ it('creates packaging in the PKG- series without a pending-nutrition marker', fu
 });
 
 it('updates the row its Reference names', function (): void {
-    $lentils = sheetIngredient($this->a, ['name_en' => 'Sheet lentils', 'source_ref' => 'ING-001']);
+    $lentils = ingredientSheetIngredient($this->a, ['name_en' => 'Sheet lentils', 'source_ref' => 'ING-001']);
 
-    postIngredientSheet($this->headers, [
+    ingredientSheetImport($this->headers, [
         ['Reference', 'Unit price', 'Price currency'],
         ['ING-001', 3, 'USD'],
     ])->assertOk()
@@ -120,9 +120,9 @@ it('updates the row its Reference names', function (): void {
 });
 
 it('matches a row without a Reference by its exact name, ignoring case', function (): void {
-    $bulgur = sheetIngredient($this->a, ['name_en' => 'Sheet bulgur', 'source_ref' => 'ING-002']);
+    $bulgur = ingredientSheetIngredient($this->a, ['name_en' => 'Sheet bulgur', 'source_ref' => 'ING-002']);
 
-    postIngredientSheet($this->headers, [
+    ingredientSheetImport($this->headers, [
         ['Name (EN)', 'Notes'],
         ['sheet BULGUR', 'Coarse'],
     ])->assertOk()->assertJsonPath('data.updated', 1)->assertJsonPath('data.created', 0);
@@ -131,10 +131,10 @@ it('matches a row without a Reference by its exact name, ignoring case', functio
 });
 
 it('matches a row without a Reference by an alias', function (): void {
-    $garbanzo = sheetIngredient($this->a, ['name_en' => 'Sheet garbanzo', 'source_ref' => 'ING-003']);
+    $garbanzo = ingredientSheetIngredient($this->a, ['name_en' => 'Sheet garbanzo', 'source_ref' => 'ING-003']);
     IngredientAlias::factory()->create(['ingredient_id' => $garbanzo->getKey(), 'alias' => 'Sheet chickpea']);
 
-    postIngredientSheet($this->headers, [
+    ingredientSheetImport($this->headers, [
         ['Name (EN)', 'Notes'],
         ['Sheet chickpea', 'Soaked overnight'],
     ])->assertOk()->assertJsonPath('data.updated', 1)->assertJsonPath('data.created', 0);
@@ -144,7 +144,7 @@ it('matches a row without a Reference by an alias', function (): void {
 });
 
 it('refuses a Reference that names no ingredient rather than creating one', function (): void {
-    postIngredientSheet($this->headers, [
+    ingredientSheetImport($this->headers, [
         ['Reference', 'Name (EN)', 'Unit'],
         ['ING-999', 'Sheet ghost', 'g'],
     ])->assertOk()
@@ -156,10 +156,10 @@ it('refuses a Reference that names no ingredient rather than creating one', func
 });
 
 it('refuses a name two of the kitchen\'s rows share', function (): void {
-    sheetIngredient($this->a, ['name_en' => 'Sheet twin']);
-    sheetIngredient($this->a, ['name_en' => 'Sheet twin']);
+    ingredientSheetIngredient($this->a, ['name_en' => 'Sheet twin']);
+    ingredientSheetIngredient($this->a, ['name_en' => 'Sheet twin']);
 
-    $response = postIngredientSheet($this->headers, [
+    $response = ingredientSheetImport($this->headers, [
         ['Name (EN)', 'Notes'],
         ['Sheet twin', 'Which one?'],
     ])->assertOk()->assertJsonPath('data.failed', 1);
@@ -170,7 +170,7 @@ it('refuses a name two of the kitchen\'s rows share', function (): void {
 it('skips a changed platform row with the fork message and counts an untouched one unchanged', function (): void {
     $saffron = Ingredient::factory()->platform()->create(['name_en' => 'Sheet saffron', 'source_ref' => 'ING-500', 'notes' => null]);
 
-    postIngredientSheet($this->headers, [
+    ingredientSheetImport($this->headers, [
         ['Reference', 'Name (EN)', 'Notes'],
         ['ING-500', 'Sheet saffron', 'Ours now'],
         ['ING-500', 'Sheet saffron', null],
@@ -184,7 +184,7 @@ it('skips a changed platform row with the fork message and counts an untouched o
 });
 
 it('names the column of a code it does not know', function (): void {
-    $response = postIngredientSheet($this->headers, [
+    $response = ingredientSheetImport($this->headers, [
         ['Name (EN)', 'Unit'],
         ['Sheet typo', 'kgg'],
     ])->assertOk()->assertJsonPath('data.failed', 1);
@@ -194,7 +194,7 @@ it('names the column of a code it does not know', function (): void {
 });
 
 it('refuses a price without its currency', function (): void {
-    $response = postIngredientSheet($this->headers, [
+    $response = ingredientSheetImport($this->headers, [
         ['Name (EN)', 'Unit', 'Unit price'],
         ['Sheet unpriced', 'kg', 2],
     ])->assertOk()->assertJsonPath('data.failed', 1);
@@ -204,12 +204,12 @@ it('refuses a price without its currency', function (): void {
 });
 
 it('leaves a stored value standing under a blank cell, and reads the stored currency for a new price', function (): void {
-    $oil = sheetIngredient($this->a, [
+    $oil = ingredientSheetIngredient($this->a, [
         'name_en' => 'Sheet oil', 'source_ref' => 'ING-004', 'notes' => 'Keep me',
         'unit_price_amount' => '2', 'price_currency_code' => 'USD',
     ]);
 
-    postIngredientSheet($this->headers, [
+    ingredientSheetImport($this->headers, [
         ['Reference', 'Notes', 'Unit price', 'Price currency'],
         ['ING-004', null, 5, null],
     ])->assertOk()->assertJsonPath('data.updated', 1);
@@ -222,9 +222,9 @@ it('leaves a stored value standing under a blank cell, and reads the stored curr
 });
 
 it('never touches a field whose column the sheet leaves out', function (): void {
-    $tahini = sheetIngredient($this->a, ['name_en' => 'Sheet tahini', 'source_ref' => 'ING-005', 'notes' => 'Stays', 'composition' => 'Sesame']);
+    $tahini = ingredientSheetIngredient($this->a, ['name_en' => 'Sheet tahini', 'source_ref' => 'ING-005', 'notes' => 'Stays', 'composition' => 'Sesame']);
 
-    postIngredientSheet($this->headers, [
+    ingredientSheetImport($this->headers, [
         ['Reference', 'Name (AR)'],
         ['ING-005', 'طحينة'],
     ])->assertOk()->assertJsonPath('data.updated', 1);
@@ -240,7 +240,7 @@ it('re-imports its own export as all unchanged, without moving a lock version', 
     $legume = IngredientCategory::factory()->platform()->create(['code' => 'sheet-legume']);
     $dry = IngredientCategory::factory()->platform()->create(['code' => 'sheet-legume-dry', 'parent_id' => $legume->getKey()]);
 
-    sheetIngredient($this->a, [
+    ingredientSheetIngredient($this->a, [
         'name_en' => 'Sheet freekeh', 'source_ref' => 'ING-010',
         'ingredient_category_id' => $legume->getKey(), 'ingredient_subcategory_id' => $dry->getKey(),
         'default_unit_id' => RecipeWorld::unit('kg'), 'purchase_unit_id' => RecipeWorld::unit('bag'),
@@ -248,8 +248,8 @@ it('re-imports its own export as all unchanged, without moving a lock version', 
         'unit_price_amount' => '3.125', 'b2b_price_amount' => '4', 'b2c_price_amount' => '0.000001', 'price_currency_code' => 'USD',
         'availability_tier' => 'core', 'is_sellable' => true, 'composition' => 'Roasted green wheat', 'notes' => '=SUM(A1)',
     ]);
-    sheetIngredient($this->a, ['name_en' => 'Sheet rice', 'source_ref' => 'ING-011', 'ingredient_category_id' => $legume->getKey()]);
-    sheetIngredient($this->a, ['name_en' => 'Sheet unnumbered']);
+    ingredientSheetIngredient($this->a, ['name_en' => 'Sheet rice', 'source_ref' => 'ING-011', 'ingredient_category_id' => $legume->getKey()]);
+    ingredientSheetIngredient($this->a, ['name_en' => 'Sheet unnumbered']);
     Ingredient::factory()->platform()->create(['name_en' => 'Sheet cumin', 'source_ref' => 'ING-012']);
     $yoghurt = RecipeWorld::mappedIngredient($this->a->organisation, 'Sheet yoghurt', 'milk');
     $yoghurt->source_ref = 'ING-013';
@@ -261,7 +261,7 @@ it('re-imports its own export as all unchanged, without moving a lock version', 
     $export = $this->get('/api/v1/catalogue/ingredients/export', $this->headers)
         ->assertDownload('ingredients-'.now()->format('Y-m-d').'.xlsx');
 
-    $sheet = downloadedSheet($export);
+    $sheet = ingredientSheetDownload($export);
     $byName = collect($sheet)->keyBy(1);
 
     expect($sheet[0])->toBe([...IngredientSpreadsheetService::HEADERS, ...IngredientSpreadsheetService::READ_ONLY_HEADERS])
@@ -293,14 +293,14 @@ it('re-imports its own export as all unchanged, without moving a lock version', 
 it('exports what the list filters and sorts by', function (): void {
     $first = IngredientCategory::factory()->platform()->create(['code' => 'sheet-first']);
     $second = IngredientCategory::factory()->platform()->create(['code' => 'sheet-second']);
-    sheetIngredient($this->a, ['name_en' => 'Sheet alpha', 'ingredient_category_id' => $first->getKey()]);
-    sheetIngredient($this->a, ['name_en' => 'Sheet beta', 'ingredient_category_id' => $second->getKey()]);
-    sheetIngredient($this->a, ['name_en' => 'Sheet gamma', 'status' => IngredientStatus::Archived]);
+    ingredientSheetIngredient($this->a, ['name_en' => 'Sheet alpha', 'ingredient_category_id' => $first->getKey()]);
+    ingredientSheetIngredient($this->a, ['name_en' => 'Sheet beta', 'ingredient_category_id' => $second->getKey()]);
+    ingredientSheetIngredient($this->a, ['name_en' => 'Sheet gamma', 'status' => IngredientStatus::Archived]);
 
     $names = function (string $query): array {
         $response = $this->get('/api/v1/catalogue/ingredients/export?'.$query, $this->headers)->assertOk();
 
-        return array_column(array_slice(downloadedSheet($response), 1), 1);
+        return array_column(array_slice(ingredientSheetDownload($response), 1), 1);
     };
 
     expect($names('status=archived'))->toBe(['Sheet gamma'])
@@ -316,7 +316,7 @@ it('serves a template of headers and one example row, which an import skips', fu
     $template = $this->get('/api/v1/catalogue/ingredients/import-template', $this->headers)
         ->assertDownload('ingredients-import-template.xlsx');
 
-    $sheet = downloadedSheet($template);
+    $sheet = ingredientSheetDownload($template);
 
     expect($sheet)->toHaveCount(2)
         ->and($sheet[0])->toBe(IngredientSpreadsheetService::HEADERS)
@@ -338,7 +338,7 @@ it('refuses an import without manage and an export without view', function (): v
     $viewer = RecipeWorld::kitchen('sheet-viewer@kitchen.test', ['catalogue.view_organisation']);
     $this->actingAs($viewer->user);
 
-    postIngredientSheet(RecipeWorld::headers($viewer) + ['Accept' => 'application/json'], [
+    ingredientSheetImport(RecipeWorld::headers($viewer) + ['Accept' => 'application/json'], [
         ['Name (EN)', 'Unit'],
         ['Sheet forbidden', 'g'],
     ])->assertForbidden();
