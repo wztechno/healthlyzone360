@@ -186,7 +186,9 @@ use Healthy360\Ingredients\Http\Controllers\IngredientBarcodeStoreController;
 use Healthy360\Ingredients\Http\Controllers\IngredientCategoryIndexController;
 use Healthy360\Ingredients\Http\Controllers\IngredientCategoryStoreController;
 use Healthy360\Ingredients\Http\Controllers\IngredientCategoryUpdateController;
+use Healthy360\Ingredients\Http\Controllers\IngredientExportController;
 use Healthy360\Ingredients\Http\Controllers\IngredientForkController;
+use Healthy360\Ingredients\Http\Controllers\IngredientImportController;
 use Healthy360\Ingredients\Http\Controllers\IngredientIndexController;
 use Healthy360\Ingredients\Http\Controllers\IngredientShowController;
 use Healthy360\Ingredients\Http\Controllers\IngredientStoreController;
@@ -201,7 +203,9 @@ use Healthy360\Inventory\Http\Controllers\OrderDeskShortfallCountController;
 use Healthy360\Inventory\Http\Controllers\OrderDeskWeeklyCheckController;
 use Healthy360\Inventory\Http\Controllers\StockAdjustController;
 use Healthy360\Inventory\Http\Controllers\StockCountController;
+use Healthy360\Inventory\Http\Controllers\StockCountImportController;
 use Healthy360\Inventory\Http\Controllers\StockItemIndexController;
+use Healthy360\Inventory\Http\Controllers\StockLevelExportController;
 use Healthy360\Inventory\Http\Controllers\StockLevelIndexController;
 use Healthy360\Inventory\Http\Controllers\StockLowStockCountController;
 use Healthy360\Inventory\Http\Controllers\StockThresholdController;
@@ -310,6 +314,8 @@ use Healthy360\QualityControl\Http\Controllers\QualityCheckStoreController;
 use Healthy360\Recipes\Http\Controllers\RecipeArchiveController;
 use Healthy360\Recipes\Http\Controllers\RecipeCostSnapshotIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeCostSnapshotStoreController;
+use Healthy360\Recipes\Http\Controllers\RecipeExportController;
+use Healthy360\Recipes\Http\Controllers\RecipeImportController;
 use Healthy360\Recipes\Http\Controllers\RecipeIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeLineReplaceController;
 use Healthy360\Recipes\Http\Controllers\RecipeOutputReplaceController;
@@ -319,6 +325,7 @@ use Healthy360\Recipes\Http\Controllers\RecipeShowController;
 use Healthy360\Recipes\Http\Controllers\RecipeStepReplaceController;
 use Healthy360\Recipes\Http\Controllers\RecipeStoreController;
 use Healthy360\Recipes\Http\Controllers\RecipeTechnicalSheetController;
+use Healthy360\Recipes\Http\Controllers\RecipeTechnicalSheetsController;
 use Healthy360\Recipes\Http\Controllers\RecipeUpdateController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionAllergenIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionIndexController;
@@ -996,6 +1003,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 ->middleware(['permission:catalogue.manage_organisation', 'throttle:ingredient-assist'])->name('catalogue.ingredients.assist');
             Route::middleware('permission:catalogue.view_organisation')->group(function (): void {
                 Route::get('/ingredients', IngredientIndexController::class)->name('catalogue.ingredients.index');
+                // Static segments before `{ingredient}` — nothing here constrains the parameter to a
+                // uuid, so `export` would otherwise bind as a record and 404.
+                Route::get('/ingredients/export', IngredientExportController::class)->name('catalogue.ingredients.export');
+                Route::get('/ingredients/import-template', IngredientExportController::class)
+                    ->defaults('template', true)->name('catalogue.ingredients.import-template');
                 Route::get('/ingredients/{ingredient}', IngredientShowController::class)->name('catalogue.ingredients.show');
                 Route::get('/ingredients/{ingredient}/allergens', IngredientAllergenIndexController::class)->name('catalogue.ingredients.allergens.index');
                 Route::get('/ingredients/{ingredient}/aliases', IngredientAliasIndexController::class)->name('catalogue.ingredients.aliases.index');
@@ -1016,6 +1028,8 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
 
             Route::middleware(['org.trading', 'permission:catalogue.manage_organisation'])->group(function (): void {
                 Route::post('/ingredients', IngredientStoreController::class)->name('catalogue.ingredients.store');
+                Route::post('/ingredients/imports', IngredientImportController::class)
+                    ->middleware('throttle:catalogue-import')->name('catalogue.ingredients.imports.store');
 
                 Route::patch('/ingredients/{ingredient}', IngredientUpdateController::class)
                     ->middleware('precondition')
@@ -1084,6 +1098,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
 
             Route::middleware('permission:recipe.view_organisation')->group(function (): void {
                 Route::get('/recipes', RecipeIndexController::class)->name('catalogue.recipes.index');
+                // Static segments before `{recipe}`, for the same reason as the ingredient routes.
+                Route::get('/recipes/export', RecipeExportController::class)->name('catalogue.recipes.export');
+                Route::get('/recipes/import-template', RecipeExportController::class)
+                    ->defaults('template', true)->name('catalogue.recipes.import-template');
+                Route::get('/recipes/technical-sheets', RecipeTechnicalSheetsController::class)->name('catalogue.recipes.technical-sheets');
                 Route::get('/recipes/{recipe}', RecipeShowController::class)->name('catalogue.recipes.show');
                 Route::get('/recipes/{recipe}/versions', RecipeVersionIndexController::class)->name('catalogue.recipes.versions.index');
                 Route::get('/recipes/{recipe}/versions/{version}', RecipeVersionShowController::class)->name('catalogue.recipes.versions.show');
@@ -1099,6 +1118,8 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
 
             Route::middleware(['org.trading', 'permission:recipe.manage_organisation'])->group(function (): void {
                 Route::post('/recipes', RecipeStoreController::class)->name('catalogue.recipes.store');
+                Route::post('/recipes/imports', RecipeImportController::class)
+                    ->middleware('throttle:catalogue-import')->name('catalogue.recipes.imports.store');
 
                 // A kitchen's own photo of the recipe (BUG-14).
                 Route::post('/recipes/{record}/photo', RecordPhotoStoreController::class)
@@ -1579,10 +1600,25 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             | add and is wired into the registry now; nothing in this slice is
             | cost-bearing yet, so no route checks it.
             */
-            Route::middleware('permission:inventory.view_organisation')->group(function (): void {
-                Route::get('/inventory/items', StockItemIndexController::class)->name('catalogue.inventory.items.index');
+            /*
+            | Levels and the low-stock count are per branch: `branch.context`
+            | resolves `X-Branch-Id` (or the membership's own branch, or a sole
+            | branch) so the controllers' `TenantContext::branchId()` narrowing
+            | actually happens. It resolves, never requires — no branch still
+            | reads org-wide, as documented. It runs before `permission`, so a
+            | branch-scoped member passes PermissionChecker's branch-scope step.
+            */
+            Route::middleware(['branch.context', 'permission:inventory.view_organisation'])->group(function (): void {
+                Route::get('/inventory/levels/export', StockLevelExportController::class)->name('catalogue.inventory.levels.export');
                 Route::get('/inventory/levels', StockLevelIndexController::class)->name('catalogue.inventory.levels.index');
                 Route::get('/inventory/low-stock-count', StockLowStockCountController::class)->name('catalogue.inventory.low-stock-count');
+            });
+
+            Route::middleware('permission:inventory.view_organisation')->group(function (): void {
+                Route::get('/inventory/items', StockItemIndexController::class)->name('catalogue.inventory.items.index');
+                // The count-sheet template names no branch, so it needs no branch context.
+                Route::get('/inventory/counts/import-template', StockLevelExportController::class)
+                    ->defaults('template', true)->name('catalogue.inventory.counts.import-template');
                 Route::get('/inventory/consumption-exceptions', ConsumptionExceptionIndexController::class)->name('catalogue.inventory.consumption-exceptions.index');
                 Route::get('/inventory/consumption-exceptions/unresolved-count', ConsumptionExceptionCountController::class)->name('catalogue.inventory.consumption-exceptions.count');
 
@@ -1619,6 +1655,17 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/procurement/reference', ProcurementReferenceController::class)->name('catalogue.procurement.reference.index');
                 Route::get('/procurement/goods-receipts', GoodsReceiptIndexController::class)->name('catalogue.procurement.goods-receipts.index');
                 Route::get('/quality-control/checks', QualityCheckIndexController::class)->name('catalogue.quality-control.checks.index');
+            });
+
+            /*
+            | The count-sheet import writes one branch's shelves. `branch.context` sits
+            | first in the group for the same reason as the levels read above: appended
+            | route middleware would run after `permission`, and a branch-scoped member
+            | is refused there until the branch is resolved. The controller then requires
+            | the branch by hand — the middleware only resolves one.
+            */
+            Route::middleware(['branch.context', 'permission:inventory.manage_organisation', 'throttle:catalogue-import'])->group(function (): void {
+                Route::post('/inventory/counts/imports', StockCountImportController::class)->name('catalogue.inventory.counts.imports.store');
             });
 
             Route::middleware('permission:inventory.manage_organisation')->group(function (): void {

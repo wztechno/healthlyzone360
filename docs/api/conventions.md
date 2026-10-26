@@ -43,7 +43,7 @@ Collections return `data` as an array; pagination, counts and similar belong in 
 
 `message` is a safe, translatable human summary — never a stack trace. `details` carries structured, code-specific data (for `validation.failed`: a `fields` map of field → messages). The error object carries exactly these four keys.
 
-**Envelope exceptions** (documented, deliberate): `204 No Content` responses (`DELETE /api/v1/me/devices/{device}`, and `POST /api/v1/auth/email/verification-notification` when the address is already verified); file downloads (`/storage/{path}`); streaming responses; the health check at `/up`; the service banner at `/`; the Sanctum CSRF-cookie handshake at `/sanctum/csrf-cookie`.
+**Envelope exceptions** (documented, deliberate): `204 No Content` responses (`DELETE /api/v1/me/devices/{device}`, and `POST /api/v1/auth/email/verification-notification` when the address is already verified); file downloads (`/storage/{path}`, and the catalogue workbooks — `GET /api/v1/catalogue/ingredients/export`, `/catalogue/recipes/export`, `/catalogue/inventory/levels/export` and the three `…/import-template` reads, each an `.xlsx` attachment named in `Content-Disposition`); streaming responses; the health check at `/up`; the service banner at `/`; the Sanctum CSRF-cookie handshake at `/sanctum/csrf-cookie`.
 
 ## Headers
 

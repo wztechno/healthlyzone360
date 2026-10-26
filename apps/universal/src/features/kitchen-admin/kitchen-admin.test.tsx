@@ -46,6 +46,7 @@ import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { displayName, isTranslationIncomplete, statusTone, unitDimension } from './format.ts';
 import { ENTITY_FAMILIES, WORKSPACE_PERMISSIONS, permittedFamilies } from './entity-registry.ts';
 import { AllergenClassesScreen } from './screens/allergen-classes-screen.tsx';
+import { canSaveFiles } from './save-download.ts';
 import { IngredientEditScreen } from './screens/ingredient-edit-screen.tsx';
 import { IngredientsScreen } from './screens/ingredients-screen.tsx';
 import { forgetColumnChoice } from './catalogue/column-picker.tsx';
@@ -107,6 +108,9 @@ jest.mock('expo-document-picker', () => ({
     __esModule: true,
     getDocumentAsync: jest.fn(),
 }));
+
+// jest-expo runs as iOS, where nothing can be saved; the Export tests below say this build can.
+jest.mock('./save-download.ts');
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const routerMock = require('expo-router') as { __push: jest.Mock; __replace: jest.Mock };
@@ -913,6 +917,95 @@ describe('the ingredient list', () => {
             expect(
                 screen.getByTestId(`kitchen-ingredient-${String(target.id)}-status`),
             ).toHaveTextContent(/Archived/);
+        });
+    });
+});
+
+describe('the ingredient list — import and export', () => {
+    const TOOLBAR = 'kitchen-ingredients-toolbar';
+    const canSave = jest.mocked(canSaveFiles);
+
+    beforeEach(() => {
+        canSave.mockReturnValue(true);
+    });
+
+    afterEach(() => {
+        canSave.mockReset();
+    });
+
+    async function renderList() {
+        const file = { blob: new Blob(['x']), filename: 'ingredients.xlsx' };
+        const rendered = await renderStubScreen(<IngredientsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listIngredients: ingredientListing(() => [ingredient(1), ingredient(2)]),
+                    listIngredientCategories: async () => CATEGORY_TREE,
+                    exportIngredients: async () => file,
+                },
+            },
+        });
+        await untilVisible('kitchen-ingredients-table');
+        return rendered;
+    }
+
+    async function openExport() {
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${TOOLBAR}-export`));
+        });
+        await untilVisible(`${TOOLBAR}-export-pdf`);
+    }
+
+    it('exports the workbook for the list as it is filtered', async () => {
+        const { repositories } = await renderList();
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${TOOLBAR}-search-input`), 'Ingredient 2');
+        });
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.listIngredients).toHaveBeenCalledWith(
+                expect.objectContaining({ query: 'Ingredient 2' }),
+            );
+        });
+
+        await openExport();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${TOOLBAR}-export-excel`));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.exportIngredients).toHaveBeenCalledWith(
+                expect.objectContaining({ query: 'Ingredient 2', referenceSeries: 'ING-' }),
+            );
+        });
+    });
+
+    it('opens the print view for the table once the whole set has landed', async () => {
+        await renderList();
+        await openExport();
+
+        await waitFor(() => {
+            expect(screen.getByTestId(`${TOOLBAR}-export-pdf`)).not.toBeDisabled();
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${TOOLBAR}-export-pdf`));
+        });
+
+        expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/ingredients/print');
+    });
+
+    it('lays out the ingredient sheet, with the catalogue’s own category codes', async () => {
+        await renderList();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${TOOLBAR}-import`));
+        });
+
+        await untilVisible(`${TOOLBAR}-import-dialog`);
+        expect(screen.getByText('Name (EN)')).toBeTruthy();
+        // The top level of the tree only — the leaf `store-cupboard-grains` is not a Category.
+        await waitFor(() => {
+            expect(screen.getByText('Accepted: store-cupboard')).toBeTruthy();
         });
     });
 });

@@ -25,6 +25,8 @@ import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { IngredientDetail } from '../catalogue/ingredient-detail.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
+import { ingredientImportGuide } from '../catalogue/import-guides.ts';
+import { listPrintJob, useListPrint } from '../catalogue/list-print.ts';
 import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
 import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
@@ -127,6 +129,7 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
     const list = useIngredientList(view);
+    const print = useListPrint();
 
     /**
      * Code → the catalogue's own name for it, for both levels of the tree.
@@ -238,7 +241,46 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                 <Inline space="xs" align="center">
                     <ColumnPicker {...controls.picker} />
                     {canManage ? (
-                        <CatalogueTransferActions testID="kitchen-ingredients-toolbar" />
+                        <CatalogueTransferActions
+                            testID="kitchen-ingredients-toolbar"
+                            importGuide={ingredientImportGuide(
+                                list.categories.map((entry) => entry.code),
+                            )}
+                            exportMenu={{
+                                excel: {
+                                    load: (repositories) =>
+                                        repositories.kitchenAdmin.exportIngredients(list.filter),
+                                    fallbackName: 'ingredients.xlsx',
+                                },
+                                pdf: [
+                                    {
+                                        key: 'pdf',
+                                        label: t('kitchen:transfer.export.pdf'),
+                                        disabled: list.countsPending,
+                                        onSelect: () => {
+                                            print.start(
+                                                listPrintJob({
+                                                    resource: 'ingredients',
+                                                    title: t(
+                                                        'kitchen:transfer.ingredients.printTitle',
+                                                    ),
+                                                    columns: controls.columns,
+                                                    rows: list.everyRow,
+                                                    // The whole-set read drops the sort, so it is
+                                                    // put back here, by every column the header
+                                                    // could have sorted on.
+                                                    sort: {
+                                                        key: list.sortKey,
+                                                        direction: list.sortDirection,
+                                                        from: columns,
+                                                    },
+                                                }),
+                                            );
+                                        },
+                                    },
+                                ],
+                            }}
+                        />
                     ) : null}
                     {canManage ? (
                         <Button

@@ -2,12 +2,17 @@ import type { ItemLatestPurchase, StockItem, StockLevel } from '@healthy360/api-
 import { GoodsReceiptId, SupplierId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
+import { queryKeys } from '../../data/query-keys.ts';
 import { kitchenManagerSession, testActiveContext } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { TEST_BRANCH_ID } from '../../testing/session-fixtures.ts';
 import { stockItemRowTestId } from './ops-format.ts';
+import { canSaveFiles } from './save-download.ts';
 import { StockScreen } from './screens/stock-screen.tsx';
+
+// jest-expo runs as iOS, where nothing can be saved; the Export tests below say this build can.
+jest.mock('./save-download.ts');
 
 /** The desk width the kitchen list is built for; narrower, `CatalogueList` draws its phone rows. */
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
@@ -192,6 +197,30 @@ describe('ops panels', () => {
                 Array.from({ length: 9 }, (_, index) => stockItem(index + 19).id),
             );
         });
+    });
+
+    it('keys the shelves on the active branch, so switching branch never serves the last one', async () => {
+        const { queryClient } = await renderStubScreen(<StockScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    listStockItems: async () => [stockItem(1)],
+                    listStockLevels: async () => [],
+                    listItemLatestPurchases: async () => [],
+                },
+                kitchenAdmin: { listIngredients: async () => page([]) },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-stock-table')).toBeTruthy();
+        });
+
+        const levels = queryClient
+            .getQueryCache()
+            .findAll({ queryKey: ['kitchenOps', 'stock-levels'] })
+            .map((query) => query.queryKey);
+        expect(levels).toEqual([queryKeys.kitchenOps.stockLevels(TEST_BRANCH_ID)]);
     });
 
     it('offers no way to declare a stock item — a shelf follows an ingredient or a product', async () => {
@@ -489,5 +518,86 @@ describe('ops panels', () => {
         expect(screen.queryByTestId(`${testID}-price`)).toBeNull();
         // A link into a ledger this reader may not open would be a promise it refuses.
         expect(screen.queryByTestId(`${testID}-history`)).toBeNull();
+    });
+});
+
+describe('the stock count — import and export', () => {
+    const TOOLBAR = 'kitchen-stock-toolbar';
+    const canSave = jest.mocked(canSaveFiles);
+
+    beforeEach(() => {
+        canSave.mockReturnValue(true);
+    });
+
+    afterEach(() => {
+        canSave.mockReset();
+    });
+
+    async function renderStock(branchId: typeof TEST_BRANCH_ID | null) {
+        const rendered = await renderStubScreen(<StockScreen />, {
+            session: kitchenManagerSession({ activeContext: testActiveContext({ branchId }) }),
+            repositories: {
+                kitchenOps: {
+                    listStockItems: async () => [stockItem(1)],
+                    listStockLevels: async () => [stockLevel(1)],
+                    listItemLatestPurchases: async () => [],
+                },
+                kitchenAdmin: {
+                    listIngredients: async () => page([]),
+                    exportStock: async () => ({
+                        blob: new Blob(['x']),
+                        filename: 'stock-count.xlsx',
+                    }),
+                },
+            },
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId(`${TOOLBAR}-export`)).toBeTruthy();
+        });
+        return rendered;
+    }
+
+    async function openExport() {
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${TOOLBAR}-export`));
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId(`${TOOLBAR}-export-excel`)).toBeTruthy();
+        });
+    }
+
+    it('without a branch, says to pick one instead of asking for a file', async () => {
+        await renderStock(null);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${TOOLBAR}-import`));
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId(`${TOOLBAR}-import-blocked`)).toHaveTextContent(
+                /Choose a branch first/,
+            );
+        });
+    });
+
+    it('without a branch, offers no count sheet to download', async () => {
+        const { repositories } = await renderStock(null);
+
+        await openExport();
+        expect(screen.getByTestId(`${TOOLBAR}-export-excel`)).toBeDisabled();
+        expect(repositories.kitchenAdmin.exportStock).not.toHaveBeenCalled();
+    });
+
+    it('with a branch, downloads that branch’s count sheet', async () => {
+        const { repositories } = await renderStock(TEST_BRANCH_ID);
+
+        await openExport();
+        expect(screen.getByTestId(`${TOOLBAR}-export-excel`)).not.toBeDisabled();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${TOOLBAR}-export-excel`));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.exportStock).toHaveBeenCalled();
+        });
     });
 });
