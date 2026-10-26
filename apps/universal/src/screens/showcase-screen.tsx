@@ -121,11 +121,18 @@ import type { ScrollView } from 'react-native';
 
 import { EntityImage, MediaChip } from '../media/entity-image.tsx';
 import type {
+    PlacedOrder,
     PublishableStatus,
     RecipeAdminSummary,
     RecipeSoldAs,
 } from '@healthy360/api-client/contracts';
-import { AllergenCode, KitchenId, RecipeId } from '@healthy360/domain-types';
+import { AllergenCode, KitchenId, OrderId, RecipeId } from '@healthy360/domain-types';
+import { MealReceipt } from '../features/commerce/order-receipt.tsx';
+import { ReceiptPrinter } from '../features/commerce/receipt-printer.tsx';
+import type {
+    ReceiptFeedMotion,
+    ReceiptPrinterStage,
+} from '../features/commerce/receipt-printer.tsx';
 import { BilingualField } from '../features/kitchen-admin/bilingual-field.tsx';
 import { DerivedPanel } from '../features/kitchen-admin/catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../features/kitchen-admin/catalogue/derived-panel.tsx';
@@ -1043,6 +1050,121 @@ function ArrivalStory({
                     </View>
                 )}
             </Cascade>
+        </Stack>
+    );
+}
+
+/** How long the story's pretend placement stays "Processing" before the receipt prints. */
+const RECEIPT_PROCESSING_MS = 1200;
+
+const SHOWCASE_PLACED_ORDER: PlacedOrder = {
+    id: OrderId.unsafe('00000000-0000-4000-8000-000000000042'),
+    reference: 'H360-1042',
+    state: 'placed',
+    lines: [
+        {
+            id: 'line-1',
+            name: 'Grilled halloumi bowl',
+            quantity: 2,
+            unitPrice: { amount: 4200, currency: 'AED' },
+            lineTotal: { amount: 8400, currency: 'AED' },
+        },
+        {
+            id: 'line-2',
+            name: 'Lentil soup',
+            quantity: 1,
+            unitPrice: { amount: 1800, currency: 'AED' },
+            lineTotal: { amount: 1800, currency: 'AED' },
+        },
+    ],
+    priceLines: [
+        { code: 'subtotal', label: 'Subtotal', amount: { amount: 10200, currency: 'AED' } },
+        { code: 'delivery', label: 'Delivery', amount: { amount: 800, currency: 'AED' } },
+    ],
+    total: { amount: 11000, currency: 'AED' },
+    address: {
+        label: 'Home',
+        line1: '12 Sunset Street',
+        line2: null,
+        area: 'Jumeirah',
+        city: 'Dubai',
+        countryCode: 'AE',
+        instructions: null,
+    },
+    slotCode: 'midday',
+    deliveryDate: '2026-10-28',
+    placedAt: '2026-10-26T09:30:00Z',
+};
+
+/**
+ * The checkout's printer, walked through its stages: idle beside the button, "Processing" for a
+ * moment as if the order were out, then the receipt feeds and the screen reads "Order complete".
+ * What to check: the paper leaves from the slot a line at a time (or in one push, `Smooth`), the
+ * glyph and label swap without a jump, and under reduced motion the receipt is simply there.
+ */
+function ReceiptPrinterStory({ prefix }: { readonly prefix: string }) {
+    const [stage, setStage] = useState<ReceiptPrinterStage>('idle');
+    const [feed, setFeed] = useState<ReceiptFeedMotion>('stepped');
+
+    useEffect(() => {
+        if (stage !== 'processing') return undefined;
+        const timer = setTimeout(() => {
+            setStage('printing');
+        }, RECEIPT_PROCESSING_MS);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, [stage]);
+
+    return (
+        <Stack space="sm">
+            <Inline space="xs" align="center" wrap>
+                <Button
+                    testID={`${prefix}-place`}
+                    label={stage === 'idle' ? 'Place order' : 'Reset'}
+                    onPress={() => {
+                        setStage(stage === 'idle' ? 'processing' : 'idle');
+                    }}
+                />
+                <Button
+                    testID={`${prefix}-feed`}
+                    variant="secondary"
+                    label={feed === 'stepped' ? 'Stepped feed' : 'Smooth feed'}
+                    onPress={() => {
+                        setFeed(feed === 'stepped' ? 'smooth' : 'stepped');
+                    }}
+                />
+                <Text variant="caption" tone="secondary">
+                    {stage}
+                </Text>
+            </Inline>
+            {/* On the page colour, as the checkout rail sits: on a raised card the paper vanishes. */}
+            <View className="w-[368px] max-w-full rounded-xl bg-surface-base p-6">
+                <ReceiptPrinter.Root
+                    testID={`${prefix}-printer`}
+                    stage={stage}
+                    feedMotion={feed}
+                    onPrinted={() => {
+                        setStage('complete');
+                    }}
+                >
+                    <ReceiptPrinter.Machine>
+                        <ReceiptPrinter.Screen>
+                            <ReceiptPrinter.Status />
+                        </ReceiptPrinter.Screen>
+                    </ReceiptPrinter.Machine>
+                    <ReceiptPrinter.Output>
+                        <ReceiptPrinter.Paper>
+                            <MealReceipt
+                                testID={`${prefix}-receipt`}
+                                order={SHOWCASE_PLACED_ORDER}
+                                kitchenName="Green Fork Kitchen"
+                                arriving="Midday on 28 Oct 2026"
+                            />
+                        </ReceiptPrinter.Paper>
+                    </ReceiptPrinter.Output>
+                </ReceiptPrinter.Root>
+            </View>
         </Stack>
     );
 }
@@ -4993,6 +5115,10 @@ export function ShowcaseScreen() {
                         <Text tone="secondary">{t('designSystem:showcase.motionNumber')}</Text>
                         <AnimatedFigure value={1650 + replays * 125} />
                     </Inline>
+                </Section>
+
+                <Section id="receipt-printer" title="Receipt printer">
+                    <ReceiptPrinterStory prefix="showcase-receipt" />
                 </Section>
 
                 {/* English literals, like `hero` and `ai` above: the section demonstrates one

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8665 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8682 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2209,6 +2209,23 @@ export interface NamespaceKeys {
     | 'myAllergens.planUnchecked'
     | 'myAllergens.yourList'
     | 'myAllergens.yourListEmpty'
+    | 'receipt.complete'
+    | 'receipt.deliveries'
+    | 'receipt.delivery'
+    | 'receipt.ends'
+    | 'receipt.idle'
+    | 'receipt.payment'
+    | 'receipt.placed'
+    | 'receipt.planComplete'
+    | 'receipt.printerLabel'
+    | 'receipt.printing'
+    | 'receipt.processing'
+    | 'receipt.reference'
+    | 'receipt.starts'
+    | 'receipt.thanks'
+    | 'receipt.title'
+    | 'receipt.viewOrder'
+    | 'receipt.viewPlan'
     | 'slots.evening'
     | 'slots.midday'
     | 'slots.morning'
@@ -10898,6 +10915,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:myAllergens.planUnchecked',
   'commerce:myAllergens.yourList',
   'commerce:myAllergens.yourListEmpty',
+  'commerce:receipt.complete',
+  'commerce:receipt.deliveries',
+  'commerce:receipt.delivery',
+  'commerce:receipt.ends',
+  'commerce:receipt.idle',
+  'commerce:receipt.payment',
+  'commerce:receipt.placed',
+  'commerce:receipt.planComplete',
+  'commerce:receipt.printerLabel',
+  'commerce:receipt.printing',
+  'commerce:receipt.processing',
+  'commerce:receipt.reference',
+  'commerce:receipt.starts',
+  'commerce:receipt.thanks',
+  'commerce:receipt.title',
+  'commerce:receipt.viewOrder',
+  'commerce:receipt.viewPlan',
   'commerce:slots.evening',
   'commerce:slots.midday',
   'commerce:slots.morning',

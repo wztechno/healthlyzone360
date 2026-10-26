@@ -69,6 +69,9 @@ import {
 } from '../checkout-frame.tsx';
 import type { SummaryItem } from '../checkout-frame.tsx';
 import { earliestStartDate } from '../dates.ts';
+import { MealReceipt } from '../order-receipt.tsx';
+import { ReceiptPrinter } from '../receipt-printer.tsx';
+import type { ReceiptPrinterStage } from '../receipt-printer.tsx';
 import {
     defaultSlotCode,
     deliverySlotByCode,
@@ -388,6 +391,13 @@ export function CheckoutScreen() {
                             order={order}
                             kitchenName={note?.kitchenName ?? null}
                             arriving={slotSentence(orderSlot, order.deliveryDate)}
+                            // Printed once, straight after placing it; a revisit shows it printed.
+                            printNow={note !== null && note.printed !== true}
+                            onPrinted={() => {
+                                if (note !== null) {
+                                    placedOrders.write(LATEST_PLACED, { ...note, printed: true });
+                                }
+                            }}
                             onTrack={() => {
                                 router.push(`/customer/orders/${order.id}` as never);
                             }}
@@ -874,72 +884,98 @@ export function CheckoutScreen() {
 
     /* ── the rail ───────────────────────────────────────────────────────────────────────────── */
 
+    /*
+     * The printer stands beside Place order and starts when it is pressed. It goes on "Processing"
+     * until the confirmation replaces this page, where the same printer, in the same place, prints
+     * the receipt — so the hand-over is not seen.
+     */
+    const placing =
+        placeOrder.isPending ||
+        // Placed, and the confirmation not drawn yet. Once its receipt has printed this is false
+        // again, so Back to a now-empty checkout shows the empty state with "Track this order".
+        (placeOrder.isSuccess &&
+            latestPlaced?.orderId === placeOrder.data.id &&
+            latestPlaced.printed !== true);
+    const printer =
+        committed === null ? null : (
+            <ReceiptPrinter.Root testID="checkout-printer" stage={placing ? 'processing' : 'idle'}>
+                <ReceiptPrinter.Machine>
+                    <ReceiptPrinter.Screen>
+                        <ReceiptPrinter.Status />
+                    </ReceiptPrinter.Screen>
+                </ReceiptPrinter.Machine>
+            </ReceiptPrinter.Root>
+        );
+
     const summary =
         basket === undefined ? null : (
-            <SummaryRail
-                testID="checkout-summary"
-                countTestID="checkout-summary-count"
-                itemsTestID="checkout-items"
-                itemCount={basket.itemCount}
-                items={basket.items.map((item) => ({
-                    key: item.id,
-                    name: item.name,
-                    quantity: item.quantity,
-                    lineTotal: item.lineTotal,
-                }))}
-            >
-                <QueryStates
-                    query={preview}
-                    isEmpty={false}
-                    emptyTitle={t('commerce:cart.summaryEmpty')}
-                    skeletonCount={1}
-                    testID="checkout-preview"
+            <View className="flex-col gap-4">
+                {printer}
+                <SummaryRail
+                    testID="checkout-summary"
+                    countTestID="checkout-summary-count"
+                    itemsTestID="checkout-items"
+                    itemCount={basket.itemCount}
+                    items={basket.items.map((item) => ({
+                        key: item.id,
+                        name: item.name,
+                        quantity: item.quantity,
+                        lineTotal: item.lineTotal,
+                    }))}
                 >
-                    {quotation === undefined ? null : (
-                        <View className="flex-col gap-4">
-                            {/*
-                             * What the total is made of, as the basket showed it (HA-22): a total
-                             * that grew by the delivery fee with no line saying so read as an error.
-                             */}
-                            <View className="flex-col gap-3">
-                                <SummaryRow
-                                    testID="checkout-price-subtotal"
-                                    label={t('commerce:cart.subtotal')}
-                                    value={formatMoney(formatter, quotation.subtotal)}
-                                />
-                                {/* Unknown until an address is chosen; the warning below says so. */}
-                                {quotation.deliveryFee === null ? null : (
+                    <QueryStates
+                        query={preview}
+                        isEmpty={false}
+                        emptyTitle={t('commerce:cart.summaryEmpty')}
+                        skeletonCount={1}
+                        testID="checkout-preview"
+                    >
+                        {quotation === undefined ? null : (
+                            <View className="flex-col gap-4">
+                                {/*
+                                 * What the total is made of, as the basket showed it (HA-22): a total
+                                 * that grew by the delivery fee with no line saying so read as an error.
+                                 */}
+                                <View className="flex-col gap-3">
                                     <SummaryRow
-                                        testID="checkout-price-delivery"
-                                        label={t('commerce:cart.delivery')}
-                                        value={formatMoney(formatter, quotation.deliveryFee)}
+                                        testID="checkout-price-subtotal"
+                                        label={t('commerce:cart.subtotal')}
+                                        value={formatMoney(formatter, quotation.subtotal)}
                                     />
-                                )}
+                                    {/* Unknown until an address is chosen; the warning below says so. */}
+                                    {quotation.deliveryFee === null ? null : (
+                                        <SummaryRow
+                                            testID="checkout-price-delivery"
+                                            label={t('commerce:cart.delivery')}
+                                            value={formatMoney(formatter, quotation.deliveryFee)}
+                                        />
+                                    )}
+                                </View>
+                                <SummaryTotal
+                                    testID="checkout-price-total"
+                                    label={t('commerce:cart.total')}
+                                    total={quotation.total}
+                                    rule
+                                />
+                                {/* The allergen one is said beside Place order, which asks about it. */}
+                                {displayableWarnings(quotation.warnings)
+                                    .filter((code) => code !== ALLERGEN_CONFLICT_WARNING)
+                                    .map((code) => (
+                                        <Callout
+                                            key={code}
+                                            testID={`checkout-warning-${code.replace(/\./g, '-')}`}
+                                            role={isCriticalWarning(code) ? 'alert' : 'note'}
+                                            tone={isCriticalWarning(code) ? 'danger' : 'warning'}
+                                            icon="warning"
+                                            title={t('commerce:warnings.title')}
+                                            body={t(warningMessageKey(code), { code })}
+                                        />
+                                    ))}
                             </View>
-                            <SummaryTotal
-                                testID="checkout-price-total"
-                                label={t('commerce:cart.total')}
-                                total={quotation.total}
-                                rule
-                            />
-                            {/* The allergen one is said beside Place order, which asks about it. */}
-                            {displayableWarnings(quotation.warnings)
-                                .filter((code) => code !== ALLERGEN_CONFLICT_WARNING)
-                                .map((code) => (
-                                    <Callout
-                                        key={code}
-                                        testID={`checkout-warning-${code.replace(/\./g, '-')}`}
-                                        role={isCriticalWarning(code) ? 'alert' : 'note'}
-                                        tone={isCriticalWarning(code) ? 'danger' : 'warning'}
-                                        icon="warning"
-                                        title={t('commerce:warnings.title')}
-                                        body={t(warningMessageKey(code), { code })}
-                                    />
-                                ))}
-                        </View>
-                    )}
-                </QueryStates>
-            </SummaryRail>
+                        )}
+                    </QueryStates>
+                </SummaryRail>
+            </View>
         );
 
     return (
@@ -957,7 +993,9 @@ export function CheckoutScreen() {
 
             <QueryStates
                 query={cart}
-                isEmpty={basket !== undefined && basket.items.length === 0}
+                // Placement empties the basket before the confirmation takes over: an order on its
+                // way is not an empty checkout.
+                isEmpty={basket !== undefined && basket.items.length === 0 && !placing}
                 emptyTitle={t('commerce:checkout.emptyTitle')}
                 emptyBody={t('commerce:checkout.emptyBody')}
                 emptyActions={
@@ -1080,6 +1118,9 @@ interface OrderPlacedProps {
     /** "Midday on 13 Aug 2026" — the committed window, already worded. */
     readonly arriving: string;
     readonly onTrack: () => void;
+    /** Just placed: print the receipt. False draws it already printed. */
+    readonly printNow: boolean;
+    readonly onPrinted: () => void;
 }
 
 /**
@@ -1094,9 +1135,18 @@ interface OrderPlacedProps {
  * "Track this order" goes to `/customer/orders/{order}` — the identifier, not the printed
  * reference, because that is what `GET /me/orders/{order}` takes.
  */
-function OrderPlaced({ order, kitchenName, arriving, onTrack }: OrderPlacedProps) {
+function OrderPlaced({
+    order,
+    kitchenName,
+    arriving,
+    onTrack,
+    printNow,
+    onPrinted,
+}: OrderPlacedProps) {
     const { t } = useTranslation();
-    const itemCount = order.lines.reduce((count, line) => count + line.quantity, 0);
+    // Read once: the note's `printed` flips when this finishes and must not restart it.
+    const [animate] = useState(printNow);
+    const [stage, setStage] = useState<ReceiptPrinterStage>(printNow ? 'printing' : 'complete');
 
     const main = (
         <CheckoutCard padding="lg" testID="checkout-success-card">
@@ -1132,24 +1182,31 @@ function OrderPlaced({ order, kitchenName, arriving, onTrack }: OrderPlacedProps
     );
 
     const aside = (
-        <SummaryRail
-            testID="checkout-success-rail"
-            itemsTestID="checkout-success-items"
-            itemCount={itemCount}
-            items={order.lines.map((line) => ({
-                key: line.id,
-                name: line.name,
-                quantity: line.quantity,
-                lineTotal: line.lineTotal,
-            }))}
+        <ReceiptPrinter.Root
+            testID="checkout-printer"
+            stage={stage}
+            animate={animate}
+            onPrinted={() => {
+                setStage('complete');
+                onPrinted();
+            }}
         >
-            <SummaryTotal
-                testID="checkout-success-total"
-                label={t('commerce:cart.total')}
-                total={order.total}
-                rule
-            />
-        </SummaryRail>
+            <ReceiptPrinter.Machine>
+                <ReceiptPrinter.Screen>
+                    <ReceiptPrinter.Status />
+                </ReceiptPrinter.Screen>
+            </ReceiptPrinter.Machine>
+            <ReceiptPrinter.Output>
+                <ReceiptPrinter.Paper>
+                    <MealReceipt
+                        testID="checkout-receipt"
+                        order={order}
+                        kitchenName={kitchenName}
+                        arriving={arriving}
+                    />
+                </ReceiptPrinter.Paper>
+            </ReceiptPrinter.Output>
+        </ReceiptPrinter.Root>
     );
 
     return (
