@@ -865,7 +865,31 @@ export type IngredientAssistSuggestion = {
         relation: 'same' | 'more_specific' | 'different' | null;
         reason: string | null;
     };
-    unavailable: Array<'assistant' | 'nutrition'>;
+    /**
+     * How the kitchen buys and stocks it. A model estimate.
+     */
+    unit: 'kg' | 'l' | 'piece' | null;
+    /**
+     * The mass of one litre or one piece in grams, bounded; null for kg.
+     */
+    grams_per_unit: number | null;
+    allergens: {
+        candidates: Array<AllergenReferenceCandidate>;
+        notices: Array<string>;
+        /**
+         * Index of the importable Open Food Facts product that is plainly this ingredient.
+         */
+        pick: number | null;
+        /**
+         * The model's own allergen read, for when no product fits. Null when it did not answer; empty means none.
+         */
+        codes: null | Array<{
+            code: string;
+            containment: 'contains' | 'may_contain';
+        }>;
+        reason: string | null;
+    };
+    unavailable: Array<'assistant' | 'nutrition' | 'allergens'>;
 };
 
 export type ConfirmIngredientAllergensRequest = {

@@ -29,7 +29,23 @@ function assistAnswer(array $overrides = []): array
         'nutrition_pick' => 0,
         'nutrition_relation' => 'same',
         'nutrition_reason' => 'Plain dry chickpeas.',
+        'unit' => 'l',
+        'grams_per_unit' => 915,
+        'allergen_pick' => 0,
+        'allergens' => [['code' => 'milk', 'containment' => 'contains']],
+        'allergens_reason' => 'Butter is made from milk.',
     ];
+}
+
+/** The Open Food Facts search the allergen picker runs, answering one plain product. */
+function fakeAssistAllergenLookup(int $status = 200): void
+{
+    Http::fake(['world.openfoodfacts.org/*' => $status === 200
+        ? Http::response(['products' => [[
+            'code' => '3017620422003', 'product_name' => 'Unsalted butter', 'brands' => 'Example',
+            'allergens_tags' => ['en:milk'], 'traces_tags' => [], 'last_modified_t' => 100,
+        ]]])
+        : Http::response([], $status)]);
 }
 
 function assist(object $tenant, string $name = 'Chickpeas'): TestResponse
@@ -42,6 +58,7 @@ beforeEach(function (): void {
     Cache::flush();
     Http::preventStrayRequests();
     NutritionReferenceFixture::selection();
+    fakeAssistAllergenLookup();
 
     $legume = IngredientCategory::factory()->platform()->create(['code' => 'assist-legume', 'name_en' => 'Legume']);
     IngredientCategory::factory()->platform()->create(['code' => 'assist-legume-dry', 'name_en' => 'Dry', 'parent_id' => $legume->id]);
@@ -63,6 +80,12 @@ it('returns the validated suggestion with the picked USDA candidate and its hash
         ->assertJsonPath('data.nutrition.relation', 'same')
         ->assertJsonPath('data.nutrition.candidates.0.ref', 'usda:12345')
         ->assertJsonPath('data.nutrition.candidates.0.source_hash', fn (string $hash): bool => strlen($hash) === 64)
+        ->assertJsonPath('data.unit', 'l')
+        ->assertJsonPath('data.grams_per_unit', fn (int|float $grams): bool => (float) $grams === 915.0)
+        ->assertJsonPath('data.allergens.pick', 0)
+        ->assertJsonPath('data.allergens.candidates.0.importable', true)
+        ->assertJsonPath('data.allergens.codes', [['code' => 'milk', 'containment' => 'contains']])
+        ->assertJsonPath('data.allergens.reason', 'Butter is made from milk.')
         ->assertJsonPath('data.unavailable', []);
 
     IngredientAssistant::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->prompt === 'Chickpeas'
@@ -82,7 +105,11 @@ it('reports every exact name, Arabic name and alias match, even with the assista
         ->assertJsonPath('data.unavailable', ['assistant'])
         ->assertJsonPath('data.name_ar', null)
         ->assertJsonPath('data.nutrition.pick', null)
-        ->assertJsonPath('data.nutrition.candidates.0.ref', 'usda:12345');
+        ->assertJsonPath('data.nutrition.candidates.0.ref', 'usda:12345')
+        // Null, not empty: an empty list would read as "this ingredient has no allergens".
+        ->assertJsonPath('data.allergens.codes', null)
+        ->assertJsonPath('data.allergens.pick', null)
+        ->assertJsonPath('data.unit', null);
 
     expect(collect($response->json('data.existing_matches'))->pluck('id')->sort()->values()->all())
         ->toBe(collect([$own->id, $platform->id, $aliased->id])->map(fn (mixed $id): string => (string) $id)->sort()->values()->all());
@@ -118,12 +145,25 @@ it('nulls model output that is not on the lists', function (array $answer, array
     'sub-category given as the category' => [['category_code' => 'assist-legume-dry', 'subcategory_code' => null], ['category_code' => null]],
     'pick out of range' => [['nutrition_pick' => 7], ['nutrition.pick' => null, 'nutrition.relation' => null, 'nutrition.reason' => null]],
     'latin text as Arabic' => [['name_ar' => 'Chickpeas'], ['name_ar' => null]],
+    'a unit the admin does not offer' => [['unit' => 'cup'], ['unit' => null, 'grams_per_unit' => null]],
+    'a litre that weighs five grams' => [['grams_per_unit' => 5], ['unit' => 'l', 'grams_per_unit' => null]],
+    'a mass for a kilogram' => [['unit' => 'kg', 'grams_per_unit' => 1000], ['unit' => 'kg', 'grams_per_unit' => null]],
+    'allergen pick out of range' => [['allergen_pick' => 9], ['allergens.pick' => null]],
+    'unknown and repeated allergen codes' => [
+        ['allergens' => [
+            ['code' => 'milk', 'containment' => 'contains'],
+            ['code' => 'unobtainium', 'containment' => 'contains'],
+            ['code' => 'milk', 'containment' => 'may_contain'],
+        ]],
+        ['allergens.codes' => [['code' => 'milk', 'containment' => 'contains']]],
+    ],
 ]);
 
 it('still answers Arabic and category when the USDA lookup fails', function (): void {
     Http::swap(new Factory);
     Http::preventStrayRequests();
     Http::fake(['api.nal.usda.gov/*' => Http::response([], 500)]);
+    fakeAssistAllergenLookup();
     IngredientAssistant::fake([assistAnswer(['nutrition_pick' => null, 'nutrition_relation' => null])]);
 
     assist($this->a)->assertOk()
@@ -131,6 +171,21 @@ it('still answers Arabic and category when the USDA lookup fails', function (): 
         ->assertJsonPath('data.nutrition', null)
         ->assertJsonPath('data.name_ar', 'حمص')
         ->assertJsonPath('data.category_code', 'assist-legume');
+});
+
+it('still gives the AI allergen read when Open Food Facts is down', function (): void {
+    Http::swap(new Factory);
+    Http::preventStrayRequests();
+    NutritionReferenceFixture::selection();
+    fakeAssistAllergenLookup(500);
+    IngredientAssistant::fake([assistAnswer(['allergen_pick' => null])]);
+
+    assist($this->a)->assertOk()
+        ->assertJsonPath('data.unavailable', ['allergens'])
+        ->assertJsonPath('data.allergens.candidates', [])
+        ->assertJsonPath('data.allergens.pick', null)
+        ->assertJsonPath('data.allergens.codes', [['code' => 'milk', 'containment' => 'contains']])
+        ->assertJsonPath('data.unit', 'l');
 });
 
 it('refuses a caller who cannot manage the catalogue, and throttles a loop', function (): void {

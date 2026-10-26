@@ -25862,7 +25862,7 @@ components:
 
     IngredientAssistSuggestion:
       type: object
-      required: [existing_matches, possible_duplicates, name_ar, category_code, subcategory_code, nutrition, unavailable]
+      required: [existing_matches, possible_duplicates, name_ar, category_code, subcategory_code, nutrition, unit, grams_per_unit, allergens, unavailable]
       properties:
         existing_matches:
           type: array
@@ -25896,11 +25896,51 @@ components:
                 reason:
                   type: ['string', 'null']
               additionalProperties: false
+        unit:
+          type: ['string', 'null']
+          enum: [kg, l, piece, null]
+          description: How the kitchen buys and stocks it. A model estimate.
+        grams_per_unit:
+          type: ['number', 'null']
+          description: The mass of one litre or one piece in grams, bounded; null for kg.
+        allergens:
+          type: object
+          required: [candidates, notices, pick, codes, reason]
+          properties:
+            candidates:
+              type: array
+              items:
+                $ref: '#/components/schemas/AllergenReferenceCandidate'
+            notices:
+              type: array
+              items:
+                type: string
+            pick:
+              type: ['integer', 'null']
+              description: Index of the importable Open Food Facts product that is plainly this ingredient.
+            codes:
+              description: The model's own allergen read, for when no product fits. Null when it did not answer; empty means none.
+              oneOf:
+                - type: 'null'
+                - type: array
+                  items:
+                    type: object
+                    required: [code, containment]
+                    properties:
+                      code:
+                        type: string
+                      containment:
+                        type: string
+                        enum: [contains, may_contain]
+                    additionalProperties: false
+            reason:
+              type: ['string', 'null']
+          additionalProperties: false
         unavailable:
           type: array
           items:
             type: string
-            enum: [assistant, nutrition]
+            enum: [assistant, nutrition, allergens]
       additionalProperties: false
 
     ConfirmIngredientAllergensRequest:
@@ -37363,6 +37403,20 @@ components:
         - $ref: '#/components/schemas/OrderDeskSaleBase'
         - type: object
           additionalProperties: false
+          properties:
+            amending_order_id:
+              oneOf:
+                - $ref: '#/components/schemas/Uuid'
+                - type: 'null'
+              description: |
+                Quote an **edit** of this order rather than a new sale. Prices on
+                the order's own channel — the web shop's for a web-shop order —
+                for its own customer, branch and fulfilment type (the body's
+                `fulfilment_type`, `customer_account_id` and `branch_id` are then
+                ignored). With no `customer_address_id` a delivery keeps its
+                stored zone and fee; the slot is checked only when it moved; and
+                a passed cut-off is not a refusal, because staff may override it.
+                Must be one of this kitchen's orders, or `404`.
           description: |
             A basket to price, and the shape of the sale it would become. No
             payment method: nothing is being paid for yet.
@@ -37388,20 +37442,6 @@ components:
                 assign` applies. Requires `order.manage_organisation`. Omit it to
                 leave the run in the unassigned pool.
           additionalProperties: false
-          properties:
-            amending_order_id:
-              oneOf:
-                - $ref: '#/components/schemas/Uuid'
-                - type: 'null'
-              description: |
-                Quote an **edit** of this order rather than a new sale. Prices on
-                the order's own channel — the web shop's for a web-shop order —
-                for its own customer, branch and fulfilment type (the body's
-                `fulfilment_type`, `customer_account_id` and `branch_id` are then
-                ignored). With no `customer_address_id` a delivery keeps its
-                stored zone and fee; the slot is checked only when it moved; and
-                a passed cut-off is not a refusal, because staff may override it.
-                Must be one of this kitchen's orders, or `404`.
           description: |
             The quote's body plus two fields, and the two do different jobs.
 

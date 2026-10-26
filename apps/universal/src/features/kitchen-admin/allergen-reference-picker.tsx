@@ -32,18 +32,29 @@ const ODBL_URL = 'https://opendatacommons.org/licenses/odbl/1-0/';
  * products as framed rows — name and brand on the line, its declared allergens as tags under it, the
  * source and licence the data asks to be credited with, and a Select. Once one is chosen the list
  * folds down to it, its confirmation and a Change.
+ *
+ * The ingredient assistant can hand it a `suggestion`: the same search, already run for the typed
+ * name, and the product it judged to be plainly this ingredient. Those rows stand in for a search
+ * until the cook runs their own; the purchased-product confirmation stays theirs.
  */
 export function AllergenReferencePicker({
     name,
     classes,
     value,
     onChange,
+    suggestion,
     disabled = false,
 }: {
     readonly name: string;
     readonly classes: readonly AllergenClass[];
     readonly value: AllergenReferenceSelection | undefined;
     readonly onChange: (value: AllergenReferenceSelection | undefined) => void;
+    readonly suggestion?:
+        | {
+              readonly candidates: readonly AllergenReferenceCandidate[];
+              readonly pick: number | null;
+          }
+        | undefined;
     readonly disabled?: boolean;
 }) {
     const { t } = useTranslation();
@@ -61,10 +72,13 @@ export function AllergenReferencePicker({
         search.mutate({ query: query.trim(), barcode: barcode.trim() || undefined });
     };
 
-    const chosen = search.data?.candidates.find(
-        (candidate) => value?.candidate.ref === candidate.ref,
-    );
-    const candidates = chosen !== undefined ? [chosen] : (search.data?.candidates ?? []);
+    const listed = search.data?.candidates ?? suggestion?.candidates ?? [];
+    const chosen = listed.find((candidate) => value?.candidate.ref === candidate.ref);
+    const candidates = chosen !== undefined ? [chosen] : listed;
+    const picked =
+        search.data === undefined && suggestion?.pick != null
+            ? suggestion.candidates[suggestion.pick]
+            : undefined;
 
     const className = (code: string) => {
         const known = classes.find((entry) => String(entry.code) === code);
@@ -203,11 +217,20 @@ export function AllergenReferencePicker({
                                     selected={selected}
                                     divider={false}
                                     meta={
-                                        <Text variant="caption" tone="secondary">
-                                            {[candidate.brand, candidate.ref]
-                                                .filter(Boolean)
-                                                .join(' · ')}
-                                        </Text>
+                                        <>
+                                            {candidate === picked ? (
+                                                <Tag
+                                                    testID="allergen-reference-ai-pick"
+                                                    tone="info"
+                                                    label={t('kitchen:assist.aiPick')}
+                                                />
+                                            ) : null}
+                                            <Text variant="caption" tone="secondary">
+                                                {[candidate.brand, candidate.ref]
+                                                    .filter(Boolean)
+                                                    .join(' · ')}
+                                            </Text>
+                                        </>
                                     }
                                     trailing={
                                         selected ? (

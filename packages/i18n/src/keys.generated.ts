@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8684 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8690 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3023,6 +3023,10 @@ export interface NamespaceKeys {
     | 'areas.truncatedTitle'
     | 'areas.unknownArea'
     | 'assist.aiPick'
+    | 'assist.allergenSourceNote'
+    | 'assist.allergensConfirm'
+    | 'assist.allergensIndicated'
+    | 'assist.allergensNone'
     | 'assist.apply'
     | 'assist.arabicFilled'
     | 'assist.assistantUnavailable'
@@ -3031,6 +3035,7 @@ export interface NamespaceKeys {
     | 'assist.chooseAnother'
     | 'assist.existingMatch'
     | 'assist.existingTitle'
+    | 'assist.gramsFilled'
     | 'assist.nutritionUnavailable'
     | 'assist.open'
     | 'assist.possibleDuplicate'
@@ -3038,6 +3043,7 @@ export interface NamespaceKeys {
     | 'assist.relationMoreSpecific'
     | 'assist.rerun'
     | 'assist.title'
+    | 'assist.unitFilled'
     | 'assist.updateName'
     | 'availability.addDay'
     | 'availability.availableLabel'
@@ -11725,6 +11731,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:areas.truncatedTitle',
   'kitchen:areas.unknownArea',
   'kitchen:assist.aiPick',
+  'kitchen:assist.allergenSourceNote',
+  'kitchen:assist.allergensConfirm',
+  'kitchen:assist.allergensIndicated',
+  'kitchen:assist.allergensNone',
   'kitchen:assist.apply',
   'kitchen:assist.arabicFilled',
   'kitchen:assist.assistantUnavailable',
@@ -11733,6 +11743,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:assist.chooseAnother',
   'kitchen:assist.existingMatch',
   'kitchen:assist.existingTitle',
+  'kitchen:assist.gramsFilled',
   'kitchen:assist.nutritionUnavailable',
   'kitchen:assist.open',
   'kitchen:assist.possibleDuplicate',
@@ -11740,6 +11751,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:assist.relationMoreSpecific',
   'kitchen:assist.rerun',
   'kitchen:assist.title',
+  'kitchen:assist.unitFilled',
   'kitchen:assist.updateName',
   'kitchen:availability.addDay',
   'kitchen:availability.availableLabel',

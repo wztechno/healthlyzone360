@@ -4370,7 +4370,13 @@
         "relationDifferent": "The closest USDA match, “{{match}}”, looks like a different food. Choose a result below or correct the name.",
         "updateName": "Update ingredient name",
         "chooseAnother": "Choose another result",
-        "aiPick": "AI suggestion"
+        "aiPick": "AI suggestion",
+        "unitFilled": "Bought and stocked in {{unit}}, filled in by AI — check it before saving.",
+        "gramsFilled": "Mass of one {{unit}} estimated by AI at {{grams}} g — check it before saving.",
+        "allergensIndicated": "AI indicates these allergens",
+        "allergensConfirm": "I confirm these are the allergens in this ingredient as we buy it.",
+        "allergensNone": "AI found no allergens in this ingredient. Tick “This ingredient has no allergens” if that is right.",
+        "allergenSourceNote": "Suggested by AI from the ingredient name and confirmed by the kitchen when the ingredient was added."
     },
     "allergenLookup": {
         "title": "Look up product allergens",
