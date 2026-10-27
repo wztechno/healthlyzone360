@@ -929,6 +929,35 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         return notImplemented(`POST ${BASE}/catalogue/price-lists/{price_list}/publish`);
     },
 
+    // The wholesale setup is served by `./kitchen-admin-wholesale.ts`; untyped stubs suffice here.
+    listSalesChannels() {
+        return notImplemented(`GET ${BASE}/catalogue/sales-channels`);
+    },
+    createSalesChannel() {
+        return notImplemented(`POST ${BASE}/catalogue/sales-channels`);
+    },
+    createPriceList() {
+        return notImplemented(`POST ${BASE}/catalogue/price-lists`);
+    },
+    getPriceListChannels() {
+        return notImplemented(`GET ${BASE}/catalogue/price-lists/{price_list}`);
+    },
+    listPriceListChannels() {
+        return notImplemented(`GET ${BASE}/catalogue/price-lists?include=channels`);
+    },
+    setPriceListChannels() {
+        return notImplemented(`PUT ${BASE}/catalogue/price-lists/{price_list}/channels`);
+    },
+    getItemChannelOffering() {
+        return notImplemented(`GET ${BASE}/catalogue/items/{item}`);
+    },
+    listItemChannelOfferings() {
+        return notImplemented(`GET ${BASE}/catalogue/items?ids=&include=channels`);
+    },
+    offerItemOnChannel() {
+        return notImplemented(`PUT ${BASE}/catalogue/items/{item}/channels`);
+    },
+
     listMeals(_filter?: MealAdminFilter): Promise<CursorPage<MealAdmin>> {
         return notImplemented(`GET ${BASE}/catalogue/items?item_type=meal`);
     },

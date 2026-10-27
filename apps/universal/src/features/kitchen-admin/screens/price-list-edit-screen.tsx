@@ -53,6 +53,7 @@ import {
 } from '../format.ts';
 import { returnCrumbLabel } from '../came-from.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { PriceListChannelsCard } from '../price-list-channels-card.tsx';
 import {
     PriceEntriesCard,
     emptyPriceEntry,
@@ -85,7 +86,8 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * ## There is no create form, and the currency is a fact rather than a field
  *
- * `KitchenAdminRepository` publishes no `createPriceList` and no `updatePriceList`. So this route
+ * A list is created from the price-lists page (`NewPriceListDialog`), which then opens it here, and
+ * `KitchenAdminRepository` publishes no `updatePriceList`. So this route
  * takes an identifier and only an identifier, and the opening states currency, kitchen and channels
  * as **facts** with a *Fixed* tag: one list is one currency (plan §4.4), every amount below is minor
  * units *of that currency*, and no request in this contract could change it.
@@ -912,6 +914,12 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
                     canManage={canManage}
                     mealPricesSetOnMeal={!isAgreementPriced(data.channels)}
                     resolving={catalogueResolving}
+                />
+
+                <PriceListChannelsCard
+                    testID={`${PAGE_ID}-channels`}
+                    priceListId={data.id}
+                    canManage={canManage}
                 />
             </Cascade>
 

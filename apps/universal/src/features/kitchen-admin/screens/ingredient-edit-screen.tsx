@@ -26,11 +26,11 @@ import {
     Dialog,
     ErrorState,
     FormGrid,
-    FormIssueBanner,
     FormSection,
     FormSkeleton,
     Icon,
     Inline,
+    IssueTrayFrame,
     QuantityInput,
     Select,
     Stack,
@@ -39,9 +39,18 @@ import {
     TagRow,
     Text,
     TextInputField,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { FormIssueItem, SelectOption, TagTone } from '@healthy360/design-system';
+import type {
+    FormIssueItem,
+    IssueCardItem,
+    IssueGroup,
+    IssuePassedItem,
+    IssueTrayContent,
+    SelectOption,
+    TagTone,
+} from '@healthy360/design-system';
 import { IngredientId, RecipeId } from '@healthy360/domain-types';
 import type { AllergenCode } from '@healthy360/domain-types';
 import { isCurrencyCode } from '@healthy360/domain-types';
@@ -53,9 +62,8 @@ import type { MeasureUnit } from '@healthy360/nutrition';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -81,7 +89,9 @@ import {
     useUpdateIngredientMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { resolveEntityImage } from '../../../media/entity-image.tsx';
+import { useProcessStep } from '../../../navigation/active-process.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+import { createSessionDraftStore } from '../../../navigation/session-draft.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import { returnCrumbLabel } from '../came-from.ts';
@@ -95,7 +105,7 @@ import {
     INVENTORY_VIEW_COSTS_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
-import { focusField } from '../field-focus.ts';
+import { focusField, focusSection } from '../field-focus.ts';
 import {
     ADMIN_UNITS,
     UNIT_DIMENSIONS,
@@ -385,6 +395,35 @@ const EMPTY_PACKAGING: PackagingDraft = {
     capacityUnit: 'l',
 };
 
+/**
+ * The form's unsaved work, kept for the tab while there is any — so leaving by the sidebar, the
+ * page search or a crumb keeps it, and opening the ingredient again puts it back. Only over the
+ * record version it was typed against (`serverKey`): a record somebody has moved on since is shown
+ * as it now is. The photo and the allergen grid are not carried; while either is unsaved, leaving
+ * asks first. Two hours, as the recipe's draft.
+ */
+interface IngredientDraft {
+    readonly serverKey: string;
+    readonly details: DetailsDraft;
+    readonly packaging: PackagingDraft;
+}
+
+const ingredientDrafts = createSessionDraftStore<IngredientDraft>({
+    namespace: 'ingredientEditor',
+    maxAgeMs: 2 * 60 * 60 * 1000,
+    parse: (raw) => {
+        if (typeof raw !== 'object' || raw === null) return null;
+        const value = raw as Partial<IngredientDraft>;
+        return typeof value.serverKey === 'string' &&
+            typeof value.details === 'object' &&
+            value.details !== null &&
+            typeof value.packaging === 'object' &&
+            value.packaging !== null
+            ? (value as IngredientDraft)
+            : null;
+    },
+});
+
 function packagingFrom(ingredient: IngredientAdmin): PackagingDraft {
     return {
         packPrice: amountToInput(ingredient.purchasePrice),
@@ -409,6 +448,22 @@ const NEED_TARGET = {
     allergens: 'kitchen-ingredient-need-allergens',
     nutrition: 'kitchen-ingredient-need-nutrition',
 } as const;
+
+/** The sections a tray card lights when its problem is the whole section — see `focusSection`. */
+const SECTION_ID = {
+    allergens: 'kitchen-ingredient-allergens',
+    nutrition: 'kitchen-ingredient-nutrition',
+} as const;
+
+/**
+ * Where a card's Fix lands: a section that is the problem is lit as a whole; anything else is a
+ * field, focused and lit.
+ */
+function goToTarget(targetId: string): void {
+    if (targetId === NEED_TARGET.allergens) focusSection(SECTION_ID.allergens);
+    else if (targetId === NEED_TARGET.nutrition) focusSection(SECTION_ID.nutrition);
+    else focusField(targetId);
+}
 
 /**
  * A typed positive figure, or null for blank and for anything that is not one.
@@ -572,6 +627,9 @@ function IngredientEditor({
     const { locale } = useLocale();
     const formatter = useFormatter();
     const toast = useToast();
+    // The page's issue tray; a refused save opens it (`nudge`). See the recipe editor.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
 
     const isCreating = ingredient === undefined || ingredient === 'new';
@@ -617,7 +675,13 @@ function IngredientEditor({
      */
     const [noAllergens, setNoAllergens] = useState(false);
 
-    const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
+    // Leaving keeps the form's work as a draft — see `ingredientDrafts` — so the guard lets the
+    // reader go unless the photo or the allergen grid is unsaved, which no draft carries.
+    const draftKeepable = useRef(true);
+    const guard = useUnsavedGuard({
+        message: t('kitchen:unsaved.browserPrompt'),
+        keepsDraft: () => draftKeepable.current,
+    });
     /*
      * Cancel and the not-found page's way out go back a step, the way the browser's arrow does —
      * to the list as it was left, its filter and page included — and only fall back to opening the
@@ -625,6 +689,19 @@ function IngredientEditor({
      * recipe to fix something, they go back to that recipe instead, and so does a successful Save.
      */
     const back = useReturnTo(returnTo, family.listRoute);
+    // Sent here from a process — a recipe fixing a stock gap — this page is the step to come back
+    // to: its own address, with what it was asked to fix and the way back.
+    useProcessStep(
+        isCreating
+            ? null
+            : withReturnTo(
+                  withQuery(`${family.listRoute}/${String(ingredient)}`, {
+                      needs: neededRaw === undefined || neededRaw === '' ? null : neededRaw,
+                  }),
+                  back.returnTo,
+              ),
+        back.returnTo,
+    );
     const needs = useMemo(() => parseIngredientNeeds(neededRaw), [neededRaw]);
     /*
      * The recipe a fix was sent from, by name, so the way back says where it goes. Read from the
@@ -802,12 +879,27 @@ function IngredientEditor({
     const serverKey =
         data === undefined ? null : `${String(data.id)}:${String(data.meta.lockVersion)}`;
 
-    // Adjusting state during render is React's sanctioned answer to "derive from new props": an
-    // effect would render one frame with the previous record's values still in the form.
+    /*
+     * Adjusting state during render is React's sanctioned answer to "derive from new props": an
+     * effect would render one frame with the previous record's values still in the form. On the
+     * first arrival, a draft kept from an earlier visit to this same version is put back instead.
+     */
+    const draftKey = parsed === null ? null : String(parsed);
+    const [draftChecked, setDraftChecked] = useState(false);
+    const [draftRestored, setDraftRestored] = useState(false);
     if (data !== undefined && serverKey !== detailsKey && !detailsDirty) {
         setDetailsKey(serverKey);
-        setDetails(detailsFrom(data));
-        setPackaging(packagingFrom(data));
+        const kept = draftChecked || draftKey === null ? null : ingredientDrafts.read(draftKey);
+        if (kept !== null && kept.serverKey === serverKey) {
+            setDetails(kept.details);
+            setPackaging(kept.packaging);
+            setDetailsDirty(true);
+            setDraftRestored(true);
+        } else {
+            setDetails(detailsFrom(data));
+            setPackaging(packagingFrom(data));
+        }
+        if (!draftChecked) setDraftChecked(true);
     }
     const savedPhotoKey =
         data === undefined ? undefined : `${data.photoUrl ?? ''}|${String(data.stockPhotoHidden)}`;
@@ -848,13 +940,20 @@ function IngredientEditor({
      * back. Only a record that has not loaded yet leaves the leaf off, because there is nothing
      * truthful to put in it for the frame or two before it arrives.
      */
+    /** A leave the reader chose to make without saving — Cancel's discard: nothing is kept. */
+    const leaveWithoutKeeping = (go: () => void) =>
+        guard.intercept(() => {
+            if (draftKey !== null) ingredientDrafts.clear(draftKey);
+            go();
+        });
+
     // Sent from a recipe, the crumb above is that recipe, by name, and takes the reader back to it.
     useKitchenTrailLeaf(
         isCreating || data !== undefined ? title : null,
         back.returnTo === null
             ? undefined
             : () => {
-                  guard.intercept(back.leave);
+                  leaveWithoutKeeping(back.leave);
               },
         returnLabel ?? undefined,
     );
@@ -864,12 +963,40 @@ function IngredientEditor({
         guard.markDirty();
     };
 
+    // Once per arrival: the kept draft is read above, cleared here, and said once.
+    const draftAnnounced = useRef(false);
+    useEffect(() => {
+        if (!draftChecked || draftAnnounced.current) return;
+        draftAnnounced.current = true;
+        if (draftKey !== null) ingredientDrafts.clear(draftKey);
+        if (!draftRestored) return;
+        guard.markDirty();
+        toast.show({
+            testID: 'kitchen-ingredient-draft-restored-toast',
+            tone: 'info',
+            message: t('kitchen:editor.draftRestoredToast'),
+        });
+    }, [draftChecked, draftRestored, draftKey, guard, toast, t]);
+
+    // Kept while anything in the form is unsaved; gone once it is saved or deliberately discarded.
+    useEffect(() => {
+        if (draftKey === null || serverKey === null || !draftAnnounced.current) return;
+        if (detailsDirty) {
+            ingredientDrafts.write(draftKey, { serverKey, details, packaging });
+        } else if (ingredientDrafts.read(draftKey) !== null) {
+            ingredientDrafts.clear(draftKey);
+        }
+    }, [draftKey, serverKey, details, packaging, detailsDirty, draftChecked]);
+
     /*
      * The allergen set has its own Save, and the record's save remounts its editor — so unsaved
      * allergen choices were dropped by the main Save and by leaving the page (HA-39). They now hold
      * the unsaved guard, and the main Save sends the reader to "Save allergens" first.
      */
     const [allergensDirty, setAllergensDirty] = useState(false);
+    useEffect(() => {
+        draftKeepable.current = !photoDirty && !allergensDirty;
+    }, [photoDirty, allergensDirty]);
     const allergensWereDirty = useRef(false);
     useEffect(() => {
         // Clean only on the allergens' own true → false, and only when nothing else is unsaved.
@@ -1586,10 +1713,14 @@ function IngredientEditor({
     const save = () => {
         if (!editable || currencyMissing) return;
         setAttempted(true);
-        if (referenceBlocked) return;
+        if (referenceBlocked) {
+            nudgeTray();
+            return;
+        }
         if (blockers.length > 0) {
-            // The banner names every field; the first one is also where the reader is taken.
+            // The tray names every field; the first one is also where the reader is taken.
             focusField(blockers[0]!.fieldId);
+            nudgeTray();
             return;
         }
 
@@ -2083,8 +2214,6 @@ function IngredientEditor({
     /** Checked, and carries nothing — the one empty set that is a claim rather than a gap. */
     const allergenFree = allergens.length === 0 && data?.allergensAssessedClear === true;
 
-    const onlyRequired =
-        server.items.length === 0 && shownBlockers.every((entry) => entry.required);
     const issueItems: readonly FormIssueItem[] = [...blockerItems, ...server.items];
 
     /*
@@ -2229,1081 +2358,1138 @@ function IngredientEditor({
         );
 
     /*
-     * The page's notices, one band under the opening rather than a band each: a title on a line
-     * per notice, with its action where it has one. What went wrong on a save keeps the server's
-     * own words, because those are the message; a notice that only explains is its title alone.
+     * The issue tray: what still stands between this ingredient and done, in one place beside the
+     * page instead of a callout, a strip and a band of notices stacked under the title. Every card
+     * is read off the form and the record each render, so each one leaves as its fix lands.
      */
-    const notices = [
-        platformNotice ? (
-            /*
-             * The notice offers the way out of the constraint in the same breath — the row *can*
-             * be edited, once the kitchen takes a copy. The action is withheld from a reader
-             * without manage permission rather than shown disabled: forking is a write, and a
-             * control that exists only to be refused tells them less than its absence does.
-             */
-            <Callout
-                key="platform"
-                testID="kitchen-ingredient-platform-library"
-                role="note"
-                tone="info"
-                title={t('kitchen:editor.platformLibraryTitle')}
-                {...(canManage
-                    ? {
-                          actions: (
-                              <Button
-                                  testID="kitchen-ingredient-fork"
-                                  variant="secondary"
-                                  size="sm"
-                                  label={t('kitchen:editor.forkAction')}
-                                  loading={fork.isPending}
-                                  disabled={fork.isPending}
-                                  onPress={forkForKitchen}
-                              />
-                          ),
-                      }
-                    : {})}
-            />
-        ) : null,
-        forkFailure === null ? null : (
-            <Callout
-                key="fork-error"
-                testID="kitchen-ingredient-fork-error"
-                role="alert"
-                tone="danger"
-                title={t('kitchen:editor.forkError')}
-                body={forkFailure.message}
-            />
-        ),
-        quarantined ? (
-            <Callout
-                key="quarantine"
-                testID="kitchen-ingredient-quarantine"
-                role="alert"
-                tone="warning"
-                title={t('kitchen:allergens.quarantineTitle')}
-            />
-        ) : null,
+    const needCards: IssueCardItem[] = needItems
+        .filter((item) => !item.resolved)
+        .map((item) => ({
+            key: item.key,
+            tone: 'warning',
+            label: t(`kitchen:tray.need.${item.key}`),
+            detail: item.section,
+            action: {
+                onPress: () => {
+                    goToTarget(item.targetId);
+                },
+            },
+            testID: `kitchen-ingredient-fix-${item.key}`,
+        }));
+
+    // A food ingredient nobody has assessed: recipes that use it cannot be published.
+    const allergensUnassessed =
+        data !== undefined &&
+        family.food &&
+        !isCreating &&
+        savedAllergens.length === 0 &&
+        data.allergensAssessedClear !== true;
+
+    const saveCards: IssueCardItem[] = [
+        ...issueItems.map((item) => ({
+            key: item.key,
+            tone: 'danger' as const,
+            label: item.label,
+            action: { onPress: item.onPress },
+            testID: `kitchen-ingredient-issues-errors-${item.key}`,
+        })),
+        // Save is held while a nutrition or allergen match waits to be confirmed: say so.
+        ...(referenceBlocked && editable
+            ? [
+                  {
+                      key: 'reference',
+                      tone: 'danger' as const,
+                      label: t('kitchen:tray.referenceUnconfirmed'),
+                      detail: t('kitchen:forms.nutritionTitle'),
+                      action: {
+                          onPress: () => {
+                              goToTarget(NEED_TARGET.nutrition);
+                          },
+                      },
+                      testID: 'kitchen-ingredient-reference-blocked',
+                  },
+              ]
+            : []),
+        ...(saveFailure === null || (server.isValidation && server.unplaced === null)
+            ? []
+            : [
+                  {
+                      key: 'save-error',
+                      tone: 'danger' as const,
+                      label: t('kitchen:editor.saveError'),
+                      detail: server.unplaced ?? saveFailure.message,
+                      testID: 'kitchen-ingredient-save-error',
+                  },
+              ]),
+        ...(photoFailure === null
+            ? []
+            : [
+                  {
+                      key: 'photo-error',
+                      tone: 'danger' as const,
+                      label: t('kitchen:editor.saveError'),
+                      detail: photoFailure.message,
+                      testID: 'kitchen-ingredient-photo-error',
+                  },
+              ]),
+        ...(forkFailure === null
+            ? []
+            : [
+                  {
+                      key: 'fork-error',
+                      tone: 'danger' as const,
+                      label: t('kitchen:editor.forkError'),
+                      detail: forkFailure.message,
+                      testID: 'kitchen-ingredient-fork-error',
+                  },
+              ]),
+        ...(currencyMissing
+            ? [
+                  {
+                      key: 'currency',
+                      tone: 'warning' as const,
+                      label: t('kitchen:sale.currencyUnknown'),
+                      testID: 'kitchen-ingredient-currency-missing',
+                  },
+              ]
+            : []),
+    ];
+
+    const checkCards: IssueCardItem[] = [
+        ...(quarantined
+            ? [
+                  {
+                      key: 'quarantine',
+                      tone: 'warning' as const,
+                      label: t('kitchen:allergens.quarantineTitle'),
+                      testID: 'kitchen-ingredient-quarantine',
+                  },
+              ]
+            : []),
         // Added from the recipe editor: AI-filled and owing its confirmed reference.
-        data?.pendingNutrition == null ? null : (
-            <Callout
-                key="pending-nutrition"
-                testID="kitchen-ingredient-pending-nutrition"
-                role="note"
-                tone="warning"
-                icon="sparkle"
-                title={t('kitchen:editor.pendingNutritionTitle')}
-            />
-        ),
-        saveFailure === null || (server.isValidation && server.unplaced === null) ? null : (
-            <Callout
-                key="save-error"
-                testID="kitchen-ingredient-save-error"
-                role="alert"
-                tone="danger"
-                title={t('kitchen:editor.saveError')}
-                body={server.unplaced ?? saveFailure.message}
-            />
-        ),
-        photoFailure === null ? null : (
-            <Callout
-                key="photo-error"
-                testID="kitchen-ingredient-photo-error"
-                role="alert"
-                tone="danger"
-                title={t('kitchen:editor.saveError')}
-                body={photoFailure.message}
-            />
-        ),
-        currencyMissing ? (
-            <Callout
-                key="currency-missing"
-                testID="kitchen-ingredient-currency-missing"
-                role="alert"
-                tone="warning"
-                title={t('kitchen:sale.currencyUnknown')}
-            />
-        ) : null,
-    ].filter((notice): notice is ReactElement => notice !== null);
+        ...(data?.pendingNutrition == null || openNeed('nutrition') !== undefined
+            ? []
+            : [
+                  {
+                      key: 'pending-nutrition',
+                      tone: 'warning' as const,
+                      label: t('kitchen:editor.pendingNutritionTitle'),
+                      detail: t('kitchen:forms.nutritionTitle'),
+                      action: {
+                          onPress: () => {
+                              goToTarget(NEED_TARGET.nutrition);
+                          },
+                      },
+                      testID: 'kitchen-ingredient-pending-nutrition',
+                  },
+              ]),
+        ...(allergensUnassessed && openNeed('allergens') === undefined
+            ? [
+                  {
+                      key: 'allergens',
+                      tone: 'warning' as const,
+                      label: t('kitchen:tray.need.allergens'),
+                      detail: t('kitchen:tray.blocksRecipes'),
+                      action: {
+                          onPress: () => {
+                              goToTarget(NEED_TARGET.allergens);
+                          },
+                      },
+                      testID: 'kitchen-ingredient-mapping-unassessed',
+                  },
+              ]
+            : []),
+        ...warningItems.map((item) => ({
+            key: item.key,
+            tone: 'warning' as const,
+            label: item.label,
+            action: { onPress: item.onPress },
+            testID: `kitchen-ingredient-issues-warnings-${item.key}`,
+        })),
+        /*
+         * A platform row this kitchen has not taken yet: read only until it does. The way out is
+         * on the card, withheld from a reader without manage permission rather than shown
+         * disabled — forking is a write.
+         */
+        ...(platformNotice
+            ? [
+                  {
+                      key: 'platform',
+                      tone: 'info' as const,
+                      label: t('kitchen:editor.platformLibraryTitle'),
+                      testID: 'kitchen-ingredient-platform-library',
+                      action: canManage
+                          ? {
+                                label: t('kitchen:editor.forkAction'),
+                                loading: fork.isPending,
+                                onPress: forkForKitchen,
+                                testID: 'kitchen-ingredient-fork',
+                            }
+                          : undefined,
+                  },
+              ]
+            : []),
+    ];
+
+    const passedChecks: IssuePassedItem[] =
+        data === undefined || !family.food
+            ? []
+            : [
+                  ...(allergensUnassessed
+                      ? []
+                      : [{ key: 'allergens', label: t('kitchen:tray.passed.allergens') }]),
+                  ...(data.pendingNutrition == null && data.per100g != null
+                      ? [{ key: 'nutrition', label: t('kitchen:tray.passed.nutrition') }]
+                      : []),
+                  ...(data.purchasePrice !== null ||
+                  data.costPer100g !== null ||
+                  (latestPurchase?.unitPriceAmount ?? null) !== null
+                      ? [{ key: 'price', label: t('kitchen:tray.passed.price') }]
+                      : []),
+              ];
+
+    const trayGroups: IssueGroup[] = [
+        {
+            key: 'needs',
+            title: t('kitchen:tray.groupForRecipe'),
+            items: needCards,
+            testID: 'kitchen-ingredient-fix',
+        },
+        {
+            key: 'save',
+            title: t('kitchen:tray.groupSave'),
+            items: saveCards,
+            testID: 'kitchen-ingredient-issues',
+        },
+        { key: 'check', title: t('kitchen:tray.groupCheck'), items: checkCards },
+    ];
+
+    const cameFromRecipe = needItems.length > 0 && back.returnTo !== null;
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-ingredient-tray',
+        groups: trayGroups,
+        passed: passedChecks,
+        ...(cameFromRecipe
+            ? {
+                  context: {
+                      label:
+                          returnName === null
+                              ? t('kitchen:tray.forYourRecipe')
+                              : t('kitchen:tray.forRecipe', { name: returnName }),
+                  },
+              }
+            : {}),
+        ...(needsDone ? { doneLabel: t('kitchen:ingredientFix.doneTitle') } : {}),
+        // Everything the recipe asked for is done: the way back is the next step.
+        ...(cameFromRecipe
+            ? {
+                  doneAction: {
+                      label:
+                          returnName === null
+                              ? t('kitchen:ingredientFix.back')
+                              : t('kitchen:ingredientFix.backNamed', { name: returnName }),
+                      onPress: () => {
+                          leaveWithoutKeeping(back.leave);
+                      },
+                      testID: 'kitchen-ingredient-fix-back',
+                  },
+              }
+            : {}),
+    };
 
     return (
-        <Cascade space="md" testID="kitchen-ingredient-editor-screen">
-            {/*
-             * The opening: the title with its status and handle beside it, Cancel and Save at the
-             * inline end, the banners under it and one rule closing it. No trail here —
-             * `KitchenOpsShell` draws it, and this screen names its last crumb instead.
-             */}
-            <Stack space="sm">
-                <CataloguePageHeader
-                    testID="kitchen-ingredient-editor-screen-header"
-                    titleTestID="kitchen-ingredient-editor-screen-title"
-                    title={title}
-                    titleAside={
-                        <Inline
-                            space="xs"
-                            align="center"
-                            wrap
-                            testID="kitchen-ingredient-editor-screen-meta"
-                        >
-                            <Badge
-                                variant="caps"
-                                testID="kitchen-ingredient-editor-screen-status"
-                                tone={statusTone(data?.meta.status ?? 'draft')}
-                                icon={null}
-                                label={t(statusKey(data?.meta.status ?? 'draft'))}
-                            />
-                            {reference === '' ? null : (
-                                <Text
-                                    testID="kitchen-ingredient-editor-screen-identity"
-                                    tone="secondary"
-                                    variant="mono"
-                                >
-                                    {reference}
-                                </Text>
-                            )}
-                            {guard.isDirty ? (
-                                <Badge
-                                    variant="label"
-                                    testID="kitchen-ingredient-editor-screen-dirty"
-                                    tone="warning"
-                                    icon="warning"
-                                    label={t('kitchen:editor.unsaved')}
-                                />
-                            ) : null}
-                        </Inline>
-                    }
-                    primaryAction={
-                        <Inline space="xs" align="center">
-                            {/*
-                             * Both `md`, matching the list page's `Import` and `New ingredient`
-                             * pair — an editor's Cancel and Save are the same decision at the same
-                             * weight. Save is hidden rather than permanently disabled on a record
-                             * this caller cannot write: the callout below says why.
-                             */}
-                            <Button
-                                testID="kitchen-ingredient-editor-screen-back"
-                                variant="secondary"
-                                label={t('kitchen:editor.cancel')}
-                                onPress={() => {
-                                    guard.intercept(goBack);
-                                }}
-                            />
-                            {platformNotice ? null : (
-                                <Button
-                                    testID="kitchen-ingredient-editor-screen-save"
-                                    label={t('kitchen:editor.save')}
-                                    loading={busy}
-                                    disabled={
-                                        !editable || currencyMissing || busy || referenceBlocked
-                                    }
-                                    onPress={save}
-                                />
-                            )}
-                        </Inline>
-                    }
-                />
-
+        <IssueTrayFrame tray={trayContent} controller={issueTray}>
+            <Cascade space="md" testID="kitchen-ingredient-editor-screen">
                 {/*
-                 * What a recipe sent the reader here to fix: each thing by the section it is in
-                 * and what to do, each a press away from its place on the page, ticked off as it
-                 * is saved — and the way back to the recipe, which a Save takes by itself.
+                 * The opening: the title with its status and handle beside it, Cancel and Save at the
+                 * inline end, the banners under it and one rule closing it. No trail here —
+                 * `KitchenOpsShell` draws it, and this screen names its last crumb instead.
                  */}
-                {needItems.length === 0 ? null : (
-                    <Callout
-                        testID="kitchen-ingredient-fix"
-                        role="status"
-                        tone={needsDone ? 'success' : 'warning'}
-                        title={
-                            needsDone
-                                ? t('kitchen:ingredientFix.doneTitle')
-                                : t('kitchen:ingredientFix.title', {
-                                      count: needItems.filter((item) => !item.resolved).length,
-                                  })
-                        }
-                        actions={
-                            back.returnTo === null ? undefined : (
-                                <Button
-                                    testID="kitchen-ingredient-fix-back"
-                                    size="sm"
-                                    variant={needsDone ? 'primary' : 'secondary'}
-                                    label={
-                                        returnName === null
-                                            ? t('kitchen:ingredientFix.back')
-                                            : t('kitchen:ingredientFix.backNamed', {
-                                                  name: returnName,
-                                              })
-                                    }
-                                    onPress={() => {
-                                        guard.intercept(back.leave);
-                                    }}
+                <Stack space="sm">
+                    <CataloguePageHeader
+                        testID="kitchen-ingredient-editor-screen-header"
+                        titleTestID="kitchen-ingredient-editor-screen-title"
+                        title={title}
+                        titleAside={
+                            <Inline
+                                space="xs"
+                                align="center"
+                                wrap
+                                testID="kitchen-ingredient-editor-screen-meta"
+                            >
+                                <Badge
+                                    variant="caps"
+                                    testID="kitchen-ingredient-editor-screen-status"
+                                    tone={statusTone(data?.meta.status ?? 'draft')}
+                                    icon={null}
+                                    label={t(statusKey(data?.meta.status ?? 'draft'))}
                                 />
-                            )
-                        }
-                    >
-                        <Stack space="xs">
-                            {needItems.map((item) => (
-                                <Pressable
-                                    key={item.key}
-                                    testID={`kitchen-ingredient-fix-${item.key}`}
-                                    role="link"
-                                    accessibilityRole="link"
-                                    accessibilityLabel={`${item.section}: ${item.resolved ? t('kitchen:ingredientFix.doneItem') : item.message}`}
-                                    disabled={item.resolved}
-                                    onPress={() => {
-                                        focusField(item.targetId);
-                                    }}
-                                    className="flex-row flex-wrap items-center gap-tight"
-                                >
-                                    <Icon
-                                        name={item.resolved ? 'check' : 'warning'}
-                                        size="sm"
-                                        className={
-                                            item.resolved
-                                                ? 'text-success-strong'
-                                                : 'text-warning-strong'
-                                        }
-                                    />
-                                    <Text variant="label">{item.section}</Text>
-                                    <Text tone={item.resolved ? 'success' : 'primary'}>
-                                        {item.resolved
-                                            ? t('kitchen:ingredientFix.doneItem')
-                                            : item.message}
+                                {reference === '' ? null : (
+                                    <Text
+                                        testID="kitchen-ingredient-editor-screen-identity"
+                                        tone="secondary"
+                                        variant="mono"
+                                    >
+                                        {reference}
                                     </Text>
-                                    {item.resolved ? null : (
-                                        <Icon
-                                            name="chevronEnd"
-                                            size="sm"
-                                            className="text-content-secondary"
-                                        />
-                                    )}
-                                </Pressable>
-                            ))}
-                        </Stack>
-                    </Callout>
-                )}
-
-                {/* One strip above the other, each the full width — never squeezed side by side. */}
-                {issueItems.length === 0 && warningItems.length === 0 ? null : (
-                    <Stack space="xs" testID="kitchen-ingredient-issues">
-                        {issueItems.length === 0 ? null : (
-                            <FormIssueBanner
-                                testID="kitchen-ingredient-issues-errors"
-                                tone="danger"
-                                summary={t(
-                                    onlyRequired
-                                        ? 'kitchen:forms.requiredCount'
-                                        : 'kitchen:forms.toFixCount',
-                                    { count: issueItems.length },
                                 )}
-                                items={issueItems}
-                            />
-                        )}
-                        {warningItems.length === 0 ? null : (
-                            <FormIssueBanner
-                                testID="kitchen-ingredient-issues-warnings"
-                                tone="warning"
-                                summary={t('kitchen:forms.warningCount', {
-                                    count: warningItems.length,
-                                })}
-                                items={warningItems}
-                            />
-                        )}
-                    </Stack>
-                )}
-
-                <View className="border-b border-stroke" />
-            </Stack>
-
-            {notices.length === 0 ? null : (
-                <Stack space="xs" testID="kitchen-ingredient-notices">
-                    {notices}
-                </Stack>
-            )}
-
-            {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
-            <View className="z-auto flex-col gap-loose">
-                {/* ── identity ─────────────────────────────────────────────────────────────── */}
-                <FormSection
-                    first
-                    variant="card"
-                    testID="kitchen-ingredient-identity"
-                    title={t('kitchen:forms.description')}
-                >
-                    <View className="z-auto flex-row flex-wrap items-start gap-base">
-                        {/*
-                         * The photo leads a food record and packaging has none — a bin liner is
-                         * identified by its reference, and the design draws no slot for it. Written
-                         * after the record's save; see `writePhoto`.
-                         */}
-                        {!family.food ? null : (
-                            <ImageSlot
-                                testID="kitchen-ingredient-image"
-                                uri={photo}
-                                fallback={stockPhoto}
-                                disabled={!editable}
-                                onChange={(next) => {
-                                    // Clearing takes the stock picture off as well as an upload;
-                                    // an upload puts it back on, server side, when it is saved.
-                                    const hidden = next === null;
-                                    setPhoto(next);
-                                    setStockHidden(hidden);
-                                    const changed =
-                                        next !== (data?.photoUrl ?? null) ||
-                                        (hasStockPhoto && hidden !== savedStockHidden);
-                                    setPhotoDirty(changed);
-                                    if (changed) guard.markDirty();
-                                }}
-                            />
-                        )}
-
-                        {/*
-                         * Beside the photo a food record has four half tracks, which is two 280px
-                         * fields — the item pair on the first row, the filing on the second. It
-                         * draws no reference field: the handle is beside the title already, and a
-                         * read-only box repeating it was a field nobody could use. Packaging has no
-                         * photo and opens on its handle, so the reference leads and the row takes
-                         * all six.
-                         */}
-                        <FormGrid
-                            track="half"
-                            {...(family.food ? { maxColumns: 4 } : {})}
-                            testID="kitchen-ingredient-identity-grid"
-                        >
-                            {/*
-                             * Not on a new record either: nothing has been issued yet, so the box
-                             * could only ever say "Assigned on save". The handle is beside the
-                             * title once it exists.
-                             */}
-                            {family.food || isCreating ? null : referenceField}
-
-                            {/*
-                             * One `BilingualField` rather than two inputs, because that component
-                             * owns the per-language writing direction; `row` puts the halves side
-                             * by side inside the four tracks `span={4}` claims.
-                             */}
-                            <BilingualField
-                                span={4}
-                                layout="row"
-                                testID="kitchen-ingredient-name"
-                                fieldLabel={t('kitchen:list.columnItem')}
-                                placeholder={
-                                    family.food
-                                        ? {
-                                              en: t('kitchen:fields.ingredientNamePlaceholderEn'),
-                                              ar: t('kitchen:fields.ingredientNamePlaceholderAr'),
-                                          }
-                                        : {
-                                              en: t('kitchen:fields.packagingNamePlaceholderEn'),
-                                              ar: t('kitchen:fields.packagingNamePlaceholderAr'),
-                                          }
-                                }
-                                value={details.name}
-                                requiredEnglish
-                                disabled={!editable}
-                                {...flagEnglish}
-                                {...(server.errorFor('name_en') === undefined ||
-                                flagEnglish.englishError !== undefined
-                                    ? {}
-                                    : { englishError: server.errorFor('name_en') })}
-                                {...(server.errorFor('name_ar') === undefined
-                                    ? {}
-                                    : { arabicError: server.errorFor('name_ar') })}
-                                onChange={(next) => {
-                                    edit({ name: next });
-                                }}
-                                onEnglishBlur={() => {
-                                    runAssist();
-                                }}
-                            />
-
-                            <Select
-                                span={2}
-                                testID="kitchen-ingredient-category"
-                                id="kitchen-ingredient-category"
-                                label={t('kitchen:fields.category')}
-                                placeholder={t('kitchen:fields.categoryPlaceholder')}
-                                searchable
-                                required
-                                // Locked for a family whose branch is the family - see
-                                // `categoryOptions`.
-                                disabled={!editable || family.categoryCode !== ''}
-                                options={categoryOptions}
-                                value={details.categoryCode === '' ? null : details.categoryCode}
-                                {...flag('category', t('kitchen:forms.required'))}
-                                {...server.flag('ingredient_category_id')}
-                                onChange={(next) => {
-                                    // Changing the parent invalidates the leaf: a sub-category
-                                    // from the previous branch would be refused on save.
-                                    edit({ categoryCode: next, subcategoryCode: '' });
-                                }}
-                            />
-
-                            <Select
-                                span={2}
-                                testID="kitchen-ingredient-subcategory"
-                                id="kitchen-ingredient-subcategory"
-                                {...server.flag('ingredient_subcategory_id')}
-                                label={t('kitchen:fields.subcategory')}
-                                placeholder={t('kitchen:fields.subcategoryPlaceholder')}
-                                searchable
-                                disabled={!editable || details.categoryCode === ''}
-                                options={subcategoryOptions}
-                                value={
-                                    details.subcategoryCode === ''
-                                        ? 'none'
-                                        : details.subcategoryCode
-                                }
-                                onChange={(next) => {
-                                    edit({ subcategoryCode: next === 'none' ? '' : next });
-                                }}
-                            />
-                        </FormGrid>
-                    </View>
-                    {isCreating && family.food ? (
-                        <IngredientAssistPanel
-                            result={assistForName}
-                            pending={assist.isPending}
-                            arabicFromAi={arabicFromAi !== null && details.name.ar === arabicFromAi}
-                            unitFromAi={
-                                unitFromAi !== null &&
-                                details.measurementUnit === unitFromAi &&
-                                details.purchaseUnit === unitFromAi
-                                    ? t(unitKey(unitFromAi))
-                                    : null
-                            }
-                            gramsFromAi={
-                                gramsFromAi !== null && details.gramsPerUnit === gramsFromAi
-                                    ? {
-                                          grams: gramsFromAi,
-                                          unit: t(unitShortKey(details.measurementUnit)),
-                                      }
-                                    : null
-                            }
-                            categorySuggestion={categorySuggestion}
-                            onOpen={(id) => {
-                                router.push(`/kitchen/ingredients/${String(id)}`);
-                            }}
-                            onRerun={() => {
-                                runAssist(true);
-                            }}
-                        />
-                    ) : null}
-                </FormSection>
-
-                {/* ── measurement & cost / pack ────────────────────────────────────────────── */}
-                <FormSection
-                    first
-                    variant="card"
-                    testID="kitchen-ingredient-measurement"
-                    title={t(
-                        family.food ? 'kitchen:editor.sectionMeasurement' : 'kitchen:forms.pack',
-                    )}
-                >
-                    <FormGrid track="half" testID="kitchen-ingredient-measurement-grid">
-                        {unitFields}
-
-                        {/*
-                         * `QuantityInput`, not `TextInputField`: every figure on this screen is set
-                         * in the mono role, flush to the trailing edge (§1.2). The currency rides in
-                         * the unit slot as a static suffix — a price carrying its own currency is a
-                         * string no cost cascade can multiply.
-                         */}
-                        {/*
-                         * Read-only: what the kitchen last paid, per the unit it was bought in, and
-                         * from whom. It follows the receipts — the next delivery posted moves it.
-                         */}
-                        {!family.food ? null : (
-                            <QuantityInput
-                                testID="kitchen-ingredient-unit-price"
-                                id="kitchen-ingredient-unit-price"
-                                size="sm"
-                                readOnly
-                                label={t('kitchen:fields.unitPrice')}
-                                placeholder={currentPricePlaceholder}
-                                value={currentPriceValue}
-                                {...(openNeed('price') === undefined
-                                    ? {}
-                                    : { warning: openNeed('price')?.message })}
-                                {...(latestPurchase === null ||
-                                latestPurchase.unitPriceAmount === null
-                                    ? {}
-                                    : {
-                                          unit: t('kitchen:fields.unitPricePer', {
-                                              currency: latestPurchase.costCurrencyCode ?? '',
-                                              unit: latestPurchase.unitCode ?? '',
-                                          }),
-                                          hint: currentPriceSource,
-                                      })}
-                                onChangeText={() => {}}
-                            />
-                        )}
-
-                        {/*
-                         * What one item holds, in two cells: the figure and its unit. Packaging
-                         * only — a cap or a label holds nothing and leaves it blank.
-                         */}
-                        {family.food ? null : (
-                            <QuantityInput
-                                testID="kitchen-ingredient-capacity"
-                                id="kitchen-ingredient-capacity"
-                                size="sm"
-                                label={t('kitchen:forms.holds')}
-                                placeholder={t('kitchen:fields.quantityPlaceholder')}
-                                value={packaging.capacity}
-                                disabled={!editable}
-                                {...server.flag('capacity_quantity')}
-                                onChangeText={(next) => {
-                                    editPackaging({ capacity: next });
-                                }}
-                            />
-                        )}
-                        {family.food ? null : (
-                            <Select
-                                testID="kitchen-ingredient-capacity-unit"
-                                id="kitchen-ingredient-capacity-unit"
-                                label={t('kitchen:forms.holdsUnit')}
-                                placeholder={t('kitchen:fields.unitPlaceholder')}
-                                disabled={!editable}
-                                options={adminUnitsWith(packaging.capacityUnit).map((unit) => ({
-                                    value: unit,
-                                    label: t(unitShortKey(unit)),
-                                }))}
-                                value={packaging.capacityUnit}
-                                onChange={(next) => {
-                                    editPackaging({ capacityUnit: next as MeasureUnit });
-                                }}
-                            />
-                        )}
-
-                        {gramsField}
-                    </FormGrid>
-                </FormSection>
-
-                {/* ── cost (packaging) ─────────────────────────────────────────────────────── */}
-                {family.food ? null : (
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-ingredient-cost"
-                        title={t('kitchen:forms.cost')}
-                    >
-                        <FormGrid track="half" testID="kitchen-ingredient-cost-grid">
-                            <QuantityInput
-                                testID="kitchen-ingredient-pack-price"
-                                id="kitchen-ingredient-pack-price"
-                                size="sm"
-                                label={t('kitchen:packaging.columnPackPrice')}
-                                placeholder={t('kitchen:fields.unitPricePlaceholder')}
-                                value={packaging.packPrice}
-                                disabled={!editable}
-                                {...priceUnit}
-                                {...flag('pack-price', t('kitchen:sale.priceInvalid'))}
-                                {...server.flag('purchase_price_amount')}
-                                {...(openNeed('price') === undefined
-                                    ? {}
-                                    : { warning: openNeed('price')?.message })}
-                                onChangeText={(next) => {
-                                    editPackaging({ packPrice: next });
-                                }}
-                            />
-                            <QuantityInput
-                                testID="kitchen-ingredient-waste"
-                                id="kitchen-ingredient-waste"
-                                size="sm"
-                                label={t('kitchen:forms.waste')}
-                                placeholder={t('kitchen:fields.percentPlaceholder')}
-                                unit="%"
-                                value={packaging.wastePercent}
-                                disabled={!editable}
-                                {...(wasteHigh
-                                    ? {
-                                          warning: t('kitchen:forms.aboveWaste', {
-                                              percent: WASTE_WARNING_PERCENT,
-                                          }),
-                                      }
-                                    : {})}
-                                {...server.flag('waste_percent')}
-                                onChangeText={(next) => {
-                                    editPackaging({ wastePercent: withoutMinus(next) });
-                                }}
-                            />
-                            {/*
-                             * The derived third cell, in the `readOnly` variant — a figure on the
-                             * sunken fill, in a field's shape, that nobody types into. Four places:
-                             * a cap costs a fraction of a unit, and two would round it to nothing.
-                             */}
-                            <QuantityInput
-                                testID="kitchen-ingredient-cost-per-item"
-                                id="kitchen-ingredient-cost-per-item"
-                                size="sm"
-                                readOnly
-                                label={t('kitchen:forms.costPerItem')}
-                                placeholder={t('kitchen:sale.marginUnavailable')}
-                                {...priceUnit}
-                                value={
-                                    costPerItem === null
-                                        ? ''
-                                        : formatter.formatNumber(costPerItem, {
-                                              minimumFractionDigits: 4,
-                                              maximumFractionDigits: 4,
-                                          })
-                                }
-                                onChangeText={() => undefined}
-                            />
-                        </FormGrid>
-                    </FormSection>
-                )}
-
-                {/* ── sale (food) ──────────────────────────────────────────────────────────── */}
-                {!family.food ? null : (
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-ingredient-sale"
-                        title={t('kitchen:sale.title')}
-                    >
-                        <Stack space="sm">
-                            <Switch
-                                testID="kitchen-ingredient-sellable"
-                                id="kitchen-ingredient-sellable"
-                                label={t('kitchen:sale.toggleLabel')}
-                                checked={details.isSellable}
-                                disabled={!editable}
-                                onChange={(next) => {
-                                    edit({ isSellable: next });
-                                }}
-                            />
-
-                            {/*
-                             * The prices appear only while the ingredient is sold. They are not
-                             * cleared on toggling off: an ingredient taken off sale for a season
-                             * keeps the prices it had, and re-listing it is one switch.
-                             */}
-                            {details.isSellable ? (
-                                <FormGrid track="half" testID="kitchen-ingredient-sale-grid">
-                                    <QuantityInput
-                                        testID="kitchen-ingredient-b2b-price"
-                                        id="kitchen-ingredient-b2b-price"
-                                        size="sm"
-                                        label={t('kitchen:sale.b2bPrice')}
-                                        placeholder={t('kitchen:fields.unitPricePlaceholder')}
-                                        value={details.b2bPrice}
-                                        disabled={!editable}
-                                        {...priceUnit}
-                                        {...flag('b2b-price', t('kitchen:sale.priceInvalid'))}
-                                        {...server.flag('b2b_price_amount')}
-                                        onChangeText={(next) => {
-                                            edit({ b2bPrice: next });
-                                        }}
-                                    />
-                                    <QuantityInput
-                                        testID="kitchen-ingredient-b2c-price"
-                                        id="kitchen-ingredient-b2c-price"
-                                        size="sm"
-                                        label={t('kitchen:sale.b2cPrice')}
-                                        placeholder={t('kitchen:fields.unitPricePlaceholder')}
-                                        value={details.b2cPrice}
-                                        disabled={!editable}
-                                        {...priceUnit}
-                                        {...flag('b2c-price', t('kitchen:sale.priceInvalid'))}
-                                        {...server.flag('b2c_price_amount')}
-                                        onChangeText={(next) => {
-                                            edit({ b2cPrice: next });
-                                        }}
-                                    />
-                                    {/*
-                                     * Empty rather than a stand-in figure when the sum cannot be
-                                     * stated: the placeholder's em dash says "not calculable",
-                                     * where a `0.0` would claim the margin is nil.
-                                     */}
-                                    <QuantityInput
-                                        testID="kitchen-ingredient-margin"
-                                        id="kitchen-ingredient-margin"
-                                        size="sm"
-                                        readOnly
-                                        label={t('kitchen:sale.margin')}
-                                        unit="%"
-                                        placeholder={t('kitchen:sale.marginUnavailable')}
-                                        value={
-                                            margin === null
-                                                ? ''
-                                                : formatter.formatNumber(margin, {
-                                                      minimumFractionDigits: 1,
-                                                      maximumFractionDigits: 1,
-                                                      signDisplay: 'exceptZero',
-                                                  })
-                                        }
-                                        onChangeText={() => undefined}
-                                    />
-                                </FormGrid>
-                            ) : null}
-                        </Stack>
-                    </FormSection>
-                )}
-
-                {/* ── nutrition · 100 g (food) ─────────────────────────────────────────────── */}
-                {!family.food ? null : (
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-ingredient-nutrition"
-                        title={t('kitchen:forms.nutritionTitle')}
-                        {...(nutritionDerived === null && editable && !isPackaging
-                            ? {
-                                  description: `${t('kitchen:nutritionLookup.serverManaged')} ${t('kitchen:nutritionLookup.allergensSeparate')}`,
-                              }
-                            : {})}
-                        aside={
-                            /*
-                             * Where the figures stand, as labels on the heading rather than a
-                             * paragraph under it: derived from a recipe, read from the shared
-                             * library, flagged as an estimate, or not recorded at all.
-                             */
-                            <Inline space="xs" align="center" wrap>
-                                {nutritionDerived !== null ? (
+                                {guard.isDirty ? (
                                     <Badge
                                         variant="label"
-                                        testID="kitchen-ingredient-nutrition-derived"
-                                        tone="info"
-                                        label={t('kitchen:nutritionFacts.derivedBadge')}
-                                    />
-                                ) : data?.organisationId === null ? (
-                                    <Badge
-                                        variant="label"
-                                        testID="kitchen-ingredient-nutrition-source"
-                                        tone="info"
-                                        label={t('kitchen:composition.fromDatabase')}
-                                    />
-                                ) : null}
-                                {details.nutritionEstimated ? (
-                                    <Badge
-                                        variant="label"
-                                        testID="kitchen-ingredient-nutrition-estimated-badge"
+                                        testID="kitchen-ingredient-editor-screen-dirty"
                                         tone="warning"
-                                        label={t('kitchen:nutritionFacts.estimatedBadge')}
-                                    />
-                                ) : null}
-                                {nutritionEmpty ? (
-                                    <Badge
-                                        variant="label"
-                                        testID="kitchen-ingredient-nutrition-empty"
-                                        tone="warning"
-                                        label={t('kitchen:forms.noFigures')}
+                                        icon="warning"
+                                        label={t('kitchen:editor.unsaved')}
                                     />
                                 ) : null}
                             </Inline>
                         }
-                    >
-                        <NeedLine
-                            nativeID={NEED_TARGET.nutrition}
-                            message={openNeed('nutrition')?.message}
-                        />
-                        {nutritionDerived === null ? (
-                            <Stack space="sm">
+                        primaryAction={
+                            <Inline space="xs" align="center">
                                 {/*
-                                 * The same cards the recipe's technical sheet draws — one shape
-                                 * for an ingredient's nutrition and a recipe's, which is how the
-                                 * design sets them. Read from the record, never typed: see the
-                                 * file header.
+                                 * Both `md`, matching the list page's `Import` and `New ingredient`
+                                 * pair — an editor's Cancel and Save are the same decision at the same
+                                 * weight. Save is hidden rather than permanently disabled on a record
+                                 * this caller cannot write: the callout below says why.
                                  */}
+                                <Button
+                                    testID="kitchen-ingredient-editor-screen-back"
+                                    variant="secondary"
+                                    label={t('kitchen:editor.cancel')}
+                                    onPress={() => {
+                                        leaveWithoutKeeping(goBack);
+                                    }}
+                                />
+                                {platformNotice ? null : (
+                                    <Button
+                                        testID="kitchen-ingredient-editor-screen-save"
+                                        label={t('kitchen:editor.save')}
+                                        loading={busy}
+                                        disabled={
+                                            !editable || currencyMissing || busy || referenceBlocked
+                                        }
+                                        onPress={save}
+                                    />
+                                )}
+                            </Inline>
+                        }
+                    />
+
+                    <View className="border-b border-stroke" />
+                </Stack>
+
+                {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
+                <View className="z-auto flex-col gap-loose">
+                    {/* ── identity ─────────────────────────────────────────────────────────────── */}
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-ingredient-identity"
+                        title={t('kitchen:forms.description')}
+                    >
+                        <View className="z-auto flex-row flex-wrap items-start gap-base">
+                            {/*
+                             * The photo leads a food record and packaging has none — a bin liner is
+                             * identified by its reference, and the design draws no slot for it. Written
+                             * after the record's save; see `writePhoto`.
+                             */}
+                            {!family.food ? null : (
+                                <ImageSlot
+                                    testID="kitchen-ingredient-image"
+                                    uri={photo}
+                                    fallback={stockPhoto}
+                                    disabled={!editable}
+                                    onChange={(next) => {
+                                        // Clearing takes the stock picture off as well as an upload;
+                                        // an upload puts it back on, server side, when it is saved.
+                                        const hidden = next === null;
+                                        setPhoto(next);
+                                        setStockHidden(hidden);
+                                        const changed =
+                                            next !== (data?.photoUrl ?? null) ||
+                                            (hasStockPhoto && hidden !== savedStockHidden);
+                                        setPhotoDirty(changed);
+                                        if (changed) guard.markDirty();
+                                    }}
+                                />
+                            )}
+
+                            {/*
+                             * Beside the photo a food record has four half tracks, which is two 280px
+                             * fields — the item pair on the first row, the filing on the second. It
+                             * draws no reference field: the handle is beside the title already, and a
+                             * read-only box repeating it was a field nobody could use. Packaging has no
+                             * photo and opens on its handle, so the reference leads and the row takes
+                             * all six.
+                             */}
+                            <FormGrid
+                                track="half"
+                                {...(family.food ? { maxColumns: 4 } : {})}
+                                testID="kitchen-ingredient-identity-grid"
+                            >
+                                {/*
+                                 * Not on a new record either: nothing has been issued yet, so the box
+                                 * could only ever say "Assigned on save". The handle is beside the
+                                 * title once it exists.
+                                 */}
+                                {family.food || isCreating ? null : referenceField}
+
+                                {/*
+                                 * One `BilingualField` rather than two inputs, because that component
+                                 * owns the per-language writing direction; `row` puts the halves side
+                                 * by side inside the four tracks `span={4}` claims.
+                                 */}
+                                <BilingualField
+                                    span={4}
+                                    layout="row"
+                                    testID="kitchen-ingredient-name"
+                                    fieldLabel={t('kitchen:list.columnItem')}
+                                    placeholder={
+                                        family.food
+                                            ? {
+                                                  en: t(
+                                                      'kitchen:fields.ingredientNamePlaceholderEn',
+                                                  ),
+                                                  ar: t(
+                                                      'kitchen:fields.ingredientNamePlaceholderAr',
+                                                  ),
+                                              }
+                                            : {
+                                                  en: t(
+                                                      'kitchen:fields.packagingNamePlaceholderEn',
+                                                  ),
+                                                  ar: t(
+                                                      'kitchen:fields.packagingNamePlaceholderAr',
+                                                  ),
+                                              }
+                                    }
+                                    value={details.name}
+                                    requiredEnglish
+                                    disabled={!editable}
+                                    {...flagEnglish}
+                                    {...(server.errorFor('name_en') === undefined ||
+                                    flagEnglish.englishError !== undefined
+                                        ? {}
+                                        : { englishError: server.errorFor('name_en') })}
+                                    {...(server.errorFor('name_ar') === undefined
+                                        ? {}
+                                        : { arabicError: server.errorFor('name_ar') })}
+                                    onChange={(next) => {
+                                        edit({ name: next });
+                                    }}
+                                    onEnglishBlur={() => {
+                                        runAssist();
+                                    }}
+                                />
+
+                                <Select
+                                    span={2}
+                                    testID="kitchen-ingredient-category"
+                                    id="kitchen-ingredient-category"
+                                    label={t('kitchen:fields.category')}
+                                    placeholder={t('kitchen:fields.categoryPlaceholder')}
+                                    searchable
+                                    required
+                                    // Locked for a family whose branch is the family - see
+                                    // `categoryOptions`.
+                                    disabled={!editable || family.categoryCode !== ''}
+                                    options={categoryOptions}
+                                    value={
+                                        details.categoryCode === '' ? null : details.categoryCode
+                                    }
+                                    {...flag('category', t('kitchen:forms.required'))}
+                                    {...server.flag('ingredient_category_id')}
+                                    onChange={(next) => {
+                                        // Changing the parent invalidates the leaf: a sub-category
+                                        // from the previous branch would be refused on save.
+                                        edit({ categoryCode: next, subcategoryCode: '' });
+                                    }}
+                                />
+
+                                <Select
+                                    span={2}
+                                    testID="kitchen-ingredient-subcategory"
+                                    id="kitchen-ingredient-subcategory"
+                                    {...server.flag('ingredient_subcategory_id')}
+                                    label={t('kitchen:fields.subcategory')}
+                                    placeholder={t('kitchen:fields.subcategoryPlaceholder')}
+                                    searchable
+                                    disabled={!editable || details.categoryCode === ''}
+                                    options={subcategoryOptions}
+                                    value={
+                                        details.subcategoryCode === ''
+                                            ? 'none'
+                                            : details.subcategoryCode
+                                    }
+                                    onChange={(next) => {
+                                        edit({ subcategoryCode: next === 'none' ? '' : next });
+                                    }}
+                                />
+                            </FormGrid>
+                        </View>
+                        {isCreating && family.food ? (
+                            <IngredientAssistPanel
+                                result={assistForName}
+                                pending={assist.isPending}
+                                arabicFromAi={
+                                    arabicFromAi !== null && details.name.ar === arabicFromAi
+                                }
+                                unitFromAi={
+                                    unitFromAi !== null &&
+                                    details.measurementUnit === unitFromAi &&
+                                    details.purchaseUnit === unitFromAi
+                                        ? t(unitKey(unitFromAi))
+                                        : null
+                                }
+                                gramsFromAi={
+                                    gramsFromAi !== null && details.gramsPerUnit === gramsFromAi
+                                        ? {
+                                              grams: gramsFromAi,
+                                              unit: t(unitShortKey(details.measurementUnit)),
+                                          }
+                                        : null
+                                }
+                                categorySuggestion={categorySuggestion}
+                                onOpen={(id) => {
+                                    router.push(`/kitchen/ingredients/${String(id)}`);
+                                }}
+                                onRerun={() => {
+                                    runAssist(true);
+                                }}
+                            />
+                        ) : null}
+                    </FormSection>
+
+                    {/* ── measurement & cost / pack ────────────────────────────────────────────── */}
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-ingredient-measurement"
+                        title={t(
+                            family.food
+                                ? 'kitchen:editor.sectionMeasurement'
+                                : 'kitchen:forms.pack',
+                        )}
+                    >
+                        <FormGrid track="half" testID="kitchen-ingredient-measurement-grid">
+                            {unitFields}
+
+                            {/*
+                             * `QuantityInput`, not `TextInputField`: every figure on this screen is set
+                             * in the mono role, flush to the trailing edge (§1.2). The currency rides in
+                             * the unit slot as a static suffix — a price carrying its own currency is a
+                             * string no cost cascade can multiply.
+                             */}
+                            {/*
+                             * Read-only: what the kitchen last paid, per the unit it was bought in, and
+                             * from whom. It follows the receipts — the next delivery posted moves it.
+                             */}
+                            {!family.food ? null : (
+                                <QuantityInput
+                                    testID="kitchen-ingredient-unit-price"
+                                    id="kitchen-ingredient-unit-price"
+                                    size="sm"
+                                    readOnly
+                                    label={t('kitchen:fields.unitPrice')}
+                                    placeholder={currentPricePlaceholder}
+                                    value={currentPriceValue}
+                                    {...(openNeed('price') === undefined
+                                        ? {}
+                                        : { warning: openNeed('price')?.message })}
+                                    {...(latestPurchase === null ||
+                                    latestPurchase.unitPriceAmount === null
+                                        ? {}
+                                        : {
+                                              unit: t('kitchen:fields.unitPricePer', {
+                                                  currency: latestPurchase.costCurrencyCode ?? '',
+                                                  unit: latestPurchase.unitCode ?? '',
+                                              }),
+                                              hint: currentPriceSource,
+                                          })}
+                                    onChangeText={() => {}}
+                                />
+                            )}
+
+                            {/*
+                             * What one item holds, in two cells: the figure and its unit. Packaging
+                             * only — a cap or a label holds nothing and leaves it blank.
+                             */}
+                            {family.food ? null : (
+                                <QuantityInput
+                                    testID="kitchen-ingredient-capacity"
+                                    id="kitchen-ingredient-capacity"
+                                    size="sm"
+                                    label={t('kitchen:forms.holds')}
+                                    placeholder={t('kitchen:fields.quantityPlaceholder')}
+                                    value={packaging.capacity}
+                                    disabled={!editable}
+                                    {...server.flag('capacity_quantity')}
+                                    onChangeText={(next) => {
+                                        editPackaging({ capacity: next });
+                                    }}
+                                />
+                            )}
+                            {family.food ? null : (
+                                <Select
+                                    testID="kitchen-ingredient-capacity-unit"
+                                    id="kitchen-ingredient-capacity-unit"
+                                    label={t('kitchen:forms.holdsUnit')}
+                                    placeholder={t('kitchen:fields.unitPlaceholder')}
+                                    disabled={!editable}
+                                    options={adminUnitsWith(packaging.capacityUnit).map((unit) => ({
+                                        value: unit,
+                                        label: t(unitShortKey(unit)),
+                                    }))}
+                                    value={packaging.capacityUnit}
+                                    onChange={(next) => {
+                                        editPackaging({ capacityUnit: next as MeasureUnit });
+                                    }}
+                                />
+                            )}
+
+                            {gramsField}
+                        </FormGrid>
+                    </FormSection>
+
+                    {/* ── cost (packaging) ─────────────────────────────────────────────────────── */}
+                    {family.food ? null : (
+                        <FormSection
+                            first
+                            variant="card"
+                            testID="kitchen-ingredient-cost"
+                            title={t('kitchen:forms.cost')}
+                        >
+                            <FormGrid track="half" testID="kitchen-ingredient-cost-grid">
+                                <QuantityInput
+                                    testID="kitchen-ingredient-pack-price"
+                                    id="kitchen-ingredient-pack-price"
+                                    size="sm"
+                                    label={t('kitchen:packaging.columnPackPrice')}
+                                    placeholder={t('kitchen:fields.unitPricePlaceholder')}
+                                    value={packaging.packPrice}
+                                    disabled={!editable}
+                                    {...priceUnit}
+                                    {...flag('pack-price', t('kitchen:sale.priceInvalid'))}
+                                    {...server.flag('purchase_price_amount')}
+                                    {...(openNeed('price') === undefined
+                                        ? {}
+                                        : { warning: openNeed('price')?.message })}
+                                    onChangeText={(next) => {
+                                        editPackaging({ packPrice: next });
+                                    }}
+                                />
+                                <QuantityInput
+                                    testID="kitchen-ingredient-waste"
+                                    id="kitchen-ingredient-waste"
+                                    size="sm"
+                                    label={t('kitchen:forms.waste')}
+                                    placeholder={t('kitchen:fields.percentPlaceholder')}
+                                    unit="%"
+                                    value={packaging.wastePercent}
+                                    disabled={!editable}
+                                    {...(wasteHigh
+                                        ? {
+                                              warning: t('kitchen:forms.aboveWaste', {
+                                                  percent: WASTE_WARNING_PERCENT,
+                                              }),
+                                          }
+                                        : {})}
+                                    {...server.flag('waste_percent')}
+                                    onChangeText={(next) => {
+                                        editPackaging({ wastePercent: withoutMinus(next) });
+                                    }}
+                                />
+                                {/*
+                                 * The derived third cell, in the `readOnly` variant — a figure on the
+                                 * sunken fill, in a field's shape, that nobody types into. Four places:
+                                 * a cap costs a fraction of a unit, and two would round it to nothing.
+                                 */}
+                                <QuantityInput
+                                    testID="kitchen-ingredient-cost-per-item"
+                                    id="kitchen-ingredient-cost-per-item"
+                                    size="sm"
+                                    readOnly
+                                    label={t('kitchen:forms.costPerItem')}
+                                    placeholder={t('kitchen:sale.marginUnavailable')}
+                                    {...priceUnit}
+                                    value={
+                                        costPerItem === null
+                                            ? ''
+                                            : formatter.formatNumber(costPerItem, {
+                                                  minimumFractionDigits: 4,
+                                                  maximumFractionDigits: 4,
+                                              })
+                                    }
+                                    onChangeText={() => undefined}
+                                />
+                            </FormGrid>
+                        </FormSection>
+                    )}
+
+                    {/* ── sale (food) ──────────────────────────────────────────────────────────── */}
+                    {!family.food ? null : (
+                        <FormSection
+                            first
+                            variant="card"
+                            testID="kitchen-ingredient-sale"
+                            title={t('kitchen:sale.title')}
+                        >
+                            <Stack space="sm">
+                                <Switch
+                                    testID="kitchen-ingredient-sellable"
+                                    id="kitchen-ingredient-sellable"
+                                    label={t('kitchen:sale.toggleLabel')}
+                                    checked={details.isSellable}
+                                    disabled={!editable}
+                                    onChange={(next) => {
+                                        edit({ isSellable: next });
+                                    }}
+                                />
+
+                                {/*
+                                 * The prices appear only while the ingredient is sold. They are not
+                                 * cleared on toggling off: an ingredient taken off sale for a season
+                                 * keeps the prices it had, and re-listing it is one switch.
+                                 */}
+                                {details.isSellable ? (
+                                    <FormGrid track="half" testID="kitchen-ingredient-sale-grid">
+                                        <QuantityInput
+                                            testID="kitchen-ingredient-b2b-price"
+                                            id="kitchen-ingredient-b2b-price"
+                                            size="sm"
+                                            label={t('kitchen:sale.b2bPrice')}
+                                            placeholder={t('kitchen:fields.unitPricePlaceholder')}
+                                            value={details.b2bPrice}
+                                            disabled={!editable}
+                                            {...priceUnit}
+                                            {...flag('b2b-price', t('kitchen:sale.priceInvalid'))}
+                                            {...server.flag('b2b_price_amount')}
+                                            onChangeText={(next) => {
+                                                edit({ b2bPrice: next });
+                                            }}
+                                        />
+                                        <QuantityInput
+                                            testID="kitchen-ingredient-b2c-price"
+                                            id="kitchen-ingredient-b2c-price"
+                                            size="sm"
+                                            label={t('kitchen:sale.b2cPrice')}
+                                            placeholder={t('kitchen:fields.unitPricePlaceholder')}
+                                            value={details.b2cPrice}
+                                            disabled={!editable}
+                                            {...priceUnit}
+                                            {...flag('b2c-price', t('kitchen:sale.priceInvalid'))}
+                                            {...server.flag('b2c_price_amount')}
+                                            onChangeText={(next) => {
+                                                edit({ b2cPrice: next });
+                                            }}
+                                        />
+                                        {/*
+                                         * Empty rather than a stand-in figure when the sum cannot be
+                                         * stated: the placeholder's em dash says "not calculable",
+                                         * where a `0.0` would claim the margin is nil.
+                                         */}
+                                        <QuantityInput
+                                            testID="kitchen-ingredient-margin"
+                                            id="kitchen-ingredient-margin"
+                                            size="sm"
+                                            readOnly
+                                            label={t('kitchen:sale.margin')}
+                                            unit="%"
+                                            placeholder={t('kitchen:sale.marginUnavailable')}
+                                            value={
+                                                margin === null
+                                                    ? ''
+                                                    : formatter.formatNumber(margin, {
+                                                          minimumFractionDigits: 1,
+                                                          maximumFractionDigits: 1,
+                                                          signDisplay: 'exceptZero',
+                                                      })
+                                            }
+                                            onChangeText={() => undefined}
+                                        />
+                                    </FormGrid>
+                                ) : null}
+                            </Stack>
+                        </FormSection>
+                    )}
+
+                    {/* ── nutrition · 100 g (food) ─────────────────────────────────────────────── */}
+                    {!family.food ? null : (
+                        <FormSection
+                            first
+                            variant="card"
+                            testID="kitchen-ingredient-nutrition"
+                            nativeID={SECTION_ID.nutrition}
+                            title={t('kitchen:forms.nutritionTitle')}
+                            {...(nutritionDerived === null && editable && !isPackaging
+                                ? {
+                                      description: `${t('kitchen:nutritionLookup.serverManaged')} ${t('kitchen:nutritionLookup.allergensSeparate')}`,
+                                  }
+                                : {})}
+                            aside={
+                                /*
+                                 * Where the figures stand, as labels on the heading rather than a
+                                 * paragraph under it: derived from a recipe, read from the shared
+                                 * library, flagged as an estimate, or not recorded at all.
+                                 */
+                                <Inline space="xs" align="center" wrap>
+                                    {nutritionDerived !== null ? (
+                                        <Badge
+                                            variant="label"
+                                            testID="kitchen-ingredient-nutrition-derived"
+                                            tone="info"
+                                            label={t('kitchen:nutritionFacts.derivedBadge')}
+                                        />
+                                    ) : data?.organisationId === null ? (
+                                        <Badge
+                                            variant="label"
+                                            testID="kitchen-ingredient-nutrition-source"
+                                            tone="info"
+                                            label={t('kitchen:composition.fromDatabase')}
+                                        />
+                                    ) : null}
+                                    {details.nutritionEstimated ? (
+                                        <Badge
+                                            variant="label"
+                                            testID="kitchen-ingredient-nutrition-estimated-badge"
+                                            tone="warning"
+                                            label={t('kitchen:nutritionFacts.estimatedBadge')}
+                                        />
+                                    ) : null}
+                                    {nutritionEmpty ? (
+                                        <Badge
+                                            variant="label"
+                                            testID="kitchen-ingredient-nutrition-empty"
+                                            tone="warning"
+                                            label={t('kitchen:forms.noFigures')}
+                                        />
+                                    ) : null}
+                                </Inline>
+                            }
+                        >
+                            <NeedLine
+                                nativeID={NEED_TARGET.nutrition}
+                                message={openNeed('nutrition')?.message}
+                            />
+                            {nutritionDerived === null ? (
+                                <Stack space="sm">
+                                    {/*
+                                     * The same cards the recipe's technical sheet draws — one shape
+                                     * for an ingredient's nutrition and a recipe's, which is how the
+                                     * design sets them. Read from the record, never typed: see the
+                                     * file header.
+                                     */}
+                                    <DerivedPanel
+                                        testID="kitchen-ingredient-nutrition-grid"
+                                        variant="outline"
+                                        figures={figures}
+                                        emptyValue={t('kitchen:sale.marginUnavailable')}
+                                    />
+
+                                    {/* Where the saved figures came from: data, so it stays on the page. */}
+                                    {data?.nutritionNote == null ? null : (
+                                        <Text tone="secondary" variant="caption">
+                                            {data.nutritionNote}
+                                        </Text>
+                                    )}
+                                    {editable && !isPackaging ? (
+                                        <NutritionReferencePicker
+                                            key={`${String(data?.id ?? 'new')}:${details.name.en}`}
+                                            name={details.name.en}
+                                            value={nutritionReference}
+                                            valueCandidate={
+                                                referenceDraft.name === details.name.en
+                                                    ? referenceDraft.candidate
+                                                    : undefined
+                                            }
+                                            suggestion={
+                                                assistForName?.nutrition ??
+                                                // The quick add's stored pick, offered — never chosen —
+                                                // so saving anything else here is not held behind it.
+                                                (data?.pendingNutrition?.suggestion == null
+                                                    ? undefined
+                                                    : {
+                                                          candidates: [
+                                                              data.pendingNutrition.suggestion,
+                                                          ],
+                                                          pick: 0,
+                                                          relation: null,
+                                                          reason: null,
+                                                      })
+                                            }
+                                            onRename={isCreating ? renameForReference : undefined}
+                                            onChange={(selection, candidate) => {
+                                                setReferenceDraft({
+                                                    name: details.name.en,
+                                                    selection,
+                                                    candidate,
+                                                });
+                                                setDetailsDirty(true);
+                                                guard.markDirty();
+                                            }}
+                                        />
+                                    ) : null}
+                                </Stack>
+                            ) : (
                                 <DerivedPanel
-                                    testID="kitchen-ingredient-nutrition-grid"
+                                    testID="kitchen-ingredient-nutrition-panel"
                                     variant="outline"
                                     figures={figures}
                                     emptyValue={t('kitchen:sale.marginUnavailable')}
                                 />
+                            )}
+                        </FormSection>
+                    )}
 
-                                {/* Where the saved figures came from: data, so it stays on the page. */}
-                                {data?.nutritionNote == null ? null : (
-                                    <Text tone="secondary" variant="caption">
-                                        {data.nutritionNote}
-                                    </Text>
-                                )}
-                                {editable && !isPackaging ? (
-                                    <NutritionReferencePicker
-                                        key={`${String(data?.id ?? 'new')}:${details.name.en}`}
-                                        name={details.name.en}
-                                        value={nutritionReference}
-                                        valueCandidate={
-                                            referenceDraft.name === details.name.en
-                                                ? referenceDraft.candidate
-                                                : undefined
-                                        }
-                                        suggestion={
-                                            assistForName?.nutrition ??
-                                            // The quick add's stored pick, offered — never chosen —
-                                            // so saving anything else here is not held behind it.
-                                            (data?.pendingNutrition?.suggestion == null
-                                                ? undefined
-                                                : {
-                                                      candidates: [
-                                                          data.pendingNutrition.suggestion,
-                                                      ],
-                                                      pick: 0,
-                                                      relation: null,
-                                                      reason: null,
-                                                  })
-                                        }
-                                        onRename={isCreating ? renameForReference : undefined}
-                                        onChange={(selection, candidate) => {
-                                            setReferenceDraft({
-                                                name: details.name.en,
-                                                selection,
-                                                candidate,
-                                            });
-                                            setDetailsDirty(true);
-                                            guard.markDirty();
-                                        }}
-                                    />
-                                ) : null}
-                            </Stack>
-                        ) : (
-                            <DerivedPanel
-                                testID="kitchen-ingredient-nutrition-panel"
-                                variant="outline"
-                                figures={figures}
-                                emptyValue={t('kitchen:sale.marginUnavailable')}
-                            />
-                        )}
-                    </FormSection>
-                )}
-
-                {/* ── allergens (food) ─────────────────────────────────────────────────────── */}
-                {!family.food ? null : (
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-ingredient-allergens"
-                        title={t('kitchen:forms.allergensTitle')}
-                        {...(editable ? { description: t('kitchen:allergenLookup.guidance') } : {})}
-                        aside={
-                            <Inline space="xs" align="center" wrap>
-                                {editable ? null : (
-                                    <Badge
-                                        variant="label"
-                                        testID="kitchen-ingredient-allergens-source"
-                                        tone="info"
-                                        label={t('kitchen:composition.fromDatabase')}
-                                    />
-                                )}
-                                {/* Checked and empty: said on the heading, where the eye lands. */}
-                                {allergenFree ? (
-                                    <Badge
-                                        variant="label"
-                                        testID="kitchen-ingredient-allergens-none-badge"
-                                        tone="success"
-                                        label={t('kitchen:allergens.noneBadge')}
-                                    />
-                                ) : null}
-                            </Inline>
-                        }
-                    >
-                        <NeedLine
-                            nativeID={NEED_TARGET.allergens}
-                            message={openNeed('allergens')?.message}
-                        />
-                        {isCreating && classes.data !== undefined ? (
-                            <AllergenReferencePicker
-                                key={details.name.en}
-                                name={details.name.en}
-                                classes={classes.data}
-                                value={allergenReference}
-                                suggestion={assistForName?.allergens}
-                                onChange={(selection) =>
-                                    setAllergenDraft({ name: details.name.en, selection })
-                                }
-                            />
-                        ) : null}
-                        {isCreating &&
-                        allergenReference === undefined &&
-                        aiAllergenCodes.length > 0 ? (
-                            <Callout
-                                testID="kitchen-ingredient-ai-allergens"
-                                tone="warning"
-                                icon="sparkle"
-                                title={t('kitchen:assist.allergensIndicated')}
-                                {...(assistForName?.allergens.reason == null
-                                    ? {}
-                                    : { body: assistForName.allergens.reason })}
-                            >
-                                <Stack space="xs">
-                                    <TagRow
-                                        items={aiAllergenCodes.map((entry) => ({
-                                            key: String(entry.allergenCode),
-                                            tone:
-                                                entry.containment === 'contains'
-                                                    ? 'danger'
-                                                    : 'warning',
-                                            label: `${allergenClassName(entry.allergenCode)} · ${t(containmentKey(entry.containment))}`,
-                                        }))}
-                                    />
-                                    <Checkbox
-                                        testID="kitchen-ingredient-ai-allergens-confirm"
-                                        label={t('kitchen:assist.allergensConfirm')}
-                                        checked={aiAllergensConfirmed}
-                                        disabled={!editable}
-                                        onChange={(checked) => {
-                                            setAiAllergensConfirmedFor(
-                                                checked ? details.name.en.trim() : null,
-                                            );
-                                            guard.markDirty();
-                                        }}
-                                    />
-                                </Stack>
-                            </Callout>
-                        ) : null}
-                        {isCreating &&
-                        allergenReference === undefined &&
-                        assistForName?.allergens.codes?.length === 0 ? (
-                            <Text
-                                testID="kitchen-ingredient-ai-allergens-none"
-                                variant="caption"
-                                tone="secondary"
-                            >
-                                {t('kitchen:assist.allergensNone')}
-                            </Text>
-                        ) : null}
-                        {isCreating && allergenReference === undefined && !aiAllergensConfirmed ? (
-                            <Checkbox
-                                testID="kitchen-ingredient-no-allergens"
-                                label={t('kitchen:allergens.createNone')}
-                                checked={noAllergens}
-                                disabled={!editable}
-                                onChange={(checked) => {
-                                    setNoAllergens(checked);
-                                    guard.markDirty();
-                                }}
-                            />
-                        ) : null}
-                        {editable && data !== undefined && classes.data !== undefined ? (
-                            <IngredientAllergenEditor
-                                key={`${data.allergenReviewToken ?? ''}-${String(data.meta.lockVersion)}-${allergens
-                                    .map((m) => `${String(m.allergenCode)}:${m.containment}`)
-                                    .join(',')}-${String(data.allergensAssessedClear === true)}`}
-                                ingredient={data}
-                                classes={classes.data}
-                                onDirtyChange={setAllergensDirty}
-                            />
-                        ) : isCreating ? null : allergenFree ? (
-                            <Tag
-                                testID="kitchen-ingredient-allergens-none"
-                                tone="success"
-                                label={t('kitchen:allergens.noneBadge')}
-                            />
-                        ) : allergens.length === 0 ? (
-                            // An em dash, not a sentence: "none recorded" and "free of all
-                            // fourteen" are different claims, and this panel can state neither.
-                            <Text
-                                testID="kitchen-ingredient-allergens-none"
-                                variant="mono"
-                                tone="secondary"
-                            >
-                                {t('kitchen:list.noValue')}
-                            </Text>
-                        ) : (
-                            <DerivedPanel
-                                testID="kitchen-ingredient-composition"
-                                figures={[]}
-                                emptyValue={t('kitchen:sale.marginUnavailable')}
-                                chips={allergens.map((mapping) => {
-                                    const code = String(mapping.allergenCode);
-                                    const known = classByCode.get(code);
-                                    // `contains` and `may_contain` are two different claims and
-                                    // never one colour: the tone separates them, and the class
-                                    // name carries the rest.
-                                    const tone: TagTone =
-                                        mapping.containment === 'contains' ? 'danger' : 'warning';
-
-                                    return (
-                                        <Tag
-                                            key={code}
-                                            testID={`kitchen-ingredient-allergen-${code}`}
-                                            tone={tone}
-                                            label={
-                                                known === undefined
-                                                    ? code
-                                                    : displayName(known.name, locale).value
-                                            }
+                    {/* ── allergens (food) ─────────────────────────────────────────────────────── */}
+                    {!family.food ? null : (
+                        <FormSection
+                            first
+                            variant="card"
+                            testID="kitchen-ingredient-allergens"
+                            nativeID={SECTION_ID.allergens}
+                            title={t('kitchen:forms.allergensTitle')}
+                            {...(editable
+                                ? { description: t('kitchen:allergenLookup.guidance') }
+                                : {})}
+                            aside={
+                                <Inline space="xs" align="center" wrap>
+                                    {editable ? null : (
+                                        <Badge
+                                            variant="label"
+                                            testID="kitchen-ingredient-allergens-source"
+                                            tone="info"
+                                            label={t('kitchen:composition.fromDatabase')}
                                         />
-                                    );
-                                })}
+                                    )}
+                                    {/* Checked and empty: said on the heading, where the eye lands. */}
+                                    {allergenFree ? (
+                                        <Badge
+                                            variant="label"
+                                            testID="kitchen-ingredient-allergens-none-badge"
+                                            tone="success"
+                                            label={t('kitchen:allergens.noneBadge')}
+                                        />
+                                    ) : null}
+                                </Inline>
+                            }
+                        >
+                            <NeedLine
+                                nativeID={NEED_TARGET.allergens}
+                                message={openNeed('allergens')?.message}
                             />
-                        )}
-                    </FormSection>
-                )}
+                            {isCreating && classes.data !== undefined ? (
+                                <AllergenReferencePicker
+                                    key={details.name.en}
+                                    name={details.name.en}
+                                    classes={classes.data}
+                                    value={allergenReference}
+                                    suggestion={assistForName?.allergens}
+                                    onChange={(selection) =>
+                                        setAllergenDraft({ name: details.name.en, selection })
+                                    }
+                                />
+                            ) : null}
+                            {isCreating &&
+                            allergenReference === undefined &&
+                            aiAllergenCodes.length > 0 ? (
+                                <Callout
+                                    testID="kitchen-ingredient-ai-allergens"
+                                    tone="warning"
+                                    icon="sparkle"
+                                    title={t('kitchen:assist.allergensIndicated')}
+                                    {...(assistForName?.allergens.reason == null
+                                        ? {}
+                                        : { body: assistForName.allergens.reason })}
+                                >
+                                    <Stack space="xs">
+                                        <TagRow
+                                            items={aiAllergenCodes.map((entry) => ({
+                                                key: String(entry.allergenCode),
+                                                tone:
+                                                    entry.containment === 'contains'
+                                                        ? 'danger'
+                                                        : 'warning',
+                                                label: `${allergenClassName(entry.allergenCode)} · ${t(containmentKey(entry.containment))}`,
+                                            }))}
+                                        />
+                                        <Checkbox
+                                            testID="kitchen-ingredient-ai-allergens-confirm"
+                                            label={t('kitchen:assist.allergensConfirm')}
+                                            checked={aiAllergensConfirmed}
+                                            disabled={!editable}
+                                            onChange={(checked) => {
+                                                setAiAllergensConfirmedFor(
+                                                    checked ? details.name.en.trim() : null,
+                                                );
+                                                guard.markDirty();
+                                            }}
+                                        />
+                                    </Stack>
+                                </Callout>
+                            ) : null}
+                            {isCreating &&
+                            allergenReference === undefined &&
+                            assistForName?.allergens.codes?.length === 0 ? (
+                                <Text
+                                    testID="kitchen-ingredient-ai-allergens-none"
+                                    variant="caption"
+                                    tone="secondary"
+                                >
+                                    {t('kitchen:assist.allergensNone')}
+                                </Text>
+                            ) : null}
+                            {isCreating &&
+                            allergenReference === undefined &&
+                            !aiAllergensConfirmed ? (
+                                <Checkbox
+                                    testID="kitchen-ingredient-no-allergens"
+                                    label={t('kitchen:allergens.createNone')}
+                                    checked={noAllergens}
+                                    disabled={!editable}
+                                    onChange={(checked) => {
+                                        setNoAllergens(checked);
+                                        guard.markDirty();
+                                    }}
+                                />
+                            ) : null}
+                            {editable && data !== undefined && classes.data !== undefined ? (
+                                <IngredientAllergenEditor
+                                    key={`${data.allergenReviewToken ?? ''}-${String(data.meta.lockVersion)}-${allergens
+                                        .map((m) => `${String(m.allergenCode)}:${m.containment}`)
+                                        .join(
+                                            ',',
+                                        )}-${String(data.allergensAssessedClear === true)}`}
+                                    ingredient={data}
+                                    classes={classes.data}
+                                    onDirtyChange={setAllergensDirty}
+                                    hideUnassessed
+                                />
+                            ) : isCreating ? null : allergenFree ? (
+                                <Tag
+                                    testID="kitchen-ingredient-allergens-none"
+                                    tone="success"
+                                    label={t('kitchen:allergens.noneBadge')}
+                                />
+                            ) : allergens.length === 0 ? (
+                                // An em dash, not a sentence: "none recorded" and "free of all
+                                // fourteen" are different claims, and this panel can state neither.
+                                <Text
+                                    testID="kitchen-ingredient-allergens-none"
+                                    variant="mono"
+                                    tone="secondary"
+                                >
+                                    {t('kitchen:list.noValue')}
+                                </Text>
+                            ) : (
+                                <DerivedPanel
+                                    testID="kitchen-ingredient-composition"
+                                    figures={[]}
+                                    emptyValue={t('kitchen:sale.marginUnavailable')}
+                                    chips={allergens.map((mapping) => {
+                                        const code = String(mapping.allergenCode);
+                                        const known = classByCode.get(code);
+                                        // `contains` and `may_contain` are two different claims and
+                                        // never one colour: the tone separates them, and the class
+                                        // name carries the rest.
+                                        const tone: TagTone =
+                                            mapping.containment === 'contains'
+                                                ? 'danger'
+                                                : 'warning';
 
-                {/*
-                 * ── barcodes ─ the kitchen's own rows, written on the spot rather than by Save, so
-                 * a platform record and packaging have them too. A saved record only: a code needs
-                 * an ingredient to point at.
-                 */}
-                {parsed === null ? null : (
-                    <IngredientBarcodesSection
-                        ingredientId={parsed}
-                        defaultUnit={details.measurementUnit}
-                        canManage={canManage}
-                    />
-                )}
-            </View>
+                                        return (
+                                            <Tag
+                                                key={code}
+                                                testID={`kitchen-ingredient-allergen-${code}`}
+                                                tone={tone}
+                                                label={
+                                                    known === undefined
+                                                        ? code
+                                                        : displayName(known.name, locale).value
+                                                }
+                                            />
+                                        );
+                                    })}
+                                />
+                            )}
+                        </FormSection>
+                    )}
 
-            <Dialog
-                testID="kitchen-ingredient-editor-screen-unsaved-dialog"
-                open={guard.isPrompting}
-                onClose={guard.cancelDiscard}
-                title={t('kitchen:unsaved.title')}
-                description={t('kitchen:unsaved.body')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-ingredient-editor-screen-unsaved-keep"
-                            variant="quiet"
-                            label={t('kitchen:unsaved.keepEditing')}
-                            onPress={guard.cancelDiscard}
+                    {/*
+                     * ── barcodes ─ the kitchen's own rows, written on the spot rather than by Save, so
+                     * a platform record and packaging have them too. A saved record only: a code needs
+                     * an ingredient to point at.
+                     */}
+                    {parsed === null ? null : (
+                        <IngredientBarcodesSection
+                            ingredientId={parsed}
+                            defaultUnit={details.measurementUnit}
+                            canManage={canManage}
                         />
-                        <Button
-                            testID="kitchen-ingredient-editor-screen-unsaved-discard"
-                            variant="danger"
-                            label={t('kitchen:unsaved.discard')}
-                            onPress={guard.confirmDiscard}
-                        />
-                    </>
-                }
-            />
+                    )}
+                </View>
 
-            <Dialog
-                testID="kitchen-ingredient-editor-screen-conflict-dialog"
-                open={concurrency.conflict !== null}
-                onClose={concurrency.keepEditing}
-                dismissOnBackdrop={false}
-                title={t('kitchen:conflict.title')}
-                description={t('kitchen:conflict.body')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-ingredient-editor-screen-conflict-keep"
-                            variant="quiet"
-                            label={t('kitchen:conflict.keepEditing')}
-                            onPress={concurrency.keepEditing}
-                        />
-                        <Button
-                            testID="kitchen-ingredient-editor-screen-conflict-reload"
-                            variant="danger"
-                            label={t('kitchen:conflict.reload')}
-                            onPress={concurrency.reload}
-                        />
-                    </>
-                }
-            >
-                {concurrency.conflict === null ? null : (
-                    <Text
-                        testID="kitchen-ingredient-editor-screen-conflict-detail"
-                        tone="secondary"
-                        variant="caption"
-                    >
-                        {concurrency.conflict.failure.message}
-                    </Text>
-                )}
-            </Dialog>
-        </Cascade>
+                <Dialog
+                    testID="kitchen-ingredient-editor-screen-unsaved-dialog"
+                    open={guard.isPrompting}
+                    onClose={guard.cancelDiscard}
+                    title={t('kitchen:unsaved.title')}
+                    description={t('kitchen:unsaved.body')}
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-ingredient-editor-screen-unsaved-keep"
+                                variant="quiet"
+                                label={t('kitchen:unsaved.keepEditing')}
+                                onPress={guard.cancelDiscard}
+                            />
+                            <Button
+                                testID="kitchen-ingredient-editor-screen-unsaved-discard"
+                                variant="danger"
+                                label={t('kitchen:unsaved.discard')}
+                                onPress={guard.confirmDiscard}
+                            />
+                        </>
+                    }
+                />
+
+                <Dialog
+                    testID="kitchen-ingredient-editor-screen-conflict-dialog"
+                    open={concurrency.conflict !== null}
+                    onClose={concurrency.keepEditing}
+                    dismissOnBackdrop={false}
+                    title={t('kitchen:conflict.title')}
+                    description={t('kitchen:conflict.body')}
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-ingredient-editor-screen-conflict-keep"
+                                variant="quiet"
+                                label={t('kitchen:conflict.keepEditing')}
+                                onPress={concurrency.keepEditing}
+                            />
+                            <Button
+                                testID="kitchen-ingredient-editor-screen-conflict-reload"
+                                variant="danger"
+                                label={t('kitchen:conflict.reload')}
+                                onPress={concurrency.reload}
+                            />
+                        </>
+                    }
+                >
+                    {concurrency.conflict === null ? null : (
+                        <Text
+                            testID="kitchen-ingredient-editor-screen-conflict-detail"
+                            tone="secondary"
+                            variant="caption"
+                        >
+                            {concurrency.conflict.failure.message}
+                        </Text>
+                    )}
+                </Dialog>
+            </Cascade>
+        </IssueTrayFrame>
     );
 }
 
@@ -3318,7 +3504,8 @@ function NeedLine({
     readonly message: string | undefined;
     readonly nativeID: string;
 }) {
-    if (message === undefined) return null;
+    // Nothing to say, but still the section's anchor: the tray's cards scroll here.
+    if (message === undefined) return <View nativeID={nativeID} />;
     return (
         <View nativeID={nativeID} testID={nativeID} className="flex-row items-center gap-tight">
             <Icon name="warning" size="sm" className="text-warning-strong" />

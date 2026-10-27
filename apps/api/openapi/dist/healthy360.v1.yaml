@@ -5417,6 +5417,20 @@ paths:
           schema:
             type: string
             maxLength: 20
+        - name: ids
+          in: query
+          required: false
+          description: Up to 100 comma-separated item identifiers.
+          schema:
+            type: string
+        - name: include
+          in: query
+          required: false
+          description: '`channels` adds each item''s channel assignments, as the item''s own read serves them.'
+          schema:
+            type: string
+            enum:
+              - channels
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
@@ -5435,7 +5449,7 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/AdminCatalogueItem'
+                      $ref: '#/components/schemas/AdminCatalogueItemIndexRow'
                   meta:
                     $ref: '#/components/schemas/PaginatedOrNumberedMeta'
         '400':
@@ -6570,6 +6584,18 @@ paths:
           description: Restrict to public tariffs or to negotiated agreements.
           schema:
             $ref: '#/components/schemas/PriceListCustomerScope'
+        - name: include
+          in: query
+          required: false
+          description: |
+            Comma-separated: `entries` adds each list's open entries (the rows the
+            entries index serves), `channels` its channel assignments. One request
+            for a screen that draws every list whole.
+          schema:
+            type: string
+            examples:
+              - entries
+              - entries,channels
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
@@ -6588,7 +6614,7 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/AdminPriceList'
+                      $ref: '#/components/schemas/AdminPriceListIndexRow'
                   meta:
                     $ref: '#/components/schemas/PaginatedOrNumberedMeta'
         '400':
@@ -19959,6 +19985,321 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /platform/b2b/applications/{application}/agreements:
+    get:
+      operationId: listPlatformB2bAgreements
+      tags:
+        - B2B platform review
+      summary: Every agreement version on an application, drafts included
+      description: |
+        Newest version first. The reviewer sees the drafts the applicant does
+        not, because writing them is the reviewer's job.
+
+        Requires `b2b_application.view_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/B2bApplicationPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Every version, newest first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/B2bAgreementListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createPlatformB2bAgreement
+      tags:
+        - B2B platform review
+      summary: Draft the agreement for an approved application
+      description: |
+        The reviewer writes the terms, including the seller kitchen's
+        negotiated price list. Refused with `b2b.application_state_invalid`
+        unless the application is approved, and with `resource.conflict` while
+        another version is still live: edit the draft, or revise the one
+        waiting for signature.
+
+        Requires `b2b_application.decide_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/B2bApplicationPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateB2bAgreementRequest'
+      responses:
+        '201':
+          description: The new draft.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/B2bAgreementEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/B2bApplicationStateInvalid'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /platform/b2b/agreements/{agreement}:
+    patch:
+      operationId: updatePlatformB2bAgreement
+      tags:
+        - B2B platform review
+      summary: Change a draft's terms
+      description: |
+        Only a draft changes; one that has been sent is revised into a new
+        version instead. Requires `b2b_application.decide_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/B2bAgreementPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateB2bAgreementRequest'
+      responses:
+        '200':
+          description: The updated draft.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/B2bAgreementEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /platform/b2b/agreements/{agreement}/send:
+    post:
+      operationId: sendPlatformB2bAgreement
+      tags:
+        - B2B platform review
+      summary: Send a draft to the signatory
+      description: |
+        Moves the draft to `pending_signature` and emails the applicant a
+        link to read and sign. Refused with `validation.failed` naming what is
+        still missing: the seller price list, the currency, the payment terms,
+        or the signatory email on the application.
+
+        Requires `b2b_application.decide_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/B2bAgreementPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The agreement, waiting for signature.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/B2bAgreementEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /platform/b2b/agreements/{agreement}/revise:
+    post:
+      operationId: revisePlatformB2bAgreement
+      tags:
+        - B2B platform review
+      summary: Take back an unsigned agreement and open the next version
+      description: |
+        Only for an agreement waiting for signature. It is terminated, kept on
+        record as what was shown, and its terms carried into a new draft.
+
+        Requires `b2b_application.decide_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/B2bAgreementPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '201':
+          description: The new draft version.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/B2bAgreementEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /platform/b2b/seller-price-lists:
+    get:
+      operationId: listSellerPriceLists
+      tags:
+        - B2B platform review
+      summary: The negotiated price lists an agreement can use
+      description: |
+        Every kitchen's `agreement`-scoped list that is not archived, read
+        across tenancy for the agreement editor's seller picker. Each row says
+        which application already holds it. At most 200 rows.
+
+        Requires `b2b_application.decide_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: query
+          in: query
+          required: false
+          description: Case-insensitive match on the list's English name or code.
+          schema:
+            type: string
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The lists, grouped by kitchen.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SellerPriceListListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /platform/b2b/applications/{application}/invitations:
+    get:
+      operationId: listPlatformB2bInvitations
+      tags:
+        - B2B platform review
+      summary: Who provisioning invited, and whether they came
+      description: |
+        The provisioned organisation's invitations, newest first. Empty before
+        provisioning. Requires `b2b_application.view_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/B2bApplicationPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The invitations.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganisationInvitationListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /platform/b2b/applications/{application}/invitations/{invitation}/resend:
+    post:
+      operationId: resendPlatformB2bInvitation
+      tags:
+        - B2B platform review
+      summary: Email a contact a fresh invitation link
+      description: |
+        Issues a new invitation to the same address and role, which revokes
+        the old link, and emails it. Refused with `resource.conflict` for an
+        invitation already accepted.
+
+        Requires `b2b_application.provision_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/B2bApplicationPath'
+        - $ref: '#/components/parameters/OrganisationInvitationPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '201':
+          description: The new invitation.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganisationInvitationEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /platform/b2b/applications/{application}/documents/{document}/download:
     get:
       operationId: downloadPlatformKycDocument
@@ -30008,6 +30349,30 @@ components:
         - dinner
         - snack
       description: When in the day a meal is eaten.
+    AdminPriceListIndexRow:
+      description: A price list row; `entries` and `channels` are present when `include` asks for them.
+      allOf:
+        - $ref: '#/components/schemas/AdminPriceList'
+        - type: object
+          properties:
+            entries:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminPriceListEntry'
+            channels:
+              type: array
+              items:
+                $ref: '#/components/schemas/PriceListChannelAssignment'
+    AdminCatalogueItemIndexRow:
+      description: A catalogue item row; `channels` is present when `include=channels` asks for it.
+      allOf:
+        - $ref: '#/components/schemas/AdminCatalogueItem'
+        - type: object
+          properties:
+            channels:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminChannelAssignment'
     AdminCatalogueItem:
       type: object
       required:
@@ -45397,6 +45762,7 @@ components:
         - title
         - auto_renews
         - signature_otp_verified
+        - document_sha256
         - lock_version
       properties:
         id:
@@ -45433,6 +45799,11 @@ components:
             Always a list whose `customer_scope` is `agreement`. Pointing an
             agreement at a public tariff would quietly publish a negotiated
             position.
+        seller:
+          oneOf:
+            - $ref: '#/components/schemas/B2bAgreementSeller'
+            - type: 'null'
+          description: The kitchen that owns `price_list_id` — who the company buys from. Null until a list is chosen.
         payment_terms:
           oneOf:
             - $ref: '#/components/schemas/B2bPaymentTerms'
@@ -45478,6 +45849,13 @@ components:
             - string
             - 'null'
           pattern: ^[0-9a-f]{64}$
+        document_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          description: |
+            What a signature now would be against: the digest recorded at
+            signing, or before that the digest of the terms as they stand. The
+            signing screen echoes it back.
         signatory_name:
           type:
             - string
@@ -47510,6 +47888,9 @@ components:
             - application
             - contacts
             - locations
+            - missing_fields
+            - missing_documents
+            - required_documents
           properties:
             application:
               $ref: '#/components/schemas/B2bApplication'
@@ -47521,6 +47902,21 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/B2bApplicationLocation'
+            missing_fields:
+              type: array
+              description: The required fields still empty — the server's own definition of complete.
+              items:
+                type: string
+            missing_documents:
+              type: array
+              description: The required document kinds not yet uploaded.
+              items:
+                $ref: '#/components/schemas/B2bDocumentKind'
+            required_documents:
+              type: array
+              description: Every document kind submission requires. The server's list, never a client constant.
+              items:
+                $ref: '#/components/schemas/B2bDocumentKind'
         meta:
           $ref: '#/components/schemas/Meta'
     B2bApplicationReviewOnlyEnvelope:
@@ -47627,6 +48023,228 @@ components:
           properties:
             download:
               $ref: '#/components/schemas/KycDocumentDownload'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    B2bAgreementSeller:
+      type: object
+      required:
+        - organisation_id
+        - organisation_name
+        - price_list_name_en
+        - price_list_name_ar
+      properties:
+        organisation_id:
+          $ref: '#/components/schemas/Uuid'
+        organisation_name:
+          type: string
+        price_list_name_en:
+          type: string
+        price_list_name_ar:
+          type:
+            - string
+            - 'null'
+    CreateB2bAgreementRequest:
+      type: object
+      description: A draft's title and any terms known so far. Absent terms stay empty.
+      required:
+        - title
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          maxLength: 160
+        currency_code:
+          type:
+            - string
+            - 'null'
+          minLength: 3
+          maxLength: 3
+          description: Optional when a price list is given — it follows the list, and must match it.
+        price_list_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: A seller kitchen's `agreement`-scoped list, not already behind another company's live agreement.
+        payment_terms:
+          oneOf:
+            - $ref: '#/components/schemas/B2bPaymentTerms'
+            - type: 'null'
+        credit_limit_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+        minimum_order_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+        delivery_lead_time_days:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          maximum: 365
+        notice_period_days:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          maximum: 3650
+        starts_on:
+          type:
+            - string
+            - 'null'
+          format: date
+        ends_on:
+          type:
+            - string
+            - 'null'
+          format: date
+        auto_renews:
+          type: boolean
+        terms_summary:
+          type:
+            - string
+            - 'null'
+          maxLength: 4000
+    UpdateB2bAgreementRequest:
+      type: object
+      description: Only the keys sent change. Only a draft can be edited.
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          maxLength: 160
+        currency_code:
+          type:
+            - string
+            - 'null'
+          minLength: 3
+          maxLength: 3
+          description: Optional when a price list is given — it follows the list, and must match it.
+        price_list_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: A seller kitchen's `agreement`-scoped list, not already behind another company's live agreement.
+        payment_terms:
+          oneOf:
+            - $ref: '#/components/schemas/B2bPaymentTerms'
+            - type: 'null'
+        credit_limit_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+        minimum_order_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+        delivery_lead_time_days:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          maximum: 365
+        notice_period_days:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          maximum: 3650
+        starts_on:
+          type:
+            - string
+            - 'null'
+          format: date
+        ends_on:
+          type:
+            - string
+            - 'null'
+          format: date
+        auto_renews:
+          type: boolean
+        terms_summary:
+          type:
+            - string
+            - 'null'
+          maxLength: 4000
+    B2bAgreementListEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/B2bAgreement'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    SellerPriceList:
+      type: object
+      description: A kitchen's negotiated list, as the agreement editor's seller picker shows it.
+      required:
+        - id
+        - organisation_id
+        - organisation_name
+        - code
+        - name_en
+        - name_ar
+        - currency_code
+        - status
+        - bound_to_application_id
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        organisation_id:
+          $ref: '#/components/schemas/Uuid'
+        organisation_name:
+          type: string
+        code:
+          type: string
+        name_en:
+          type: string
+        name_ar:
+          type:
+            - string
+            - 'null'
+        currency_code:
+          type: string
+        status:
+          type: string
+          enum:
+            - draft
+            - active
+        bound_to_application_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The application whose live agreement already holds this list. A taken list cannot be chosen for another company.
+    SellerPriceListListEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SellerPriceList'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    OrganisationInvitationListEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrganisationInvitation'
         meta:
           $ref: '#/components/schemas/Meta'
     B2bAgreementEnvelope:
@@ -48270,6 +48888,7 @@ components:
           required:
             - name
             - language_code
+            - type
           properties:
             name:
               type: string
@@ -48282,6 +48901,14 @@ components:
               examples:
                 - en
                 - ar
+            type:
+              type:
+                - string
+                - 'null'
+              description: The organisation type code, so an accepted invitation can land on the right workspace — `corporate_customer` on the buyer's, a kitchen on the kitchen's.
+              examples:
+                - corporate_customer
+                - kitchen
           additionalProperties: false
           description: |
             The organisation, named and nothing more. No identifier, no slug,
@@ -48351,9 +48978,10 @@ components:
     B2bProvisioningEnvelope:
       type: object
       description: |
-        What now exists. `agreement` is null when no version is in force —
-        provisioning does not require a signed agreement, because approval is
-        the gate and the terms may still be under negotiation.
+        What now exists. Provisioning is refused with
+        `b2b.application_state_invalid` until the agreement is signed
+        (active), so `agreement` is null only on a replay of an application
+        provisioned before that rule.
       required:
         - data
         - meta
@@ -48366,6 +48994,7 @@ components:
             - customer_account
             - agreement
             - invitations_issued
+            - owner_membership_created
           properties:
             application:
               $ref: '#/components/schemas/B2bApplicationReview'
@@ -48386,7 +49015,13 @@ components:
                 whose email address is malformed is skipped rather than
                 aborting the transaction — the alternative would strand an
                 approved company behind a field its applicant can no longer
-                edit.
+                edit. The applicant's own address is not invited: the
+                applicant is made the owner directly.
+            owner_membership_created:
+              type: boolean
+              description: |
+                Whether this call made the applicant `organisation_owner` of
+                the new organisation. False on a replay.
         meta:
           $ref: '#/components/schemas/Meta'
     SubscriptionStatus:

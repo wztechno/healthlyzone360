@@ -47,7 +47,23 @@ function harness() {
                 return json({ data: [APPLICATION], meta: { has_more: false, next_cursor: null } });
             }
             if (path === `/b2b/applications/${APPLICATION_UUID}`) {
-                return json({ data: { application: APPLICATION, contacts: [], locations: [] } });
+                return json({
+                    data: {
+                        application: APPLICATION,
+                        contacts: [
+                            {
+                                id: 'c1',
+                                role: 'billing',
+                                name: 'Rami',
+                                email: 'accounts@acme.test',
+                            },
+                        ],
+                        locations: [],
+                        missing_fields: ['signatory_email'],
+                        missing_documents: ['signatory_identification'],
+                        required_documents: ['commercial_registration', 'signatory_identification'],
+                    },
+                });
             }
             if (path === `/b2b/applications/${APPLICATION_UUID}/documents`) {
                 return json({ data: [] });
@@ -73,6 +89,59 @@ describe('b2b application envelope', () => {
         expect(application?.lockVersion).toBe(3);
         expect(application?.sections.company.legalName).toBe('Acme Catering LLC');
         expect(paths.some((path) => path.includes('undefined'))).toBe(false);
+
+        // The server's completeness, mapped back to the section that owns each field.
+        expect(application?.requiredDocumentKinds).toEqual([
+            'commercial_registration',
+            'signatory_identification',
+        ]);
+        expect(application?.contacts.map((contact) => contact.email)).toEqual([
+            'accounts@acme.test',
+        ]);
+        const signatory = application?.sectionStates.find((state) => state.section === 'signatory');
+        expect(signatory?.missingFields).toEqual(['signatoryEmail']);
+        expect(signatory?.complete).toBe(false);
+    });
+
+    it('saves a section without the mark_complete field the server refuses', async () => {
+        const bodies: unknown[] = [];
+        const transport = createTransport({
+            baseUrl: 'https://api.example',
+            tokenStore: createMemoryTokenStore('token'),
+            fetch: async (input, init) => {
+                const url = input instanceof Request ? input.url : String(input);
+                const path = url.replace('https://api.example/api/v1', '');
+                if (init?.method === 'PATCH') {
+                    bodies.push(JSON.parse(String(init.body)));
+                    return new Response(JSON.stringify({ data: { application: APPLICATION } }));
+                }
+                if (path === `/b2b/applications/${APPLICATION_UUID}`) {
+                    return new Response(
+                        JSON.stringify({
+                            data: {
+                                application: APPLICATION,
+                                contacts: [],
+                                locations: [],
+                                missing_fields: [],
+                                missing_documents: [],
+                                required_documents: [],
+                            },
+                        }),
+                    );
+                }
+                return new Response(JSON.stringify({ data: [] }));
+            },
+        });
+
+        await createApiB2bApplicationRepository(transport).saveSection({
+            applicationId: APPLICATION_UUID,
+            section: 'company',
+            payload: { legalName: 'Acme Catering LLC' },
+            markComplete: true,
+            lockVersion: 3,
+        });
+
+        expect(bodies).toEqual([{ legal_name: 'Acme Catering LLC' }]);
     });
 
     it('reads the application out of a write envelope', async () => {

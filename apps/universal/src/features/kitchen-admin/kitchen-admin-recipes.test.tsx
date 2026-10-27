@@ -57,6 +57,7 @@ import {
     testOrganisation,
 } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { withReturnTo } from '../../navigation/return-to.ts';
 import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
@@ -2554,9 +2555,10 @@ describe('versions', () => {
             },
         );
 
-        await untilVisible('kitchen-recipe-versions');
-        // Immutable, and the one control offered is the successor draft.
-        expect(screen.getByTestId('kitchen-recipe-immutable')).toBeTruthy();
+        // Read only, said in the header, and the one control offered is the successor draft.
+        await untilVisible('kitchen-recipe-read-only');
+        expect(screen.getByTestId('kitchen-recipe-new-draft')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-recipe-publish')).toBeNull();
 
         /*
          * "No way to add a line" is now the *absence of the picker*, not a missing Add button. The
@@ -2597,7 +2599,7 @@ describe('versions', () => {
 
         // …and the editor rebases onto it: no longer frozen, and editable — the picker is back.
         await waitFor(() => {
-            expect(screen.queryByTestId('kitchen-recipe-immutable')).toBeNull();
+            expect(screen.queryByTestId('kitchen-recipe-read-only')).toBeNull();
         });
         expect(screen.getByTestId('kitchen-recipe-editor-screen-status')).toHaveTextContent(
             /Draft/,
@@ -2634,6 +2636,11 @@ describe('versions', () => {
             repositories: { kitchenAdmin: editorReads(() => stored) },
         });
 
+        // The versions are behind the status chip beside the title.
+        await untilVisible('kitchen-recipe-version-menu-trigger');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-version-menu-trigger'));
+        });
         await untilVisible('kitchen-recipe-version-list');
 
         await act(async () => {
@@ -2645,6 +2652,7 @@ describe('versions', () => {
         // `RecipeAdmin` carries only the *current* version in full, so there is nothing honest to
         // render for an older one. Saying so beats an empty ingredient list with a heading on it.
         await untilVisible('kitchen-recipe-version-unavailable');
+        expect(screen.getByTestId('kitchen-recipe-read-only')).toBeTruthy();
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-version-back-to-current'));
@@ -2940,47 +2948,53 @@ describe('the steps', () => {
         expect(screen.queryByTestId('kitchen-recipe-yield-quantity')).toBeNull();
     });
 
-    it('checks the draft on the technical sheet before anything is saved', async () => {
-        await renderStubScreen(<RecipeEditScreen recipe="new" />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenAdmin: {
-                    listIngredients: ingredientListing(() => LIBRARY),
-                    nextReference: async () => 'RC-0010',
+    it('checks the draft in the issue tray before anything is saved', async () => {
+        await withDeskWidth(async () => {
+            await renderStubScreen(<RecipeEditScreen recipe="new" />, {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        listIngredients: ingredientListing(() => LIBRARY),
+                        nextReference: async () => 'RC-0010',
+                    },
                 },
-            },
+            });
+
+            await untilVisible('kitchen-recipe-name-en-input');
+            // The handle the save is about to take, beside the title.
+            await untilVisible('kitchen-recipe-editor-screen-reference');
+            expect(screen.getByTestId('kitchen-recipe-editor-screen-reference')).toHaveTextContent(
+                'RC-0010',
+            );
+            await act(async () => {
+                fireEvent.changeText(screen.getByTestId('kitchen-recipe-name-en-input'), 'Hummus');
+            });
+
+            await openTab('sheet');
+            await untilVisible('kitchen-recipe-tray');
+
+            /*
+             * Read off the draft: an English-only name, no lines, and the default one-kilogram yield.
+             * What fails is said quietly in the tray — heads-up, not counted — since nobody has tried
+             * to publish a recipe that does not exist yet; what passes is listed as passed.
+             */
+            expect(
+                screen.getByTestId('kitchen-recipe-sheet-summary-designation-value'),
+            ).toHaveTextContent('Hummus');
+            expect(screen.getByTestId('kitchen-recipe-check-languages-label')).toHaveTextContent(
+                'Add the item name in both English and Arabic',
+            );
+            expect(screen.getByTestId('kitchen-recipe-check-costed-label')).toHaveTextContent(
+                'Add at least one raw material on the Production step',
+            );
+            expect(screen.getByTestId('kitchen-recipe-check-yield')).toHaveTextContent(
+                /1 Kg per batch/,
+            );
+
+            // Nothing to publish before the first save makes a version: Save draft is the commit.
+            expect(screen.queryByTestId('kitchen-recipe-publish')).toBeNull();
+            expect(screen.getByTestId('kitchen-recipe-editor-screen-save')).toBeTruthy();
         });
-
-        await untilVisible('kitchen-recipe-name-en-input');
-        // The handle the save is about to take, beside the title.
-        await untilVisible('kitchen-recipe-editor-screen-reference');
-        expect(screen.getByTestId('kitchen-recipe-editor-screen-reference')).toHaveTextContent(
-            'RC-0010',
-        );
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-recipe-name-en-input'), 'Hummus');
-        });
-
-        await openTab('sheet');
-        await untilVisible('kitchen-recipe-publish-checks');
-
-        // Read off the draft: an English-only name, no lines, and the default one-kilogram yield.
-        expect(
-            screen.getByTestId('kitchen-recipe-sheet-summary-designation-value'),
-        ).toHaveTextContent('Hummus');
-        expect(screen.getByTestId('kitchen-recipe-check-languages-note')).toHaveTextContent(
-            'Add the item name in both English and Arabic',
-        );
-        expect(screen.getByTestId('kitchen-recipe-check-costed-note')).toHaveTextContent(
-            'Add at least one raw material on the Production step',
-        );
-        expect(screen.getByTestId('kitchen-recipe-check-yield-note')).toHaveTextContent(
-            '1 Kg per batch',
-        );
-
-        // Nothing to publish before the first save makes a version: Save draft is the commit.
-        expect(screen.queryByTestId('kitchen-recipe-publish')).toBeNull();
-        expect(screen.getByTestId('kitchen-recipe-editor-screen-save')).toBeTruthy();
     });
 
     it('writes unsaved edits before it opens the publish dialog', async () => {
@@ -3251,11 +3265,17 @@ describe('costing', () => {
         );
 
         // A total short by an unpriced line reads exactly like a complete one, so there is none,
-        // and the line keeping it back is named.
+        // and the line keeping it back is named — in the issue tray, docked beside the page at a
+        // desk's width, as what stands between this draft and Publish.
         expect(screen.getByTestId('kitchen-recipe-cost-cards-total')).not.toHaveTextContent(
             /\$2\.1850/,
         );
-        expect(screen.getByTestId('kitchen-recipe-uncosted')).toHaveTextContent(/Olive oil/);
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-recipe-issues-publish-costs');
+            expect(screen.getByTestId('kitchen-recipe-issues-publish-costs')).toHaveTextContent(
+                /Not costed: Olive oil/,
+            );
+        });
 
         // And the figures say where they come from, so a number that moves tomorrow can be traced.
         expect(screen.getByTestId('kitchen-recipe-cost-cascade')).toHaveTextContent(
@@ -3903,7 +3923,7 @@ describe('publishing', () => {
         expect(screen.getByTestId('kitchen-recipe-editor-screen-status')).toHaveTextContent(
             /Draft/,
         );
-        expect(screen.queryByTestId('kitchen-recipe-immutable')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-read-only')).toBeNull();
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-publish'));
@@ -3926,10 +3946,10 @@ describe('publishing', () => {
             });
         });
 
-        // …and the editor rebases onto the answer: a published version is immutable, so the only
-        // control left is the successor draft — on the Description step, beside the version list.
-        await openTab('description');
-        await untilVisible('kitchen-recipe-immutable');
+        // …and the editor rebases onto the answer: a published version is immutable, so the header
+        // says it is read only and the only control left is the successor draft.
+        await untilVisible('kitchen-recipe-read-only');
+        expect(screen.getByTestId('kitchen-recipe-new-draft')).toBeTruthy();
         await waitFor(() => {
             // The editor's header badge takes the Catalogue's short status vocabulary, the same
             // one its lists use — which now reads "Published" on both.
@@ -4008,8 +4028,11 @@ describe('publishing', () => {
             },
         );
 
-        await untilVisible('kitchen-recipe-quarantine');
-        // "Review" on the short vocabulary; the Callout beside it is what says the rest.
+        // Said in the issue tray, docked beside the page at a desk's width.
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-recipe-quarantine');
+        });
+        // "Review" on the short vocabulary; the tray's card is what says the rest.
         expect(screen.getByTestId('kitchen-recipe-editor-screen-status')).toHaveTextContent(
             /Review/,
         );

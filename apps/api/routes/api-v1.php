@@ -56,6 +56,11 @@ use Healthy360\B2b\Http\Controllers\OffboardingStoreController;
 use Healthy360\B2b\Http\Controllers\OrganisationInvitationIndexController;
 use Healthy360\B2b\Http\Controllers\OrganisationInvitationRevokeController;
 use Healthy360\B2b\Http\Controllers\OrganisationInvitationStoreController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bAgreementIndexController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bAgreementReviseController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bAgreementSendController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bAgreementStoreController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bAgreementUpdateController;
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationApproveController;
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationClaimController;
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationDeclineController;
@@ -63,8 +68,11 @@ use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationIndexController;
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationProvisionController;
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationRequestInformationController;
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationShowController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bInvitationIndexController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bInvitationResendController;
 use Healthy360\B2b\Http\Controllers\PlatformKycDocumentDownloadController;
 use Healthy360\B2b\Http\Controllers\PlatformKycDocumentReviewController;
+use Healthy360\B2b\Http\Controllers\PlatformSellerPriceListIndexController;
 use Healthy360\B2b\Http\Controllers\QuotationAcceptController;
 use Healthy360\B2b\Http\Controllers\QuotationDeclineController;
 use Healthy360\B2b\Http\Controllers\QuotationIndexController;
@@ -2729,7 +2737,45 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/applications/{application}/decline', PlatformB2bApplicationDeclineController::class)
                     ->middleware('precondition')
                     ->name('platform.b2b.applications.decline');
+
+                // The terms are the commercial half of the decision, so the
+                // authority that approves is the one that writes them. The
+                // applicant never sees a draft; `send` is what puts it in front
+                // of them, and `revise` takes back one they have not signed.
+                Route::post('/applications/{application}/agreements', PlatformB2bAgreementStoreController::class)
+                    ->name('platform.b2b.agreements.store');
+
+                Route::patch('/agreements/{agreement}', PlatformB2bAgreementUpdateController::class)
+                    ->middleware('precondition')
+                    ->name('platform.b2b.agreements.update');
+
+                Route::post('/agreements/{agreement}/send', PlatformB2bAgreementSendController::class)
+                    ->middleware('precondition')
+                    ->name('platform.b2b.agreements.send');
+
+                Route::post('/agreements/{agreement}/revise', PlatformB2bAgreementReviseController::class)
+                    ->middleware('precondition')
+                    ->name('platform.b2b.agreements.revise');
+
+                // Every kitchen's negotiated lists, read across tenancy, for the
+                // agreement editor's seller picker.
+                Route::get('/seller-price-lists', PlatformSellerPriceListIndexController::class)
+                    ->name('platform.b2b.seller-price-lists.index');
             });
+
+            Route::middleware('permission:b2b_application.view_platform')->group(function (): void {
+                Route::get('/applications/{application}/agreements', PlatformB2bAgreementIndexController::class)
+                    ->name('platform.b2b.agreements.index');
+
+                Route::get('/applications/{application}/invitations', PlatformB2bInvitationIndexController::class)
+                    ->name('platform.b2b.invitations.index');
+            });
+
+            // A fresh link is access to the company, the same authority as
+            // creating it.
+            Route::post('/applications/{application}/invitations/{invitation}/resend', PlatformB2bInvitationResendController::class)
+                ->middleware('permission:b2b_application.provision_platform')
+                ->name('platform.b2b.invitations.resend');
 
             // The irreversible half. Separate from deciding because an approval can be
             // revisited and a provisioned tenant cannot be un-provisioned.

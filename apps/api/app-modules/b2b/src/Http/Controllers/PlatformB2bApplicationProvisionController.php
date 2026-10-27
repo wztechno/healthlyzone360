@@ -9,6 +9,7 @@ use Healthy360\B2b\Models\B2bAgreement;
 use Healthy360\B2b\Presenters\B2bAgreementPresenter;
 use Healthy360\B2b\Presenters\B2bApplicationPresenter;
 use Healthy360\B2b\Presenters\ProvisioningPresenter;
+use Healthy360\B2b\Services\ApplicationNotices;
 use Healthy360\B2b\Services\B2bLocator;
 use Healthy360\B2b\Services\ProvisionApplication;
 use Healthy360\Organisations\Presenters\OrganisationPresenter;
@@ -71,6 +72,7 @@ final class PlatformB2bApplicationProvisionController
         private readonly OrganisationPresenter $organisations,
         private readonly ProvisioningPresenter $accounts,
         private readonly B2bAgreementPresenter $agreements,
+        private readonly ApplicationNotices $notices,
     ) {}
 
     /**
@@ -86,12 +88,18 @@ final class PlatformB2bApplicationProvisionController
 
         $agreement = $outcome['agreement'];
 
+        // Only fresh work tells the applicant; a replay already did.
+        if ($outcome['ownerMembership']) {
+            $this->notices->provisioned($record, $outcome['organisation']);
+        }
+
         return ApiResponse::data([
             'application' => $this->presenter->review($record->refresh()),
             'organisation' => $this->organisations->organisation($outcome['organisation']),
             'customer_account' => $this->accounts->customerAccount($outcome['customerAccount']),
             'agreement' => $agreement instanceof B2bAgreement ? $this->agreements->agreement($agreement) : null,
             'invitations_issued' => $outcome['invitations'],
+            'owner_membership_created' => $outcome['ownerMembership'],
         ]);
     }
 

@@ -10,6 +10,7 @@ import type {
     CustomerAddress,
     MarketplaceMeal,
     SetSubscriptionMealChoicesRequest,
+    SubscriptionPreview,
     SubscriptionRefusal,
 } from '@healthy360/api-client/contracts';
 import { SubscriptionPlanId } from '@healthy360/domain-types';
@@ -81,7 +82,10 @@ import type { ConfiguratorState, ConfiguratorStep, StepContext } from '../config
 import { earliestStartDate, nextAllowedDate } from '../dates.ts';
 import { servedAreas } from '../delivery.ts';
 import type { DeliveryAreaStatus } from '../delivery.ts';
+import { PlanReceipt } from '../order-receipt.tsx';
 import { PlanSetupSummary } from '../plan-setup-summary.tsx';
+import { ReceiptPrinter } from '../receipt-printer.tsx';
+import type { ReceiptPrinterStage } from '../receipt-printer.tsx';
 
 /**
  * `/customer/subscriptions/new?plan={id}` — setting up a subscription, in three steps.
@@ -400,6 +404,18 @@ export function SubscriptionConfiguratorScreen({
     const [savingChoices, setSavingChoices] = useState(false);
 
     /*
+     * The receipt printer beside Subscribe. "Processing" covers the create call and the first
+     * week's meal picks; then the receipt prints the priced preview of exactly what was created,
+     * and "View plan" is the step on, so the new subscription opens when the customer is ready
+     * rather than mid-print.
+     */
+    const [receipt, setReceipt] = useState<{
+        readonly stage: ReceiptPrinterStage;
+        readonly preview: SubscriptionPreview | null;
+        readonly href: string | null;
+    } | null>(null);
+
+    /*
      * Account set-up the server still needs, read before step one rather than discovered at
      * Subscribe: one row per required step, each opening the screen that does it and coming back
      * here. Subscribe waits until the list is empty — the checkout's rule.
@@ -507,6 +523,7 @@ export function SubscriptionConfiguratorScreen({
             return;
         }
         const picks = freeSelection ? firstWeekChoices(state, item, variant) : [];
+        setReceipt({ stage: 'processing', preview: null, href: null });
         create.mutate(
             {
                 configuration: request,
@@ -523,14 +540,23 @@ export function SubscriptionConfiguratorScreen({
                     }
                     // Replaces the set-up: the new subscription has a URL of its own, a refresh
                     // shows it, and Back is not a second chance to create it (plans-04).
-                    router.replace(
-                        withQuery(`/customer/subscriptions/${String(subscription.id)}`, {
-                            created: '1',
-                            ...(refused === 0 ? {} : { unsavedMeals: String(refused) }),
-                        }) as never,
+                    const href = withQuery(`/customer/subscriptions/${String(subscription.id)}`, {
+                        created: '1',
+                        ...(refused === 0 ? {} : { unsavedMeals: String(refused) }),
+                    });
+                    // The price of the configuration that was sent, read when it exists: a pick
+                    // made just before Subscribe can still have its preview in flight at the press.
+                    const printed = queryClient.getQueryData<SubscriptionPreview>(
+                        queryKeys.commerce.subscriptionPreview(request),
                     );
+                    if (printed === undefined) {
+                        router.replace(href as never);
+                        return;
+                    }
+                    setReceipt({ stage: 'printing', preview: printed, href });
                 },
                 onError: () => {
+                    setReceipt(null);
                     // A set-up refusal means the checklist read earlier is out of date.
                     void queryClient.invalidateQueries({
                         queryKey: queryKeys.account.checklist(),
@@ -567,6 +593,55 @@ export function SubscriptionConfiguratorScreen({
 
     const current = stepPosition(step) - 1;
     const wide = atLeast('lg');
+    // Once it prints, the receipt is the summary and Subscribe has done its job.
+    const printing = receipt !== null && receipt.stage !== 'processing';
+
+    const printer =
+        item === undefined || step !== 'review' ? null : (
+            <View className="flex-col gap-4">
+                <ReceiptPrinter.Root
+                    testID="configurator-printer"
+                    stage={receipt?.stage ?? 'idle'}
+                    onPrinted={() => {
+                        setReceipt((previous) =>
+                            previous === null ? null : { ...previous, stage: 'complete' },
+                        );
+                    }}
+                >
+                    <ReceiptPrinter.Machine>
+                        <ReceiptPrinter.Screen>
+                            <ReceiptPrinter.Status>
+                                {receipt?.stage === 'complete'
+                                    ? t('commerce:receipt.planComplete')
+                                    : undefined}
+                            </ReceiptPrinter.Status>
+                        </ReceiptPrinter.Screen>
+                    </ReceiptPrinter.Machine>
+                    {receipt === null || receipt.preview === null ? null : (
+                        <ReceiptPrinter.Output>
+                            <ReceiptPrinter.Paper>
+                                <PlanReceipt
+                                    testID="configurator-receipt"
+                                    planName={item.name}
+                                    preview={receipt.preview}
+                                />
+                            </ReceiptPrinter.Paper>
+                        </ReceiptPrinter.Output>
+                    )}
+                </ReceiptPrinter.Root>
+                {receipt?.stage !== 'complete' || receipt.href === null ? null : (
+                    <Button
+                        testID="configurator-view-plan"
+                        block
+                        size="lg"
+                        label={t('commerce:receipt.viewPlan')}
+                        onPress={() => {
+                            router.replace(receipt.href as never);
+                        }}
+                    />
+                )}
+            </View>
+        );
 
     return (
         <View testID="configurator-screen" className="flex-col">
@@ -726,6 +801,12 @@ export function SubscriptionConfiguratorScreen({
                                 </QueryStates>
                             ) : null}
 
+                            {/* Below `lg` the rail is a bar pinned to the foot of the page, so the
+                                printer stands at the end of the review instead. */}
+                            {wide || printer === null ? null : (
+                                <View className="mt-6">{printer}</View>
+                            )}
+
                             {previousConfiguratorStep(step) === null && !hasDraft ? null : (
                                 <View className="mt-5 flex-row flex-wrap items-center gap-2 self-start">
                                     {previousConfiguratorStep(step) === null ? null : (
@@ -759,60 +840,76 @@ export function SubscriptionConfiguratorScreen({
                         <View
                             className={
                                 wide
-                                    ? 'w-[320px] web:sticky web:top-6'
+                                    ? // A printed receipt is taller than a screen: it scrolls.
+                                      printing
+                                        ? 'w-[320px] flex-col gap-4'
+                                        : 'w-[320px] flex-col gap-4 web:sticky web:top-6'
                                     : 'z-10 web:sticky web:bottom-4'
                             }
                         >
-                            <PlanSetupSummary
-                                plan={item}
-                                variant={variant}
-                                state={state}
-                                showDelivery={step !== 'plan'}
-                                preview={preview.data}
-                                actionLabel={
-                                    step === 'review'
-                                        ? t('commerce:configurator.create')
-                                        : t('commerce:configurator.next')
-                                }
-                                actionTestID={
-                                    step === 'review' ? 'configurator-create' : 'configurator-next'
-                                }
-                                // Next waits for what the step rules read (the plan's delivery
-                                // days, stored allergies, the address book): a step taken before
-                                // they arrive could be judged unreachable a moment later and
-                                // silently put back.
-                                actionLoading={
-                                    step === 'review' ? create.isPending || savingChoices : !settled
-                                }
-                                actionDisabled={step === 'review' && setupSteps.length > 0}
-                                {...(step === 'review' && setupSteps.length > 0
-                                    ? {
-                                          actionHint: t(
-                                              'commerce:configurator.subscribeBlockedHint',
-                                          ),
-                                      }
-                                    : {})}
-                                onAction={step === 'review' ? onCreate : onNext}
-                                notice={
-                                    <SetupNotice
-                                        issues={showIssues ? issues : []}
-                                        failure={createFailure?.message ?? null}
-                                        reasons={
-                                            createFailure?.code === 'subscription.refused'
-                                                ? createFailure.reasons
-                                                : []
-                                        }
-                                        returnTo={here}
-                                    />
-                                }
-                                {...(step === 'review'
-                                    ? {
-                                          confirm: (
-                                              <TermsAcknowledgement state={state} patch={patch} />
-                                          ),
-                                      }
-                                    : {})}
-                            />
+                            {wide ? printer : null}
+                            {printing ? null : (
+                                <PlanSetupSummary
+                                    plan={item}
+                                    variant={variant}
+                                    state={state}
+                                    showDelivery={step !== 'plan'}
+                                    preview={preview.data}
+                                    actionLabel={
+                                        step === 'review'
+                                            ? t('commerce:configurator.create')
+                                            : t('commerce:configurator.next')
+                                    }
+                                    actionTestID={
+                                        step === 'review'
+                                            ? 'configurator-create'
+                                            : 'configurator-next'
+                                    }
+                                    // Next waits for what the step rules read (the plan's delivery
+                                    // days, stored allergies, the address book): a step taken before
+                                    // they arrive could be judged unreachable a moment later and
+                                    // silently put back.
+                                    actionLoading={
+                                        step === 'review'
+                                            ? create.isPending || savingChoices
+                                            : !settled
+                                    }
+                                    actionDisabled={
+                                        step === 'review' &&
+                                        (setupSteps.length > 0 || receipt !== null)
+                                    }
+                                    {...(step === 'review' && setupSteps.length > 0
+                                        ? {
+                                              actionHint: t(
+                                                  'commerce:configurator.subscribeBlockedHint',
+                                              ),
+                                          }
+                                        : {})}
+                                    onAction={step === 'review' ? onCreate : onNext}
+                                    notice={
+                                        <SetupNotice
+                                            issues={showIssues ? issues : []}
+                                            failure={createFailure?.message ?? null}
+                                            reasons={
+                                                createFailure?.code === 'subscription.refused'
+                                                    ? createFailure.reasons
+                                                    : []
+                                            }
+                                            returnTo={here}
+                                        />
+                                    }
+                                    {...(step === 'review'
+                                        ? {
+                                              confirm: (
+                                                  <TermsAcknowledgement
+                                                      state={state}
+                                                      patch={patch}
+                                                  />
+                                              ),
+                                          }
+                                        : {})}
+                                />
+                            )}
                         </View>
                     </View>
                 )}

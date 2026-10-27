@@ -1,9 +1,11 @@
 import type { PriceListAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    Button,
     Cascade,
     EmptyState,
     ErrorState,
+    Icon,
     Inline,
     Stack,
     TableSkeleton,
@@ -15,10 +17,10 @@ import type { SalesChannel } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Gate } from '../../../access/gate.tsx';
+import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     KITCHEN_PAGE_SIZE,
@@ -41,7 +43,7 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
+import { CATALOGUE_VIEW_PERMISSION, PRICE_LIST_MANAGE_PERMISSION } from '../entity-registry.ts';
 import {
     PRICE_LIST_STATUS_FILTERS,
     channelKey,
@@ -53,6 +55,7 @@ import {
     summarisePriceEntries,
 } from '../format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
+import { NewPriceListDialog } from '../new-price-list-dialog.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import {
     useListMemory,
@@ -87,11 +90,12 @@ function usePriceListById(id: string | null) {
  * The Catalogue list's five parts, with nothing rebuilt: `CatalogueStatCards`, `CatalogueToolbar`,
  * `CatalogueList` with a column spec, `CataloguePager`, and the `RecordWindow` behind View.
  *
- * ## No create, no archive
+ * ## Create, but no archive
  *
- * `KitchenAdminRepository` has no `createPriceList` and no `retirePriceList`, so the page has no
- * primary and no row offers Archive (§6.1). Publish lives in the editor, where the entries being
- * decided about are on screen.
+ * *New price list* opens `NewPriceListDialog` — name, code, currency and who it prices — and the
+ * draft it creates opens in the editor, where its prices are added. `KitchenAdminRepository` has no
+ * `retirePriceList`, so no row offers Archive (§6.1). Publish lives in the editor, where the
+ * entries being decided about are on screen.
  *
  * ## The entry split is the column this screen exists for
  *
@@ -123,6 +127,8 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
     const router = useRouter();
     const formatter = useFormatter();
     const { locale } = useLocale();
+    const canManage = useCan(PRICE_LIST_MANAGE_PERMISSION);
+    const [creating, setCreating] = useState(false);
 
     // Search, filters, page and the row last opened survive leaving the list for a price list.
     const memory = useListMemory('kitchen.price-lists');
@@ -407,7 +413,27 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                 }}
             >
                 <ColumnPicker {...controls.picker} />
+                {canManage ? (
+                    <Button
+                        testID="kitchen-price-lists-toolbar-create"
+                        label={t('kitchen:priceLists.create')}
+                        iconStart={<Icon name="plus" size="sm" />}
+                        onPress={() => {
+                            setCreating(true);
+                        }}
+                    />
+                ) : null}
             </CatalogueToolbar>
+
+            {creating ? (
+                <NewPriceListDialog
+                    testID="kitchen-price-lists-create"
+                    knownCurrency={rows[0]?.currency ?? null}
+                    onClose={() => {
+                        setCreating(false);
+                    }}
+                />
+            ) : null}
 
             {priceLists.isPending ? (
                 <TableSkeleton

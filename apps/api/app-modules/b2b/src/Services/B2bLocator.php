@@ -152,6 +152,23 @@ final class B2bLocator
      *
      * @throws ApiException
      */
+    /**
+     * An agreement by its own identifier, for the platform routes that act on
+     * one directly.
+     *
+     * @throws ApiException
+     */
+    public function anyAgreement(string $id): B2bAgreement
+    {
+        $agreement = B2bAgreement::query()->whereKey($this->uuidOrNothing($id))->first();
+
+        if (! $agreement instanceof B2bAgreement) {
+            throw new ApiException(ErrorCode::ResourceNotFound);
+        }
+
+        return $agreement;
+    }
+
     public function anyDocument(string $id): KycDocument
     {
         $document = KycDocument::query()->whereKey($this->uuidOrNothing($id))->first();

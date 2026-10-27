@@ -18,6 +18,12 @@ import { StatusPanel } from '../status-panel.tsx';
  * that gives it data and the two actions that belong to a *page* rather than to a panel — going
  * somewhere, and withdrawing.
  *
+ * ## It keeps itself current while the platform has the next move
+ *
+ * From `submitted` to `provisioning` nothing the applicant does changes the state, so the read polls
+ * every thirty seconds there (`useB2BApplicationQuery`'s `pollMs`) and stops on its own once the
+ * application is back with them or done. Once it is `provisioned`, the way on is the workspace.
+ *
  * ## Withdrawing asks first, and says what withdrawing does
  *
  * It is the applicant's exit and it is not reversible: the application becomes terminal, and the
@@ -26,12 +32,13 @@ import { StatusPanel } from '../status-panel.tsx';
  */
 
 const TEST_ID = 'b2b-apply-status';
+const POLL_MS = 30_000;
 
 export function ApplyStatusScreen() {
     const { t } = useTranslation();
     const router = useRouter();
 
-    const application = useB2BApplicationQuery();
+    const application = useB2BApplicationQuery(true, POLL_MS);
     const withdraw = useWithdrawB2BApplicationMutation();
 
     const [confirming, setConfirming] = useState(false);
@@ -78,6 +85,16 @@ export function ApplyStatusScreen() {
                                 router.push('/apply/provisioning' as never);
                             }}
                         />
+
+                        {current.state === 'provisioned' ? (
+                            <Button
+                                testID={`${TEST_ID}-workspace`}
+                                label={t('b2bApplication:provisioning.goToWorkspace')}
+                                onPress={() => {
+                                    router.push('/corporate' as never);
+                                }}
+                            />
+                        ) : null}
 
                         {current.state === 'draft' ||
                         current.state === 'submitted' ||

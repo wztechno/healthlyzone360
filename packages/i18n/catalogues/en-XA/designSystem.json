@@ -224,6 +224,17 @@
     "overflow_one": "[[+{{count}} āēīō]]",
     "overflow_other": "[[+{{count}} āēīō]]"
   },
+  "issueTray": {
+    "toFix": "[[Ţó ƒíẋ āēī]]",
+    "allSet": "[[Áłł šéţ āēī]]",
+    "openCount_one": "[[{{count}} ţó ƒíẋ āēīōūāē]]",
+    "openCount_other": "[[{{count}} ţó ƒíẋ āēīōūāē]]",
+    "progress": "[[{{done}} óƒ {{total}} ðóñé āēīōūāēīōūā]]",
+    "fix": "[[Ƒíẋ āē]]",
+    "close": "[[Çłóšé āē]]",
+    "checking": "[[Çĥéçķíñĝ āēīō]]",
+    "passed": "[[Þáššéð āēī]]"
+  },
   "timeField": {
     "hour": "[[Ĥóúŕ āē]]",
     "minute": "[[Ṁíñúţé āēī]]",

@@ -1,5 +1,7 @@
+import { B2B_CONTACT_ROLES } from '@healthy360/api-client/contracts';
 import type {
     B2BApplication,
+    B2BApplicationContact,
     B2BApplicationSection,
     B2BApplicationSectionState,
     B2BApplicationSections,
@@ -32,18 +34,21 @@ import { z } from 'zod';
 /* ── the steps ────────────────────────────────────────────────────────────────────────────────── */
 
 /**
- * The six steps, in order.
+ * The eight steps, in order.
  *
- * Four are sections (the sheet-4 field groups the server PATCHes one at a time); `documents` and
- * `review` are steps that are **not** sections, exactly as the backend has it — a document has its
- * own lifecycle and its own review, and folding it into a field group would put a text-box PATCH and
- * a passport upload on one code path.
+ * Four are sections (the sheet-4 field groups the server PATCHes one at a time); `contacts`,
+ * `locations`, `documents` and `review` are steps that are **not** sections, exactly as the backend
+ * has it — contacts and locations are collections the server replaces whole, a document has its own
+ * lifecycle and its own review, and folding any of them into a field group would put a text-box
+ * PATCH and a list replace (or a passport upload) on one code path.
  */
 export const B2B_STEP_SLUGS = [
     'company',
     'signatory',
     'trade-terms',
     'logistics',
+    'contacts',
+    'locations',
     'documents',
     'review',
 ] as const;
@@ -51,12 +56,14 @@ export type B2BStepSlug = (typeof B2B_STEP_SLUGS)[number];
 
 export const FIRST_B2B_STEP: B2BStepSlug = 'company';
 
-/** Slug → section, for the four steps that write one. `null` for `documents` and `review`. */
+/** Slug → section, for the four steps that write one. `null` for the four that do not. */
 const SECTION_BY_SLUG: Readonly<Record<B2BStepSlug, B2BApplicationSection | null>> = {
     company: 'company',
     signatory: 'signatory',
     'trade-terms': 'trade_terms',
     logistics: 'logistics',
+    contacts: null,
+    locations: null,
     documents: null,
     review: null,
 };
@@ -267,7 +274,15 @@ export function validateSection(
     return { ok: false, errors };
 }
 
-const MESSAGE_KEYS: ReadonlySet<string> = new Set(['url', 'phone', 'date', 'currency', 'email']);
+const MESSAGE_KEYS: ReadonlySet<string> = new Set([
+    'url',
+    'phone',
+    'date',
+    'currency',
+    'email',
+    'reachable',
+    'headcount',
+]);
 
 function issueKey(issue: { readonly code: string; readonly message: string }): string {
     if (MESSAGE_KEYS.has(issue.message)) return issue.message;
@@ -275,6 +290,138 @@ function issueKey(issue: { readonly code: string; readonly message: string }): s
     if (issue.code === 'too_small' || issue.code === 'invalid_type') return 'required';
     if (issue.code === 'too_big') return 'tooLong';
     return 'invalid';
+}
+
+/* ── contacts and locations ───────────────────────────────────────────────────────────────────── */
+
+/**
+ * One named contact, as `ReplaceApplicationContactsRequest` and `replaceContacts()` check it.
+ *
+ * The phone is the server's rule (a string up to 32), not the signatory's E.164 rule: a contact's
+ * number is something a person dials, and refusing an extension the server would store is a client
+ * being stricter than the rule that counts. "An email or a phone" is the service's cross-field rule,
+ * answered on `email` as the service answers it.
+ */
+export const contactSchema = z
+    .object({
+        role: z.enum(B2B_CONTACT_ROLES),
+        name: requiredText(160),
+        title: optionalText(120),
+        email: z
+            .string()
+            .trim()
+            .max(255)
+            .transform((value) => (value.length === 0 ? null : value))
+            .nullable()
+            .refine((value) => value === null || z.email().safeParse(value).success, {
+                message: 'email',
+            }),
+        phone: optionalText(32),
+        notes: optionalText(1000),
+    })
+    .refine((contact) => contact.email !== null || contact.phone !== null, {
+        path: ['email'],
+        message: 'reachable',
+    });
+
+/** One delivery location, as `ReplaceApplicationLocationsRequest` checks it. */
+export const locationSchema = z.object({
+    label: requiredText(120),
+    deliveryAreaId: z.string().nullable(),
+    addressLine1: requiredText(255),
+    addressLine2: optionalText(255),
+    city: optionalText(120),
+    countryCode: optionalText(2),
+    contactName: optionalText(160),
+    contactPhone: optionalText(32),
+    deliveryNotes: optionalText(1000),
+    isPrimary: z.boolean(),
+    isBillingAddress: z.boolean(),
+    // The server's floor is one: a site nobody eats at is not a headcount.
+    expectedHeadcount: z.number().int().min(1, { message: 'headcount' }).max(100_000).nullable(),
+});
+
+/** Per-row field errors, plus one about the list as a whole (`noPrimary`, `onePrimary`, …). */
+export interface ListErrors {
+    readonly rows: readonly SectionErrors[];
+    readonly list: string | null;
+}
+
+type ListValidation<T> =
+    | { readonly ok: true; readonly value: readonly T[] }
+    | { readonly ok: false; readonly errors: ListErrors };
+
+function validateRows<T>(
+    schema: z.ZodType<T>,
+    rows: readonly unknown[],
+    listRule: (value: readonly T[], rowErrors: Record<string, string>[]) => string | null,
+): ListValidation<T> {
+    const value: T[] = [];
+    const rowErrors: Record<string, string>[] = rows.map((row) => {
+        const result = schema.safeParse(row);
+        if (result.success) {
+            value.push(result.data);
+            return {};
+        }
+        const errors: Record<string, string> = {};
+        for (const issue of result.error.issues) {
+            const field = issue.path[0];
+            if (typeof field !== 'string' || field in errors) continue;
+            errors[field] = issueKey(issue);
+        }
+        return errors;
+    });
+
+    const rowsOk = rowErrors.every((errors) => Object.keys(errors).length === 0);
+    // The list rule reads only the rows that parsed; with a row broken the set is not the set yet.
+    const list = rowsOk ? listRule(value, rowErrors) : null;
+    const clean = rowErrors.every((errors) => Object.keys(errors).length === 0);
+
+    // `clean` again after the list rule: a duplicate role is marked on its row by that rule.
+    return clean && list === null
+        ? { ok: true, value }
+        : { ok: false, errors: { rows: rowErrors, list } };
+}
+
+/**
+ * Validate the contacts list before it replaces the server's.
+ *
+ * One contact per role is the service's rule, refused by name, and a duplicate is marked on the
+ * row that repeats it. **A primary contact is required here** although submission does not need
+ * one: the primary contact is who provisioning invites to own the company, and a list saved
+ * without one is a list the applicant has to come back to.
+ */
+export function validateContacts(
+    rows: readonly unknown[],
+): ListValidation<z.output<typeof contactSchema>> {
+    return validateRows(contactSchema, rows, (contacts, rowErrors) => {
+        const seen = new Set<string>();
+        contacts.forEach((contact, index) => {
+            if (seen.has(contact.role)) {
+                const errors = rowErrors[index];
+                if (errors !== undefined) errors['role'] = 'duplicateRole';
+            }
+            seen.add(contact.role);
+        });
+        return seen.has('primary') ? null : 'noPrimary';
+    });
+}
+
+/** Validate the locations list. At most one main delivery address, and at most one billing one. */
+export function validateLocations(
+    rows: readonly unknown[],
+): ListValidation<z.output<typeof locationSchema>> {
+    return validateRows(locationSchema, rows, (locations) => {
+        if (locations.filter((location) => location.isPrimary).length > 1) return 'onePrimary';
+        if (locations.filter((location) => location.isBillingAddress).length > 1) {
+            return 'oneBilling';
+        }
+        return null;
+    });
+}
+
+export function hasPrimaryContact(contacts: readonly B2BApplicationContact[]): boolean {
+    return contacts.some((contact) => contact.role === 'primary');
 }
 
 /* ── reachability ─────────────────────────────────────────────────────────────────────────────── */
@@ -286,10 +433,16 @@ function issueKey(issue: { readonly code: string; readonly message: string }): s
  * `documents` it is the server's `requiredDocumentKinds` against the documents actually held — also
  * the server's list, never a client constant. `review` is never complete: it is where a person
  * *goes*, not something they finish.
+ *
+ * `contacts` is done with a primary contact and `locations` with one location. Neither is a
+ * submission rule — the server has none for them — so neither counts in {@link outstandingCount};
+ * they only decide where a resumed wizard lands and what the review step ticks.
  */
 export function isStepComplete(application: B2BApplication, slug: B2BStepSlug): boolean {
     if (slug === 'review') return false;
     if (slug === 'documents') return missingDocumentKinds(application).length === 0;
+    if (slug === 'contacts') return hasPrimaryContact(application.contacts);
+    if (slug === 'locations') return application.locations.length > 0;
 
     const section = SECTION_BY_SLUG[slug];
     if (section === null) return false;
@@ -346,10 +499,14 @@ export function firstIncompleteStep(application: B2BApplication): B2BStepSlug {
  * unresolved request named, and the documents step whenever any request named a document kind. That
  * narrowing is the whole difference between "we need two things from you" and "here is your form
  * back"; the server enforces it and this is the client agreeing rather than deciding.
+ *
+ * Contacts and locations are not sections and no request narrows them: the server lets the
+ * applicant replace either list whenever the application is theirs to edit.
  */
 export function isStepEditable(application: B2BApplication, slug: B2BStepSlug): boolean {
     if (application.state === 'draft') return true;
     if (application.state !== 'info_requested') return false;
+    if (slug === 'contacts' || slug === 'locations') return true;
 
     if (slug === 'documents') {
         return application.reviewerRequests.some(

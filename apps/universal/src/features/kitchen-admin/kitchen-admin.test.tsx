@@ -42,6 +42,7 @@ import {
 } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import type { RepositoryOverrides } from '../../testing/stub-repositories.ts';
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { displayName, isTranslationIncomplete, statusTone, unitDimension } from './format.ts';
 import { ENTITY_FAMILIES, WORKSPACE_PERMISSIONS, permittedFamilies } from './entity-registry.ts';
@@ -1172,8 +1173,13 @@ describe('the ingredient editor', () => {
             },
         });
 
-        await untilVisible('kitchen-ingredient-fork-error');
-        expect(screen.getByTestId('kitchen-ingredient-platform-library')).toBeTruthy();
+        // Both said in the issue tray, docked beside the page at a desk's width.
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-ingredient-fork-error');
+            expect(screen.getByTestId('kitchen-ingredient-platform-library')).toBeTruthy();
+            // The retry is the card's own action.
+            expect(screen.getByTestId('kitchen-ingredient-fork')).toBeTruthy();
+        });
         expect(screen.queryByTestId('kitchen-ingredient-editor-screen-save')).toBeNull();
         expect(screen.queryByTestId('kitchen-ingredient-archive')).toBeNull();
 
@@ -1182,9 +1188,8 @@ describe('the ingredient editor', () => {
          *
          * Composition and allergens are read-only for every record (§6.2), so there is no writable
          * path on a platform row at all: copying it into this kitchen is the one thing that can
-         * happen next, and when the automatic copy fails the notice's button is how it happens.
+         * happen next, and when the automatic copy fails the card's button is how it happens.
          */
-        await untilVisible('kitchen-ingredient-fork');
         await openIngredientStep('allergens');
         // The determination is still *shown*, as a chip on the read-only panel — read-only is not
         // the same as hidden, and a kitchen deciding whether to fork needs to see what it is
@@ -2191,7 +2196,10 @@ describe('composition and allergens', () => {
             },
         });
 
-        await untilVisible('kitchen-ingredient-mapping-unassessed');
+        // "Not recorded" is the issue tray's card, docked beside the page at a desk's width.
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-ingredient-mapping-unassessed');
+        });
         const save = screen.getByTestId('kitchen-ingredient-mapping-save');
         expect(save).toHaveTextContent(/Confirm no allergens/);
 
@@ -2338,7 +2346,9 @@ describe('composition and allergens', () => {
             },
         });
 
-        await untilVisible('kitchen-ingredient-quarantine');
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-ingredient-quarantine');
+        });
         expect(screen.getByTestId('kitchen-ingredient-editor-screen-status')).toHaveTextContent(
             /Awaiting review/,
         );
@@ -3234,7 +3244,10 @@ describe('a row added from the recipe editor', () => {
             },
         });
 
-        await untilVisible('kitchen-ingredient-pending-nutrition');
+        // Said in the issue tray, docked beside the page at a desk's width.
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-ingredient-pending-nutrition');
+        });
 
         // Listed for the cook to select and confirm — no search needed, and nothing preselected,
         // so saving a price on this page is not held behind a confirmation nobody asked for.
@@ -3258,5 +3271,43 @@ describe('a row added from the recipe editor', () => {
 
         await untilVisible('kitchen-ingredient-name-en-input');
         expect(screen.queryByTestId('kitchen-ingredient-pending-nutrition')).toBeNull();
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Leaving the ingredient form with unsaved work
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('leaving the ingredient form with unsaved work', () => {
+    it('keeps it when the reader leaves another way than Cancel, and puts it back on return', async () => {
+        const record = ingredient(41, { name: { en: 'Sumac', ar: 'سماق' } });
+        const reads = {
+            kitchenAdmin: { ...editorReads(() => [record]), getIngredient: async () => record },
+        };
+
+        const first = await renderStubScreen(
+            <IngredientEditScreen ingredient={String(record.id)} />,
+            { session: kitchenManagerSession(), repositories: reads },
+        );
+        await untilVisible('kitchen-ingredient-name-en-input');
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-ingredient-name-en-input'),
+                'Sumac, ground',
+            );
+        });
+        // Gone by the sidebar, say: the page is simply replaced.
+        await act(async () => {
+            first.view.unmount();
+        });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: reads,
+        });
+        await untilVisible('kitchen-ingredient-draft-restored-toast');
+        expect(screen.getByTestId('kitchen-ingredient-name-en-input').props.value).toBe(
+            'Sumac, ground',
+        );
     });
 });

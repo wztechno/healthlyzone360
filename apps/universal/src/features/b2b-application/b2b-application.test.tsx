@@ -7,6 +7,7 @@ import type {
     B2BApplicationState,
     B2BDocumentKind,
     KycDocument,
+    OtpChallenge,
     ReviewerRequest,
 } from '@healthy360/api-client/contracts';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
@@ -16,16 +17,18 @@ import { testMeResponse } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { AgreementPanel } from './agreement-panel.tsx';
 import { firstIncompleteStep, validateSection } from './sections.ts';
+import { ApplyAgreementScreen } from './screens/apply-agreement-screen.tsx';
 import { ApplyStepScreen } from './screens/apply-step-screen.tsx';
 import { StatusPanel } from './status-panel.tsx';
 
 /**
  * The B1 applicant journey, against a world this file authors.
  *
- * Coverage: the five things this wave exists to get right — per-section validation, the deep link
- * landing on the first *incomplete* step, document upload and removal against a vault that
- * supersedes, all eleven status states rendering distinctly, and a signature that cannot be produced
- * without both the authority confirmation and a step-up token.
+ * Coverage: per-section validation, the deep link landing on the first *incomplete* step, document
+ * replacement against a vault that supersedes (there is no removal), the contacts and locations
+ * lists saved whole, all eleven status states rendering distinctly, and a signature that cannot be
+ * produced without both the authority confirmation and a step-up token — sent as
+ * `<challengeId>:<code>`.
  *
  * Screens run over `renderStubScreen`: the session is declared, and every repository answer the
  * screen is allowed to rely on is declared beside it. Anything the screen reaches for that this file
@@ -238,6 +241,8 @@ function testApplication(overrides: Partial<B2BApplication> = {}): B2BApplicatio
         sectionStates: sectionStatesFor(['company', 'signatory']),
         requiredDocumentKinds: REQUIRED_KINDS,
         documents: [],
+        contacts: [],
+        locations: [],
         reviewerRequests: [],
         applicantMessage: null,
         agreement: null,
@@ -268,6 +273,13 @@ function testAgreement(overrides: Partial<B2BAgreement> = {}): B2BAgreement {
         version: 1,
         status: 'pending_signature',
         title: 'Master Supply Agreement — Northwind Catering Services LLC',
+        priceListId: 'test-0000-price-list-0001',
+        seller: {
+            organisationId: 'test-0000-organisation-0001',
+            organisationName: 'Green Fork Kitchen',
+            priceListNameEn: 'Corporate 2026',
+            priceListNameAr: null,
+        },
         documentText: 'SPECIMEN AGREEMENT — NOT A REAL CONTRACT.',
         documentSha256: 'a1'.repeat(32),
         terms: {
@@ -390,7 +402,7 @@ describe('the wizard', () => {
         });
     });
 
-    it('uploads against a document slot, asks for a supersede, and removes', async () => {
+    it('offers Replace on a held document, never Remove, and asks for a supersede', async () => {
         const held = testDocument(1, 'commercial_registration');
         const replacement = testDocument(2, 'commercial_registration', {
             fileName: 'clearer-scan.pdf',
@@ -398,10 +410,10 @@ describe('the wizard', () => {
         const superseded: KycDocument = { ...held, reviewStatus: 'superseded' };
 
         /*
-         * The server's three answers, authored. A replacement keeps the replaced row and marks it
-         * `superseded` — a reviewer's decision trail has to survive a re-upload — and a removal
-         * takes away only the live one. `requiredDocumentKinds` never moves, because it is a policy
-         * rather than a consequence of what has been sent.
+         * The server's answer, authored. A replacement keeps the replaced row and marks it
+         * `superseded` — a reviewer's decision trail has to survive a re-upload.
+         * `requiredDocumentKinds` never moves, because it is a policy rather than a consequence of
+         * what has been sent. There is no removal: no endpoint deletes an applicant's document.
          */
         const draft = testApplication({
             sectionStates: sectionStatesFor([...SECTIONS]),
@@ -412,7 +424,6 @@ describe('the wizard', () => {
             documents: [superseded, replacement],
             lockVersion: 1,
         };
-        const removed: B2BApplication = { ...draft, documents: [superseded], lockVersion: 2 };
 
         let current = draft;
         pickerMock.getDocumentAsync.mockResolvedValue({
@@ -437,10 +448,6 @@ describe('the wizard', () => {
                         current = replaced;
                         return replaced;
                     },
-                    removeDocument: async () => {
-                        current = removed;
-                        return removed;
-                    },
                 },
             },
         });
@@ -448,10 +455,24 @@ describe('the wizard', () => {
         await waitFor(() => {
             expect(screen.getByTestId('b2b-documents-commercial_registration')).toBeTruthy();
         });
+        // Both required kinds come from the server's list and are drawn as required slots.
+        for (const kind of REQUIRED_KINDS) {
+            expect(screen.getByTestId(`b2b-documents-${kind}-requirement`)).toHaveTextContent(
+                /Required/u,
+            );
+        }
         // One of the two required kinds is supplied, so one is outstanding.
         expect(screen.getByTestId('b2b-apply-step-documents-outstanding')).toHaveTextContent(
             /1 required document still to upload/u,
         );
+
+        // A held document is replaced, not removed.
+        expect(
+            screen.queryByTestId('b2b-documents-commercial_registration-upload-remove'),
+        ).toBeNull();
+        expect(
+            screen.getByTestId('b2b-documents-commercial_registration-upload-choose'),
+        ).toHaveTextContent(/Replace/u);
 
         await fireEvent.press(
             screen.getByTestId('b2b-documents-commercial_registration-upload-choose'),
@@ -480,26 +501,259 @@ describe('the wizard', () => {
         expect(
             screen.getByTestId('b2b-documents-commercial_registration-upload-attachment-name'),
         ).toHaveTextContent(/clearer-scan\.pdf/u);
+        // The requirement is the server's list, and it does not move when a file does.
+        expect(screen.getByTestId('b2b-documents-signatory_identification')).toBeTruthy();
+    });
 
-        await fireEvent.press(
-            screen.getByTestId('b2b-documents-commercial_registration-upload-remove'),
+    it('saves the contacts through replaceContacts and moves on', async () => {
+        const saved = testApplication({
+            contacts: [
+                {
+                    role: 'primary',
+                    name: 'Omar Khalil',
+                    title: null,
+                    email: 'omar@northwind-catering.example',
+                    phone: null,
+                    notes: null,
+                },
+            ],
+            lockVersion: 1,
+        });
+
+        const { repositories } = await renderStubScreen(<ApplyStepScreen step="contacts" />, {
+            session: APPLICANT,
+            repositories: {
+                b2bApplication: {
+                    getApplication: async () => testApplication(),
+                    replaceContacts: async () => saved,
+                },
+            },
+        });
+
+        // An empty list opens on the one row the step asks for, already the main contact.
+        await waitFor(() => {
+            expect(screen.getByTestId('b2b-apply-step-contact-0')).toBeTruthy();
+        });
+        await fireEvent.changeText(
+            screen.getByTestId('b2b-apply-step-contact-0-name-input'),
+            'Omar Khalil',
         );
+        await fireEvent.changeText(
+            screen.getByTestId('b2b-apply-step-contact-0-email-input'),
+            'omar@northwind-catering.example',
+        );
+        await fireEvent.press(screen.getByTestId('b2b-apply-step-save'));
 
         await waitFor(() => {
-            expect(repositories.b2bApplication.removeDocument).toHaveBeenCalledWith({
+            // The whole list, every field — a blank one as `null`, never as `''`.
+            expect(repositories.b2bApplication.replaceContacts).toHaveBeenCalledWith({
                 applicationId: APPLICATION_ID,
-                documentId: replacement.id,
+                contacts: saved.contacts,
             });
         });
-
-        // The requirement is the server's list, and it does not move when a file does: both slots
-        // are still drawn, and both kinds are outstanding again.
         await waitFor(() => {
-            expect(screen.getByTestId('b2b-apply-step-documents-outstanding')).toHaveTextContent(
-                /2 required documents still to upload/u,
+            expect(routerMock.__push).toHaveBeenCalledWith('/apply/locations');
+        });
+    });
+
+    it('refuses to save contacts with no main contact', async () => {
+        const { repositories } = await renderStubScreen(<ApplyStepScreen step="contacts" />, {
+            session: APPLICANT,
+            repositories: {
+                b2bApplication: {
+                    getApplication: async () =>
+                        testApplication({
+                            contacts: [
+                                {
+                                    role: 'billing',
+                                    name: 'Sara Nasser',
+                                    title: 'Accounts',
+                                    email: 'accounts@northwind-catering.example',
+                                    phone: null,
+                                    notes: null,
+                                },
+                            ],
+                        }),
+                    replaceContacts: async () => testApplication(),
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('b2b-apply-step-contact-0')).toBeTruthy();
+        });
+        await fireEvent.press(screen.getByTestId('b2b-apply-step-save'));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('b2b-apply-step-contacts-list-error')).toHaveTextContent(
+                /main contact/iu,
             );
         });
-        expect(screen.getByTestId('b2b-documents-signatory_identification')).toBeTruthy();
+        expect(repositories.b2bApplication.replaceContacts).not.toHaveBeenCalled();
+    });
+
+    it('saves the delivery locations through replaceLocations', async () => {
+        const saved = testApplication({
+            locations: [
+                {
+                    label: 'Head office',
+                    deliveryAreaId: null,
+                    addressLine1: 'Building 4, Al Wasl Road',
+                    addressLine2: null,
+                    city: null,
+                    countryCode: null,
+                    contactName: null,
+                    contactPhone: null,
+                    deliveryNotes: null,
+                    isPrimary: true,
+                    isBillingAddress: false,
+                    expectedHeadcount: 120,
+                },
+            ],
+            lockVersion: 1,
+        });
+
+        const { repositories } = await renderStubScreen(<ApplyStepScreen step="locations" />, {
+            session: APPLICANT,
+            repositories: {
+                account: { listServiceAreas: async () => [] },
+                b2bApplication: {
+                    getApplication: async () => testApplication(),
+                    replaceLocations: async () => saved,
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('b2b-apply-step-location-0')).toBeTruthy();
+        });
+        await fireEvent.changeText(
+            screen.getByTestId('b2b-apply-step-location-0-label-input'),
+            'Head office',
+        );
+        await fireEvent.changeText(
+            screen.getByTestId('b2b-apply-step-location-0-line1-input'),
+            'Building 4, Al Wasl Road',
+        );
+        await fireEvent.changeText(
+            screen.getByTestId('b2b-apply-step-location-0-headcount-input'),
+            '120',
+        );
+        await fireEvent.press(screen.getByTestId('b2b-apply-step-save'));
+
+        await waitFor(() => {
+            expect(repositories.b2bApplication.replaceLocations).toHaveBeenCalledWith({
+                applicationId: APPLICATION_ID,
+                locations: saved.locations,
+            });
+        });
+        await waitFor(() => {
+            expect(routerMock.__push).toHaveBeenCalledWith('/apply/documents');
+        });
+    });
+});
+
+/* ══ signing ═══════════════════════════════════════════════════════════════════════════════════ */
+
+function signatoryChallenge(): OtpChallenge {
+    return {
+        id: 'test-0000-challenge-0001',
+        purpose: 'b2b_signatory',
+        channel: 'email',
+        maskedDestination: 'l•••@northwind-catering.example',
+        codeLength: 6,
+        // Relative to the real clock: an expired challenge closes the panel's entry.
+        expiresAt: new Date(Date.now() + 300_000).toISOString(),
+        resendCooldownSeconds: 0,
+        attemptsRemaining: 3,
+        resendsRemaining: 3,
+        availableChannels: ['email'],
+        simulatedChannels: [],
+    };
+}
+
+describe('signing the agreement', () => {
+    it('sends the verified challenge and the code it was verified with, as one token', async () => {
+        const agreement = testAgreement();
+        const challenge = signatoryChallenge();
+        const application = testApplication({
+            state: 'agreement_pending',
+            sectionStates: sectionStatesFor([...SECTIONS], false),
+            agreement,
+        });
+
+        const { repositories } = await renderStubScreen(<ApplyAgreementScreen />, {
+            session: APPLICANT,
+            repositories: {
+                b2bApplication: {
+                    getApplication: async () => application,
+                    getAgreement: async () => agreement,
+                    signAgreement: async () =>
+                        testApplication({ state: 'agreement_signed', agreement }),
+                    issueSignatureChallenge: async () => challenge,
+                },
+                verification: {
+                    getChallenge: async () => challenge,
+                    verifyChallenge: async () => ({
+                        challengeId: challenge.id,
+                        purpose: 'b2b_signatory',
+                        verifiedAt: '2026-08-02T09:00:00.000Z',
+                        contactPointId: null,
+                        stepUpUntil: '2026-08-02T09:15:00.000Z',
+                    }),
+                },
+            },
+        });
+
+        // Who the company buys from is on the agreement, not left to the document text.
+        await waitFor(() => {
+            expect(screen.getByTestId('b2b-apply-agreement-panel-seller')).toHaveTextContent(
+                /Green Fork Kitchen.*Corporate 2026/u,
+            );
+        });
+
+        await fireEvent.press(screen.getByTestId('b2b-apply-agreement-panel-request-code'));
+        await waitFor(() => {
+            expect(screen.getByTestId('b2b-apply-agreement-panel-otp-code-input')).toBeTruthy();
+        });
+        // Raised against the agreement: the generic passcode routes refuse `b2b_signatory`.
+        expect(repositories.b2bApplication.issueSignatureChallenge).toHaveBeenCalledWith({
+            applicationId: application.id,
+            agreementId: agreement.id,
+        });
+        await fireEvent.changeText(
+            screen.getByTestId('b2b-apply-agreement-panel-otp-code-input'),
+            '123456',
+        );
+        await fireEvent.press(screen.getByTestId('b2b-apply-agreement-panel-otp-submit'));
+        await waitFor(() => {
+            expect(screen.getByTestId('b2b-apply-agreement-panel-verified')).toBeTruthy();
+        });
+
+        await fireEvent.changeText(
+            screen.getByTestId('b2b-apply-agreement-panel-typed-name-input'),
+            'Layla Haddad',
+        );
+        await fireEvent.changeText(
+            screen.getByTestId('b2b-apply-agreement-panel-signatory-title-input'),
+            'Managing Director',
+        );
+        await fireEvent.press(screen.getByTestId('b2b-apply-agreement-panel-authority-control'));
+        await fireEvent.press(screen.getByTestId('b2b-apply-agreement-panel-submit'));
+
+        await waitFor(() => {
+            expect(repositories.b2bApplication.signAgreement).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    agreementId: agreement.id,
+                    documentSha256: agreement.documentSha256,
+                    // `<challengeId>:<code>` — the challenge identifier alone is refused.
+                    verificationToken: `${challenge.id}:123456`,
+                }),
+            );
+        });
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith('/apply/provisioning');
+        });
     });
 });
 

@@ -5,6 +5,7 @@ import {
     Icon,
     IconButton,
     Inline,
+    IssueTrayButton,
     OfflineIndicator,
     useBreakpoint,
 } from '@healthy360/design-system';
@@ -20,9 +21,11 @@ import { Gate } from '../access/gate.tsx';
 import { useLogoutMutation } from '../data/hooks.ts';
 import { isAreaAvailable } from '../features/availability.ts';
 import { workspaceGroup } from '../navigation/workspace-group.tsx';
+import { guardNavigation } from '../navigation/use-unsaved-guard.ts';
 import { useOnlineStatus } from '../online/online-status.tsx';
 import { useAccessState } from '../session/session-provider.tsx';
 import { LocaleToggle } from './locale-toggle.tsx';
+import { ProcessResumeButton } from './process-resume-button.tsx';
 import { ThemeToggle } from './theme-toggle.tsx';
 
 /**
@@ -183,6 +186,13 @@ function GuardedAreaShell({
     const topbarEnd =
         resolvedVariant === 'auth' || resolvedVariant === 'kiosk' ? undefined : (
             <Inline space="xs" wrap={false}>
+                {/*
+                 * The page's issue tray, ahead of everything else in the bar: what is left to fix
+                 * here, from anywhere on the page. Drawn only on a page that has a tray.
+                 */}
+                {/* The way back into a process the reader stepped out of — `active-process.ts`. */}
+                <ProcessResumeButton />
+                <IssueTrayButton />
                 {topbarSearch}
                 <LocaleToggle />
                 <ThemeToggle />
@@ -204,7 +214,9 @@ function GuardedAreaShell({
                             iconStart={<Icon name="chevronBackward" size="sm" />}
                             className="self-center"
                             onPress={() => {
-                                router.push('/workspace' as never);
+                                guardNavigation(() => {
+                                    router.push('/workspace' as never);
+                                });
                             }}
                         />
                     ) : null}

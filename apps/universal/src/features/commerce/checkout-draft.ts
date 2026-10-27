@@ -71,6 +71,8 @@ export interface PlacedOrderNote {
     readonly orderId: string;
     readonly kitchenName: string | null;
     readonly slotLabel: string;
+    /** The receipt has printed once; a revisit shows it finished rather than printing it again. */
+    readonly printed?: boolean | undefined;
 }
 
 /** The order placed most recently in this tab. */
@@ -87,6 +89,7 @@ export const placedOrders = createSessionDraftStore<PlacedOrderNote>({
             orderId: note.orderId,
             kitchenName: typeof note.kitchenName === 'string' ? note.kitchenName : null,
             slotLabel: note.slotLabel,
+            printed: note.printed === true,
         };
     },
 });

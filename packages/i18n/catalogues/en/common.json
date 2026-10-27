@@ -115,5 +115,14 @@
         "discard": "Discard my changes",
         "keepEditing": "Keep editing",
         "browserPrompt": "You have unsaved changes."
+    },
+    "process": {
+        "continue": "Continue",
+        "continueLabel": "Continue: {{title}}",
+        "stop": "Stop this process",
+        "kind": {
+            "stockGapFix": "Fix stock gap · {{subject}}",
+            "recipeDetour": "Editing {{subject}}"
+        }
     }
 }

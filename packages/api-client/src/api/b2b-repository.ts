@@ -3,6 +3,8 @@ import type {
     AgreementTerms,
     B2BAgreement,
     B2BApplication,
+    B2BApplicationContact,
+    B2BApplicationLocation,
     B2BApplicationRepository,
     B2BApplicationSection,
     B2BApplicationSectionState,
@@ -42,13 +44,18 @@ import type { OtpChallenge } from '../contracts/verification.ts';
 import type {
     B2bAgreement as WireAgreement,
     B2bApplication as WireApplication,
+    B2bApplicationContact as WireContact,
+    B2bApplicationDetailEnvelope,
     B2bApplicationEnvelope,
+    B2bApplicationLocation as WireLocation,
     KycDocument as WireDocument,
     KycDocumentDownload as WireDownload,
     Offboarding as WireOffboarding,
     OffboardingEnvelope,
     OtpChallengeEnvelope,
     SignOffOffboardingRequest as WireSignoffBody,
+    ReplaceB2bApplicationContactsRequest,
+    ReplaceB2bApplicationLocationsRequest,
     UpdateB2bApplicationSectionRequest,
 } from '../generated/types.ts';
 import { MultipartBody } from './transport.ts';
@@ -74,15 +81,12 @@ import { mapIssuedChallenge } from './verification-repository.ts';
  * enforces, applied one round trip earlier so a wizard step reports it as a field error rather than
  * as a rejected save.
  *
- * ## 2. `sectionStates` is assembled, and `missingFields` is empty
+ * ## 2. `sectionStates` is assembled from the server's missing-field list
  *
- * The wire sends `completed_sections` (the applicant's claim) and `writable_sections` (what this
- * state permits). It does **not** send a per-section readiness verdict or the names of the fields
- * that are missing — the server evaluates those at submission and answers `validation.failed`.
- * So `complete` mirrors `completedByApplicant`, `editable` comes from `writable_sections`, and
- * `missingFields` is always empty. A wizard therefore learns what is missing when it submits, not
- * while it types. That is the largest loss in this file and the one worth closing backend-side;
- * nothing here invents a rule the server did not state.
+ * The wire sends `completed_sections` (the applicant's claim), `writable_sections` (what this
+ * state permits) and, on the detail read, `missing_fields` — the server's own definition of
+ * complete. Each missing wire field is mapped back to the section that owns it, and a section is
+ * `complete` only when the applicant claimed it *and* the server finds nothing missing in it.
  *
  * ## 3. One reviewer request, not a list
  *
@@ -90,13 +94,10 @@ import { mapIssuedChallenge } from './verification-repository.ts';
  * a list because a reviewer may ask more than once. The list therefore has zero or one member, and
  * the panel — which reads "the newest unresolved request" — is right either way.
  *
- * ## 4. `requiredDocumentKinds` is empty, deliberately
+ * ## 4. `requiredDocumentKinds` is the server's list
  *
- * The contract's rule 2 says the server owns which documents an application must carry. The wire
- * publishes no such list, so this is empty rather than filled from a client constant: a wizard that
- * hard-coded "registration plus identity" would refuse a submission the server would accept. An
- * empty list means "the server has not said", and the vault shows what was uploaded rather than a
- * checklist nobody authored.
+ * The contract's rule 2 says the server owns which documents an application must carry, and the
+ * detail read publishes it as `required_documents`. Never a client constant.
  *
  * ## 5. Provisioning has no endpoint
  *
@@ -121,6 +122,7 @@ import { mapIssuedChallenge } from './verification-repository.ts';
 
 /** The body of every single-application response. The detail read adds contacts and locations. */
 type ApplicationBody = B2bApplicationEnvelope['data'];
+type ApplicationDetail = B2bApplicationDetailEnvelope['data'];
 
 /** Which flat wire fields belong to which section — read one way, written the other. */
 const SECTION_FIELDS: Readonly<Record<B2BApplicationSection, readonly string[]>> = {
@@ -234,19 +236,58 @@ export function mapSections(wire: WireApplication): B2BApplicationSections {
     };
 }
 
-export function mapSectionStates(wire: WireApplication): readonly B2BApplicationSectionState[] {
+export function mapSectionStates(
+    wire: WireApplication,
+    missingWireFields: readonly string[] = [],
+): readonly B2BApplicationSectionState[] {
     const claimed = new Set(wire.completed_sections);
     const writable = new Set(wire.writable_sections);
+    const missing = new Set(missingWireFields);
 
-    return B2B_APPLICATION_SECTIONS.map((section) => ({
-        section,
-        // The wire publishes no independent readiness verdict, so the applicant's claim is the only
-        // answer available. See §2 of the file header: this is a known loss, not a shortcut.
-        complete: claimed.has(section),
-        completedByApplicant: claimed.has(section),
-        missingFields: [],
-        editable: writable.has(section),
-    }));
+    return B2B_APPLICATION_SECTIONS.map((section) => {
+        // §2 of the file header: the server's missing wire fields, mapped back to the section
+        // that owns them.
+        const missingFields = SECTION_FIELDS[section].filter((field) => {
+            const wireField = WIRE_FIELDS[field];
+            return wireField !== undefined && missing.has(wireField);
+        });
+
+        return {
+            section,
+            complete: claimed.has(section) && missingFields.length === 0,
+            completedByApplicant: claimed.has(section),
+            missingFields,
+            editable: writable.has(section),
+        };
+    });
+}
+
+export function mapContact(wire: WireContact): B2BApplicationContact {
+    return {
+        role: wire.role,
+        name: wire.name,
+        title: wire.title ?? null,
+        email: wire.email ?? null,
+        phone: wire.phone ?? null,
+        notes: wire.notes ?? null,
+    };
+}
+
+export function mapLocation(wire: WireLocation): B2BApplicationLocation {
+    return {
+        label: wire.label,
+        deliveryAreaId: wire.delivery_area_id ?? null,
+        addressLine1: wire.address_line1,
+        addressLine2: wire.address_line2 ?? null,
+        city: wire.city ?? null,
+        countryCode: wire.country_code ?? null,
+        contactName: wire.contact_name ?? null,
+        contactPhone: wire.contact_phone ?? null,
+        deliveryNotes: wire.delivery_notes ?? null,
+        isPrimary: wire.is_primary,
+        isBillingAddress: wire.is_billing_address,
+        expectedHeadcount: wire.expected_headcount ?? null,
+    };
 }
 
 export function mapReviewerRequests(wire: WireApplication): readonly ReviewerRequest[] {
@@ -372,17 +413,33 @@ export function mapSignature(wire: WireAgreement): SignatureEvidence | null {
  * The panel already refuses to enable signing on empty text.
  */
 export function mapAgreement(wire: WireAgreement): B2BAgreement {
+    const seller = wire.seller ?? null;
+
     return {
         id: wire.id,
         applicationId: wire.b2b_application_id,
         version: wire.version,
         status: wire.status,
         title: wire.title,
+        priceListId: wire.price_list_id ?? null,
+        seller:
+            seller === null
+                ? null
+                : {
+                      organisationId: seller.organisation_id,
+                      organisationName: seller.organisation_name,
+                      priceListNameEn: seller.price_list_name_en,
+                      priceListNameAr: seller.price_list_name_ar ?? null,
+                  },
         documentText: wire.terms_summary ?? '',
-        documentSha256: wire.signature_document_sha256 ?? '',
+        // The digest a signature now would be against: recorded at signing, or of the terms as
+        // they stand. The signing screen echoes it back.
+        documentSha256: wire.document_sha256,
         terms: mapAgreementTerms(wire),
         termsSummary: wire.terms_summary ?? null,
-        consentStatement: wire.signature_consent_statement ?? '',
+        // Client-authored before signing, for the reason §9 gives for the wind-down: the wire
+        // records the caller's echo, so what is served is what is shown is what is recorded.
+        consentStatement: wire.signature_consent_statement ?? AGREEMENT_CONSENT_STATEMENT,
         signature: mapSignature(wire),
         supersedesAgreementId: wire.supersedes_agreement_id ?? null,
         lockVersion: wire.lock_version,
@@ -463,6 +520,14 @@ export function base64ToBlob(content: string, mimeType: string): Blob {
  * exists, and `signOffOffboarding` sends `null` for an empty echo, which the wire documents as "no
  * document beyond the agreement already on file".
  */
+
+/**
+ * The wording a signatory ties their acceptance of the agreement to — client-authored and stated
+ * once, like the wind-down's below.
+ */
+export const AGREEMENT_CONSENT_STATEMENT =
+    'I confirm I am authorised to bind this company, that I have read these terms, and that I ' +
+    'accept them on its behalf.';
 
 /**
  * The wording a signatory ties their sign-off to.
@@ -585,28 +650,32 @@ export function createApiB2bApplicationRepository(transport: Transport): B2BAppl
     }
 
     /**
-     * One application, whole: the row, its documents and its agreement, in parallel.
+     * One application, whole: the detail read, its documents and its agreement, in parallel.
      *
-     * Every single-application endpoint answers `{ application, … }`, never the bare row — reading
-     * the body as the row is what sent `/b2b/applications/undefined/documents` on the deployed web.
+     * Every write is followed by this read rather than mapped from its own answer: the writes
+     * answer `{ application }` only, and contacts, locations and the server's missing-field list
+     * come with the detail read alone.
      */
-    async function hydrate({ application: wire }: ApplicationBody): Promise<B2BApplication> {
-        const [documents, agreement] = await Promise.all([
+    async function load(applicationId: string): Promise<B2BApplication> {
+        const [detail, documents, agreement] = await Promise.all([
+            transport.request<ApplicationDetail>({ method: 'GET', path: path(applicationId) }),
             transport
-                .request<WireDocument[]>({ method: 'GET', path: path(wire.id, '/documents') })
+                .request<WireDocument[]>({ method: 'GET', path: path(applicationId, '/documents') })
                 .catch(() => [] as WireDocument[]),
-            readAgreement(wire.id),
+            readAgreement(applicationId),
         ]);
+        const wire = detail.application;
 
         return {
             id: wire.id,
             reference: wire.reference,
             state: mapApplicationState(wire, agreement),
             sections: mapSections(wire),
-            sectionStates: mapSectionStates(wire),
-            // Empty on purpose — see §4 of the file header.
-            requiredDocumentKinds: [],
+            sectionStates: mapSectionStates(wire, detail.missing_fields),
+            requiredDocumentKinds: detail.required_documents,
             documents: documents.map(mapDocument),
+            contacts: detail.contacts.map(mapContact),
+            locations: detail.locations.map(mapLocation),
             reviewerRequests: mapReviewerRequests(wire),
             applicantMessage: wire.applicant_message ?? null,
             agreement: agreement === null ? null : mapAgreement(agreement),
@@ -665,21 +734,67 @@ export function createApiB2bApplicationRepository(transport: Transport): B2BAppl
             const live = applications[0];
             if (live === undefined) return null;
 
-            // The list projection is a summary on some deployments and the full row on others; the
-            // detail endpoint is the one that is guaranteed to carry every section field.
-            const wire = await transport.request<ApplicationBody>({
-                method: 'GET',
-                path: path(live.id),
-            });
-            return hydrate(wire);
+            return load(live.id);
         },
 
         async startApplication(): Promise<B2BApplication> {
-            const wire = await transport.request<ApplicationBody>({
+            const created = await transport.request<ApplicationBody>({
                 method: 'POST',
                 path: '/b2b/applications',
             });
-            return hydrate(wire);
+            return load(created.application.id);
+        },
+
+        async replaceContacts(request: {
+            readonly applicationId: string;
+            readonly contacts: readonly B2BApplicationContact[];
+        }): Promise<B2BApplication> {
+            const body: ReplaceB2bApplicationContactsRequest = {
+                contacts: request.contacts.map((contact) => ({
+                    role: contact.role,
+                    name: contact.name,
+                    title: contact.title,
+                    email: contact.email,
+                    phone: contact.phone,
+                    notes: contact.notes,
+                })),
+            };
+
+            await transport.request({
+                method: 'PUT',
+                path: path(request.applicationId, '/contacts'),
+                body,
+            });
+            return load(request.applicationId);
+        },
+
+        async replaceLocations(request: {
+            readonly applicationId: string;
+            readonly locations: readonly B2BApplicationLocation[];
+        }): Promise<B2BApplication> {
+            const body: ReplaceB2bApplicationLocationsRequest = {
+                locations: request.locations.map((location) => ({
+                    label: location.label,
+                    delivery_area_id: location.deliveryAreaId,
+                    address_line1: location.addressLine1,
+                    address_line2: location.addressLine2,
+                    city: location.city,
+                    country_code: location.countryCode,
+                    contact_name: location.contactName,
+                    contact_phone: location.contactPhone,
+                    delivery_notes: location.deliveryNotes,
+                    is_primary: location.isPrimary,
+                    is_billing_address: location.isBillingAddress,
+                    expected_headcount: location.expectedHeadcount,
+                })),
+            };
+
+            await transport.request({
+                method: 'PUT',
+                path: path(request.applicationId, '/locations'),
+                body,
+            });
+            return load(request.applicationId);
         },
 
         async saveSection(request: {
@@ -689,23 +804,19 @@ export function createApiB2bApplicationRepository(transport: Transport): B2BAppl
             readonly markComplete?: boolean | undefined;
             readonly lockVersion: number;
         }): Promise<B2BApplication> {
-            const wire = await transport.request<ApplicationBody>({
+            await transport.request<ApplicationBody>({
                 method: 'PATCH',
                 path: path(
                     request.applicationId,
                     `/sections/${encodeURIComponent(request.section)}`,
                 ),
                 headers: ifMatch(request.lockVersion),
-                body: {
-                    ...sectionBody(request.section, request.payload),
-                    // The applicant's claim that they have finished the step. A claim, not a
-                    // verdict — the contract is explicit that the two are different columns.
-                    ...(request.markComplete === undefined
-                        ? {}
-                        : { mark_complete: request.markComplete }),
-                },
+                // `markComplete` is not sent: the server writes `completed_sections` as a
+                // consequence of a section being saved and refuses `mark_complete` as a field it
+                // does not own (UpdateApplicationSectionRequest), which failed every wizard save.
+                body: sectionBody(request.section, request.payload),
             });
-            return hydrate(wire);
+            return load(request.applicationId);
         },
 
         /**
@@ -730,11 +841,7 @@ export function createApiB2bApplicationRepository(transport: Transport): B2BAppl
                 body: new MultipartBody(form),
             });
 
-            const wire = await transport.request<ApplicationBody>({
-                method: 'GET',
-                path: path(request.applicationId),
-            });
-            return hydrate(wire);
+            return load(request.applicationId);
         },
 
         /**
@@ -790,24 +897,46 @@ export function createApiB2bApplicationRepository(transport: Transport): B2BAppl
             readonly applicationId: string;
             readonly lockVersion: number;
         }): Promise<B2BApplication> {
-            const wire = await transport.request<ApplicationBody>({
+            await transport.request<ApplicationBody>({
                 method: 'POST',
                 path: path(request.applicationId, '/submit'),
                 headers: ifMatch(request.lockVersion),
             });
-            return hydrate(wire);
+            return load(request.applicationId);
         },
 
         async withdrawApplication(request: {
             readonly applicationId: string;
             readonly lockVersion: number;
         }): Promise<B2BApplication> {
-            const wire = await transport.request<ApplicationBody>({
+            await transport.request<ApplicationBody>({
                 method: 'POST',
                 path: path(request.applicationId, '/withdraw'),
                 headers: ifMatch(request.lockVersion),
             });
-            return hydrate(wire);
+            return load(request.applicationId);
+        },
+
+        /**
+         * The signatory's passcode, from the agreement's own endpoint.
+         *
+         * Not the generic verification issue: `b2b_signatory` grants no step-up, so the generic
+         * routes refuse it, and the code has to be raised against the agreement being signed.
+         * The answer is the ordinary challenge shape, verified and resent through the generic
+         * challenge routes like any other.
+         */
+        async issueSignatureChallenge(request: {
+            readonly applicationId: string;
+            readonly agreementId: string;
+        }): Promise<OtpChallenge> {
+            const wire = await transport.request<OtpChallengeEnvelope['data']>({
+                method: 'POST',
+                path: path(
+                    request.applicationId,
+                    `/agreements/${encodeURIComponent(request.agreementId)}/signature-challenges`,
+                ),
+            });
+            return mapIssuedChallenge(wire.challenge);
         },
 
         async getAgreement(request: {
@@ -883,15 +1012,11 @@ export function createApiB2bApplicationRepository(transport: Transport): B2BAppl
                     // Echoed back from the agreement the person actually read, so a document that
                     // changed under them is refused rather than silently signed.
                     document_sha256: request.documentSha256,
-                    consent_statement: '',
+                    consent_statement: AGREEMENT_CONSENT_STATEMENT,
                 },
             });
 
-            const wire = await transport.request<ApplicationBody>({
-                method: 'GET',
-                path: path(application.id),
-            });
-            return hydrate(wire);
+            return load(application.id);
         },
 
         /* ── B2: the wind-down — see notes §8–§10 above the mappers ──────────────────────────── */
@@ -1017,26 +1142,4 @@ export function createApiB2bApplicationRepository(transport: Transport): B2BAppl
             return mapOffboarding(wire.offboarding);
         },
     };
-}
-
-/**
- * Issue the signatory step-up challenge.
- *
- * Exported beside the repository rather than added to `B2BApplicationRepository`, for the same
- * reason `getChallenge` belongs to `GuestRepository`: it is not the applicant's data surface, it is
- * the one call the signing *panel* makes before it can produce a `verificationToken`. The panel
- * pairs the challenge identifier it gets here with the code the person types, which is the
- * `<challengeId>:<code>` pair `signAgreement` unpacks.
- */
-export async function issueSignatureChallenge(
-    transport: Transport,
-    request: { readonly applicationId: string; readonly agreementId: string },
-): Promise<{ readonly challengeId: string }> {
-    const wire = await transport.request<{ challenge_id: string }>({
-        method: 'POST',
-        path:
-            `/b2b/applications/${encodeURIComponent(request.applicationId)}` +
-            `/agreements/${encodeURIComponent(request.agreementId)}/signature-challenges`,
-    });
-    return { challengeId: wire.challenge_id };
 }

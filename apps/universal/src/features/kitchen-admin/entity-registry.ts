@@ -526,6 +526,20 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: PRICE_LIST_MANAGE_PERMISSION,
     },
     {
+        // A checklist across four records (channel, agreement list, assignment, offered items)
+        // rather than a family of its own — the workbench kind. A setup page, so it is gated on
+        // the writing code: a reader who can change none of it has nothing to do here.
+        key: 'wholesale',
+        kind: 'workbench',
+        group: 'commercial',
+        nameKey: 'kitchen:families.wholesale.name',
+        descriptionKey: 'kitchen:families.wholesale.description',
+        icon: 'store',
+        href: '/kitchen/wholesale',
+        permission: PRICE_LIST_MANAGE_PERMISSION,
+        managePermission: PRICE_LIST_MANAGE_PERMISSION,
+    },
+    {
         key: 'quotations',
         kind: 'managed',
         group: 'commercial',
