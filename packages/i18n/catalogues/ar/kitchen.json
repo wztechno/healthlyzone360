@@ -1685,7 +1685,6 @@
             "resolvedBadge": "محلولة",
             "unresolvedBadge": "غير محلولة",
             "clearBadge": "لا شيء معلّق",
-            "retry": "إعادة المحاولة",
             "resolve": "قبول النقص",
             "fixInRecipe": "أصلِح في الوصفة",
             "fixAction": {
@@ -1743,7 +1742,6 @@
                 "fieldResolutionNote": "ملاحظة الحل",
                 "fieldMoney": "المال",
                 "moneyValue": "لا شيء — الاستثناء يسمّي عملية بيع وفجوة مخزون، لا تقييمًا",
-                "retry": "إعادة محاولة الخصم",
                 "fieldIngredient": "المكوّن"
             },
             "fix": {

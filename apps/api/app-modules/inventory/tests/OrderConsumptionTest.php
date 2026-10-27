@@ -9,6 +9,7 @@ use Healthy360\Catalogues\Models\Catalogue;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Customers\Database\Factories\CustomerAccountFactory;
 use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Inventory\Jobs\RetryOpenConsumptionExceptions;
 use Healthy360\Inventory\Models\IngredientStockCost;
 use Healthy360\Inventory\Models\OrderConsumptionException;
 use Healthy360\Inventory\Models\OrderLineEstimatedCost;
@@ -16,6 +17,7 @@ use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\Inventory\Models\StockReservation;
+use Healthy360\Inventory\Services\ConsumptionExceptionSweep;
 use Healthy360\Inventory\Services\InventoryService;
 use Healthy360\Inventory\Services\OrderConsumptionService;
 use Healthy360\Inventory\Services\ReservationService;
@@ -34,6 +36,7 @@ use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Queue;
 
 /*
 |--------------------------------------------------------------------------
@@ -601,6 +604,8 @@ it('retries a blocked line once the stock item exists, deducting and auto-resolv
         'last_purchase_cost_amount' => '2.000000',
         'currency_code' => 'USD',
     ]);
+    // Held back, so this is the retry itself rather than the sweep stock arriving starts.
+    Queue::fake();
     $this->inventory->recordMovement(
         (string) $this->organisation->getKey(),
         (string) $this->branch->getKey(),
@@ -728,6 +733,154 @@ it('settles a no_branch exception on file by retrying it against the only branch
     expect($result->resolved_at)->not->toBeNull()
         ->and(consumeMovements($order)->sole()->branch_id)->toBe((string) $this->branch->getKey())
         ->and(levelOf($flour))->toBe('99.9500');
+});
+
+/*
+| Nobody presses Retry any more. Stock rising on a shelf retries the kitchen's
+| open gaps as it commits, and a scheduled sweep catches every other fix.
+*/
+it('closes a short-stock gap by itself the moment stock arrives', function (): void {
+    $flour = stockedIngredient($this, $this->kg, '2.000000', '100', '0.01');
+    $meal = publishedMeal($this, 5, '0.00', [[$flour, '250', $this->g]]);
+
+    $order = orderFor($this, $meal, '1');
+    $this->lifecycle->confirm($order->refresh(), 0);
+
+    $gap = OrderConsumptionException::withoutTenancy()->sole();
+    expect($gap->reason_code)->toBe('insufficient_stock');
+
+    // A receipt and nothing else: no retry is asked for.
+    $this->inventory->recordMovement(
+        (string) $this->organisation->getKey(),
+        (string) $this->branch->getKey(),
+        (string) $flour->getKey(),
+        'receipt',
+        '1',
+    );
+
+    expect($gap->refresh()->resolved_at)->not->toBeNull()
+        ->and($gap->resolved_by)->toBeNull()
+        ->and(consumeMovements($order)->count())->toBe(1)
+        ->and(levelOf($flour))->toBe('0.9600');
+});
+
+it('leaves a cancelled order\'s gap alone when stock arrives', function (): void {
+    $flour = stockedIngredient($this, $this->kg, '2.000000', '100', '0.01');
+    $meal = publishedMeal($this, 5, '0.00', [[$flour, '250', $this->g]]);
+
+    $order = orderFor($this, $meal, '1');
+    $this->lifecycle->confirm($order->refresh(), 0);
+    $order = $order->refresh();
+    $this->lifecycle->cancel($order, CancellationReason::CustomerRequested, $order->lock_version);
+
+    $this->inventory->recordMovement(
+        (string) $this->organisation->getKey(),
+        (string) $this->branch->getKey(),
+        (string) $flour->getKey(),
+        'receipt',
+        '1',
+    );
+
+    // Its food is not being cooked, so nothing comes off the shelf for it.
+    expect(OrderConsumptionException::withoutTenancy()->sole()->resolved_at)->toBeNull()
+        ->and(consumeMovements($order)->count())->toBe(0)
+        ->and(levelOf($flour))->toBe('1.0100');
+
+    // Nor when the gap is retried directly — coming back from its Add stock, say.
+    $result = app(OrderConsumptionService::class)->retry(
+        OrderConsumptionException::withoutTenancy()->sole(),
+        (string) $this->tenant->user->getKey(),
+    );
+
+    expect($result->resolved_at)->toBeNull()
+        ->and($result->detail)->toContain('cancelled')
+        ->and(consumeMovements($order)->count())->toBe(0)
+        ->and(levelOf($flour))->toBe('1.0100');
+});
+
+it('closes a gap fixed somewhere other than a shelf on the scheduled sweep', function (): void {
+    $flour = stockedIngredient($this, $this->kg, '2.000000', '100', '100');
+    $meal = publishedMeal($this, 5, '0.00', [[$flour, '250', $this->g]]);
+
+    // A branchless order whose kitchen now has the one branch it can come off.
+    $order = orderFor($this, $meal, '1', withBranch: false);
+    $gap = OrderConsumptionException::query()->create([
+        'organisation_id' => $this->organisation->getKey(),
+        'order_id' => (string) $order->getKey(),
+        'reason_code' => 'no_branch',
+        'detail' => 'The order has no branch, so no stock could be deducted.',
+    ]);
+
+    RetryOpenConsumptionExceptions::dispatchSync();
+
+    expect($gap->refresh()->resolved_at)->not->toBeNull()
+        ->and(consumeMovements($order)->sole()->branch_id)->toBe((string) $this->branch->getKey())
+        ->and(levelOf($flour))->toBe('99.9500');
+});
+
+it('closes the restocked ingredient\'s own gap, not whichever short gap came first', function (): void {
+    $lemon = stockedIngredient($this, $this->kg, '2.000000', '100', '0.01');
+    $chicken = stockedIngredient($this, $this->kg, '2.000000', '100', '0.01');
+    $meal = publishedMeal($this, 5, '0.00', [[$lemon, '250', $this->g], [$chicken, '250', $this->g]]);
+
+    $order = orderFor($this, $meal, '1');
+    $this->lifecycle->confirm($order->refresh(), 0);
+
+    $gapFor = static fn (StockItem $shelf): OrderConsumptionException => OrderConsumptionException::withoutTenancy()
+        ->where('detail', 'like', '%'.$shelf->ingredient_id.'%')
+        ->sole();
+    $lemonGap = $gapFor($lemon);
+    $chickenGap = $gapFor($chicken);
+
+    // Only the chicken arrives.
+    $this->inventory->recordMovement(
+        (string) $this->organisation->getKey(),
+        (string) $this->branch->getKey(),
+        (string) $chicken->getKey(),
+        'receipt',
+        '1',
+    );
+
+    expect($chickenGap->refresh()->resolved_at)->not->toBeNull()
+        ->and($lemonGap->refresh()->resolved_at)->toBeNull()
+        ->and($lemonGap->detail)->toContain((string) $lemon->ingredient_id);
+});
+
+it('re-runs a line once for all of its gaps, and never touches an unvalued one', function (): void {
+    $flour = stockedIngredient($this, $this->kg, '2.000000', '100', '0.01');
+    $rice = stockedIngredient($this, $this->kg, '2.000000', '100', '0.01');
+    $meal = publishedMeal($this, 5, '0.00', [[$flour, '250', $this->g], [$rice, '250', $this->g]]);
+
+    $order = orderFor($this, $meal, '1');
+    $this->lifecycle->confirm($order->refresh(), 0);
+
+    $costNote = OrderConsumptionException::query()->create([
+        'organisation_id' => $this->organisation->getKey(),
+        'order_id' => (string) $order->getKey(),
+        'reason_code' => 'no_ingredient_cost',
+        'detail' => 'Deducted at no cost.',
+    ]);
+
+    Queue::fake();
+    foreach ([$flour, $rice] as $shelf) {
+        $this->inventory->recordMovement(
+            (string) $this->organisation->getKey(),
+            (string) $this->branch->getKey(),
+            (string) $shelf->getKey(),
+            'receipt',
+            '1',
+        );
+    }
+
+    // Both receipts asked for the same kitchen's sweep; the second waited on the first.
+    Queue::assertPushed(RetryOpenConsumptionExceptions::class, 1);
+
+    $closed = app(ConsumptionExceptionSweep::class)->retryOpen((string) $this->organisation->getKey());
+
+    expect($closed)->toBe(2)
+        ->and(consumeMovements($order)->count())->toBe(2)
+        ->and($costNote->refresh()->resolved_at)->toBeNull()
+        ->and($costNote->detail)->toBe('Deducted at no cost.');
 });
 
 /**

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8736 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 8734 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4417,7 +4417,6 @@ export interface NamespaceKeys {
     | 'ops.exceptions.resolveTitle'
     | 'ops.exceptions.resolvedBadge'
     | 'ops.exceptions.resolvedToast'
-    | 'ops.exceptions.retry'
     | 'ops.exceptions.retryDeductedToast'
     | 'ops.exceptions.retryNextProblemToast'
     | 'ops.exceptions.retryStillOpenToast'
@@ -4441,7 +4440,6 @@ export interface NamespaceKeys {
     | 'ops.exceptions.window.kind'
     | 'ops.exceptions.window.moneyValue'
     | 'ops.exceptions.window.openNote'
-    | 'ops.exceptions.window.retry'
     | 'ops.exceptions.window.title'
     | 'ops.ledger.chargeDelivery'
     | 'ops.ledger.chargeDiscount'
@@ -13171,7 +13169,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.resolveTitle',
   'kitchen:ops.exceptions.resolvedBadge',
   'kitchen:ops.exceptions.resolvedToast',
-  'kitchen:ops.exceptions.retry',
   'kitchen:ops.exceptions.retryDeductedToast',
   'kitchen:ops.exceptions.retryNextProblemToast',
   'kitchen:ops.exceptions.retryStillOpenToast',
@@ -13195,7 +13192,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.window.kind',
   'kitchen:ops.exceptions.window.moneyValue',
   'kitchen:ops.exceptions.window.openNote',
-  'kitchen:ops.exceptions.window.retry',
   'kitchen:ops.exceptions.window.title',
   'kitchen:ops.ledger.chargeDelivery',
   'kitchen:ops.ledger.chargeDiscount',

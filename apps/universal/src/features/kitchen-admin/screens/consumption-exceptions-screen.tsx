@@ -8,7 +8,6 @@ import {
     EmptyState,
     ErrorState,
     Icon,
-    Stack,
     TableSkeleton,
     Text,
     useToast,
@@ -26,11 +25,13 @@ import { endProcess, readActiveProcess, startProcess } from '../../../navigation
 import { pathnameOf } from '../../../navigation/return-to.ts';
 import { KITCHEN_PAGE_SIZE, pagesInResult } from '../../../data/kitchen-admin-hooks.ts';
 import {
+    useConsumptionExceptionCountQuery,
     useConsumptionExceptionTotalsQuery,
     useConsumptionExceptionsQuery,
     useResolveConsumptionExceptionMutation,
     useRetryConsumptionExceptionMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
+import { useOnlineStatus } from '../../../online/online-status.tsx';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { ExceptionRowActions } from '../consumption-exceptions/exception-row-actions.tsx';
 import {
@@ -72,19 +73,26 @@ import { useListMemory, useRememberedQuery } from '../list-memory.ts';
  * `Workbench.dc.html` draws it (§3.5).
  *
  * ```
- * Consumption exceptions  [ RETRY WRITES STOCK ]
+ * Consumption exceptions
  * ┌ SHOWN ┐ ┌ UNRESOLVED ┐ ┌ RESOLVED ┐
  * STATUS [ Unresolved | Resolved | All ]   RAISED FROM [ 2026-08-01 ▦ ]
  * ORDER              BRANCH         REASON                   RAISED       STATUS
- * 0148               Beirut Central Not enough stock         2026-08-28   [OPEN] Retry Accept gap
+ * 0148               Beirut Central Not enough stock         2026-08-28   [OPEN] Add stock Accept gap
  * Grilled chicken …
- * 0151               Beirut Central Recipe line has no qty   2026-08-29   [OPEN] Fix in recipe Retry …
+ * 0151               Beirut Central Recipe line has no qty   2026-08-29   [OPEN] Fix in recipe Accept gap
  * Lentil Soup · Red lentils
  * ```
  *
- * Behind `inventory.view_organisation`; Retry and Accept gap only for
- * `inventory.manage_organisation`, Fix in recipe only for `recipe.view_organisation`. Nothing
- * confidential shows — an order number, the sold item and ingredient, the branch, the reason.
+ * Behind `inventory.view_organisation`; Accept gap only for `inventory.manage_organisation`, each
+ * fix behind its own page's permission. Nothing confidential shows — an order number, the sold item
+ * and ingredient, the branch, the reason.
+ *
+ * ## Nobody presses Retry
+ *
+ * The API re-runs a gap's deduction itself — the moment stock rises on a shelf, and every five
+ * minutes for any other fix — so the page offers no Retry. Coming back from a fix with `fixed=1`
+ * still retries that one gap at once, for the toast that says how it went. While open, the page
+ * re-reads every {@link STOCK_GAPS_POLL_MS} so a gap closed elsewhere leaves without a reload.
  *
  * ## The order cell carries the item underneath
  *
@@ -96,15 +104,14 @@ import { useListMemory, useRememberedQuery } from '../list-memory.ts';
  * ## Accept gap is confirmed
  *
  * Accepting (resolving) a permanent stock gap goes through a dialog that says so (the handoff's
- * open question §6.3, answered). Retry is not confirmed: it re-runs the same guarded deduction a
- * confirm uses and cannot deduct twice.
+ * open question §6.3, answered).
  *
  * ## A gap a recipe fixes leads to the recipe
  *
  * Four reasons are fixed by changing the sold meal's recipe (`stock-gap-fix.ts`). Those rows, and
  * their record, lead with Fix in recipe, which opens the recipe on the field at fault and carries
- * this exact view as `returnTo`. The recipe comes back with `fixed=1`, and Retry is then the
- * record's next step.
+ * this exact view as `returnTo`. The recipe comes back with `fixed=1`, and the gap is retried on
+ * arrival.
  *
  * ## The view lives in the URL
  *
@@ -134,6 +141,13 @@ export function ConsumptionExceptionsScreen(props: ConsumptionExceptionsScreenPr
 
 const EM_DASH = '—';
 
+/**
+ * How often the open page re-reads its gaps. Thirty seconds: a gap closes within seconds of stock
+ * arriving and within five minutes of any other fix, and nobody is waiting on this list the way a
+ * cook waits on the kitchen display (`KDS_POLL_MS`, fifteen).
+ */
+export const STOCK_GAPS_POLL_MS = 30_000;
+
 /** A detail line carrying a raw id says nothing a reader can use; the named fields say it instead. */
 const HAS_UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
@@ -158,7 +172,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
     const [from, setFrom] = useState(initial.from);
     const [to, setTo] = useState(initial.to);
     const [viewingId, setViewingId] = useState<string | null>(initial.gap);
-    // The open gap's recipe fix is published: Retry is what is left to do.
+    // The open gap's fix has just been made: it is retried on arrival.
     const [fixed, setFixed] = useState(initial.fixed);
     const [resolving, setResolving] = useState<ConsumptionException | null>(null);
 
@@ -178,9 +192,14 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
         }),
         [status, from, fromIsValid, to, toIsValid, page],
     );
-    const exceptions = useConsumptionExceptionsQuery(filter);
+    // Gaps close by themselves on the server, so the page re-reads while it is open — and the count
+    // the sidebar badge shares with it — rather than waiting for a reload.
+    const { online } = useOnlineStatus();
+    const poll = { refetchInterval: online ? STOCK_GAPS_POLL_MS : false } as const;
+    const exceptions = useConsumptionExceptionsQuery(filter, true, poll);
     // Whole totals for the cards. The list carries none, and counting its rows counted the page.
-    const totals = useConsumptionExceptionTotalsQuery();
+    const totals = useConsumptionExceptionTotalsQuery(true, poll);
+    useConsumptionExceptionCountQuery(true, poll);
 
     const resolve = useResolveConsumptionExceptionMutation();
     const retry = useRetryConsumptionExceptionMutation();
@@ -336,11 +355,6 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
             setPendingId(null);
         },
     });
-    const runRetry = (row: ConsumptionException) => {
-        setPendingId(row.id);
-        retry.mutate(row.id, retryCallbacks(row));
-    };
-
     const confirmResolve = () => {
         if (resolving === null) return;
         const row = resolving;
@@ -523,13 +537,13 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
             role: 'actions',
             label: t('kitchen:list.actionHeader'),
             /*
-             * Up to three — the fix, Retry, Accept gap — on one line from the start edge, the fix in
-             * a track of its own width (`FIX_SLOT_WIDTH`), so Retry and Accept gap start in the same
-             * place on every row. Its width is its content: a share of the port's leftover would
-             * only open a gap after the buttons.
+             * Up to two — the fix, Accept gap — on one line from the start edge, the fix in a track
+             * of its own width (`FIX_SLOT_WIDTH`), so Accept gap starts in the same place on every
+             * row. Its width is its content: a share of the port's leftover would only open a gap
+             * after the buttons.
              */
-            width: 300,
-            min: 300,
+            width: 240,
+            min: 240,
             priority: 95,
             grow: false,
             sortable: false,
@@ -539,7 +553,6 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                     row={row}
                     pendingId={pendingId}
                     fix={rowFix(row)}
-                    onRetry={canManage ? runRetry : undefined}
                     onResolve={canManage ? setResolving : undefined}
                 />
             ),
@@ -570,9 +583,9 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
     const failure = toFailure(exceptions.error);
 
     /*
-     * Back from the fix with `fixed=1` — the recipe published, the stock posted: Retry is the one
-     * step left, so it is taken, once, rather than left for the reader to find. Its toast says how
-     * it went; a gap still open stays open on the record with its Retry.
+     * Back from the fix with `fixed=1` — the recipe published, the stock posted: the retry runs
+     * here and now, once, so the reader is told how it went rather than waiting on the API's own
+     * sweep. A gap still open stays open, and the sweep goes on retrying it.
      */
     // The record closes and the row shows its pending state during render — the way a gap this
     // page no longer holds is let go, above; the request itself goes out once, from the effect.
@@ -591,14 +604,8 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
     });
 
     if (viewing !== null) {
-        const retryFromRecord = () => {
-            const row = viewing;
-            closeRecord();
-            runRetry(row);
-        };
-        // The fix leads until it is made; then Retry is the one step left.
+        // The fix until it is made; after that the system retries, and nothing is left to press.
         const viewingFix = fixFor(viewing);
-        const leadWithFix = viewingFix !== null && !fixed;
         return (
             <RecordViewPage
                 testID="kitchen-consumption-exceptions-window"
@@ -665,47 +672,19 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                         value: t('kitchen:ops.exceptions.window.moneyValue'),
                     },
                 ]}
-                /*
-                 * The fix leads, with Retry under it. Both are drawn here rather than as the
-                 * page's `primaryAction`, which the status card puts *below* its content — the
-                 * secondary would sit above the step it follows.
-                 */
-                primaryAction={
-                    leadWithFix || viewing.resolved || !canManage
-                        ? undefined
-                        : {
-                              label: t('kitchen:ops.exceptions.window.retry'),
-                              icon: 'refresh',
-                              onPress: retryFromRecord,
-                          }
-                }
                 statusContent={
-                    leadWithFix ? (
-                        <Stack space="xs">
-                            <Button
-                                testID="kitchen-consumption-exceptions-window-fix"
-                                size="sm"
-                                block
-                                label={t(viewingFix.labelKey)}
-                                iconStart={<Icon name="pen" size="sm" />}
-                                onPress={() => {
-                                    openFix(viewingFix, viewing);
-                                }}
-                            />
-                            {canManage ? (
-                                <Button
-                                    testID="kitchen-consumption-exceptions-window-retry"
-                                    variant="secondary"
-                                    size="sm"
-                                    block
-                                    label={t('kitchen:ops.exceptions.window.retry')}
-                                    iconStart={<Icon name="refresh" size="sm" />}
-                                    disabled={pendingId !== null}
-                                    onPress={retryFromRecord}
-                                />
-                            ) : null}
-                        </Stack>
-                    ) : undefined
+                    viewingFix === null ? undefined : (
+                        <Button
+                            testID="kitchen-consumption-exceptions-window-fix"
+                            size="sm"
+                            block
+                            label={t(viewingFix.labelKey)}
+                            iconStart={<Icon name="pen" size="sm" />}
+                            onPress={() => {
+                                openFix(viewingFix, viewing);
+                            }}
+                        />
+                    )
                 }
             />
         );

@@ -1494,7 +1494,6 @@
             "resolvedBadge": "Resolved",
             "unresolvedBadge": "Unresolved",
             "clearBadge": "All clear",
-            "retry": "Retry",
             "resolve": "Accept gap",
             "fixInRecipe": "Fix in recipe",
             "fixAction": {
@@ -1548,7 +1547,6 @@
                 "fieldResolutionNote": "Resolution note",
                 "fieldMoney": "Money",
                 "moneyValue": "None — an exception names a sale and a stock gap, not a valuation",
-                "retry": "Retry the deduction",
                 "fieldIngredient": "Ingredient"
             },
             "fix": {

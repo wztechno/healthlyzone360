@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Inventory\Services;
 
 use Healthy360\Inventory\Exceptions\InsufficientStock;
+use Healthy360\Inventory\Jobs\RetryOpenConsumptionExceptions;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
@@ -123,6 +124,17 @@ final readonly class InventoryService
 
             $level->quantity = $newQuantity;
             $level->save();
+
+            /*
+             * Stock rose, so a gap that was short of it may close now. Retried by the system rather
+             * than left for somebody to notice and press Retry. After the commit, so a receipt that
+             * rolls back retries nothing and the sweep reads the stock it was told about.
+             */
+            if (bccomp($delta, '0', self::SCALE) > 0) {
+                DB::afterCommit(static function () use ($organisationId): void {
+                    RetryOpenConsumptionExceptions::queueFor($organisationId);
+                });
+            }
 
             return StockMovement::query()->create([
                 'organisation_id' => $organisationId,

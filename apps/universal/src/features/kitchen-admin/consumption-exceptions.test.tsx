@@ -5,7 +5,10 @@ import { Dimensions } from 'react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
-import { ConsumptionExceptionsScreen } from './screens/consumption-exceptions-screen.tsx';
+import {
+    ConsumptionExceptionsScreen,
+    STOCK_GAPS_POLL_MS,
+} from './screens/consumption-exceptions-screen.tsx';
 import { endProcess, readActiveProcess, startProcess } from '../../navigation/active-process.ts';
 import { withReturnTo } from '../../navigation/return-to.ts';
 
@@ -191,7 +194,7 @@ describe('consumption exceptions at desk width', () => {
      * produced — which opens a row of its own. That is said by name, never as "closed".
      */
     it('names the next problem when a retry clears its own and stops on another', async () => {
-        await renderStubScreen(<ConsumptionExceptionsScreen />, {
+        await renderStubScreen(<ConsumptionExceptionsScreen gap="exception-1" fixed="1" />, {
             session: kitchenManagerSession(),
             repositories: {
                 kitchenOps: {
@@ -206,10 +209,6 @@ describe('consumption exceptions at desk width', () => {
             },
         });
 
-        await untilVisible('kitchen-exception-exception-1-retry');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-exception-exception-1-retry'));
-        });
         await untilVisible('kitchen-exception-retried-toast');
         expect(screen.getByTestId('kitchen-exception-retried-toast')).toHaveTextContent(
             /0148: that is fixed, but it is now blocked by “Recipe has no pieces produced”/,
@@ -217,41 +216,109 @@ describe('consumption exceptions at desk width', () => {
     });
 
     /*
-     * Retry used to say nothing either way: a 500 left the row as it was, and so did a retry that
+     * A retry used to say nothing either way: a 500 left the row as it was, and so did a retry that
      * ran but still could not deduct. Each now says which it was.
      */
-    it('says when a retry still could not deduct, and when it failed outright', async () => {
-        let attempt = 0;
-        await renderStubScreen(<ConsumptionExceptionsScreen />, {
+    it('says when the retry on arrival still could not deduct', async () => {
+        await renderStubScreen(<ConsumptionExceptionsScreen gap="exception-1" fixed="1" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    listConsumptionExceptions: async () => pageOf([exception()]),
+                    retryConsumptionException: async () => ({
+                        exception: exception(),
+                        stillOpen: [],
+                    }),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-exception-retried-toast');
+        expect(screen.getByTestId('kitchen-exception-retried-toast')).toHaveTextContent(
+            /0148 still could not be deducted/,
+        );
+    });
+
+    it('says when the retry on arrival failed outright', async () => {
+        await renderStubScreen(<ConsumptionExceptionsScreen gap="exception-1" fixed="1" />, {
             session: kitchenManagerSession(),
             repositories: {
                 kitchenOps: {
                     listConsumptionExceptions: async () => pageOf([exception()]),
                     retryConsumptionException: async () => {
-                        attempt += 1;
-                        if (attempt === 1) return { exception: exception(), stillOpen: [] };
                         throw apiFailure('server', { message: 'The server could not run it.' });
                     },
                 },
             },
         });
 
-        await untilVisible('kitchen-exception-exception-1-retry');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-exception-exception-1-retry'));
-        });
-        await untilVisible('kitchen-exception-retried-toast');
-        expect(screen.getByTestId('kitchen-exception-retried-toast')).toHaveTextContent(
-            /0148 still could not be deducted/,
-        );
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-exception-exception-1-retry'));
-        });
         await untilVisible('kitchen-exception-action-failed-toast');
         expect(screen.getByTestId('kitchen-exception-action-failed-toast')).toHaveTextContent(
             /The server could not run it\./,
         );
+    });
+
+    /*
+     * A gap the API closed while the page was open — stock posted from another page — leaves the
+     * list, and the cards say so, without a reload.
+     */
+    it('re-reads while open, so a gap closed elsewhere leaves without a reload', async () => {
+        jest.useFakeTimers({ advanceTimers: true });
+        try {
+            let open = [exception(), exception({ id: 'exception-2', orderNumber: '0151' })];
+            const { repositories } = await renderStubScreen(<ConsumptionExceptionsScreen />, {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenOps: {
+                        listConsumptionExceptions: async () => pageOf(open),
+                        countConsumptionExceptions: async () => ({
+                            unresolved: open.length,
+                            resolved: 2 - open.length,
+                        }),
+                        countUnresolvedConsumptionExceptions: async () => open.length,
+                    },
+                },
+            });
+            await untilVisible('kitchen-exception-exception-1-order');
+            const counts = (repositories.kitchenOps.countUnresolvedConsumptionExceptions as jest.Mock)
+                .mock.calls.length;
+
+            // Stock arrives on another page and the API closes the first gap; nothing is pressed.
+            open = [exception({ id: 'exception-2', orderNumber: '0151' })];
+            await jest.advanceTimersByTimeAsync(STOCK_GAPS_POLL_MS);
+
+            await waitFor(() => {
+                expect(screen.queryByTestId('kitchen-exception-exception-1-order')).toBeNull();
+            });
+            expect(screen.getByTestId('kitchen-exception-exception-2-order')).toBeTruthy();
+            // The sidebar badge's count is re-read with it.
+            expect(
+                (repositories.kitchenOps.countUnresolvedConsumptionExceptions as jest.Mock).mock
+                    .calls.length,
+            ).toBeGreaterThan(counts);
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    /*
+     * The API retries every open gap itself — when stock rises, and on a schedule — so there is
+     * nothing for a person to press on a row or on its record.
+     */
+    it('offers no Retry, only the fix and Accept gap', async () => {
+        await renderStubScreen(<ConsumptionExceptionsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    listConsumptionExceptions: async () =>
+                        pageOf([exception({ ingredientId: LENTILS_ID })]),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-exception-exception-1-fix');
+        expect(screen.getByTestId('kitchen-exception-exception-1-resolve')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-exception-exception-1-retry')).toBeNull();
     });
 
     /*
@@ -347,7 +414,7 @@ describe('consumption exceptions at desk width', () => {
                 },
             });
 
-            await untilVisible('kitchen-exception-exception-1-retry');
+            await untilVisible('kitchen-exception-exception-1-resolve');
             expect(screen.queryByTestId('kitchen-exception-exception-1-fix')).toBeNull();
         });
 
@@ -439,7 +506,7 @@ describe('consumption exceptions at desk width', () => {
             expect(screen.getByTestId('kitchen-exception-exception-2-order')).toBeTruthy();
         });
 
-        it('reopens the gap the URL names, with Fix in recipe first and Retry under it', async () => {
+        it('reopens the gap the URL names, with Fix in recipe and nothing to retry', async () => {
             await renderStubScreen(<ConsumptionExceptionsScreen gap="exception-1" />, {
                 session: kitchenManagerSession(),
                 repositories: {
@@ -451,7 +518,7 @@ describe('consumption exceptions at desk width', () => {
 
             await untilVisible('kitchen-consumption-exceptions-window');
             expect(screen.getByTestId('kitchen-consumption-exceptions-window-fix')).toBeTruthy();
-            expect(screen.getByTestId('kitchen-consumption-exceptions-window-retry')).toBeTruthy();
+            expect(screen.queryByTestId('kitchen-consumption-exceptions-window-retry')).toBeNull();
             expect(
                 screen.queryByTestId('kitchen-consumption-exceptions-window-primary'),
             ).toBeNull();
@@ -504,7 +571,7 @@ describe('consumption exceptions at desk width', () => {
                 },
             );
 
-            // Retry was the one step left, so it is taken — once — without being pressed.
+            // Retried on arrival — once — without anything being pressed.
             await untilVisible('kitchen-exception-retried-toast');
             expect(harness.repositories.kitchenOps.retryConsumptionException).toHaveBeenCalledTimes(
                 1,
