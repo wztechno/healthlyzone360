@@ -798,7 +798,9 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     downloadImportTemplate(_resource: TransferResource): Promise<DownloadedFile> {
         return notImplemented(`GET ${BASE}/catalogue/{resource}/import-template`);
     },
-    listRecipeTechnicalSheets(_recipeIds: readonly RecipeId[]): Promise<readonly RecipeSheetBundle[]> {
+    listRecipeTechnicalSheets(
+        _recipeIds: readonly RecipeId[],
+    ): Promise<readonly RecipeSheetBundle[]> {
         return notImplemented(`GET ${BASE}/catalogue/recipes/technical-sheets`);
     },
     updateIngredient(

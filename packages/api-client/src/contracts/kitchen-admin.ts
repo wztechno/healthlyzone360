@@ -2450,7 +2450,9 @@ export interface KitchenAdminRepository {
      * CONFIDENTIAL — up to twenty recipes with their current version and costed sheet, in one
      * read, for printing. `sheet` is `null` for a member without `recipe.view_costs_organisation`.
      */
-    listRecipeTechnicalSheets(recipeIds: readonly RecipeId[]): Promise<readonly RecipeSheetBundle[]>;
+    listRecipeTechnicalSheets(
+        recipeIds: readonly RecipeId[],
+    ): Promise<readonly RecipeSheetBundle[]>;
 
     /* ── ingredients ────────────────────────────────────────────────────────────────────────── */
 
