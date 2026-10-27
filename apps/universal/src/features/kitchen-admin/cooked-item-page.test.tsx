@@ -22,6 +22,7 @@ import KitchenMealsRoute from '../../../app/kitchen/meals/index.tsx';
 import KitchenSauceRoute from '../../../app/kitchen/sauces/[product].tsx';
 import KitchenSaucesRoute from '../../../app/kitchen/sauces/index.tsx';
 import { TEST_ORGANISATION_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { CookedItemEditScreen, RecipeBookEditScreen } from './screens/cooked-item-edit-screen.tsx';
@@ -478,6 +479,11 @@ describe('a cooked item’s page', () => {
     });
 
     it('asks for the pieces produced before a meal’s recipe is published, and only a meal’s', async () => {
+        // At a desk's width, where the issue tray is docked and open beside the page.
+        await withDeskWidth(askForPieces);
+    });
+
+    async function askForPieces() {
         await renderStubScreen(<RecipeBookEditScreen recipe={String(RECIPE_ID)} />, {
             session: kitchenManagerSession(),
             repositories: {
@@ -488,16 +494,17 @@ describe('a cooked item’s page', () => {
             },
         });
 
-        // Said under the tabs from the start, with the Production tab counting it.
+        // A card in the tray from the start, with the Production tab counting it.
         await untilVisible('kitchen-recipe-issues-publish-pieces');
-        await press('kitchen-recipe-issues-publish-pieces');
+        await press('kitchen-recipe-issues-publish-pieces-fix');
         await untilVisible('kitchen-recipe-yield-pieces-input');
 
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-yield-pieces-input'), '8');
         });
+        // Filled in, the card clears itself.
         expect(screen.queryByTestId('kitchen-recipe-issues-publish-pieces')).toBeNull();
-    });
+    }
 
     it('owes no piece count on a recipe only a sauce sells', async () => {
         await renderSauceRecipe(sauce());

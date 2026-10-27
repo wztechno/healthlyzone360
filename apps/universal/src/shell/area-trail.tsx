@@ -129,7 +129,8 @@ export function AreaTrail({
 }) {
     return (
         <DensityProvider value="compact">
-            <Breadcrumbs testID={testID} items={crumbs} />
+            {/* One line that shortens itself: the bar's controls keep their room, the trail gives. */}
+            <Breadcrumbs testID={testID} items={crumbs} truncate />
         </DensityProvider>
     );
 }

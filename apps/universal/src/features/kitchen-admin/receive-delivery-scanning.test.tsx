@@ -29,7 +29,7 @@ import { ReceiveDeliveryScreen } from './screens/receive-delivery-screen.tsx';
  */
 
 // Where Post takes the reader is the assertion; the focus itself is the browser's to do.
-jest.mock('./field-focus.ts', () => ({ focusField: jest.fn() }));
+jest.mock('./field-focus.ts', () => ({ focusField: jest.fn(), focusSection: jest.fn() }));
 
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
     __esModule: true,

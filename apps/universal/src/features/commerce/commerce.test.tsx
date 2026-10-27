@@ -53,6 +53,7 @@ import type {
     SubscriptionPlanId,
 } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { AccessibilityInfo } from 'react-native';
 
 import { pathnameOf, queryOf, withReturnTo } from '../../navigation/return-to.ts';
 import { clearAllSessionDrafts } from '../../navigation/session-draft.ts';
@@ -2107,6 +2108,8 @@ describe('CheckoutScreen', () => {
             checked: true,
         });
         expect(screen.queryByTestId('checkout-card-number')).toBeNull();
+        // The receipt printer waits beside Place order.
+        expect(screen.getByTestId('checkout-printer-status')).toHaveTextContent('Ready to print');
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('checkout-place-order'));
@@ -2131,10 +2134,16 @@ describe('CheckoutScreen', () => {
 
         // The confirmation prices itself from the placed order — the preview query dies with the
         // emptied basket, and a price block fed from there rendered nothing.
-        expect(screen.getByTestId('checkout-success-total-amount')).toHaveTextContent('AED 60.00');
-        expect(screen.getByTestId('checkout-success-items')).toHaveTextContent(
-            new RegExp(BASKET_MEAL.name),
+        // It is printed as the receipt, by the printer that stood beside Place order.
+        expect(screen.getByTestId('checkout-printer-status')).toHaveTextContent(
+            'Printing your receipt',
         );
+        expect(
+            screen.getByTestId('checkout-receipt-total-amount', { includeHiddenElements: true }),
+        ).toHaveTextContent('AED 60.00');
+        expect(
+            screen.getByTestId('checkout-receipt-items', { includeHiddenElements: true }),
+        ).toHaveTextContent(new RegExp(BASKET_MEAL.name));
 
         // The placement carried the saved address identifier and no instrument of any kind.
         expect(harness.repositories.commerce.placeOrder).toHaveBeenCalledWith({
@@ -2973,7 +2982,26 @@ describe('SubscriptionConfiguratorScreen', () => {
     // The set-up's choices are a session draft; no case may inherit one from the case before it.
     beforeEach(() => {
         clearAllSessionDrafts();
+        // Subscribe is answered by the receipt printer, which Jest has no frames to feed: under
+        // reduced motion the receipt is out at once and "View plan" is offered straight away.
+        jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
     });
+
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
+    /**
+     * The receipt has printed and the subscription has not opened yet: it opens when the customer
+     * presses "View plan", not mid-print.
+     */
+    async function viewPlan(): Promise<void> {
+        const button = await screen.findByTestId('configurator-view-plan', {}, { timeout: 5000 });
+        expect(routerMock.__replace).not.toHaveBeenCalledWith(expect.stringContaining('created=1'));
+        await act(async () => {
+            fireEvent.press(button);
+        });
+    }
 
     it('answers a malformed plan identifier with the not-found state', async () => {
         await renderConfigurator({ planId: 'not-a-uuid' });
@@ -3430,6 +3458,15 @@ describe('SubscriptionConfiguratorScreen', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('configurator-create'));
         });
+        // The receipt it printed is the priced preview, under the plan's name.
+        await screen.findByTestId('configurator-view-plan', {}, { timeout: 5000 });
+        expect(screen.getByTestId('configurator-printer-status')).toHaveTextContent(
+            'Plan confirmed',
+        );
+        expect(screen.getByTestId('configurator-receipt-total-amount')).toHaveTextContent(
+            /475\.02/,
+        );
+        await viewPlan();
 
         // The set-up is replaced by the subscription itself, flagged as just created: a refresh
         // shows the subscription, and Back is not a second chance to create it (plans-04).
@@ -3508,6 +3545,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('configurator-create'));
         });
+        await viewPlan();
         await waitFor(() => {
             expect(routerMock.__replace).toHaveBeenCalledWith(
                 `/customer/subscriptions/${String(SUBSCRIPTION_ID)}?created=1`,
@@ -3555,6 +3593,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('configurator-create'));
         });
+        await viewPlan();
 
         await waitFor(
             () => {
@@ -3611,6 +3650,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('configurator-create'));
         });
+        await viewPlan();
 
         await waitFor(() => {
             expect(routerMock.__replace).toHaveBeenCalledWith(
@@ -3648,6 +3688,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('configurator-create'));
         });
+        await viewPlan();
 
         // Still the subscription's page — it exists, and the set-up could only make a second one —
         // told how many picks did not land.

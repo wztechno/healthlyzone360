@@ -56,6 +56,11 @@ export interface FormSectionProps {
     readonly variant?: 'divided' | 'underlined' | 'card' | undefined;
     readonly children: ReactNode;
     readonly className?: string | undefined;
+    /**
+     * The section's element id on the web — what an issue tray card's Fix scrolls to and
+     * spotlights when the problem is the whole section rather than one field in it.
+     */
+    readonly nativeID?: string | undefined;
     readonly testID?: string | undefined;
 }
 
@@ -68,6 +73,7 @@ export function FormSection({
     variant = 'divided',
     children,
     className,
+    nativeID,
     testID,
 }: FormSectionProps) {
     const card = variant === 'card';
@@ -79,6 +85,7 @@ export function FormSection({
         // under the section below it.
         <View
             testID={testID}
+            nativeID={nativeID}
             className={cx(
                 'z-auto flex-col',
                 card

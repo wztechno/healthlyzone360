@@ -52,7 +52,11 @@ jest.mock('expo-router', () =>
 );
 
 // The jump is asserted as the call: jsdom has no layout to scroll, and native no document.
-jest.mock('./field-focus.ts', () => ({ __esModule: true, focusField: jest.fn() }));
+jest.mock('./field-focus.ts', () => ({
+    __esModule: true,
+    focusField: jest.fn(),
+    focusSection: jest.fn(),
+}));
 
 // Wide: the price grid and the cost report's table draw their desk layout from `md` up.
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
@@ -496,7 +500,7 @@ describe('the ingredient editor', () => {
         expect(routerMock.__replace).toHaveBeenCalledWith('/kitchen/ingredients');
     });
 
-    it('gathers the notices into one band of titles', async () => {
+    it('gathers the notices into the issue tray', async () => {
         const record = ingredient({ meta: meta({ status: 'review_required' }) });
         await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
             session: kitchenManagerSession(),
@@ -504,7 +508,8 @@ describe('the ingredient editor', () => {
         });
         await untilVisible('kitchen-ingredient-quarantine');
 
-        expect(screen.getByTestId('kitchen-ingredient-notices')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-ingredient-tray')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-ingredient-notices')).toBeNull();
         expect(screen.getByTestId('kitchen-ingredient-quarantine')).not.toHaveTextContent(
             /contradicts a published label/,
         );

@@ -22,6 +22,8 @@ import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
+import { endProcess, readActiveProcess, startProcess } from '../../../navigation/active-process.ts';
+import { pathnameOf } from '../../../navigation/return-to.ts';
 import { KITCHEN_PAGE_SIZE, pagesInResult } from '../../../data/kitchen-admin-hooks.ts';
 import {
     useConsumptionExceptionTotalsQuery,
@@ -32,6 +34,7 @@ import {
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { ExceptionRowActions } from '../consumption-exceptions/exception-row-actions.tsx';
 import {
+    STOCK_GAPS_PATH,
     readStockGapsView,
     stockGapFixAction,
     stockGapsHref,
@@ -261,7 +264,19 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                   mayOpen,
               );
 
-    const openFix = (fix: StockGapFixAction) => {
+    /*
+     * Fixing a gap is a process across pages — the recipe, maybe an ingredient, back here to retry
+     * — so it is remembered: stepping out of it by the sidebar leaves a Continue in the top bar that
+     * leads back to the exact step (`active-process.ts`).
+     */
+    const openFix = (fix: StockGapFixAction, row: ConsumptionException) => {
+        startProcess({
+            kind: 'stockGapFix',
+            subject: itemLabel(row),
+            resumeHref: fix.href,
+            originPath: STOCK_GAPS_PATH,
+            stepPaths: [pathnameOf(fix.href)],
+        });
         router.push(fix.href as never);
     };
     const rowFix = (row: ConsumptionException) => {
@@ -271,9 +286,14 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
             : {
                   label: t(fix.labelKey),
                   onPress: () => {
-                      openFix(fix);
+                      openFix(fix, row);
                   },
               };
+    };
+
+    /** The gap is closed: the process that was fixing it is over. */
+    const endFixProcess = () => {
+        if (readActiveProcess()?.kind === 'stockGapFix') endProcess();
     };
 
     /** A refused write said nothing at all — a 500 on Retry left the row exactly as it was. */
@@ -285,38 +305,40 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
         });
     };
 
+    const retryCallbacks = (row: ConsumptionException): Parameters<typeof retry.mutate>[1] => ({
+        /*
+         * Say which it was: deducted, still stuck on the same thing, or past this problem and
+         * stuck on the next one — a published recipe with no pieces produced, say — which the
+         * retry opened as a row of its own. That last is not "closed", so it is named.
+         */
+        onSuccess: ({ exception, stillOpen }) => {
+            const next = stillOpen[0];
+            if (exception.resolved) endFixProcess();
+            toast.show({
+                testID: 'kitchen-exception-retried-toast',
+                tone: exception.resolved && next === undefined ? 'success' : 'warning',
+                message:
+                    exception.resolved && next !== undefined
+                        ? t('kitchen:ops.exceptions.retryNextProblemToast', {
+                              order: orderLabel(row),
+                              reason: t(`kitchen:ops.exceptions.reasons.${next.reasonCode}`),
+                          })
+                        : t(
+                              exception.resolved
+                                  ? 'kitchen:ops.exceptions.retryDeductedToast'
+                                  : 'kitchen:ops.exceptions.retryStillOpenToast',
+                              { order: orderLabel(row) },
+                          ),
+            });
+        },
+        onError: showFailure,
+        onSettled: () => {
+            setPendingId(null);
+        },
+    });
     const runRetry = (row: ConsumptionException) => {
         setPendingId(row.id);
-        retry.mutate(row.id, {
-            /*
-             * Say which it was: deducted, still stuck on the same thing, or past this problem and
-             * stuck on the next one — a published recipe with no pieces produced, say — which the
-             * retry opened as a row of its own. That last is not "closed", so it is named.
-             */
-            onSuccess: ({ exception, stillOpen }) => {
-                const next = stillOpen[0];
-                toast.show({
-                    testID: 'kitchen-exception-retried-toast',
-                    tone: exception.resolved && next === undefined ? 'success' : 'warning',
-                    message:
-                        exception.resolved && next !== undefined
-                            ? t('kitchen:ops.exceptions.retryNextProblemToast', {
-                                  order: orderLabel(row),
-                                  reason: t(`kitchen:ops.exceptions.reasons.${next.reasonCode}`),
-                              })
-                            : t(
-                                  exception.resolved
-                                      ? 'kitchen:ops.exceptions.retryDeductedToast'
-                                      : 'kitchen:ops.exceptions.retryStillOpenToast',
-                                  { order: orderLabel(row) },
-                              ),
-                });
-            },
-            onError: showFailure,
-            onSettled: () => {
-                setPendingId(null);
-            },
-        });
+        retry.mutate(row.id, retryCallbacks(row));
     };
 
     const confirmResolve = () => {
@@ -329,6 +351,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                 onSuccess: () => {
                     setResolving(null);
                     closeRecord();
+                    endFixProcess();
                     toast.show({
                         testID: 'kitchen-exception-resolved-toast',
                         tone: 'success',
@@ -546,6 +569,27 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
     ).map(([value, labelKey]) => ({ value, label: t(labelKey) }));
     const failure = toFailure(exceptions.error);
 
+    /*
+     * Back from the fix with `fixed=1` — the recipe published, the stock posted: Retry is the one
+     * step left, so it is taken, once, rather than left for the reader to find. Its toast says how
+     * it went; a gap still open stays open on the record with its Retry.
+     */
+    // The record closes and the row shows its pending state during render — the way a gap this
+    // page no longer holds is let go, above; the request itself goes out once, from the effect.
+    const [autoRetry, setAutoRetry] = useState<ConsumptionException | null>(null);
+    if (autoRetry === null && initial.fixed && viewing !== null && !viewing.resolved && canManage) {
+        setAutoRetry(viewing);
+        setViewingId(null);
+        setFixed(false);
+        setPendingId(viewing.id);
+    }
+    const autoRetrySent = useRef(false);
+    useEffect(() => {
+        if (autoRetry === null || autoRetrySent.current) return;
+        autoRetrySent.current = true;
+        retry.mutate(autoRetry.id, retryCallbacks(autoRetry));
+    });
+
     if (viewing !== null) {
         const retryFromRecord = () => {
             const row = viewing;
@@ -645,7 +689,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                                 label={t(viewingFix.labelKey)}
                                 iconStart={<Icon name="pen" size="sm" />}
                                 onPress={() => {
-                                    openFix(viewingFix);
+                                    openFix(viewingFix, viewing);
                                 }}
                             />
                             {canManage ? (

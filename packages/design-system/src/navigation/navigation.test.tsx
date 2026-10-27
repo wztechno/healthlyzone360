@@ -319,6 +319,24 @@ describe('Breadcrumbs', () => {
         expect(screen.getByTestId('crumb-home').props['aria-current']).toBeUndefined();
     });
 
+    it('stays on one line and lets every crumb shorten when asked to truncate', async () => {
+        await renderWithI18n(<Breadcrumbs testID="trail" items={trail} truncate />);
+
+        // In a bar shared with other controls it must give way rather than draw under them.
+        const root = screen.getByTestId('trail').props.className as string;
+        expect(root).toContain('flex-nowrap');
+        expect(root).toContain('overflow-hidden');
+        expect(root).not.toContain('flex-wrap ');
+        expect(screen.getByTestId('crumb-current').props.className).toContain('shrink');
+        expect(screen.getByTestId('crumb-home').props.className).toContain('shrink');
+        expect(screen.getByTestId('crumb-current').props.numberOfLines).toBe(1);
+    });
+
+    it('wraps rather than shortens by default', async () => {
+        await renderWithI18n(<Breadcrumbs testID="trail" items={trail} />);
+        expect(screen.getByTestId('trail').props.className).toContain('flex-wrap');
+    });
+
     it('recolours every crumb for the canopy, not just its container', async () => {
         await renderWithI18n(<Breadcrumbs testID="trail" items={trail} tone="canopy" />);
 

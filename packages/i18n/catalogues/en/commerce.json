@@ -462,5 +462,24 @@
         "planBody": "The kitchen swaps these for a safe dish or skips that slot. Keep your list up to date so it can.",
         "planNone": "Nothing in this plan’s sample week crosses your allergy list.",
         "planUnchecked": "This plan has not published its dishes yet, so they cannot be checked against your allergy list."
+    },
+    "receipt": {
+        "printerLabel": "Receipt printer",
+        "idle": "Ready to print",
+        "processing": "Processing your order",
+        "printing": "Printing your receipt",
+        "complete": "Order complete",
+        "planComplete": "Plan confirmed",
+        "title": "Receipt",
+        "reference": "Order {{reference}}",
+        "delivery": "Delivery",
+        "placed": "Placed",
+        "payment": "Payment",
+        "starts": "Starts",
+        "ends": "Ends",
+        "deliveries": "Deliveries",
+        "thanks": "Thank you",
+        "viewOrder": "View order",
+        "viewPlan": "View plan"
     }
 }

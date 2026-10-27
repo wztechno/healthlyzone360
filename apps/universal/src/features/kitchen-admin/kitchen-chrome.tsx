@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useReviewQueueQuery } from '../../data/kitchen-admin-hooks.ts';
 import { useConsumptionExceptionCountQuery } from '../../data/kitchen-ops-hooks.ts';
+import { guardNavigation } from '../../navigation/use-unsaved-guard.ts';
 import { AreaBrandBlock, AreaRailTop, DESK_SIDEBAR_WIDTH } from '../../shell/area-brand-block.tsx';
 import { useAccessState } from '../../session/session-provider.tsx';
 import {
@@ -134,7 +135,9 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
                           ),
                       }),
                 onPress: () => {
-                    router.push(item.href as never);
+                    guardNavigation(() => {
+                        router.push(item.href as never);
+                    });
                 },
             };
         };
@@ -147,7 +150,9 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
                 active: isKitchenNavActive(pathname, OVERVIEW_HREF),
                 testID: 'nav-overview',
                 onPress: () => {
-                    router.push(OVERVIEW_HREF as never);
+                    guardNavigation(() => {
+                        router.push(OVERVIEW_HREF as never);
+                    });
                 },
             },
             ...sections.flatMap((section) =>

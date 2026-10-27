@@ -119,5 +119,14 @@
         "discard": "تجاهل تغييراتي",
         "keepEditing": "متابعة التعديل",
         "browserPrompt": "لديك تغييرات غير محفوظة."
+    },
+    "process": {
+        "continue": "متابعة",
+        "continueLabel": "متابعة: {{title}}",
+        "stop": "إيقاف هذه العملية",
+        "kind": {
+            "stockGapFix": "إصلاح نقص المخزون · {{subject}}",
+            "recipeDetour": "تعديل {{subject}}"
+        }
     }
 }

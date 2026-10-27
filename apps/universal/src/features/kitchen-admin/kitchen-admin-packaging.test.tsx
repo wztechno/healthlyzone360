@@ -332,8 +332,14 @@ describe('the packaging list', () => {
 
         expect(screen.getByTestId(`${base}-reference`)).toHaveTextContent('PKG-001');
         // The branch, not the leaf: this track carries the parent category. The sub-category is
-        // still on the record and still filters — it is read in the View panel.
-        expect(screen.getByTestId(`${base}-category`)).toHaveTextContent('Packaging & disposables');
+        // still on the record and still filters — it is read in the View panel. The rows can land
+        // before the category tree does, and until then the cell reads the humanised code
+        // ("Packaging disposables"), so the authored name is waited for.
+        await waitFor(() => {
+            expect(screen.getByTestId(`${base}-category`)).toHaveTextContent(
+                'Packaging & disposables',
+            );
+        });
         expect(screen.getByTestId(`${base}-purchase-price`)).toHaveTextContent('12.50');
         // "Live", not "Active": packaging is an ingredient and reads the ingredient vocabulary.
         // `PackagingStatus` turned out to be the same three states under different names, so the

@@ -2926,6 +2926,7 @@
         "columnComposition": "التركيب"
     },
     "editor": {
+        "draftRestoredToast": "عادت تغييراتك غير المحفوظة.",
         "createTitle": "مكوّن جديد",
         "editTitle": "تعديل المكوّن",
         "backToList": "العودة إلى المكوّنات",
@@ -3511,6 +3512,16 @@
         "sheetAllergensDerived": "مسببات الحساسية (مشتقّة)",
         "sheetRestrictedValue": "نعم — ليست للتداول",
         "publishChecksTitle": "فحوص النشر",
+        "versionChip": "{{status}} الإصدار {{number}}",
+        "versionAudienceDraft": "يراه المطبخ فقط",
+        "versionAudienceLive": "على القائمة الآن",
+        "versionAudienceRetired": "سُحب من القائمة",
+        "retireFromMenu": "سحب من القائمة",
+        "kitchenOnly": "للمطبخ فقط",
+        "kitchenOnlyHint": "لا يُشارك أبدًا خارج المطبخ.",
+        "readOnly": "للقراءة فقط",
+        "newDraft": "مسودة جديدة",
+        "referenceSource": "مستورد من {{source}}",
         "checkLanguages": "اللغتان موجودتان",
         "checkLanguagesOk": "اسم الصنف مُدخل بالإنجليزية والعربية",
         "checkLanguagesMissing": "أضِف اسم الصنف بالإنجليزية والعربية معًا",
@@ -5222,5 +5233,32 @@
         "itemsFailedTitle_other": "تعذّر عرض {{count}} صنف",
         "itemFailure": "{{name}}: {{message}}",
         "itemsReadError": "تعذّرت قراءة الأصناف الموجودة على القناة."
+    },
+    "tray": {
+        "title": "للإصلاح",
+        "groupSave": "يمنع الحفظ",
+        "groupPublish": "يمنع النشر",
+        "groupStockGap": "نقص في المخزون",
+        "groupHeadsUp": "راجع قبل النشر",
+        "groupForRecipe": "من أجل الوصفة",
+        "groupCheck": "للمراجعة",
+        "readyToPublish": "جاهز للنشر",
+        "published": "منشور",
+        "fromStockGaps": "من نواقص المخزون",
+        "forRecipe": "من أجل {{name}}",
+        "forYourRecipe": "من أجل وصفتك",
+        "referenceUnconfirmed": "أكّد مطابقة القيم الغذائية للحفظ",
+        "blocksRecipes": "لا يمكن نشر الوصفات التي تستخدمه",
+        "need": {
+            "allergens": "مسببات الحساسية غير مسجلة",
+            "nutrition": "القيم الغذائية غير مؤكدة",
+            "unit": "وزن الوحدة مفقود",
+            "price": "لا يوجد سعر بعد"
+        },
+        "passed": {
+            "allergens": "مسببات الحساسية مسجلة",
+            "nutrition": "القيم الغذائية مؤكدة",
+            "price": "سعر الوحدة مسجل"
+        }
     }
 }
