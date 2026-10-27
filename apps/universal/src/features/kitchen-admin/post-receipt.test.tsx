@@ -312,7 +312,8 @@ describe('post a goods receipt — a market purchase', () => {
             expect(posted).toHaveLength(1);
         });
         expect(posted[0]?.lines[0]).toMatchObject({ stockItemId: QUINOA, quantity: 5, unitId: KG });
-        expect(useRouter().replace).toHaveBeenCalledWith(gapReturn);
+        // `fixed=1`: the gap retries itself on arrival, with nothing left to press.
+        expect(useRouter().replace).toHaveBeenCalledWith(`${gapReturn}&fixed=1`);
     });
 
     it('flags a price ten per cent or more from the last one paid', async () => {

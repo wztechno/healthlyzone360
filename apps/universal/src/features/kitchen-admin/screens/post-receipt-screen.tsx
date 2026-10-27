@@ -40,6 +40,7 @@ import { Platform, View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
+import { pathnameOf, withQuery } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
     useCreateSupplierMutation,
@@ -68,6 +69,7 @@ import {
 import { focusField } from '../field-focus.ts';
 import { displayName } from '../format.ts';
 import { ChoiceTiles } from '../choice-tiles.tsx';
+import { STOCK_GAPS_PATH } from '../consumption-exceptions/stock-gap-fix.ts';
 import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { purchaseOrderStatusKey } from '../ops-format.ts';
@@ -950,9 +952,16 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                         message: t('kitchen:ops.procurement.postedToast', { count: risen }),
                     });
                     // Back to the book, where the receipt now is — or to the stock gap that sent
-                    // the reader, where Retry is what is left. `replace`, so Back does not return
-                    // to a form whose receipt has already been posted.
-                    router.replace((back.returnTo ?? BOOK_ROUTE) as never);
+                    // the reader, with `fixed=1` so the gap retries itself rather than waiting on
+                    // a press. `replace`, so Back does not return to a form whose receipt has
+                    // already been posted.
+                    router.replace(
+                        (back.returnTo === null
+                            ? BOOK_ROUTE
+                            : pathnameOf(back.returnTo) === STOCK_GAPS_PATH
+                              ? withQuery(back.returnTo, { fixed: '1' })
+                              : back.returnTo) as never,
+                    );
                 },
                 // A refused post takes the reader to the first field the server named, as a
                 // blocked one does.
