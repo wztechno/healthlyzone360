@@ -280,8 +280,9 @@ describe('consumption exceptions at desk width', () => {
                 },
             });
             await untilVisible('kitchen-exception-exception-1-order');
-            const counts = (repositories.kitchenOps.countUnresolvedConsumptionExceptions as jest.Mock)
-                .mock.calls.length;
+            const counts = (
+                repositories.kitchenOps.countUnresolvedConsumptionExceptions as jest.Mock
+            ).mock.calls.length;
 
             // Stock arrives on another page and the API closes the first gap; nothing is pressed.
             open = [exception({ id: 'exception-2', orderNumber: '0151' })];
