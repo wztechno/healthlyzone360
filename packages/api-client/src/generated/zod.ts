@@ -838,7 +838,9 @@ export const zRecipeLine = z.object({
     quantity: z.string().nullish(),
     unit_id: zUuid.nullish(),
     source_designation: z.string().max(160).nullish(),
-    comment: z.string().max(255).nullish()
+    comment: z.string().max(255).nullish(),
+    ingredient_name_en: z.string().nullish(),
+    ingredient_name_ar: z.string().nullish()
 });
 
 /**
@@ -1903,6 +1905,38 @@ export const zTechnicalSheet = z.object({
     }),
     computed: zComputedCost.nullable(),
     weekly: zWeeklyCost
+});
+
+/**
+ * A whole version — what `showRecipeVersion` serves.
+ */
+export const zRecipeVersionDetail = z.object({
+    version: zAdminRecipeVersion,
+    lines: z.array(zRecipeLine),
+    packaging: z.array(zRecipePackagingLine),
+    outputs: z.array(zRecipeOutput),
+    steps: z.array(zRecipeStep),
+    allergens: z.array(zRecipeVersionAllergen)
+});
+
+/**
+ * One recipe as a printed sheet needs it: `showRecipe`'s answer, the
+ * current version whole, and the costed sheet — `null` for a caller
+ * without `recipe.view_costs_organisation`.
+ *
+ */
+export const zRecipeTechnicalSheetBundle = z.object({
+    recipe: zAdminRecipe,
+    versions: z.array(zAdminRecipeVersion),
+    current: zRecipeVersionDetail,
+    sheet: zTechnicalSheet.nullable()
+});
+
+export const zRecipeTechnicalSheetBatchEnvelope = z.object({
+    data: z.object({
+        sheets: z.array(zRecipeTechnicalSheetBundle)
+    }),
+    meta: zMeta
 });
 
 /**
@@ -3014,6 +3048,48 @@ export const zPublicDeliveryAreasEnvelope = z.object({
 
 export const zRecordPhotoUploadRequest = z.object({
     photo: z.string()
+});
+
+export const zSpreadsheetImportRequest = z.object({
+    file: z.string()
+});
+
+/**
+ * One reported row. `unchanged` rows are counted, never listed.
+ */
+export const zSpreadsheetImportRow = z.object({
+    row: z.int().gte(2),
+    outcome: z.enum([
+        'created',
+        'updated',
+        'skipped',
+        'failed'
+    ]),
+    reference: z.string().nullable(),
+    message: z.string().nullable()
+});
+
+/**
+ * What an import did. **Always the complete picture**: each row — or, for
+ * recipes, each recipe's group of rows — commits on its own, so a failed
+ * row never undoes an earlier one and nothing here describes work that
+ * was rolled back. Unchanged rows are counted, never listed; every other
+ * outcome has an entry in `rows`.
+ *
+ */
+export const zSpreadsheetImportResult = z.object({
+    created: z.int().gte(0),
+    updated: z.int().gte(0),
+    unchanged: z.int().gte(0),
+    skipped: z.int().gte(0),
+    failed: z.int().gte(0),
+    ignored_columns: z.array(z.string()),
+    rows: z.array(zSpreadsheetImportRow)
+});
+
+export const zSpreadsheetImportEnvelope = z.object({
+    data: zSpreadsheetImportResult,
+    meta: zMeta
 });
 
 export const zRecordPhotoEnvelope = z.object({
@@ -10858,6 +10934,53 @@ export const zCreateIngredientHeaders = z.object({
  */
 export const zCreateIngredientResponse = zIngredientEnvelope;
 
+export const zImportIngredientsBody = zSpreadsheetImportRequest;
+
+export const zImportIngredientsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The import ran. The report is the whole outcome, row by row.
+ */
+export const zImportIngredientsResponse = zSpreadsheetImportEnvelope;
+
+export const zExportIngredientsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zExportIngredientsQuery = z.object({
+    query: z.string().max(160).optional(),
+    status: zIngredientStatus.optional(),
+    category: zUuid.optional(),
+    exclude_category: zUuid.optional(),
+    reference_series: z.enum(['ING-', 'PKG-']).optional()
+});
+
+/**
+ * An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+ * every file download.
+ *
+ */
+export const zExportIngredientsResponse = z.string();
+
+export const zDownloadIngredientImportTemplateHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+ * every file download.
+ *
+ */
+export const zDownloadIngredientImportTemplateResponse = z.string();
+
 export const zSearchAllergenReferencesHeaders = z.object({
     'X-Organisation-Id': zUuid
 });
@@ -11266,6 +11389,77 @@ export const zCreateRecipeResponse = z.object({
     meta: zMeta
 });
 
+export const zImportRecipesBody = zSpreadsheetImportRequest;
+
+export const zImportRecipesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The import ran. The report is the whole outcome, row by row.
+ */
+export const zImportRecipesResponse = zSpreadsheetImportEnvelope;
+
+export const zExportRecipesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zExportRecipesQuery = z.object({
+    query: z.string().max(160).optional(),
+    status: z.enum([
+        'active',
+        'archived',
+        'draft',
+        'review_required',
+        'published',
+        'retired'
+    ]).optional(),
+    stale_only: z.boolean().optional().default(false),
+    kind: zRecipeKind.optional(),
+    selling_status: zCatalogueItemStatus.optional(),
+    category: z.string().max(40).optional(),
+    allergen: z.string().max(20).optional()
+});
+
+/**
+ * An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+ * every file download.
+ *
+ */
+export const zExportRecipesResponse = z.string();
+
+export const zDownloadRecipeImportTemplateHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+ * every file download.
+ *
+ */
+export const zDownloadRecipeImportTemplateResponse = z.string();
+
+export const zListRecipeTechnicalSheetsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListRecipeTechnicalSheetsQuery = z.object({
+    'ids[]': z.array(zUuid).min(1).max(20)
+});
+
+/**
+ * One entry per requested recipe, in request order.
+ */
+export const zListRecipeTechnicalSheetsResponse = zRecipeTechnicalSheetBatchEnvelope;
+
 export const zPreviewRecipeRollupBody = zPreviewRecipeRollupRequest;
 
 export const zPreviewRecipeRollupHeaders = z.object({
@@ -11383,13 +11577,7 @@ export const zShowRecipeVersionPath = z.object({
  * The whole version.
  */
 export const zShowRecipeVersionResponse = z.object({
-    data: z.object({
-        version: zAdminRecipeVersion,
-        lines: z.array(zRecipeLine),
-        outputs: z.array(zRecipeOutput),
-        steps: z.array(zRecipeStep),
-        allergens: z.array(zRecipeVersionAllergen)
-    }),
+    data: zRecipeVersionDetail,
     meta: zMeta
 });
 
@@ -13181,6 +13369,20 @@ export const zListStockLevelsHeaders = z.object({
  */
 export const zListStockLevelsResponse = zStockLevelCollection;
 
+export const zExportStockLevelsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid.optional(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+ * every file download.
+ *
+ */
+export const zExportStockLevelsResponse = z.string();
+
 export const zCountLowStockLevelsHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Branch-Id': zUuid.optional(),
@@ -13251,6 +13453,33 @@ export const zRecordStockCountHeaders = z.object({
  * The count was recorded and the level set to it.
  */
 export const zRecordStockCountResponse = zStockMovementEnvelope;
+
+export const zImportStockCountsBody = zSpreadsheetImportRequest;
+
+export const zImportStockCountsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid.optional(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The import ran. The report is the whole outcome, row by row.
+ */
+export const zImportStockCountsResponse = zSpreadsheetImportEnvelope;
+
+export const zDownloadStockCountImportTemplateHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+ * every file download.
+ *
+ */
+export const zDownloadStockCountImportTemplateResponse = z.string();
 
 export const zListSuppliersHeaders = z.object({
     'X-Organisation-Id': zUuid,

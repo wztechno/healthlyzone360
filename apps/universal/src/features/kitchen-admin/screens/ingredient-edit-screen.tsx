@@ -3340,7 +3340,9 @@ function IngredientEditor({
                                     {t('kitchen:assist.allergensNone')}
                                 </Text>
                             ) : null}
-                            {isCreating && allergenReference === undefined && !aiAllergensConfirmed ? (
+                            {isCreating &&
+                            allergenReference === undefined &&
+                            !aiAllergensConfirmed ? (
                                 <Checkbox
                                     testID="kitchen-ingredient-no-allergens"
                                     label={t('kitchen:allergens.createNone')}

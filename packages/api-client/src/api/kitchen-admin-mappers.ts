@@ -105,7 +105,7 @@ import type {
     PlanVariantCell,
     PriceListChannelAssignment,
     PriceListStatus,
-    RecipeLine as WireRecipeLine,
+    RecipeLine as GeneratedRecipeLine,
     RecipeRollupPreview as WireRecipeRollupPreview,
     RecipeOutput as WireRecipeOutput,
     RecipeStep as WireRecipeStep,
@@ -1024,10 +1024,22 @@ function measureUnitById(id: string | null | undefined, units: UnitCodeLookup): 
     return mapMeasureUnit(id === null || id === undefined ? null : units.get(id));
 }
 
+/**
+ * A recipe line. The technical-sheets batch also names the ingredient, so a printed sheet does not
+ * need a read per line; the single-version read does not, and falls back to the designation.
+ */
+export type WireRecipeLine = GeneratedRecipeLine & {
+    readonly ingredient_name_en?: string | null;
+    readonly ingredient_name_ar?: string | null;
+};
+
 function mapRecipeLine(wire: WireRecipeLine, units: UnitCodeLookup): RecipeLine {
     return {
         ingredientId: IngredientId.unsafe(wire.ingredient_id),
-        ingredientName: localised(wire.source_designation ?? '', undefined),
+        ingredientName: localised(
+            wire.ingredient_name_en ?? wire.source_designation ?? '',
+            wire.ingredient_name_ar ?? undefined,
+        ),
         quantity: parseDecimal(wire.quantity),
         unit: measureUnitById(wire.unit_id, units),
         sourceDesignation: wire.source_designation ?? null,

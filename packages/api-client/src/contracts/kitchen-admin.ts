@@ -425,6 +425,61 @@ export interface SetRecordPhotoRequest {
     readonly fileName: string;
 }
 
+/* ── spreadsheet transfer (Import / Export) ─────────────────────────────────────────────────── */
+
+/** The three Catalogue lists that move records in and out as an Excel workbook. */
+export type TransferResource = 'ingredients' | 'recipes' | 'stock';
+
+/**
+ * A file the API answered with bytes rather than an envelope. `filename` is what the server put in
+ * `Content-Disposition`, or `null` when the browser could not read that header (CORS) — the caller
+ * then falls back to a name of its own.
+ */
+export interface DownloadedFile {
+    readonly blob: Blob;
+    readonly filename: string | null;
+}
+
+/**
+ * A workbook to upload. On the web this is the picked or dropped `File`; on native it is the
+ * `{uri, name, type}` triple React Native's `FormData` accepts in a file's place.
+ */
+export interface ImportUpload {
+    readonly file: Blob | { readonly uri: string; readonly name: string; readonly type: string };
+    readonly fileName: string;
+}
+
+export type ImportRowOutcomeKind = 'created' | 'updated' | 'skipped' | 'failed';
+
+/** One sheet row the import has something to say about. `row` is the sheet's own row number. */
+export interface ImportRowOutcome {
+    readonly row: number;
+    readonly outcome: ImportRowOutcomeKind;
+    readonly reference: string | null;
+    readonly message: string | null;
+}
+
+/**
+ * What an import did. `unchanged` rows are counted but never listed — a re-imported export is
+ * mostly those, and a list of three hundred "nothing to do" lines tells nobody anything.
+ */
+export interface ImportReport {
+    readonly created: number;
+    readonly updated: number;
+    readonly unchanged: number;
+    readonly skipped: number;
+    readonly failed: number;
+    /** Sheet headers the import did not recognise and left alone, verbatim. */
+    readonly ignoredColumns: readonly string[];
+    readonly rows: readonly ImportRowOutcome[];
+}
+
+/** One recipe with its current version and, when this member may see money, its costed sheet. */
+export interface RecipeSheetBundle {
+    readonly recipe: RecipeAdmin;
+    readonly sheet: TechnicalSheetAdmin | null;
+}
+
 export interface IngredientAdmin {
     readonly nutritionSource?: Readonly<Record<string, unknown>> | null;
     /**
@@ -2382,6 +2437,30 @@ export interface KitchenAdminRepository {
 
     /** Remove a record's photo, so it shows its stock picture again. */
     removeRecordPhoto(subject: RecordPhotoSubject, recordId: string): Promise<void>;
+
+    /* ── spreadsheet transfer (Import / Export) ─────────────────────────────────────────────── */
+
+    /**
+     * Upload a workbook and apply it: matched rows update, unmatched rows are created (stock: counts
+     * are recorded against the active branch). Answers the full report; a refused *file* is an
+     * `ApiError` (`validation.failed` on `file`), a refused *row* is a line in the report.
+     */
+    importRecords(resource: TransferResource, upload: ImportUpload): Promise<ImportReport>;
+    /** The ingredient list as a workbook, honouring the same filter `listIngredients` takes. */
+    exportIngredients(filter?: IngredientAdminFilter): Promise<DownloadedFile>;
+    /** The recipe list as a workbook — one row per ingredient line — honouring `listRecipes`' filter. */
+    exportRecipes(filter?: RecipeAdminFilter): Promise<DownloadedFile>;
+    /** The active branch's stock book as a count sheet (`X-Branch-Id` picks the branch). */
+    exportStock(): Promise<DownloadedFile>;
+    /** An empty workbook with the headers the import expects and one example row. */
+    downloadImportTemplate(resource: TransferResource): Promise<DownloadedFile>;
+    /**
+     * CONFIDENTIAL — up to twenty recipes with their current version and costed sheet, in one
+     * read, for printing. `sheet` is `null` for a member without `recipe.view_costs_organisation`.
+     */
+    listRecipeTechnicalSheets(
+        recipeIds: readonly RecipeId[],
+    ): Promise<readonly RecipeSheetBundle[]>;
 
     /* ── ingredients ────────────────────────────────────────────────────────────────────────── */
 

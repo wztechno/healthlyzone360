@@ -1453,6 +1453,50 @@ describe('the recipe list', () => {
  * The list at desk width
  * ---------------------------------------------------------------------------------------------- */
 
+describe('the recipe list — technical sheets', () => {
+    const TOOLBAR = 'kitchen-recipes-toolbar';
+
+    async function pressSheets(book: readonly RecipeAdmin[]) {
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { listRecipes: recipeListing(() => book) } },
+        });
+        await untilVisible('kitchen-recipes-table');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${TOOLBAR}-export`));
+        });
+        await untilVisible(`${TOOLBAR}-export-pdf-sheets`);
+        // Disabled until the whole filtered set — every page, not this one — has landed.
+        await waitFor(() => {
+            expect(screen.getByTestId(`${TOOLBAR}-export-pdf-sheets`)).not.toBeDisabled();
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${TOOLBAR}-export-pdf-sheets`));
+        });
+    }
+
+    it('opens one sheet per recipe the list holds, in the order it shows them', async () => {
+        // Authored out of order; the book sorts by reference, digits as numbers.
+        await pressSheets([3, 1, 2].map((ordinal) => recipe({ ordinal })));
+
+        const ids = [1, 2, 3].map((ordinal) => String(recipeIdentifier(ordinal)));
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            `/kitchen/recipes/sheets?recipes=${ids.join(',')}`,
+        );
+    });
+
+    it('refuses a batch over the server’s cap with a toast, and navigates nowhere', async () => {
+        await pressSheets(Array.from({ length: 21 }, (_, index) => recipe({ ordinal: index + 1 })));
+
+        await untilVisible('kitchen-recipes-sheets-too-many-toast');
+        expect(screen.getByTestId('kitchen-recipes-sheets-too-many-toast')).toHaveTextContent(
+            /up to 20 recipes at a time; this list has 21/,
+        );
+        expect(routerMock.__push).not.toHaveBeenCalled();
+    });
+});
+
 /**
  * `/kitchen/recipes` is a desk surface, and above `md` the Catalogue draws a record as tracks
  * rather than as the two-line row the rest of this file renders (§4.1). The two are different

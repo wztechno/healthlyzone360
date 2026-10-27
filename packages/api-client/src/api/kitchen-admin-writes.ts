@@ -32,6 +32,9 @@ import type {
     DeliveryZoneAdmin,
     IngredientAdmin,
     IngredientAllergenMapping,
+    ImportReport,
+    ImportRowOutcomeKind,
+    ImportUpload,
     KitchenAdminRepository,
     AllergenReferenceSearchResult,
     NutritionReferenceCandidate,
@@ -65,6 +68,7 @@ import type {
     SetRecipeStepsRequest,
     SetZoneAreasRequest,
     SetZoneWindowsRequest,
+    TransferResource,
     UpdateDeliveryWindowRequest,
     UpdateDeliveryZoneRequest,
     UpdateIngredientRequest,
@@ -118,6 +122,7 @@ export type ApiKitchenAdminWrites = Pick<
     | 'createIngredient'
     | 'updateIngredient'
     | 'setRecordPhoto'
+    | 'importRecords'
     | 'removeRecordPhoto'
     | 'archiveIngredient'
     | 'forkIngredient'
@@ -413,6 +418,29 @@ const PHOTO_PATHS: Readonly<Record<RecordPhotoSubject, string>> = {
     recipe: '/catalogue/recipes',
     catalogue_item: '/catalogue/items',
 };
+
+/** Where each resource's workbook is uploaded. */
+const IMPORT_PATHS: Readonly<Record<TransferResource, string>> = {
+    ingredients: '/catalogue/ingredients/imports',
+    recipes: '/catalogue/recipes/imports',
+    stock: '/catalogue/inventory/counts/imports',
+};
+
+/** An import's report as the server answers it. */
+interface WireImportReport {
+    readonly created: number;
+    readonly updated: number;
+    readonly unchanged: number;
+    readonly skipped: number;
+    readonly failed: number;
+    readonly ignored_columns?: readonly string[] | null;
+    readonly rows: ReadonlyArray<{
+        readonly row: number;
+        readonly outcome: ImportRowOutcomeKind;
+        readonly reference?: string | null;
+        readonly message?: string | null;
+    }>;
+}
 
 export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdminWrites {
     const reads = createApiKitchenAdminReads(transport);
@@ -809,6 +837,35 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 body: new MultipartBody(form),
             });
             return wire.photo.url;
+        },
+
+        async importRecords(
+            resource: TransferResource,
+            upload: ImportUpload,
+        ): Promise<ImportReport> {
+            const form = new FormData();
+            // The cast covers React Native's `{uri, name, type}` triple, which its `FormData`
+            // accepts in a `Blob`'s place.
+            form.append('file', upload.file as Blob, upload.fileName);
+            const wire = await transport.request<WireImportReport>({
+                method: 'POST',
+                path: IMPORT_PATHS[resource],
+                body: new MultipartBody(form),
+            });
+            return {
+                created: wire.created,
+                updated: wire.updated,
+                unchanged: wire.unchanged,
+                skipped: wire.skipped,
+                failed: wire.failed,
+                ignoredColumns: wire.ignored_columns ?? [],
+                rows: wire.rows.map((row) => ({
+                    row: row.row,
+                    outcome: row.outcome,
+                    reference: row.reference ?? null,
+                    message: row.message ?? null,
+                })),
+            };
         },
 
         async removeRecordPhoto(subject: RecordPhotoSubject, recordId: string): Promise<void> {

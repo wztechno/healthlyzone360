@@ -1490,6 +1490,17 @@ export type RecipeLine = {
      */
     source_designation?: string | null;
     comment?: string | null;
+    /**
+     * The ingredient's English name. Only `listRecipeTechnicalSheets`
+     * fills it, so a printed sheet needs no lookup per line; every other
+     * read leaves it out.
+     *
+     */
+    ingredient_name_en?: string | null;
+    /**
+     * The ingredient's Arabic name, on the same terms as `ingredient_name_en`.
+     */
+    ingredient_name_ar?: string | null;
 };
 
 /**
@@ -1758,6 +1769,38 @@ export type TechnicalSheet = {
      */
     computed: ComputedCost | null;
     weekly: WeeklyCost;
+};
+
+/**
+ * A whole version — what `showRecipeVersion` serves.
+ */
+export type RecipeVersionDetail = {
+    version: AdminRecipeVersion;
+    lines: Array<RecipeLine>;
+    packaging: Array<RecipePackagingLine>;
+    outputs: Array<RecipeOutput>;
+    steps: Array<RecipeStep>;
+    allergens: Array<RecipeVersionAllergen>;
+};
+
+/**
+ * One recipe as a printed sheet needs it: `showRecipe`'s answer, the
+ * current version whole, and the costed sheet — `null` for a caller
+ * without `recipe.view_costs_organisation`.
+ *
+ */
+export type RecipeTechnicalSheetBundle = {
+    recipe: AdminRecipe;
+    versions: Array<AdminRecipeVersion>;
+    current: RecipeVersionDetail;
+    sheet: TechnicalSheet | null;
+};
+
+export type RecipeTechnicalSheetBatchEnvelope = {
+    data: {
+        sheets: Array<RecipeTechnicalSheetBundle>;
+    };
+    meta: Meta;
 };
 
 /**
@@ -4592,6 +4635,58 @@ export type RecordPhotoUploadRequest = {
      * A JPEG, PNG or WebP of at most 5 MB.
      */
     photo: Blob | File;
+};
+
+export type SpreadsheetImportRequest = {
+    /**
+     * One `.xlsx` of at most 5 MB.
+     */
+    file: Blob | File;
+};
+
+/**
+ * One reported row. `unchanged` rows are counted, never listed.
+ */
+export type SpreadsheetImportRow = {
+    /**
+     * The worksheet row number. The header is row 1.
+     */
+    row: number;
+    outcome: 'created' | 'updated' | 'skipped' | 'failed';
+    /**
+     * The row's own handle, when it had one to read.
+     */
+    reference: string | null;
+    /**
+     * Why a row was skipped or failed, translated. Null on a write.
+     */
+    message: string | null;
+};
+
+/**
+ * What an import did. **Always the complete picture**: each row — or, for
+ * recipes, each recipe's group of rows — commits on its own, so a failed
+ * row never undoes an earlier one and nothing here describes work that
+ * was rolled back. Unchanged rows are counted, never listed; every other
+ * outcome has an entry in `rows`.
+ *
+ */
+export type SpreadsheetImportResult = {
+    created: number;
+    updated: number;
+    unchanged: number;
+    skipped: number;
+    failed: number;
+    /**
+     * Header cells the importer did not recognise, verbatim.
+     */
+    ignored_columns: Array<string>;
+    rows: Array<SpreadsheetImportRow>;
+};
+
+export type SpreadsheetImportEnvelope = {
+    data: SpreadsheetImportResult;
+    meta: Meta;
 };
 
 export type RecordPhotoEnvelope = {
@@ -16656,6 +16751,214 @@ export type CreateIngredientResponses = {
 
 export type CreateIngredientResponse = CreateIngredientResponses[keyof CreateIngredientResponses];
 
+export type ImportIngredientsData = {
+    body: SpreadsheetImportRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/ingredients/imports';
+};
+
+export type ImportIngredientsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ImportIngredientsError = ImportIngredientsErrors[keyof ImportIngredientsErrors];
+
+export type ImportIngredientsResponses = {
+    /**
+     * The import ran. The report is the whole outcome, row by row.
+     */
+    200: SpreadsheetImportEnvelope;
+};
+
+export type ImportIngredientsResponse = ImportIngredientsResponses[keyof ImportIngredientsResponses];
+
+export type ExportIngredientsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * As on `listIngredients`.
+         */
+        query?: string;
+        /**
+         * As on `listIngredients`.
+         */
+        status?: IngredientStatus;
+        /**
+         * As on `listIngredients`.
+         */
+        category?: Uuid;
+        /**
+         * As on `listIngredients`.
+         */
+        exclude_category?: Uuid;
+        /**
+         * As on `listIngredients`.
+         */
+        reference_series?: 'ING-' | 'PKG-';
+    };
+    url: '/catalogue/ingredients/export';
+};
+
+export type ExportIngredientsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ExportIngredientsError = ExportIngredientsErrors[keyof ExportIngredientsErrors];
+
+export type ExportIngredientsResponses = {
+    /**
+     * An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+     * every file download.
+     *
+     */
+    200: Blob | File;
+};
+
+export type ExportIngredientsResponse = ExportIngredientsResponses[keyof ExportIngredientsResponses];
+
+export type DownloadIngredientImportTemplateData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/ingredients/import-template';
+};
+
+export type DownloadIngredientImportTemplateErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type DownloadIngredientImportTemplateError = DownloadIngredientImportTemplateErrors[keyof DownloadIngredientImportTemplateErrors];
+
+export type DownloadIngredientImportTemplateResponses = {
+    /**
+     * An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+     * every file download.
+     *
+     */
+    200: Blob | File;
+};
+
+export type DownloadIngredientImportTemplateResponse = DownloadIngredientImportTemplateResponses[keyof DownloadIngredientImportTemplateResponses];
+
 export type SearchAllergenReferencesData = {
     body?: never;
     headers: {
@@ -18324,6 +18627,295 @@ export type CreateRecipeResponses = {
 
 export type CreateRecipeResponse = CreateRecipeResponses[keyof CreateRecipeResponses];
 
+export type ImportRecipesData = {
+    body: SpreadsheetImportRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/recipes/imports';
+};
+
+export type ImportRecipesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ImportRecipesError = ImportRecipesErrors[keyof ImportRecipesErrors];
+
+export type ImportRecipesResponses = {
+    /**
+     * The import ran. The report is the whole outcome, row by row.
+     */
+    200: SpreadsheetImportEnvelope;
+};
+
+export type ImportRecipesResponse = ImportRecipesResponses[keyof ImportRecipesResponses];
+
+export type ExportRecipesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * As on `listRecipes`.
+         */
+        query?: string;
+        /**
+         * As on `listRecipes`.
+         */
+        status?: 'active' | 'archived' | 'draft' | 'review_required' | 'published' | 'retired';
+        /**
+         * As on `listRecipes`.
+         */
+        stale_only?: boolean;
+        /**
+         * As on `listRecipes`.
+         */
+        kind?: RecipeKind;
+        /**
+         * As on `listRecipes`.
+         */
+        selling_status?: CatalogueItemStatus;
+        /**
+         * As on `listRecipes`.
+         */
+        category?: string;
+        /**
+         * As on `listRecipes`.
+         */
+        allergen?: string;
+    };
+    url: '/catalogue/recipes/export';
+};
+
+export type ExportRecipesErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ExportRecipesError = ExportRecipesErrors[keyof ExportRecipesErrors];
+
+export type ExportRecipesResponses = {
+    /**
+     * An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+     * every file download.
+     *
+     */
+    200: Blob | File;
+};
+
+export type ExportRecipesResponse = ExportRecipesResponses[keyof ExportRecipesResponses];
+
+export type DownloadRecipeImportTemplateData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/recipes/import-template';
+};
+
+export type DownloadRecipeImportTemplateErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type DownloadRecipeImportTemplateError = DownloadRecipeImportTemplateErrors[keyof DownloadRecipeImportTemplateErrors];
+
+export type DownloadRecipeImportTemplateResponses = {
+    /**
+     * An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+     * every file download.
+     *
+     */
+    200: Blob | File;
+};
+
+export type DownloadRecipeImportTemplateResponse = DownloadRecipeImportTemplateResponses[keyof DownloadRecipeImportTemplateResponses];
+
+export type ListRecipeTechnicalSheetsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The recipes, one to twenty. **Repeat the bracketed name** —
+         * `?ids[]=…&ids[]=…` — for the reason `status[]` on the order queue
+         * gives: PHP keeps only the last of a repeated bare name.
+         *
+         */
+        'ids[]': Array<Uuid>;
+    };
+    url: '/catalogue/recipes/technical-sheets';
+};
+
+export type ListRecipeTechnicalSheetsErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListRecipeTechnicalSheetsError = ListRecipeTechnicalSheetsErrors[keyof ListRecipeTechnicalSheetsErrors];
+
+export type ListRecipeTechnicalSheetsResponses = {
+    /**
+     * One entry per requested recipe, in request order.
+     */
+    200: RecipeTechnicalSheetBatchEnvelope;
+};
+
+export type ListRecipeTechnicalSheetsResponse = ListRecipeTechnicalSheetsResponses[keyof ListRecipeTechnicalSheetsResponses];
+
 export type PreviewRecipeRollupData = {
     body: PreviewRecipeRollupRequest;
     headers: {
@@ -18839,13 +19431,7 @@ export type ShowRecipeVersionResponses = {
      * The whole version.
      */
     200: {
-        data: {
-            version: AdminRecipeVersion;
-            lines: Array<RecipeLine>;
-            outputs: Array<RecipeOutput>;
-            steps: Array<RecipeStep>;
-            allergens: Array<RecipeVersionAllergen>;
-        };
+        data: RecipeVersionDetail;
         meta: Meta;
     };
 };
@@ -26410,6 +26996,79 @@ export type ListStockLevelsResponses = {
 
 export type ListStockLevelsResponse = ListStockLevelsResponses[keyof ListStockLevelsResponses];
 
+export type ExportStockLevelsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The active branch. Validated against the membership scope: a
+         * branch-scoped membership may only work inside its own branch.
+         *
+         */
+        'X-Branch-Id'?: Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/inventory/levels/export';
+};
+
+export type ExportStockLevelsErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ExportStockLevelsError = ExportStockLevelsErrors[keyof ExportStockLevelsErrors];
+
+export type ExportStockLevelsResponses = {
+    /**
+     * An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+     * every file download.
+     *
+     */
+    200: Blob | File;
+};
+
+export type ExportStockLevelsResponse = ExportStockLevelsResponses[keyof ExportStockLevelsResponses];
+
 export type CountLowStockLevelsData = {
     body?: never;
     headers: {
@@ -26771,6 +27430,138 @@ export type RecordStockCountResponses = {
 };
 
 export type RecordStockCountResponse = RecordStockCountResponses[keyof RecordStockCountResponses];
+
+export type ImportStockCountsData = {
+    body: SpreadsheetImportRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The active branch. Validated against the membership scope: a
+         * branch-scoped membership may only work inside its own branch.
+         *
+         */
+        'X-Branch-Id'?: Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/inventory/counts/imports';
+};
+
+export type ImportStockCountsErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ImportStockCountsError = ImportStockCountsErrors[keyof ImportStockCountsErrors];
+
+export type ImportStockCountsResponses = {
+    /**
+     * The import ran. The report is the whole outcome, row by row.
+     */
+    200: SpreadsheetImportEnvelope;
+};
+
+export type ImportStockCountsResponse = ImportStockCountsResponses[keyof ImportStockCountsResponses];
+
+export type DownloadStockCountImportTemplateData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/inventory/counts/import-template';
+};
+
+export type DownloadStockCountImportTemplateErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type DownloadStockCountImportTemplateError = DownloadStockCountImportTemplateErrors[keyof DownloadStockCountImportTemplateErrors];
+
+export type DownloadStockCountImportTemplateResponses = {
+    /**
+     * An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+     * every file download.
+     *
+     */
+    200: Blob | File;
+};
+
+export type DownloadStockCountImportTemplateResponse = DownloadStockCountImportTemplateResponses[keyof DownloadStockCountImportTemplateResponses];
 
 export type ListSuppliersData = {
     body?: never;
@@ -31140,9 +31931,8 @@ export type ListOrderDeskQueueData = {
          * for an unbracketed name arrives at the controller as the single
          * string `confirmed`, fails its `array` rule and earns a 422 on every
          * multi-status request. The name carries the brackets so that the
-         * document describes what the endpoint actually accepts; this is the
-         * only array-valued query parameter in the specification, so there is
-         * no sibling convention it diverges from.
+         * document describes what the endpoint actually accepts; `ids[]` on
+         * `listRecipeTechnicalSheets` follows the same form.
          *
          */
         'status[]'?: Array<'placed' | 'confirmed'>;

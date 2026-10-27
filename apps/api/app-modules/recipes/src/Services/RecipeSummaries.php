@@ -6,7 +6,6 @@ namespace Healthy360\Recipes\Services;
 
 use Healthy360\Recipes\Contracts\RecipeUsageRegistry;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
-use Healthy360\Recipes\Http\Controllers\RecipeIndexController;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionAllergen;
@@ -52,7 +51,7 @@ final readonly class RecipeSummaries
      * two of them disagreed, a row could be hidden by a filter its own visible cell said it matched.
      *
      * Written unqualified so a caller can prefix the columns for its own alias — see the
-     * `str_replace` call sites in {@see RecipeIndexController}, each of which needs a different one.
+     * `str_replace` call sites in {@see RecipeListQuery}, each of which needs a different one.
      */
     public const string CURRENT_VERSION_ORDER = 'case status when ? then 2 when ? then 2 when ? then 1 else 0 end desc, version_number desc';
 
@@ -169,7 +168,7 @@ final readonly class RecipeSummaries
      * @param  list<string>  $recipeIds
      * @return array<string, RecipeVersion>
      */
-    private function currentVersions(array $recipeIds): array
+    public function currentVersions(array $recipeIds): array
     {
         if ($recipeIds === []) {
             return [];

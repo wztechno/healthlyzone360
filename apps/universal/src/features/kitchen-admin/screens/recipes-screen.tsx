@@ -23,6 +23,7 @@ import { MealId } from '@healthy360/domain-types';
 import type { AllergenCode, KitchenId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
+import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
@@ -55,6 +56,8 @@ import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField, RecordViewSection } from '../catalogue/record-view-page.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
+import { RECIPE_IMPORT_GUIDE } from '../catalogue/import-guides.ts';
+import { TECHNICAL_SHEETS_MAX, listPrintJob, useListPrint } from '../catalogue/list-print.ts';
 import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
 import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
@@ -204,6 +207,8 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
     const canManageCatalogue = useCan(CATALOGUE_MANAGE_PERMISSION);
     const canWithdraw = useCan(CATALOGUE_PUBLISH_PERMISSION);
     const list = useRecipeList(view);
+    const print = useListPrint();
+    const router = useRouter();
     const kindCounts = useRecipeKindCountsQuery(list.sells);
     /*
      * Table or cards — two drawings of the same `list.rows`. Screen state rather than list state:
@@ -289,6 +294,24 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
     );
 
     const segments = statusSegments(list.statuses, list.setStatuses, t);
+
+    // One sheet per recipe the filters match, in the list's order — capped where the server is.
+    const openTechnicalSheets = () => {
+        const count = list.everyRow.length;
+        if (count > TECHNICAL_SHEETS_MAX) {
+            toast.show({
+                testID: 'kitchen-recipes-sheets-too-many-toast',
+                tone: 'warning',
+                message: t('kitchen:transfer.export.sheetsTooMany', {
+                    max: TECHNICAL_SHEETS_MAX,
+                    count,
+                }),
+            });
+            return;
+        }
+        const ids = list.everyRow.map((row) => String(row.id));
+        router.push(`/kitchen/recipes/sheets?recipes=${ids.join(',')}` as never);
+    };
 
     /*
      * What this reader may start from here. A cooked kind writes a catalogue item beside the
@@ -421,7 +444,45 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                     {layout === 'table' ? <ColumnPicker {...controls.picker} /> : null}
                     {canManage ? (
                         <Inline space="xs" align="center">
-                            <CatalogueTransferActions testID="kitchen-recipes-toolbar" />
+                            <CatalogueTransferActions
+                                testID="kitchen-recipes-toolbar"
+                                importGuide={RECIPE_IMPORT_GUIDE}
+                                exportMenu={{
+                                    excel: {
+                                        load: (repositories) =>
+                                            repositories.kitchenAdmin.exportRecipes(list.filter),
+                                        fallbackName: 'recipes.xlsx',
+                                    },
+                                    pdf: [
+                                        {
+                                            key: 'pdf-table',
+                                            label: t('kitchen:transfer.export.pdfTable'),
+                                            disabled: list.countsPending,
+                                            // `everyRow` is already in the list's sort. The
+                                            // reader's columns hold under the cards layout too.
+                                            onSelect: () => {
+                                                print.start(
+                                                    listPrintJob({
+                                                        resource: 'recipes',
+                                                        title: t(
+                                                            'kitchen:transfer.recipes.printTitle',
+                                                        ),
+                                                        columns: controls.columns,
+                                                        rows: list.everyRow,
+                                                    }),
+                                                );
+                                            },
+                                        },
+                                        {
+                                            key: 'pdf-sheets',
+                                            label: t('kitchen:transfer.export.pdfSheets'),
+                                            disabled:
+                                                list.countsPending || list.everyRow.length === 0,
+                                            onSelect: openTechnicalSheets,
+                                        },
+                                    ],
+                                }}
+                            />
                             <RecipeCreateControl
                                 kind={list.kind}
                                 mayCreate={mayCreate}

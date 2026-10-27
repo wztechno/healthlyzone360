@@ -3,6 +3,10 @@
 declare(strict_types=1);
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use OpenSpout\Common\Entity\Row;
+use OpenSpout\Reader\XLSX\Reader as XlsxReader;
+use OpenSpout\Writer\XLSX\Writer as XlsxWriter;
 use Tests\TestCase;
 
 /*
@@ -54,4 +58,59 @@ function firstPartyHeaders(): array
 function forgetResolvedGuards(): void
 {
     app('auth')->forgetGuards();
+}
+
+/**
+ * An uploaded .xlsx holding `$rows` on its first sheet (first row = headers),
+ * as a browser would send it. Values are written as given: a number stays a
+ * number cell, a string a text cell (a leading `=` becomes a formula, as
+ * openspout decides — the tests never need one).
+ *
+ * @param  list<list<string|int|float|bool|null>>  $rows
+ */
+function xlsxUpload(array $rows, string $name = 'sheet.xlsx'): UploadedFile
+{
+    $path = (string) tempnam(sys_get_temp_dir(), 'h360-test-xlsx-');
+
+    $writer = new XlsxWriter;
+    $writer->openToFile($path);
+
+    foreach ($rows as $row) {
+        $writer->addRow(Row::fromValues($row));
+    }
+
+    $writer->close();
+
+    return new UploadedFile($path, $name, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+}
+
+/**
+ * The first sheet of an .xlsx on disk, every cell as a string (or null when
+ * empty), for asserting what an export produced.
+ *
+ * @return list<list<string|null>>
+ */
+function readXlsx(string $path): array
+{
+    $reader = new XlsxReader;
+    $reader->open($path);
+
+    $rows = [];
+
+    try {
+        foreach ($reader->getSheetIterator() as $sheet) {
+            foreach ($sheet->getRowIterator() as $row) {
+                $rows[] = array_values(array_map(
+                    static fn (mixed $value): ?string => $value === null || $value === '' || ! is_scalar($value) ? null : (string) $value,
+                    $row->toArray(),
+                ));
+            }
+
+            break;
+        }
+    } finally {
+        $reader->close();
+    }
+
+    return $rows;
 }

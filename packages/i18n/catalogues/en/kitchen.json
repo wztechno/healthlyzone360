@@ -4522,6 +4522,139 @@
         "savedBack": "Saved. Back to your recipe.",
         "savedBackNamed": "Saved. Back to {{name}}."
     },
+    "transfer": {
+        "ingredients": {
+            "importTitle": "Import ingredients",
+            "printTitle": "Ingredients"
+        },
+        "recipes": {
+            "importTitle": "Import recipes",
+            "printTitle": "Recipes"
+        },
+        "stock": {
+            "importTitle": "Import a stock count",
+            "printTitle": "Stock",
+            "branchRequiredTitle": "Choose a branch first",
+            "branchRequiredBody": "A count sheet sets one branch’s shelves. Pick a branch in the workspace picker, then import it."
+        },
+        "import": {
+            "description": "Upload an Excel workbook laid out like the template.",
+            "action": "Import file",
+            "done": "Done"
+        },
+        "dropZone": {
+            "title": "Drop an .xlsx file here",
+            "choose": "or press to choose a file",
+            "label": "Choose an Excel file to import",
+            "limits": "Excel (.xlsx) only, up to {{size}}.",
+            "replace": "Choose another file"
+        },
+        "guide": {
+            "heading": "What the sheet needs",
+            "columnsCaption": "Columns, in this order",
+            "required": "Required",
+            "acceptedValues": "Accepted: {{values}}",
+            "matchRule": "A row whose Reference or exact Name matches an existing record updates it; every other row is created. Blank cells leave the stored value unchanged.",
+            "matchRuleRecipes": "Rows that share a Reference or Recipe name form one recipe, one row per ingredient line. A matched recipe is updated — the sheet is its whole formulation — and a new name is created as a draft. Blank cells leave the stored value unchanged.",
+            "matchRuleStock": "Each row is matched to a shelf by its Code. Blank cells leave that value unchanged; rows with an unknown Code are skipped.",
+            "rowCap": "Up to {{count}} rows per file.",
+            "downloadTemplate": "Download template",
+            "templateHint": "The template carries the headers and one example row, which the import skips."
+        },
+        "columns": {
+            "ingredients": {
+                "reference": "ING-012 or PKG-004. Leave blank to create a new ingredient.",
+                "nameEn": "The English name.",
+                "nameAr": "The Arabic name.",
+                "category": "A category code; a packaging code files the row as packaging.",
+                "unit": "The unit it is stocked and used in.",
+                "purchaseUnit": "The pack it is bought in.",
+                "itemsPerUnit": "How many pieces one purchase pack holds.",
+                "gramsPerUnit": "The mass of one unit, in grams.",
+                "yieldFactor": "Usable share after trimming, 1 = all of it.",
+                "unitPrice": "Price per unit.",
+                "b2bPrice": "Price per unit for business customers.",
+                "b2cPrice": "Price per unit for consumers.",
+                "priceCurrency": "Required when any price is given.",
+                "purchasePrice": "What one purchase pack costs.",
+                "purchaseCurrency": "Required when a purchase price is given.",
+                "wastePercent": "Waste on purchase, as a percentage below 100.",
+                "capacity": "What one pack contains, with its unit in the next column.",
+                "capacityUnit": "The unit the capacity is measured in.",
+                "availability": "How readily it can be sourced.",
+                "sellable": "Whether it can be sold as it is.",
+                "composition": "What it is made of, as the label states it.",
+                "notes": "Free text."
+            },
+            "recipes": {
+                "reference": "RC-004. Leave blank to create a new recipe.",
+                "nameEn": "The English name; rows with the same name form one recipe.",
+                "nameAr": "The Arabic name.",
+                "category": "Free text, such as sauce or dressing.",
+                "yieldQuantity": "How much one batch makes.",
+                "yieldUnit": "The unit the yield is measured in.",
+                "yieldPieces": "How many pieces one batch makes.",
+                "shelfLifeDays": "Days from production to expiry.",
+                "notes": "Free text.",
+                "ingredientRef": "The ingredient’s reference, such as ING-012. Identifies the line exactly.",
+                "ingredient": "The ingredient’s name, used only when the reference is blank.",
+                "quantity": "How much of it one batch takes.",
+                "unit": "The unit the quantity is measured in.",
+                "comment": "A note on the line."
+            },
+            "stock": {
+                "code": "The shelf’s code, as the export writes it.",
+                "item": "For reading only; the import ignores it.",
+                "countedQuantity": "What is on the shelf now. Blank leaves the level alone.",
+                "reorderThreshold": "Below this the shelf counts as low.",
+                "parLevel": "What the shelf should be restocked to."
+            }
+        },
+        "result": {
+            "title": "Import finished",
+            "created": "Created",
+            "updated": "Updated",
+            "unchanged": "Unchanged",
+            "skipped": "Skipped",
+            "failed": "Failed",
+            "issuesHeading": "Rows that were not imported",
+            "row": "Row {{row}}",
+            "noIssues": "Every row was imported.",
+            "truncated": "Showing the first {{shown}} of {{total}} rows.",
+            "ignoredColumns": "Ignored columns: {{columns}}"
+        },
+        "error": {
+            "wrongType": "That file is not an Excel workbook. Choose a .xlsx file.",
+            "tooLarge": "That file is larger than {{size}}. Split it into smaller sheets.",
+            "unreadable": "That file could not be read. Try choosing it again.",
+            "rejectedTitle": "The file was not accepted",
+            "throttled": "Too many imports in a short time. Try again in {{minutes}} min.",
+            "failed": "The import could not be completed. Try again."
+        },
+        "export": {
+            "menuLabel": "Export options",
+            "excel": "Excel (.xlsx)",
+            "pdf": "PDF",
+            "pdfTable": "PDF — table",
+            "pdfSheets": "PDF — technical sheets",
+            "failed": "The export could not be downloaded. Try again.",
+            "templateFailed": "The template could not be downloaded.",
+            "sheetsTooMany": "Technical sheets print up to {{max}} recipes at a time; this list has {{count}}. Narrow the filters first."
+        },
+        "print": {
+            "action": "Print or save as PDF",
+            "rowCount": "Rows: {{count}}",
+            "printed": "Printed {{date}}",
+            "nativeUnavailable": "Printing and saving a PDF are available in the web app.",
+            "expiredTitle": "Nothing to print",
+            "expiredBody": "This preview is made from the list you were looking at. Go back and choose Export → PDF again."
+        },
+        "sheets": {
+            "title": "Technical sheets",
+            "truncated": "Only the first {{max}} recipes are printed.",
+            "missing": "Not loaded: {{names}}"
+        }
+    },
     "wholesale": {
         "subtitle": "The platform picks one of these agreement price lists when it drafts a business customer’s agreement, and each list prices exactly one company.",
         "loadErrorTitle": "The wholesale setup could not be read",

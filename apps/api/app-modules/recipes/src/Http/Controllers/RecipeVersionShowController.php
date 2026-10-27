@@ -4,13 +4,8 @@ declare(strict_types=1);
 
 namespace Healthy360\Recipes\Http\Controllers;
 
-use Healthy360\Recipes\Models\RecipeVersionAllergen;
-use Healthy360\Recipes\Models\RecipeVersionLine;
-use Healthy360\Recipes\Models\RecipeVersionOutput;
-use Healthy360\Recipes\Models\RecipeVersionPackaging;
-use Healthy360\Recipes\Models\RecipeVersionStep;
-use Healthy360\Recipes\Presenters\RecipeVersionPresenter;
 use Healthy360\Recipes\Services\RecipeLocator;
+use Healthy360\Recipes\Services\RecipeVersionReads;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
@@ -34,7 +29,7 @@ final class RecipeVersionShowController
 {
     public function __construct(
         private readonly RecipeLocator $locator,
-        private readonly RecipeVersionPresenter $presenter,
+        private readonly RecipeVersionReads $reads,
     ) {}
 
     /**
@@ -44,19 +39,6 @@ final class RecipeVersionShowController
     {
         $record = $this->locator->version($this->locator->recipe($recipe), $version);
 
-        $lines = RecipeVersionLine::query()->where('recipe_version_id', $record->getKey())->orderBy('line_number')->get();
-        $outputs = RecipeVersionOutput::query()->where('recipe_version_id', $record->getKey())->orderByDesc('is_primary')->orderBy('id')->get();
-        $steps = RecipeVersionStep::query()->where('recipe_version_id', $record->getKey())->orderBy('step_number')->get();
-        $packaging = RecipeVersionPackaging::query()->where('recipe_version_id', $record->getKey())->orderBy('line_number')->get();
-        $allergens = RecipeVersionAllergen::query()->where('recipe_version_id', $record->getKey())->orderBy('allergen_code')->get();
-
-        return ApiResponse::data([
-            'version' => $this->presenter->version($record),
-            'lines' => $lines->map(fn (RecipeVersionLine $line): array => $this->presenter->line($line))->all(),
-            'packaging' => $packaging->map(fn (RecipeVersionPackaging $row): array => $this->presenter->packaging($row))->all(),
-            'outputs' => $outputs->map(fn (RecipeVersionOutput $output): array => $this->presenter->output($output))->all(),
-            'steps' => $steps->map(fn (RecipeVersionStep $step): array => $this->presenter->step($step))->all(),
-            'allergens' => $allergens->map(fn (RecipeVersionAllergen $row): array => $this->presenter->allergen($row))->all(),
-        ])->withHeaders(['ETag' => '"'.$record->lock_version.'"']);
+        return ApiResponse::data($this->reads->show($record))->withHeaders(['ETag' => '"'.$record->lock_version.'"']);
     }
 }

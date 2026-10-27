@@ -2,6 +2,7 @@ import type {
     AllergenClass,
     ApiFailure,
     PublishableStatus,
+    RecipeAdminFilter,
     RecipeAdminSummary,
     RecipeKind,
     RecipeSoldAs,
@@ -97,6 +98,46 @@ import { useViewedRecord } from '../use-viewed-record.ts';
 export type RecipeSortKey = 'reference' | 'name' | 'kitchen' | 'version' | 'status' | 'updatedAt';
 export type RecipeSortDirection = 'asc' | 'desc';
 
+/** The list's order — one comparator for the page and for the whole set Export prints. */
+function sortRecipes(
+    rows: readonly RecipeAdminSummary[],
+    sortKey: RecipeSortKey,
+    sortDirection: RecipeSortDirection,
+    locale: string,
+): readonly RecipeAdminSummary[] {
+    const factor = sortDirection === 'asc' ? 1 : -1;
+    return [...rows].sort((left, right) => {
+        if (sortKey === 'reference') {
+            return (
+                factor *
+                recipeHandle(left).localeCompare(recipeHandle(right), undefined, {
+                    numeric: true,
+                })
+            );
+        }
+        if (sortKey === 'kitchen') {
+            return factor * String(left.kitchenId).localeCompare(String(right.kitchenId));
+        }
+        if (sortKey === 'version') {
+            // Numeric, not lexical — the spec's `sortType: 'number'`.
+            return factor * (left.currentVersionNumber - right.currentVersionNumber);
+        }
+        if (sortKey === 'status') {
+            return factor * left.meta.status.localeCompare(right.meta.status);
+        }
+        if (sortKey === 'updatedAt') {
+            return factor * left.meta.updatedAt.localeCompare(right.meta.updatedAt);
+        }
+        return (
+            factor *
+            displayName(left.name, locale).value.localeCompare(
+                displayName(right.name, locale).value,
+                locale,
+            )
+        );
+    });
+}
+
 export interface RecipeListState {
     /** The rows for the current page, sorted. Never undefined — empty while pending. */
     readonly rows: readonly RecipeAdminSummary[];
@@ -152,6 +193,10 @@ export interface RecipeListState {
     readonly shown: number;
     /** The whole-set read behind the other cards has not landed yet. */
     readonly countsPending: boolean;
+    /** The filter every read of this list is built from — what Export sends, so the file is the list. */
+    readonly filter: RecipeAdminFilter;
+    /** Every row the filters match, every page, in the list's sort — empty while `countsPending`. */
+    readonly everyRow: readonly RecipeAdminSummary[];
     readonly draftCount: number;
     /** Rows the store quarantined — a published allergen label a change has since contradicted. */
     readonly reviewCount: number;
@@ -294,39 +339,15 @@ export function useRecipeList(view?: string): RecipeListState {
     const total = recipes.data?.totalCount ?? null;
     const totalPages = pagesInResult(recipes.data) ?? 0;
 
-    const sorted = useMemo(() => {
-        const factor = sortDirection === 'asc' ? 1 : -1;
-        return [...(rows ?? [])].sort((left, right) => {
-            if (sortKey === 'reference') {
-                return (
-                    factor *
-                    recipeHandle(left).localeCompare(recipeHandle(right), undefined, {
-                        numeric: true,
-                    })
-                );
-            }
-            if (sortKey === 'kitchen') {
-                return factor * String(left.kitchenId).localeCompare(String(right.kitchenId));
-            }
-            if (sortKey === 'version') {
-                // Numeric, not lexical — the spec's `sortType: 'number'`.
-                return factor * (left.currentVersionNumber - right.currentVersionNumber);
-            }
-            if (sortKey === 'status') {
-                return factor * left.meta.status.localeCompare(right.meta.status);
-            }
-            if (sortKey === 'updatedAt') {
-                return factor * left.meta.updatedAt.localeCompare(right.meta.updatedAt);
-            }
-            return (
-                factor *
-                displayName(left.name, locale).value.localeCompare(
-                    displayName(right.name, locale).value,
-                    locale,
-                )
-            );
-        });
-    }, [rows, sortKey, sortDirection, locale]);
+    const sorted = useMemo(
+        () => sortRecipes(rows ?? [], sortKey, sortDirection, locale),
+        [rows, sortKey, sortDirection, locale],
+    );
+    // The whole set in the list's own order — what Export prints and the sheets batch names.
+    const everySorted = useMemo(
+        () => sortRecipes(wholeSet.data ?? [], sortKey, sortDirection, locale),
+        [wholeSet.data, sortKey, sortDirection, locale],
+    );
     const viewed = useViewedRecord(
         view,
         sorted,
@@ -417,6 +438,8 @@ export function useRecipeList(view?: string): RecipeListState {
         totalPages,
         total,
         countsPending: wholeSet.isPending,
+        filter,
+        everyRow: everySorted,
         // Rows up to the end of this page: 18 of 306 on the first, 36 on the second.
         shown: Math.min(page * KITCHEN_PAGE_SIZE, total ?? sorted.length),
         draftCount,
