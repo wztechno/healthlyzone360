@@ -145,6 +145,7 @@ const USDA_CANDIDATE: NutritionReferenceCandidate = {
     suitable: true,
     reasons: [],
     missing_nutrients: [],
+    unsupported_basis: false,
     source_hash: 'a'.repeat(64),
     retrieved_at: '2026-10-14T00:00:00Z',
 };
@@ -1924,6 +1925,39 @@ describe('USDA lookup and explicit allergen review', () => {
         expect(screen.getByTestId('nutrition-reference-select-usda:12345')).toBeDisabled();
         await fireEvent.press(screen.getByTestId('nutrition-reference-select-usda:12345'));
         expect(onChange).not.toHaveBeenCalled();
+        expect(screen.getByTestId('nutrition-reference-missing-usda:12345')).toBeTruthy();
+        expect(screen.queryByTestId('nutrition-reference-basis-usda:12345')).toBeNull();
+        expect(screen.getByTestId('nutrition-reference-none-usable')).toBeTruthy();
+    });
+
+    it('names a per-ml basis, and never draws an empty "Missing" tag', async () => {
+        await renderStubScreen(
+            <NutritionReferencePicker name="louisiana sauce" value={undefined} onChange={jest.fn()} />,
+            {
+                repositories: {
+                    kitchenAdmin: {
+                        searchNutritionReferences: async () => [
+                            {
+                                ...USDA_CANDIDATE,
+                                ref: 'usda:1909200',
+                                data_type: 'Branded',
+                                suitable: false,
+                                reasons: ['A confirmed gram basis is required.'],
+                                missing_nutrients: [],
+                                unsupported_basis: true,
+                            },
+                            USDA_CANDIDATE,
+                        ],
+                    },
+                },
+            },
+        );
+        await fireEvent.press(screen.getByTestId('nutrition-reference-search'));
+        await untilVisible('nutrition-reference-basis-usda:1909200');
+        expect(screen.queryByTestId('nutrition-reference-missing-usda:1909200')).toBeNull();
+        expect(screen.getByTestId('nutrition-reference-select-usda:1909200')).toBeDisabled();
+        // One usable match is a way forward, so there is nothing to warn about.
+        expect(screen.queryByTestId('nutrition-reference-none-usable')).toBeNull();
     });
 
     it('confirms unchanged pending mappings using review evidence and the snapshot token', async () => {

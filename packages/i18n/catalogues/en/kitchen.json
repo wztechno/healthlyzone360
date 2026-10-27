@@ -4390,7 +4390,8 @@
         "confirmReview": "Confirm allergen assessment",
         "configuration": "Nutrition lookup needs configuration",
         "clearSelection": "Clear selection",
-        "missing": "Missing {{list}}"
+        "missing": "Missing {{list}}",
+        "notPerGram": "Not measured per gram"
     },
     "assist": {
         "title": "AI assistant",

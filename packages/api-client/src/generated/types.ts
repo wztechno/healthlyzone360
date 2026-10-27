@@ -839,6 +839,10 @@ export type NutritionReferenceCandidate = {
     suitable: boolean;
     reasons: Array<string>;
     missing_nutrients: Array<string>;
+    /**
+     * A branded food not recorded per gram (per ml, or no serving unit), which cannot be read as per 100 g.
+     */
+    unsupported_basis: boolean;
     source_hash: string;
     retrieved_at: string;
 };

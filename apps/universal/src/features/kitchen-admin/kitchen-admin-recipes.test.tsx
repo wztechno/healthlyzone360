@@ -4413,6 +4413,7 @@ describe('adding an ingredient from the line picker', () => {
         suitable: true,
         reasons: [],
         missing_nutrients: [],
+        unsupported_basis: false,
         source_hash: 'b'.repeat(64),
         retrieved_at: '2026-10-22T00:00:00Z',
     };

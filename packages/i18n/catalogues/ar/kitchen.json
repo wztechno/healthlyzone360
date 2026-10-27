@@ -5049,7 +5049,8 @@
         "confirmReview": "تأكيد تقييم مسببات الحساسية",
         "configuration": "إعداد البحث الغذائي مطلوب",
         "clearSelection": "إلغاء اختيار المرجع",
-        "missing": "ينقصه {{list}}"
+        "missing": "ينقصه {{list}}",
+        "notPerGram": "غير مقاس بالغرام"
     },
     "assist": {
         "title": "مساعد الذكاء الاصطناعي",
