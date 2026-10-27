@@ -754,8 +754,10 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
 
         // A reason instead of figures when the COGS side cannot be valued — no
         // average held, or a stock unit that will not convert to the cost unit.
-        // The stock deducts either way.
-        $valued = $this->valuation->value((string) $order->organisation_id, $ingredientId, $stockUnit, $consumedInStockUnit);
+        // The stock deducts either way. Valued as whatever the shelf holds, which
+        // for a kitchen's copy drawing on its original's shelf is the original
+        // (see MealExplosion::resolveStockItem()).
+        $valued = $this->valuation->value((string) $order->organisation_id, (string) ($stockItem->ingredient_id ?? $ingredientId), $stockUnit, $consumedInStockUnit);
         $costProblem = is_string($valued) ? $valued : null;
         $figures = is_array($valued) ? $valued : null;
 

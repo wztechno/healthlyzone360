@@ -455,3 +455,79 @@ it('refuses to price a bag as a can', function (): void {
     expect($result->lineSources[1]->source)->toBe(WeeklyLineCost::SOURCE_NONE)
         ->and($result->production->uncostedLineNumbers)->toBe([1]);
 });
+
+it('prices a line in kilograms from a price per litre through what a litre weighs', function (): void {
+    // Soy sauce: bought by the litre, measured into a marinade by the kilogram.
+    $soy = RecipeWorld::verifiedCleanIngredient($this->organisation, 'Soy sauce');
+    $litres = RecipeWorld::unit('l');
+    $soy->default_unit_id = $litres;
+    $soy->grams_per_unit = '1080';
+    $soy->purchase_price_amount = null;
+    $soy->purchase_price_currency = null;
+    $soy->save();
+
+    publishWeeklyPrice($this->organisation, $soy, '3.930000', $litres);
+
+    $version = weeklyVersion($this->kitchen, [
+        ['ingredient' => $soy, 'quantity' => '0.075', 'unit_id' => $this->kilograms],
+    ], ['yield_quantity' => '1', 'yield_unit_id' => $this->kilograms, 'waste_coefficient_percent' => '0']);
+
+    $result = $this->weekly->cost((string) $this->organisation->getKey(), $version);
+
+    // A litre weighs 1080 g, so a kilogram is 1000/1080 of a litre: 3.93 × 1000 ÷ 1080.
+    expect($result->lineSources[1]->source)->toBe(WeeklyLineCost::SOURCE_WEEKLY)
+        ->and($result->lineSources[1]->unitCostAmount)->toBe('3.638889')
+        ->and($result->production->uncostedLineNumbers)->toBe([]);
+});
+
+it('still refuses litres against kilograms when nothing says what a litre weighs', function (): void {
+    $vinegar = RecipeWorld::verifiedCleanIngredient($this->organisation, 'Vinegar');
+    $litres = RecipeWorld::unit('l');
+    $vinegar->default_unit_id = $litres;
+    $vinegar->grams_per_unit = null;
+    $vinegar->purchase_price_amount = null;
+    $vinegar->purchase_price_currency = null;
+    $vinegar->save();
+
+    publishWeeklyPrice($this->organisation, $vinegar, '2.000000', $litres);
+
+    $version = weeklyVersion($this->kitchen, [
+        ['ingredient' => $vinegar, 'quantity' => '1', 'unit_id' => $this->kilograms],
+    ], ['yield_quantity' => '1', 'yield_unit_id' => $this->kilograms]);
+
+    $result = $this->weekly->cost((string) $this->organisation->getKey(), $version);
+
+    expect($result->lineSources[1]->source)->toBe(WeeklyLineCost::SOURCE_NONE)
+        ->and($result->production->uncostedLineNumbers)->toBe([1]);
+});
+
+it('prices a kitchen copy from its original until the copy has a price of its own', function (): void {
+    // The kitchen buys the original; editing it made a copy the recipe now names.
+    $original = RecipeWorld::verifiedCleanIngredient($this->organisation, 'Soy sauce');
+    $original->default_unit_id = $this->kilograms;
+    $original->save();
+
+    $copy = RecipeWorld::verifiedCleanIngredient($this->organisation, 'Soy sauce (kitchen)');
+    $copy->default_unit_id = $this->kilograms;
+    $copy->forked_from_ingredient_id = (string) $original->getKey();
+    $copy->purchase_price_amount = null;
+    $copy->purchase_price_currency = null;
+    $copy->save();
+
+    publishWeeklyPrice($this->organisation, $original, '4.000000', $this->kilograms);
+
+    $version = weeklyVersion($this->kitchen, [
+        ['ingredient' => $copy, 'quantity' => '1', 'unit_id' => $this->kilograms],
+    ], ['yield_quantity' => '1', 'yield_unit_id' => $this->kilograms, 'waste_coefficient_percent' => '0']);
+
+    $borrowed = $this->weekly->cost((string) $this->organisation->getKey(), $version);
+
+    expect($borrowed->lineSources[1]->source)->toBe(WeeklyLineCost::SOURCE_WEEKLY)
+        ->and($borrowed->production->totalInputCostAmount)->toBe('4.000000');
+
+    publishWeeklyPrice($this->organisation, $copy, '6.000000', $this->kilograms, '2026-09-07');
+
+    $own = $this->weekly->cost((string) $this->organisation->getKey(), $version);
+
+    expect($own->production->totalInputCostAmount)->toBe('6.000000');
+});

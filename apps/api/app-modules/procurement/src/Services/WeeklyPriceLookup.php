@@ -6,6 +6,7 @@ namespace Healthy360\Procurement\Services;
 
 use Healthy360\Ingredients\Contracts\IngredientWeeklyPriceLookup;
 use Healthy360\Ingredients\Contracts\WeeklyIngredientPrice;
+use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Procurement\Enums\WeeklyPriceSource;
 use Healthy360\Procurement\Models\IngredientWeeklyPrice;
@@ -45,6 +46,14 @@ use Illuminate\Database\Eloquent\Builder;
  * is not a price, so it never leaves this class as one. Filtering on
  * `average_unit_amount IS NOT NULL` rather than on the source keeps that true even
  * if a fourth source is added later.
+ *
+ * ## A kitchen's copy borrows its original's prices
+ *
+ * Editing a library ingredient forks it (`IngredientCatalogueService::fork()`),
+ * but the shelf, the receipts and so every price stay on the library row: the
+ * kitchen still buys the original. A copy with no price of its own therefore
+ * reads its original's, so a recipe that moved to the copy is not left unpriced
+ * by a soy sauce somebody really did pay for. A copy's own price always wins.
  */
 final readonly class WeeklyPriceLookup implements IngredientWeeklyPriceLookup
 {
@@ -65,6 +74,19 @@ final readonly class WeeklyPriceLookup implements IngredientWeeklyPriceLookup
     {
         $ingredientIds = array_values(array_unique($ingredientIds));
 
+        return $this->withOriginals(
+            $organisationId,
+            $ingredientIds,
+            fn (array $ids): array => $this->ownStanding($organisationId, $ids),
+        );
+    }
+
+    /**
+     * @param  list<string>  $ingredientIds
+     * @return array<string, WeeklyIngredientPrice>
+     */
+    private function ownStanding(string $organisationId, array $ingredientIds): array
+    {
         if ($ingredientIds === []) {
             return [];
         }
@@ -91,6 +113,19 @@ final readonly class WeeklyPriceLookup implements IngredientWeeklyPriceLookup
     {
         $ingredientIds = array_values(array_unique($ingredientIds));
 
+        return $this->withOriginals(
+            $organisationId,
+            $ingredientIds,
+            fn (array $ids): array => $this->ownAtPublication($organisationId, $publicationId, $ids),
+        );
+    }
+
+    /**
+     * @param  list<string>  $ingredientIds
+     * @return array<string, WeeklyIngredientPrice>
+     */
+    private function ownAtPublication(string $organisationId, string $publicationId, array $ingredientIds): array
+    {
         if ($ingredientIds === []) {
             return [];
         }
@@ -119,6 +154,19 @@ final readonly class WeeklyPriceLookup implements IngredientWeeklyPriceLookup
     {
         $ingredientIds = array_values(array_unique($ingredientIds));
 
+        return $this->withOriginals(
+            $organisationId,
+            $ingredientIds,
+            fn (array $ids): array => $this->ownLatestPurchase($organisationId, $ids),
+        );
+    }
+
+    /**
+     * @param  list<string>  $ingredientIds
+     * @return array<string, WeeklyIngredientPrice>
+     */
+    private function ownLatestPurchase(string $organisationId, array $ingredientIds): array
+    {
         if ($ingredientIds === []) {
             return [];
         }
@@ -161,6 +209,64 @@ final readonly class WeeklyPriceLookup implements IngredientWeeklyPriceLookup
                 $day,
                 'latest_purchase',
                 null,
+            );
+        }
+
+        return $prices;
+    }
+
+    /**
+     * `$read` for the ingredients asked about, then — for each of this kitchen's
+     * copies it found nothing for — `$read` once more for the originals, with the
+     * answer re-keyed to the copy that asked.
+     *
+     * One extra pair of queries per batch at most, and none when nothing asked
+     * about is an unpriced copy.
+     *
+     * @param  list<string>  $ingredientIds
+     * @param  callable(list<string>): array<string, WeeklyIngredientPrice>  $read
+     * @return array<string, WeeklyIngredientPrice>
+     */
+    private function withOriginals(string $organisationId, array $ingredientIds, callable $read): array
+    {
+        $prices = $read($ingredientIds);
+        $unpriced = array_values(array_diff($ingredientIds, array_keys($prices)));
+
+        if ($unpriced === []) {
+            return $prices;
+        }
+
+        /** @var array<string, string> $originalOf copy id => original id */
+        $originalOf = Ingredient::withoutTenancy()
+            ->where('organisation_id', $organisationId)
+            ->whereIn('id', $unpriced)
+            ->whereNotNull('forked_from_ingredient_id')
+            ->pluck('forked_from_ingredient_id', 'id')
+            ->map(static fn (mixed $id): string => (string) $id)
+            ->all();
+
+        if ($originalOf === []) {
+            return $prices;
+        }
+
+        $borrowed = $read(array_values(array_unique($originalOf)));
+
+        foreach ($originalOf as $copyId => $originalId) {
+            $price = $borrowed[$originalId] ?? null;
+
+            if (! $price instanceof WeeklyIngredientPrice) {
+                continue;
+            }
+
+            $prices[(string) $copyId] = new WeeklyIngredientPrice(
+                (string) $copyId,
+                $price->amount,
+                $price->currencyCode,
+                $price->unitId,
+                $price->effectiveFrom,
+                $price->purchaseWeekStartDate,
+                $price->source,
+                $price->publicationId,
             );
         }
 

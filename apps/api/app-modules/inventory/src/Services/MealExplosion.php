@@ -6,6 +6,7 @@ namespace Healthy360\Inventory\Services;
 
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Services\DerivedAllergenService;
+use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Recipes\Models\RecipeVersion;
@@ -425,8 +426,49 @@ final readonly class MealExplosion
      * Public because the resold-product path in {@see OrderConsumptionService}
      * resolves its shelf the same way: one ingredient, one rule, whether it is
      * cooked into a meal or sold as it was bought.
+     *
+     * ## A kitchen's copy draws on its original's shelf
+     *
+     * Editing a library ingredient forks it (`IngredientCatalogueService::fork()`)
+     * and the copy gets an empty shelf of its own, but the kitchen goes on buying
+     * the original — receipts land on the original's shelf. So a copy whose own
+     * shelf has never held stock here takes from its original's, the same way
+     * `WeeklyPriceLookup` lends a copy its original's price. Once something is
+     * received or counted onto the copy's own shelf, that shelf wins.
      */
     public function resolveStockItem(string $organisationId, string $ingredientId, ?string $branchId): ?StockItem
+    {
+        $own = $this->stockItemOf($organisationId, $ingredientId, $branchId);
+
+        if ($own instanceof StockItem && $this->hasLevel($own, $branchId)) {
+            return $own;
+        }
+
+        $originalId = Ingredient::withoutTenancy()
+            ->where('organisation_id', $organisationId)
+            ->whereKey($ingredientId)
+            ->value('forked_from_ingredient_id');
+
+        if ($originalId === null) {
+            return $own;
+        }
+
+        return $this->stockItemOf($organisationId, (string) $originalId, $branchId) ?? $own;
+    }
+
+    /**
+     * Whether anything has ever been received, counted or moved onto this shelf
+     * at the branch — anywhere, when there is no branch to ask about.
+     */
+    private function hasLevel(StockItem $stockItem, ?string $branchId): bool
+    {
+        return StockLevel::withoutTenancy()
+            ->where('stock_item_id', $stockItem->getKey())
+            ->when($branchId !== null, static fn ($query) => $query->where('branch_id', $branchId))
+            ->exists();
+    }
+
+    private function stockItemOf(string $organisationId, string $ingredientId, ?string $branchId): ?StockItem
     {
         $items = StockItem::withoutTenancy()
             ->where('organisation_id', $organisationId)
@@ -543,7 +585,7 @@ final readonly class MealExplosion
             }
 
             try {
-                $converted = $this->conversion->convert($this->round($summedQuantity), $lineUnit, $stockUnit);
+                $converted = $this->convertForIngredient($this->round($summedQuantity), $lineUnit, $stockUnit, $ingredientId, $stockItem);
             } catch (UnitConversionUnsupported $exception) {
                 $failures[] = $this->failure($subjectId, 'unit_conversion_unsupported', 'Ingredient '.$ingredientId.': '.$exception->getMessage());
 
@@ -579,6 +621,41 @@ final readonly class MealExplosion
             'ingredient_id' => $ingredientId,
             'quantity' => $consumed,
         ];
+    }
+
+    /**
+     * A recipe in kilograms against a shelf counted in litres, bridged by what a
+     * litre of this ingredient weighs — the same `grams_per_unit` the costing and
+     * nutrition read. The recipe's own ingredient answers first; a copy that was
+     * never told its weight borrows the figure from the ingredient on the shelf.
+     *
+     * @param  numeric-string  $quantity
+     * @return numeric-string
+     */
+    private function convertForIngredient(string $quantity, MeasurementUnit $from, MeasurementUnit $to, string $ingredientId, StockItem $stockItem): string
+    {
+        if ($this->conversion->canConvert($from, $to)) {
+            return $this->conversion->convert($quantity, $from, $to);
+        }
+
+        $weighed = Ingredient::withoutTenancy()
+            ->whereIn('id', array_values(array_filter([$ingredientId, $stockItem->ingredient_id])))
+            ->whereNotNull('grams_per_unit')
+            ->get()
+            ->sortBy(static fn (Ingredient $ingredient): int => (string) $ingredient->getKey() === $ingredientId ? 0 : 1)
+            ->first();
+
+        $defaultUnit = $weighed instanceof Ingredient && $weighed->default_unit_id !== null
+            ? MeasurementUnit::query()->find($weighed->default_unit_id)
+            : null;
+
+        return $this->conversion->convertByWeight(
+            $quantity,
+            $from,
+            $to,
+            $weighed instanceof Ingredient ? (string) $weighed->grams_per_unit : null,
+            $defaultUnit instanceof MeasurementUnit ? $defaultUnit : null,
+        );
     }
 
     /**

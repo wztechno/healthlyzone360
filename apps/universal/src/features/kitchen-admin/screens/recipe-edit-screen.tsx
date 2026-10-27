@@ -1319,6 +1319,25 @@ function RecipeEditor({
         return [...names].join(', ');
     }, [computed, libraryEntries, packagingLibrary, locale]);
 
+    /** The first uncosted line's ingredient — where the tray's card sends the reader to fix it. */
+    const firstUncosted = useMemo(() => {
+        if (computed === null) return null;
+        const found = (
+            [
+                [computed.production, 'ingredients'],
+                [computed.packaging, 'packaging'],
+            ] as const
+        )
+            .flatMap(([half, family]) =>
+                half.uncostedLineNumbers.map((lineNumber) => ({
+                    id: half.lines.find((line) => line.lineNumber === lineNumber)?.ingredientId,
+                    family,
+                })),
+            )
+            .find((entry) => entry.id !== undefined);
+        return found === undefined ? null : { id: String(found.id), family: found.family };
+    }, [computed]);
+
     /*
      * How many lines the server could not cost — by number, so it is known before the names of the
      * ingredients resolve. Zero while the rollup has not answered: unknown is not "all costed".
@@ -2406,8 +2425,11 @@ function RecipeEditor({
                                 key: 'costs',
                                 tab: 'costing' as const,
                                 label: t('kitchen:recipes.tabCosting'),
+                                // The price lives on the ingredient, so that is where the fix is.
                                 onPress: () => {
-                                    goToSection('costing', 'kitchen-recipe-cost-cascade');
+                                    if (firstUncosted === null)
+                                        goToSection('costing', 'kitchen-recipe-cost-cascade');
+                                    else openIngredient(firstUncosted.id, firstUncosted.family);
                                 },
                             },
                         ]
@@ -2766,9 +2788,42 @@ function RecipeEditor({
                   testID: `kitchen-recipe-check-${check.key}`,
               }));
 
+    /*
+     * An unpriced line on a version nobody is editing — a published one, or a reader who may not
+     * publish. The publish strip only speaks on an editable draft, so without this the tray read
+     * "All set" over a row marked "No price yet". Heads-up, not a block: the version is already out.
+     */
+    const uncostedNotice: IssueCardItem[] =
+        publishItems.length > 0 || isCreating || uncostedNames === '' || firstUncosted === null
+            ? []
+            : [
+                  {
+                      key: 'uncosted',
+                      tone: 'info',
+                      label: t('kitchen:recipes.uncostedLines', { names: uncostedNames }),
+                      detail: t('kitchen:recipes.sectionRawMaterials'),
+                      action: {
+                          onPress: () => {
+                              openIngredient(firstUncosted.id, firstUncosted.family);
+                          },
+                      },
+                      // The tray is no longer clear, so it cannot show its own way back.
+                      secondaryAction:
+                          fixPublished && cameBack
+                              ? {
+                                    label: t('kitchen:ops.exceptions.fix.back'),
+                                    onPress: finishFix,
+                                    testID: 'kitchen-recipe-uncosted-back',
+                                }
+                              : undefined,
+                      testID: 'kitchen-recipe-issues-uncosted',
+                  },
+              ];
+
     const firstUnmapped = unmappedDraftEntries[0];
     const headsUpCards: IssueCardItem[] = [
         ...quietChecks,
+        ...uncostedNotice,
         ...(firstUnmapped === undefined || lines.length === 0
             ? []
             : [

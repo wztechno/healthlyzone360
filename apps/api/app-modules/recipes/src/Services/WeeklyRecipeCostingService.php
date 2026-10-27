@@ -250,7 +250,7 @@ final readonly class WeeklyRecipeCostingService
 
         // 1. What was actually paid.
         if ($price instanceof WeeklyIngredientPrice) {
-            $restated = $this->pricePerUnit($price->amount, $price->unitId, $lineUnitId, $units);
+            $restated = $this->pricePerUnit($price->amount, $price->unitId, $lineUnitId, $units, $ingredient);
 
             if ($restated !== null) {
                 return new WeeklyLineCost(
@@ -426,7 +426,7 @@ final readonly class WeeklyRecipeCostingService
             self::WORKING_SCALE,
         ));
 
-        $restated = $this->pricePerUnit($perOutputUnit, (string) $output->unit_id, $lineUnitId, $units);
+        $restated = $this->pricePerUnit($perOutputUnit, (string) $output->unit_id, $lineUnitId, $units, $ingredient);
 
         if ($restated === null) {
             return null;
@@ -460,7 +460,7 @@ final readonly class WeeklyRecipeCostingService
         }
 
         $pricedIn = (string) ($ingredient->purchase_unit_id ?? $ingredient->default_unit_id);
-        $restated = $this->pricePerUnit((string) $amount, $pricedIn, $lineUnitId, $units);
+        $restated = $this->pricePerUnit((string) $amount, $pricedIn, $lineUnitId, $units, $ingredient);
 
         return $restated === null ? null : ['amount' => $restated, 'currency' => mb_strtoupper($currency)];
     }
@@ -476,10 +476,15 @@ final readonly class WeeklyRecipeCostingService
      * `package`-dimension units all carry `base_ratio` 1 and a bare ratio division
      * across two of them would quietly price a bag as a can.
      *
+     * Across dimensions — soy sauce bought by the litre, measured by the kilogram —
+     * the ingredient's own `grams_per_unit` is the bridge, the same factor
+     * {@see RecipeNutritionService} weighs a line with. Without one the pair stays
+     * refused: a litre of tahini and a litre of vinegar weigh different amounts.
+     *
      * @param  array<string, MeasurementUnit>  $units
      * @return numeric-string|null
      */
-    private function pricePerUnit(string $amount, string $fromUnitId, string $toUnitId, array $units): ?string
+    private function pricePerUnit(string $amount, string $fromUnitId, string $toUnitId, array $units, ?Ingredient $ingredient = null): ?string
     {
         if (! is_numeric($amount)) {
             return null;
@@ -497,7 +502,7 @@ final readonly class WeeklyRecipeCostingService
         }
 
         if (! $this->conversion->canConvert($from, $to)) {
-            return null;
+            return $this->pricePerUnitByWeight($amount, $from, $to, $units, $ingredient);
         }
 
         $fromRatio = (string) $from->base_ratio;
@@ -508,6 +513,61 @@ final readonly class WeeklyRecipeCostingService
         }
 
         return $this->round(bcmul($amount, bcdiv($toRatio, $fromRatio, self::WORKING_SCALE), self::WORKING_SCALE));
+    }
+
+    /**
+     * A price restated across two dimensions through what one of each unit of
+     * this ingredient weighs: `price × grams(to) ÷ grams(from)`.
+     *
+     * @param  numeric-string  $amount
+     * @param  array<string, MeasurementUnit>  $units
+     * @return numeric-string|null
+     */
+    private function pricePerUnitByWeight(string $amount, MeasurementUnit $from, MeasurementUnit $to, array $units, ?Ingredient $ingredient): ?string
+    {
+        $fromGrams = $this->gramsInOne($from, $ingredient, $units);
+        $toGrams = $this->gramsInOne($to, $ingredient, $units);
+
+        if ($fromGrams === null || $toGrams === null || bccomp($fromGrams, '0', 9) !== 1) {
+            return null;
+        }
+
+        return $this->round(bcmul($amount, bcdiv($toGrams, $fromGrams, self::WORKING_SCALE), self::WORKING_SCALE));
+    }
+
+    /**
+     * What one `$unit` of this ingredient weighs in grams, or null when nothing
+     * says. A mass unit answers by its own ratio (the mass base is the gram);
+     * anything else goes through the ingredient's default unit and its
+     * `grams_per_unit`, exactly as {@see RecipeNutritionService} weighs a line.
+     *
+     * @param  array<string, MeasurementUnit>  $units
+     * @return numeric-string|null
+     */
+    private function gramsInOne(MeasurementUnit $unit, ?Ingredient $ingredient, array $units): ?string
+    {
+        if ($unit->dimension === 'mass') {
+            $ratio = (string) $unit->base_ratio;
+
+            return is_numeric($ratio) ? $ratio : null;
+        }
+
+        $gramsPerUnit = $ingredient?->grams_per_unit === null ? null : (string) $ingredient->grams_per_unit;
+        $defaultUnit = $ingredient === null ? null : ($units[(string) $ingredient->default_unit_id] ?? null);
+
+        if ($gramsPerUnit === null || ! is_numeric($gramsPerUnit) || ! $defaultUnit instanceof MeasurementUnit) {
+            return null;
+        }
+
+        $defaultRatio = (string) $defaultUnit->base_ratio;
+
+        if (! $this->conversion->canConvert($unit, $defaultUnit) || ! is_numeric($defaultRatio) || bccomp($defaultRatio, '0', 9) !== 1) {
+            return null;
+        }
+
+        $inDefault = bcdiv((string) $unit->base_ratio, $defaultRatio, self::WORKING_SCALE);
+
+        return bcmul($inDefault, $gramsPerUnit, self::WORKING_SCALE);
     }
 
     /**
@@ -582,7 +642,7 @@ final readonly class WeeklyRecipeCostingService
                 $price = $prices[$ingredientId] ?? null;
 
                 if ($price instanceof WeeklyIngredientPrice) {
-                    $amount = $this->pricePerUnit($price->amount, $price->unitId, $unitId, $units);
+                    $amount = $this->pricePerUnit($price->amount, $price->unitId, $unitId, $units, $ingredients[$ingredientId] ?? null);
                     $currency = $amount === null ? null : $price->currencyCode;
                 }
 

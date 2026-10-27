@@ -79,6 +79,65 @@ final class UnitConversionService
     }
 
     /**
+     * {@see convert()}, and where that refuses, the bridge an ingredient's own
+     * weight gives: `grams_per_unit` is what one of its default unit weighs, so a
+     * litre of soy sauce that weighs 1080 g turns 0.075 kg into 0.069 l.
+     *
+     * Not a density table — the figure belongs to one ingredient and is passed in
+     * by whoever knows which ingredient this is. Without it, or when neither unit
+     * reaches the default unit or a mass, the original refusal stands.
+     *
+     * @param  numeric-string  $quantity
+     * @return numeric-string
+     *
+     * @throws UnitConversionUnsupported when not even the weight bridges the two
+     */
+    public function convertByWeight(string $quantity, MeasurementUnit $from, MeasurementUnit $to, ?string $gramsPerUnit, ?MeasurementUnit $defaultUnit): string
+    {
+        try {
+            return $this->convert($quantity, $from, $to);
+        } catch (UnitConversionUnsupported $refusal) {
+            $fromGrams = $this->gramsInOne($from, $gramsPerUnit, $defaultUnit);
+            $toGrams = $this->gramsInOne($to, $gramsPerUnit, $defaultUnit);
+
+            if ($fromGrams === null || $toGrams === null || bccomp($toGrams, '0', self::WORKING_SCALE) !== 1) {
+                throw $refusal;
+            }
+
+            $grams = bcmul($this->numeric($quantity), $fromGrams, self::WORKING_SCALE);
+
+            return $this->round(bcdiv($grams, $toGrams, self::WORKING_SCALE));
+        }
+    }
+
+    /**
+     * Grams in one `$unit`: a mass's own factor, or through the ingredient's
+     * default unit and what one of those weighs. Null when neither applies.
+     *
+     * @return numeric-string|null
+     */
+    private function gramsInOne(MeasurementUnit $unit, ?string $gramsPerUnit, ?MeasurementUnit $defaultUnit): ?string
+    {
+        if ($unit->dimension === 'mass') {
+            return $this->numeric((string) $unit->base_ratio);
+        }
+
+        if ($gramsPerUnit === null || ! is_numeric($gramsPerUnit) || ! $defaultUnit instanceof MeasurementUnit || ! $this->canConvert($unit, $defaultUnit)) {
+            return null;
+        }
+
+        $defaultRatio = $this->numeric((string) $defaultUnit->base_ratio);
+
+        if (bccomp($defaultRatio, '0', self::WORKING_SCALE) !== 1) {
+            return null;
+        }
+
+        $inDefault = bcdiv($this->numeric((string) $unit->base_ratio), $defaultRatio, self::WORKING_SCALE);
+
+        return bcmul($inDefault, $this->numeric($gramsPerUnit), self::WORKING_SCALE);
+    }
+
+    /**
      * Whether two units can be converted between at all — the identity, or a
      * pair sharing a convertible dimension. Lets a caller branch before
      * committing to a movement rather than catching the refusal.

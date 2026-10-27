@@ -729,3 +729,99 @@ it('settles a no_branch exception on file by retrying it against the only branch
         ->and(consumeMovements($order)->sole()->branch_id)->toBe((string) $this->branch->getKey())
         ->and(levelOf($flour))->toBe('99.9500');
 });
+
+/**
+ * A kitchen's copy of `$original`'s ingredient, as editing a library row forks
+ * it, with the empty shelf derivation hands every new ingredient. Returns that
+ * shelf.
+ */
+function kitchenCopyOf(object $test, StockItem $original): StockItem
+{
+    $copy = Ingredient::factory()->create([
+        'organisation_id' => $test->organisation->getKey(),
+        'default_unit_id' => (string) Ingredient::withoutTenancy()->whereKey($original->ingredient_id)->value('default_unit_id'),
+        'forked_from_ingredient_id' => $original->ingredient_id,
+    ]);
+
+    return StockItem::withoutTenancy()->where('ingredient_id', (string) $copy->getKey())->first()
+        ?? StockItem::query()->create([
+            'organisation_id' => $test->organisation->getKey(),
+            'code' => 'copy-'.fake()->unique()->numberBetween(1, 999999),
+            'name_en' => 'Copied '.fake()->word(),
+            'unit_code' => $original->unit_code,
+            'unit_id' => $original->unit_id,
+            'ingredient_id' => (string) $copy->getKey(),
+        ]);
+}
+
+it('takes a kitchen copy from its original\'s shelf while the copy\'s own shelf has never held stock', function (): void {
+    // The soy sauce case: bought (and received) as the original, cooked as the copy.
+    $original = stockedIngredient($this, $this->litre, '3.930000', '3', '3');
+    $copyShelf = kitchenCopyOf($this, $original);
+
+    $meal = publishedMeal($this, yieldPieceCount: 1, wastePercent: '0.00', lines: [[$copyShelf, '0.5', $this->litre]]);
+    $order = orderFor($this, $meal, '1');
+
+    $this->lifecycle->confirm($order, 0);
+
+    $movement = consumeMovements($order)->sole();
+
+    expect($movement->stock_item_id)->toBe((string) $original->getKey())
+        ->and(levelOf($original))->toBe('2.5000')
+        // Valued at the original's average, since that is what came off the shelf.
+        ->and((string) $movement->unit_cost_amount)->toBe('3.930000')
+        ->and(OrderConsumptionException::withoutTenancy()->count())->toBe(0);
+});
+
+it('takes a kitchen copy from its own shelf once something has been received onto it', function (): void {
+    $original = stockedIngredient($this, $this->litre, '3.930000', '3', '3');
+    $copyShelf = kitchenCopyOf($this, $original);
+
+    $this->inventory->recordMovement(
+        (string) $this->organisation->getKey(),
+        (string) $this->branch->getKey(),
+        (string) $copyShelf->getKey(),
+        'receipt',
+        '2',
+    );
+
+    $meal = publishedMeal($this, yieldPieceCount: 1, wastePercent: '0.00', lines: [[$copyShelf, '0.5', $this->litre]]);
+    $order = orderFor($this, $meal, '1');
+
+    $this->lifecycle->confirm($order, 0);
+
+    expect(consumeMovements($order)->sole()->stock_item_id)->toBe((string) $copyShelf->getKey())
+        ->and(levelOf($copyShelf))->toBe('1.5000')
+        ->and(levelOf($original))->toBe('3.0000');
+});
+
+it('deducts a recipe in kilograms from a shelf in litres through what a litre of the ingredient weighs', function (): void {
+    // 0.075 kg of soy sauce at 1080 g a litre is 75 ÷ 1080 = 0.069444 l off the shelf.
+    $original = stockedIngredient($this, $this->litre, '3.930000', '3', '3');
+    Ingredient::withoutTenancy()->whereKey($original->ingredient_id)->update(['grams_per_unit' => '1080']);
+
+    // The copy was never told its weight, so it borrows the shelf ingredient's.
+    $copyShelf = kitchenCopyOf($this, $original);
+
+    $meal = publishedMeal($this, yieldPieceCount: 1, wastePercent: '0.00', lines: [[$copyShelf, '0.075', $this->kg]]);
+    $order = orderFor($this, $meal, '1');
+
+    $this->lifecycle->confirm($order, 0);
+
+    expect(OrderConsumptionException::withoutTenancy()->count())->toBe(0)
+        ->and((string) consumeMovements($order)->sole()->quantity_delta)->toBe('-0.0694')
+        ->and(levelOf($original))->toBe('2.9306');
+});
+
+it('still records a unit problem when nothing says what a litre of the ingredient weighs', function (): void {
+    $original = stockedIngredient($this, $this->litre, '3.930000', '3', '3');
+    Ingredient::withoutTenancy()->whereKey($original->ingredient_id)->update(['grams_per_unit' => null]);
+
+    $meal = publishedMeal($this, yieldPieceCount: 1, wastePercent: '0.00', lines: [[$original, '0.075', $this->kg]]);
+    $order = orderFor($this, $meal, '1');
+
+    $this->lifecycle->confirm($order, 0);
+
+    expect(OrderConsumptionException::withoutTenancy()->sole()->reason_code)->toBe('unit_conversion_unsupported')
+        ->and(levelOf($original))->toBe('3.0000');
+});
