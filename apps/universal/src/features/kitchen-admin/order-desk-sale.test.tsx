@@ -1,5 +1,6 @@
-import { ApiError, apiFailure, validationFailure } from '@healthy360/api-client';
+import { ApiError, apiFailure, conflictFailure, validationFailure } from '@healthy360/api-client';
 import type {
+    AmendOrderDeskOrderRequest,
     CursorPage,
     KitchenOrder,
     MealAdmin,
@@ -26,12 +27,14 @@ import { OrderDeskSaleScreen } from './screens/order-desk-sale-screen.tsx';
 /* `mock`-prefixed so the factory below may close over them — Jest's hoisting rule. */
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
+/** The route's query — `{ order }` opens the page in edit mode. */
+let mockParams: Record<string, string> = {};
 
 jest.mock('expo-router', () => ({
     __esModule: true,
     useRouter: () => ({ push: mockPush, replace: mockReplace, back: jest.fn() }),
     usePathname: () => '/kitchen/order-desk/sale',
-    useLocalSearchParams: () => ({}),
+    useLocalSearchParams: () => mockParams,
     Redirect: () => null,
     Link: ({ children }: { children: React.ReactNode }) => children,
 }));
@@ -204,10 +207,56 @@ function placedOrder(overrides: Partial<KitchenOrder> = {}): KitchenOrder {
         cancelledAt: null,
         cancellationReason: null,
         lockVersion: 2,
+        customerAccountId: null,
+        amendable: false,
         lineCount: 1,
         lines: [],
         ...overrides,
     };
+}
+
+/** A placed delivery the desk may still edit: two of the meal, for Breakfast on 14 October. */
+function editableOrder(overrides: Partial<KitchenOrder> = {}): KitchenOrder {
+    return placedOrder({
+        status: 'placed',
+        confirmedAt: null,
+        fulfilledAt: null,
+        fulfilmentType: 'delivery',
+        paymentMethod: 'cash_on_delivery',
+        customerAccountId: ACCOUNT_ID,
+        amendable: true,
+        delivery: {
+            label: null,
+            lineOne: 'Villa 12, Street 8b',
+            lineTwo: null,
+            city: null,
+            areaNameEn: 'Al Quoz 1',
+            areaNameAr: 'القوز ١',
+            areaId: null,
+            windowCode: 'morning',
+            requestedDate: '2026-10-14',
+            zoneId: null,
+        },
+        lines: [
+            {
+                id: 'line-1',
+                catalogueItemId: String(MEAL_ID),
+                catalogueItemVariantId: null,
+                nameEn: 'Mujaddara bowl',
+                nameAr: 'مجدرة',
+                variantLabel: null,
+                quantity: '2.000',
+                unitPriceMinor: 3_200,
+                lineTotalMinor: 6_400,
+                currencyCode: 'AED',
+                allergens: [],
+                packSummary: null,
+                priceListId: null,
+                priceListItemId: null,
+            },
+        ],
+        ...overrides,
+    });
 }
 
 function customer(overrides: Partial<OrderDeskCustomer> = {}): OrderDeskCustomer {
@@ -230,6 +279,9 @@ interface SaleStubs {
     readonly listDeliveryAreas?: () => Promise<readonly ServiceArea[]>;
     readonly listServiceAreas?: () => Promise<CursorPage<ServiceArea>>;
     readonly addCustomerAddress?: () => Promise<OrderDeskCustomerAddress>;
+
+    readonly getOrder?: () => Promise<KitchenOrder>;
+    readonly amendOrder?: (request: AmendOrderDeskOrderRequest) => Promise<KitchenOrder>;
 }
 
 async function renderSale(stubs: SaleStubs = {}) {
@@ -241,9 +293,13 @@ async function renderSale(stubs: SaleStubs = {}) {
                 listProducts: stubs.listProducts ?? (async () => pageOf([adminProduct()])),
                 listServiceAreas: stubs.listServiceAreas ?? (async () => pageOf([])),
             },
+            kitchenOrders: {
+                getOrder: stubs.getOrder ?? (async () => editableOrder()),
+            },
             orderDesk: {
                 quoteSale: stubs.quoteSale ?? (async (request) => quoteFor(request)),
                 placeSale: stubs.placeSale ?? (async () => placedOrder()),
+                amendOrder: stubs.amendOrder ?? (async () => editableOrder()),
                 searchCustomers: async () => ({ rows: [customer()], limit: 20 }),
                 listDeliveryAreas: stubs.listDeliveryAreas ?? (async () => []),
                 listDeliveryWindows: async () => [
@@ -362,6 +418,7 @@ async function chooseLayla() {
 beforeEach(() => {
     mockPush.mockClear();
     mockReplace.mockClear();
+    mockParams = {};
 });
 
 afterEach(() => {
@@ -1370,5 +1427,193 @@ describe('sale — the slots the address zone offers', () => {
         expect(
             screen.getByTestId('kitchen-order-desk-sale-order-refusal-window_not_offered'),
         ).toHaveTextContent(/does not offer that slot/);
+    });
+});
+
+describe('sale — editing a placed order', () => {
+    const ORDER = String(placedOrder().id);
+
+    /** 11:00 on the order's own day: its Breakfast slot has already ended. */
+    function atElevenOnTheDay() {
+        jest.useFakeTimers({
+            now: new Date(2026, 9, 14, 11, 0),
+            doNotFake: [
+                'hrtime',
+                'nextTick',
+                'performance',
+                'queueMicrotask',
+                'requestAnimationFrame',
+                'cancelAnimationFrame',
+                'requestIdleCallback',
+                'cancelIdleCallback',
+                'setImmediate',
+                'clearImmediate',
+                'setInterval',
+                'clearInterval',
+                'setTimeout',
+                'clearTimeout',
+            ],
+        });
+    }
+
+    async function save() {
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(SUBMIT)).toBeEnabled();
+            },
+            { timeout: 5000 },
+        );
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(SUBMIT));
+        });
+    }
+
+    it('seeds the order, hides what is fixed, keeps an ended stored slot, and sends only the basket', async () => {
+        atElevenOnTheDay();
+        mockParams = { order: ORDER };
+        const quoteSale = jest.fn(async (request: OrderDeskSaleRequest) => quoteFor(request));
+        const amendOrder = jest.fn(async () => editableOrder());
+        await renderSale({ quoteSale, amendOrder });
+
+        await untilVisible('kitchen-order-desk-sale-editing');
+        expect(screen.getByTestId('kitchen-order-desk-sale-editing')).toHaveTextContent(
+            'Editing order H360-2026-0500',
+        );
+        // How it leaves, who it is for and who drives it are not this page's to change.
+        expect(screen.queryByTestId('kitchen-order-desk-sale-kind-card')).toBeNull();
+        expect(screen.queryByTestId('kitchen-order-desk-sale-customer')).toBeNull();
+        expect(screen.queryByTestId('kitchen-order-desk-sale-driver')).toBeNull();
+        // The stored destination, with the address form only behind Change address.
+        expect(
+            screen.getByTestId('kitchen-order-desk-sale-edit-address-current'),
+        ).toHaveTextContent('Villa 12, Street 8b, Al Quoz 1');
+        expect(screen.queryByTestId('kitchen-order-desk-sale-address')).toBeNull();
+        expect(screen.getByTestId(`${MEAL_LINE}-quantity`)).toHaveTextContent('2');
+
+        // Breakfast ended an hour ago and is still the order's slot: shown, chosen, not refused.
+        await untilVisible('kitchen-order-desk-sale-slot-morning');
+        expect(
+            screen.getByTestId('kitchen-order-desk-sale-slot-morning').props.accessibilityState,
+        ).toEqual(expect.objectContaining({ checked: true, disabled: false }));
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${MEAL_LINE}-increment`));
+        });
+        await settle();
+        await waitFor(() => {
+            expect(screen.getByTestId(SUBMIT)).toHaveTextContent('Save changes · AED 96.00');
+        });
+        // Quoted as an edit, on the day and slot the save keeps.
+        expect(quoteSale).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                fulfilmentType: 'delivery',
+                amendingOrderId: ORDER,
+                requestedDeliveryDate: '2026-10-14',
+                deliveryWindowCode: 'morning',
+            }),
+        );
+
+        await save();
+        await waitFor(() => {
+            expect(mockReplace).toHaveBeenCalledWith('/kitchen/order-desk');
+        });
+        // The basket whole; the untouched day, slot and method not at all.
+        expect(amendOrder).toHaveBeenCalledWith({
+            id: ORDER,
+            lockVersion: 2,
+            lines: [
+                { catalogueItemId: String(MEAL_ID), catalogueItemVariantId: null, quantity: '3' },
+            ],
+        });
+    });
+
+    it('sends the slot once the agent moves it', async () => {
+        atElevenOnTheDay();
+        mockParams = { order: ORDER };
+        const amendOrder = jest.fn(async (_request: AmendOrderDeskOrderRequest) => editableOrder());
+        await renderSale({ amendOrder });
+
+        await untilVisible('kitchen-order-desk-sale-slot-midday');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-slot-midday'));
+        });
+        await settle();
+        await save();
+
+        await waitFor(() => {
+            expect(amendOrder).toHaveBeenCalledTimes(1);
+        });
+        expect(amendOrder).toHaveBeenCalledWith(
+            expect.objectContaining({ deliveryWindowCode: 'midday' }),
+        );
+        expect(amendOrder.mock.calls[0]?.[0]).not.toHaveProperty('requestedDeliveryDate');
+    });
+
+    it('offers Reload on a stale version and re-reads the order', async () => {
+        mockParams = { order: ORDER };
+        const getOrder = jest.fn(async () => editableOrder());
+        await renderSale({
+            getOrder,
+            amendOrder: async () => {
+                throw new ApiError(conflictFailure({ currentLockVersion: 3 }));
+            },
+        });
+
+        await untilVisible('kitchen-order-desk-sale-editing');
+        await settle();
+        await save();
+        await untilVisible('kitchen-order-desk-sale-conflict');
+        const reads = getOrder.mock.calls.length;
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-conflict-reload'));
+        });
+        await waitFor(() => {
+            expect(getOrder.mock.calls.length).toBeGreaterThan(reads);
+        });
+        expect(screen.queryByTestId('kitchen-order-desk-sale-conflict')).toBeNull();
+    });
+
+    it('says why an edit was refused, in words', async () => {
+        mockParams = { order: ORDER };
+        await renderSale({
+            amendOrder: async () => {
+                throw new ApiError({
+                    ...apiFailure('server'),
+                    code: 'order.placement_refused',
+                    message: 'This order could not be placed.',
+                    reasons: [
+                        { reason: 'order_not_amendable', context: { because: 'kitchen_started' } },
+                        {
+                            reason: 'total_below_paid',
+                            context: {
+                                total_minor: 3_200,
+                                paid_minor: 6_400,
+                                currency_code: 'AED',
+                            },
+                        },
+                    ],
+                });
+            },
+        });
+
+        await untilVisible('kitchen-order-desk-sale-editing');
+        await settle();
+        await save();
+        await untilVisible('kitchen-order-desk-sale-refusal');
+        expect(
+            screen.getByTestId('kitchen-order-desk-sale-refusal-order_not_amendable'),
+        ).toHaveTextContent(/The kitchen has started this order\./);
+        expect(
+            screen.getByTestId('kitchen-order-desk-sale-refusal-total_below_paid'),
+        ).toHaveTextContent(/AED 32\.00/);
+    });
+
+    it('does not open an order the server says can no longer be edited', async () => {
+        mockParams = { order: ORDER };
+        await renderSale({ getOrder: async () => editableOrder({ amendable: false }) });
+
+        await untilVisible('kitchen-order-desk-sale-not-amendable');
+        expect(screen.queryByTestId('kitchen-order-desk-sale-screen')).toBeNull();
     });
 });

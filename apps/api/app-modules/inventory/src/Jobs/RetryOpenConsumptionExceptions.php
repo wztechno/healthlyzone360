@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Inventory\Jobs;
 
 use Healthy360\Inventory\Services\ConsumptionExceptionSweep;
+use Healthy360\Inventory\Services\InventoryService;
 use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
@@ -17,7 +18,7 @@ use Illuminate\Support\Facades\Log;
  * ({@see ConsumptionExceptionSweep}).
  *
  * Dispatched for one organisation the moment stock rises on one of its shelves
- * ({@see \Healthy360\Inventory\Services\InventoryService::recordMovement()}) —
+ * ({@see InventoryService::recordMovement()}) —
  * a receipt, a delivery, a count, a finished batch — and scheduled for all of
  * them every five minutes, which is what closes a gap fixed anywhere else: a
  * recipe published, a unit set, a branch opened, a batch's claim released.

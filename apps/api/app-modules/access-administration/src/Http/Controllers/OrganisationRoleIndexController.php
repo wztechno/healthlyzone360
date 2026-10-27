@@ -58,7 +58,7 @@ final class OrganisationRoleIndexController
         $this->locator->contextOrganisation($organisation);
 
         $roles = Role::query()
-            ->orderByRaw('organisation_id IS NOT NULL')
+            ->whereNotNull('organisation_id')
             ->orderBy('code')
             ->get();
 

@@ -77,6 +77,7 @@ import type {
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
+import { useAccessState } from '../session/session-provider.tsx';
 import { useMeQuery } from './hooks.ts';
 import { queryKeys } from './query-keys.ts';
 import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
@@ -133,9 +134,10 @@ export function useStockItemsQuery(enabled = true): UseQueryResult<readonly Stoc
 /** Every level the active branch context can see (`X-Branch-Id`, set by `ContextRepository`). */
 export function useStockLevelsQuery(enabled = true): UseQueryResult<readonly StockLevel[]> {
     const { repositories } = useRepositoryContext();
+    const branchId = useAccessState().branch?.id ?? null;
 
     return useQuery({
-        queryKey: queryKeys.kitchenOps.stockLevels(),
+        queryKey: queryKeys.kitchenOps.stockLevels(branchId),
         enabled: enabled && repositories !== null,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
@@ -152,9 +154,10 @@ export function useStockLevelsQuery(enabled = true): UseQueryResult<readonly Sto
  */
 export function useLowStockCountQuery(enabled = true): UseQueryResult<number> {
     const { repositories } = useRepositoryContext();
+    const branchId = useAccessState().branch?.id ?? null;
 
     return useQuery({
-        queryKey: queryKeys.kitchenOps.lowStockCount(),
+        queryKey: queryKeys.kitchenOps.lowStockCount(branchId),
         enabled: enabled && repositories !== null,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');

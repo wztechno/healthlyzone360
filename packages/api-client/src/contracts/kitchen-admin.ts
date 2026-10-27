@@ -24,6 +24,14 @@ import type { MeasureUnit, NutritionFacts, Serving } from '@healthy360/nutrition
 
 import type { PackSize } from './marketplace.ts';
 import type { CursorPage, CursorPageRequest, OffsetPageRequest } from './pagination.ts';
+import type {
+    CreatePriceListRequest,
+    CreateSalesChannelRequest,
+    ItemChannelOffering,
+    PriceListChannels,
+    SalesChannelRecord,
+    SetPriceListChannelsRequest,
+} from './kitchen-wholesale.ts';
 
 /**
  * The kitchen-management contract (phase K1).
@@ -346,7 +354,26 @@ export interface IngredientAssistSuggestion {
         readonly relation: 'same' | 'more_specific' | 'different' | null;
         readonly reason: string | null;
     } | null;
-    readonly unavailable: readonly ('assistant' | 'nutrition')[];
+    /** How the kitchen buys and stocks it — a model estimate. */
+    readonly unit: 'kg' | 'l' | 'piece' | null;
+    /** The mass of one litre or one piece in grams, a bounded model estimate; null for kg. */
+    readonly gramsPerUnit: number | null;
+    readonly allergens: {
+        /** The Open Food Facts search the allergen picker runs. */
+        readonly candidates: readonly AllergenReferenceCandidate[];
+        readonly notices: readonly string[];
+        /** The importable product that is plainly this ingredient, if one is. */
+        readonly pick: number | null;
+        /** The model's own read for when no product fits; `null` when it did not answer. */
+        readonly codes:
+            | readonly {
+                  readonly allergenCode: AllergenCode;
+                  readonly containment: AllergenContainment;
+              }[]
+            | null;
+        readonly reason: string | null;
+    };
+    readonly unavailable: readonly ('assistant' | 'nutrition' | 'allergens')[];
 }
 
 export interface ConfirmIngredientAllergensRequest {
@@ -396,6 +423,61 @@ export interface SetRecordPhotoRequest {
     readonly recordId: string;
     readonly photo: Blob;
     readonly fileName: string;
+}
+
+/* ── spreadsheet transfer (Import / Export) ─────────────────────────────────────────────────── */
+
+/** The three Catalogue lists that move records in and out as an Excel workbook. */
+export type TransferResource = 'ingredients' | 'recipes' | 'stock';
+
+/**
+ * A file the API answered with bytes rather than an envelope. `filename` is what the server put in
+ * `Content-Disposition`, or `null` when the browser could not read that header (CORS) — the caller
+ * then falls back to a name of its own.
+ */
+export interface DownloadedFile {
+    readonly blob: Blob;
+    readonly filename: string | null;
+}
+
+/**
+ * A workbook to upload. On the web this is the picked or dropped `File`; on native it is the
+ * `{uri, name, type}` triple React Native's `FormData` accepts in a file's place.
+ */
+export interface ImportUpload {
+    readonly file: Blob | { readonly uri: string; readonly name: string; readonly type: string };
+    readonly fileName: string;
+}
+
+export type ImportRowOutcomeKind = 'created' | 'updated' | 'skipped' | 'failed';
+
+/** One sheet row the import has something to say about. `row` is the sheet's own row number. */
+export interface ImportRowOutcome {
+    readonly row: number;
+    readonly outcome: ImportRowOutcomeKind;
+    readonly reference: string | null;
+    readonly message: string | null;
+}
+
+/**
+ * What an import did. `unchanged` rows are counted but never listed — a re-imported export is
+ * mostly those, and a list of three hundred "nothing to do" lines tells nobody anything.
+ */
+export interface ImportReport {
+    readonly created: number;
+    readonly updated: number;
+    readonly unchanged: number;
+    readonly skipped: number;
+    readonly failed: number;
+    /** Sheet headers the import did not recognise and left alone, verbatim. */
+    readonly ignoredColumns: readonly string[];
+    readonly rows: readonly ImportRowOutcome[];
+}
+
+/** One recipe with its current version and, when this member may see money, its costed sheet. */
+export interface RecipeSheetBundle {
+    readonly recipe: RecipeAdmin;
+    readonly sheet: TechnicalSheetAdmin | null;
 }
 
 export interface IngredientAdmin {
@@ -2356,6 +2438,30 @@ export interface KitchenAdminRepository {
     /** Remove a record's photo, so it shows its stock picture again. */
     removeRecordPhoto(subject: RecordPhotoSubject, recordId: string): Promise<void>;
 
+    /* ── spreadsheet transfer (Import / Export) ─────────────────────────────────────────────── */
+
+    /**
+     * Upload a workbook and apply it: matched rows update, unmatched rows are created (stock: counts
+     * are recorded against the active branch). Answers the full report; a refused *file* is an
+     * `ApiError` (`validation.failed` on `file`), a refused *row* is a line in the report.
+     */
+    importRecords(resource: TransferResource, upload: ImportUpload): Promise<ImportReport>;
+    /** The ingredient list as a workbook, honouring the same filter `listIngredients` takes. */
+    exportIngredients(filter?: IngredientAdminFilter): Promise<DownloadedFile>;
+    /** The recipe list as a workbook — one row per ingredient line — honouring `listRecipes`' filter. */
+    exportRecipes(filter?: RecipeAdminFilter): Promise<DownloadedFile>;
+    /** The active branch's stock book as a count sheet (`X-Branch-Id` picks the branch). */
+    exportStock(): Promise<DownloadedFile>;
+    /** An empty workbook with the headers the import expects and one example row. */
+    downloadImportTemplate(resource: TransferResource): Promise<DownloadedFile>;
+    /**
+     * CONFIDENTIAL — up to twenty recipes with their current version and costed sheet, in one
+     * read, for printing. `sheet` is `null` for a member without `recipe.view_costs_organisation`.
+     */
+    listRecipeTechnicalSheets(
+        recipeIds: readonly RecipeId[],
+    ): Promise<readonly RecipeSheetBundle[]>;
+
     /* ── ingredients ────────────────────────────────────────────────────────────────────────── */
 
     /**
@@ -2489,6 +2595,31 @@ export interface KitchenAdminRepository {
     ): Promise<PriceListAdmin>;
     /** Refused while any entry breaks {@link isPriceEntryConsistent}. */
     publishPriceList(priceListId: PriceListId, request: LockedRequest): Promise<PriceListAdmin>;
+
+    /* ── wholesale setup (`./kitchen-wholesale.ts`) ─────────────────────────────────────────── */
+
+    /** The organisation's own channel rows, read fresh — a create must show up at once. */
+    listSalesChannels(): Promise<readonly SalesChannelRecord[]>;
+    /** Needs `catalogue.manage_organisation`. */
+    createSalesChannel(request: CreateSalesChannelRequest): Promise<SalesChannelRecord>;
+    /** A new draft list with no entries and no channels. Needs `price_list.manage_organisation`. */
+    createPriceList(request: CreatePriceListRequest): Promise<PriceListAdmin>;
+    getPriceListChannels(priceListId: PriceListId): Promise<PriceListChannels>;
+    /** Every list's scope and channels in one read — the price-list index with its channels. */
+    listPriceListChannels(): Promise<readonly PriceListChannels[]>;
+    /** Replaces the list's channel assignments; the list's lock version guards it. */
+    setPriceListChannels(
+        priceListId: PriceListId,
+        request: SetPriceListChannelsRequest,
+    ): Promise<PriceListChannels>;
+    getItemChannelOffering(itemId: string): Promise<ItemChannelOffering>;
+    /** The named items' channels, a hundred to a request — the items index with its channels. */
+    listItemChannelOfferings(itemIds: readonly string[]): Promise<readonly ItemChannelOffering[]>;
+    /**
+     * Offers the item on one more channel, keeping every assignment it already has. The item's
+     * channel write replaces the whole set, so this reads it first; already offered is a no-op.
+     */
+    offerItemOnChannel(itemId: string, salesChannelId: string): Promise<ItemChannelOffering>;
 
     /* ── meals ──────────────────────────────────────────────────────────────────────────────── */
 

@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Healthy360\B2b\Http\Controllers;
 
+use Healthy360\B2b\Enums\DocumentKind;
 use Healthy360\B2b\Http\Concerns\ResolvesAuthenticatedUser;
 use Healthy360\B2b\Models\B2bApplication;
 use Healthy360\B2b\Models\B2bApplicationContact;
 use Healthy360\B2b\Models\B2bApplicationLocation;
 use Healthy360\B2b\Presenters\B2bApplicationPresenter;
+use Healthy360\B2b\Services\ApplicationService;
 use Healthy360\B2b\Services\B2bLocator;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -44,6 +46,7 @@ final class B2bApplicationShowController
     public function __construct(
         private readonly B2bLocator $locator,
         private readonly B2bApplicationPresenter $presenter,
+        private readonly ApplicationService $applications,
     ) {}
 
     /**
@@ -57,6 +60,15 @@ final class B2bApplicationShowController
             'application' => $this->presenter->application($record),
             'contacts' => $this->contacts($record),
             'locations' => $this->locations($record),
+            // The server's own definition of complete, so a wizard can show
+            // what is still owed while the applicant types rather than only
+            // when submission refuses.
+            'missing_fields' => $this->applications->missingRequiredFields($record),
+            'missing_documents' => $this->applications->missingRequiredDocuments($record),
+            'required_documents' => array_map(
+                static fn (DocumentKind $kind): string => $kind->value,
+                DocumentKind::requiredForB2bSubmission(),
+            ),
         ])->withHeaders(['ETag' => '"'.$record->lock_version.'"']);
     }
 

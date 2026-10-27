@@ -10,6 +10,7 @@ import type {
     OrderDeskSaleRequest,
 } from '@healthy360/api-client/contracts';
 import { ORDER_DESK_FULFILMENT_TYPES } from '@healthy360/api-client/contracts';
+import { OrderId } from '@healthy360/domain-types';
 import {
     Badge,
     Button,
@@ -32,7 +33,7 @@ import {
 import type { IssueCardItem, IssueTrayContent } from '@healthy360/design-system';
 import { fieldWidth } from '@healthy360/design-tokens';
 import { useFormatter, useLocale } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
@@ -45,7 +46,9 @@ import {
     useAdminMealPageQuery,
     useProductPageQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
+import { useKitchenOrderQuery } from '../../../data/kitchen-orders-hooks.ts';
 import {
+    useAmendOrderDeskOrderMutation,
     useOrderDeskDeliveryWindowsQuery,
     useOrderDeskDriversQuery,
     useOrderDeskQuoteQuery,
@@ -82,6 +85,7 @@ import {
     needsCustomer,
     paymentMethodsFor,
     saleShortfall,
+    saleStateFromOrder,
     firstOpenDay,
     offeredDeskWindows,
     windowsOverAt,
@@ -136,9 +140,10 @@ import { useNudgeOnRefusal } from '../tray-nudge.ts';
  * own verdict, as well as on the shortfall — an agent cannot place a ticket whose price is in flight
  * and then read out a number that changes under them.
  *
- * A total that could not be worked out and a refused sale are the page's issue tray's, not the
- * ticket's, as are the customer and address cards' warnings — a shared number, an area nobody
- * delivers to — which those cards register themselves (`order-desk/sale-customer.tsx`).
+ * A total that could not be worked out is the page's issue tray's, not the ticket's, as are the
+ * customer and address cards' warnings — a shared number, an area nobody delivers to — which those
+ * cards register themselves (`order-desk/sale-customer.tsx`). A refused sale or edit stays on the
+ * ticket, beside the button that was pressed, with the edit's own reasons and its conflict.
  *
  * ## What the design draws that this does not
  *
@@ -277,6 +282,7 @@ function Sale() {
     const { t } = useTranslation();
     const router = useRouter();
     const toast = useToast();
+    const { locale } = useLocale();
 
     const [state, setState] = useState<SaleState>(initialSaleState);
     /** Picking the food, or — after Charge — saying how it leaves and taking the money. */
@@ -301,6 +307,41 @@ function Sale() {
     const bodyWidth = port.width;
 
     const place = usePlaceOrderDeskSaleMutation();
+    const amend = useAmendOrderDeskOrderMutation();
+
+    /*
+     * Edit mode: `?order=<id>` opens a placed order on this page instead of a new sale. The order is
+     * seeded into the sale once per `id:lockVersion`, and only while the agent has changed nothing —
+     * a background re-read must not wipe their edits (`recipe-edit-screen.tsx`'s pattern). The seed
+     * is kept: it is what "changed" is measured against, and its `lockVersion` is the one the save
+     * sends, whatever a later re-read says.
+     */
+    const params = useLocalSearchParams<{ order?: string }>();
+    const editOrderId =
+        typeof params.order === 'string' && params.order !== ''
+            ? OrderId.unsafe(params.order)
+            : null;
+    const editing = useKitchenOrderQuery(editOrderId, editOrderId !== null);
+    const editOrder = editOrderId === null ? null : (editing.data ?? null);
+    const [seed, setSeed] = useState<{
+        readonly key: string;
+        readonly lockVersion: number;
+        readonly state: SaleState;
+    } | null>(null);
+    const [editDirty, setEditDirty] = useState(false);
+    /** On an edited delivery: whether the agent has opened Change address. */
+    const [changingAddress, setChangingAddress] = useState(false);
+    const editKey =
+        editOrder === null ? null : `${String(editOrder.id)}:${String(editOrder.lockVersion)}`;
+    if (editOrder !== null && editKey !== null && editKey !== seed?.key && !editDirty) {
+        const seeded = saleStateFromOrder(editOrder);
+        setSeed({ key: editKey, lockVersion: editOrder.lockVersion, state: seeded });
+        setState(seeded);
+        setStage('checkout');
+        setKindChosen(true);
+        setChangingAddress(false);
+    }
+    const isEditing = editOrderId !== null;
 
     /*
      * The day, the slot and the driver, for the sales that need them. The slots are the kitchen's
@@ -318,12 +359,16 @@ function Sale() {
     );
 
     // Naming the leaf is what makes "Order desk" in the trail a link back.
-    useKitchenTrailLeaf(t('kitchen:desk.sale.title'));
+    useKitchenTrailLeaf(
+        editOrder === null
+            ? t('kitchen:desk.sale.title')
+            : t('kitchen:desk.edit.title', { number: editOrder.orderNumber }),
+    );
 
-    // The page's issue tray; a refused sale opens it.
+    // The page's issue tray; a refused sale or edit opens it.
     const issueTray = useIssueTrayController();
     const { nudge: nudgeTray } = issueTray;
-    useNudgeOnRefusal(place.error, nudgeTray);
+    useNudgeOnRefusal(isEditing ? amend.error : place.error, nudgeTray);
 
     // A card a checkout section registers opens the checkout before its Fix runs.
     const showCheckout = useCallback(() => {
@@ -334,6 +379,8 @@ function Sale() {
         setState(next);
         setSold(null);
         place.reset();
+        amend.reset();
+        if (isEditing) setEditDirty(true);
         // A checkout with nothing on the ticket has nothing to check out.
         if (next.lines.length === 0) setStage('menu');
     }
@@ -354,8 +401,29 @@ function Sale() {
             ...(state.customerAddressId === null
                 ? {}
                 : { customerAddressId: state.customerAddressId }),
+            // An edit is quoted on the order's own channel and on the day and slot the save will
+            // keep or send, so the total read out is the total saved.
+            ...(editOrderId === null
+                ? {}
+                : {
+                      amendingOrderId: String(editOrderId),
+                      ...(state.requestedDeliveryDate === null
+                          ? {}
+                          : { requestedDeliveryDate: state.requestedDeliveryDate }),
+                      ...(state.deliveryWindowCode === null
+                          ? {}
+                          : { deliveryWindowCode: state.deliveryWindowCode }),
+                  }),
         };
-    }, [state.lines, state.fulfilmentType, state.customerAccountId, state.customerAddressId]);
+    }, [
+        state.lines,
+        state.fulfilmentType,
+        state.customerAccountId,
+        state.customerAddressId,
+        state.requestedDeliveryDate,
+        state.deliveryWindowCode,
+        editOrderId,
+    ]);
 
     const quotedRequest = useDebouncedValue(saleRequest, QUOTE_DEBOUNCE_MS);
     const ticketQuote = useOrderDeskQuoteQuery(quotedRequest);
@@ -370,11 +438,80 @@ function Sale() {
     // On a delivery, only the slots the address's zone offers; the default is chosen among those.
     const offeredCodes =
         state.fulfilmentType === 'delivery' ? (quote?.offeredWindowCodes ?? null) : null;
-    const windowList = offeredDeskWindows(windows.data ?? [], offeredCodes);
+    // An edit always offers the order's stored slot, even one its zone has since dropped.
+    const seedWindow = seed?.state.deliveryWindowCode ?? null;
+    const windowList = offeredDeskWindows(
+        windows.data ?? [],
+        offeredCodes === null || seedWindow === null ? offeredCodes : [...offeredCodes, seedWindow],
+    );
     const today = todayIso();
     const windowCodes = windowList.map((window) => window.code);
-    const overToday = windowsOverAt(windowList);
-    const schedule = scheduleFor(state, today, windowCodes, overToday);
+    /*
+     * On an edit there is no client-side cut-off: staff may override it, so an ended slot stays
+     * choosable and the stored one stays selected. Nor is `scheduleFor` used — it would quietly
+     * move a stored slot that has ended — the state's own day and slot are shown as they are.
+     */
+    const overToday = isEditing ? new Set<string>() : windowsOverAt(windowList);
+    const schedule = !isEditing
+        ? scheduleFor(state, today, windowCodes, overToday)
+        : state.fulfilmentType === 'counter'
+          ? null
+          : {
+                requestedDeliveryDate: state.requestedDeliveryDate ?? today,
+                deliveryWindowCode: state.deliveryWindowCode,
+            };
+
+    /**
+     * Save an edit. The basket is sent whole; the day, the slot and the method only when the agent
+     * changed them from the seed, and the address only when one was added — omitted keeps what is
+     * stored, so an untouched slot that has since ended is never rewritten.
+     */
+    function onSave() {
+        if (editOrderId === null || seed === null) return;
+        const lines = toWire(state.lines);
+        if (lines.length === 0) return;
+        const was = seed.state;
+
+        amend.mutate(
+            {
+                id: String(editOrderId),
+                lockVersion: seed.lockVersion,
+                lines,
+                ...(state.customerAddressId === null
+                    ? {}
+                    : { customerAddressId: state.customerAddressId }),
+                ...(state.requestedDeliveryDate === null ||
+                state.requestedDeliveryDate === was.requestedDeliveryDate
+                    ? {}
+                    : { requestedDeliveryDate: state.requestedDeliveryDate }),
+                ...(state.deliveryWindowCode === null ||
+                state.deliveryWindowCode === was.deliveryWindowCode
+                    ? {}
+                    : { deliveryWindowCode: state.deliveryWindowCode }),
+                ...(state.paymentMethod === was.paymentMethod
+                    ? {}
+                    : { paymentMethod: state.paymentMethod }),
+            },
+            {
+                onSuccess: (order) => {
+                    toast.show({
+                        testID: 'kitchen-order-desk-sale-saved-toast',
+                        tone: 'success',
+                        message: t('kitchen:desk.edit.savedToast', { number: order.orderNumber }),
+                    });
+                    router.replace('/kitchen/order-desk');
+                },
+            },
+        );
+    }
+
+    /** After a `409 resource.conflict`: drop the edits and seed again from a fresh read. */
+    function onReload() {
+        amend.reset();
+        setEditDirty(false);
+        setSeed(null);
+        void editing.refetch();
+    }
 
     function onPlace() {
         const lines = toWire(state.lines);
@@ -469,51 +606,61 @@ function Sale() {
     // The menu and the checkout take the same column.
     const column = sideBySide ? { width: menuWidth } : { alignSelf: 'stretch' as const };
 
-    /*
-     * What did not go through, in the tray rather than on the ticket: the total the server could not
-     * work out, and a refused sale with every reason it gave — never just the first, because one
-     * sentence saying the order could not be placed sends an agent back to a ticket with nothing to
-     * change. A reason with no copy yet still appears, as the server's own code. Both clear when the
-     * ticket changes: the quote is asked again and the refusal is reset.
-     */
+    if (isEditing && editOrder === null) {
+        const failure = toFailure(editing.error);
+        return failure === null ? (
+            <Skeleton testID="kitchen-order-desk-sale-edit-loading" heightClassName="h-32" />
+        ) : (
+            <ErrorState
+                testID="kitchen-order-desk-sale-edit-error"
+                title={t('kitchen:desk.edit.loadErrorTitle')}
+                failure={failure}
+                onRetry={() => {
+                    void editing.refetch();
+                }}
+                retrying={editing.isFetching}
+            />
+        );
+    }
+
+    // The server decides; once it says no, there is nothing on this page worth editing.
+    if (editOrder !== null && !editOrder.amendable && !editDirty) {
+        return (
+            <Callout
+                testID="kitchen-order-desk-sale-not-amendable"
+                tone="warning"
+                role="alert"
+                title={t('kitchen:desk.edit.notAmendableTitle')}
+                body={t('kitchen:desk.edit.notAmendableBody')}
+                actions={
+                    <Button
+                        testID="kitchen-order-desk-sale-not-amendable-back"
+                        size="sm"
+                        variant="secondary"
+                        label={t('kitchen:desk.edit.backToDesk')}
+                        onPress={() => {
+                            router.replace('/kitchen/order-desk');
+                        }}
+                    />
+                }
+            />
+        );
+    }
+
+    // A total the server could not work out is the tray's; it clears when the quote is asked again.
     const quoteFailure = state.lines.length === 0 ? null : toFailure(ticketQuote.error);
-    const placeFailure = toFailure(place.error);
-    const refusalReasons =
-        placeFailure?.code === 'order.placement_refused' ? placeFailure.reasons : [];
-    const failedCards: IssueCardItem[] = [
-        ...(quoteFailure === null
+    const failedCards: IssueCardItem[] =
+        quoteFailure === null
             ? []
             : [
                   {
                       key: 'quote',
-                      tone: 'danger' as const,
+                      tone: 'danger',
                       label: t('kitchen:desk.sale.quoteErrorTitle'),
                       detail: quoteFailure.message,
                       testID: 'kitchen-order-desk-sale-quote-error',
                   },
-              ]),
-        ...(placeFailure === null
-            ? []
-            : [
-                  {
-                      key: 'refusal',
-                      tone: 'danger' as const,
-                      label: t('kitchen:desk.sale.refusedTitle'),
-                      detail:
-                          refusalReasons.length === 0
-                              ? placeFailure.message
-                              : refusalReasons
-                                    .map(
-                                        (entry) =>
-                                            `• ${t(`kitchen:desk.refusal.${entry.reason}`, {
-                                                defaultValue: entry.reason,
-                                            })}`,
-                                    )
-                                    .join('\n'),
-                      testID: 'kitchen-order-desk-sale-refusal',
-                  },
-              ]),
-    ];
+              ];
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-order-desk-sale-tray',
@@ -523,6 +670,11 @@ function Sale() {
     return (
         <IssueTrayFrame tray={trayContent} controller={issueTray}>
             <View testID="kitchen-order-desk-sale-screen" className="z-auto flex-col gap-base">
+                {editOrder === null ? null : (
+                    <Text variant="title" testID="kitchen-order-desk-sale-editing">
+                        {t('kitchen:desk.edit.title', { number: editOrder.orderNumber })}
+                    </Text>
+                )}
                 <View
                     // Both measurement paths, each inert on the other's platform — as `CatalogueList`.
                     ref={Platform.OS === 'web' ? port.ref : undefined}
@@ -555,16 +707,19 @@ function Sale() {
                             />
                         </View>
 
-                        <KindPicker
-                            value={kindChosen ? state.fulfilmentType : null}
-                            onChange={(type) => {
-                                setKindChosen(true);
-                                update(withFulfilmentType(state, type));
-                            }}
-                        />
+                        {/* How it leaves and who it is for are fixed for the life of an order. */}
+                        {isEditing ? null : (
+                            <KindPicker
+                                value={kindChosen ? state.fulfilmentType : null}
+                                onChange={(type) => {
+                                    setKindChosen(true);
+                                    update(withFulfilmentType(state, type));
+                                }}
+                            />
+                        )}
 
                         <IssueRevealScope reveal={showCheckout}>
-                            {kindChosen && needsCustomer(state.fulfilmentType) ? (
+                            {!isEditing && kindChosen && needsCustomer(state.fulfilmentType) ? (
                                 <CustomerSection
                                     customerAccountId={state.customerAccountId}
                                     onChoose={(customer) => {
@@ -573,7 +728,61 @@ function Sale() {
                                 />
                             ) : null}
 
-                            {kindChosen && needsAddress(state.fulfilmentType) ? (
+                            {editOrder !== null && needsAddress(state.fulfilmentType) ? (
+                                <FormSection
+                                    variant="card"
+                                    testID="kitchen-order-desk-sale-edit-address"
+                                    title={t('kitchen:desk.sale.addressTitle')}
+                                    actions={
+                                        <Button
+                                            testID="kitchen-order-desk-sale-edit-address-toggle"
+                                            size="sm"
+                                            variant="secondary"
+                                            label={t(
+                                                changingAddress
+                                                    ? 'kitchen:desk.edit.keepAddress'
+                                                    : 'kitchen:desk.edit.changeAddress',
+                                            )}
+                                            onPress={() => {
+                                                // Keeping the stored address drops one added meanwhile.
+                                                if (
+                                                    changingAddress &&
+                                                    state.customerAddressId !== null
+                                                ) {
+                                                    update({ ...state, customerAddressId: null });
+                                                }
+                                                setChangingAddress(!changingAddress);
+                                            }}
+                                        />
+                                    }
+                                >
+                                    <Text
+                                        variant="label"
+                                        testID="kitchen-order-desk-sale-edit-address-current"
+                                    >
+                                        {[
+                                            editOrder.delivery.lineOne,
+                                            editOrder.delivery.lineTwo,
+                                            locale.startsWith('ar')
+                                                ? editOrder.delivery.areaNameAr
+                                                : editOrder.delivery.areaNameEn,
+                                        ]
+                                            .filter(
+                                                (part): part is string =>
+                                                    part !== null && part !== '',
+                                            )
+                                            .join(', ') || EM_DASH}
+                                    </Text>
+                                </FormSection>
+                            ) : null}
+
+                            {/*
+                             * The same surface a new sale uses, unchanged: it only ever adds an address,
+                             * and on an edit the one it adds replaces the stored destination.
+                             */}
+                            {kindChosen &&
+                            needsAddress(state.fulfilmentType) &&
+                            (!isEditing || changingAddress) ? (
                                 <AddressSection
                                     customerAccountId={state.customerAccountId}
                                     customerAddressId={state.customerAddressId}
@@ -596,8 +805,9 @@ function Sale() {
                                 onSchedule={(next) => {
                                     update({ ...state, ...next });
                                 }}
+                                // An edit leaves the run to the record page's own reassignment.
                                 drivers={
-                                    state.fulfilmentType === 'delivery'
+                                    !isEditing && state.fulfilmentType === 'delivery'
                                         ? (drivers.data?.rows ?? null)
                                         : null
                                 }
@@ -633,6 +843,7 @@ function Sale() {
                             section={section}
                             query={query}
                             customerAccountId={state.customerAccountId}
+                            amendingOrderId={editOrderId === null ? null : String(editOrderId)}
                             lines={state.lines}
                             onAdd={(tile) => {
                                 update({
@@ -660,8 +871,11 @@ function Sale() {
                         quoteStale={quoteStale}
                         onState={update}
                         sold={sold}
-                        placing={place.isPending}
-                        onPlace={onPlace}
+                        editing={editOrder}
+                        onReload={onReload}
+                        placing={place.isPending || amend.isPending}
+                        placeFailure={toFailure(isEditing ? amend.error : place.error)}
+                        onPlace={isEditing ? onSave : onPlace}
                     />
                 </View>
             </View>
@@ -901,6 +1115,7 @@ function MenuGrid({
     section,
     query,
     customerAccountId,
+    amendingOrderId,
     lines,
     onAdd,
 }: {
@@ -911,6 +1126,8 @@ function MenuGrid({
     readonly section: MenuSection;
     readonly query: string;
     readonly customerAccountId: string | null;
+    /** On an edit, the shelf is priced on that order's channel — a web-shop order's, say. */
+    readonly amendingOrderId: string | null;
     readonly lines: readonly BasketLine[];
     readonly onAdd: (tile: MenuTile) => void;
 }) {
@@ -981,8 +1198,9 @@ function MenuGrid({
                           quantity: '1',
                       })),
                       ...(customerAccountId === null ? {} : { customerAccountId }),
+                      ...(amendingOrderId === null ? {} : { amendingOrderId }),
                   },
-        [tiles, customerAccountId],
+        [tiles, customerAccountId, amendingOrderId],
     );
     const shelf = useOrderDeskQuoteQuery(shelfRequest);
     const shelfById = useMemo(() => {
@@ -1163,6 +1381,9 @@ function MenuTileButton({
  * The ticket
  * ---------------------------------------------------------------------------------------------- */
 
+/** A refusal from the quote or the placement — the same `{ reason, context }` either way. */
+type Refusal = OrderDeskQuote['refusals'][number];
+
 function Ticket({
     beside,
     stage,
@@ -1173,7 +1394,10 @@ function Ticket({
     quoteStale,
     onState,
     sold,
+    editing,
+    onReload,
     placing,
+    placeFailure,
     onPlace,
 }: {
     /** Beside the menu, taking the row the tiles leave; otherwise the full width under it. */
@@ -1188,7 +1412,12 @@ function Ticket({
     readonly quoteStale: boolean;
     readonly onState: (state: SaleState) => void;
     readonly sold: KitchenOrder | null;
+    /** The order being edited, or `null` on a new sale. */
+    readonly editing: KitchenOrder | null;
+    /** Re-seeds the edit after a `409 resource.conflict`. */
+    readonly onReload: () => void;
     readonly placing: boolean;
+    readonly placeFailure: ReturnType<typeof toFailure>;
     readonly onPlace: () => void;
 }) {
     const { t } = useTranslation();
@@ -1206,6 +1435,26 @@ function Ticket({
     const money = (amount: number, currency: OrderDeskQuote['currencyCode']) =>
         formatMoney(formatter, { amount, currency });
 
+    /*
+     * A refusal's sentence. The two an edit adds carry their own detail: `order_not_amendable` says
+     * why in `because`, and `total_below_paid` the amounts — in the edited order's currency.
+     */
+    const refusalText = (refusal: Refusal): string => {
+        if (refusal.reason === 'order_not_amendable') {
+            const because = String(refusal.context['because'] ?? 'closed');
+            return t(`kitchen:desk.edit.notAmendable.${because}`, {
+                defaultValue: t('kitchen:desk.edit.notAmendableTitle'),
+            });
+        }
+        if (refusal.reason === 'total_below_paid' && editing !== null) {
+            return t('kitchen:desk.edit.totalBelowPaid', {
+                total: money(Number(refusal.context['total_minor']), editing.currencyCode),
+                paid: money(Number(refusal.context['paid_minor']), editing.currencyCode),
+            });
+        }
+        return t(`kitchen:desk.refusal.${refusal.reason}`, { defaultValue: refusal.reason });
+    };
+
     const quotedByKey = useMemo(() => {
         const map = new Map<string, OrderDeskQuoteLine>();
         for (const line of quote?.lines ?? []) {
@@ -1217,7 +1466,11 @@ function Ticket({
     const lines = state.lines;
     const counter = state.fulfilmentType === 'counter';
     const itemCount = lines.reduce((sum, line) => sum + (quantityAsNumber(line.quantity) ?? 0), 0);
-    const shortfall = saleShortfall(state);
+    const shortfall = saleShortfall(state, editing !== null);
+    const refusalReasons =
+        placeFailure?.code === 'order.placement_refused' ? placeFailure.reasons : [];
+    // An edit sent against a version somebody else has since moved.
+    const conflicted = editing !== null && placeFailure?.code === 'resource.conflict';
 
     // The two gates: nothing missing on the page, and a fresh price the server says it can sell.
     const placeable = shortfall === null && quote !== null && quote.quotable && !quoteStale;
@@ -1237,7 +1490,7 @@ function Ticket({
             ? t('kitchen:desk.sale.chargeEmpty')
             : quote === null || quoteStale
               ? t('kitchen:desk.sale.quoteUpdating')
-              : t('kitchen:desk.sale.chargeTotal', {
+              : t(editing !== null ? 'kitchen:desk.edit.review' : 'kitchen:desk.sale.chargeTotal', {
                     total: money(quote.totalMinor, quote.currencyCode),
                 });
     const paying = stage === 'checkout' && kindChosen;
@@ -1247,14 +1500,18 @@ function Ticket({
             ? t('kitchen:desk.sale.chargeEmpty')
             : quote === null || quoteStale
               ? t('kitchen:desk.sale.quoteUpdating')
-              : counter
-                ? t('kitchen:desk.sale.charge', {
+              : editing !== null
+                ? t('kitchen:desk.edit.save', {
                       total: money(quote.totalMinor, quote.currencyCode),
-                      method: t(kitchenOrderPaymentMethodKey(state.paymentMethod)),
                   })
-                : t('kitchen:desk.sale.placeFor', {
-                      total: money(quote.totalMinor, quote.currencyCode),
-                  });
+                : counter
+                  ? t('kitchen:desk.sale.charge', {
+                        total: money(quote.totalMinor, quote.currencyCode),
+                        method: t(kitchenOrderPaymentMethodKey(state.paymentMethod)),
+                    })
+                  : t('kitchen:desk.sale.placeFor', {
+                        total: money(quote.totalMinor, quote.currencyCode),
+                    });
 
     return (
         <View
@@ -1421,9 +1678,7 @@ function Ticket({
                                                 tone="warning"
                                                 testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-refusal-${refusal.reason}`}
                                             >
-                                                {t(`kitchen:desk.refusal.${refusal.reason}`, {
-                                                    defaultValue: refusal.reason,
-                                                })}
+                                                {refusalText(refusal)}
                                             </Text>
                                         ))}
                                         {/* A warning, never a block: the sale can still go ahead. */}
@@ -1448,7 +1703,12 @@ function Ticket({
 
                     {/* A total that could not be worked out is the tray's to say; this shows "—". */}
                     {lines.length === 0 ? null : (
-                        <Totals quote={quote} money={money} showOrderRefusals={paying} />
+                        <Totals
+                            quote={quote}
+                            money={money}
+                            showOrderRefusals={paying}
+                            refusalText={refusalText}
+                        />
                     )}
 
                     {paying ? (
@@ -1479,6 +1739,56 @@ function Ticket({
                             autoCorrect={false}
                         />
                     ) : null}
+
+                    {placeFailure === null ? null : conflicted ? (
+                        // Never a silent retry: re-read and show what actually happened.
+                        <Callout
+                            testID="kitchen-order-desk-sale-conflict"
+                            tone="warning"
+                            role="alert"
+                            title={t('kitchen:ops.orders.conflictTitle')}
+                            body={t('kitchen:ops.orders.conflictBody')}
+                            actions={
+                                <Button
+                                    testID="kitchen-order-desk-sale-conflict-reload"
+                                    size="sm"
+                                    variant="secondary"
+                                    label={t('kitchen:ops.orders.conflictRefresh')}
+                                    onPress={onReload}
+                                />
+                            }
+                        />
+                    ) : (
+                        <Callout
+                            testID="kitchen-order-desk-sale-refusal"
+                            tone="danger"
+                            role="alert"
+                            title={t('kitchen:desk.sale.refusedTitle')}
+                        >
+                            {refusalReasons.length === 0 ? null : (
+                                <View
+                                    testID="kitchen-order-desk-sale-refusal-reasons"
+                                    className="flex-col gap-hair"
+                                >
+                                    {/*
+                                     * Every reason, never just the first: one sentence saying the
+                                     * order could not be placed sends an agent back to a ticket with
+                                     * nothing to change. A reason with no copy yet still appears, as
+                                     * the server's own code.
+                                     */}
+                                    {refusalReasons.map((entry) => (
+                                        <Text
+                                            key={entry.reason}
+                                            variant="caption"
+                                            testID={`kitchen-order-desk-sale-refusal-${entry.reason}`}
+                                        >
+                                            {`• ${refusalText(entry)}`}
+                                        </Text>
+                                    ))}
+                                </View>
+                            )}
+                        </Callout>
+                    )}
 
                     {stage === 'menu' ? (
                         <Button
@@ -1546,10 +1856,12 @@ function Totals({
     quote,
     money,
     showOrderRefusals,
+    refusalText,
 }: {
     readonly quote: OrderDeskQuote | null;
     readonly money: (amount: number, currency: OrderDeskQuote['currencyCode']) => string;
     readonly showOrderRefusals: boolean;
+    readonly refusalText: (refusal: Refusal) => string;
 }) {
     const { t } = useTranslation();
 
@@ -1597,9 +1909,7 @@ function Totals({
                     tone="warning"
                     testID={`kitchen-order-desk-sale-order-refusal-${refusal.reason}`}
                 >
-                    {t(`kitchen:desk.refusal.${refusal.reason}`, {
-                        defaultValue: refusal.reason,
-                    })}
+                    {refusalText(refusal)}
                 </Text>
             ))}
         </View>

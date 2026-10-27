@@ -20,16 +20,18 @@ import { isProvisioning } from '../sections.ts';
  * ## Leaving is safe, and the page says so
  *
  * Nothing here is driven by the page staying open. The copy says that, because the alternative is a
- * person sitting on a spinner for two minutes in case closing the tab breaks something.
+ * person sitting on a spinner for two minutes in case closing the tab breaks something. While it is
+ * open, the read polls every thirty seconds until the application stops waiting on the platform.
  */
 
 const TEST_ID = 'b2b-apply-provisioning';
+const POLL_MS = 30_000;
 
 export function ApplyProvisioningScreen() {
     const { t } = useTranslation();
     const router = useRouter();
 
-    const application = useB2BApplicationQuery();
+    const application = useB2BApplicationQuery(true, POLL_MS);
     const current = application.data ?? null;
     const progress = current?.provisioning ?? null;
 
@@ -89,7 +91,7 @@ export function ApplyProvisioningScreen() {
                             ))}
                         </Stack>
 
-                        {progress.completedAt === null ? null : (
+                        {progress.completedAt === null && current.state !== 'provisioned' ? null : (
                             <Stack space="md" testID={`${TEST_ID}-done`}>
                                 <Callout
                                     tone="success"

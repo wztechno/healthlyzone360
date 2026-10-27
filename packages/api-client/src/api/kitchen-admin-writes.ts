@@ -1,4 +1,5 @@
 import {
+    AllergenCode,
     DeliveryZoneId,
     IngredientId,
     MealId,
@@ -15,6 +16,7 @@ import type {
 import type { MeasureUnit } from '@healthy360/nutrition';
 
 import type {
+    AllergenReferenceCandidate,
     BranchOperating,
     CostAmount,
     CreateDeliveryWindowRequest,
@@ -30,6 +32,9 @@ import type {
     DeliveryZoneAdmin,
     IngredientAdmin,
     IngredientAllergenMapping,
+    ImportReport,
+    ImportRowOutcomeKind,
+    ImportUpload,
     KitchenAdminRepository,
     AllergenReferenceSearchResult,
     NutritionReferenceCandidate,
@@ -63,6 +68,7 @@ import type {
     SetRecipeStepsRequest,
     SetZoneAreasRequest,
     SetZoneWindowsRequest,
+    TransferResource,
     UpdateDeliveryWindowRequest,
     UpdateDeliveryZoneRequest,
     UpdateIngredientRequest,
@@ -103,6 +109,8 @@ import {
     type WireItemChannelPrices,
 } from './kitchen-admin-mappers.ts';
 import { createApiKitchenAdminReads } from './kitchen-admin-repository.ts';
+import { createApiKitchenAdminWholesale } from './kitchen-admin-wholesale.ts';
+import type { ApiKitchenAdminWholesale } from './kitchen-admin-wholesale.ts';
 import { MultipartBody } from './transport.ts';
 import type { Transport } from './transport.ts';
 
@@ -114,6 +122,7 @@ export type ApiKitchenAdminWrites = Pick<
     | 'createIngredient'
     | 'updateIngredient'
     | 'setRecordPhoto'
+    | 'importRecords'
     | 'removeRecordPhoto'
     | 'archiveIngredient'
     | 'forkIngredient'
@@ -163,7 +172,8 @@ export type ApiKitchenAdminWrites = Pick<
     | 'updateDeliveryWindow'
     | 'archiveDeliveryWindow'
     | 'setBranchOperating'
->;
+> &
+    ApiKitchenAdminWholesale;
 
 function ifMatch(lockVersion: number): Readonly<Record<string, string>> {
     return { 'If-Match': `"${lockVersion}"` };
@@ -408,6 +418,29 @@ const PHOTO_PATHS: Readonly<Record<RecordPhotoSubject, string>> = {
     recipe: '/catalogue/recipes',
     catalogue_item: '/catalogue/items',
 };
+
+/** Where each resource's workbook is uploaded. */
+const IMPORT_PATHS: Readonly<Record<TransferResource, string>> = {
+    ingredients: '/catalogue/ingredients/imports',
+    recipes: '/catalogue/recipes/imports',
+    stock: '/catalogue/inventory/counts/imports',
+};
+
+/** An import's report as the server answers it. */
+interface WireImportReport {
+    readonly created: number;
+    readonly updated: number;
+    readonly unchanged: number;
+    readonly skipped: number;
+    readonly failed: number;
+    readonly ignored_columns?: readonly string[] | null;
+    readonly rows: ReadonlyArray<{
+        readonly row: number;
+        readonly outcome: ImportRowOutcomeKind;
+        readonly reference?: string | null;
+        readonly message?: string | null;
+    }>;
+}
 
 export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdminWrites {
     const reads = createApiKitchenAdminReads(transport);
@@ -707,6 +740,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
     }
 
     return {
+        ...createApiKitchenAdminWholesale(transport),
         async searchAllergenReferences(request) {
             const params = new URLSearchParams();
             if (request.barcode) params.set('barcode', request.barcode);
@@ -762,6 +796,20 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                               relation: wire.nutrition.relation,
                               reason: wire.nutrition.reason,
                           },
+                unit: wire.unit,
+                gramsPerUnit: wire.grams_per_unit,
+                allergens: {
+                    candidates: wire.allergens
+                        .candidates as unknown as readonly AllergenReferenceCandidate[],
+                    notices: wire.allergens.notices,
+                    pick: wire.allergens.pick,
+                    codes:
+                        wire.allergens.codes?.map((entry) => ({
+                            allergenCode: AllergenCode.unsafe(entry.code),
+                            containment: entry.containment,
+                        })) ?? null,
+                    reason: wire.allergens.reason,
+                },
                 unavailable: wire.unavailable,
             };
         },
@@ -789,6 +837,35 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 body: new MultipartBody(form),
             });
             return wire.photo.url;
+        },
+
+        async importRecords(
+            resource: TransferResource,
+            upload: ImportUpload,
+        ): Promise<ImportReport> {
+            const form = new FormData();
+            // The cast covers React Native's `{uri, name, type}` triple, which its `FormData`
+            // accepts in a `Blob`'s place.
+            form.append('file', upload.file as Blob, upload.fileName);
+            const wire = await transport.request<WireImportReport>({
+                method: 'POST',
+                path: IMPORT_PATHS[resource],
+                body: new MultipartBody(form),
+            });
+            return {
+                created: wire.created,
+                updated: wire.updated,
+                unchanged: wire.unchanged,
+                skipped: wire.skipped,
+                failed: wire.failed,
+                ignoredColumns: wire.ignored_columns ?? [],
+                rows: wire.rows.map((row) => ({
+                    row: row.row,
+                    outcome: row.outcome,
+                    reference: row.reference ?? null,
+                    message: row.message ?? null,
+                })),
+            };
         },
 
         async removeRecordPhoto(subject: RecordPhotoSubject, recordId: string): Promise<void> {

@@ -111,8 +111,8 @@ final readonly class MembershipRoleAssigner
     }
 
     /**
-     * Every named role must be one this organisation may assign — its own, or a
-     * platform template.
+     * Every named role must be one this organisation owns. Platform templates
+     * are blueprints, never assigned (`OrganisationRoles::provision()`).
      *
      * Resolved through `Role::query()` rather than `withoutTenancy()`, so the
      * global scope is what refuses another tenant's role and a cross-tenant
@@ -130,7 +130,7 @@ final readonly class MembershipRoleAssigner
             return;
         }
 
-        $assignable = Role::query()->whereIn('id', $roleIds)->pluck('id')->map(strval(...))->all();
+        $assignable = Role::query()->whereIn('id', $roleIds)->whereNotNull('organisation_id')->pluck('id')->map(strval(...))->all();
         $refused = array_values(array_diff($roleIds, $assignable));
 
         if ($refused !== []) {

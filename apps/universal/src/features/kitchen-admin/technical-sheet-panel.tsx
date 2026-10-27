@@ -17,9 +17,11 @@ import {
     Text,
 } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { useIngredientsByIds } from '../../data/kitchen-admin-hooks.ts';
 import { displayName, humaniseCode } from './format.ts';
 
 /**
@@ -99,12 +101,39 @@ export function TechnicalSheetPanel({
                   maximumFractionDigits: 3,
               });
 
+    /*
+     * `ingredientName` is the mapper's copy of `source_designation`, so a line the editor created
+     * without a note carries no name at all. The ingredient record does; the reads share the cache
+     * entries the recipe editor already holds, and only the nameless lines are read.
+     */
+    const lineIngredientIds = useMemo(
+        () => [
+            ...new Set(
+                version.lines
+                    .filter(
+                        (line: RecipeLine) =>
+                            line.sourceDesignation === null &&
+                            displayName(line.ingredientName, locale).value.trim() === '',
+                    )
+                    .map((line: RecipeLine) => line.ingredientId),
+            ),
+        ],
+        [version.lines, locale],
+    );
+    const lineIngredients = useIngredientsByIds(lineIngredientIds);
+
     const rows = version.lines.map((line: RecipeLine, index: number) => {
         const sheetLine: TechnicalSheetLineAdmin | undefined = sheet?.lines[index];
+        const mapped = displayName(line.ingredientName, locale).value;
+        const hydrated = lineIngredients[String(line.ingredientId)];
 
         return {
             key: `${index + 1}-${String(line.ingredientId)}`,
-            designation: line.sourceDesignation ?? displayName(line.ingredientName, locale).value,
+            designation:
+                line.sourceDesignation ??
+                (mapped.trim() === '' && hydrated !== undefined
+                    ? displayName(hydrated.name, locale).value
+                    : mapped),
             unit: line.unit,
             quantity: line.quantity,
             unitCost: sheetLine?.unitCost ?? null,

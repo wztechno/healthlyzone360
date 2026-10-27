@@ -774,6 +774,29 @@ export interface OrderDeskSaleRequest {
     /** `YYYY-MM-DD`. Applies to a pickup as well as a delivery; a counter sale has no day. */
     readonly requestedDeliveryDate?: string | undefined;
     readonly deliveryWindowCode?: string | undefined;
+    /**
+     * Quote an **edit** of this order rather than a new sale: priced on the order's own channel,
+     * customer, branch and fulfilment type, keeping its stored zone and fee unless a new address is
+     * named, and never refused for a passed cut-off. `fulfilmentType` is still sent (the order's).
+     */
+    readonly amendingOrderId?: string | undefined;
+}
+
+/**
+ * The whole basket of an existing order, plus whatever else changed. Every optional field left out
+ * keeps what is stored — customer, fulfilment type and branch are fixed for the life of the order,
+ * and every line is repriced.
+ */
+export interface AmendOrderDeskOrderRequest {
+    readonly id: string;
+    /** The version the screen read — sent as `If-Match`; a stale one is `409 resource.conflict`. */
+    readonly lockVersion: number;
+    readonly lines: readonly OrderDeskBasketLine[];
+    /** A new delivery address, which must belong to the order's customer. */
+    readonly customerAddressId?: string | undefined;
+    readonly requestedDeliveryDate?: string | undefined;
+    readonly deliveryWindowCode?: string | undefined;
+    readonly paymentMethod?: KitchenOrderPaymentMethod | undefined;
 }
 
 /**
@@ -1128,6 +1151,14 @@ export interface OrderDeskRepository {
      * `order.placement_refused` carrying its reasons; it is **never** retried automatically.
      */
     placeSale(request: PlaceOrderDeskSaleRequest): Promise<KitchenOrder>;
+
+    /**
+     * Edit a placed order: `PATCH` with `If-Match`, no idempotency key (the validator is the replay
+     * guard). A stale version is `409 resource.conflict`; a refused edit is `409
+     * order.placement_refused` with its reasons, including `order_not_amendable` and
+     * `total_below_paid`.
+     */
+    amendOrder(request: AmendOrderDeskOrderRequest): Promise<KitchenOrder>;
 
     /**
      * Find the customer this sale is for. **Three characters minimum** — the server refuses less

@@ -12,6 +12,7 @@ import {
     ErrorState,
     FormGrid,
     FormSection,
+    Inline,
     IssueTrayFrame,
     SegmentedControl,
     Select,
@@ -73,6 +74,9 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
+import { STOCK_COUNT_IMPORT_GUIDE } from '../catalogue/import-guides.ts';
+import { listPrintJob, useListPrint } from '../catalogue/list-print.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { returnCrumbLabel } from '../came-from.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
@@ -230,6 +234,14 @@ function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
     const back = useReturnTo(returnTo, '/kitchen/stock');
     const canManage = useCan(INVENTORY_MANAGE_PERMISSION);
     const canViewCosts = useCan(INVENTORY_VIEW_COSTS_PERMISSION);
+    /*
+     * No branch gate here, deliberately. A member whose membership needs a branch picked never
+     * reaches this screen without one (the landing rule sends them to the picker first), and a
+     * single-branch member arrives with no branch on the client while the server resolves the sole
+     * branch itself — the one case a client-side block would refuse is the one that works. When
+     * the server does need a branch it answers `context.branch_required`, which the dialog shows.
+     */
+    const print = useListPrint();
 
     const items = useStockItemsQuery();
     const levels = useStockLevelsQuery();
@@ -915,7 +927,49 @@ function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
                         />
                     }
                 >
-                    <ColumnPicker {...controls.picker} />
+                    <Inline space="xs" align="center">
+                        <ColumnPicker {...controls.picker} />
+                        {canManage ? (
+                            <CatalogueTransferActions
+                                testID="kitchen-stock-toolbar"
+                                importGuide={STOCK_COUNT_IMPORT_GUIDE}
+                                exportMenu={{
+                                    excel: {
+                                        load: (repositories) =>
+                                            repositories.kitchenAdmin.exportStock(),
+                                        fallbackName: 'stock-count.xlsx',
+                                    },
+                                    pdf: [
+                                        {
+                                            key: 'pdf',
+                                            label: t('kitchen:transfer.export.pdf'),
+                                            disabled: pending,
+                                            onSelect: () => {
+                                                print.start(
+                                                    listPrintJob({
+                                                        resource: 'stock',
+                                                        title: t(
+                                                            'kitchen:transfer.stock.printTitle',
+                                                        ),
+                                                        // ponytail: Last purchase is read for the visible
+                                                        // page only (the 414 URL limit above), so every
+                                                        // other row would print "Loading…". Add a batch
+                                                        // purchase read if the printed column is wanted.
+                                                        columns: controls.columns.filter(
+                                                            (column) =>
+                                                                column.key !== 'lastPurchase',
+                                                        ),
+                                                        // Already filtered and sorted as the list shows it.
+                                                        rows: controls.rows,
+                                                    }),
+                                                );
+                                            },
+                                        },
+                                    ],
+                                }}
+                            />
+                        ) : null}
+                    </Inline>
                 </CatalogueToolbar>
 
                 {pending ? (

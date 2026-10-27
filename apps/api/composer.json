@@ -9,7 +9,7 @@
     ],
     "license": "MIT",
     "require": {
-        "php": "^8.3",
+        "php": "^8.4",
         "healthy360/access-administration": "*",
         "healthy360/access-control": "^1.0",
         "healthy360/allergens": "^1.0",
@@ -47,6 +47,7 @@
         "laravel/sanctum": "^4.3",
         "laravel/tinker": "^3.0",
         "league/flysystem-aws-s3-v3": "^3.35",
+        "openspout/openspout": "^5.12",
         "symfony/brevo-mailer": "^8.1",
         "symfony/http-client": "^8.1"
     },

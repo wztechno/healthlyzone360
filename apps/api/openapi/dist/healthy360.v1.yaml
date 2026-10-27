@@ -1829,6 +1829,151 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '503':
           $ref: '#/components/responses/NutritionProviderFailure'
+  /catalogue/ingredients/imports:
+    post:
+      operationId: importIngredients
+      tags:
+        - Kitchen catalogue
+      summary: Import ingredients from a workbook
+      description: |
+        Creates or updates the organisation's own ingredients from the sheet
+        the export and the template share, matched on the reference (`ING-…`).
+        Platform-library rows are never written.
+
+        One `.xlsx` of at most 5 MB, sent as `file` in a multipart body. Row 1
+        is the header, matched by name in any order; a column the importer
+        does not know is reported in `ignored_columns` rather than refused.
+
+        **Each row commits on its own.** A failed row is reported and never
+        undoes an earlier one, so the report is the complete picture of what
+        happened and a re-upload of the corrected sheet converges: rows that
+        already match are counted `unchanged`, not written again.
+
+        A file that cannot be read as a workbook, or whose header is missing a
+        required column, is `422` on `file` and nothing is written.
+
+        Throttled by `catalogue-import`: thirty runs an hour per organisation.
+
+        Requires `catalogue.manage_organisation`, and the kitchen must be
+        trading — a suspended one is `409 organisation.suspended`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SpreadsheetImportRequest'
+            encoding:
+              file:
+                contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        '200':
+          description: The import ran. The report is the whole outcome, row by row.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpreadsheetImportEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/ingredients/export:
+    get:
+      operationId: exportIngredients
+      tags:
+        - Kitchen catalogue
+      summary: Export ingredients as a workbook
+      description: |
+        The ingredient list as an `.xlsx`, in the columns the import reads — so
+        an edited export is a valid upload. Takes `listIngredients`' filters
+        and none of its paging: the file is every row the filters admit.
+
+        Requires `catalogue.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: query
+          in: query
+          required: false
+          description: As on `listIngredients`.
+          schema:
+            type: string
+            maxLength: 160
+        - name: status
+          in: query
+          required: false
+          description: As on `listIngredients`.
+          schema:
+            $ref: '#/components/schemas/IngredientStatus'
+        - name: category
+          in: query
+          required: false
+          description: As on `listIngredients`.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: exclude_category
+          in: query
+          required: false
+          description: As on `listIngredients`.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: reference_series
+          in: query
+          required: false
+          description: As on `listIngredients`.
+          schema:
+            type: string
+            enum:
+              - ING-
+              - PKG-
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SpreadsheetDownload'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/ingredients/import-template:
+    get:
+      operationId: downloadIngredientImportTemplate
+      tags:
+        - Kitchen catalogue
+      summary: The empty ingredient import workbook
+      description: |
+        The import's header row and nothing else, for a kitchen starting a
+        sheet from scratch.
+
+        Requires `catalogue.view_organisation`, like the export: a template gives nothing away.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SpreadsheetDownload'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/ingredients/allergen-references:
     get:
       operationId: searchAllergenReferences
@@ -3177,6 +3322,239 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes/imports:
+    post:
+      operationId: importRecipes
+      tags:
+        - Recipes
+      summary: Import recipes from a workbook
+      description: |
+        Creates or updates recipes and their editable version from the sheet
+        the export and the template share — one row per formulation line,
+        grouped by recipe handle. **A recipe is the unit of commit**: its lines
+        land together or not at all, and a failed recipe never undoes another.
+
+        One `.xlsx` of at most 5 MB, sent as `file` in a multipart body. Row 1
+        is the header, matched by name in any order; a column the importer
+        does not know is reported in `ignored_columns` rather than refused.
+
+        **Each row commits on its own.** A failed row is reported and never
+        undoes an earlier one, so the report is the complete picture of what
+        happened and a re-upload of the corrected sheet converges: rows that
+        already match are counted `unchanged`, not written again.
+
+        A file that cannot be read as a workbook, or whose header is missing a
+        required column, is `422` on `file` and nothing is written.
+
+        Throttled by `catalogue-import`: thirty runs an hour per organisation.
+
+        Requires `recipe.manage_organisation`, and the kitchen must be trading
+        — a suspended one is `409 organisation.suspended`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SpreadsheetImportRequest'
+            encoding:
+              file:
+                contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        '200':
+          description: The import ran. The report is the whole outcome, row by row.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpreadsheetImportEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes/export:
+    get:
+      operationId: exportRecipes
+      tags:
+        - Recipes
+      summary: Export recipes as a workbook
+      description: |
+        The recipe book as an `.xlsx`, one row per line of each recipe's
+        current version, in the columns the import reads. Takes `listRecipes`'
+        filters — with the same `403` for `kind` and `selling_status` without
+        `catalogue.view_organisation` — and none of its paging.
+
+        Requires `recipe.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: query
+          in: query
+          required: false
+          description: As on `listRecipes`.
+          schema:
+            type: string
+            maxLength: 160
+        - name: status
+          in: query
+          required: false
+          description: As on `listRecipes`.
+          schema:
+            type: string
+            enum:
+              - active
+              - archived
+              - draft
+              - review_required
+              - published
+              - retired
+        - name: stale_only
+          in: query
+          required: false
+          description: As on `listRecipes`.
+          schema:
+            type: boolean
+            default: false
+        - name: kind
+          in: query
+          required: false
+          description: As on `listRecipes`.
+          schema:
+            $ref: '#/components/schemas/RecipeKind'
+        - name: selling_status
+          in: query
+          required: false
+          description: As on `listRecipes`.
+          schema:
+            $ref: '#/components/schemas/CatalogueItemStatus'
+        - name: category
+          in: query
+          required: false
+          description: As on `listRecipes`.
+          schema:
+            type: string
+            maxLength: 40
+        - name: allergen
+          in: query
+          required: false
+          description: As on `listRecipes`.
+          schema:
+            type: string
+            maxLength: 20
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SpreadsheetDownload'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes/import-template:
+    get:
+      operationId: downloadRecipeImportTemplate
+      tags:
+        - Recipes
+      summary: The empty recipe import workbook
+      description: |
+        The import's header row and nothing else.
+
+        Requires `recipe.view_organisation`, like the export: a template gives nothing away.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SpreadsheetDownload'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/recipes/technical-sheets:
+    get:
+      operationId: listRecipeTechnicalSheets
+      tags:
+        - Recipes
+      summary: Several recipes' sheets in one read
+      description: |
+        What printing a stack of recipe sheets needs, for up to twenty recipes
+        at once: each entry is `showRecipe`, the current version as
+        `showRecipeVersion` serves it, and the costed sheet — three reads per
+        recipe folded into one request. Current is the highest editable
+        version, else the published one, else the highest number there is.
+
+        **The lines name their ingredient.** `ingredient_name_en` and
+        `ingredient_name_ar` are filled here, and only here, so a printed sheet
+        does not need a second lookup per line.
+
+        **`sheet` is `null` for a caller without
+        `recipe.view_costs_organisation`**, never omitted and never `403`: the
+        method and the allergen label are still the sheet a cook prints. Each
+        costed sheet read writes the `catalogue.technical_sheet_viewed` audit
+        event `showRecipeTechnicalSheet` writes.
+
+        Entries come back in the order `ids[]` named them, duplicates removed.
+        An identifier this organisation cannot see is simply absent from the
+        answer — the print page names what it asked for and did not get, which
+        beats refusing a whole batch over one stale link.
+
+        Requires `recipe.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: ids[]
+          in: query
+          required: true
+          description: |
+            The recipes, one to twenty. **Repeat the bracketed name** —
+            `?ids[]=…&ids[]=…` — for the reason `status[]` on the order queue
+            gives: PHP keeps only the last of a repeated bare name.
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 20
+            items:
+              $ref: '#/components/schemas/Uuid'
+          style: form
+          explode: true
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: One entry per requested recipe, in request order.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeTechnicalSheetBatchEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/recipes/roll-up-preview:
     post:
       operationId: previewRecipeRollup
@@ -3582,32 +3960,7 @@ paths:
                   - meta
                 properties:
                   data:
-                    type: object
-                    required:
-                      - version
-                      - lines
-                      - outputs
-                      - steps
-                      - allergens
-                    properties:
-                      version:
-                        $ref: '#/components/schemas/AdminRecipeVersion'
-                      lines:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/RecipeLine'
-                      outputs:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/RecipeOutput'
-                      steps:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/RecipeStep'
-                      allergens:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/RecipeVersionAllergen'
+                    $ref: '#/components/schemas/RecipeVersionDetail'
                   meta:
                     $ref: '#/components/schemas/Meta'
         '401':
@@ -5064,6 +5417,20 @@ paths:
           schema:
             type: string
             maxLength: 20
+        - name: ids
+          in: query
+          required: false
+          description: Up to 100 comma-separated item identifiers.
+          schema:
+            type: string
+        - name: include
+          in: query
+          required: false
+          description: '`channels` adds each item''s channel assignments, as the item''s own read serves them.'
+          schema:
+            type: string
+            enum:
+              - channels
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
@@ -5082,7 +5449,7 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/AdminCatalogueItem'
+                      $ref: '#/components/schemas/AdminCatalogueItemIndexRow'
                   meta:
                     $ref: '#/components/schemas/PaginatedOrNumberedMeta'
         '400':
@@ -6217,6 +6584,18 @@ paths:
           description: Restrict to public tariffs or to negotiated agreements.
           schema:
             $ref: '#/components/schemas/PriceListCustomerScope'
+        - name: include
+          in: query
+          required: false
+          description: |
+            Comma-separated: `entries` adds each list's open entries (the rows the
+            entries index serves), `channels` its channel assignments. One request
+            for a screen that draws every list whole.
+          schema:
+            type: string
+            examples:
+              - entries
+              - entries,channels
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
@@ -6235,7 +6614,7 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/AdminPriceList'
+                      $ref: '#/components/schemas/AdminPriceListIndexRow'
                   meta:
                     $ref: '#/components/schemas/PaginatedOrNumberedMeta'
         '400':
@@ -9503,6 +9882,38 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/levels/export:
+    get:
+      operationId: exportStockLevels
+      tags:
+        - Kitchen inventory & production
+      summary: Export one branch's count sheet
+      description: |
+        The branch's stock levels as an `.xlsx` count sheet, in the columns the
+        count import reads: fill in the counted column and upload it back.
+
+        **Branch-scoped**: a count is of one shelf, so `X-Branch-Id` is
+        required here although `listStockLevels` treats it as optional —
+        absent is `400 context.branch_required`. The unit cost columns are
+        printed only for a caller holding `inventory.view_costs_organisation`.
+
+        Requires `inventory.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchId'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SpreadsheetDownload'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/inventory/low-stock-count:
     get:
       operationId: countLowStockLevels
@@ -9764,6 +10175,98 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/counts/imports:
+    post:
+      operationId: importStockCounts
+      tags:
+        - Kitchen inventory & production
+      summary: Import a stock count from a workbook
+      description: |
+        Records a count for every row of an uploaded count sheet, each one as
+        `recordStockCount` records it — the difference from the ledger, taken
+        under the level's row lock, posted as an `adjust` movement. A blank
+        counted cell leaves the level alone — it is not a count of zero — and a
+        row with nothing to do is counted `unchanged`.
+
+        **Branch-scoped**: `X-Branch-Id` is required, and absent is
+        `400 context.branch_required`.
+
+        One `.xlsx` of at most 5 MB, sent as `file` in a multipart body. Row 1
+        is the header, matched by name in any order; a column the importer
+        does not know is reported in `ignored_columns` rather than refused.
+
+        **Each row commits on its own.** A failed row is reported and never
+        undoes an earlier one, so the report is the complete picture of what
+        happened and a re-upload of the corrected sheet converges: rows that
+        already match are counted `unchanged`, not written again.
+
+        A file that cannot be read as a workbook, or whose header is missing a
+        required column, is `422` on `file` and nothing is written.
+
+        Throttled by `catalogue-import`: thirty runs an hour per organisation.
+
+        Open to a suspended kitchen, like every stock count: suspension stops a
+        kitchen selling, not finishing the food it owes. Requires
+        `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchId'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SpreadsheetImportRequest'
+            encoding:
+              file:
+                contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        '200':
+          description: The import ran. The report is the whole outcome, row by row.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpreadsheetImportEnvelope'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/counts/import-template:
+    get:
+      operationId: downloadStockCountImportTemplate
+      tags:
+        - Kitchen inventory & production
+      summary: The empty stock count workbook
+      description: |
+        The count import's header row and nothing else. The export is the
+        sheet most counts start from; this is for a kitchen counting items not
+        yet on it.
+
+        Requires `inventory.view_organisation`, like the export: a template gives nothing away.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SpreadsheetDownload'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /catalogue/procurement/suppliers:
@@ -13257,9 +13760,8 @@ paths:
             for an unbracketed name arrives at the controller as the single
             string `confirmed`, fails its `array` rule and earns a 422 on every
             multi-status request. The name carries the brackets so that the
-            document describes what the endpoint actually accepts; this is the
-            only array-valued query parameter in the specification, so there is
-            no sibling convention it diverges from.
+            document describes what the endpoint actually accepts; `ids[]` on
+            `listRecipeTechnicalSheets` follows the same form.
           schema:
             type: array
             items:
@@ -13586,6 +14088,101 @@ paths:
           $ref: '#/components/responses/ResourceConflict'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/orders/{order}:
+    patch:
+      operationId: amendOrderDeskOrder
+      tags:
+        - Order desk
+      summary: Edit an order the customer has rung back about
+      description: |
+        Changes the **lines** of an order — `lines` is the whole basket, and the
+        order's lines become exactly these — and, optionally, its delivery
+        address, its day and slot, and how it will be paid. Every field other
+        than `lines` is optional, and absent means **keep what is stored**: an
+        edit to a quantity never moves the slot, the day or the address.
+
+        Fixed for the life of the order: the customer and how it leaves. To
+        change either, cancel and re-sell.
+
+        ## Which orders
+
+        `placed` or `confirmed`, not started by the kitchen (`preparing_at`
+        null) and not marked ready (`ready_at` null), sold through the desk or
+        the web shop. `amendable` on the kitchen shape is the server's answer
+        and the screen shows Edit order on it; anything else is refused
+        **`409 order.placement_refused`** with one reason,
+        `{reason: order_not_amendable, because}`, where `because` is one of
+        `closed`, `kitchen_started`, `ready`, `agreement_priced` (a line priced
+        by a subscription or a quotation), `other_channel`, `paid_online` (a
+        payment intent exists) or `legacy_consumption` (confirmed, and its stock
+        came off the shelf before deductions named their line).
+
+        ## What is decided again
+
+        Every line is **repriced on the order's own channel** — the web shop's
+        for a web-shop order — on the day it is for. The quote answers the same
+        question when it is sent `amending_order_id`, so the total read out is
+        the total saved. The address gates run only for a new address, the slot
+        gate for a new address or slot, and the branch schedule only for a new
+        day or slot. **Staff may override the cut-off** (`cut_off_passed`) and
+        nothing else: a day in the past is `422`, a day the branch is closed is
+        refused `closed`. An override is recorded on the `order.amended` audit
+        row.
+
+        An edit that takes the total below what has already been received is
+        refused `{reason: total_below_paid, total_minor, paid_minor,
+        currency_code}`. Everything else is the placement's own refusal
+        vocabulary.
+
+        ## Stock
+
+        On a confirmed order, a line whose quantity changed or that was removed
+        is put back on the shelf and a changed or added one is consumed, line by
+        line; an unchanged line keeps its row and its deduction.
+
+        **`If-Match` is required and is the replay guard** — there is no
+        `Idempotency-Key`. A stale validator is `409 resource.conflict`.
+
+        Requires `order.create_on_behalf_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AmendOrderDeskOrderRequest'
+      responses:
+        '200':
+          description: The edited order, in the kitchen shape, with its new validator.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenOrderEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /catalogue/customers:
@@ -19388,6 +19985,321 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /platform/b2b/applications/{application}/agreements:
+    get:
+      operationId: listPlatformB2bAgreements
+      tags:
+        - B2B platform review
+      summary: Every agreement version on an application, drafts included
+      description: |
+        Newest version first. The reviewer sees the drafts the applicant does
+        not, because writing them is the reviewer's job.
+
+        Requires `b2b_application.view_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/B2bApplicationPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Every version, newest first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/B2bAgreementListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createPlatformB2bAgreement
+      tags:
+        - B2B platform review
+      summary: Draft the agreement for an approved application
+      description: |
+        The reviewer writes the terms, including the seller kitchen's
+        negotiated price list. Refused with `b2b.application_state_invalid`
+        unless the application is approved, and with `resource.conflict` while
+        another version is still live: edit the draft, or revise the one
+        waiting for signature.
+
+        Requires `b2b_application.decide_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/B2bApplicationPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateB2bAgreementRequest'
+      responses:
+        '201':
+          description: The new draft.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/B2bAgreementEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/B2bApplicationStateInvalid'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /platform/b2b/agreements/{agreement}:
+    patch:
+      operationId: updatePlatformB2bAgreement
+      tags:
+        - B2B platform review
+      summary: Change a draft's terms
+      description: |
+        Only a draft changes; one that has been sent is revised into a new
+        version instead. Requires `b2b_application.decide_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/B2bAgreementPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateB2bAgreementRequest'
+      responses:
+        '200':
+          description: The updated draft.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/B2bAgreementEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /platform/b2b/agreements/{agreement}/send:
+    post:
+      operationId: sendPlatformB2bAgreement
+      tags:
+        - B2B platform review
+      summary: Send a draft to the signatory
+      description: |
+        Moves the draft to `pending_signature` and emails the applicant a
+        link to read and sign. Refused with `validation.failed` naming what is
+        still missing: the seller price list, the currency, the payment terms,
+        or the signatory email on the application.
+
+        Requires `b2b_application.decide_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/B2bAgreementPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The agreement, waiting for signature.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/B2bAgreementEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /platform/b2b/agreements/{agreement}/revise:
+    post:
+      operationId: revisePlatformB2bAgreement
+      tags:
+        - B2B platform review
+      summary: Take back an unsigned agreement and open the next version
+      description: |
+        Only for an agreement waiting for signature. It is terminated, kept on
+        record as what was shown, and its terms carried into a new draft.
+
+        Requires `b2b_application.decide_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/B2bAgreementPath'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '201':
+          description: The new draft version.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/B2bAgreementEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /platform/b2b/seller-price-lists:
+    get:
+      operationId: listSellerPriceLists
+      tags:
+        - B2B platform review
+      summary: The negotiated price lists an agreement can use
+      description: |
+        Every kitchen's `agreement`-scoped list that is not archived, read
+        across tenancy for the agreement editor's seller picker. Each row says
+        which application already holds it. At most 200 rows.
+
+        Requires `b2b_application.decide_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: query
+          in: query
+          required: false
+          description: Case-insensitive match on the list's English name or code.
+          schema:
+            type: string
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The lists, grouped by kitchen.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SellerPriceListListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /platform/b2b/applications/{application}/invitations:
+    get:
+      operationId: listPlatformB2bInvitations
+      tags:
+        - B2B platform review
+      summary: Who provisioning invited, and whether they came
+      description: |
+        The provisioned organisation's invitations, newest first. Empty before
+        provisioning. Requires `b2b_application.view_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/B2bApplicationPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The invitations.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganisationInvitationListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /platform/b2b/applications/{application}/invitations/{invitation}/resend:
+    post:
+      operationId: resendPlatformB2bInvitation
+      tags:
+        - B2B platform review
+      summary: Email a contact a fresh invitation link
+      description: |
+        Issues a new invitation to the same address and role, which revokes
+        the old link, and emails it. Refused with `resource.conflict` for an
+        invitation already accepted.
+
+        Requires `b2b_application.provision_platform`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/B2bApplicationPath'
+        - $ref: '#/components/parameters/OrganisationInvitationPath'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '201':
+          description: The new invitation.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganisationInvitationEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /platform/b2b/applications/{application}/documents/{document}/download:
     get:
       operationId: downloadPlatformKycDocument
@@ -19624,14 +20536,10 @@ paths:
         - Access administration
       summary: The roles this kitchen can assign
       description: |
-        Platform templates and the kitchen's own, in one list, distinguished by
-        `is_system`.
-
-        One list because from the **assigning** side they are one set: when an
-        administrator picks a role for somebody, a template and a bespoke role
-        are equally valid choices. The roles *screen* draws them as two
-        sections because they are edited differently — templates offer Copy,
-        never Edit — but the member editor draws one picker.
+        The kitchen's own roles, every one editable. Each organisation owns a
+        copy of every platform template, made when the organisation is
+        created; the templates themselves are blueprints and are never listed,
+        so `is_system` is always `false` here.
 
         Templates first, then the kitchen's own by code: a person scanning this
         is usually looking for the standard role.
@@ -19697,6 +20605,10 @@ paths:
         platform-defined, and a body that could set the flag could create a
         role its own author could never edit.
 
+        **403** for an administrator whose membership is bound to one branch:
+        a role is shared by every branch of the kitchen, so only a
+        whole-kitchen administrator may define one.
+
         Requires `role.manage_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -19739,15 +20651,11 @@ paths:
         - Access administration
       summary: One role and everything it grants
       description: |
-        A platform template is readable here, deliberately: Copy is "open
-        `kitchen_manager`, see its codes, save them as your own", and a read
-        that refused a template would make the only supported way of changing
-        one impossible.
+        One of this organisation's own roles. Platform templates are
+        blueprints and answer **404**.
 
         The `ETag` is the role's `lock_version` and is what a later `PATCH`
-        must echo in `If-Match`. Served on a template too, where it is always
-        `0` and will never be checked — a client that had to branch on whether
-        a response carried a validator would branch wrongly once.
+        must echo in `If-Match`.
 
         Requires `role.view_organisation`.
       parameters:
@@ -19792,9 +20700,10 @@ paths:
         "take this away", and a role editor whose whole job is taking things
         away would need a second endpoint for the half that matters.
 
-        A platform template answers **404**: from the writing side there is no
-        role at that identifier belonging to you. `RolePolicy` and the `roles`
-        row-level-security policy refuse it twice more behind that.
+        Every role the kitchen owns is editable, including its copies of the
+        platform defaults. A platform template itself answers **404**: there is
+        no role at that identifier belonging to you. **403** for a
+        branch-bound administrator — a role is shared by every branch.
 
         `If-Match` is required. Two administrators editing one role — one
         removing `order.manage_organisation` while the other adds a cost code —
@@ -22886,6 +23795,15 @@ components:
         type: string
         examples:
           - 'true'
+    ContentDisposition:
+      description: |
+        `attachment; filename=…` — the download's file name. Exposed to
+        cross-origin clients, which read it to name the saved file.
+      required: true
+      schema:
+        type: string
+        examples:
+          - attachment; filename=ingredients-2026-10-26.xlsx
   parameters:
     XOrganisationId:
       name: X-Organisation-Id
@@ -23425,9 +24343,7 @@ components:
       in: path
       required: true
       description: |
-        A role of this organisation, or a platform template. Reads accept
-        either; writes answer **404** for a template, because from the writing
-        side there is no role at that identifier belonging to you.
+        A role of this organisation. A platform template answers **404**.
       schema:
         $ref: '#/components/schemas/Uuid'
     MembershipPath:
@@ -23720,6 +24636,20 @@ components:
                 required_headers:
                   - Origin
               correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
+    SpreadsheetDownload:
+      description: |
+        An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+        every file download.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+        Content-Disposition:
+          $ref: '#/components/headers/ContentDisposition'
+      content:
+        application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+          schema:
+            type: string
+            format: binary
     ContextRequired:
       description: |
         A context the endpoint needs was not supplied —
@@ -24945,6 +25875,7 @@ components:
         - guest.session_invalid
         - cart.line_refused
         - cart.channel_refused
+        - shop.view_only
         - order.placement_refused
         - b2b.application_state_invalid
         - b2b.documents_incomplete
@@ -26550,6 +27481,9 @@ components:
         - category_code
         - subcategory_code
         - nutrition
+        - unit
+        - grams_per_unit
+        - allergens
         - unavailable
       properties:
         existing_matches:
@@ -26604,6 +27538,67 @@ components:
                     - string
                     - 'null'
               additionalProperties: false
+        unit:
+          type:
+            - string
+            - 'null'
+          enum:
+            - kg
+            - l
+            - piece
+            - null
+          description: How the kitchen buys and stocks it. A model estimate.
+        grams_per_unit:
+          type:
+            - number
+            - 'null'
+          description: The mass of one litre or one piece in grams, bounded; null for kg.
+        allergens:
+          type: object
+          required:
+            - candidates
+            - notices
+            - pick
+            - codes
+            - reason
+          properties:
+            candidates:
+              type: array
+              items:
+                $ref: '#/components/schemas/AllergenReferenceCandidate'
+            notices:
+              type: array
+              items:
+                type: string
+            pick:
+              type:
+                - integer
+                - 'null'
+              description: Index of the importable Open Food Facts product that is plainly this ingredient.
+            codes:
+              description: The model's own allergen read, for when no product fits. Null when it did not answer; empty means none.
+              oneOf:
+                - type: 'null'
+                - type: array
+                  items:
+                    type: object
+                    required:
+                      - code
+                      - containment
+                    properties:
+                      code:
+                        type: string
+                      containment:
+                        type: string
+                        enum:
+                          - contains
+                          - may_contain
+                    additionalProperties: false
+            reason:
+              type:
+                - string
+                - 'null'
+          additionalProperties: false
         unavailable:
           type: array
           items:
@@ -26611,6 +27606,7 @@ components:
             enum:
               - assistant
               - nutrition
+              - allergens
       additionalProperties: false
     ConfirmIngredientAllergensRequest:
       type: object
@@ -27653,6 +28649,19 @@ components:
             - string
             - 'null'
           maxLength: 255
+        ingredient_name_en:
+          type:
+            - string
+            - 'null'
+          description: |
+            The ingredient's English name. Only `listRecipeTechnicalSheets`
+            fills it, so a printed sheet needs no lookup per line; every other
+            read leaves it out.
+        ingredient_name_ar:
+          type:
+            - string
+            - 'null'
+          description: The ingredient's Arabic name, on the same terms as `ingredient_name_en`.
       additionalProperties: false
     PackagingBasis:
       type: string
@@ -28067,6 +29076,80 @@ components:
         weekly:
           $ref: '#/components/schemas/WeeklyCost'
       additionalProperties: false
+    RecipeVersionDetail:
+      type: object
+      required:
+        - version
+        - lines
+        - packaging
+        - outputs
+        - steps
+        - allergens
+      description: A whole version — what `showRecipeVersion` serves.
+      properties:
+        version:
+          $ref: '#/components/schemas/AdminRecipeVersion'
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeLine'
+        packaging:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipePackagingLine'
+        outputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeOutput'
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeStep'
+        allergens:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeVersionAllergen'
+    RecipeTechnicalSheetBundle:
+      type: object
+      required:
+        - recipe
+        - versions
+        - current
+        - sheet
+      description: |
+        One recipe as a printed sheet needs it: `showRecipe`'s answer, the
+        current version whole, and the costed sheet — `null` for a caller
+        without `recipe.view_costs_organisation`.
+      properties:
+        recipe:
+          $ref: '#/components/schemas/AdminRecipe'
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminRecipeVersion'
+        current:
+          $ref: '#/components/schemas/RecipeVersionDetail'
+        sheet:
+          oneOf:
+            - $ref: '#/components/schemas/TechnicalSheet'
+            - type: 'null'
+    RecipeTechnicalSheetBatchEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - sheets
+          properties:
+            sheets:
+              type: array
+              items:
+                $ref: '#/components/schemas/RecipeTechnicalSheetBundle'
+        meta:
+          $ref: '#/components/schemas/Meta'
     WeeklyCostLineSource:
       type: object
       required:
@@ -29266,6 +30349,30 @@ components:
         - dinner
         - snack
       description: When in the day a meal is eaten.
+    AdminPriceListIndexRow:
+      description: A price list row; `entries` and `channels` are present when `include` asks for them.
+      allOf:
+        - $ref: '#/components/schemas/AdminPriceList'
+        - type: object
+          properties:
+            entries:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminPriceListEntry'
+            channels:
+              type: array
+              items:
+                $ref: '#/components/schemas/PriceListChannelAssignment'
+    AdminCatalogueItemIndexRow:
+      description: A catalogue item row; `channels` is present when `include=channels` asks for it.
+      allOf:
+        - $ref: '#/components/schemas/AdminCatalogueItem'
+        - type: object
+          properties:
+            channels:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminChannelAssignment'
     AdminCatalogueItem:
       type: object
       required:
@@ -33139,6 +34246,98 @@ components:
           type: string
           format: binary
           description: A JPEG, PNG or WebP of at most 5 MB.
+    SpreadsheetImportRequest:
+      type: object
+      required:
+        - file
+      properties:
+        file:
+          type: string
+          format: binary
+          description: One `.xlsx` of at most 5 MB.
+    SpreadsheetImportRow:
+      type: object
+      required:
+        - row
+        - outcome
+        - reference
+        - message
+      description: One reported row. `unchanged` rows are counted, never listed.
+      properties:
+        row:
+          type: integer
+          minimum: 2
+          description: The worksheet row number. The header is row 1.
+        outcome:
+          type: string
+          enum:
+            - created
+            - updated
+            - skipped
+            - failed
+        reference:
+          type:
+            - string
+            - 'null'
+          description: The row's own handle, when it had one to read.
+        message:
+          type:
+            - string
+            - 'null'
+          description: Why a row was skipped or failed, translated. Null on a write.
+      additionalProperties: false
+    SpreadsheetImportResult:
+      type: object
+      required:
+        - created
+        - updated
+        - unchanged
+        - skipped
+        - failed
+        - ignored_columns
+        - rows
+      description: |
+        What an import did. **Always the complete picture**: each row — or, for
+        recipes, each recipe's group of rows — commits on its own, so a failed
+        row never undoes an earlier one and nothing here describes work that
+        was rolled back. Unchanged rows are counted, never listed; every other
+        outcome has an entry in `rows`.
+      properties:
+        created:
+          type: integer
+          minimum: 0
+        updated:
+          type: integer
+          minimum: 0
+        unchanged:
+          type: integer
+          minimum: 0
+        skipped:
+          type: integer
+          minimum: 0
+        failed:
+          type: integer
+          minimum: 0
+        ignored_columns:
+          type: array
+          description: Header cells the importer did not recognise, verbatim.
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpreadsheetImportRow'
+      additionalProperties: false
+    SpreadsheetImportEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          $ref: '#/components/schemas/SpreadsheetImportResult'
+        meta:
+          $ref: '#/components/schemas/Meta'
     RecordPhotoEnvelope:
       type: object
       required:
@@ -39609,6 +40808,7 @@ components:
         - created_by
         - placed_on_behalf_by
         - lock_version
+        - amendable
         - line_count
         - lines
         - created_at
@@ -39733,6 +40933,14 @@ components:
         lock_version:
           type: integer
           minimum: 0
+        amendable:
+          type: boolean
+          description: |
+            Whether the Order Desk may still edit this order
+            (`PATCH /catalogue/order-desk/orders/{order}`): `placed` or
+            `confirmed`, not started, not ready, sold through the desk or the web
+            shop, no line priced by an agreement, no online payment. The server
+            decides so the Edit button and the edit cannot disagree.
         line_count:
           type: integer
           minimum: 0
@@ -40322,11 +41530,69 @@ components:
             address's zone offers (`offered_window_codes` on the quote), or the
             quote refuses and the sale is refused `window_not_offered`. Not
             checked on a pickup.
+    AmendOrderDeskOrderRequest:
+      type: object
+      required:
+        - lines
+      additionalProperties: false
+      description: |
+        The whole basket, plus whatever else changed. Absent fields keep what is
+        stored. No customer, no fulfilment type, no branch — fixed for the life
+        of the order — and no amount: every line is repriced.
+      properties:
+        lines:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/OrderDeskBasketLine'
+        customer_address_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: |
+            A new delivery address, **delivery orders only** (`address_not_applicable`
+            otherwise). It must belong to the order's customer; one that does not
+            is `404`. Add one first with `POST /catalogue/order-desk/customers/
+            {account}/addresses`.
+        requested_delivery_date:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: A new day, `YYYY-MM-DD`, today or later (`422` otherwise).
+        delivery_window_code:
+          type:
+            - string
+            - 'null'
+          maxLength: 40
+          description: A new slot. On a delivery it must be one the order's zone offers.
+        payment_method:
+          oneOf:
+            - $ref: '#/components/schemas/PaymentMethod'
+            - type: 'null'
+          description: |
+            A new intended method. It must suit how the order leaves —
+            `cash_on_delivery` on a delivery, `cash_at_counter` otherwise, `wish`
+            on either — or `422` on this field.
     QuoteOrderDeskRequest:
       allOf:
         - $ref: '#/components/schemas/OrderDeskSaleBase'
         - type: object
           additionalProperties: false
+          properties:
+            amending_order_id:
+              oneOf:
+                - $ref: '#/components/schemas/Uuid'
+                - type: 'null'
+              description: |
+                Quote an **edit** of this order rather than a new sale. Prices on
+                the order's own channel — the web shop's for a web-shop order —
+                for its own customer, branch and fulfilment type (the body's
+                `fulfilment_type`, `customer_account_id` and `branch_id` are then
+                ignored). With no `customer_address_id` a delivery keeps its
+                stored zone and fee; the slot is checked only when it moved; and
+                a passed cut-off is not a refusal, because staff may override it.
+                Must be one of this kitchen's orders, or `404`.
           description: |
             A basket to price, and the shape of the sale it would become. No
             payment method: nothing is being paid for yet.
@@ -44496,6 +45762,7 @@ components:
         - title
         - auto_renews
         - signature_otp_verified
+        - document_sha256
         - lock_version
       properties:
         id:
@@ -44532,6 +45799,11 @@ components:
             Always a list whose `customer_scope` is `agreement`. Pointing an
             agreement at a public tariff would quietly publish a negotiated
             position.
+        seller:
+          oneOf:
+            - $ref: '#/components/schemas/B2bAgreementSeller'
+            - type: 'null'
+          description: The kitchen that owns `price_list_id` — who the company buys from. Null until a list is chosen.
         payment_terms:
           oneOf:
             - $ref: '#/components/schemas/B2bPaymentTerms'
@@ -44577,6 +45849,13 @@ components:
             - string
             - 'null'
           pattern: ^[0-9a-f]{64}$
+        document_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          description: |
+            What a signature now would be against: the digest recorded at
+            signing, or before that the digest of the terms as they stand. The
+            signing screen echoes it back.
         signatory_name:
           type:
             - string
@@ -44663,7 +45942,7 @@ components:
           format: email
         role_code:
           type: string
-          description: The role the person is being invited into. A platform template role, or one this organisation defined.
+          description: The code of one of this organisation's own roles; any other code is refused with **422**. A branch-bound administrator invites into their own branch only.
         status:
           $ref: '#/components/schemas/OrganisationInvitationStatus'
         message:
@@ -46571,7 +47850,7 @@ components:
         role_code:
           type: string
           maxLength: 60
-          description: A platform template role, or one this organisation defined. Resolved inside the tenant scope.
+          description: One of this organisation's own roles. Resolved inside the tenant scope.
         branch_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
@@ -46609,6 +47888,9 @@ components:
             - application
             - contacts
             - locations
+            - missing_fields
+            - missing_documents
+            - required_documents
           properties:
             application:
               $ref: '#/components/schemas/B2bApplication'
@@ -46620,6 +47902,21 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/B2bApplicationLocation'
+            missing_fields:
+              type: array
+              description: The required fields still empty — the server's own definition of complete.
+              items:
+                type: string
+            missing_documents:
+              type: array
+              description: The required document kinds not yet uploaded.
+              items:
+                $ref: '#/components/schemas/B2bDocumentKind'
+            required_documents:
+              type: array
+              description: Every document kind submission requires. The server's list, never a client constant.
+              items:
+                $ref: '#/components/schemas/B2bDocumentKind'
         meta:
           $ref: '#/components/schemas/Meta'
     B2bApplicationReviewOnlyEnvelope:
@@ -46726,6 +48023,228 @@ components:
           properties:
             download:
               $ref: '#/components/schemas/KycDocumentDownload'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    B2bAgreementSeller:
+      type: object
+      required:
+        - organisation_id
+        - organisation_name
+        - price_list_name_en
+        - price_list_name_ar
+      properties:
+        organisation_id:
+          $ref: '#/components/schemas/Uuid'
+        organisation_name:
+          type: string
+        price_list_name_en:
+          type: string
+        price_list_name_ar:
+          type:
+            - string
+            - 'null'
+    CreateB2bAgreementRequest:
+      type: object
+      description: A draft's title and any terms known so far. Absent terms stay empty.
+      required:
+        - title
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          maxLength: 160
+        currency_code:
+          type:
+            - string
+            - 'null'
+          minLength: 3
+          maxLength: 3
+          description: Optional when a price list is given — it follows the list, and must match it.
+        price_list_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: A seller kitchen's `agreement`-scoped list, not already behind another company's live agreement.
+        payment_terms:
+          oneOf:
+            - $ref: '#/components/schemas/B2bPaymentTerms'
+            - type: 'null'
+        credit_limit_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+        minimum_order_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+        delivery_lead_time_days:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          maximum: 365
+        notice_period_days:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          maximum: 3650
+        starts_on:
+          type:
+            - string
+            - 'null'
+          format: date
+        ends_on:
+          type:
+            - string
+            - 'null'
+          format: date
+        auto_renews:
+          type: boolean
+        terms_summary:
+          type:
+            - string
+            - 'null'
+          maxLength: 4000
+    UpdateB2bAgreementRequest:
+      type: object
+      description: Only the keys sent change. Only a draft can be edited.
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          maxLength: 160
+        currency_code:
+          type:
+            - string
+            - 'null'
+          minLength: 3
+          maxLength: 3
+          description: Optional when a price list is given — it follows the list, and must match it.
+        price_list_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: A seller kitchen's `agreement`-scoped list, not already behind another company's live agreement.
+        payment_terms:
+          oneOf:
+            - $ref: '#/components/schemas/B2bPaymentTerms'
+            - type: 'null'
+        credit_limit_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+        minimum_order_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+        delivery_lead_time_days:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          maximum: 365
+        notice_period_days:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          maximum: 3650
+        starts_on:
+          type:
+            - string
+            - 'null'
+          format: date
+        ends_on:
+          type:
+            - string
+            - 'null'
+          format: date
+        auto_renews:
+          type: boolean
+        terms_summary:
+          type:
+            - string
+            - 'null'
+          maxLength: 4000
+    B2bAgreementListEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/B2bAgreement'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    SellerPriceList:
+      type: object
+      description: A kitchen's negotiated list, as the agreement editor's seller picker shows it.
+      required:
+        - id
+        - organisation_id
+        - organisation_name
+        - code
+        - name_en
+        - name_ar
+        - currency_code
+        - status
+        - bound_to_application_id
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        organisation_id:
+          $ref: '#/components/schemas/Uuid'
+        organisation_name:
+          type: string
+        code:
+          type: string
+        name_en:
+          type: string
+        name_ar:
+          type:
+            - string
+            - 'null'
+        currency_code:
+          type: string
+        status:
+          type: string
+          enum:
+            - draft
+            - active
+        bound_to_application_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The application whose live agreement already holds this list. A taken list cannot be chosen for another company.
+    SellerPriceListListEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SellerPriceList'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    OrganisationInvitationListEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrganisationInvitation'
         meta:
           $ref: '#/components/schemas/Meta'
     B2bAgreementEnvelope:
@@ -46957,10 +48476,9 @@ components:
         is_system:
           type: boolean
           description: |
-            A platform template: visible in every tenant, editable in none.
-            The console offers **Copy** on these rather than Edit — forking one
-            into a role of your own is how a kitchen changes what a template
-            means inside its walls, and `MembershipGranter` prefers the fork.
+            Always `false` for a role served to a tenant: every organisation
+            owns its roles, copied from the platform defaults when it was
+            created. Kept for compatibility.
         holder_count:
           type: integer
           minimum: 0
@@ -46974,7 +48492,7 @@ components:
         lock_version:
           type: integer
           minimum: 0
-          description: Always `0` on a template, which is never written from here.
+          description: Moves on every save; echo it in `If-Match`.
         updated_at:
           type:
             - string
@@ -47370,6 +48888,7 @@ components:
           required:
             - name
             - language_code
+            - type
           properties:
             name:
               type: string
@@ -47382,6 +48901,14 @@ components:
               examples:
                 - en
                 - ar
+            type:
+              type:
+                - string
+                - 'null'
+              description: The organisation type code, so an accepted invitation can land on the right workspace — `corporate_customer` on the buyer's, a kitchen on the kitchen's.
+              examples:
+                - corporate_customer
+                - kitchen
           additionalProperties: false
           description: |
             The organisation, named and nothing more. No identifier, no slug,
@@ -47451,9 +48978,10 @@ components:
     B2bProvisioningEnvelope:
       type: object
       description: |
-        What now exists. `agreement` is null when no version is in force —
-        provisioning does not require a signed agreement, because approval is
-        the gate and the terms may still be under negotiation.
+        What now exists. Provisioning is refused with
+        `b2b.application_state_invalid` until the agreement is signed
+        (active), so `agreement` is null only on a replay of an application
+        provisioned before that rule.
       required:
         - data
         - meta
@@ -47466,6 +48994,7 @@ components:
             - customer_account
             - agreement
             - invitations_issued
+            - owner_membership_created
           properties:
             application:
               $ref: '#/components/schemas/B2bApplicationReview'
@@ -47486,7 +49015,13 @@ components:
                 whose email address is malformed is skipped rather than
                 aborting the transaction — the alternative would strand an
                 approved company behind a field its applicant can no longer
-                edit.
+                edit. The applicant's own address is not invited: the
+                applicant is made the owner directly.
+            owner_membership_created:
+              type: boolean
+              description: |
+                Whether this call made the applicant `organisation_owner` of
+                the new organisation. False on a replay.
         meta:
           $ref: '#/components/schemas/Meta'
     SubscriptionStatus:

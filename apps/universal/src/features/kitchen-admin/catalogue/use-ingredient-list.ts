@@ -5,6 +5,7 @@ import type {
     AllergenClass,
     ApiFailure,
     IngredientAdmin,
+    IngredientAdminFilter,
     IngredientCategoryAdmin,
     PublishableStatus,
 } from '@healthy360/api-client/contracts';
@@ -189,6 +190,14 @@ export interface IngredientListState {
     readonly shown: number;
     /** The whole-set read behind the other cards has not landed yet. */
     readonly countsPending: boolean;
+    /** The filter every read of this list is built from — what Export sends, so the file is the list. */
+    readonly filter: IngredientAdminFilter;
+    /**
+     * Every row the filters match, every page of it — empty while `countsPending`. In the server's
+     * whole-set order, **not** the list's sort: that read drops the sort from its key, so a caller
+     * printing it orders it itself.
+     */
+    readonly everyRow: readonly IngredientAdmin[];
     readonly draftCount: number;
     readonly missingArabicCount: number;
     /** Rows with no unit price on file, so no cost per kilo can resolve downstream. */
@@ -381,6 +390,8 @@ export function useIngredientList(view?: string): IngredientListState {
         totalPages,
         total,
         countsPending: wholeSet.isPending,
+        filter,
+        everyRow,
         // Rows up to the end of this page: 18 of 306 on the first, 36 on the second.
         shown: Math.min(page * KITCHEN_PAGE_SIZE, total ?? pageRows.length),
         draftCount,

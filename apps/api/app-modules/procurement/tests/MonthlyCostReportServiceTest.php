@@ -326,6 +326,40 @@ it('excludes a cancelled order from the COGS split, as from the total', function
         ->and($row['cogs_amount'])->toBe('20.000000');
 });
 
+it('costs a line an edit removed from a live order once, not twice', function (): void {
+    // A confirmed order edited from three meals to two: the old line's consume
+    // was reversed and the new line consumed again. The ledger now holds both
+    // consumes; only the one standing may be costed.
+    $order = reportOrder($this, OrderStatus::Confirmed, 40000, '2026-08-10 12:00:00');
+    $oldLineId = (string) Str::uuid7();
+    $newLineId = (string) Str::uuid7();
+
+    $movement = fn (string $reason, string $referenceType, string $lineId, string $delta, ?string $cost): StockMovement => StockMovement::query()->create([
+        'organisation_id' => $this->orgId,
+        'branch_id' => $this->branchId,
+        'stock_item_id' => $this->stockItemId,
+        'quantity_delta' => $delta,
+        'reason' => $reason,
+        'reference_type' => $referenceType,
+        'reference_id' => (string) $order->getKey(),
+        'order_line_id' => $lineId,
+        'sold_item_type' => $reason === 'consume' ? 'meal' : null,
+        'unit_cost_amount' => $cost,
+        'cost_amount' => $cost,
+        'cost_currency_code' => $cost === null ? null : 'USD',
+    ]);
+
+    $movement('consume', 'order', $oldLineId, '-3.0000', '30.000000');
+    $movement('adjust', 'order_reversal', $oldLineId, '3.0000', null);
+    $movement('consume', 'order', $newLineId, '-2.0000', '20.000000');
+
+    $row = rowFor($this->service->forOrganisation($this->orgId), now()->format('Y-m'), 'USD');
+
+    expect($row)->not->toBeNull()
+        ->and($row['cogs_amount'])->toBe('20.000000')
+        ->and($row['meal_cogs_amount'])->toBe('20.000000');
+});
+
 it('splits revenue into meal and product from the order lines', function (): void {
     $order = reportOrder($this, OrderStatus::Confirmed, 40000, '2026-08-10 12:00:00');
     reportLine($order, $this->meal, 30000);

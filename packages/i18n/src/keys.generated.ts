@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 8734 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9119 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -224,45 +224,29 @@ export interface NamespaceKeys {
     | 'role.tabs.advanced'
     | 'role.tabs.details'
     | 'role.tabs.pages'
-    | 'role.templateNotice'
     | 'roles.caption'
     | 'roles.columns.description'
     | 'roles.columns.holders'
-    | 'roles.columns.kind'
     | 'roles.columns.pages'
     | 'roles.columns.role'
     | 'roles.copy'
     | 'roles.create'
     | 'roles.edit'
-    | 'roles.emptyBody'
-    | 'roles.emptyTitle'
     | 'roles.filteredEmptyBody'
     | 'roles.filteredEmptyTitle'
     | 'roles.holders'
     | 'roles.holdersNone'
-    | 'roles.kindOwn'
-    | 'roles.kindTemplate'
     | 'roles.noDescription'
     | 'roles.open'
     | 'roles.ownHeading'
-    | 'roles.ownHint'
     | 'roles.permissionCount'
     | 'roles.searchHint'
     | 'roles.searchLabel'
-    | 'roles.segmentAll'
-    | 'roles.segmentLabel'
-    | 'roles.segmentOwn'
-    | 'roles.segmentTemplates'
-    | 'roles.statOwn'
-    | 'roles.statOwnCaption'
     | 'roles.statRoles'
-    | 'roles.statTemplates'
-    | 'roles.statTemplatesCaption'
     | 'roles.statUnheld'
     | 'roles.statUnheldCaption'
     | 'roles.subtitle'
     | 'roles.templatesHeading'
-    | 'roles.templatesHint'
     | 'roles.title'
     | 'signIn.organisation'
     | 'signIn.useFullEmail'
@@ -846,6 +830,7 @@ export interface NamespaceKeys {
     | 'agreement.noticePeriod'
     | 'agreement.otpNotVerified'
     | 'agreement.paymentTerms'
+    | 'agreement.seller'
     | 'agreement.sign'
     | 'agreement.signTitle'
     | 'agreement.signatoryTitle'
@@ -874,6 +859,23 @@ export interface NamespaceKeys {
     | 'businessTypes.restaurant'
     | 'businessTypes.retail'
     | 'businessTypes.school'
+    | 'contacts.add'
+    | 'contacts.description'
+    | 'contacts.empty'
+    | 'contacts.fields.email'
+    | 'contacts.fields.name'
+    | 'contacts.fields.phone'
+    | 'contacts.fields.role'
+    | 'contacts.fields.title'
+    | 'contacts.reachHint'
+    | 'contacts.remove'
+    | 'contacts.roleHint'
+    | 'contacts.roles.billing'
+    | 'contacts.roles.operations'
+    | 'contacts.roles.primary'
+    | 'contacts.roles.signatory'
+    | 'contacts.rowTitle'
+    | 'contacts.title'
     | 'deliveryWindows.afternoon'
     | 'deliveryWindows.early_morning'
     | 'deliveryWindows.evening'
@@ -973,6 +975,26 @@ export interface NamespaceKeys {
     | 'hints.signatoryTitle'
     | 'hints.taxRegistrationNumber'
     | 'hints.tradingName'
+    | 'locations.add'
+    | 'locations.description'
+    | 'locations.empty'
+    | 'locations.fields.addressLine1'
+    | 'locations.fields.addressLine1Placeholder'
+    | 'locations.fields.addressLine2'
+    | 'locations.fields.addressLine2Placeholder'
+    | 'locations.fields.city'
+    | 'locations.fields.cityPlaceholder'
+    | 'locations.fields.deliveryArea'
+    | 'locations.fields.deliveryAreaPlaceholder'
+    | 'locations.fields.expectedHeadcount'
+    | 'locations.fields.expectedHeadcountPlaceholder'
+    | 'locations.fields.isBillingAddress'
+    | 'locations.fields.isPrimary'
+    | 'locations.fields.label'
+    | 'locations.fields.labelPlaceholder'
+    | 'locations.remove'
+    | 'locations.rowTitle'
+    | 'locations.title'
     | 'orderFrequencies.ad_hoc'
     | 'orderFrequencies.daily'
     | 'orderFrequencies.fortnightly'
@@ -1009,6 +1031,7 @@ export interface NamespaceKeys {
     | 'review.blockedTitle'
     | 'review.body'
     | 'review.edit'
+    | 'review.notAddedYet'
     | 'review.submit'
     | 'review.submitting'
     | 'review.title'
@@ -1022,6 +1045,7 @@ export interface NamespaceKeys {
     | 'sections.signatory.title'
     | 'sections.trade_terms.description'
     | 'sections.trade_terms.title'
+    | 'shellTitle'
     | 'status.agreement_pending.body'
     | 'status.agreement_pending.label'
     | 'status.agreement_signed.body'
@@ -1057,10 +1081,16 @@ export interface NamespaceKeys {
     | 'title'
     | 'validation.currency'
     | 'validation.date'
+    | 'validation.duplicateRole'
     | 'validation.email'
     | 'validation.format'
+    | 'validation.headcount'
     | 'validation.invalid'
+    | 'validation.noPrimary'
+    | 'validation.oneBilling'
+    | 'validation.onePrimary'
     | 'validation.phone'
+    | 'validation.reachable'
     | 'validation.required'
     | 'validation.tooLong'
     | 'validation.url'
@@ -2872,6 +2902,7 @@ export interface NamespaceKeys {
     | 'accepted.body'
     | 'accepted.noMembershipBody'
     | 'accepted.noMembershipTitle'
+    | 'accepted.openBusinessWorkspace'
     | 'accepted.openWorkspace'
     | 'accepted.title'
     | 'expired.body'
@@ -3053,6 +3084,10 @@ export interface NamespaceKeys {
     | 'areas.truncatedTitle'
     | 'areas.unknownArea'
     | 'assist.aiPick'
+    | 'assist.allergenSourceNote'
+    | 'assist.allergensConfirm'
+    | 'assist.allergensIndicated'
+    | 'assist.allergensNone'
     | 'assist.apply'
     | 'assist.arabicFilled'
     | 'assist.assistantUnavailable'
@@ -3061,6 +3096,7 @@ export interface NamespaceKeys {
     | 'assist.chooseAnother'
     | 'assist.existingMatch'
     | 'assist.existingTitle'
+    | 'assist.gramsFilled'
     | 'assist.nutritionUnavailable'
     | 'assist.open'
     | 'assist.possibleDuplicate'
@@ -3068,6 +3104,7 @@ export interface NamespaceKeys {
     | 'assist.relationMoreSpecific'
     | 'assist.rerun'
     | 'assist.title'
+    | 'assist.unitFilled'
     | 'assist.updateName'
     | 'availability.addDay'
     | 'availability.availableLabel'
@@ -3418,6 +3455,25 @@ export interface NamespaceKeys {
     | 'desk.drawerKind'
     | 'desk.driverSays'
     | 'desk.dueAt'
+    | 'desk.edit.backToDesk'
+    | 'desk.edit.changeAddress'
+    | 'desk.edit.keepAddress'
+    | 'desk.edit.loadErrorTitle'
+    | 'desk.edit.notAmendable.agreement_priced'
+    | 'desk.edit.notAmendable.closed'
+    | 'desk.edit.notAmendable.kitchen_started'
+    | 'desk.edit.notAmendable.legacy_consumption'
+    | 'desk.edit.notAmendable.other_channel'
+    | 'desk.edit.notAmendable.paid_online'
+    | 'desk.edit.notAmendable.ready'
+    | 'desk.edit.notAmendableBody'
+    | 'desk.edit.notAmendableTitle'
+    | 'desk.edit.open'
+    | 'desk.edit.review'
+    | 'desk.edit.save'
+    | 'desk.edit.savedToast'
+    | 'desk.edit.title'
+    | 'desk.edit.totalBelowPaid'
     | 'desk.emptyBody'
     | 'desk.emptyTitle'
     | 'desk.figures.hide'
@@ -3768,6 +3824,8 @@ export interface NamespaceKeys {
     | 'families.supplyOrders.name'
     | 'families.team.description'
     | 'families.team.name'
+    | 'families.wholesale.description'
+    | 'families.wholesale.name'
     | 'fields.amountPlaceholder'
     | 'fields.category'
     | 'fields.categoryHint'
@@ -5925,7 +5983,14 @@ export interface NamespaceKeys {
     | 'priceLists.changesEdited'
     | 'priceLists.changesRemoved'
     | 'priceLists.changesTitle'
+    | 'priceLists.channelInactive'
+    | 'priceLists.channelsBody'
     | 'priceLists.channelsLabel'
+    | 'priceLists.channelsLoadError'
+    | 'priceLists.channelsNone'
+    | 'priceLists.channelsSave'
+    | 'priceLists.channelsSavedToast'
+    | 'priceLists.channelsTitle'
     | 'priceLists.clearUntil'
     | 'priceLists.columnChannels'
     | 'priceLists.columnCurrency'
@@ -5934,6 +5999,21 @@ export interface NamespaceKeys {
     | 'priceLists.confidentialBody'
     | 'priceLists.confidentialTitle'
     | 'priceLists.confirmedCount'
+    | 'priceLists.create'
+    | 'priceLists.createAgreementTitle'
+    | 'priceLists.createBody'
+    | 'priceLists.createCodeHint'
+    | 'priceLists.createCodeLabel'
+    | 'priceLists.createCodeRequired'
+    | 'priceLists.createConfirm'
+    | 'priceLists.createCurrencyHint'
+    | 'priceLists.createCurrencyInvalid'
+    | 'priceLists.createCurrencyLabel'
+    | 'priceLists.createNameLabel'
+    | 'priceLists.createNameRequired'
+    | 'priceLists.createScopeLabel'
+    | 'priceLists.createTitle'
+    | 'priceLists.createdToast'
     | 'priceLists.currencyLabel'
     | 'priceLists.discardChanges'
     | 'priceLists.discardedToast'
@@ -6029,6 +6109,8 @@ export interface NamespaceKeys {
     | 'priceLists.saveFailedTitle'
     | 'priceLists.savedToastDraft'
     | 'priceLists.savedToastPublished'
+    | 'priceLists.scopeAgreement'
+    | 'priceLists.scopePublic'
     | 'priceLists.searchLabel'
     | 'priceLists.selectAll'
     | 'priceLists.selectEntry'
@@ -6652,6 +6734,107 @@ export interface NamespaceKeys {
     | 'toolbar.segmentReview'
     | 'toolbar.statusAll'
     | 'toolbar.statusLabel'
+    | 'transfer.columns.ingredients.availability'
+    | 'transfer.columns.ingredients.b2bPrice'
+    | 'transfer.columns.ingredients.b2cPrice'
+    | 'transfer.columns.ingredients.capacity'
+    | 'transfer.columns.ingredients.capacityUnit'
+    | 'transfer.columns.ingredients.category'
+    | 'transfer.columns.ingredients.composition'
+    | 'transfer.columns.ingredients.gramsPerUnit'
+    | 'transfer.columns.ingredients.itemsPerUnit'
+    | 'transfer.columns.ingredients.nameAr'
+    | 'transfer.columns.ingredients.nameEn'
+    | 'transfer.columns.ingredients.notes'
+    | 'transfer.columns.ingredients.priceCurrency'
+    | 'transfer.columns.ingredients.purchaseCurrency'
+    | 'transfer.columns.ingredients.purchasePrice'
+    | 'transfer.columns.ingredients.purchaseUnit'
+    | 'transfer.columns.ingredients.reference'
+    | 'transfer.columns.ingredients.sellable'
+    | 'transfer.columns.ingredients.unit'
+    | 'transfer.columns.ingredients.unitPrice'
+    | 'transfer.columns.ingredients.wastePercent'
+    | 'transfer.columns.ingredients.yieldFactor'
+    | 'transfer.columns.recipes.category'
+    | 'transfer.columns.recipes.comment'
+    | 'transfer.columns.recipes.ingredient'
+    | 'transfer.columns.recipes.ingredientRef'
+    | 'transfer.columns.recipes.nameAr'
+    | 'transfer.columns.recipes.nameEn'
+    | 'transfer.columns.recipes.notes'
+    | 'transfer.columns.recipes.quantity'
+    | 'transfer.columns.recipes.reference'
+    | 'transfer.columns.recipes.shelfLifeDays'
+    | 'transfer.columns.recipes.unit'
+    | 'transfer.columns.recipes.yieldPieces'
+    | 'transfer.columns.recipes.yieldQuantity'
+    | 'transfer.columns.recipes.yieldUnit'
+    | 'transfer.columns.stock.code'
+    | 'transfer.columns.stock.countedQuantity'
+    | 'transfer.columns.stock.item'
+    | 'transfer.columns.stock.parLevel'
+    | 'transfer.columns.stock.reorderThreshold'
+    | 'transfer.dropZone.choose'
+    | 'transfer.dropZone.label'
+    | 'transfer.dropZone.limits'
+    | 'transfer.dropZone.replace'
+    | 'transfer.dropZone.title'
+    | 'transfer.error.failed'
+    | 'transfer.error.rejectedTitle'
+    | 'transfer.error.throttled'
+    | 'transfer.error.tooLarge'
+    | 'transfer.error.unreadable'
+    | 'transfer.error.wrongType'
+    | 'transfer.export.excel'
+    | 'transfer.export.failed'
+    | 'transfer.export.menuLabel'
+    | 'transfer.export.pdf'
+    | 'transfer.export.pdfSheets'
+    | 'transfer.export.pdfTable'
+    | 'transfer.export.sheetsTooMany'
+    | 'transfer.export.templateFailed'
+    | 'transfer.guide.acceptedValues'
+    | 'transfer.guide.columnsCaption'
+    | 'transfer.guide.downloadTemplate'
+    | 'transfer.guide.heading'
+    | 'transfer.guide.matchRule'
+    | 'transfer.guide.matchRuleRecipes'
+    | 'transfer.guide.matchRuleStock'
+    | 'transfer.guide.required'
+    | 'transfer.guide.rowCap'
+    | 'transfer.guide.templateHint'
+    | 'transfer.import.action'
+    | 'transfer.import.description'
+    | 'transfer.import.done'
+    | 'transfer.ingredients.importTitle'
+    | 'transfer.ingredients.printTitle'
+    | 'transfer.print.action'
+    | 'transfer.print.expiredBody'
+    | 'transfer.print.expiredTitle'
+    | 'transfer.print.nativeUnavailable'
+    | 'transfer.print.printed'
+    | 'transfer.print.rowCount'
+    | 'transfer.recipes.importTitle'
+    | 'transfer.recipes.printTitle'
+    | 'transfer.result.created'
+    | 'transfer.result.failed'
+    | 'transfer.result.ignoredColumns'
+    | 'transfer.result.issuesHeading'
+    | 'transfer.result.noIssues'
+    | 'transfer.result.row'
+    | 'transfer.result.skipped'
+    | 'transfer.result.title'
+    | 'transfer.result.truncated'
+    | 'transfer.result.unchanged'
+    | 'transfer.result.updated'
+    | 'transfer.sheets.missing'
+    | 'transfer.sheets.title'
+    | 'transfer.sheets.truncated'
+    | 'transfer.stock.branchRequiredBody'
+    | 'transfer.stock.branchRequiredTitle'
+    | 'transfer.stock.importTitle'
+    | 'transfer.stock.printTitle'
     | 'tray.blocksRecipes'
     | 'tray.forRecipe'
     | 'tray.forYourRecipe'
@@ -6725,6 +6908,38 @@ export interface NamespaceKeys {
     | 'verification.operatorConfirmed'
     | 'verification.supplierDeclared'
     | 'verification.unverified'
+    | 'wholesale.assign'
+    | 'wholesale.assignNeedsChannel'
+    | 'wholesale.assignNeedsList'
+    | 'wholesale.assignSummary'
+    | 'wholesale.assignTitle'
+    | 'wholesale.assigned'
+    | 'wholesale.assignedToast'
+    | 'wholesale.channelDone'
+    | 'wholesale.channelMissing'
+    | 'wholesale.channelName'
+    | 'wholesale.channelOpen'
+    | 'wholesale.channelOpenedToast'
+    | 'wholesale.channelTitle'
+    | 'wholesale.done'
+    | 'wholesale.itemFailure'
+    | 'wholesale.itemsFailedTitle'
+    | 'wholesale.itemsNeedsChannel'
+    | 'wholesale.itemsNone'
+    | 'wholesale.itemsOffer'
+    | 'wholesale.itemsOfferedToast'
+    | 'wholesale.itemsProgress'
+    | 'wholesale.itemsReadError'
+    | 'wholesale.itemsSummary'
+    | 'wholesale.itemsTitle'
+    | 'wholesale.listsNew'
+    | 'wholesale.listsNone'
+    | 'wholesale.listsSummary'
+    | 'wholesale.listsTitle'
+    | 'wholesale.loadErrorTitle'
+    | 'wholesale.openList'
+    | 'wholesale.subtitle'
+    | 'wholesale.todo'
     | 'windows.activeHint'
     | 'windows.activeLabel'
     | 'windows.add'
@@ -8174,6 +8389,175 @@ export interface NamespaceKeys {
     | 'week.warningsBody'
     | 'week.warningsTitle';
   readonly "platformAdmin":
+    | 'b2b.actions.approve'
+    | 'b2b.actions.claim'
+    | 'b2b.actions.decline'
+    | 'b2b.actions.draftAgreement'
+    | 'b2b.actions.requestInformation'
+    | 'b2b.agreement.creditLimit'
+    | 'b2b.agreement.edit'
+    | 'b2b.agreement.minimumOrder'
+    | 'b2b.agreement.none'
+    | 'b2b.agreement.paymentTerms'
+    | 'b2b.agreement.revise'
+    | 'b2b.agreement.reviseBody'
+    | 'b2b.agreement.reviseTitle'
+    | 'b2b.agreement.seller'
+    | 'b2b.agreement.send'
+    | 'b2b.agreement.sendBody'
+    | 'b2b.agreement.sendTitle'
+    | 'b2b.agreement.signedBy'
+    | 'b2b.agreement.title'
+    | 'b2b.agreement.version'
+    | 'b2b.agreementStatus.active'
+    | 'b2b.agreementStatus.draft'
+    | 'b2b.agreementStatus.pending_signature'
+    | 'b2b.agreementStatus.suspended'
+    | 'b2b.agreementStatus.terminated'
+    | 'b2b.approve.applicantMessageHint'
+    | 'b2b.approve.body'
+    | 'b2b.approve.documentsWarning'
+    | 'b2b.approve.title'
+    | 'b2b.cancel'
+    | 'b2b.claimed'
+    | 'b2b.column.company'
+    | 'b2b.column.country'
+    | 'b2b.column.reviewer'
+    | 'b2b.column.status'
+    | 'b2b.column.submitted'
+    | 'b2b.contacts.none'
+    | 'b2b.contacts.roles.billing'
+    | 'b2b.contacts.roles.operations'
+    | 'b2b.contacts.roles.primary'
+    | 'b2b.contacts.roles.signatory'
+    | 'b2b.contacts.title'
+    | 'b2b.decision.applicantMessage'
+    | 'b2b.decision.decided'
+    | 'b2b.decision.informationRequest'
+    | 'b2b.decision.internalNote'
+    | 'b2b.decision.submitted'
+    | 'b2b.decision.title'
+    | 'b2b.decline.applicantMessageHint'
+    | 'b2b.decline.body'
+    | 'b2b.decline.title'
+    | 'b2b.detail.back'
+    | 'b2b.detail.conflictBody'
+    | 'b2b.detail.conflictTitle'
+    | 'b2b.detail.duplicatesBody'
+    | 'b2b.detail.duplicatesTitle'
+    | 'b2b.detail.errorTitle'
+    | 'b2b.detail.reference'
+    | 'b2b.detail.reload'
+    | 'b2b.documents.accept'
+    | 'b2b.documents.expired'
+    | 'b2b.documents.mismatch'
+    | 'b2b.documents.missing'
+    | 'b2b.documents.none'
+    | 'b2b.documents.note'
+    | 'b2b.documents.reason'
+    | 'b2b.documents.reject'
+    | 'b2b.documents.rejectBody'
+    | 'b2b.documents.rejectTitle'
+    | 'b2b.documents.view'
+    | 'b2b.editor.autoRenews'
+    | 'b2b.editor.datePlaceholder'
+    | 'b2b.editor.defaultTitle'
+    | 'b2b.editor.editTitle'
+    | 'b2b.editor.endsOn'
+    | 'b2b.editor.inCurrency'
+    | 'b2b.editor.intro'
+    | 'b2b.editor.leadTime'
+    | 'b2b.editor.listTaken'
+    | 'b2b.editor.newTitle'
+    | 'b2b.editor.noListsBody'
+    | 'b2b.editor.noListsTitle'
+    | 'b2b.editor.notANumber'
+    | 'b2b.editor.noticePeriod'
+    | 'b2b.editor.priceList'
+    | 'b2b.editor.priceListHint'
+    | 'b2b.editor.priceListPlaceholder'
+    | 'b2b.editor.requested'
+    | 'b2b.editor.save'
+    | 'b2b.editor.startsOn'
+    | 'b2b.editor.summary'
+    | 'b2b.editor.summaryHint'
+    | 'b2b.editor.title'
+    | 'b2b.emptyBody'
+    | 'b2b.emptyQueueBody'
+    | 'b2b.emptyTitle'
+    | 'b2b.internalNoteHint'
+    | 'b2b.invitations.body'
+    | 'b2b.invitations.none'
+    | 'b2b.invitations.resend'
+    | 'b2b.invitations.resent'
+    | 'b2b.invitations.status.accepted'
+    | 'b2b.invitations.status.expired'
+    | 'b2b.invitations.status.live'
+    | 'b2b.invitations.status.revoked'
+    | 'b2b.invitations.title'
+    | 'b2b.locations.billing'
+    | 'b2b.locations.none'
+    | 'b2b.locations.primary'
+    | 'b2b.locations.title'
+    | 'b2b.next.claim.body'
+    | 'b2b.next.claim.title'
+    | 'b2b.next.closed.body'
+    | 'b2b.next.closed.title'
+    | 'b2b.next.decide.body'
+    | 'b2b.next.decide.title'
+    | 'b2b.next.draft_agreement.body'
+    | 'b2b.next.draft_agreement.title'
+    | 'b2b.next.provision.body'
+    | 'b2b.next.provision.title'
+    | 'b2b.next.provisioned.body'
+    | 'b2b.next.provisioned.title'
+    | 'b2b.next.send_agreement.body'
+    | 'b2b.next.send_agreement.title'
+    | 'b2b.next.waiting_applicant.body'
+    | 'b2b.next.waiting_applicant.title'
+    | 'b2b.next.waiting_signature.body'
+    | 'b2b.next.waiting_signature.title'
+    | 'b2b.no'
+    | 'b2b.open'
+    | 'b2b.provision.account'
+    | 'b2b.provision.body'
+    | 'b2b.provision.confirm'
+    | 'b2b.provision.invitations'
+    | 'b2b.provision.organisation'
+    | 'b2b.provision.owner'
+    | 'b2b.provision.title'
+    | 'b2b.request.body'
+    | 'b2b.request.confirm'
+    | 'b2b.request.message'
+    | 'b2b.request.messageHint'
+    | 'b2b.request.sections'
+    | 'b2b.request.title'
+    | 'b2b.searchLabel'
+    | 'b2b.searchPlaceholder'
+    | 'b2b.stages.agreement_sent'
+    | 'b2b.stages.approved'
+    | 'b2b.stages.in_review'
+    | 'b2b.stages.label'
+    | 'b2b.stages.provisioned'
+    | 'b2b.stages.signed'
+    | 'b2b.stages.submitted'
+    | 'b2b.status.approved'
+    | 'b2b.status.declined'
+    | 'b2b.status.draft'
+    | 'b2b.status.in_review'
+    | 'b2b.status.info_requested'
+    | 'b2b.status.submitted'
+    | 'b2b.status.withdrawn'
+    | 'b2b.subtitle'
+    | 'b2b.tabAll'
+    | 'b2b.tabsLabel'
+    | 'b2b.title'
+    | 'b2b.toast.claimed'
+    | 'b2b.toast.provisioned'
+    | 'b2b.toast.sent'
+    | 'b2b.unclaimed'
+    | 'b2b.unnamed'
+    | 'b2b.yes'
     | 'create.branchNameHint'
     | 'create.branchNameLabel'
     | 'create.branchNamePlaceholder'
@@ -8271,6 +8655,7 @@ export interface NamespaceKeys {
     | 'lifecycle.suspendTitle'
     | 'lifecycle.suspended'
     | 'lifecycle.suspending'
+    | 'nav.b2b'
     | 'nav.kitchens'
     | 'nav.showcase'
     | 'owners.column.email'
@@ -8988,45 +9373,29 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:role.tabs.advanced',
   'accessAdmin:role.tabs.details',
   'accessAdmin:role.tabs.pages',
-  'accessAdmin:role.templateNotice',
   'accessAdmin:roles.caption',
   'accessAdmin:roles.columns.description',
   'accessAdmin:roles.columns.holders',
-  'accessAdmin:roles.columns.kind',
   'accessAdmin:roles.columns.pages',
   'accessAdmin:roles.columns.role',
   'accessAdmin:roles.copy',
   'accessAdmin:roles.create',
   'accessAdmin:roles.edit',
-  'accessAdmin:roles.emptyBody',
-  'accessAdmin:roles.emptyTitle',
   'accessAdmin:roles.filteredEmptyBody',
   'accessAdmin:roles.filteredEmptyTitle',
   'accessAdmin:roles.holders',
   'accessAdmin:roles.holdersNone',
-  'accessAdmin:roles.kindOwn',
-  'accessAdmin:roles.kindTemplate',
   'accessAdmin:roles.noDescription',
   'accessAdmin:roles.open',
   'accessAdmin:roles.ownHeading',
-  'accessAdmin:roles.ownHint',
   'accessAdmin:roles.permissionCount',
   'accessAdmin:roles.searchHint',
   'accessAdmin:roles.searchLabel',
-  'accessAdmin:roles.segmentAll',
-  'accessAdmin:roles.segmentLabel',
-  'accessAdmin:roles.segmentOwn',
-  'accessAdmin:roles.segmentTemplates',
-  'accessAdmin:roles.statOwn',
-  'accessAdmin:roles.statOwnCaption',
   'accessAdmin:roles.statRoles',
-  'accessAdmin:roles.statTemplates',
-  'accessAdmin:roles.statTemplatesCaption',
   'accessAdmin:roles.statUnheld',
   'accessAdmin:roles.statUnheldCaption',
   'accessAdmin:roles.subtitle',
   'accessAdmin:roles.templatesHeading',
-  'accessAdmin:roles.templatesHint',
   'accessAdmin:roles.title',
   'accessAdmin:signIn.organisation',
   'accessAdmin:signIn.useFullEmail',
@@ -9607,6 +9976,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:agreement.noticePeriod',
   'b2bApplication:agreement.otpNotVerified',
   'b2bApplication:agreement.paymentTerms',
+  'b2bApplication:agreement.seller',
   'b2bApplication:agreement.sign',
   'b2bApplication:agreement.signTitle',
   'b2bApplication:agreement.signatoryTitle',
@@ -9635,6 +10005,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:businessTypes.restaurant',
   'b2bApplication:businessTypes.retail',
   'b2bApplication:businessTypes.school',
+  'b2bApplication:contacts.add',
+  'b2bApplication:contacts.description',
+  'b2bApplication:contacts.empty',
+  'b2bApplication:contacts.fields.email',
+  'b2bApplication:contacts.fields.name',
+  'b2bApplication:contacts.fields.phone',
+  'b2bApplication:contacts.fields.role',
+  'b2bApplication:contacts.fields.title',
+  'b2bApplication:contacts.reachHint',
+  'b2bApplication:contacts.remove',
+  'b2bApplication:contacts.roleHint',
+  'b2bApplication:contacts.roles.billing',
+  'b2bApplication:contacts.roles.operations',
+  'b2bApplication:contacts.roles.primary',
+  'b2bApplication:contacts.roles.signatory',
+  'b2bApplication:contacts.rowTitle',
+  'b2bApplication:contacts.title',
   'b2bApplication:deliveryWindows.afternoon',
   'b2bApplication:deliveryWindows.early_morning',
   'b2bApplication:deliveryWindows.evening',
@@ -9734,6 +10121,26 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:hints.signatoryTitle',
   'b2bApplication:hints.taxRegistrationNumber',
   'b2bApplication:hints.tradingName',
+  'b2bApplication:locations.add',
+  'b2bApplication:locations.description',
+  'b2bApplication:locations.empty',
+  'b2bApplication:locations.fields.addressLine1',
+  'b2bApplication:locations.fields.addressLine1Placeholder',
+  'b2bApplication:locations.fields.addressLine2',
+  'b2bApplication:locations.fields.addressLine2Placeholder',
+  'b2bApplication:locations.fields.city',
+  'b2bApplication:locations.fields.cityPlaceholder',
+  'b2bApplication:locations.fields.deliveryArea',
+  'b2bApplication:locations.fields.deliveryAreaPlaceholder',
+  'b2bApplication:locations.fields.expectedHeadcount',
+  'b2bApplication:locations.fields.expectedHeadcountPlaceholder',
+  'b2bApplication:locations.fields.isBillingAddress',
+  'b2bApplication:locations.fields.isPrimary',
+  'b2bApplication:locations.fields.label',
+  'b2bApplication:locations.fields.labelPlaceholder',
+  'b2bApplication:locations.remove',
+  'b2bApplication:locations.rowTitle',
+  'b2bApplication:locations.title',
   'b2bApplication:orderFrequencies.ad_hoc',
   'b2bApplication:orderFrequencies.daily',
   'b2bApplication:orderFrequencies.fortnightly',
@@ -9770,6 +10177,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:review.blockedTitle',
   'b2bApplication:review.body',
   'b2bApplication:review.edit',
+  'b2bApplication:review.notAddedYet',
   'b2bApplication:review.submit',
   'b2bApplication:review.submitting',
   'b2bApplication:review.title',
@@ -9783,6 +10191,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:sections.signatory.title',
   'b2bApplication:sections.trade_terms.description',
   'b2bApplication:sections.trade_terms.title',
+  'b2bApplication:shellTitle',
   'b2bApplication:status.agreement_pending.body',
   'b2bApplication:status.agreement_pending.label',
   'b2bApplication:status.agreement_signed.body',
@@ -9818,10 +10227,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:title',
   'b2bApplication:validation.currency',
   'b2bApplication:validation.date',
+  'b2bApplication:validation.duplicateRole',
   'b2bApplication:validation.email',
   'b2bApplication:validation.format',
+  'b2bApplication:validation.headcount',
   'b2bApplication:validation.invalid',
+  'b2bApplication:validation.noPrimary',
+  'b2bApplication:validation.oneBilling',
+  'b2bApplication:validation.onePrimary',
   'b2bApplication:validation.phone',
+  'b2bApplication:validation.reachable',
   'b2bApplication:validation.required',
   'b2bApplication:validation.tooLong',
   'b2bApplication:validation.url',
@@ -11625,6 +12040,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'invitations:accepted.body',
   'invitations:accepted.noMembershipBody',
   'invitations:accepted.noMembershipTitle',
+  'invitations:accepted.openBusinessWorkspace',
   'invitations:accepted.openWorkspace',
   'invitations:accepted.title',
   'invitations:expired.body',
@@ -11805,6 +12221,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:areas.truncatedTitle',
   'kitchen:areas.unknownArea',
   'kitchen:assist.aiPick',
+  'kitchen:assist.allergenSourceNote',
+  'kitchen:assist.allergensConfirm',
+  'kitchen:assist.allergensIndicated',
+  'kitchen:assist.allergensNone',
   'kitchen:assist.apply',
   'kitchen:assist.arabicFilled',
   'kitchen:assist.assistantUnavailable',
@@ -11813,6 +12233,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:assist.chooseAnother',
   'kitchen:assist.existingMatch',
   'kitchen:assist.existingTitle',
+  'kitchen:assist.gramsFilled',
   'kitchen:assist.nutritionUnavailable',
   'kitchen:assist.open',
   'kitchen:assist.possibleDuplicate',
@@ -11820,6 +12241,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:assist.relationMoreSpecific',
   'kitchen:assist.rerun',
   'kitchen:assist.title',
+  'kitchen:assist.unitFilled',
   'kitchen:assist.updateName',
   'kitchen:availability.addDay',
   'kitchen:availability.availableLabel',
@@ -12170,6 +12592,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.drawerKind',
   'kitchen:desk.driverSays',
   'kitchen:desk.dueAt',
+  'kitchen:desk.edit.backToDesk',
+  'kitchen:desk.edit.changeAddress',
+  'kitchen:desk.edit.keepAddress',
+  'kitchen:desk.edit.loadErrorTitle',
+  'kitchen:desk.edit.notAmendable.agreement_priced',
+  'kitchen:desk.edit.notAmendable.closed',
+  'kitchen:desk.edit.notAmendable.kitchen_started',
+  'kitchen:desk.edit.notAmendable.legacy_consumption',
+  'kitchen:desk.edit.notAmendable.other_channel',
+  'kitchen:desk.edit.notAmendable.paid_online',
+  'kitchen:desk.edit.notAmendable.ready',
+  'kitchen:desk.edit.notAmendableBody',
+  'kitchen:desk.edit.notAmendableTitle',
+  'kitchen:desk.edit.open',
+  'kitchen:desk.edit.review',
+  'kitchen:desk.edit.save',
+  'kitchen:desk.edit.savedToast',
+  'kitchen:desk.edit.title',
+  'kitchen:desk.edit.totalBelowPaid',
   'kitchen:desk.emptyBody',
   'kitchen:desk.emptyTitle',
   'kitchen:desk.figures.hide',
@@ -12520,6 +12961,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.supplyOrders.name',
   'kitchen:families.team.description',
   'kitchen:families.team.name',
+  'kitchen:families.wholesale.description',
+  'kitchen:families.wholesale.name',
   'kitchen:fields.amountPlaceholder',
   'kitchen:fields.category',
   'kitchen:fields.categoryHint',
@@ -14677,7 +15120,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:priceLists.changesEdited',
   'kitchen:priceLists.changesRemoved',
   'kitchen:priceLists.changesTitle',
+  'kitchen:priceLists.channelInactive',
+  'kitchen:priceLists.channelsBody',
   'kitchen:priceLists.channelsLabel',
+  'kitchen:priceLists.channelsLoadError',
+  'kitchen:priceLists.channelsNone',
+  'kitchen:priceLists.channelsSave',
+  'kitchen:priceLists.channelsSavedToast',
+  'kitchen:priceLists.channelsTitle',
   'kitchen:priceLists.clearUntil',
   'kitchen:priceLists.columnChannels',
   'kitchen:priceLists.columnCurrency',
@@ -14686,6 +15136,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:priceLists.confidentialBody',
   'kitchen:priceLists.confidentialTitle',
   'kitchen:priceLists.confirmedCount',
+  'kitchen:priceLists.create',
+  'kitchen:priceLists.createAgreementTitle',
+  'kitchen:priceLists.createBody',
+  'kitchen:priceLists.createCodeHint',
+  'kitchen:priceLists.createCodeLabel',
+  'kitchen:priceLists.createCodeRequired',
+  'kitchen:priceLists.createConfirm',
+  'kitchen:priceLists.createCurrencyHint',
+  'kitchen:priceLists.createCurrencyInvalid',
+  'kitchen:priceLists.createCurrencyLabel',
+  'kitchen:priceLists.createNameLabel',
+  'kitchen:priceLists.createNameRequired',
+  'kitchen:priceLists.createScopeLabel',
+  'kitchen:priceLists.createTitle',
+  'kitchen:priceLists.createdToast',
   'kitchen:priceLists.currencyLabel',
   'kitchen:priceLists.discardChanges',
   'kitchen:priceLists.discardedToast',
@@ -14781,6 +15246,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:priceLists.saveFailedTitle',
   'kitchen:priceLists.savedToastDraft',
   'kitchen:priceLists.savedToastPublished',
+  'kitchen:priceLists.scopeAgreement',
+  'kitchen:priceLists.scopePublic',
   'kitchen:priceLists.searchLabel',
   'kitchen:priceLists.selectAll',
   'kitchen:priceLists.selectEntry',
@@ -15404,6 +15871,107 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:toolbar.segmentReview',
   'kitchen:toolbar.statusAll',
   'kitchen:toolbar.statusLabel',
+  'kitchen:transfer.columns.ingredients.availability',
+  'kitchen:transfer.columns.ingredients.b2bPrice',
+  'kitchen:transfer.columns.ingredients.b2cPrice',
+  'kitchen:transfer.columns.ingredients.capacity',
+  'kitchen:transfer.columns.ingredients.capacityUnit',
+  'kitchen:transfer.columns.ingredients.category',
+  'kitchen:transfer.columns.ingredients.composition',
+  'kitchen:transfer.columns.ingredients.gramsPerUnit',
+  'kitchen:transfer.columns.ingredients.itemsPerUnit',
+  'kitchen:transfer.columns.ingredients.nameAr',
+  'kitchen:transfer.columns.ingredients.nameEn',
+  'kitchen:transfer.columns.ingredients.notes',
+  'kitchen:transfer.columns.ingredients.priceCurrency',
+  'kitchen:transfer.columns.ingredients.purchaseCurrency',
+  'kitchen:transfer.columns.ingredients.purchasePrice',
+  'kitchen:transfer.columns.ingredients.purchaseUnit',
+  'kitchen:transfer.columns.ingredients.reference',
+  'kitchen:transfer.columns.ingredients.sellable',
+  'kitchen:transfer.columns.ingredients.unit',
+  'kitchen:transfer.columns.ingredients.unitPrice',
+  'kitchen:transfer.columns.ingredients.wastePercent',
+  'kitchen:transfer.columns.ingredients.yieldFactor',
+  'kitchen:transfer.columns.recipes.category',
+  'kitchen:transfer.columns.recipes.comment',
+  'kitchen:transfer.columns.recipes.ingredient',
+  'kitchen:transfer.columns.recipes.ingredientRef',
+  'kitchen:transfer.columns.recipes.nameAr',
+  'kitchen:transfer.columns.recipes.nameEn',
+  'kitchen:transfer.columns.recipes.notes',
+  'kitchen:transfer.columns.recipes.quantity',
+  'kitchen:transfer.columns.recipes.reference',
+  'kitchen:transfer.columns.recipes.shelfLifeDays',
+  'kitchen:transfer.columns.recipes.unit',
+  'kitchen:transfer.columns.recipes.yieldPieces',
+  'kitchen:transfer.columns.recipes.yieldQuantity',
+  'kitchen:transfer.columns.recipes.yieldUnit',
+  'kitchen:transfer.columns.stock.code',
+  'kitchen:transfer.columns.stock.countedQuantity',
+  'kitchen:transfer.columns.stock.item',
+  'kitchen:transfer.columns.stock.parLevel',
+  'kitchen:transfer.columns.stock.reorderThreshold',
+  'kitchen:transfer.dropZone.choose',
+  'kitchen:transfer.dropZone.label',
+  'kitchen:transfer.dropZone.limits',
+  'kitchen:transfer.dropZone.replace',
+  'kitchen:transfer.dropZone.title',
+  'kitchen:transfer.error.failed',
+  'kitchen:transfer.error.rejectedTitle',
+  'kitchen:transfer.error.throttled',
+  'kitchen:transfer.error.tooLarge',
+  'kitchen:transfer.error.unreadable',
+  'kitchen:transfer.error.wrongType',
+  'kitchen:transfer.export.excel',
+  'kitchen:transfer.export.failed',
+  'kitchen:transfer.export.menuLabel',
+  'kitchen:transfer.export.pdf',
+  'kitchen:transfer.export.pdfSheets',
+  'kitchen:transfer.export.pdfTable',
+  'kitchen:transfer.export.sheetsTooMany',
+  'kitchen:transfer.export.templateFailed',
+  'kitchen:transfer.guide.acceptedValues',
+  'kitchen:transfer.guide.columnsCaption',
+  'kitchen:transfer.guide.downloadTemplate',
+  'kitchen:transfer.guide.heading',
+  'kitchen:transfer.guide.matchRule',
+  'kitchen:transfer.guide.matchRuleRecipes',
+  'kitchen:transfer.guide.matchRuleStock',
+  'kitchen:transfer.guide.required',
+  'kitchen:transfer.guide.rowCap',
+  'kitchen:transfer.guide.templateHint',
+  'kitchen:transfer.import.action',
+  'kitchen:transfer.import.description',
+  'kitchen:transfer.import.done',
+  'kitchen:transfer.ingredients.importTitle',
+  'kitchen:transfer.ingredients.printTitle',
+  'kitchen:transfer.print.action',
+  'kitchen:transfer.print.expiredBody',
+  'kitchen:transfer.print.expiredTitle',
+  'kitchen:transfer.print.nativeUnavailable',
+  'kitchen:transfer.print.printed',
+  'kitchen:transfer.print.rowCount',
+  'kitchen:transfer.recipes.importTitle',
+  'kitchen:transfer.recipes.printTitle',
+  'kitchen:transfer.result.created',
+  'kitchen:transfer.result.failed',
+  'kitchen:transfer.result.ignoredColumns',
+  'kitchen:transfer.result.issuesHeading',
+  'kitchen:transfer.result.noIssues',
+  'kitchen:transfer.result.row',
+  'kitchen:transfer.result.skipped',
+  'kitchen:transfer.result.title',
+  'kitchen:transfer.result.truncated',
+  'kitchen:transfer.result.unchanged',
+  'kitchen:transfer.result.updated',
+  'kitchen:transfer.sheets.missing',
+  'kitchen:transfer.sheets.title',
+  'kitchen:transfer.sheets.truncated',
+  'kitchen:transfer.stock.branchRequiredBody',
+  'kitchen:transfer.stock.branchRequiredTitle',
+  'kitchen:transfer.stock.importTitle',
+  'kitchen:transfer.stock.printTitle',
   'kitchen:tray.blocksRecipes',
   'kitchen:tray.forRecipe',
   'kitchen:tray.forYourRecipe',
@@ -15477,6 +16045,38 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:verification.operatorConfirmed',
   'kitchen:verification.supplierDeclared',
   'kitchen:verification.unverified',
+  'kitchen:wholesale.assign',
+  'kitchen:wholesale.assignNeedsChannel',
+  'kitchen:wholesale.assignNeedsList',
+  'kitchen:wholesale.assignSummary',
+  'kitchen:wholesale.assignTitle',
+  'kitchen:wholesale.assigned',
+  'kitchen:wholesale.assignedToast',
+  'kitchen:wholesale.channelDone',
+  'kitchen:wholesale.channelMissing',
+  'kitchen:wholesale.channelName',
+  'kitchen:wholesale.channelOpen',
+  'kitchen:wholesale.channelOpenedToast',
+  'kitchen:wholesale.channelTitle',
+  'kitchen:wholesale.done',
+  'kitchen:wholesale.itemFailure',
+  'kitchen:wholesale.itemsFailedTitle',
+  'kitchen:wholesale.itemsNeedsChannel',
+  'kitchen:wholesale.itemsNone',
+  'kitchen:wholesale.itemsOffer',
+  'kitchen:wholesale.itemsOfferedToast',
+  'kitchen:wholesale.itemsProgress',
+  'kitchen:wholesale.itemsReadError',
+  'kitchen:wholesale.itemsSummary',
+  'kitchen:wholesale.itemsTitle',
+  'kitchen:wholesale.listsNew',
+  'kitchen:wholesale.listsNone',
+  'kitchen:wholesale.listsSummary',
+  'kitchen:wholesale.listsTitle',
+  'kitchen:wholesale.loadErrorTitle',
+  'kitchen:wholesale.openList',
+  'kitchen:wholesale.subtitle',
+  'kitchen:wholesale.todo',
   'kitchen:windows.activeHint',
   'kitchen:windows.activeLabel',
   'kitchen:windows.add',
@@ -16921,6 +17521,175 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'planner:week.title',
   'planner:week.warningsBody',
   'planner:week.warningsTitle',
+  'platformAdmin:b2b.actions.approve',
+  'platformAdmin:b2b.actions.claim',
+  'platformAdmin:b2b.actions.decline',
+  'platformAdmin:b2b.actions.draftAgreement',
+  'platformAdmin:b2b.actions.requestInformation',
+  'platformAdmin:b2b.agreement.creditLimit',
+  'platformAdmin:b2b.agreement.edit',
+  'platformAdmin:b2b.agreement.minimumOrder',
+  'platformAdmin:b2b.agreement.none',
+  'platformAdmin:b2b.agreement.paymentTerms',
+  'platformAdmin:b2b.agreement.revise',
+  'platformAdmin:b2b.agreement.reviseBody',
+  'platformAdmin:b2b.agreement.reviseTitle',
+  'platformAdmin:b2b.agreement.seller',
+  'platformAdmin:b2b.agreement.send',
+  'platformAdmin:b2b.agreement.sendBody',
+  'platformAdmin:b2b.agreement.sendTitle',
+  'platformAdmin:b2b.agreement.signedBy',
+  'platformAdmin:b2b.agreement.title',
+  'platformAdmin:b2b.agreement.version',
+  'platformAdmin:b2b.agreementStatus.active',
+  'platformAdmin:b2b.agreementStatus.draft',
+  'platformAdmin:b2b.agreementStatus.pending_signature',
+  'platformAdmin:b2b.agreementStatus.suspended',
+  'platformAdmin:b2b.agreementStatus.terminated',
+  'platformAdmin:b2b.approve.applicantMessageHint',
+  'platformAdmin:b2b.approve.body',
+  'platformAdmin:b2b.approve.documentsWarning',
+  'platformAdmin:b2b.approve.title',
+  'platformAdmin:b2b.cancel',
+  'platformAdmin:b2b.claimed',
+  'platformAdmin:b2b.column.company',
+  'platformAdmin:b2b.column.country',
+  'platformAdmin:b2b.column.reviewer',
+  'platformAdmin:b2b.column.status',
+  'platformAdmin:b2b.column.submitted',
+  'platformAdmin:b2b.contacts.none',
+  'platformAdmin:b2b.contacts.roles.billing',
+  'platformAdmin:b2b.contacts.roles.operations',
+  'platformAdmin:b2b.contacts.roles.primary',
+  'platformAdmin:b2b.contacts.roles.signatory',
+  'platformAdmin:b2b.contacts.title',
+  'platformAdmin:b2b.decision.applicantMessage',
+  'platformAdmin:b2b.decision.decided',
+  'platformAdmin:b2b.decision.informationRequest',
+  'platformAdmin:b2b.decision.internalNote',
+  'platformAdmin:b2b.decision.submitted',
+  'platformAdmin:b2b.decision.title',
+  'platformAdmin:b2b.decline.applicantMessageHint',
+  'platformAdmin:b2b.decline.body',
+  'platformAdmin:b2b.decline.title',
+  'platformAdmin:b2b.detail.back',
+  'platformAdmin:b2b.detail.conflictBody',
+  'platformAdmin:b2b.detail.conflictTitle',
+  'platformAdmin:b2b.detail.duplicatesBody',
+  'platformAdmin:b2b.detail.duplicatesTitle',
+  'platformAdmin:b2b.detail.errorTitle',
+  'platformAdmin:b2b.detail.reference',
+  'platformAdmin:b2b.detail.reload',
+  'platformAdmin:b2b.documents.accept',
+  'platformAdmin:b2b.documents.expired',
+  'platformAdmin:b2b.documents.mismatch',
+  'platformAdmin:b2b.documents.missing',
+  'platformAdmin:b2b.documents.none',
+  'platformAdmin:b2b.documents.note',
+  'platformAdmin:b2b.documents.reason',
+  'platformAdmin:b2b.documents.reject',
+  'platformAdmin:b2b.documents.rejectBody',
+  'platformAdmin:b2b.documents.rejectTitle',
+  'platformAdmin:b2b.documents.view',
+  'platformAdmin:b2b.editor.autoRenews',
+  'platformAdmin:b2b.editor.datePlaceholder',
+  'platformAdmin:b2b.editor.defaultTitle',
+  'platformAdmin:b2b.editor.editTitle',
+  'platformAdmin:b2b.editor.endsOn',
+  'platformAdmin:b2b.editor.inCurrency',
+  'platformAdmin:b2b.editor.intro',
+  'platformAdmin:b2b.editor.leadTime',
+  'platformAdmin:b2b.editor.listTaken',
+  'platformAdmin:b2b.editor.newTitle',
+  'platformAdmin:b2b.editor.noListsBody',
+  'platformAdmin:b2b.editor.noListsTitle',
+  'platformAdmin:b2b.editor.notANumber',
+  'platformAdmin:b2b.editor.noticePeriod',
+  'platformAdmin:b2b.editor.priceList',
+  'platformAdmin:b2b.editor.priceListHint',
+  'platformAdmin:b2b.editor.priceListPlaceholder',
+  'platformAdmin:b2b.editor.requested',
+  'platformAdmin:b2b.editor.save',
+  'platformAdmin:b2b.editor.startsOn',
+  'platformAdmin:b2b.editor.summary',
+  'platformAdmin:b2b.editor.summaryHint',
+  'platformAdmin:b2b.editor.title',
+  'platformAdmin:b2b.emptyBody',
+  'platformAdmin:b2b.emptyQueueBody',
+  'platformAdmin:b2b.emptyTitle',
+  'platformAdmin:b2b.internalNoteHint',
+  'platformAdmin:b2b.invitations.body',
+  'platformAdmin:b2b.invitations.none',
+  'platformAdmin:b2b.invitations.resend',
+  'platformAdmin:b2b.invitations.resent',
+  'platformAdmin:b2b.invitations.status.accepted',
+  'platformAdmin:b2b.invitations.status.expired',
+  'platformAdmin:b2b.invitations.status.live',
+  'platformAdmin:b2b.invitations.status.revoked',
+  'platformAdmin:b2b.invitations.title',
+  'platformAdmin:b2b.locations.billing',
+  'platformAdmin:b2b.locations.none',
+  'platformAdmin:b2b.locations.primary',
+  'platformAdmin:b2b.locations.title',
+  'platformAdmin:b2b.next.claim.body',
+  'platformAdmin:b2b.next.claim.title',
+  'platformAdmin:b2b.next.closed.body',
+  'platformAdmin:b2b.next.closed.title',
+  'platformAdmin:b2b.next.decide.body',
+  'platformAdmin:b2b.next.decide.title',
+  'platformAdmin:b2b.next.draft_agreement.body',
+  'platformAdmin:b2b.next.draft_agreement.title',
+  'platformAdmin:b2b.next.provision.body',
+  'platformAdmin:b2b.next.provision.title',
+  'platformAdmin:b2b.next.provisioned.body',
+  'platformAdmin:b2b.next.provisioned.title',
+  'platformAdmin:b2b.next.send_agreement.body',
+  'platformAdmin:b2b.next.send_agreement.title',
+  'platformAdmin:b2b.next.waiting_applicant.body',
+  'platformAdmin:b2b.next.waiting_applicant.title',
+  'platformAdmin:b2b.next.waiting_signature.body',
+  'platformAdmin:b2b.next.waiting_signature.title',
+  'platformAdmin:b2b.no',
+  'platformAdmin:b2b.open',
+  'platformAdmin:b2b.provision.account',
+  'platformAdmin:b2b.provision.body',
+  'platformAdmin:b2b.provision.confirm',
+  'platformAdmin:b2b.provision.invitations',
+  'platformAdmin:b2b.provision.organisation',
+  'platformAdmin:b2b.provision.owner',
+  'platformAdmin:b2b.provision.title',
+  'platformAdmin:b2b.request.body',
+  'platformAdmin:b2b.request.confirm',
+  'platformAdmin:b2b.request.message',
+  'platformAdmin:b2b.request.messageHint',
+  'platformAdmin:b2b.request.sections',
+  'platformAdmin:b2b.request.title',
+  'platformAdmin:b2b.searchLabel',
+  'platformAdmin:b2b.searchPlaceholder',
+  'platformAdmin:b2b.stages.agreement_sent',
+  'platformAdmin:b2b.stages.approved',
+  'platformAdmin:b2b.stages.in_review',
+  'platformAdmin:b2b.stages.label',
+  'platformAdmin:b2b.stages.provisioned',
+  'platformAdmin:b2b.stages.signed',
+  'platformAdmin:b2b.stages.submitted',
+  'platformAdmin:b2b.status.approved',
+  'platformAdmin:b2b.status.declined',
+  'platformAdmin:b2b.status.draft',
+  'platformAdmin:b2b.status.in_review',
+  'platformAdmin:b2b.status.info_requested',
+  'platformAdmin:b2b.status.submitted',
+  'platformAdmin:b2b.status.withdrawn',
+  'platformAdmin:b2b.subtitle',
+  'platformAdmin:b2b.tabAll',
+  'platformAdmin:b2b.tabsLabel',
+  'platformAdmin:b2b.title',
+  'platformAdmin:b2b.toast.claimed',
+  'platformAdmin:b2b.toast.provisioned',
+  'platformAdmin:b2b.toast.sent',
+  'platformAdmin:b2b.unclaimed',
+  'platformAdmin:b2b.unnamed',
+  'platformAdmin:b2b.yes',
   'platformAdmin:create.branchNameHint',
   'platformAdmin:create.branchNameLabel',
   'platformAdmin:create.branchNamePlaceholder',
@@ -17018,6 +17787,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:lifecycle.suspendTitle',
   'platformAdmin:lifecycle.suspended',
   'platformAdmin:lifecycle.suspending',
+  'platformAdmin:nav.b2b',
   'platformAdmin:nav.kitchens',
   'platformAdmin:nav.showcase',
   'platformAdmin:owners.column.email',

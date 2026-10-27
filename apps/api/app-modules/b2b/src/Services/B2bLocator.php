@@ -63,6 +63,21 @@ final class B2bLocator
     public function __construct(private readonly TenantContext $tenant) {}
 
     /**
+     * Narrow invitations to the caller's branch when their membership is bound
+     * to one: a branch manager lists and withdraws their own branch's offers,
+     * never another branch's or a whole-kitchen one.
+     *
+     * @param  Builder<OrganisationInvitation>  $query
+     * @return Builder<OrganisationInvitation>
+     */
+    public function withinActorBranch(Builder $query): Builder
+    {
+        $branchId = $this->tenant->membership()?->branch_id;
+
+        return $query->when($branchId !== null, static fn (Builder $query) => $query->where('branch_id', $branchId));
+    }
+
+    /**
      * Any application — the platform review surface's resolver.
      *
      * @throws ApiException
@@ -137,6 +152,23 @@ final class B2bLocator
      *
      * @throws ApiException
      */
+    /**
+     * An agreement by its own identifier, for the platform routes that act on
+     * one directly.
+     *
+     * @throws ApiException
+     */
+    public function anyAgreement(string $id): B2bAgreement
+    {
+        $agreement = B2bAgreement::query()->whereKey($this->uuidOrNothing($id))->first();
+
+        if (! $agreement instanceof B2bAgreement) {
+            throw new ApiException(ErrorCode::ResourceNotFound);
+        }
+
+        return $agreement;
+    }
+
     public function anyDocument(string $id): KycDocument
     {
         $document = KycDocument::query()->whereKey($this->uuidOrNothing($id))->first();
@@ -153,7 +185,7 @@ final class B2bLocator
      */
     public function invitation(Organisation $organisation, string $id): OrganisationInvitation
     {
-        $invitation = OrganisationInvitation::query()
+        $invitation = $this->withinActorBranch(OrganisationInvitation::query())
             ->where('organisation_id', $organisation->getKey())
             ->whereKey($this->uuidOrNothing($id))
             ->first();

@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Healthy360\Inventory\Services;
 
+use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Inventory\Exceptions\InsufficientStock;
 use Healthy360\Inventory\Jobs\RetryOpenConsumptionExceptions;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
@@ -38,7 +40,10 @@ final readonly class InventoryService
      */
     private const int SCALE = 6;
 
-    public function __construct(private ReservationService $reservations) {}
+    public function __construct(
+        private ReservationService $reservations,
+        private AuditRecorder $audit,
+    ) {}
 
     /**
      * @param  string  $quantityDelta  a signed decimal string; negative removes stock. Narrowed to a numeric-string by {@see numeric()} before any arithmetic.
@@ -185,6 +190,68 @@ final readonly class InventoryService
 
             return $this->recordMovement($organisationId, $branchId, $stockItemId, 'adjust', $delta, notes: $notes);
         });
+    }
+
+    /**
+     * Sets — or clears — the reorder threshold, and the par level when one is
+     * given, for one (branch, stock item) pair (INV1.3), and audits it.
+     *
+     * The level row is created if the item has never moved at the branch, so a
+     * manager can set a threshold before the first receipt. A null threshold
+     * clears it, which the low-stock computation reads as *never low*.
+     *
+     * @param  numeric-string|null  $reorderThreshold
+     * @param  bool  $parGiven  whether the caller stated a par level at all; when not, the stored one stands and is what the threshold is checked against
+     * @param  numeric-string|null  $parLevel
+     *
+     * @throws ValidationException when par does not sit above the threshold
+     */
+    public function setThreshold(
+        string $organisationId,
+        string $branchId,
+        string $stockItemId,
+        ?string $reorderThreshold,
+        bool $parGiven,
+        ?string $parLevel,
+        ?string $actorUserId,
+    ): StockLevel {
+        $level = StockLevel::query()->firstOrNew(
+            ['branch_id' => $branchId, 'stock_item_id' => $stockItemId],
+            ['organisation_id' => $organisationId, 'quantity' => '0'],
+        );
+
+        $level->reorder_threshold = $reorderThreshold;
+        if ($parGiven) {
+            $level->par_level = $parLevel;
+        }
+
+        // Par is what a supply order restocks to, so it must sit above the point
+        // that raised the alarm — restocking to the threshold itself leaves the
+        // shelf low again the moment it is booked in. Checked against the stored
+        // par when the caller leaves it out; the CHECK on the table backs it.
+        $par = is_numeric($level->par_level) ? (string) $level->par_level : null;
+        if ($reorderThreshold !== null && $par !== null && bccomp($par, $reorderThreshold, 4) <= 0) {
+            throw ValidationException::withMessages([
+                'par_level' => 'The restock level must be above the reorder threshold.',
+            ]);
+        }
+
+        $level->save();
+
+        $this->audit->record(
+            'inventory.threshold_set',
+            actorUserId: $actorUserId,
+            subjectType: 'stock_level',
+            subjectId: (string) $level->getKey(),
+            metadata: [
+                'branch_id' => $level->branch_id,
+                'stock_item_id' => $level->stock_item_id,
+                'reorder_threshold' => $reorderThreshold,
+                'par_level' => $par,
+            ],
+        );
+
+        return $level;
     }
 
     /**

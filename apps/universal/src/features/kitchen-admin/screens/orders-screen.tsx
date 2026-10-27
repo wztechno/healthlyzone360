@@ -36,6 +36,7 @@ import type {
 } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
+import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -66,7 +67,11 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { ORDER_MANAGE_PERMISSION, ORDER_VIEW_PERMISSION } from '../entity-registry.ts';
+import {
+    ORDER_CREATE_ON_BEHALF_PERMISSION,
+    ORDER_MANAGE_PERMISSION,
+    ORDER_VIEW_PERMISSION,
+} from '../entity-registry.ts';
 import { humaniseCode } from '../format.ts';
 import {
     canCancelKitchenOrder,
@@ -639,7 +644,9 @@ function OrderRecord({
     const formatter = useFormatter();
     const { locale } = useLocale();
     const toast = useToast();
+    const router = useRouter();
     const canManage = useCan(ORDER_MANAGE_PERMISSION);
+    const canSell = useCan(ORDER_CREATE_ON_BEHALF_PERMISSION);
 
     const detail = useKitchenOrderQuery(seed.id);
     const confirmOrder = useConfirmOrderMutation();
@@ -775,6 +782,22 @@ function OrderRecord({
 
     const actionContent = (
         <Stack space="sm">
+            {/* The server's `amendable` decides; the desk's sale page edits it. */}
+            {order === null || !order.amendable || !canSell ? null : (
+                <View className="flex-row">
+                    <Button
+                        testID="kitchen-orders-edit"
+                        variant="secondary"
+                        size="sm"
+                        label={t('kitchen:desk.edit.open')}
+                        onPress={() => {
+                            router.push(
+                                `/kitchen/order-desk/sale?order=${encodeURIComponent(String(order.id))}`,
+                            );
+                        }}
+                    />
+                </View>
+            )}
             {order === null || !isDelivery || !canFulfilKitchenOrder(order.status) ? null : (
                 // Where the run stands, in the kitchen display's words.
                 <Text variant="caption" tone="secondary" testID="kitchen-orders-detail-run-state">

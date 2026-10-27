@@ -218,6 +218,16 @@ enum ErrorCode: string
     case CartChannelRefused = 'cart.channel_refused';
 
     /**
+     * The caller may look at the retail shop but not trade on it: an account
+     * whose person belongs to an organisation (kitchen staff, a business
+     * buyer's people) on a public channel, or a corporate buyer account on
+     * any channel but a private-pricing one. Raised on a basket, a checkout,
+     * an order and a subscription alike, against the channel the basket was
+     * opened on — not the one it would be opened on today.
+     */
+    case ShopViewOnly = 'shop.view_only';
+
+    /**
      * Checkout was refused. A 409 rather than a 422, because what changed is
      * the *world* — a branch closed, a price was withdrawn, a cut-off passed
      * between building the cart and submitting it — and the remedy is to
@@ -482,7 +492,8 @@ enum ErrorCode: string
             self::AccountVerificationRequired,
             self::B2bSignatoryRequired,
             self::AuthzPermissionDenied,
-            self::CartChannelRefused => 403,
+            self::CartChannelRefused,
+            self::ShopViewOnly => 403,
             self::ResourceNotFound => 404,
             self::ResourceConflict,
             self::OrganisationSuspended,
@@ -574,6 +585,7 @@ enum ErrorCode: string
             self::GuestSessionInvalid => 'This guest session is not valid for that action.',
             self::CartLineRefused => 'This item cannot be added to the basket as asked for.',
             self::CartChannelRefused => 'This sales channel is only available to corporate buyer accounts.',
+            self::ShopViewOnly => 'This account can browse the shop but cannot order from it.',
             self::OrderPlacementRefused => 'This order cannot be placed as it stands.',
             self::B2bApplicationStateInvalid => 'This application cannot be changed from its current state.',
             self::B2bDocumentsIncomplete => 'The required documents are not all present and accepted.',

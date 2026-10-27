@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Healthy360\AccessAdministration\Tests\Fixtures\AccessWorld;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\AccessControl\Models\Role;
+use Healthy360\AccessControl\Services\OrganisationRoles;
 use Healthy360\AccessControl\Services\PermissionRegistry;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
@@ -67,8 +68,9 @@ it('marks the codes the caller does not hold themselves', function (): void {
         ->and($byCode['inventory.view_costs_organisation']['held_by_caller'])->toBeFalse();
 });
 
-it('lists the platform templates beside the kitchen’s own roles', function (): void {
+it('lists the kitchen’s own roles with their holder and grant counts', function (): void {
     $tenant = AccessWorld::kitchen('admin@verdant.test');
+    app(OrganisationRoles::class)->provision((string) $tenant->organisation->getKey());
 
     $response = $this->actingAs($tenant->user)
         ->getJson("/api/v1/organisations/{$tenant->organisation->getKey()}/roles", AccessWorld::headers($tenant))
@@ -76,39 +78,17 @@ it('lists the platform templates beside the kitchen’s own roles', function ():
 
     $rows = collect($response->json('data'))->keyBy('code');
 
-    // Both kinds in one list, because from the *assigning* side they are one
-    // set — an administrator picking a role for somebody may pick either.
+    // The kitchen's copies of the standard roles and its bespoke ones, all
+    // its own and all editable.
     expect($rows->has('kitchen_manager'))->toBeTrue()
-        ->and($rows['kitchen_manager']['is_system'])->toBeTrue()
-        ->and($rows['administrator']['is_system'])->toBeFalse()
-        // Templates first: the standard role is what a person is usually
-        // looking for, and the bespoke ones are the exceptions read after it.
-        ->and($response->json('data.0.is_system'))->toBeTrue();
+        ->and($rows['kitchen_manager']['is_system'])->toBeFalse()
+        ->and($rows['kitchen_manager']['permission_count'])->toBe(count(PermissionRegistry::templateRoles()['kitchen_manager']['permissions']))
+        ->and($rows['administrator']['is_system'])->toBeFalse();
 
     // The number that makes the list actionable, and the one that decides
     // whether Delete will be refused.
     expect($rows['administrator']['holder_count'])->toBe(1)
         ->and($rows['administrator']['permission_count'])->toBe(count(AccessWorld::ADMINISTRATOR_PERMISSIONS));
-});
-
-it('reads a platform template so it can be copied', function (): void {
-    // `visibleRole`, not `ownRole`. Copy is the only supported way for a
-    // kitchen to change what a template means inside its own walls, so a read
-    // that 404'd here would make that impossible.
-    $tenant = AccessWorld::kitchen('admin@verdant.test');
-    $template = AccessWorld::template('kitchen_manager');
-
-    $this->actingAs($tenant->user)
-        ->getJson(
-            "/api/v1/organisations/{$tenant->organisation->getKey()}/roles/{$template->getKey()}",
-            AccessWorld::headers($tenant),
-        )
-        ->assertOk()
-        ->assertJsonPath('data.role.is_system', true)
-        ->assertJsonPath('data.role.code', 'kitchen_manager')
-        // The grant set is what Copy needs, so the read has to carry it in
-        // full — a summary here would make the affordance unbuildable.
-        ->assertJsonPath('data.role.permission_count', count(PermissionRegistry::templateRoles()['kitchen_manager']['permissions']));
 });
 
 it('creates a role and serves its validator as an ETag', function (): void {

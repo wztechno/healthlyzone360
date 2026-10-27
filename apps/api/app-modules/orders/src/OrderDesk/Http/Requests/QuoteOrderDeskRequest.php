@@ -76,6 +76,9 @@ class QuoteOrderDeskRequest extends FormRequest
             // day a kitchen can schedule against.
             'requested_delivery_date' => ['nullable', 'date_format:Y-m-d'],
             'delivery_window_code' => ['nullable', 'string', 'max:40'],
+            // Quoting an edit: price on that order's channel, for its customer,
+            // branch and fulfilment type — the body's own are then ignored.
+            'amending_order_id' => ['nullable', 'uuid'],
         ];
     }
 
@@ -87,7 +90,8 @@ class QuoteOrderDeskRequest extends FormRequest
      *     customer_account_id: string|null,
      *     customer_address_id: string|null,
      *     requested_delivery_date: string|null,
-     *     delivery_window_code: string|null
+     *     delivery_window_code: string|null,
+     *     amending_order_id: string|null
      * }
      */
     public function payload(): array
@@ -121,6 +125,7 @@ class QuoteOrderDeskRequest extends FormRequest
             'customer_address_id' => $this->stated($validated['customer_address_id'] ?? null),
             'requested_delivery_date' => $this->stated($validated['requested_delivery_date'] ?? null),
             'delivery_window_code' => $this->stated($validated['delivery_window_code'] ?? null),
+            'amending_order_id' => $this->stated($validated['amending_order_id'] ?? null),
         ];
     }
 

@@ -2125,7 +2125,30 @@
         "dueAt": "due {{time}}",
         "drawerArea": "Area",
         "drawerAddress": "Address",
-        "lineQuantity": "×{{quantity}}"
+        "lineQuantity": "×{{quantity}}",
+        "edit": {
+            "open": "Edit order",
+            "title": "Editing order {{number}}",
+            "loadErrorTitle": "This order could not be loaded",
+            "notAmendableTitle": "This order can no longer be edited",
+            "notAmendableBody": "To change it now, cancel it and take a new sale.",
+            "backToDesk": "Back to the order desk",
+            "changeAddress": "Change address",
+            "keepAddress": "Keep this address",
+            "save": "Save changes · {{total}}",
+            "review": "Review changes · {{total}}",
+            "savedToast": "Order {{number}} updated.",
+            "totalBelowPaid": "The new total, {{total}}, is less than the {{paid}} already paid.",
+            "notAmendable": {
+                "closed": "The order is closed and can no longer be edited.",
+                "kitchen_started": "The kitchen has started this order.",
+                "ready": "The order is already marked ready.",
+                "agreement_priced": "A line is priced by a subscription or a quotation.",
+                "other_channel": "Only desk and web-shop orders can be edited.",
+                "paid_online": "The order was paid online.",
+                "legacy_consumption": "The order's stock was taken out before line-by-line tracking, so it cannot be edited."
+            }
+        }
     },
     "calendar": {
         "title": "Order calendar",
@@ -2291,6 +2314,10 @@
         "deliveryWindows": {
             "name": "Delivery windows",
             "description": "The delivery slots this kitchen runs — names, days and hours — and which zones offer each one."
+        },
+        "wholesale": {
+            "name": "Wholesale setup",
+            "description": "What a business customer needs before they can order from this kitchen."
         }
     },
     "analytics": {
@@ -3682,7 +3709,31 @@
         "saveDraft": "Save draft",
         "savedToastPublished": "Saved. The new prices apply from now.",
         "savedToastDraft": "Draft saved.",
-        "setOnMeal": "Set on the meal"
+        "setOnMeal": "Set on the meal",
+        "create": "New price list",
+        "createTitle": "New price list",
+        "createAgreementTitle": "New agreement price list",
+        "createBody": "It starts as a draft with no prices. Add them and publish it on the next page.",
+        "createNameLabel": "Name",
+        "createCodeLabel": "Code",
+        "createCodeHint": "A short handle, such as acme-2026. It cannot be changed later.",
+        "createCurrencyLabel": "Currency",
+        "createCurrencyHint": "Three letters, such as USD.",
+        "createScopeLabel": "Who it prices",
+        "scopePublic": "Everyone on its channels",
+        "scopeAgreement": "One business customer (agreement)",
+        "createConfirm": "Create and add prices",
+        "createdToast": "“{{name}}” created as a draft.",
+        "createNameRequired": "Give the list an English name.",
+        "createCodeRequired": "Give the list a code.",
+        "createCurrencyInvalid": "Use a three-letter currency code.",
+        "channelsTitle": "Channels",
+        "channelsBody": "Where this list’s prices apply. A business customer’s order reads the list on the wholesale channel.",
+        "channelsNone": "This kitchen has no sales channels yet.",
+        "channelsSave": "Save channels",
+        "channelsSavedToast": "Channels saved.",
+        "channelsLoadError": "The list’s channels could not be read.",
+        "channelInactive": "Inactive"
     },
     "plans": {
         "title": "Plans",
@@ -4358,7 +4409,13 @@
         "relationDifferent": "The closest USDA match, “{{match}}”, looks like a different food. Choose a result below or correct the name.",
         "updateName": "Update ingredient name",
         "chooseAnother": "Choose another result",
-        "aiPick": "AI suggestion"
+        "aiPick": "AI suggestion",
+        "unitFilled": "Bought and stocked in {{unit}}, filled in by AI — check it before saving.",
+        "gramsFilled": "Mass of one {{unit}} estimated by AI at {{grams}} g — check it before saving.",
+        "allergensIndicated": "AI indicates these allergens",
+        "allergensConfirm": "I confirm these are the allergens in this ingredient as we buy it.",
+        "allergensNone": "AI found no allergens in this ingredient. Tick “This ingredient has no allergens” if that is right.",
+        "allergenSourceNote": "Suggested by AI from the ingredient name and confirmed by the kitchen when the ingredient was added."
     },
     "allergenLookup": {
         "title": "Look up product allergens",
@@ -4464,6 +4521,176 @@
         "backNamed": "Back to {{name}}",
         "savedBack": "Saved. Back to your recipe.",
         "savedBackNamed": "Saved. Back to {{name}}."
+    },
+    "transfer": {
+        "ingredients": {
+            "importTitle": "Import ingredients",
+            "printTitle": "Ingredients"
+        },
+        "recipes": {
+            "importTitle": "Import recipes",
+            "printTitle": "Recipes"
+        },
+        "stock": {
+            "importTitle": "Import a stock count",
+            "printTitle": "Stock",
+            "branchRequiredTitle": "Choose a branch first",
+            "branchRequiredBody": "A count sheet sets one branch’s shelves. Pick a branch in the workspace picker, then import it."
+        },
+        "import": {
+            "description": "Upload an Excel workbook laid out like the template.",
+            "action": "Import file",
+            "done": "Done"
+        },
+        "dropZone": {
+            "title": "Drop an .xlsx file here",
+            "choose": "or press to choose a file",
+            "label": "Choose an Excel file to import",
+            "limits": "Excel (.xlsx) only, up to {{size}}.",
+            "replace": "Choose another file"
+        },
+        "guide": {
+            "heading": "What the sheet needs",
+            "columnsCaption": "Columns, in this order",
+            "required": "Required",
+            "acceptedValues": "Accepted: {{values}}",
+            "matchRule": "A row whose Reference or exact Name matches an existing record updates it; every other row is created. Blank cells leave the stored value unchanged.",
+            "matchRuleRecipes": "Rows that share a Reference or Recipe name form one recipe, one row per ingredient line. A matched recipe is updated — the sheet is its whole formulation — and a new name is created as a draft. Blank cells leave the stored value unchanged.",
+            "matchRuleStock": "Each row is matched to a shelf by its Code. Blank cells leave that value unchanged; rows with an unknown Code are skipped.",
+            "rowCap": "Up to {{count}} rows per file.",
+            "downloadTemplate": "Download template",
+            "templateHint": "The template carries the headers and one example row, which the import skips."
+        },
+        "columns": {
+            "ingredients": {
+                "reference": "ING-012 or PKG-004. Leave blank to create a new ingredient.",
+                "nameEn": "The English name.",
+                "nameAr": "The Arabic name.",
+                "category": "A category code; a packaging code files the row as packaging.",
+                "unit": "The unit it is stocked and used in.",
+                "purchaseUnit": "The pack it is bought in.",
+                "itemsPerUnit": "How many pieces one purchase pack holds.",
+                "gramsPerUnit": "The mass of one unit, in grams.",
+                "yieldFactor": "Usable share after trimming, 1 = all of it.",
+                "unitPrice": "Price per unit.",
+                "b2bPrice": "Price per unit for business customers.",
+                "b2cPrice": "Price per unit for consumers.",
+                "priceCurrency": "Required when any price is given.",
+                "purchasePrice": "What one purchase pack costs.",
+                "purchaseCurrency": "Required when a purchase price is given.",
+                "wastePercent": "Waste on purchase, as a percentage below 100.",
+                "capacity": "What one pack contains, with its unit in the next column.",
+                "capacityUnit": "The unit the capacity is measured in.",
+                "availability": "How readily it can be sourced.",
+                "sellable": "Whether it can be sold as it is.",
+                "composition": "What it is made of, as the label states it.",
+                "notes": "Free text."
+            },
+            "recipes": {
+                "reference": "RC-004. Leave blank to create a new recipe.",
+                "nameEn": "The English name; rows with the same name form one recipe.",
+                "nameAr": "The Arabic name.",
+                "category": "Free text, such as sauce or dressing.",
+                "yieldQuantity": "How much one batch makes.",
+                "yieldUnit": "The unit the yield is measured in.",
+                "yieldPieces": "How many pieces one batch makes.",
+                "shelfLifeDays": "Days from production to expiry.",
+                "notes": "Free text.",
+                "ingredientRef": "The ingredient’s reference, such as ING-012. Identifies the line exactly.",
+                "ingredient": "The ingredient’s name, used only when the reference is blank.",
+                "quantity": "How much of it one batch takes.",
+                "unit": "The unit the quantity is measured in.",
+                "comment": "A note on the line."
+            },
+            "stock": {
+                "code": "The shelf’s code, as the export writes it.",
+                "item": "For reading only; the import ignores it.",
+                "countedQuantity": "What is on the shelf now. Blank leaves the level alone.",
+                "reorderThreshold": "Below this the shelf counts as low.",
+                "parLevel": "What the shelf should be restocked to."
+            }
+        },
+        "result": {
+            "title": "Import finished",
+            "created": "Created",
+            "updated": "Updated",
+            "unchanged": "Unchanged",
+            "skipped": "Skipped",
+            "failed": "Failed",
+            "issuesHeading": "Rows that were not imported",
+            "row": "Row {{row}}",
+            "noIssues": "Every row was imported.",
+            "truncated": "Showing the first {{shown}} of {{total}} rows.",
+            "ignoredColumns": "Ignored columns: {{columns}}"
+        },
+        "error": {
+            "wrongType": "That file is not an Excel workbook. Choose a .xlsx file.",
+            "tooLarge": "That file is larger than {{size}}. Split it into smaller sheets.",
+            "unreadable": "That file could not be read. Try choosing it again.",
+            "rejectedTitle": "The file was not accepted",
+            "throttled": "Too many imports in a short time. Try again in {{minutes}} min.",
+            "failed": "The import could not be completed. Try again."
+        },
+        "export": {
+            "menuLabel": "Export options",
+            "excel": "Excel (.xlsx)",
+            "pdf": "PDF",
+            "pdfTable": "PDF — table",
+            "pdfSheets": "PDF — technical sheets",
+            "failed": "The export could not be downloaded. Try again.",
+            "templateFailed": "The template could not be downloaded.",
+            "sheetsTooMany": "Technical sheets print up to {{max}} recipes at a time; this list has {{count}}. Narrow the filters first."
+        },
+        "print": {
+            "action": "Print or save as PDF",
+            "rowCount": "Rows: {{count}}",
+            "printed": "Printed {{date}}",
+            "nativeUnavailable": "Printing and saving a PDF are available in the web app.",
+            "expiredTitle": "Nothing to print",
+            "expiredBody": "This preview is made from the list you were looking at. Go back and choose Export → PDF again."
+        },
+        "sheets": {
+            "title": "Technical sheets",
+            "truncated": "Only the first {{max}} recipes are printed.",
+            "missing": "Not loaded: {{names}}"
+        }
+    },
+    "wholesale": {
+        "subtitle": "The platform picks one of these agreement price lists when it drafts a business customer’s agreement, and each list prices exactly one company.",
+        "loadErrorTitle": "The wholesale setup could not be read",
+        "done": "Done",
+        "todo": "To do",
+        "channelName": "Wholesale",
+        "channelTitle": "Wholesale channel",
+        "channelDone": "“{{name}}” is open for business customers.",
+        "channelMissing": "Business customers order through a wholesale channel. This kitchen has none yet.",
+        "channelOpen": "Open wholesale channel",
+        "channelOpenedToast": "Wholesale channel opened.",
+        "listsTitle": "Agreement price list",
+        "listsNone": "No agreement price list yet. Create one, add its prices and publish it.",
+        "listsSummary_one": "{{count}} agreement list · {{published}} published",
+        "listsSummary_other": "{{count}} agreement lists · {{published}} published",
+        "listsNew": "New agreement price list",
+        "assignTitle": "Assigned to the wholesale channel",
+        "assignNeedsChannel": "Open the wholesale channel first.",
+        "assignNeedsList": "Create an agreement price list first.",
+        "assignSummary": "{{assigned}} of {{total}} agreement lists are on “{{channel}}”.",
+        "assign": "Assign",
+        "assigned": "Assigned",
+        "assignedToast": "“{{name}}” is now on “{{channel}}”.",
+        "openList": "Open",
+        "itemsTitle": "Items offered on wholesale",
+        "itemsNone": "Nothing is priced on an agreement list yet.",
+        "itemsNeedsChannel": "Open the wholesale channel first.",
+        "itemsSummary": "{{offered}} of {{total}} priced items offered on wholesale",
+        "itemsOffer": "Offer priced items on wholesale",
+        "itemsProgress": "Offering {{done}} of {{total}}…",
+        "itemsOfferedToast_one": "{{count}} item is now offered on wholesale.",
+        "itemsOfferedToast_other": "{{count}} items are now offered on wholesale.",
+        "itemsFailedTitle_one": "{{count}} item could not be offered",
+        "itemsFailedTitle_other": "{{count}} items could not be offered",
+        "itemFailure": "{{name}}: {{message}}",
+        "itemsReadError": "Which items are on the channel could not be read."
     },
     "tray": {
         "noChannel": "No sales channel",

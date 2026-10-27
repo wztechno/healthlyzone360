@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Healthy360\Orders\OrderDesk\Http\Controllers;
 
 use Carbon\CarbonImmutable;
+use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Orders\Enums\FulfilmentType;
+use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\OrderDesk\Http\Concerns\ResolvesDeskParty;
 use Healthy360\Orders\OrderDesk\Http\Requests\QuoteOrderDeskRequest;
 use Healthy360\Orders\OrderDesk\Services\DeskChannelLocator;
@@ -86,17 +88,30 @@ final class OrderDeskQuoteController
         $payload = $request->payload();
 
         $organisationId = $this->locator->sellerId();
-        $channel = $this->channels->forOrganisation($organisationId);
-
-        $account = $this->deskAccount($payload['customer_account_id']);
-        $address = $this->deskAddress($account, $payload['customer_address_id']);
-        $branchId = $this->deskBranchId($organisationId, $payload['branch_id']);
-
         $requestedDate = $payload['requested_delivery_date'];
+
+        // Quoting an edit prices on the order's own channel — the web shop's
+        // for a web-shop order — for its own customer, branch and fulfilment
+        // type, so the total read out is the total the edit will save.
+        $amending = $payload['amending_order_id'] === null ? null : $this->locator->sellerOrder($payload['amending_order_id']);
+
+        if ($amending instanceof Order) {
+            $channel = SalesChannel::withoutTenancy()->whereKey($amending->sales_channel_id)->firstOrFail();
+            $account = $this->deskAccount($amending->customer_account_id);
+            $branchId = $amending->branch_id;
+            $fulfilmentType = $amending->fulfilment_type;
+        } else {
+            $channel = $this->channels->forOrganisation($organisationId);
+            $account = $this->deskAccount($payload['customer_account_id']);
+            $branchId = $this->deskBranchId($organisationId, $payload['branch_id']);
+            $fulfilmentType = FulfilmentType::from($payload['fulfilment_type']);
+        }
+
+        $address = $this->deskAddress($account, $payload['customer_address_id']);
 
         $quote = $this->quotes->for(
             $channel,
-            FulfilmentType::from($payload['fulfilment_type']),
+            $fulfilmentType,
             $payload['lines'],
             $account,
             $address,
@@ -105,6 +120,7 @@ final class OrderDeskQuoteController
                 ? null
                 : CarbonImmutable::createFromFormat('Y-m-d', $requestedDate)->startOfDay(),
             $payload['delivery_window_code'],
+            $amending,
         );
 
         return ApiResponse::data(['quote' => $quote]);

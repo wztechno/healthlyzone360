@@ -1,11 +1,12 @@
 import type {
+    KitchenOrder,
     KitchenOrderPaymentMethod,
     OrderDeskFulfilmentType,
 } from '@healthy360/api-client/contracts';
 
 import { DEFAULT_SLOT_CODE } from '../../commerce/delivery.ts';
 import type { BasketLine } from './basket.ts';
-import { isQuotableBasket } from './basket.ts';
+import { addQuantity, isQuotableBasket } from './basket.ts';
 
 /**
  * The desk sale's state — what kind of sale it is, who it is for, where it goes, what is in it and
@@ -156,6 +157,34 @@ export function initialSaleState(): SaleState {
         payment: { method, reference: '', notes: '' },
         requestedDeliveryDate: null,
         deliveryWindowCode: null,
+        driverUserId: null,
+    };
+}
+
+/**
+ * The sale an existing order is, for editing it (`?order=<id>`).
+ *
+ * `customerAddressId` stays `null`: on an edit it means "keep the stored destination", and only an
+ * address the agent adds replaces it. The stored day, slot and method are carried as they are —
+ * never through {@link scheduleFor}, which would move a slot that has since ended — so the screen
+ * can send each one only when the agent changed it. Quantities are normalised (`'2.000'` → `'2'`).
+ */
+export function saleStateFromOrder(order: KitchenOrder): SaleState {
+    return {
+        fulfilmentType: order.fulfilmentType,
+        customerAccountId: order.customerAccountId,
+        customerAddressId: null,
+        lines: order.lines.map((line) => ({
+            catalogueItemId: line.catalogueItemId,
+            catalogueItemVariantId: line.catalogueItemVariantId,
+            quantity: addQuantity('0', line.quantity),
+            name: { en: line.nameEn, ar: line.nameAr },
+            variantLabel: line.variantLabel,
+        })),
+        paymentMethod: order.paymentMethod,
+        payment: null,
+        requestedDeliveryDate: order.delivery.requestedDate,
+        deliveryWindowCode: order.delivery.windowCode,
         driverUserId: null,
     };
 }
@@ -362,9 +391,12 @@ export type SaleShortfall = 'customer' | 'address' | 'items' | 'reference';
  * Top to bottom, the way the page reads: the customer and the address sit above the menu, the items
  * are the menu, and the reference is the last thing on the ticket.
  */
-export function saleShortfall(state: SaleState): SaleShortfall | null {
+export function saleShortfall(state: SaleState, addressOnFile = false): SaleShortfall | null {
     if (needsCustomer(state.fulfilmentType) && state.customerAccountId === null) return 'customer';
-    if (needsAddress(state.fulfilmentType) && state.customerAddressId === null) return 'address';
+    // An edited order already has its destination; `customerAddressId` would only replace it.
+    if (needsAddress(state.fulfilmentType) && state.customerAddressId === null && !addressOnFile) {
+        return 'address';
+    }
     if (!isQuotableBasket(state.lines)) return 'items';
     if (state.fulfilmentType === 'counter' && !isCounterPaymentComplete(state.payment)) {
         return 'reference';

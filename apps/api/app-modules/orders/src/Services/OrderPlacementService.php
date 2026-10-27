@@ -25,6 +25,7 @@ use Healthy360\Delivery\Services\ZoneResolver;
 use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Orders\Contracts\BuyerAllergenCheck;
 use Healthy360\Orders\Contracts\OrderSchedulingLookup;
+use Healthy360\Orders\Contracts\OrderStockConsumption;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Enums\PaymentMethod;
@@ -190,6 +191,8 @@ final readonly class OrderPlacementService
         private BuyerAgreementLookup $agreements,
         private OrganisationTradingGuard $trading,
         private BuyerAllergenCheck $allergenCheck,
+        private OrderStockConsumption $stock,
+        private OrderAmendability $amendability,
     ) {}
 
     /**
@@ -785,33 +788,7 @@ final readonly class OrderPlacementService
             if ($address !== null) {
                 // The address as it stands right now, copied. Editing it later
                 // must not change where this order was sent.
-                $area = DeliveryArea::query()->whereKey($address->delivery_area_id)->first();
-
-                $order->delivery_label = $address->label;
-                $order->delivery_line_one = $address->line_one;
-                $order->delivery_line_two = $address->line_two;
-                // The gazetteer's `region` — the governorate or district. It is
-                // deliberately unpopulated in the platform data (OD-12), so this
-                // is usually null; the column exists because a courier manifest
-                // has a city line and a snapshot that could not fill it would send
-                // somebody back to a table that has since changed.
-                $order->delivery_city = $area?->region;
-                $order->delivery_area_name_en = $area?->name_en;
-                $order->delivery_area_name_ar = $area?->name_ar;
-                $order->delivery_area_id = $address->delivery_area_id;
-                $order->delivery_zone_id = $zone?->getKey() === null ? null : (string) $zone->getKey();
-                // The half of the address that never used to travel. Copied
-                // rather than joined for the reason the rest of the block is:
-                // the row it came from may be edited, moved or deleted, and the
-                // delivery that already happened may not be rewritten by any of
-                // that. The contact point is a reference and not a copied
-                // number — which number the courier was *given* is the durable
-                // fact, and the verification state travels with the row.
-                $order->delivery_building = $address->building;
-                $order->delivery_floor = $address->floor;
-                $order->delivery_apartment = $address->apartment;
-                $order->delivery_directions = $address->directions;
-                $order->delivery_contact_point_id = $address->contact_point_id;
+                $this->destinationColumns($order, $address, $zone);
             }
 
             // Outside the address branch on purpose. "Be here at six" is a
@@ -829,25 +806,7 @@ final readonly class OrderPlacementService
             $order->save();
 
             foreach ($snapshots as $snapshot) {
-                $line = new OrderLine;
-                $line->order_id = (string) $order->getKey();
-                $line->catalogue_item_id = $snapshot['catalogue_item_id'];
-                $line->catalogue_item_variant_id = $snapshot['catalogue_item_variant_id'];
-                $line->name_en = $snapshot['name_en'];
-                $line->name_ar = $snapshot['name_ar'];
-                $line->variant_label = $snapshot['variant_label'];
-                $line->quantity = $snapshot['quantity'];
-                $line->unit_price_minor = $snapshot['unit_price_minor'];
-                $line->line_total_minor = $snapshot['line_total_minor'];
-                $line->currency_code = $snapshot['currency_code'];
-                $line->allergens = $snapshot['allergens'];
-                $line->pack_summary = $snapshot['pack_summary'];
-                $line->price_list_id = $snapshot['price_list_id'];
-                $line->price_list_item_id = $snapshot['price_list_item_id'];
-                // NULL for every line the resolver priced — which is every
-                // line except a subscription's grandfathered one.
-                $line->price_source = $snapshot['price_source'] ?? null;
-                $line->save();
+                $this->writeLine($order, $snapshot);
             }
 
             if ($within !== null) {
@@ -856,6 +815,366 @@ final readonly class OrderPlacementService
 
             return $order;
         });
+    }
+
+    /**
+     * Copy an address onto the order's delivery snapshot — at placement, and
+     * again when an edit sends the order somewhere new.
+     */
+    private function destinationColumns(Order $order, CustomerAddress $address, ?DeliveryZone $zone): void
+    {
+        $area = DeliveryArea::query()->whereKey($address->delivery_area_id)->first();
+
+        $order->delivery_label = $address->label;
+        $order->delivery_line_one = $address->line_one;
+        $order->delivery_line_two = $address->line_two;
+        // The gazetteer's `region` — the governorate or district. It is
+        // deliberately unpopulated in the platform data (OD-12), so this is
+        // usually null; the column exists because a courier manifest has a city
+        // line and a snapshot that could not fill it would send somebody back
+        // to a table that has since changed.
+        $order->delivery_city = $area?->region;
+        $order->delivery_area_name_en = $area?->name_en;
+        $order->delivery_area_name_ar = $area?->name_ar;
+        $order->delivery_area_id = $address->delivery_area_id;
+        $order->delivery_zone_id = $zone?->getKey() === null ? null : (string) $zone->getKey();
+        // The half of the address that never used to travel. Copied rather than
+        // joined for the reason the rest of the block is: the row it came from
+        // may be edited, moved or deleted, and the delivery that already
+        // happened may not be rewritten by any of that. The contact point is a
+        // reference and not a copied number — which number the courier was
+        // *given* is the durable fact, and the verification state travels with
+        // the row.
+        $order->delivery_building = $address->building;
+        $order->delivery_floor = $address->floor;
+        $order->delivery_apartment = $address->apartment;
+        $order->delivery_directions = $address->directions;
+        $order->delivery_contact_point_id = $address->contact_point_id;
+    }
+
+    /**
+     * Write one snapshot as an order line.
+     *
+     * @param  array<string, mixed>  $snapshot
+     */
+    private function writeLine(Order $order, array $snapshot): OrderLine
+    {
+        $line = new OrderLine;
+        $line->order_id = (string) $order->getKey();
+        $line->catalogue_item_id = $snapshot['catalogue_item_id'];
+        $line->catalogue_item_variant_id = $snapshot['catalogue_item_variant_id'];
+        $line->name_en = $snapshot['name_en'];
+        $line->name_ar = $snapshot['name_ar'];
+        $line->variant_label = $snapshot['variant_label'];
+        $line->quantity = $snapshot['quantity'];
+        $line->unit_price_minor = $snapshot['unit_price_minor'];
+        $line->line_total_minor = $snapshot['line_total_minor'];
+        $line->currency_code = $snapshot['currency_code'];
+        $line->allergens = $snapshot['allergens'];
+        $line->pack_summary = $snapshot['pack_summary'];
+        $line->price_list_id = $snapshot['price_list_id'];
+        $line->price_list_item_id = $snapshot['price_list_item_id'];
+        // NULL for every line the resolver priced — which is every line except
+        // a subscription's grandfathered one.
+        $line->price_source = $snapshot['price_source'] ?? null;
+        $line->save();
+
+        return $line;
+    }
+
+    /**
+     * Change an order already placed: its lines, and optionally its address,
+     * its day and slot, and how it will be paid.
+     *
+     * Staff only — the Order Desk's `PATCH`. The order keeps its customer, its
+     * channel, its branch, its currency and how it leaves; everything else is
+     * re-decided by the same gates a placement passes, with three differences:
+     *
+     *  * **Every line is repriced** on the order's own channel, on the day it is
+     *    for — the desk's quote asks the same question, so the total read out is
+     *    the total saved.
+     *  * **Only what changed is re-checked.** The address gates run for a new
+     *    address; the window gate for a new address or slot; the schedule gate
+     *    for a new day or slot. An edit to a quantity must not be refused because
+     *    the slot it already holds has since closed.
+     *  * **The cut-off is staff's to override**, and only the cut-off: a day in
+     *    the past or a day the branch is closed is still refused. Overriding it
+     *    is recorded on the audit row.
+     *
+     * Lines are matched by article (item + variant). An unchanged quantity keeps
+     * its row and is repriced in place; a changed or removed one is released
+     * from stock and deleted, and a changed or added one inserted and consumed —
+     * delete before insert, because `order_lines_one_row_per_article` holds one
+     * row per article. Stock moves only on a confirmed order: a placed one has
+     * not been consumed yet.
+     *
+     * Refused, as `order.placement_refused`, with `order_not_amendable` (see
+     * `OrderAmendability` for every `because`), `total_below_paid` when money
+     * already received exceeds the new total, and the whole placement vocabulary
+     * for everything else.
+     *
+     * @throws PlacementRefused|ApiException
+     */
+    public function amend(Order $order, OrderAmendment $draft, int $ifMatch): Order
+    {
+        return $this->seller->during(
+            $order->organisation_id,
+            $order->branch_id,
+            fn (): Order => DB::transaction(fn (): Order => $this->amendNow($order, $draft, $ifMatch)),
+        );
+    }
+
+    /**
+     * @throws PlacementRefused|ApiException
+     */
+    private function amendNow(Order $order, OrderAmendment $draft, int $ifMatch): Order
+    {
+        $now = CarbonImmutable::now();
+
+        // The lock serialises this edit against Start, Ready, a receipt and a
+        // colleague's edit; the version check is the lost-update guard.
+        $locked = Order::query()->whereKey($order->getKey())->lockForUpdate()->first();
+
+        if (! $locked instanceof Order || $locked->lock_version !== $ifMatch) {
+            throw new ApiException(
+                ErrorCode::ResourceConflict,
+                'This order changed while you were working on it. Reload it and try again.',
+            );
+        }
+
+        $this->trading->assertTrading($locked->organisation_id);
+
+        if ($draft->lines === []) {
+            throw new PlacementRefused([['reason' => 'cart_empty']]);
+        }
+
+        $stored = $locked->lines()->orderBy('created_at')->orderBy('id')->get();
+
+        $because = $this->amendability->reason($locked, $stored);
+
+        if ($because !== null) {
+            throw new PlacementRefused([['reason' => 'order_not_amendable', 'because' => $because]]);
+        }
+
+        $account = $locked->customer_account_id === null
+            ? null
+            : CustomerAccount::query()->whereKey($locked->customer_account_id)->first();
+
+        $storedDate = $locked->requested_delivery_date?->toDateString();
+        $dateChanged = $draft->requestedDate !== null && $draft->requestedDate->toDateString() !== $storedDate;
+        $windowChanged = $draft->windowCode !== null && $draft->windowCode !== $locked->delivery_window_code;
+        $effectiveDate = $draft->requestedDate ?? $locked->requested_delivery_date;
+        $windowCode = $draft->windowCode ?? $locked->delivery_window_code;
+        $address = $draft->address;
+        $fulfilmentType = $locked->fulfilment_type;
+
+        $placement = new ComposedPlacement(
+            account: $account,
+            address: $address,
+            organisationId: $locked->organisation_id,
+            salesChannelId: $locked->sales_channel_id,
+            branchId: $locked->branch_id,
+            currencyCode: $locked->currency_code,
+            lines: $draft->lines,
+            deliveryWindowCode: $windowCode,
+            requestedDate: $effectiveDate,
+            fulfilmentType: $fulfilmentType,
+            placedOnBehalfBy: $this->context->userId(),
+            paymentMethod: $draft->paymentMethod ?? $locked->payment_method,
+        );
+
+        $reasons = [];
+        $zone = null;
+
+        if ($address !== null) {
+            if (! $fulfilmentType->requiresAddress()) {
+                $reasons[] = ['reason' => 'address_not_applicable', 'fulfilment_type' => $fulfilmentType->value];
+            } else {
+                if ($account !== null) {
+                    $reasons = [...$reasons, ...$this->addressReasons((string) $account->getKey(), $address)];
+                }
+
+                [$zone, $zoneReasons] = $this->zoneFor($locked->branch_id, $address);
+                $reasons = [...$reasons, ...$zoneReasons];
+
+                if ($zone instanceof DeliveryZone && $zone->delivery_fee_minor !== null && $zone->currency_code !== $locked->currency_code) {
+                    $reasons[] = [
+                        'reason' => 'currency_mismatch',
+                        'subject' => 'delivery_fee',
+                        'expected_currency' => $locked->currency_code,
+                        'offered_currency' => $zone->currency_code,
+                    ];
+                }
+            }
+        }
+
+        if ($fulfilmentType->requiresAddress() && ($address !== null || $windowChanged)) {
+            $windowZone = $zone ?? ($locked->delivery_zone_id === null
+                ? null
+                : DeliveryZone::query()->whereKey($locked->delivery_zone_id)->first());
+
+            $reasons = [...$reasons, ...$this->windowReasons($windowZone, $windowCode)];
+        }
+
+        $cutOffOverridden = false;
+
+        if ($fulfilmentType !== FulfilmentType::Counter && ($dateChanged || $windowChanged)) {
+            foreach ($this->scheduleReasons($locked->branch_id, $effectiveDate, $now) as $reason) {
+                if ($reason['reason'] === 'cut_off_passed') {
+                    $cutOffOverridden = true;
+
+                    continue;
+                }
+
+                $reasons[] = $reason;
+            }
+        }
+
+        $channel = SalesChannel::withoutTenancy()->whereKey($locked->sales_channel_id)->first();
+
+        [$snapshots, $lineReasons] = $this->composedSnapshots($placement, $effectiveDate);
+        $reasons = [...$reasons, ...$lineReasons];
+
+        $subtotal = array_sum(array_map(static fn (array $line): int => $line['line_total_minor'], $snapshots));
+        $fee = $address !== null ? $zone?->delivery_fee_minor : $locked->delivery_fee_minor;
+        $total = $subtotal + ($fee ?? 0);
+
+        // Both read the new subtotal, so neither is asked about a basket that
+        // is already refused line by line — the same guard `composeNow()` has.
+        if ($lineReasons === []) {
+            $reasons = [...$reasons, ...$this->agreementReasons($account, $channel, $subtotal, $effectiveDate ?? $now)];
+
+            // Read after the lock: a receipt written a moment ago counts.
+            $paid = (int) $locked->paymentReceipts()->sum('amount_minor');
+
+            if ($total < $paid) {
+                $reasons[] = [
+                    'reason' => 'total_below_paid',
+                    'total_minor' => $total,
+                    'paid_minor' => $paid,
+                    'currency_code' => $locked->currency_code,
+                ];
+            }
+        }
+
+        if ($reasons !== []) {
+            throw new PlacementRefused($reasons);
+        }
+
+        $totalBefore = $locked->total_minor;
+        $confirmed = $locked->status === OrderStatus::Confirmed;
+
+        /** @var array<string, OrderLine> $remaining */
+        $remaining = [];
+
+        foreach ($stored as $line) {
+            $remaining[$line->catalogue_item_id.'|'.($line->catalogue_item_variant_id ?? '')] = $line;
+        }
+
+        $kept = [];
+        $gone = [];
+        $toInsert = [];
+        $changedCount = 0;
+
+        foreach ($snapshots as $snapshot) {
+            $key = $snapshot['catalogue_item_id'].'|'.($snapshot['catalogue_item_variant_id'] ?? '');
+            $existing = $remaining[$key] ?? null;
+            unset($remaining[$key]);
+
+            if ($existing instanceof OrderLine && $this->sameQuantity((string) $existing->quantity, (string) $snapshot['quantity'])) {
+                $kept[] = [$existing, $snapshot];
+
+                continue;
+            }
+
+            if ($existing instanceof OrderLine) {
+                $gone[] = $existing;
+                $changedCount++;
+            }
+
+            $toInsert[] = $snapshot;
+        }
+
+        $removedCount = count($remaining);
+        $gone = [...$gone, ...array_values($remaining)];
+        $goneIds = array_map(static fn (OrderLine $line): string => (string) $line->getKey(), $gone);
+
+        // Release first, while the consumes still name lines that exist.
+        if ($confirmed) {
+            $this->stock->restore($locked, $goneIds);
+        }
+
+        foreach ($kept as [$line, $snapshot]) {
+            // The price moves; `pack_summary` does not — it is what the stock
+            // deduction already read to know how much one sold unit took.
+            $line->unit_price_minor = $snapshot['unit_price_minor'];
+            $line->line_total_minor = $snapshot['line_total_minor'];
+            $line->currency_code = $snapshot['currency_code'];
+            $line->price_list_id = $snapshot['price_list_id'];
+            $line->price_list_item_id = $snapshot['price_list_item_id'];
+            $line->save();
+        }
+
+        if ($goneIds !== []) {
+            OrderLine::query()->whereIn('id', $goneIds)->delete();
+        }
+
+        $inserted = array_map(fn (array $snapshot): OrderLine => $this->writeLine($locked, $snapshot), $toInsert);
+
+        if ($confirmed && $inserted !== []) {
+            $this->stock->consume($locked, $inserted);
+        }
+
+        $agreement = $this->activeAgreementSnapshot($account, $channel, $effectiveDate ?? $now);
+
+        $locked->subtotal_minor = $subtotal;
+        $locked->delivery_fee_minor = $fee;
+        $locked->total_minor = $total;
+        $locked->payment_method = $placement->paymentMethod;
+        $locked->requested_delivery_date = $effectiveDate;
+        $locked->delivery_window_code = $windowCode;
+        $locked->b2b_agreement_id = $agreement['agreement_id'] ?? null;
+        $locked->price_list_id = $agreement['price_list_id'] ?? null;
+
+        if ($address !== null) {
+            $this->destinationColumns($locked, $address, $zone);
+        }
+
+        $locked->lock_version = $ifMatch + 1;
+        $locked->save();
+
+        // No key may contain "code": the audit redactor matches by substring
+        // and would blank `window_code` — hence `window`.
+        $this->audit->record(
+            'order.amended',
+            actorUserId: $this->context->userId(),
+            subjectType: 'order',
+            subjectId: (string) $locked->getKey(),
+            metadata: [
+                'lines_added' => count($toInsert) - $changedCount,
+                'lines_removed' => $removedCount,
+                'lines_changed' => $changedCount,
+                'total_before' => $totalBefore,
+                'total_after' => $total,
+                'window' => $windowCode,
+                'date' => $effectiveDate?->toDateString(),
+                'payment_method' => $placement->paymentMethod->value,
+                'address_changed' => $address !== null,
+                'cut_off_overridden' => $cutOffOverridden,
+                'lock_version' => $locked->lock_version,
+            ],
+        );
+
+        return $locked;
+    }
+
+    /**
+     * Compared as decimals, never as strings: the column hands back `2.0000`
+     * for the `2` an edit sends, and the two are the same quantity.
+     */
+    private function sameQuantity(string $stored, string $requested): bool
+    {
+        return is_numeric($stored) && is_numeric($requested) && bccomp($stored, $requested, 6) === 0;
     }
 
     /**

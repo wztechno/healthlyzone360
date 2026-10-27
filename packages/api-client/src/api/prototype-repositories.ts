@@ -132,6 +132,11 @@ import type {
     UpdateProductRequest,
     UpdateRecipeRequest,
     TechnicalSheetAdmin,
+    DownloadedFile,
+    ImportReport,
+    ImportUpload,
+    RecipeSheetBundle,
+    TransferResource,
 } from '../contracts/kitchen-admin.ts';
 import type {
     DietCategory,
@@ -778,6 +783,26 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     removeRecordPhoto(): Promise<void> {
         return notImplemented(`DELETE ${BASE}/catalogue/{record}/photo`);
     },
+    importRecords(_resource: TransferResource, _upload: ImportUpload): Promise<ImportReport> {
+        return notImplemented(`POST ${BASE}/catalogue/{resource}/imports`);
+    },
+    exportIngredients(_filter?: IngredientAdminFilter): Promise<DownloadedFile> {
+        return notImplemented(`GET ${BASE}/catalogue/ingredients/export`);
+    },
+    exportRecipes(_filter?: RecipeAdminFilter): Promise<DownloadedFile> {
+        return notImplemented(`GET ${BASE}/catalogue/recipes/export`);
+    },
+    exportStock(): Promise<DownloadedFile> {
+        return notImplemented(`GET ${BASE}/catalogue/inventory/levels/export`);
+    },
+    downloadImportTemplate(_resource: TransferResource): Promise<DownloadedFile> {
+        return notImplemented(`GET ${BASE}/catalogue/{resource}/import-template`);
+    },
+    listRecipeTechnicalSheets(
+        _recipeIds: readonly RecipeId[],
+    ): Promise<readonly RecipeSheetBundle[]> {
+        return notImplemented(`GET ${BASE}/catalogue/recipes/technical-sheets`);
+    },
     updateIngredient(
         _ingredientId: IngredientId,
         _request: UpdateIngredientRequest,
@@ -902,6 +927,35 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     },
     publishPriceList(_priceListId: PriceListId, _request: LockedRequest): Promise<PriceListAdmin> {
         return notImplemented(`POST ${BASE}/catalogue/price-lists/{price_list}/publish`);
+    },
+
+    // The wholesale setup is served by `./kitchen-admin-wholesale.ts`; untyped stubs suffice here.
+    listSalesChannels() {
+        return notImplemented(`GET ${BASE}/catalogue/sales-channels`);
+    },
+    createSalesChannel() {
+        return notImplemented(`POST ${BASE}/catalogue/sales-channels`);
+    },
+    createPriceList() {
+        return notImplemented(`POST ${BASE}/catalogue/price-lists`);
+    },
+    getPriceListChannels() {
+        return notImplemented(`GET ${BASE}/catalogue/price-lists/{price_list}`);
+    },
+    listPriceListChannels() {
+        return notImplemented(`GET ${BASE}/catalogue/price-lists?include=channels`);
+    },
+    setPriceListChannels() {
+        return notImplemented(`PUT ${BASE}/catalogue/price-lists/{price_list}/channels`);
+    },
+    getItemChannelOffering() {
+        return notImplemented(`GET ${BASE}/catalogue/items/{item}`);
+    },
+    listItemChannelOfferings() {
+        return notImplemented(`GET ${BASE}/catalogue/items?ids=&include=channels`);
+    },
+    offerItemOnChannel() {
+        return notImplemented(`PUT ${BASE}/catalogue/items/{item}/channels`);
     },
 
     listMeals(_filter?: MealAdminFilter): Promise<CursorPage<MealAdmin>> {

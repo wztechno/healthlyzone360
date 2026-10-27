@@ -10,6 +10,7 @@ use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\Organisations\Models\Organisation;
+use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Organisations\Models\OrganisationType;
 
@@ -176,7 +177,40 @@ final class AccessWorld
         ]);
     }
 
-    /** The platform template of a given code — seeded, `is_system`, never editable. */
+    /**
+     * Two branches in the tenant's kitchen, with the caller's own membership
+     * bound to the first — a branch manager rather than a whole-kitchen
+     * administrator.
+     *
+     * @return array{0: OrganisationBranch, 1: OrganisationBranch}
+     */
+    public static function bindToBranch(object $tenant): array
+    {
+        $branches = [];
+
+        foreach (['Hamra', 'Al Quoz'] as $name) {
+            $branches[] = OrganisationBranch::factory()->create([
+                'organisation_id' => $tenant->organisation->getKey(),
+                'country_code' => $tenant->organisation->country_code,
+                'name' => $name,
+            ]);
+        }
+
+        $tenant->membership->forceFill(['branch_id' => $branches[0]->getKey()])->save();
+
+        return [$branches[0], $branches[1]];
+    }
+
+    /** The organisation's own role of a code — after `OrganisationRoles::provision()`, its copy of a standard role. */
+    public static function own(object $tenant, string $code): Role
+    {
+        return Role::withoutTenancy()
+            ->where('organisation_id', $tenant->organisation->getKey())
+            ->where('code', $code)
+            ->sole();
+    }
+
+    /** The platform template of a given code — a seeded blueprint, never served to a tenant. */
     public static function template(string $code): Role
     {
         return Role::withoutTenancy()

@@ -978,3 +978,99 @@ it('still records a unit problem when nothing says what a litre of the ingredien
     expect(OrderConsumptionException::withoutTenancy()->sole()->reason_code)->toBe('unit_conversion_unsupported')
         ->and(levelOf($original))->toBe('3.0000');
 });
+
+it('follows two edits of a confirmed order line by line, and a cancel puts back exactly what is still out', function (): void {
+    // Flour in kg: 250 g ÷ 5 = 50 g per meal. A resold product counted in pieces.
+    $flour = stockedIngredient($this, $this->kg, '2.000000', '100', '100');
+    $meal = publishedMeal($this, 5, '0.00', [[$flour, '250', $this->g]]);
+
+    $product = stockedIngredient($this, $this->piece, '1.500000', '20', '20');
+    $catalogue = Catalogue::factory()->create(['organisation_id' => $this->organisation->getKey()]);
+    $resold = CatalogueItem::factory()->create([
+        'catalogue_id' => $catalogue->getKey(),
+        'organisation_id' => $this->organisation->getKey(),
+        'ingredient_id' => $product->ingredient_id,
+        'status' => CatalogueItemStatus::Published,
+    ]);
+
+    $order = orderFor($this, $meal, '2');
+    $this->lifecycle->confirm($order, 0);
+    $order->refresh();
+
+    expect(levelOf($flour))->toBe('99.9000');
+
+    // What `OrderPlacementService::amend()` does with the port: release the
+    // lines that go, delete them, insert their replacements, consume those.
+    $edit = function (array $goneLines, array $newLines) use ($order): void {
+        $this->consumption->restore($order, array_map(static fn (OrderLine $line): string => (string) $line->getKey(), $goneLines));
+        OrderLine::query()->whereIn('id', array_map(static fn (OrderLine $line): string => (string) $line->getKey(), $goneLines))->delete();
+
+        $inserted = array_map(static fn (array $line): OrderLine => OrderLine::factory()->create([
+            'order_id' => $order->getKey(),
+            'catalogue_item_id' => $line[0]->getKey(),
+            'quantity' => $line[1],
+        ]), $newLines);
+
+        $this->consumption->consume($order, $inserted);
+    };
+
+    // Edit one: the meal goes from two to three — 150 g out, not 250 g.
+    $edit([$order->lines()->sole()], [[$meal, '3']]);
+
+    expect(levelOf($flour))->toBe('99.8500');
+
+    // Edit two: the meal is removed and four of the product added.
+    $edit([$order->lines()->sole()], [[$resold, '4']]);
+
+    expect(levelOf($flour))->toBe('100.0000')
+        ->and(levelOf($product))->toBe('16.0000');
+
+    // Every reversal names the line it released.
+    expect(StockMovement::withoutTenancy()->where('reference_type', 'order_reversal')->where('reference_id', (string) $order->getKey())->whereNull('order_line_id')->count())->toBe(0);
+
+    $order->refresh();
+    $this->lifecycle->cancel($order, CancellationReason::CustomerRequested, $order->lock_version);
+
+    // Exactly back where it started: shelves and moving-average bases.
+    expect(levelOf($flour))->toBe('100.0000')
+        ->and(levelOf($product))->toBe('20.0000')
+        ->and((string) IngredientStockCost::withoutTenancy()->where('ingredient_id', $flour->ingredient_id)->sole()->quantity_on_hand)->toBe('100.000000')
+        ->and((string) IngredientStockCost::withoutTenancy()->where('ingredient_id', $product->ingredient_id)->sole()->quantity_on_hand)->toBe('20.000000');
+
+    // And a second cancel-side restore is still a no-op.
+    $this->consumption->restore($order->refresh());
+    expect(levelOf($flour))->toBe('100.0000')
+        ->and(levelOf($product))->toBe('20.0000');
+});
+
+it('settles the open exceptions of a line an edit released, and opens no second no_branch', function (): void {
+    $catalogue = Catalogue::factory()->create(['organisation_id' => $this->organisation->getKey()]);
+    $unrecipied = CatalogueItem::factory()->meal()->create([
+        'catalogue_id' => $catalogue->getKey(),
+        'organisation_id' => $this->organisation->getKey(),
+        'status' => CatalogueItemStatus::Published,
+    ]);
+
+    $order = orderFor($this, $unrecipied, '1');
+    $this->lifecycle->confirm($order, 0);
+
+    $line = $order->lines()->sole();
+    expect(OrderConsumptionException::withoutTenancy()->where('order_line_id', $line->getKey())->whereNull('resolved_at')->count())->toBeGreaterThan(0);
+
+    $this->consumption->restore($order->refresh(), [(string) $line->getKey()]);
+
+    expect(OrderConsumptionException::withoutTenancy()->where('order_line_id', $line->getKey())->whereNull('resolved_at')->count())->toBe(0)
+        ->and(OrderConsumptionException::withoutTenancy()->where('order_line_id', $line->getKey())->value('resolution_note'))->toBe('Line amended away.');
+
+    // A branchless order at a two-branch kitchen: re-running consume for new
+    // lines must not open the same order-level problem twice.
+    OrganisationBranch::factory()->create([
+        'organisation_id' => $this->organisation->getKey(),
+        'country_code' => $this->organisation->country_code,
+    ]);
+    $branchless = orderFor($this, $unrecipied, '1', withBranch: false);
+    $this->consumption->consume($branchless);
+    $this->consumption->consume($branchless, $branchless->lines()->get());
+
+    expect(OrderConsumptionException::withoutTenancy()->where('order_id', $branchless->getKey())->where('reason_code', 'no_branch')->count())->toBe(1);
+});

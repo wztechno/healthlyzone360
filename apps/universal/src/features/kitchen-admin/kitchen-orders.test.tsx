@@ -17,10 +17,12 @@ import { TEST_BRANCH_ID, kitchenManagerSession } from '../../testing/session-fix
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { OrdersScreen } from './screens/orders-screen.tsx';
 
+/* `mock`-prefixed so the factory below may close over it — Jest's hoisting rule. */
+const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
     __esModule: true,
     useRouter: () => ({
-        push: jest.fn(),
+        push: mockPush,
         replace: jest.fn(),
         setParams: jest.fn(),
         back: jest.fn(),
@@ -101,6 +103,8 @@ function kitchenOrder(overrides: Partial<KitchenOrder> = {}): KitchenOrder {
         cancelledAt: null,
         cancellationReason: null,
         lockVersion: 1,
+        customerAccountId: null,
+        amendable: false,
         lineCount: lines.length,
         lines,
         ...overrides,
@@ -610,6 +614,32 @@ describe('kitchen orders', () => {
             order.id === orderIdAt(3) ? { ...order, ...patch } : order,
         );
     }
+
+    it('offers Edit order on an amendable order and opens the desk sale page on it', async () => {
+        mockPush.mockClear();
+        const book = createOrderBook(withConfirmed({ amendable: true }));
+        await openOrder(book, orderIdAt(3));
+
+        // Drawn from the re-read order, which lands after the row's first paint.
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-orders-edit')).toBeTruthy();
+        });
+        fireEvent.press(screen.getByTestId('kitchen-orders-edit'));
+        expect(mockPush).toHaveBeenCalledWith(
+            `/kitchen/order-desk/sale?order=${encodeURIComponent(String(orderIdAt(3)))}`,
+        );
+    });
+
+    it('offers no Edit order once the server says the order cannot be edited', async () => {
+        const book = createOrderBook(withConfirmed({ amendable: false }));
+        await openOrder(book, orderIdAt(3));
+
+        // Once the re-read has landed — its run state says so — there is still no button.
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-orders-detail-run-state')).toBeTruthy();
+        });
+        expect(screen.queryByTestId('kitchen-orders-edit')).toBeNull();
+    });
 
     it('offers no way to close a delivery order the kitchen has not marked ready (HA-29)', async () => {
         const book = createOrderBook();

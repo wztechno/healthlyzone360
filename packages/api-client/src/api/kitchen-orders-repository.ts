@@ -156,6 +156,8 @@ export function mapKitchenOrder(wire: WireKitchenOrder): KitchenOrder {
                       deliveredAt: wire.delivery_run.delivered_at,
                   },
         lockVersion: wire.lock_version,
+        customerAccountId: wire.customer_account_id,
+        amendable: wire.amendable,
         lineCount: wire.line_count,
         lines: wire.lines.map(mapLine),
     };

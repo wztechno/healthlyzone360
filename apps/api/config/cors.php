@@ -67,12 +67,14 @@ return [
     /*
      * Without this the correlation identifier is invisible to a cross-origin client, and a support
      * conversation about a failed request has nothing to key on. `Retry-After` is exposed for the
-     * same reason: the rate-limit failure carries its wait in a header.
+     * same reason: the rate-limit failure carries its wait in a header. `Content-Disposition` carries
+     * a workbook download's filename, which the bearer-only web client reads cross-origin.
      */
     'exposed_headers' => [
         'X-Correlation-Id',
         'X-Client-Request-Id',
         'Retry-After',
+        'Content-Disposition',
     ],
 
     'max_age' => 3600,

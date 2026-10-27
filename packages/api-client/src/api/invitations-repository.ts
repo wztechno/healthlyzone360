@@ -50,6 +50,7 @@ function mapInvitation(wire: WirePublicInvitation): Invitation {
         organisation: {
             name: wire.organisation.name,
             languageCode: wire.organisation.language_code,
+            type: wire.organisation.type ?? null,
         },
     };
 }

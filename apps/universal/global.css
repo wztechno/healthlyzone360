@@ -252,7 +252,11 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
     [data-testid='kitchen-production-label-screen'],
     [data-testid='kitchen-production-label-sheets'],
     [data-testid='kitchen-ingredient-label-screen'],
-    [data-testid='kitchen-ingredient-label-sheets'] {
+    [data-testid='kitchen-ingredient-label-sheets'],
+    [data-testid='kitchen-list-print-screen'],
+    [data-testid='kitchen-list-print-sheets'],
+    [data-testid='kitchen-recipe-sheets-print-screen'],
+    [data-testid='kitchen-recipe-sheets-print-sheets'] {
         display: block !important;
         height: auto !important;
         max-height: none !important;
@@ -271,7 +275,9 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
        with it. */
     body :has([data-testid='kitchen-supply-print-sheets']),
     body :has([data-testid='kitchen-production-label-sheets']),
-    body :has([data-testid='kitchen-ingredient-label-sheets']) {
+    body :has([data-testid='kitchen-ingredient-label-sheets']),
+    body :has([data-testid='kitchen-list-print-sheets']),
+    body :has([data-testid='kitchen-recipe-sheets-print-sheets']) {
         display: block !important;
         height: auto !important;
         max-height: none !important;
@@ -293,7 +299,9 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
     [data-testid='toast-region-assertive'],
     [data-testid='kitchen-supply-print-toolbar'],
     [data-testid='kitchen-production-label-toolbar'],
-    [data-testid='kitchen-ingredient-label-toolbar'] {
+    [data-testid='kitchen-ingredient-label-toolbar'],
+    [data-testid='kitchen-list-print-toolbar'],
+    [data-testid='kitchen-recipe-sheets-print-toolbar'] {
         display: none !important;
     }
 
@@ -324,6 +332,37 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
         page-break-after: auto;
     }
 
+    /* Technical sheets: one recipe per page, the same child-selector rule as the supply orders —
+       every id inside a sheet shares its `…-sheet-{id}` stem. The list print is one sheet, so it
+       only loses its card. */
+    [data-testid='kitchen-recipe-sheets-print-sheets']
+        > [data-testid^='kitchen-recipe-sheets-print-sheet-'] {
+        break-after: page;
+        page-break-after: always; /* Legacy alias — Safari and older WebKit ignore `break-after`. */
+        break-inside: auto;
+        margin: 0 !important;
+    }
+
+    [data-testid='kitchen-recipe-sheets-print-sheets']
+        > [data-testid^='kitchen-recipe-sheets-print-sheet-']:last-child {
+        break-after: auto;
+        page-break-after: auto;
+    }
+
+    [data-testid='kitchen-list-print-sheets'] > [data-testid='kitchen-list-print-sheet'] {
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+    }
+
+    /* Calibration knob: list type. A wide list at body size runs off A4; 9pt keeps ten columns. */
+    [data-testid='kitchen-list-print-sheets'] * {
+        font-size: 9pt !important;
+    }
+
     /* Monochrome by construction rather than by hoping the printer is colour. Borders stay black so
        the item rules and the signature lines survive; backgrounds go, because a tinted surface
        prints as grey wash and costs toner for nothing. Descendants are included by `*` because most
@@ -333,7 +372,11 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
     [data-testid='kitchen-production-label-sheets'],
     [data-testid='kitchen-production-label-sheets'] *,
     [data-testid='kitchen-ingredient-label-sheets'],
-    [data-testid='kitchen-ingredient-label-sheets'] * {
+    [data-testid='kitchen-ingredient-label-sheets'] *,
+    [data-testid='kitchen-list-print-sheets'],
+    [data-testid='kitchen-list-print-sheets'] *,
+    [data-testid='kitchen-recipe-sheets-print-sheets'],
+    [data-testid='kitchen-recipe-sheets-print-sheets'] * {
         color: #000 !important;
         background-color: transparent !important;
         background-image: none !important;
@@ -343,7 +386,9 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
 
     /* Long orders continue onto further pages rather than being scaled down (§7), so a row must not
        be split across the fold — half a quantity on each page is worse than a shorter page. */
-    [data-testid='kitchen-supply-print-sheets'] [role='row'] {
+    [data-testid='kitchen-supply-print-sheets'] [role='row'],
+    [data-testid='kitchen-list-print-sheets'] [role='row'],
+    [data-testid='kitchen-recipe-sheets-print-sheets'] [role='row'] {
         break-inside: avoid;
         page-break-inside: avoid;
     }

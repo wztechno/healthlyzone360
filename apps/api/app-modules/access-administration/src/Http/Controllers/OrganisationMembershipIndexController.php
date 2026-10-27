@@ -61,7 +61,11 @@ final class OrganisationMembershipIndexController
     {
         $this->locator->contextOrganisation($organisation);
 
-        $memberships = OrganisationMembership::query();
+        $actorBranch = $this->locator->actorBranchId();
+
+        // A branch-bound administrator manages their own branch's people only.
+        $memberships = OrganisationMembership::query()
+            ->when($actorBranch !== null, static fn ($query) => $query->where('branch_id', $actorBranch));
         $this->applyStatus($request, $memberships);
 
         $perPage = OffsetPage::perPage($request);

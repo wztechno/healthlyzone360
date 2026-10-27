@@ -32,19 +32,73 @@ use Healthy360\Tenancy\TenantContext;
  * `OrganisationInvitationStoreController::branch()` writes out in full, and it
  * is why nothing in this module reaches for the escape hatch.
  *
- * ## A platform template is readable and is not a tenant's role
+ * ## A platform template is not a tenant's role
  *
- * `Role::organisationScopeAllowsNull()` is true, so the tenant scope admits
- * rows with a null `organisation_id`: the nine templates are visible in every
- * organisation, which is what makes them listable and copyable.
- * {@see self::ownRole()} is therefore the method every *write* path resolves
- * through, and it refuses a template outright. `RolePolicy` refuses it a
- * second time and the `roles` RLS policy a third; this is the first and
- * cheapest of the three, and the only one that can answer 404 instead of 403.
+ * `Role::organisationScopeAllowsNull()` is true, so the tenant scope still
+ * admits rows with a null `organisation_id`. Those are blueprints now — every
+ * organisation owns a copy of each (`OrganisationRoles::provision()`) — so
+ * {@see self::ownRole()} refuses them on reads and writes alike. `RolePolicy`
+ * refuses a template a second time and the `roles` RLS policy a third.
+ *
+ * ## A branch-bound administrator sees one branch
+ *
+ * A caller whose membership is scoped to a branch manages that branch only:
+ * {@see self::membership()} answers 404 for anybody else, which covers every
+ * per-member endpoint at once. A whole-kitchen caller (`branch_id` null) is
+ * unaffected.
  */
 final readonly class AccessAdministrationLocator
 {
     public function __construct(private TenantContext $tenant) {}
+
+    /**
+     * The branch the caller's membership is bound to, or null for a
+     * whole-kitchen administrator.
+     */
+    public function actorBranchId(): ?string
+    {
+        $branchId = $this->tenant->membership()?->branch_id;
+
+        return $branchId === null ? null : (string) $branchId;
+    }
+
+    /**
+     * Refuse a write that would place somebody outside a branch-bound caller's
+     * branch — another branch, or the whole kitchen.
+     *
+     * @throws ApiException
+     */
+    public function assertWithinActorBranch(?string $branchId, string $field = 'branch_id'): void
+    {
+        $actorBranch = $this->actorBranchId();
+
+        if ($actorBranch === null || $branchId === $actorBranch) {
+            return;
+        }
+
+        throw new ApiException(
+            ErrorCode::ValidationFailed,
+            'You can only manage people in your own branch.',
+            ['fields' => [$field => ['You can only manage people in your own branch.']]],
+        );
+    }
+
+    /**
+     * Refuse a change to a role definition from a branch-bound caller. A role
+     * is shared by every branch of the kitchen, so editing one would change
+     * the permissions of people in branches the caller does not manage.
+     *
+     * @throws ApiException
+     */
+    public function assertWholeKitchenActor(): void
+    {
+        if ($this->actorBranchId() !== null) {
+            throw new ApiException(
+                ErrorCode::AuthzPermissionDenied,
+                'Roles are shared by every branch, so only a whole-kitchen administrator can change them.',
+            );
+        }
+    }
 
     /**
      * The organisation named in the path, which must be the one `org.context`
@@ -70,40 +124,20 @@ final readonly class AccessAdministrationLocator
     }
 
     /**
-     * Any role this organisation may *see* — its own, or a platform template.
-     *
-     * @throws ApiException
-     */
-    public function visibleRole(string $id): Role
-    {
-        if (! $this->looksLikeUuid($id)) {
-            throw new ApiException(ErrorCode::ResourceNotFound);
-        }
-
-        $role = Role::query()->whereKey($id)->first();
-
-        if (! $role instanceof Role) {
-            throw new ApiException(ErrorCode::ResourceNotFound);
-        }
-
-        return $role;
-    }
-
-    /**
-     * A role this organisation *owns*, which is the only kind it may change.
-     *
-     * A template answers 404 rather than 403 because that is what it is from
-     * the writing side: there is no role at this identifier that belongs to
-     * you. The console never offers Edit on a template — it offers Copy — so a
-     * request that reaches here has been hand-made.
+     * A role this organisation owns. A platform template answers 404: there
+     * is no role at this identifier that belongs to you.
      *
      * @throws ApiException
      */
     public function ownRole(string $id): Role
     {
-        $role = $this->visibleRole($id);
+        if (! $this->looksLikeUuid($id)) {
+            throw new ApiException(ErrorCode::ResourceNotFound);
+        }
 
-        if ($role->isTemplate()) {
+        $role = Role::query()->whereKey($id)->whereNotNull('organisation_id')->first();
+
+        if (! $role instanceof Role) {
             throw new ApiException(ErrorCode::ResourceNotFound);
         }
 
@@ -126,7 +160,12 @@ final readonly class AccessAdministrationLocator
             throw new ApiException(ErrorCode::ResourceNotFound);
         }
 
-        $membership = OrganisationMembership::query()->whereKey($id)->first();
+        $actorBranch = $this->actorBranchId();
+
+        $membership = OrganisationMembership::query()
+            ->whereKey($id)
+            ->when($actorBranch !== null, static fn ($query) => $query->where('branch_id', $actorBranch))
+            ->first();
 
         if (! $membership instanceof OrganisationMembership) {
             throw new ApiException(ErrorCode::ResourceNotFound);

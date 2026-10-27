@@ -62,7 +62,11 @@ import {
 } from '../../../data/order-desk-hooks.ts';
 import { useOnlineStatus } from '../../../online/online-status.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
-import { ORDER_MANAGE_PERMISSION, ORDER_VIEW_PERMISSION } from '../entity-registry.ts';
+import {
+    ORDER_CREATE_ON_BEHALF_PERMISSION,
+    ORDER_MANAGE_PERMISSION,
+    ORDER_VIEW_PERMISSION,
+} from '../entity-registry.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
@@ -857,6 +861,7 @@ function OrderDeskQueueList() {
     const toast = useToast();
     const { online } = useOnlineStatus();
     const canManage = useCan(ORDER_MANAGE_PERMISSION);
+    const canSell = useCan(ORDER_CREATE_ON_BEHALF_PERMISSION);
 
     const [deskWindow, setDeskWindow] = useState<OrderDeskWindow>('today');
     /**
@@ -1880,6 +1885,22 @@ function OrderDeskQueueList() {
                     statusContent={
                         order === null ? undefined : (
                             <>
+                                {/* The server's `amendable` decides; the sale page edits it. */}
+                                {!order.amendable || !canSell ? null : (
+                                    <View className="flex-row">
+                                        <Button
+                                            testID="kitchen-order-desk-detail-edit"
+                                            size="sm"
+                                            variant="secondary"
+                                            label={t('kitchen:desk.edit.open')}
+                                            onPress={() => {
+                                                router.push(
+                                                    `/kitchen/order-desk/sale?order=${encodeURIComponent(String(order.id))}`,
+                                                );
+                                            }}
+                                        />
+                                    </View>
+                                )}
                                 {/*
                                  * The driver's own axis, above the button that closes the order
                                  * rather than instead of it. The desk is not blocked on a delivery

@@ -4,6 +4,7 @@ import type { ServiceArea } from '../contracts/kitchen-admin.ts';
 import type { KitchenOrder } from '../contracts/kitchen-orders.ts';
 import type {
     AddOrderDeskCustomerAddressRequest,
+    AmendOrderDeskOrderRequest,
     AssignDeliveryJobRequest,
     AssignedDeliveryJob,
     CreateOrderDeskCustomerRequest,
@@ -31,6 +32,7 @@ import type {
 } from '../contracts/order-desk.ts';
 import type {
     AdminDeliveryArea,
+    AmendOrderDeskOrderRequest as WireAmendOrderDeskOrderRequest,
     AssignedDeliveryJob as WireAssignedDeliveryJob,
     CustomerAddressEnvelope,
     DeliveryWindow as WireDeliveryWindow,
@@ -51,6 +53,7 @@ import type {
     OrderDeskShortfallCountEnvelope,
     OrderDeskWeeklyCheckEnvelope,
     PlaceOrderDeskRequest,
+    QuoteOrderDeskRequest,
 } from '../generated/types.ts';
 import { generateRequestId } from './config.ts';
 import { mapServiceAreaFromDeliveryArea } from './kitchen-admin-mappers.ts';
@@ -422,10 +425,16 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
         },
 
         async quoteSale(request: OrderDeskSaleRequest): Promise<OrderDeskQuote> {
+            const body: QuoteOrderDeskRequest = {
+                ...saleBody(request),
+                ...(request.amendingOrderId === undefined
+                    ? {}
+                    : { amending_order_id: request.amendingOrderId }),
+            };
             const payload = await transport.request<{ readonly quote: WireOrderDeskQuote }>({
                 method: 'POST',
                 path: '/catalogue/order-desk/quote',
-                body: saleBody(request),
+                body,
             });
             return mapOrderDeskQuote(payload.quote);
         },
@@ -460,6 +469,34 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                 path: '/catalogue/order-desk/orders',
                 // A fresh key per attempt — see the header.
                 headers: { 'Idempotency-Key': generateRequestId() },
+                body,
+            });
+            return mapKitchenOrder(payload.order);
+        },
+
+        async amendOrder(request: AmendOrderDeskOrderRequest): Promise<KitchenOrder> {
+            // Omitted fields keep what is stored, so nothing is sent as `null` — a `null` date
+            // would read the same, but omission is the one spelling of "unchanged" this client owns.
+            const body: WireAmendOrderDeskOrderRequest = {
+                lines: request.lines.map(wireLine),
+                ...(request.customerAddressId === undefined
+                    ? {}
+                    : { customer_address_id: request.customerAddressId }),
+                ...(request.requestedDeliveryDate === undefined
+                    ? {}
+                    : { requested_delivery_date: request.requestedDeliveryDate }),
+                ...(request.deliveryWindowCode === undefined
+                    ? {}
+                    : { delivery_window_code: request.deliveryWindowCode }),
+                ...(request.paymentMethod === undefined
+                    ? {}
+                    : { payment_method: request.paymentMethod }),
+            };
+            const payload = await transport.request<{ readonly order: WireKitchenOrder }>({
+                method: 'PATCH',
+                path: `/catalogue/order-desk/orders/${encodeURIComponent(request.id)}`,
+                // No `Idempotency-Key`: `If-Match` is the replay guard — a second send is stale.
+                headers: ifMatch(request.lockVersion),
                 body,
             });
             return mapKitchenOrder(payload.order);

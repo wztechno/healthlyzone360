@@ -17,7 +17,9 @@ use Laravel\Ai\Promptable;
  * The new-ingredient assistant: one structured call, no tools.
  *
  * Everything it may choose from is numbered in its instructions — the kitchen's ingredients, the
- * category codes and this request's USDA candidates — and it answers with those numbers and codes.
+ * category codes, the allergen classes and this request's USDA and Open Food Facts candidates — and
+ * it answers with those numbers and codes. The unit and the mass of one litre or piece are its own
+ * estimate, bounded and marked as AI on the form.
  * {@see IngredientAssistService} maps them back and drops anything that is not on the lists, so a
  * hallucinated id, a foreign kitchen's row or a USDA record nobody searched for never reaches the
  * form. With no tool loop the time budget is this one call.
@@ -33,11 +35,15 @@ final class IngredientAssistant implements Agent, HasStructuredOutput
      * @param  list<string>  $categories  one line per selectable category
      * @param  list<string>  $ingredients  one line per visible ingredient, numbered
      * @param  list<string>  $candidates  one line per USDA candidate, numbered
+     * @param  list<string>  $allergenClasses  one line per active allergen class
+     * @param  list<string>  $allergenCandidates  one line per Open Food Facts product, numbered
      */
     public function __construct(
         private readonly array $categories,
         private readonly array $ingredients,
         private readonly array $candidates,
+        private readonly array $allergenClasses = [],
+        private readonly array $allergenCandidates = [],
     ) {}
 
     /** `OPENAI_MODEL`, read through config so a cached config still answers. */
@@ -58,6 +64,11 @@ final class IngredientAssistant implements Agent, HasStructuredOutput
             'Never guess the preparation state. When the name does not say raw, dried, cooked or canned and the candidates differ on it, pick the most generic suitable one and say so in nutrition_reason.',
             'nutrition_relation: "same" when the candidate is the same food in other words; "more_specific" when it adds detail the name does not state (a preparation, a cut, a variety); "different" when it is another food or contradicts the name. Null when nutrition_pick is null.',
             'nutrition_reason: one short sentence the cook will read.',
+            'unit: how the kitchen buys and stocks it — "kg" for anything weighed, "l" for liquids measured by volume (oils, milk, vinegar, syrups), "piece" for things counted (eggs, rolls, tortillas).',
+            'grams_per_unit: for "l", the mass of one litre in grams (olive oil about 915, milk about 1030); for "piece", the typical mass of one piece in grams (an egg about 50). Null for "kg" or when unsure.',
+            'allergen_pick: the number of the OPEN FOOD FACTS product that is plainly this ingredient as a kitchen buys it — not a branded mix or another food — choosing only one marked importable. Null when none fits.',
+            'allergens: the codes from ALLERGEN CLASSES this ingredient itself carries as typically purchased (sesame in tahini, milk in butter, gluten in bulgur), each "contains"; use "may_contain" only for well-known cross-contact. An empty list when it carries none.',
+            'allergens_reason: one short sentence the cook will read.',
             '',
             'CATEGORIES (code — name — parent):',
             ...$this->categories,
@@ -67,6 +78,12 @@ final class IngredientAssistant implements Agent, HasStructuredOutput
             '',
             'USDA CANDIDATES (number — description — data type — suitability):',
             ...($this->candidates === [] ? ['(none)'] : $this->candidates),
+            '',
+            'ALLERGEN CLASSES (code — name):',
+            ...$this->allergenClasses,
+            '',
+            'OPEN FOOD FACTS PRODUCTS (number — product — brand — declared allergens — importability):',
+            ...($this->allergenCandidates === [] ? ['(none)'] : $this->allergenCandidates),
         ]);
     }
 
@@ -83,6 +100,14 @@ final class IngredientAssistant implements Agent, HasStructuredOutput
             'nutrition_pick' => $schema->integer()->nullable()->required(),
             'nutrition_relation' => $schema->string()->enum(['same', 'more_specific', 'different', null])->nullable()->required(),
             'nutrition_reason' => $schema->string()->nullable()->required(),
+            'unit' => $schema->string()->enum(['kg', 'l', 'piece', null])->nullable()->required(),
+            'grams_per_unit' => $schema->number()->nullable()->required(),
+            'allergen_pick' => $schema->integer()->nullable()->required(),
+            'allergens' => $schema->array()->items($schema->object(fn (JsonSchema $item): array => [
+                'code' => $item->string()->required(),
+                'containment' => $item->string()->enum(['contains', 'may_contain'])->required(),
+            ]))->required(),
+            'allergens_reason' => $schema->string()->nullable()->required(),
         ];
     }
 }

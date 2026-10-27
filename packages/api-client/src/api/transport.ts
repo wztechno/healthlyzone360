@@ -1,6 +1,7 @@
 import type { BranchId, OrganisationId } from '@healthy360/domain-types';
 
 import { ApiError, apiFailure } from '../contracts/failure.ts';
+import type { DownloadedFile } from '../contracts/kitchen-admin.ts';
 import type { SessionTokenStore } from '../contracts/session.ts';
 import { createMemoryGuestTokenStore } from '../session/guest-token-store.ts';
 import type { GuestTokenStore } from '../session/guest-token-store.ts';
@@ -100,6 +101,8 @@ export interface Transport {
     requestEnvelope<T>(spec: RequestSpec): Promise<Envelope<T>>;
     /** For `204 No Content` endpoints. */
     requestVoid(spec: RequestSpec): Promise<void>;
+    /** As `request`, for an endpoint that answers bytes. Errors still arrive as the JSON envelope. */
+    requestFile(spec: RequestSpec): Promise<DownloadedFile>;
     readonly context: ActiveContextHolder;
     readonly tokenStore: SessionTokenStore;
     /** Where `X-Guest-Token` is read from, and where `startSession` writes the one it is given. */
@@ -211,20 +214,23 @@ export function createTransport(config: ApiClientConfig): Transport {
         }
     }
 
+    /** A non-2xx answer as the `ApiError` its envelope describes — whatever the success body was. */
+    async function fail(response: Response): Promise<never> {
+        const body = await readBody(response);
+        throw new ApiError(
+            mapErrorEnvelope(body, {
+                status: response.status,
+                retryAfterHeader: response.headers.get('Retry-After'),
+                correlationIdHeader: response.headers.get('X-Correlation-Id'),
+            }),
+        );
+    }
+
     async function complete(spec: RequestSpec): Promise<{ body: unknown; response: Response }> {
         const response = await send(spec);
+        if (!response.ok) return fail(response);
+
         const body = response.status === 204 ? null : await readBody(response);
-
-        if (!response.ok) {
-            throw new ApiError(
-                mapErrorEnvelope(body, {
-                    status: response.status,
-                    retryAfterHeader: response.headers.get('Retry-After'),
-                    correlationIdHeader: response.headers.get('X-Correlation-Id'),
-                }),
-            );
-        }
-
         return { body, response };
     }
 
@@ -259,7 +265,50 @@ export function createTransport(config: ApiClientConfig): Transport {
         async requestVoid(spec: RequestSpec): Promise<void> {
             await complete(spec);
         },
+
+        /*
+         * A download goes through `fetch` like everything else rather than through a link, because
+         * a link carries no bearer token — and with `credentials: 'omit'` there is no cookie to
+         * fall back on. `Accept` stays JSON: the server ignores it on a file, and a refusal still
+         * answers the envelope `fail` reads.
+         */
+        async requestFile(spec: RequestSpec): Promise<DownloadedFile> {
+            const response = await send(spec);
+            if (!response.ok) return fail(response);
+
+            return {
+                blob: await response.blob(),
+                filename: filenameFromDisposition(response.headers.get('Content-Disposition')),
+            };
+        },
     };
+}
+
+/**
+ * The file name a `Content-Disposition` header names, or `null`.
+ *
+ * `filename*` (RFC 5987) wins over `filename` because it is the only one that can carry a
+ * non-ASCII name — an Arabic kitchen name — without the server having to mangle it, and a server
+ * that sends both sends the plain one only as the fallback for clients that cannot read the other.
+ */
+export function filenameFromDisposition(header: string | null): string | null {
+    if (header === null) return null;
+
+    const extended = /filename\*\s*=\s*([^']*)'[^']*'([^;]+)/i.exec(header);
+    if (extended !== null) {
+        try {
+            return decodeURIComponent(extended[2]!.trim().replace(/^"|"$/g, ''));
+        } catch {
+            // A malformed escape: fall through to the plain parameter, which may still be there.
+        }
+    }
+
+    // Quoted names escape `"` and `\` with a backslash (Symfony's `HeaderUtils::quote`).
+    const plain = /filename\s*=\s*(?:"((?:[^"\\]|\\.)*)"|([^;]+))/i.exec(header);
+    if (plain === null) return null;
+
+    const name = (plain[1]?.replace(/\\(.)/g, '$1') ?? plain[2] ?? '').trim();
+    return name === '' ? null : name;
 }
 
 /** `meta.permissions_version` from a `/me` envelope, if the caller kept the whole body. */

@@ -932,6 +932,62 @@ describe('createApiOrderDeskRepository — placeSale', () => {
     });
 });
 
+describe('createApiOrderDeskRepository — amendOrder', () => {
+    it('patches the whole basket with If-Match and no idempotency key', async () => {
+        const { repository, calls } = harness([
+            {
+                status: 200,
+                body: {
+                    data: {
+                        order: wireRow({
+                            lock_version: 4,
+                            customer_account_id: ACCOUNT_UUID,
+                            amendable: true,
+                        }),
+                    },
+                    meta: {},
+                },
+            },
+        ]);
+
+        const order = await repository.amendOrder({
+            id: ORDER_UUID,
+            lockVersion: 3,
+            lines: [{ catalogueItemId: ITEM_UUID, catalogueItemVariantId: null, quantity: '2' }],
+            deliveryWindowCode: 'evening',
+        });
+
+        expect(calls[0]?.method).toBe('PATCH');
+        expect(calls[0]?.path).toBe(`/catalogue/order-desk/orders/${ORDER_UUID}`);
+        expect(calls[0]?.headers['if-match']).toBe('"3"');
+        expect(calls[0]?.headers['idempotency-key']).toBeUndefined();
+        // Unchanged fields are omitted — omission is "keep what is stored".
+        expect(calls[0]?.body).toEqual({
+            lines: [
+                { catalogue_item_id: ITEM_UUID, catalogue_item_variant_id: null, quantity: '2' },
+            ],
+            delivery_window_code: 'evening',
+        });
+        expect(order.lockVersion).toBe(4);
+        expect(order.amendable).toBe(true);
+        expect(order.customerAccountId).toBe(ACCOUNT_UUID);
+    });
+
+    it('quotes an edit on the order it amends', async () => {
+        const { repository, calls } = harness([
+            { status: 200, body: { data: { quote: wireQuote() }, meta: {} } },
+        ]);
+
+        await repository.quoteSale({
+            fulfilmentType: 'delivery',
+            lines: [{ catalogueItemId: ITEM_UUID, catalogueItemVariantId: null, quantity: '1' }],
+            amendingOrderId: ORDER_UUID,
+        });
+
+        expect(calls[0]?.body?.['amending_order_id']).toBe(ORDER_UUID);
+    });
+});
+
 describe('createApiOrderDeskRepository — customers', () => {
     it('sends the trimmed query and answers the rows with the cap', async () => {
         const { repository, calls } = harness([

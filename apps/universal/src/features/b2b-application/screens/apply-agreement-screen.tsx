@@ -7,10 +7,10 @@ import {
     toFailure,
     useB2BAgreementQuery,
     useB2BApplicationQuery,
+    useIssueSignatureChallengeMutation,
     useSignAgreementMutation,
 } from '../../../data/b2b-application-hooks.ts';
 import {
-    useIssueChallengeMutation,
     useOtpChallengeQuery,
     useResendChallengeMutation,
     useVerifyChallengeMutation,
@@ -27,15 +27,17 @@ import { awaitsSignature } from '../sections.ts';
  * The same framework J1 built, with a different purpose. That is the whole point of the purpose
  * field: the panel, the error matrix, the cooldown and the lockout are one implementation, and what
  * differs per journey is what a successful verification *buys*. Here it buys the token that opens
- * the acceptance control.
+ * the acceptance control. The code is *raised* against the agreement
+ * (`issueSignatureChallenge`), because the generic issue routes refuse a purpose that grants no
+ * step-up; verifying and resending go through the shared routes like any other challenge.
  *
  * ## The token, honestly
  *
- * `OtpVerificationResult` carries a challenge identifier and a step-up window, not a bearer token —
- * the real step-up is a server-side window rather than something handed to a client. So the token
- * this screen passes to `signAgreement` is the **verified challenge's identifier**, which is what
- * the server will look up. It is the honest thing to send: the client is naming the challenge it
- * completed rather than minting a credential.
+ * `OtpVerificationResult` carries a challenge identifier and a step-up window, not a bearer token.
+ * `signAgreement` wants `<challengeId>:<code>` — the same pairing the wind-down sign-off sends — so
+ * this screen keeps the code the person typed and packs the two once the code verifies. The sign
+ * endpoint accepts a challenge the generic verify step has already spent, for a short window, so
+ * verifying first (which is what opens the acceptance control) does not burn the token.
  *
  * ## The digest comes from the agreement read here
  *
@@ -54,7 +56,7 @@ export function ApplyAgreementScreen() {
     const current = application.data ?? null;
     const agreementQuery = useB2BAgreementQuery(current?.id ?? null);
 
-    const issue = useIssueChallengeMutation();
+    const issue = useIssueSignatureChallengeMutation();
     const verify = useVerifyChallengeMutation();
     const resend = useResendChallengeMutation();
     const sign = useSignAgreementMutation();
@@ -66,7 +68,11 @@ export function ApplyAgreementScreen() {
     const challenge = useOtpChallengeQuery(challengeId);
     const agreement = agreementQuery.data ?? null;
 
-    const failure = toFailure(verify.error) ?? toFailure(resend.error) ?? toFailure(sign.error);
+    const failure =
+        toFailure(issue.error) ??
+        toFailure(verify.error) ??
+        toFailure(resend.error) ??
+        toFailure(sign.error);
 
     return (
         <Stack space="lg" testID={TEST_ID}>
@@ -109,7 +115,7 @@ export function ApplyAgreementScreen() {
                         failure={failure}
                         onRequestCode={() => {
                             issue.mutate(
-                                { purpose: 'b2b_signatory' },
+                                { applicationId: current.id, agreementId: agreement.id },
                                 {
                                     onSuccess: (issued) => {
                                         setChallengeId(issued.id);
@@ -123,7 +129,7 @@ export function ApplyAgreementScreen() {
                                 { challengeId, code },
                                 {
                                     onSuccess: (result) => {
-                                        setVerificationToken(result.challengeId);
+                                        setVerificationToken(`${result.challengeId}:${code}`);
                                     },
                                 },
                             );

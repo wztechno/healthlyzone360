@@ -8,6 +8,7 @@ use App\Models\User;
 use Closure;
 use Healthy360\AccessControl\Models\MembershipRole;
 use Healthy360\AccessControl\Models\Role;
+use Healthy360\AccessControl\Services\OrganisationRoles;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\CatalogueStatus;
@@ -389,8 +390,10 @@ class MarketplaceKitchensSeeder extends Seeder
         ));
 
         foreach (['organisation_owner', 'kitchen_manager'] as $code) {
+            app(OrganisationRoles::class)->provision((string) $kitchen->getKey());
+
             $role = Role::withoutTenancy()
-                ->whereNull('organisation_id')
+                ->where('organisation_id', $kitchen->getKey())
                 ->where('code', $code)
                 ->firstOrFail();
 

@@ -1,5 +1,5 @@
 import type { OrganisationRoleSummary } from '@healthy360/api-client/contracts';
-import { Badge, Icon, Text, cx } from '@healthy360/design-system';
+import { Icon, Text, cx } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
@@ -10,7 +10,7 @@ import { Pressable, View } from 'react-native';
  *
  * ```
  * ┌──────────────────────────────────────────────────────────────────────────────┐
- * │ [✓]  Evening counter                                   Standard   3 permissions │
+ * │ [✓]  Evening counter                                              3 permissions │
  * │      Works the till after five.                                                │
  * │ [ ]  Kitchen manager                                              28 permissions │
  * └──────────────────────────────────────────────────────────────────────────────┘
@@ -62,8 +62,7 @@ const PANEL =
 
 /** The mark's track, so the header's Role label sits over the row's name. */
 const MARK_TRACK = 'w-4';
-/** The two trailing tracks, fixed so the header labels stand over their values. */
-const KIND_TRACK = 'w-24';
+/** The trailing track, fixed so the header label stands over its values. */
 const COUNT_TRACK = 'w-32';
 
 export function RoleChoiceList({
@@ -112,12 +111,6 @@ export function RoleChoiceList({
                     <View className={MARK_TRACK} />
                     <Text variant="strong" className="flex-1 text-content-on-brand-subtle">
                         {t('accessAdmin:roles.columns.role')}
-                    </Text>
-                    <Text
-                        variant="strong"
-                        className={cx(KIND_TRACK, 'text-content-on-brand-subtle')}
-                    >
-                        {t('accessAdmin:roles.columns.kind')}
                     </Text>
                     <Text
                         variant="strong"
@@ -190,18 +183,6 @@ export function RoleChoiceList({
                                 )}
                             </View>
 
-                            <View className={cx(KIND_TRACK, 'flex-row')}>
-                                <Badge
-                                    variant="label"
-                                    tone={role.isSystem ? 'neutral' : 'brand'}
-                                    icon={null}
-                                    label={t(
-                                        role.isSystem
-                                            ? 'accessAdmin:roles.kindTemplate'
-                                            : 'accessAdmin:roles.kindOwn',
-                                    )}
-                                />
-                            </View>
                             <Text
                                 variant="mono"
                                 tone="secondary"

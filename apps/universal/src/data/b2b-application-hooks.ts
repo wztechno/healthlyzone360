@@ -51,6 +51,22 @@ export { toFailure } from './hooks.ts';
  * three copies free to drift from the one the repository actually accepts.
  */
 export type SaveSectionRequest = Parameters<B2BApplicationRepository['saveSection']>[0];
+export type ReplaceContactsRequest = Parameters<B2BApplicationRepository['replaceContacts']>[0];
+export type ReplaceLocationsRequest = Parameters<B2BApplicationRepository['replaceLocations']>[0];
+
+/**
+ * The states in which the next change is the platform's, not the applicant's.
+ *
+ * What a polling read keeps ticking for: a reviewer picking it up, a decision, provisioning
+ * finishing. Outside these the applicant is the one who moves it, and polling would be noise.
+ */
+const AWAITING_PLATFORM: ReadonlySet<B2BApplication['state']> = new Set([
+    'submitted',
+    'in_review',
+    'approved',
+    'agreement_signed',
+    'provisioning',
+]);
 
 /* ── reads ───────────────────────────────────────────────────────────────────────────────────── */
 
@@ -58,13 +74,23 @@ export type SaveSectionRequest = Parameters<B2BApplicationRepository['saveSectio
  * The applicant's live application, or `null`.
  *
  * `null` is a value, not an error: "you have not applied yet" is the entry screen's normal state.
+ *
+ * `pollMs` re-reads on that interval while the application waits on the platform (see
+ * {@link AWAITING_PLATFORM}) and stops by itself once it does not.
  */
-export function useB2BApplicationQuery(enabled = true): UseQueryResult<B2BApplication | null> {
+export function useB2BApplicationQuery(
+    enabled = true,
+    pollMs: number | false = false,
+): UseQueryResult<B2BApplication | null> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.b2bApplication.current(),
         enabled: enabled && repositories !== null,
+        refetchInterval: (query) => {
+            const state = query.state.data?.state;
+            return state !== undefined && AWAITING_PLATFORM.has(state) ? pollMs : false;
+        },
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.b2bApplication.getApplication();
@@ -134,6 +160,28 @@ export function useSaveSectionMutation(): UseMutationResult<
     );
 }
 
+/** Replace the named contacts whole. A row missing from the list is a row removed. */
+export function useReplaceContactsMutation(): UseMutationResult<
+    B2BApplication,
+    unknown,
+    ReplaceContactsRequest
+> {
+    return useApplicationWrite<ReplaceContactsRequest>((repository, request) =>
+        repository.replaceContacts(request),
+    );
+}
+
+/** Replace the delivery locations whole. */
+export function useReplaceLocationsMutation(): UseMutationResult<
+    B2BApplication,
+    unknown,
+    ReplaceLocationsRequest
+> {
+    return useApplicationWrite<ReplaceLocationsRequest>((repository, request) =>
+        repository.replaceLocations(request),
+    );
+}
+
 export function useUploadDocumentMutation(): UseMutationResult<
     B2BApplication,
     unknown,
@@ -144,19 +192,15 @@ export function useUploadDocumentMutation(): UseMutationResult<
     );
 }
 
-export interface RemoveDocumentVariables {
+/**
+ * One document of one application — what a download names.
+ *
+ * There is no removal hook: no endpoint deletes an applicant's document, and the way to take one
+ * back is to upload its replacement, which supersedes it (`replacesDocumentId`).
+ */
+export interface DocumentVariables {
     readonly applicationId: string;
     readonly documentId: string;
-}
-
-export function useRemoveDocumentMutation(): UseMutationResult<
-    B2BApplication,
-    unknown,
-    RemoveDocumentVariables
-> {
-    return useApplicationWrite<RemoveDocumentVariables>((repository, request) =>
-        repository.removeDocument(request),
-    );
 }
 
 export interface ApplicationVersionVariables {
@@ -204,12 +248,12 @@ export function useSignAgreementMutation(): UseMutationResult<
 export function useDocumentDownloadMutation(): UseMutationResult<
     DocumentDownload,
     unknown,
-    RemoveDocumentVariables
+    DocumentVariables
 > {
     const repositories = useRepositories();
 
     return useMutation({
-        mutationFn: (request: RemoveDocumentVariables) =>
+        mutationFn: (request: DocumentVariables) =>
             repositories.b2bApplication.getDocumentDownload(request),
     });
 }
@@ -294,6 +338,28 @@ export function useIssueSignoffChallengeMutation(): UseMutationResult<
     return useMutation({
         mutationFn: (request: { readonly offboardingId: string }) =>
             repositories.b2bApplication.issueSignoffChallenge(request),
+    });
+}
+
+/**
+ * Send the signatory the code that signs the agreement — from the agreement's own endpoint, since
+ * the generic passcode routes refuse the `b2b_signatory` purpose. The challenge is seeded into the
+ * shared verification cache so the passcode panel reads it without a second request.
+ */
+export function useIssueSignatureChallengeMutation(): UseMutationResult<
+    OtpChallenge,
+    unknown,
+    { readonly applicationId: string; readonly agreementId: string }
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (request: { readonly applicationId: string; readonly agreementId: string }) =>
+            repositories.b2bApplication.issueSignatureChallenge(request),
+        onSuccess: (challenge) => {
+            queryClient.setQueryData(queryKeys.verification.challenge(challenge.id), challenge);
+        },
     });
 }
 

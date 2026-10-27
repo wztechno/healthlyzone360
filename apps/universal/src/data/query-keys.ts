@@ -348,6 +348,9 @@ export const queryKeys = {
         recipes: (filter?: QueryScope) => ['kitchenAdmin', 'recipes', scope(filter)] as const,
         recipeTechnicalSheet: (recipeId: RecipeId, versionId: string) =>
             ['kitchenAdmin', 'recipe', recipeId, 'technical-sheet', versionId] as const,
+        /** Up to twenty recipes' sheets in one read, for printing; the ids sorted so order is not identity. */
+        recipeTechnicalSheets: (recipeIds: readonly string[]) =>
+            ['kitchenAdmin', 'recipe-technical-sheets', [...recipeIds].sort().join(',')] as const,
         recipesPage: (filter: QueryScope | undefined, page: number) =>
             ['kitchenAdmin', 'recipes', 'page', scope(filter), page] as const,
         recipe: (recipeId: RecipeId) => ['kitchenAdmin', 'recipe', recipeId] as const,
@@ -440,8 +443,16 @@ export const queryKeys = {
     kitchenOps: {
         all: () => ['kitchenOps'] as const,
         stockItems: () => ['kitchenOps', 'stock-items'] as const,
-        stockLevels: () => ['kitchenOps', 'stock-levels'] as const,
-        lowStockCount: () => ['kitchenOps', 'low-stock-count'] as const,
+        /**
+         * Keyed on the branch: the server narrows the levels through `X-Branch-Id`, and nothing
+         * clears the cache when the picker switches branch, so without the branch in the key the
+         * second branch would read the first one's shelves until a refetch happened to run.
+         */
+        stockLevels: (branchId: string | null) =>
+            ['kitchenOps', 'stock-levels', branchId ?? ''] as const,
+        /** Keyed on the branch for the same reason as `stockLevels` above. */
+        lowStockCount: (branchId: string | null) =>
+            ['kitchenOps', 'low-stock-count', branchId ?? ''] as const,
         suppliers: (filter: object = {}) => ['kitchenOps', 'suppliers', filter] as const,
         supplier: (supplierId: SupplierId) => ['kitchenOps', 'supplier', supplierId] as const,
         procurementReference: () => ['kitchenOps', 'procurement-reference'] as const,
@@ -869,6 +880,25 @@ export const queryKeys = {
         all: () => ['platformAdmin'] as const,
         kitchens: (filter?: QueryScope) => ['platformAdmin', 'kitchens', scope(filter)] as const,
         kitchen: (kitchen: string) => ['platformAdmin', 'kitchen', kitchen] as const,
+    },
+
+    /**
+     * The platform reviewer's B2B onboarding queue and files.
+     *
+     * Its own root, never persisted: it carries applicants' identity documents' metadata, internal
+     * notes and contact details for companies the reader is not part of.
+     */
+    platformB2b: {
+        all: () => ['platformB2b'] as const,
+        applications: (filter?: QueryScope) =>
+            ['platformB2b', 'applications', scope(filter)] as const,
+        application: (applicationId: string) =>
+            ['platformB2b', 'application', applicationId] as const,
+        agreements: (applicationId: string) =>
+            ['platformB2b', 'agreements', applicationId] as const,
+        sellerPriceLists: () => ['platformB2b', 'sellerPriceLists'] as const,
+        invitations: (applicationId: string) =>
+            ['platformB2b', 'invitations', applicationId] as const,
     },
 
     /**

@@ -20,20 +20,25 @@ import {
 import { Redirect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import {
     toFailure,
     useB2BApplicationQuery,
-    useRemoveDocumentMutation,
+    useReplaceContactsMutation,
+    useReplaceLocationsMutation,
     useSaveSectionMutation,
     useSubmitB2BApplicationMutation,
     useUploadDocumentMutation,
 } from '../../../data/b2b-application-hooks.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { DocumentSlotList, buildSlots } from '../document-slot-list.tsx';
+import { ContactsStep, LocationsStep } from '../list-steps.tsx';
 import {
     B2B_STEP_COUNT,
+    B2B_STEP_SLUGS,
     isApplicantEditable,
+    isStepComplete,
     isStepEditable,
     missingDocumentKinds,
     outstandingCount,
@@ -41,6 +46,7 @@ import {
     sectionState,
     stepAfter,
     stepBefore,
+    stepForSection,
     validateSection,
 } from '../sections.ts';
 import type { B2BStepSlug, SectionErrors } from '../sections.ts';
@@ -115,18 +121,19 @@ function StepBody({
     const save = useSaveSectionMutation();
     const submit = useSubmitB2BApplicationMutation();
     const upload = useUploadDocumentMutation();
-    const removeDocument = useRemoveDocumentMutation();
+    const replaceContacts = useReplaceContactsMutation();
+    const replaceLocations = useReplaceLocationsMutation();
 
     const section = sectionForStep(step);
-    const position = useMemo(
-        () =>
-            ['company', 'signatory', 'trade-terms', 'logistics', 'documents', 'review'].indexOf(
-                step,
-            ) + 1,
-        [step],
-    );
+    const position = B2B_STEP_SLUGS.indexOf(step) + 1;
 
-    const failure = toFailure(save.error) ?? toFailure(submit.error) ?? toFailure(upload.error);
+    // Every write this screen can make, so no failure goes unsaid.
+    const failure =
+        toFailure(save.error) ??
+        toFailure(submit.error) ??
+        toFailure(upload.error) ??
+        toFailure(replaceContacts.error) ??
+        toFailure(replaceLocations.error);
 
     const goTo = useCallback(
         (slug: B2BStepSlug | null) => {
@@ -144,7 +151,7 @@ function StepBody({
                 total={B2B_STEP_COUNT}
                 stepLabel={
                     section === null
-                        ? t(`b2bApplication:${step === 'review' ? 'review' : 'documents'}.title`)
+                        ? t(`b2bApplication:${step}.title`)
                         : t(`b2bApplication:sections.${section}.title`)
                 }
             />
@@ -171,7 +178,37 @@ function StepBody({
                 />
             )}
 
-            {step === 'documents' ? (
+            {step === 'contacts' ? (
+                <ContactsStep
+                    application={application}
+                    saving={replaceContacts.isPending}
+                    onSave={(contacts) => {
+                        replaceContacts.mutate(
+                            { applicationId: application.id, contacts },
+                            {
+                                onSuccess: () => {
+                                    goTo(stepAfter(step));
+                                },
+                            },
+                        );
+                    }}
+                />
+            ) : step === 'locations' ? (
+                <LocationsStep
+                    application={application}
+                    saving={replaceLocations.isPending}
+                    onSave={(locations) => {
+                        replaceLocations.mutate(
+                            { applicationId: application.id, locations },
+                            {
+                                onSuccess: () => {
+                                    goTo(stepAfter(step));
+                                },
+                            },
+                        );
+                    }}
+                />
+            ) : step === 'documents' ? (
                 <DocumentsStep
                     application={application}
                     uploading={upload.isPending ? (upload.variables?.kind ?? null) : null}
@@ -185,9 +222,6 @@ function StepBody({
                             content: file.base64 ?? '',
                             ...(replaces === null ? {} : { replacesDocumentId: replaces }),
                         });
-                    }}
-                    onRemove={(documentId) => {
-                        removeDocument.mutate({ applicationId: application.id, documentId });
                     }}
                 />
             ) : step === 'review' ? (
@@ -356,6 +390,41 @@ function SectionStep({
                     );
                 }
 
+                if (field.kind === 'multiselect') {
+                    // A list of ticks rather than a multi-value select: six options fit on screen,
+                    // and a checkbox each is the control every platform already reads correctly.
+                    const picked = Array.isArray(draft[field.name])
+                        ? (draft[field.name] as readonly string[])
+                        : [];
+                    return (
+                        <View key={field.name} testID={fieldTestID} role="group" aria-label={label}>
+                            <Stack space="xs">
+                                <Text variant="bodyStrong">{label}</Text>
+                                {VOCABULARIES[field.vocabulary].map((value) => (
+                                    <Checkbox
+                                        key={value}
+                                        testID={`${fieldTestID}-${value}`}
+                                        id={`${fieldTestID}-${value}`}
+                                        label={t(`b2bApplication:${field.vocabulary}.${value}`)}
+                                        checked={picked.includes(value)}
+                                        onChange={(checked) => {
+                                            // Kept in the vocabulary's order, not the order ticked.
+                                            set(
+                                                field.name,
+                                                VOCABULARIES[field.vocabulary].filter((option) =>
+                                                    option === value
+                                                        ? checked
+                                                        : picked.includes(option),
+                                                ),
+                                            );
+                                        }}
+                                    />
+                                ))}
+                            </Stack>
+                        </View>
+                    );
+                }
+
                 if (field.kind === 'boolean') {
                     return (
                         <Checkbox
@@ -422,12 +491,10 @@ function DocumentsStep({
     application,
     uploading,
     onUpload,
-    onRemove,
 }: {
     readonly application: B2BApplication;
     readonly uploading: B2BDocumentKind | null;
     readonly onUpload: (kind: B2BDocumentKind, file: PickedFile, replaces: string | null) => void;
-    readonly onRemove: (documentId: string) => void;
 }) {
     const { t } = useTranslation();
 
@@ -479,7 +546,6 @@ function DocumentsStep({
                     setUnreadable(null);
                     onUpload(kind, file, replaces);
                 }}
-                onRemove={onRemove}
             />
         </Stack>
     );
@@ -502,6 +568,7 @@ function ReviewStep({
 
     const outstanding = outstandingCount(application);
     const ready = outstanding === 0;
+    const missingDocuments = missingDocumentKinds(application);
 
     return (
         <Stack space="md" testID={`${TEST_ID}-review`}>
@@ -524,21 +591,74 @@ function ReviewStep({
                             ? t('b2bApplication:wizard.complete')
                             : t('b2bApplication:wizard.incomplete')}
                     </Text>
+                    {/*
+                     * The server's missing-field list, named, so the applicant learns what is
+                     * left here rather than from a refused submission.
+                     */}
+                    {state.missingFields.length === 0 ? null : (
+                        <Text
+                            testID={`${TEST_ID}-review-${state.section}-missing`}
+                            tone="secondary"
+                            variant="caption"
+                        >
+                            {t('b2bApplication:review.blockedSection', {
+                                section: t(`b2bApplication:sections.${state.section}.title`),
+                                fields: state.missingFields
+                                    .map((field) => t(`b2bApplication:fields.${field}`))
+                                    .join(', '),
+                            })}
+                        </Text>
+                    )}
+                    {state.editable ? (
+                        <Button
+                            testID={`${TEST_ID}-review-${state.section}-edit`}
+                            variant="ghost"
+                            size="sm"
+                            label={t('b2bApplication:review.edit')}
+                            onPress={() => {
+                                onEdit(stepForSection(state.section));
+                            }}
+                        />
+                    ) : null}
+                </Stack>
+            ))}
+
+            {/*
+             * Contacts and locations are not submission rules — the server sends without them —
+             * so an empty one reads "not added yet" and never holds the button back.
+             */}
+            {(['contacts', 'locations'] as const).map((slug) => (
+                <Stack key={slug} space="xs" testID={`${TEST_ID}-review-${slug}`}>
+                    <Text variant="bodyStrong">{t(`b2bApplication:${slug}.title`)}</Text>
+                    <Text
+                        tone={isStepComplete(application, slug) ? 'success' : 'secondary'}
+                        variant="caption"
+                    >
+                        {isStepComplete(application, slug)
+                            ? t('b2bApplication:wizard.complete')
+                            : t('b2bApplication:review.notAddedYet')}
+                    </Text>
                     <Button
-                        testID={`${TEST_ID}-review-${state.section}-edit`}
+                        testID={`${TEST_ID}-review-${slug}-edit`}
                         variant="ghost"
                         size="sm"
                         label={t('b2bApplication:review.edit')}
                         onPress={() => {
-                            onEdit(
-                                state.section === 'trade_terms'
-                                    ? 'trade-terms'
-                                    : (state.section as B2BStepSlug),
-                            );
+                            onEdit(slug);
                         }}
                     />
                 </Stack>
             ))}
+
+            {missingDocuments.length === 0 ? null : (
+                <Text testID={`${TEST_ID}-review-documents-missing`} tone="warning">
+                    {t('b2bApplication:review.blockedDocuments', {
+                        kinds: missingDocuments
+                            .map((kind) => t(`b2bApplication:documents.kinds.${kind}`))
+                            .join(', '),
+                    })}
+                </Text>
+            )}
 
             {ready ? null : (
                 <Callout
@@ -572,7 +692,7 @@ type FieldDescriptor =
       }
     | {
           readonly name: string;
-          readonly kind: 'select';
+          readonly kind: 'select' | 'multiselect';
           readonly required: boolean;
           readonly vocabulary: keyof typeof VOCABULARIES;
           readonly hint?: boolean;
@@ -624,6 +744,12 @@ const FIELDS: Readonly<Record<B2BApplicationSection, readonly FieldDescriptor[]>
             kind: 'select',
             required: false,
             vocabulary: 'orderFrequencies',
+        },
+        {
+            name: 'productCategories',
+            kind: 'multiselect',
+            required: false,
+            vocabulary: 'productCategories',
         },
     ],
     logistics: [

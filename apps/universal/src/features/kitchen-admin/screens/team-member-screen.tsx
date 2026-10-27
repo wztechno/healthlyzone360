@@ -26,6 +26,7 @@ import { apiFailure } from '@healthy360/api-client/contracts';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import {
     useEndMemberMutation,
+    useIsBranchBoundAdmin,
     useOrganisationRolesQuery,
     useReactivateMemberMutation,
     useSetMemberRolesMutation,
@@ -216,6 +217,7 @@ function TeamMemberEditor() {
     const savedScope =
         record?.branch === null || record?.branch === undefined ? null : String(record.branch.id);
     const chosenScope = scope === undefined ? savedScope : scope;
+    const branchBound = useIsBranchBoundAdmin();
     const scopeMoved = scope !== undefined && scope !== savedScope;
 
     const failure = toFailure(member.error);
@@ -650,10 +652,18 @@ function TeamMemberEditor() {
                                         label={stepLabels.scope}
                                         disabled={!canUpdate}
                                         options={[
-                                            {
-                                                value: WHOLE_KITCHEN,
-                                                label: t('accessAdmin:member.scopeWholeKitchen'),
-                                            },
+                                            // A branch-bound administrator may place people in
+                                            // their own branch only; the server refuses the rest.
+                                            ...(branchBound
+                                                ? []
+                                                : [
+                                                      {
+                                                          value: WHOLE_KITCHEN,
+                                                          label: t(
+                                                              'accessAdmin:member.scopeWholeKitchen',
+                                                          ),
+                                                      },
+                                                  ]),
                                             ...branches.map((branch) => ({
                                                 value: String(branch.id),
                                                 label: branch.name,

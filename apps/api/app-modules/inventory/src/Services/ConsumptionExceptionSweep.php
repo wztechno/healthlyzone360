@@ -8,6 +8,8 @@ use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Inventory\Models\OrderConsumptionException;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\Order;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -121,9 +123,9 @@ final readonly class ConsumptionExceptionSweep
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Collection<int, OrderConsumptionException>
+     * @return Collection<int, OrderConsumptionException>
      */
-    private function onePerLine(string $organisationId): \Illuminate\Database\Eloquent\Collection
+    private function onePerLine(string $organisationId): Collection
     {
         return $this->retryable()
             ->where('organisation_id', $organisationId)
@@ -135,9 +137,9 @@ final readonly class ConsumptionExceptionSweep
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Builder<OrderConsumptionException>
+     * @return Builder<OrderConsumptionException>
      */
-    private function openOnLine(OrderConsumptionException $exception): \Illuminate\Database\Eloquent\Builder
+    private function openOnLine(OrderConsumptionException $exception): Builder
     {
         $query = OrderConsumptionException::withoutTenancy()
             ->where('organisation_id', $exception->organisation_id)
@@ -151,9 +153,9 @@ final readonly class ConsumptionExceptionSweep
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Builder<OrderConsumptionException>
+     * @return Builder<OrderConsumptionException>
      */
-    private function retryable(): \Illuminate\Database\Eloquent\Builder
+    private function retryable(): Builder
     {
         return OrderConsumptionException::withoutTenancy()
             ->whereNull('resolved_at')

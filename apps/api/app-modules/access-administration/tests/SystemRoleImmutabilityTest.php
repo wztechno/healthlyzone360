@@ -7,6 +7,9 @@ use Healthy360\AccessAdministration\Tests\Fixtures\AccessWorld;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\AccessControl\Models\MembershipRole;
 use Healthy360\AccessControl\Models\Role;
+use Healthy360\AccessControl\Models\RolePermission;
+use Healthy360\AccessControl\Services\OrganisationRoles;
+use Healthy360\AccessControl\Services\PermissionRegistry;
 use Healthy360\B2b\Models\OrganisationInvitation;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\PlatformAdministration\Services\MembershipGranter;
@@ -15,18 +18,15 @@ use Healthy360\Tenancy\TenantContext;
 
 /*
 |--------------------------------------------------------------------------
-| A platform template is readable, copyable, and not editable
+| Every kitchen owns its roles; the platform templates are blueprints
 |--------------------------------------------------------------------------
 |
-| `RolePolicy::additionalConditions` has refused to manage an `is_system` role
-| since the foundation and, until AA1, was never invoked from HTTP by anything.
-| This file is the first thing that proves the rule reaches a request — and the
-| reason the console offers **Copy** on a template rather than Edit.
-|
-| The second half pins the behaviour Copy relies on: a kitchen may define a role
-| carrying a template's code, and `MembershipGranter::role()` documents
-| preferring the tenant's own. That is not an accident to be tolerated, it is
-| the mechanism, so it is asserted rather than left to be rediscovered.
+| The standard roles used to be one shared row per code, assigned directly by
+| every kitchen, so none of them could be edited. Now each organisation gets
+| its own copy of every template when it is created
+| (`OrganisationRoles::provision()`), every copy is editable, and an edit stays
+| inside the kitchen that made it. The templates themselves are never served to
+| a tenant and still refuse every write.
 |
 */
 
@@ -36,46 +36,125 @@ beforeEach(function (): void {
     $this->seed(AccessControlSeeder::class);
 });
 
-it('refuses to edit a platform template, however many permissions the caller holds', function (): void {
+it('gives an organisation its own editable copy of every standard role, with the template’s grants', function (): void {
     $tenant = AccessWorld::kitchen('admin@verdant.test');
-    $template = AccessWorld::template('kitchen_manager');
 
-    $this->actingAs($tenant->user)
-        ->patchJson(
-            "/api/v1/organisations/{$tenant->organisation->getKey()}/roles/{$template->getKey()}",
-            ['name_en' => 'Mine now', 'name_ar' => 'لي', 'description_en' => null, 'description_ar' => null, 'permissions' => []],
-            AccessWorld::headers($tenant) + AccessWorld::ifMatch(0),
-        )
-        // 404, not 403: from the writing side there is no role at this
-        // identifier that belongs to you, and that is the honest answer.
-        // `RolePolicy` and the `roles` RLS policy refuse it twice more behind
-        // this, neither of which can give as good a message.
-        ->assertNotFound();
+    app(OrganisationRoles::class)->provision((string) $tenant->organisation->getKey());
 
-    expect((string) Role::withoutTenancy()->whereKey($template->getKey())->value('name_en'))
-        ->toBe('Kitchen manager');
+    foreach (PermissionRegistry::templateRoles() as $code => $template) {
+        $copy = AccessWorld::own($tenant, $code);
+
+        $granted = RolePermission::withoutTenancy()
+            ->where('role_id', $copy->getKey())
+            ->join('permissions', 'permissions.id', '=', 'role_permissions.permission_id')
+            ->pluck('permissions.code')
+            ->sort()
+            ->values()
+            ->all();
+
+        expect($copy->is_system)->toBeFalse()
+            ->and($granted)->toBe(collect($template['permissions'])->sort()->values()->all());
+    }
+
+    // Idempotent: a second run finds every code taken and writes nothing.
+    $before = Role::withoutTenancy()->where('organisation_id', $tenant->organisation->getKey())->count();
+    app(OrganisationRoles::class)->provision((string) $tenant->organisation->getKey());
+
+    expect(Role::withoutTenancy()->where('organisation_id', $tenant->organisation->getKey())->count())->toBe($before);
 });
 
-it('refuses to delete a platform template', function (): void {
+it('lists the kitchen’s own roles only — never the platform templates', function (): void {
     $tenant = AccessWorld::kitchen('admin@verdant.test');
-    $template = AccessWorld::template('order_desk_agent');
+    app(OrganisationRoles::class)->provision((string) $tenant->organisation->getKey());
+
+    $roles = $this->actingAs($tenant->user)
+        ->getJson("/api/v1/organisations/{$tenant->organisation->getKey()}/roles", AccessWorld::headers($tenant))
+        ->assertOk()
+        ->json('data');
+
+    $ids = array_column($roles, 'id');
+
+    expect($ids)->toContain((string) AccessWorld::own($tenant, 'kitchen_chef')->getKey())
+        ->and($ids)->not->toContain((string) AccessWorld::template('kitchen_chef')->getKey())
+        ->and(array_unique(array_column($roles, 'is_system')))->toBe([false]);
+});
+
+it('lets a kitchen edit its standard roles without touching any other kitchen’s', function (): void {
+    $verdant = AccessWorld::kitchen('admin@verdant.test');
+    $cedar = AccessWorld::kitchen('admin@cedar.test');
+    app(OrganisationRoles::class)->provision((string) $verdant->organisation->getKey());
+    app(OrganisationRoles::class)->provision((string) $cedar->organisation->getKey());
+
+    $chef = AccessWorld::own($verdant, 'kitchen_chef');
+
+    $this->actingAs($verdant->user)
+        ->patchJson(
+            "/api/v1/organisations/{$verdant->organisation->getKey()}/roles/{$chef->getKey()}",
+            [
+                'name_en' => 'Head chef',
+                'name_ar' => 'رئيس الطهاة',
+                'description_en' => null,
+                'description_ar' => null,
+                'permissions' => ['recipe.view_organisation'],
+            ],
+            AccessWorld::headers($verdant) + AccessWorld::ifMatch(0),
+        )
+        ->assertOk()
+        ->assertJsonPath('data.role.name_en', 'Head chef')
+        ->assertJsonPath('data.role.permissions', ['recipe.view_organisation']);
+
+    $theirs = AccessWorld::own($cedar, 'kitchen_chef');
+    $template = AccessWorld::template('kitchen_chef');
+
+    expect($theirs->name_en)->toBe($template->name_en)
+        ->and(RolePermission::withoutTenancy()->where('role_id', $theirs->getKey())->count())
+        ->toBe(RolePermission::withoutTenancy()->where('role_id', $template->getKey())->count());
+});
+
+it('lets a kitchen delete a standard role nobody holds', function (): void {
+    $tenant = AccessWorld::kitchen('admin@verdant.test');
+    app(OrganisationRoles::class)->provision((string) $tenant->organisation->getKey());
+
+    $desk = AccessWorld::own($tenant, 'order_desk_agent');
 
     $this->actingAs($tenant->user)
         ->deleteJson(
-            "/api/v1/organisations/{$tenant->organisation->getKey()}/roles/{$template->getKey()}",
+            "/api/v1/organisations/{$tenant->organisation->getKey()}/roles/{$desk->getKey()}",
             [],
+            AccessWorld::headers($tenant) + AccessWorld::ifMatch(0),
+        )
+        ->assertSuccessful();
+
+    expect(Role::withoutTenancy()->whereKey($desk->getKey())->exists())->toBeFalse()
+        ->and(AccessWorld::template('order_desk_agent')->exists)->toBeTrue();
+});
+
+it('never serves, edits or deletes a platform template', function (): void {
+    $tenant = AccessWorld::kitchen('admin@verdant.test');
+    $template = AccessWorld::template('kitchen_manager');
+    $path = "/api/v1/organisations/{$tenant->organisation->getKey()}/roles/{$template->getKey()}";
+
+    $this->actingAs($tenant->user)->getJson($path, AccessWorld::headers($tenant))->assertNotFound();
+
+    $this->actingAs($tenant->user)
+        ->patchJson(
+            $path,
+            ['name_en' => 'Mine now', 'name_ar' => 'لي', 'description_en' => null, 'description_ar' => null, 'permissions' => []],
             AccessWorld::headers($tenant) + AccessWorld::ifMatch(0),
         )
         ->assertNotFound();
 
-    expect(Role::withoutTenancy()->whereKey($template->getKey())->exists())->toBeTrue();
+    $this->actingAs($tenant->user)
+        ->deleteJson($path, [], AccessWorld::headers($tenant) + AccessWorld::ifMatch(0))
+        ->assertNotFound();
+
+    expect((string) Role::withoutTenancy()->whereKey($template->getKey())->value('name_en'))->toBe('Kitchen manager');
 });
 
 it('refuses a template through the policy even when the locator is bypassed', function (): void {
     // The locator answers 404 first, so the policy's own refusal would never
     // run in a request. It is asserted directly because it is the layer a
-    // future condition gets added to, and a rule nothing exercises is a rule
-    // that quietly stops working.
+    // future condition gets added to.
     $tenant = AccessWorld::kitchen('admin@verdant.test');
     $template = AccessWorld::template('kitchen_manager');
 
@@ -86,60 +165,9 @@ it('refuses a template through the policy even when the locator is bypassed', fu
         ->and($tenant->user->can('update', AccessWorld::role($tenant->organisation, 'ours', [])))->toBeTrue();
 });
 
-it('lets a kitchen copy a template into a role of its own and edit that', function (): void {
+it('grants the kitchen’s own role when an invitation is accepted, never the template', function (): void {
     $tenant = AccessWorld::kitchen('admin@verdant.test');
-    $template = AccessWorld::template('kitchen_staff');
-
-    $source = $this->actingAs($tenant->user)
-        ->getJson(
-            "/api/v1/organisations/{$tenant->organisation->getKey()}/roles/{$template->getKey()}",
-            AccessWorld::headers($tenant),
-        )
-        ->assertOk()
-        ->json('data.role');
-
-    $copy = $this->actingAs($tenant->user)
-        ->postJson(
-            "/api/v1/organisations/{$tenant->organisation->getKey()}/roles",
-            [
-                'code' => 'kitchen_staff_evening',
-                'name_en' => $source['name_en'].' (evenings)',
-                'name_ar' => $source['name_ar'],
-                'description_en' => null,
-                'description_ar' => null,
-                'permissions' => $source['permissions'],
-            ],
-            AccessWorld::headers($tenant),
-        )
-        ->assertCreated()
-        ->json('data.role');
-
-    expect($copy['permissions'])->toBe($source['permissions'])
-        ->and($copy['is_system'])->toBeFalse();
-
-    // And the copy is editable, which is the whole point of making one.
-    $this->actingAs($tenant->user)
-        ->patchJson(
-            "/api/v1/organisations/{$tenant->organisation->getKey()}/roles/{$copy['id']}",
-            [
-                'name_en' => 'Evening kitchen staff',
-                'name_ar' => 'طاقم المساء',
-                'description_en' => null,
-                'description_ar' => null,
-                'permissions' => ['recipe.view_organisation'],
-            ],
-            AccessWorld::headers($tenant) + AccessWorld::ifMatch(0),
-        )
-        ->assertOk()
-        ->assertJsonPath('data.role.permissions', ['recipe.view_organisation']);
-});
-
-it('prefers the kitchen’s own role over the template of the same code when an invitation is accepted', function (): void {
-    // The documented behaviour Copy depends on, and the reason a shadowing code
-    // is reported rather than refused. Asserted here so that a change to
-    // `MembershipGranter::role()` breaks a test that explains why it mattered.
-    $tenant = AccessWorld::kitchen('admin@verdant.test');
-    $bespoke = AccessWorld::role($tenant->organisation, 'kitchen_staff', ['recipe.view_organisation']);
+    app(OrganisationRoles::class)->provision((string) $tenant->organisation->getKey());
 
     $acceptor = User::factory()->create(['email' => 'newstarter@verdant.test']);
 
@@ -153,12 +181,24 @@ it('prefers the kitchen’s own role over the template of the same code when an 
 
     $membershipId = app(MembershipGranter::class)->grant($invitation, $acceptor);
 
-    expect($membershipId)->not->toBeNull();
-
     $assignedRoleId = (string) MembershipRole::withoutTenancy()
         ->where('membership_id', $membershipId)
         ->value('role_id');
 
-    expect($assignedRoleId)->toBe((string) $bespoke->getKey())
-        ->and($assignedRoleId)->not->toBe((string) AccessWorld::template('kitchen_staff')->getKey());
+    expect($assignedRoleId)->toBe((string) AccessWorld::own($tenant, 'kitchen_staff')->getKey());
+});
+
+it('grants nothing for a role the kitchen deleted, rather than falling back to the template', function (): void {
+    $tenant = AccessWorld::kitchen('admin@verdant.test');
+    $acceptor = User::factory()->create(['email' => 'newstarter@verdant.test']);
+
+    $invitation = OrganisationInvitation::factory()->create([
+        'organisation_id' => $tenant->organisation->getKey(),
+        'email' => 'newstarter@verdant.test',
+        'email_normalised' => 'newstarter@verdant.test',
+        'role_code' => 'kitchen_staff',
+        'invited_by' => $tenant->user->getKey(),
+    ]);
+
+    expect(app(MembershipGranter::class)->grant($invitation, $acceptor))->toBeNull();
 });

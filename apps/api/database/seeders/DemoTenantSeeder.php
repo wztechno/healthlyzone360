@@ -8,6 +8,7 @@ use App\Models\User;
 use Closure;
 use Healthy360\AccessControl\Models\MembershipRole;
 use Healthy360\AccessControl\Models\Role;
+use Healthy360\AccessControl\Services\OrganisationRoles;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\CatalogueStatus;
@@ -1498,8 +1499,10 @@ class DemoTenantSeeder extends Seeder
                 ->where('user_id', $user->getKey())
                 ->firstOrFail();
 
+            app(OrganisationRoles::class)->provision((string) $organisation->getKey());
+
             $role = Role::withoutTenancy()
-                ->whereNull('organisation_id')
+                ->where('organisation_id', $organisation->getKey())
                 ->where('code', $templateRoleCode)
                 ->firstOrFail();
 
@@ -1686,8 +1689,10 @@ class DemoTenantSeeder extends Seeder
             ],
         ));
 
+        app(OrganisationRoles::class)->provision((string) $organisation->getKey());
+
         $role = Role::withoutTenancy()
-            ->whereNull('organisation_id')
+            ->where('organisation_id', $organisation->getKey())
             ->where('code', $templateRoleCode)
             ->firstOrFail();
 

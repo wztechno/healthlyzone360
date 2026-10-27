@@ -13,6 +13,7 @@ use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Services\StockItemDerivationService;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationBranch;
+use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
@@ -59,6 +60,81 @@ it('lists stock levels enriched with the item code, name and ingredient, and rec
             'item_name_en' => 'Rice',
             'ingredient_id' => null,
         ]);
+});
+
+/*
+| Levels are per branch. The route sits behind `branch.context`, which
+| resolves the branch from `X-Branch-Id` (or the membership's own branch);
+| without it the controller's narrowing never fired and every branch's shelf
+| came back, so the stock screen showed whichever branch was keyed last.
+*/
+it('narrows stock levels to the branch the request names, and reads org-wide without one', function (): void {
+    $other = OrganisationBranch::factory()->create([
+        'organisation_id' => $this->tenant->organisation->getKey(),
+        'country_code' => $this->tenant->organisation->country_code,
+    ]);
+    $item = StockItem::query()->create([
+        'organisation_id' => $this->tenant->organisation->getKey(),
+        'code' => 'rice-01',
+        'name_en' => 'Rice',
+        'unit_code' => 'kg',
+    ]);
+
+    foreach ([[$this->branch, 10], [$other, 4]] as [$branch, $delta]) {
+        $this->postJson('/api/v1/catalogue/inventory/adjustments', [
+            'branch_id' => (string) $branch->getKey(),
+            'stock_item_id' => (string) $item->getKey(),
+            'quantity_delta' => $delta,
+        ], $this->headers)->assertCreated();
+    }
+
+    $levels = $this->getJson('/api/v1/catalogue/inventory/levels', $this->headers)->assertOk()->json('data.levels');
+
+    expect($levels)->toHaveCount(1)
+        ->and($levels[0]['branch_id'])->toBe((string) $this->branch->getKey())
+        ->and($levels[0]['quantity'])->toBe('10.0000');
+
+    // An organisation-wide member of a two-branch kitchen has no branch to
+    // default to: `branch.context` resolves, it never requires, so the list
+    // reads org-wide as the spec documents.
+    $this->getJson('/api/v1/catalogue/inventory/levels', PricingWorld::headers($this->tenant))
+        ->assertOk()
+        ->assertJsonCount(2, 'data.levels');
+});
+
+it('defaults a branch-scoped member to its own branch\'s levels when no header is sent', function (): void {
+    $other = OrganisationBranch::factory()->create([
+        'organisation_id' => $this->tenant->organisation->getKey(),
+        'country_code' => $this->tenant->organisation->country_code,
+    ]);
+    $item = StockItem::query()->create([
+        'organisation_id' => $this->tenant->organisation->getKey(),
+        'code' => 'rice-01',
+        'name_en' => 'Rice',
+        'unit_code' => 'kg',
+    ]);
+
+    foreach ([$this->branch, $other] as $branch) {
+        $this->postJson('/api/v1/catalogue/inventory/adjustments', [
+            'branch_id' => (string) $branch->getKey(),
+            'stock_item_id' => (string) $item->getKey(),
+            'quantity_delta' => 3,
+        ], $this->headers)->assertCreated();
+    }
+
+    OrganisationMembership::withoutTenancy()
+        ->where('organisation_id', $this->tenant->organisation->getKey())
+        ->where('user_id', $this->tenant->user->getKey())
+        ->update(['branch_id' => $other->getKey()]);
+
+    // `branch.context` runs before `permission`, so a branch-scoped member
+    // passes PermissionChecker's branch-scope step instead of being refused.
+    $levels = $this->getJson('/api/v1/catalogue/inventory/levels', PricingWorld::headers($this->tenant))
+        ->assertOk()
+        ->json('data.levels');
+
+    expect($levels)->toHaveCount(1)
+        ->and($levels[0]['branch_id'])->toBe((string) $other->getKey());
 });
 
 it('records waste as a negative movement', function (): void {
