@@ -157,10 +157,13 @@ export type {
     IssueTraySummary,
 } from './issues/issue-tray-context.tsx';
 export { IssueTrayFrame } from './issues/issue-tray.tsx';
+export { IssueRevealScope, useIssueGroup } from './issues/issue-group.tsx';
+export type { RegisteredIssues } from './issues/issue-group.tsx';
 export type {
     IssueAction,
     IssueCardItem,
     IssueGroup,
+    IssueNotes,
     IssuePassedItem,
     IssueTrayContent,
     IssueTrayFrameProps,

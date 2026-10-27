@@ -2,7 +2,6 @@ import type { OrderDeskCustomer, ServiceArea } from '@healthy360/api-client/cont
 import {
     Badge,
     Button,
-    Callout,
     EmptyState,
     ErrorState,
     FormGrid,
@@ -14,7 +13,10 @@ import {
     Skeleton,
     Text,
     TextInputField,
+    useIssueGroup,
+    useIssueTrayController,
 } from '@healthy360/design-system';
+import type { IssueCardItem } from '@healthy360/design-system';
 import { fieldWidth } from '@healthy360/design-tokens';
 import { useLocale } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
@@ -31,6 +33,7 @@ import {
     useUpdateOrderDeskCustomerMutation,
 } from '../../../data/order-desk-hooks.ts';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
+import { focusField } from '../field-focus.ts';
 import { displayName } from '../format.ts';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import { checkDeskPhone, dialFor, isBlankPhone, normaliseDeskPhone } from './desk-phone.ts';
@@ -51,6 +54,12 @@ import { useDebouncedValue } from './use-debounced-value.ts';
  * and nothing else. So a delivery taken here writes the destination down as the caller gives it,
  * every time, and a returning customer gets a second copy of their own street. That is the wire's
  * shape rather than a choice made here, and the card says so before anybody types.
+ *
+ * ## Their warnings are the page's tray's
+ *
+ * A number somebody else already has and an address nobody delivers to are said as cards in the sale
+ * page's issue tray (`useIssueGroup`), not as callouts inside the cards — each clearing itself once
+ * the sale is no longer for that record, and each with its way out: the other record, the address.
  *
  * ## The a11y rule the rows follow
  *
@@ -93,6 +102,7 @@ export function CustomerSection({
 }) {
     const { t } = useTranslation();
     const dial = useKitchenDial();
+    const { nudge: nudgeTray } = useIssueTrayController();
     const [query, setQuery] = useState('');
     const [creating, setCreating] = useState(false);
     const [name, setName] = useState('');
@@ -178,8 +188,9 @@ export function CustomerSection({
                 onSuccess: (result) => {
                     setChosen(result.customer);
                     onChoose(result.customer);
-                    // Held open while somebody else shares the new number, so it can be read.
+                    // Held open while somebody else shares the new number; the tray says who.
                     if (result.possibleDuplicates.length === 0) setEditing(false);
+                    else nudgeTray();
                 },
             },
         );
@@ -189,6 +200,52 @@ export function CustomerSection({
         chosen !== null &&
         editName.trim() === (chosen.displayName ?? '') &&
         normaliseDeskPhone(editPhone) === (chosen.phone ?? '');
+
+    /*
+     * Somebody else has the number — a warning, never a refusal: a household or an office shares
+     * one line. Said while the sale is still for the record that shares it; the one just created
+     * offers each other record one press away, so the order can join that history instead.
+     */
+    const duplicateName = (duplicate: OrderDeskCustomer) =>
+        `${duplicate.displayName ?? t('kitchen:desk.sale.customerUnnamed')} · ${
+            duplicate.phone ?? EM_DASH
+        }`;
+    const created = create.data;
+    const edited = update.data;
+    const duplicateCards: IssueCardItem[] = [
+        ...(created === undefined || created.customer.id !== customerAccountId
+            ? []
+            : created.possibleDuplicates.map((duplicate) => ({
+                  key: `duplicate-${duplicate.id}`,
+                  tone: 'warning' as const,
+                  label: t('kitchen:desk.sale.customerDuplicatesTitle'),
+                  detail: duplicateName(duplicate),
+                  action: {
+                      label: t('kitchen:desk.sale.customerUseInstead'),
+                      onPress: () => {
+                          choose(duplicate);
+                      },
+                      testID: `kitchen-order-desk-sale-customer-duplicate-${duplicate.id}-choose`,
+                  },
+                  testID: `kitchen-order-desk-sale-customer-duplicate-${duplicate.id}`,
+              }))),
+        ...(edited === undefined ||
+        edited.customer.id !== customerAccountId ||
+        edited.possibleDuplicates.length === 0
+            ? []
+            : [
+                  {
+                      key: 'edit-duplicates',
+                      tone: 'warning' as const,
+                      label: t('kitchen:desk.sale.customerEditDuplicatesTitle'),
+                      detail: edited.possibleDuplicates
+                          .map(duplicateName)
+                          .join(t('kitchen:common.listSeparator')),
+                      testID: 'kitchen-order-desk-sale-customer-edit-duplicates',
+                  },
+              ]),
+    ];
+    useIssueGroup({ key: 'check', title: t('kitchen:tray.groupCheck'), items: duplicateCards });
 
     return (
         <FormSection
@@ -257,27 +314,6 @@ export function CustomerSection({
                         <Text tone="danger" testID="kitchen-order-desk-sale-customer-edit-error">
                             {updateServer.unplaced ?? updateFailure.message}
                         </Text>
-                    )}
-
-                    {update.data === undefined ||
-                    update.data.possibleDuplicates.length === 0 ? null : (
-                        <Callout
-                            testID="kitchen-order-desk-sale-customer-edit-duplicates"
-                            tone="warning"
-                            role="status"
-                            title={t('kitchen:desk.sale.customerEditDuplicatesTitle')}
-                        >
-                            <View className="flex-col gap-hair">
-                                {update.data.possibleDuplicates.map((duplicate) => (
-                                    <Text key={duplicate.id} variant="caption">
-                                        {`${
-                                            duplicate.displayName ??
-                                            t('kitchen:desk.sale.customerUnnamed')
-                                        } · ${duplicate.phone ?? EM_DASH}`}
-                                    </Text>
-                                ))}
-                            </View>
-                        </Callout>
                     )}
 
                     <Inline space="xs" wrap>
@@ -480,47 +516,6 @@ export function CustomerSection({
                                 </Text>
                             )}
 
-                            {create.data === undefined ||
-                            create.data.possibleDuplicates.length === 0 ? null : (
-                                <Callout
-                                    testID="kitchen-order-desk-sale-customer-duplicates"
-                                    tone="warning"
-                                    role="status"
-                                    title={t('kitchen:desk.sale.customerDuplicatesTitle')}
-                                    body={t('kitchen:desk.sale.customerDuplicatesBody')}
-                                >
-                                    <View className="flex-col gap-hair">
-                                        {create.data.possibleDuplicates.map((duplicate) => (
-                                            <Inline
-                                                key={duplicate.id}
-                                                space="sm"
-                                                align="center"
-                                                wrap
-                                                testID={`kitchen-order-desk-sale-customer-duplicate-${duplicate.id}`}
-                                            >
-                                                <Text variant="caption">
-                                                    {`${
-                                                        duplicate.displayName ??
-                                                        t('kitchen:desk.sale.customerUnnamed')
-                                                    } · ${duplicate.phone ?? EM_DASH}`}
-                                                </Text>
-                                                <Button
-                                                    testID={`kitchen-order-desk-sale-customer-duplicate-${duplicate.id}-choose`}
-                                                    size="sm"
-                                                    variant="secondary"
-                                                    label={t(
-                                                        'kitchen:desk.sale.customerUseInstead',
-                                                    )}
-                                                    onPress={() => {
-                                                        choose(duplicate);
-                                                    }}
-                                                />
-                                            </Inline>
-                                        ))}
-                                    </View>
-                                </Callout>
-                            )}
-
                             <Inline space="xs" wrap>
                                 <Button
                                     testID="kitchen-order-desk-sale-customer-create"
@@ -544,11 +539,12 @@ export function CustomerSection({
                                                     if (result.possibleDuplicates.length === 0) {
                                                         choose(result.customer);
                                                     } else {
-                                                        // Held open, so the possible duplicates
-                                                        // stay on screen to be read.
+                                                        // Held open, and the tray opened on the
+                                                        // possible duplicates, so they are read.
                                                         setChanging(true);
                                                         setChosen(result.customer);
                                                         onChoose(result.customer);
+                                                        nudgeTray();
                                                     }
                                                 },
                                             },
@@ -608,6 +604,7 @@ export function AddressSection({
     // then refuses with `area_not_served`.
     const deliveryAreas = useOrderDeskDeliveryAreasQuery();
     const save = useAddOrderDeskCustomerAddressMutation();
+    const { nudge: nudgeTray } = useIssueTrayController();
 
     const [areaId, setAreaId] = useState<string | null>(null);
     const [lineOne, setLineOne] = useState('');
@@ -636,7 +633,36 @@ export function AddressSection({
     });
     const saved = save.data ?? null;
     // Folded only while the saved address is still the sale's — a new customer clears it.
-    const folded = saved !== null && saved.id === customerAddressId && !changing;
+    const isTheSales = saved !== null && saved.id === customerAddressId;
+    const folded = isTheSales && !changing;
+
+    /*
+     * A warning rather than a block: the address is real and saved, and whether a zone covers it is
+     * the *quote's* answer — `area_not_served`, with the sentence the agent reads out. Said while it
+     * is still the sale's address, whether or not the card is open to change it; Fix opens it.
+     */
+    useIssueGroup({
+        key: 'check',
+        title: t('kitchen:tray.groupCheck'),
+        items:
+            !isTheSales || saved.isDeliverable
+                ? []
+                : [
+                      {
+                          key: 'undeliverable',
+                          tone: 'warning',
+                          label: t('kitchen:desk.sale.addressUndeliverableTitle'),
+                          detail: saved.lineOne,
+                          action: {
+                              onPress: () => {
+                                  setChanging(true);
+                                  focusField('kitchen-order-desk-sale-address-area');
+                              },
+                          },
+                          testID: 'kitchen-order-desk-sale-address-undeliverable',
+                      },
+                  ],
+    });
 
     const options = useMemo(
         () =>
@@ -672,24 +698,10 @@ export function AddressSection({
                 ) : undefined
             }
         >
-            {folded && saved !== null ? (
-                <View className="flex-col gap-tight">
-                    <Text variant="label" testID="kitchen-order-desk-sale-address-saved">
-                        {saved.lineOne}
-                    </Text>
-                    {saved.isDeliverable ? null : (
-                        // A warning rather than a block: the address is real and saved, and whether
-                        // a zone covers it is the *quote's* answer — `area_not_served`, with the
-                        // sentence the agent reads out.
-                        <Callout
-                            testID="kitchen-order-desk-sale-address-undeliverable"
-                            tone="warning"
-                            role="alert"
-                            title={t('kitchen:desk.sale.addressUndeliverableTitle')}
-                            body={t('kitchen:desk.sale.addressUndeliverableBody')}
-                        />
-                    )}
-                </View>
+            {folded ? (
+                <Text variant="label" testID="kitchen-order-desk-sale-address-saved">
+                    {saved.lineOne}
+                </Text>
             ) : (
                 <View className="z-auto flex-col gap-snug">
                     <FormGrid columns={3}>
@@ -781,6 +793,7 @@ export function AddressSection({
                                         onSuccess: (address) => {
                                             setChanging(false);
                                             onSaved(address.id);
+                                            if (!address.isDeliverable) nudgeTray();
                                         },
                                     },
                                 );

@@ -593,9 +593,13 @@ final readonly class ProductionOrderService
      */
     private function valueInput(ProductionOrder $order, ProductionOrderLine $line): ?InputValuation
     {
+        // Valued as whatever the shelf holds: a kitchen's copy drawing on its
+        // original's shelf is costed as the original (MealExplosion::resolveStockItem()).
+        $heldIngredientId = StockItem::withoutTenancy()->whereKey($line->stock_item_id)->value('ingredient_id') ?? $line->ingredient_id;
+
         $cost = IngredientStockCost::withoutTenancy()
             ->where('organisation_id', $order->organisation_id)
-            ->where('ingredient_id', $line->ingredient_id)
+            ->where('ingredient_id', $heldIngredientId)
             ->lockForUpdate()
             ->first();
 

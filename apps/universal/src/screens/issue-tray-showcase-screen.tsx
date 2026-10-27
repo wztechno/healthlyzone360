@@ -5,19 +5,21 @@ import {
     FormGrid,
     FormSection,
     Inline,
+    IssueRevealScope,
     IssueTrayFrame,
     Tabs,
     Text,
     TextInputField,
+    useIssueGroup,
     useIssueTrayController,
 } from '@healthy360/design-system';
 import type { IssueCardItem, IssueTrayContent } from '@healthy360/design-system';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 
 import { focusField } from '../features/kitchen-admin/field-focus.ts';
 
-type DemoTab = 'details' | 'ingredients' | 'yield';
+type DemoTab = 'details' | 'ingredients' | 'yield' | 'selling';
 
 /**
  * `/showcase-issue-tray` — the issue tray on its own page, as the user asked for redesign parts
@@ -28,6 +30,10 @@ type DemoTab = 'details' | 'ingredients' | 'yield';
  * Fix switches the tab, focuses the field and spotlights it. Save draft with a blocking card open
  * nudges the tray — it opens, and the pill in the top bar shakes.
  *
+ * The Selling tab is a part of the page with its own problems, the way a listing sits inside a
+ * recipe: it registers them with `useIssueGroup` from inside the frame, under an `IssueRevealScope`
+ * that switches to its tab first. It stays mounted while hidden, so its card is there on every tab.
+ *
  * Literal copy, like `/showcase`: a development page, never a customer one.
  */
 export function IssueTrayShowcaseScreen() {
@@ -37,6 +43,9 @@ export function IssueTrayShowcaseScreen() {
     const [cost, setCost] = useState('');
     const [portions, setPortions] = useState('');
     const [published, setPublished] = useState(false);
+    const revealSelling = useCallback(() => {
+        setTab('selling');
+    }, []);
 
     const goTo = (target: DemoTab, fieldId: string) => {
         setTab(target);
@@ -164,41 +173,49 @@ export function IssueTrayShowcaseScreen() {
                                 { value: 'details', label: 'Details' },
                                 { value: 'ingredients', label: 'Ingredients' },
                                 { value: 'yield', label: 'Yield' },
+                                { value: 'selling', label: 'Selling' },
                             ]}
                         />
-                        <FormSection variant="card" first title={tabTitle(tab)}>
-                            <FormGrid>
-                                {tab === 'details' ? (
-                                    <TextInputField
-                                        id="showcase-arabic"
-                                        testID="showcase-arabic"
-                                        label="Name (Arabic)"
-                                        size="sm"
-                                        value={arabic}
-                                        onChangeText={setArabic}
-                                    />
-                                ) : tab === 'ingredients' ? (
-                                    <TextInputField
-                                        id="showcase-cost"
-                                        testID="showcase-cost"
-                                        label="Chickpeas cost per kg"
-                                        size="sm"
-                                        value={cost}
-                                        onChangeText={setCost}
-                                    />
-                                ) : (
-                                    <TextInputField
-                                        id="showcase-portions"
-                                        testID="showcase-portions"
-                                        label="Portions per batch"
-                                        size="sm"
-                                        value={portions}
-                                        onChangeText={setPortions}
-                                        {...(portionsOk ? {} : { error: 'Required' })}
-                                    />
-                                )}
-                            </FormGrid>
-                        </FormSection>
+                        <IssueRevealScope reveal={revealSelling}>
+                            <View className={tab === 'selling' ? 'flex-col' : 'hidden'}>
+                                <ShowcaseSelling />
+                            </View>
+                        </IssueRevealScope>
+                        {tab === 'selling' ? null : (
+                            <FormSection variant="card" first title={tabTitle(tab)}>
+                                <FormGrid>
+                                    {tab === 'details' ? (
+                                        <TextInputField
+                                            id="showcase-arabic"
+                                            testID="showcase-arabic"
+                                            label="Name (Arabic)"
+                                            size="sm"
+                                            value={arabic}
+                                            onChangeText={setArabic}
+                                        />
+                                    ) : tab === 'ingredients' ? (
+                                        <TextInputField
+                                            id="showcase-cost"
+                                            testID="showcase-cost"
+                                            label="Chickpeas cost per kg"
+                                            size="sm"
+                                            value={cost}
+                                            onChangeText={setCost}
+                                        />
+                                    ) : (
+                                        <TextInputField
+                                            id="showcase-portions"
+                                            testID="showcase-portions"
+                                            label="Portions per batch"
+                                            size="sm"
+                                            value={portions}
+                                            onChangeText={setPortions}
+                                            {...(portionsOk ? {} : { error: 'Required' })}
+                                        />
+                                    )}
+                                </FormGrid>
+                            </FormSection>
+                        )}
                     </Cascade>
                 </IssueTrayFrame>
             </View>
@@ -206,8 +223,54 @@ export function IssueTrayShowcaseScreen() {
     );
 }
 
+/** The Selling tab: its card is registered from here, not passed by the page. */
+function ShowcaseSelling() {
+    const [price, setPrice] = useState('');
+    const priced = Number.parseFloat(price) > 0;
+    useIssueGroup(
+        {
+            key: 'selling',
+            title: 'Selling',
+            items: priced
+                ? []
+                : [
+                      {
+                          key: 'price',
+                          tone: 'warning',
+                          label: 'No price for the 300 g pack',
+                          detail: 'Selling',
+                          action: {
+                              onPress: () => {
+                                  focusField('showcase-price');
+                              },
+                          },
+                          testID: 'showcase-issue-price',
+                      },
+                  ],
+        },
+        {
+            passed: priced ? [{ key: 'price', label: 'Every pack priced' }] : [],
+        },
+    );
+    return (
+        <FormSection variant="card" first title="Selling">
+            <FormGrid>
+                <TextInputField
+                    id="showcase-price"
+                    testID="showcase-price"
+                    label="Price of the 300 g pack"
+                    size="sm"
+                    value={price}
+                    onChangeText={setPrice}
+                />
+            </FormGrid>
+        </FormSection>
+    );
+}
+
 function tabTitle(tab: DemoTab): string {
     if (tab === 'details') return 'Details';
     if (tab === 'ingredients') return 'Ingredients';
+    if (tab === 'selling') return 'Selling';
     return 'Yield';
 }

@@ -1065,7 +1065,7 @@ describe('order desk queue — the order record page', () => {
         expect(screen.queryByTestId('kitchen-order-desk-detail-fulfil-tracking')).toBeNull();
     });
 
-    it('shows the conflict callout with a refresh, and never retries the transition itself', async () => {
+    it('shows the conflict card with a refresh, and never retries the transition itself', async () => {
         const row = deskRow({ id: orderIdAt(1), status: 'placed', lockVersion: 1 });
         let reads = 0;
 

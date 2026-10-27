@@ -12,6 +12,7 @@ use Healthy360\Inventory\Models\OrderConsumptionException;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\Orders\Contracts\OrderStockConsumption;
+use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
 use Healthy360\Organisations\Models\OrganisationBranch;
@@ -334,6 +335,15 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
                 return $fresh;
             }
 
+            // Its stock was put back on cancellation; deducting now would take it off again for
+            // food nobody is cooking. The sweep already skips these — this is every other way in.
+            if ($order->status === OrderStatus::Cancelled) {
+                $fresh->detail = 'Retry did not run: the order was cancelled, so nothing is deducted for it.';
+                $fresh->save();
+
+                return $fresh;
+            }
+
             $branchId = $this->deductionBranch($order);
 
             if ($branchId === null) {
@@ -434,15 +444,22 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
      * Reconcile a line's freshly-collected failures against the exceptions
      * already open on it.
      *
-     * Failures are matched to open exceptions by reason code, one for one, so
-     * multiplicity is preserved: two ingredients failing `no_stock_item` keep two
-     * rows open, and fixing one closes exactly one. An open exception whose reason
-     * no longer occurs is settled — with one guard: a `no_ingredient_cost` (and a
-     * cost-stage `unit_conversion_unsupported`) sits on a movement that *did*
-     * deduct but could not be valued, and an append-only ledger cannot be
-     * re-valued by re-running, so those are settled by retry only when a real new
-     * deduction happened this run. Otherwise they are left open for a person to
-     * settle, their detail refreshed to say why.
+     * Failures are matched to open exceptions one for one, so multiplicity is
+     * preserved: two ingredients failing `no_stock_item` keep two rows open, and
+     * fixing one closes exactly one. **The one it closes is the fixed one.** A
+     * failure is paired first with the exception that names the same ingredient,
+     * and only then — for a row that names none — by reason alone. Pairing by
+     * reason alone closed whichever row came first: a line short of nine
+     * ingredients, restocked with chicken, closed the lemon's row and moved the
+     * other details around.
+     *
+     * An open exception whose reason no longer occurs is settled — with one
+     * guard: a `no_ingredient_cost` (and a cost-stage `unit_conversion_
+     * unsupported`) sits on a movement that *did* deduct but could not be valued,
+     * and an append-only ledger cannot be re-valued by re-running, so those are
+     * settled by retry only when a real new deduction happened this run.
+     * Otherwise they are left open for a person to settle, their detail refreshed
+     * to say why.
      *
      * @param  list<ConsumptionFailure>  $failures
      */
@@ -455,23 +472,29 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             ->where('order_id', (string) $order->getKey())
             ->where('order_line_id', (string) $line->getKey())
             ->whereNull('resolved_at')
+            ->orderBy('created_at')
+            ->orderBy('id')
             ->get();
 
+        // First every row that names its ingredient takes that ingredient's failure.
+        $unpaired = [];
         foreach ($open as $exception) {
-            $matchIndex = null;
-            foreach ($remaining as $index => $failure) {
-                if ($failure['reason_code'] === $exception->reason_code) {
-                    $matchIndex = $index;
-                    break;
-                }
+            $matchIndex = $this->failureFor($exception, $remaining, sameIngredientOnly: true);
+
+            if ($matchIndex === null) {
+                $unpaired[] = $exception;
+
+                continue;
             }
 
+            $this->keepOpen($exception, $remaining, $matchIndex);
+        }
+
+        foreach ($unpaired as $exception) {
+            $matchIndex = $this->failureFor($exception, $remaining, sameIngredientOnly: false);
+
             if ($matchIndex !== null) {
-                // Still failing for the same reason — refresh the detail, leave open.
-                $exception->detail = $remaining[$matchIndex]['detail'];
-                $exception->save();
-                unset($remaining[$matchIndex]);
-                $remaining = array_values($remaining);
+                $this->keepOpen($exception, $remaining, $matchIndex);
 
                 continue;
             }
@@ -495,6 +518,66 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         foreach ($remaining as $failure) {
             $this->persistException($order, $line, $failure['catalogue_item_id'], $failure['reason_code'], $failure['detail']);
         }
+    }
+
+    /**
+     * The index of the failure this exception is still raised by, or null.
+     *
+     * With `$sameIngredientOnly` the two must name the same ingredient. Without
+     * it, a pair where one side names an ingredient and the other a different
+     * one never matches — that is a different problem — but a side that names
+     * none (a recipe-level reason, an older detail) matches on reason alone.
+     *
+     * @param  list<ConsumptionFailure>  $failures
+     */
+    private function failureFor(OrderConsumptionException $exception, array $failures, bool $sameIngredientOnly): ?int
+    {
+        $was = $this->ingredientNamed((string) $exception->detail);
+
+        foreach ($failures as $index => $failure) {
+            if ($failure['reason_code'] !== $exception->reason_code) {
+                continue;
+            }
+
+            $now = $this->ingredientNamed($failure['detail']);
+
+            if ($sameIngredientOnly ? ($was !== null && $was === $now) : ($was === null || $now === null)) {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Still failing for the same thing: refresh the detail, leave it open, and
+     * take the failure out of the ones still to place.
+     *
+     * @param  list<ConsumptionFailure>  $remaining
+     *
+     * @param-out list<ConsumptionFailure> $remaining
+     */
+    private function keepOpen(OrderConsumptionException $exception, array &$remaining, int $index): void
+    {
+        $exception->detail = $remaining[$index]['detail'];
+        $exception->save();
+
+        $remaining = array_values(array_filter(
+            $remaining,
+            static fn (int $key): bool => $key !== $index,
+            ARRAY_FILTER_USE_KEY,
+        ));
+    }
+
+    /**
+     * The ingredient a detail line names, the way the presenter reads it for the
+     * screen — `Ingredient <uuid>: …`.
+     */
+    private function ingredientNamed(string $detail): ?string
+    {
+        return preg_match('/\bingredient\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i', $detail, $match) === 1
+            ? strtolower($match[1])
+            : null;
     }
 
     /**
@@ -823,8 +906,10 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
 
         // A reason instead of figures when the COGS side cannot be valued — no
         // average held, or a stock unit that will not convert to the cost unit.
-        // The stock deducts either way.
-        $valued = $this->valuation->value((string) $order->organisation_id, $ingredientId, $stockUnit, $consumedInStockUnit);
+        // The stock deducts either way. Valued as whatever the shelf holds, which
+        // for a kitchen's copy drawing on its original's shelf is the original
+        // (see MealExplosion::resolveStockItem()).
+        $valued = $this->valuation->value((string) $order->organisation_id, (string) ($stockItem->ingredient_id ?? $ingredientId), $stockUnit, $consumedInStockUnit);
         $costProblem = is_string($valued) ? $valued : null;
         $figures = is_array($valued) ? $valued : null;
 

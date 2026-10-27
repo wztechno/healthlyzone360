@@ -11,6 +11,7 @@ use Healthy360\Customers\Closure\Jobs\ProcessScheduledClosures;
 use Healthy360\Customers\Guest\Jobs\ExpireGuestData;
 use Healthy360\Customers\Guest\Jobs\PurgeExpiredGuestSessions;
 use Healthy360\Customers\Jobs\PurgeAbandonedProvisionalAccounts;
+use Healthy360\Inventory\Jobs\RetryOpenConsumptionExceptions;
 use Healthy360\Procurement\Jobs\PublishWeeklyIngredientPrices;
 use Healthy360\Subscriptions\Jobs\GenerateSubscriptionDeliveries;
 use Healthy360\Support\Http\Middleware\EnforceIdempotency;
@@ -340,5 +341,26 @@ Schedule::job(new ProcessScheduledClosures)
 Schedule::command('inventory:check-stock-sufficiency')
     ->weeklyOn(1, '05:00')
     ->name('inventory:check-stock-sufficiency')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+/*
+|--------------------------------------------------------------------------
+| Stock gaps retry themselves — every five minutes
+|--------------------------------------------------------------------------
+|
+| Stock rising on a shelf already retries that kitchen's gaps the moment it
+| commits. Every other fix — a recipe published, a unit set on an ingredient, a
+| branch opened, a batch's claim released — is caught here, so no gap waits on
+| somebody pressing Retry. Five minutes, not one: a gap that cannot close yet is
+| re-run on every pass, and a fix nobody is watching for does not need to land
+| within the minute.
+|
+| `withoutOverlapping()` and `onOneServer()` because it is a cluster-wide sweep
+| that writes.
+*/
+Schedule::job(new RetryOpenConsumptionExceptions)
+    ->everyFiveMinutes()
+    ->name('inventory:retry-stock-gaps')
     ->withoutOverlapping()
     ->onOneServer();

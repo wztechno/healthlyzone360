@@ -14,6 +14,7 @@ import {
     FormGrid,
     FormSection,
     FormSkeleton,
+    IssueTrayFrame,
     Select,
     Skeleton,
     Stack,
@@ -21,9 +22,10 @@ import {
     Text,
     TextInputField,
     useFormSteps,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { TabItem } from '@healthy360/design-system';
+import type { IssueCardItem, IssueTrayContent, TabItem } from '@healthy360/design-system';
 import { CURRENCY_CODES, DeliveryZoneId } from '@healthy360/domain-types';
 import type { CurrencyCode, DeliveryWindowId, ServiceAreaId } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
@@ -61,13 +63,14 @@ import {
 } from '../delivery-model.ts';
 import { ServiceAreaPicker } from '../delivery-row-editors.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
-import { focusField } from '../field-focus.ts';
+import { focusField, focusSection } from '../field-focus.ts';
 import { ISO_WEEKDAYS, displayName, minorAmountToInput, statusKey, statusTone } from '../format.ts';
 import { returnCrumbLabel } from '../came-from.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';
+import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -265,6 +268,14 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
     const archive = useArchiveZoneMutation();
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
+
+    // The page's issue tray; a refused write of any of the three opens it.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+    useNudgeOnRefusal(
+        update.error ?? create.error ?? saveAreasMutation.error ?? saveWindowsMutation.error,
+        nudgeTray,
+    );
 
     const form = useFormSteps(ZONE_STEPS);
     const [details, setDetails] = useState<DetailsDraft>(EMPTY_DETAILS);
@@ -621,6 +632,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
         const first = issues[0];
         if (first !== undefined) {
             goTo(first.step, first.fieldId);
+            nudgeTray();
             return;
         }
         finish();
@@ -695,7 +707,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
     }));
     const areasFailure = toFailure(saveAreasMutation.error);
     const windowsFailure = toFailure(saveWindowsMutation.error);
-    // Neither picker has a field of its own to mark, so a refusal's own words go in its callout.
+    // Neither picker has a field of its own to mark, so a refusal's own words go on its card.
     const areasServer = serverFieldErrors(areasFailure);
     const windowsServer = serverFieldErrors(windowsFailure);
     const gazetteerFailure = toFailure(gazetteer.error);
@@ -704,8 +716,8 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
     const status = data?.meta.status ?? 'draft';
     /*
      * The red pill on each step: what is wrong on it, from the form's own checks and the server's.
-     * A refused area or window set has no field to mark, so its section's callout is the one thing
-     * wrong on that step — and the pill is what says which step to open to read it.
+     * A refused area or window set has no field to mark, so its card in the tray is the one thing
+     * wrong on that step — and the pill is what says which step it is about.
      */
     const refusedOn: Readonly<Record<ZoneStep, number>> = {
         zone: serverItems.length,
@@ -748,462 +760,497 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
         },
     ];
 
+    /*
+     * The page's problems, in its issue tray rather than in callouts over the sections. What stops
+     * the save is the opening's (`RecordFormOpening` registers it); each refused write keeps the
+     * server's own words under its title, and Fix opens the step whose write it was.
+     */
+    const saveCards: IssueCardItem[] = [
+        ...(saveFailure === null || (server.isValidation && server.unplaced === null)
+            ? []
+            : [
+                  {
+                      key: 'save-error',
+                      tone: 'danger' as const,
+                      label: t('kitchen:editor.saveError'),
+                      detail: server.unplaced ?? saveFailure.message,
+                      testID: 'kitchen-zone-save-error',
+                  },
+              ]),
+        ...(areasFailure === null
+            ? []
+            : [
+                  {
+                      key: 'areas-error',
+                      tone: 'danger' as const,
+                      label: t('kitchen:areas.saveError'),
+                      detail: areasServer.unplaced ?? areasFailure.message,
+                      action: {
+                          onPress: () => {
+                              form.goTo('areas');
+                              focusSection('kitchen-zone-areas');
+                          },
+                      },
+                      testID: 'kitchen-zone-areas-save-error',
+                  },
+              ]),
+        ...(windowsFailure === null
+            ? []
+            : [
+                  {
+                      key: 'windows-error',
+                      tone: 'danger' as const,
+                      label: t('kitchen:windows.saveError'),
+                      detail: windowsServer.unplaced ?? windowsFailure.message,
+                      action: {
+                          onPress: () => {
+                              form.goTo('windows');
+                              focusSection('kitchen-zone-windows');
+                          },
+                      },
+                      testID: 'kitchen-zone-windows-save-error',
+                  },
+              ]),
+    ];
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-zone-tray',
+        groups: [{ key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards }],
+    };
+
     return (
-        <Cascade space="md" testID="kitchen-zone-editor-screen">
-            <RecordFormOpening<ZoneStep>
-                testID="kitchen-zone-editor-screen"
-                title={title}
-                dirty={guard.isDirty}
-                badges={
-                    <Badge
-                        variant="caps"
-                        testID={
-                            isRetired
-                                ? 'kitchen-zone-archived'
-                                : 'kitchen-zone-editor-screen-status'
-                        }
-                        tone={statusTone(status)}
-                        icon={null}
-                        label={t(statusKey(status))}
-                    />
-                }
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-zone-editor-screen-back"
-                            variant="secondary"
-                            label={t('kitchen:editor.cancel')}
-                            onPress={() => {
-                                guard.intercept(back.leave);
-                            }}
+        <IssueTrayFrame tray={trayContent} controller={issueTray}>
+            <Cascade space="md" testID="kitchen-zone-editor-screen">
+                <RecordFormOpening<ZoneStep>
+                    testID="kitchen-zone-editor-screen"
+                    title={title}
+                    dirty={guard.isDirty}
+                    badges={
+                        <Badge
+                            variant="caps"
+                            testID={
+                                isRetired
+                                    ? 'kitchen-zone-archived'
+                                    : 'kitchen-zone-editor-screen-status'
+                            }
+                            tone={statusTone(status)}
+                            icon={null}
+                            label={t(statusKey(status))}
                         />
-                        {isCreating || !canManage || isRetired ? null : (
+                    }
+                    actions={
+                        <>
                             <Button
-                                testID="kitchen-zone-archive"
-                                variant="quiet"
-                                label={t('kitchen:list.archive')}
+                                testID="kitchen-zone-editor-screen-back"
+                                variant="secondary"
+                                label={t('kitchen:editor.cancel')}
                                 onPress={() => {
-                                    setShowArchive(true);
+                                    guard.intercept(back.leave);
                                 }}
                             />
-                        )}
-                        {/*
-                         * The one Save, on every step: it writes the whole walk, and a reader who
-                         * changed only the first step should not have to page to the last for it.
-                         */}
-                        {canManage ? (
-                            <Button
-                                testID="kitchen-zone-editor-screen-save"
-                                label={t('kitchen:zones.saveZone')}
-                                loading={saving}
-                                disabled={saving}
-                                onPress={attemptSave}
-                            />
-                        ) : null}
-                    </>
-                }
-                errors={{
-                    summary: t(
-                        serverItems.length === 0 && shownIssues.every((entry) => entry.required)
-                            ? 'kitchen:forms.requiredCount'
-                            : 'kitchen:forms.toFixCount',
-                        { count: shownIssues.length + serverItems.length },
-                    ),
-                    items: [
-                        // No `fieldId`: the field keeps its own message under it, so the problem
-                        // is said where it is fixed and not only in this line.
-                        ...shownIssues.map((entry) => ({
-                            key: entry.key,
-                            label: entry.label,
-                            onPress: () => {
-                                goTo(entry.step, entry.fieldId);
-                            },
-                        })),
-                        ...serverItems,
-                    ],
-                }}
-                steps={{
-                    label: t('kitchen:editor.stepsLabel'),
-                    value: form.current,
-                    onChange: form.goTo,
-                    /*
-                     * Areas and windows wait for a record that would save: details the server would
-                     * refuse are not a state to walk away from. Nothing else gates them — the walk
-                     * writes at the end, so both are editable before the zone exists.
-                     */
-                    items: stepItems,
-                }}
-            />
-
-            {saveFailure === null || (server.isValidation && server.unplaced === null) ? null : (
-                <Callout
-                    testID="kitchen-zone-save-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:editor.saveError')}
-                    body={server.unplaced ?? saveFailure.message}
+                            {isCreating || !canManage || isRetired ? null : (
+                                <Button
+                                    testID="kitchen-zone-archive"
+                                    variant="quiet"
+                                    label={t('kitchen:list.archive')}
+                                    onPress={() => {
+                                        setShowArchive(true);
+                                    }}
+                                />
+                            )}
+                            {/*
+                             * The one Save, on every step: it writes the whole walk, and a reader who
+                             * changed only the first step should not have to page to the last for it.
+                             */}
+                            {canManage ? (
+                                <Button
+                                    testID="kitchen-zone-editor-screen-save"
+                                    label={t('kitchen:zones.saveZone')}
+                                    loading={saving}
+                                    disabled={saving}
+                                    onPress={attemptSave}
+                                />
+                            ) : null}
+                        </>
+                    }
+                    errors={{
+                        summary: t(
+                            serverItems.length === 0 && shownIssues.every((entry) => entry.required)
+                                ? 'kitchen:forms.requiredCount'
+                                : 'kitchen:forms.toFixCount',
+                            { count: shownIssues.length + serverItems.length },
+                        ),
+                        items: [
+                            // No `fieldId`: the field keeps its own message under it, so the problem
+                            // is said where it is fixed and not only in this line.
+                            ...shownIssues.map((entry) => ({
+                                key: entry.key,
+                                label: entry.label,
+                                onPress: () => {
+                                    goTo(entry.step, entry.fieldId);
+                                },
+                            })),
+                            ...serverItems,
+                        ],
+                    }}
+                    steps={{
+                        label: t('kitchen:editor.stepsLabel'),
+                        value: form.current,
+                        onChange: form.goTo,
+                        /*
+                         * Areas and windows wait for a record that would save: details the server would
+                         * refuse are not a state to walk away from. Nothing else gates them — the walk
+                         * writes at the end, so both are editable before the zone exists.
+                         */
+                        items: stepItems,
+                    }}
                 />
-            )}
 
-            {/* ── the record ───────────────────────────────────────────────────────────────── */}
-            {form.current !== 'zone' ? null : (
-                <FormSection
-                    first
-                    variant="card"
-                    testID="kitchen-zone-details"
-                    title={t('kitchen:zones.sectionDetails')}
-                >
-                    {/*
-                     * The design's 280px tracks. The name pair takes two of them, so the Arabic
-                     * name sits beside the English one rather than under it.
-                     */}
-                    <FormGrid testID="kitchen-zone-details-grid">
-                        <BilingualField
-                            span={2}
-                            layout="row"
-                            testID="kitchen-zone-name"
-                            fieldLabel={t('kitchen:fields.name')}
-                            placeholder={{
-                                en: t('kitchen:fields.zoneNamePlaceholderEn'),
-                                ar: t('kitchen:fields.zoneNamePlaceholderAr'),
-                            }}
-                            value={details.name}
-                            requiredEnglish
-                            {...(shows('name')
-                                ? { englishError: t('kitchen:forms.required') }
-                                : server.errorFor('name_en') === undefined
-                                  ? {}
-                                  : { englishError: server.errorFor('name_en') })}
-                            {...(server.errorFor('name_ar') === undefined
-                                ? {}
-                                : { arabicError: server.errorFor('name_ar') })}
-                            onChange={(next) => {
-                                markDirty(() => {
-                                    setDetails({ ...details, name: next });
-                                    setDetailsDirty(true);
-                                });
-                            }}
-                        />
-
-                        {isCreating ? (
-                            <Select
-                                testID="kitchen-zone-currency-select"
-                                id="kitchen-zone-currency-select"
-                                label={t('kitchen:zones.currencyLabel')}
-                                searchable
-                                required
-                                {...(shows('currency')
-                                    ? { error: t('kitchen:forms.required') }
-                                    : {})}
-                                {...server.flag('currency_code')}
-                                value={currency}
-                                options={CURRENCY_CODES.map((code) => ({
-                                    value: code,
-                                    label: code,
-                                }))}
+                {/* ── the record ───────────────────────────────────────────────────────────────── */}
+                {form.current !== 'zone' ? null : (
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-zone-details"
+                        title={t('kitchen:zones.sectionDetails')}
+                    >
+                        {/*
+                         * The design's 280px tracks. The name pair takes two of them, so the Arabic
+                         * name sits beside the English one rather than under it.
+                         */}
+                        <FormGrid testID="kitchen-zone-details-grid">
+                            <BilingualField
+                                span={2}
+                                layout="row"
+                                testID="kitchen-zone-name"
+                                fieldLabel={t('kitchen:fields.name')}
+                                placeholder={{
+                                    en: t('kitchen:fields.zoneNamePlaceholderEn'),
+                                    ar: t('kitchen:fields.zoneNamePlaceholderAr'),
+                                }}
+                                value={details.name}
+                                requiredEnglish
+                                {...(shows('name')
+                                    ? { englishError: t('kitchen:forms.required') }
+                                    : server.errorFor('name_en') === undefined
+                                      ? {}
+                                      : { englishError: server.errorFor('name_en') })}
+                                {...(server.errorFor('name_ar') === undefined
+                                    ? {}
+                                    : { arabicError: server.errorFor('name_ar') })}
                                 onChange={(next) => {
                                     markDirty(() => {
-                                        setChosenCurrency(next);
+                                        setDetails({ ...details, name: next });
                                         setDetailsDirty(true);
                                     });
                                 }}
                             />
-                        ) : (
-                            <ReadOnlyCell
-                                testID="kitchen-zone-currency"
-                                label={t('kitchen:zones.currencyLabel')}
-                            >
-                                <Text testID="kitchen-zone-currency-value" variant="caption">
-                                    {currency ?? t('kitchen:common.notRecorded')}
-                                </Text>
-                            </ReadOnlyCell>
-                        )}
 
-                        <TextInputField
-                            testID="kitchen-zone-estimated"
-                            id="kitchen-zone-estimated"
-                            label={t('kitchen:zones.estimatedLabel')}
-                            placeholder={t('kitchen:zones.estimatedPlaceholder')}
-                            size="sm"
-                            value={
-                                details.estimatedMinutes === null
-                                    ? ''
-                                    : String(details.estimatedMinutes)
-                            }
-                            inputMode="numeric"
-                            autoCorrect={false}
-                            disabled={!canManage}
-                            {...server.flag('estimated_minutes')}
-                            onChangeText={(next) => {
-                                // Empty is "not advertised" (null), never zero minutes.
-                                const digits = next.replace(/[^0-9]/gu, '');
-                                markDirty(() => {
-                                    setDetails({
-                                        ...details,
-                                        estimatedMinutes: digits === '' ? null : Number(digits),
-                                    });
-                                    setDetailsDirty(true);
-                                });
-                            }}
-                        />
-
-                        <TextInputField
-                            testID="kitchen-zone-fee"
-                            id="kitchen-zone-fee"
-                            label={t('kitchen:zones.feeLabel', {
-                                currency: currency ?? t('kitchen:common.notRecorded'),
-                            })}
-                            placeholder={t('kitchen:zones.feePlaceholder')}
-                            size="sm"
-                            value={details.deliveryFee}
-                            inputMode="decimal"
-                            autoCorrect={false}
-                            disabled={!canManage}
-                            {...(feeState === 'invalid'
-                                ? { error: t('kitchen:zones.amountInvalid') }
-                                : {})}
-                            {...server.flag('delivery_fee_minor')}
-                            onChangeText={(next) => {
-                                markDirty(() => {
-                                    setDetails({ ...details, deliveryFee: next });
-                                    setDetailsDirty(true);
-                                });
-                            }}
-                        />
-                        <TextInputField
-                            testID="kitchen-zone-minimum"
-                            id="kitchen-zone-minimum"
-                            label={t('kitchen:zones.minimumLabel', {
-                                currency: currency ?? t('kitchen:common.notRecorded'),
-                            })}
-                            placeholder={t('kitchen:zones.minimumPlaceholder')}
-                            size="sm"
-                            value={details.minimumOrder}
-                            inputMode="decimal"
-                            autoCorrect={false}
-                            disabled={!canManage}
-                            {...(minimumState === 'invalid'
-                                ? { error: t('kitchen:zones.amountInvalid') }
-                                : {})}
-                            {...server.flag('minimum_order_minor')}
-                            onChangeText={(next) => {
-                                markDirty(() => {
-                                    setDetails({ ...details, minimumOrder: next });
-                                    setDetailsDirty(true);
-                                });
-                            }}
-                        />
-
-                        {/*
-                         * Named from the session's own branches where it knows them; an identifier
-                         * this membership cannot name is shown as itself rather than dropped.
-                         */}
-                        <ReadOnlyCell
-                            testID="kitchen-zone-branches"
-                            label={t('kitchen:zones.branchesLabel')}
-                        >
-                            {branchNames.length === 0 ? (
-                                <Text
-                                    testID="kitchen-zone-branch-count"
-                                    variant="caption"
-                                    tone="secondary"
-                                >
-                                    {t('kitchen:zones.noBranches')}
-                                </Text>
-                            ) : (
-                                <TagRow
-                                    testID="kitchen-zone-branch-tags"
-                                    items={branchNames.map((branch) => ({
-                                        key: branch.id,
-                                        label: branch.name,
+                            {isCreating ? (
+                                <Select
+                                    testID="kitchen-zone-currency-select"
+                                    id="kitchen-zone-currency-select"
+                                    label={t('kitchen:zones.currencyLabel')}
+                                    searchable
+                                    required
+                                    {...(shows('currency')
+                                        ? { error: t('kitchen:forms.required') }
+                                        : {})}
+                                    {...server.flag('currency_code')}
+                                    value={currency}
+                                    options={CURRENCY_CODES.map((code) => ({
+                                        value: code,
+                                        label: code,
                                     }))}
+                                    onChange={(next) => {
+                                        markDirty(() => {
+                                            setChosenCurrency(next);
+                                            setDetailsDirty(true);
+                                        });
+                                    }}
+                                />
+                            ) : (
+                                <ReadOnlyCell
+                                    testID="kitchen-zone-currency"
+                                    label={t('kitchen:zones.currencyLabel')}
+                                >
+                                    <Text testID="kitchen-zone-currency-value" variant="caption">
+                                        {currency ?? t('kitchen:common.notRecorded')}
+                                    </Text>
+                                </ReadOnlyCell>
+                            )}
+
+                            <TextInputField
+                                testID="kitchen-zone-estimated"
+                                id="kitchen-zone-estimated"
+                                label={t('kitchen:zones.estimatedLabel')}
+                                placeholder={t('kitchen:zones.estimatedPlaceholder')}
+                                size="sm"
+                                value={
+                                    details.estimatedMinutes === null
+                                        ? ''
+                                        : String(details.estimatedMinutes)
+                                }
+                                inputMode="numeric"
+                                autoCorrect={false}
+                                disabled={!canManage}
+                                {...server.flag('estimated_minutes')}
+                                onChangeText={(next) => {
+                                    // Empty is "not advertised" (null), never zero minutes.
+                                    const digits = next.replace(/[^0-9]/gu, '');
+                                    markDirty(() => {
+                                        setDetails({
+                                            ...details,
+                                            estimatedMinutes: digits === '' ? null : Number(digits),
+                                        });
+                                        setDetailsDirty(true);
+                                    });
+                                }}
+                            />
+
+                            <TextInputField
+                                testID="kitchen-zone-fee"
+                                id="kitchen-zone-fee"
+                                label={t('kitchen:zones.feeLabel', {
+                                    currency: currency ?? t('kitchen:common.notRecorded'),
+                                })}
+                                placeholder={t('kitchen:zones.feePlaceholder')}
+                                size="sm"
+                                value={details.deliveryFee}
+                                inputMode="decimal"
+                                autoCorrect={false}
+                                disabled={!canManage}
+                                {...(feeState === 'invalid'
+                                    ? { error: t('kitchen:zones.amountInvalid') }
+                                    : {})}
+                                {...server.flag('delivery_fee_minor')}
+                                onChangeText={(next) => {
+                                    markDirty(() => {
+                                        setDetails({ ...details, deliveryFee: next });
+                                        setDetailsDirty(true);
+                                    });
+                                }}
+                            />
+                            <TextInputField
+                                testID="kitchen-zone-minimum"
+                                id="kitchen-zone-minimum"
+                                label={t('kitchen:zones.minimumLabel', {
+                                    currency: currency ?? t('kitchen:common.notRecorded'),
+                                })}
+                                placeholder={t('kitchen:zones.minimumPlaceholder')}
+                                size="sm"
+                                value={details.minimumOrder}
+                                inputMode="decimal"
+                                autoCorrect={false}
+                                disabled={!canManage}
+                                {...(minimumState === 'invalid'
+                                    ? { error: t('kitchen:zones.amountInvalid') }
+                                    : {})}
+                                {...server.flag('minimum_order_minor')}
+                                onChangeText={(next) => {
+                                    markDirty(() => {
+                                        setDetails({ ...details, minimumOrder: next });
+                                        setDetailsDirty(true);
+                                    });
+                                }}
+                            />
+
+                            {/*
+                             * Named from the session's own branches where it knows them; an identifier
+                             * this membership cannot name is shown as itself rather than dropped.
+                             */}
+                            <ReadOnlyCell
+                                testID="kitchen-zone-branches"
+                                label={t('kitchen:zones.branchesLabel')}
+                            >
+                                {branchNames.length === 0 ? (
+                                    <Text
+                                        testID="kitchen-zone-branch-count"
+                                        variant="caption"
+                                        tone="secondary"
+                                    >
+                                        {t('kitchen:zones.noBranches')}
+                                    </Text>
+                                ) : (
+                                    <TagRow
+                                        testID="kitchen-zone-branch-tags"
+                                        items={branchNames.map((branch) => ({
+                                            key: branch.id,
+                                            label: branch.name,
+                                        }))}
+                                    />
+                                )}
+                            </ReadOnlyCell>
+                        </FormGrid>
+                    </FormSection>
+                )}
+
+                {/* ── areas ────────────────────────────────────────────────────────────────────── */}
+                {form.current !== 'areas' ? null : (
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-zone-areas"
+                        nativeID="kitchen-zone-areas"
+                        title={t('kitchen:zones.sectionAreas')}
+                    >
+                        <Stack space="md">
+                            {gazetteer.isPending ? (
+                                <Skeleton
+                                    testID="kitchen-zone-areas-loading"
+                                    heightClassName="h-24"
+                                />
+                            ) : gazetteerFailure !== null ? (
+                                <ErrorState
+                                    testID="kitchen-zone-areas-error"
+                                    failure={gazetteerFailure}
+                                    onRetry={() => {
+                                        void gazetteer.refetch();
+                                    }}
+                                    retrying={gazetteer.isFetching}
+                                />
+                            ) : (
+                                <ServiceAreaPicker
+                                    testID="kitchen-zone-area-picker"
+                                    gazetteer={gazetteer.data?.areas ?? []}
+                                    selected={areas}
+                                    canManage={canManage}
+                                    locale={locale}
+                                    truncated={gazetteer.data?.truncated ?? false}
+                                    onChange={(next) => {
+                                        markDirty(() => {
+                                            setAreas(next);
+                                            setAreasDirty(true);
+                                        });
+                                    }}
                                 />
                             )}
-                        </ReadOnlyCell>
-                    </FormGrid>
-                </FormSection>
-            )}
+                        </Stack>
+                    </FormSection>
+                )}
 
-            {/* ── areas ────────────────────────────────────────────────────────────────────── */}
-            {form.current !== 'areas' ? null : (
-                <FormSection
-                    first
-                    variant="card"
-                    testID="kitchen-zone-areas"
-                    title={t('kitchen:zones.sectionAreas')}
-                >
-                    <Stack space="md">
-                        {gazetteer.isPending ? (
-                            <Skeleton testID="kitchen-zone-areas-loading" heightClassName="h-24" />
-                        ) : gazetteerFailure !== null ? (
-                            <ErrorState
-                                testID="kitchen-zone-areas-error"
-                                failure={gazetteerFailure}
-                                onRetry={() => {
-                                    void gazetteer.refetch();
-                                }}
-                                retrying={gazetteer.isFetching}
-                            />
-                        ) : (
-                            <ServiceAreaPicker
-                                testID="kitchen-zone-area-picker"
-                                gazetteer={gazetteer.data?.areas ?? []}
-                                selected={areas}
+                {/* ── delivery windows ─────────────────────────────────────────────────────────── */}
+                {form.current !== 'windows' ? null : (
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-zone-windows"
+                        nativeID="kitchen-zone-windows"
+                        title={t('kitchen:zones.sectionWindows')}
+                    >
+                        <Stack space="md">
+                            <ZoneWindowAssignment
+                                windows={kitchenWindows}
+                                selected={windowIds}
                                 canManage={canManage}
-                                locale={locale}
-                                truncated={gazetteer.data?.truncated ?? false}
+                                onManage={() => {
+                                    guard.intercept(() => {
+                                        router.push('/kitchen/delivery-windows' as never);
+                                    });
+                                }}
                                 onChange={(next) => {
                                     markDirty(() => {
-                                        setAreas(next);
-                                        setAreasDirty(true);
+                                        setWindowIds(next);
+                                        setWindowsDirty(true);
                                     });
                                 }}
                             />
-                        )}
-
-                        {areasFailure === null ? null : (
-                            <Callout
-                                testID="kitchen-zone-areas-save-error"
-                                role="alert"
-                                tone="danger"
-                                title={t('kitchen:areas.saveError')}
-                                body={areasServer.unplaced ?? areasFailure.message}
-                            />
-                        )}
-                    </Stack>
-                </FormSection>
-            )}
-
-            {/* ── delivery windows ─────────────────────────────────────────────────────────── */}
-            {form.current !== 'windows' ? null : (
-                <FormSection
-                    first
-                    variant="card"
-                    testID="kitchen-zone-windows"
-                    title={t('kitchen:zones.sectionWindows')}
-                >
-                    <Stack space="md">
-                        <ZoneWindowAssignment
-                            windows={kitchenWindows}
-                            selected={windowIds}
-                            canManage={canManage}
-                            onManage={() => {
-                                guard.intercept(() => {
-                                    router.push('/kitchen/delivery-windows' as never);
-                                });
-                            }}
-                            onChange={(next) => {
-                                markDirty(() => {
-                                    setWindowIds(next);
-                                    setWindowsDirty(true);
-                                });
-                            }}
-                        />
-
-                        {windowsFailure === null ? null : (
-                            <Callout
-                                testID="kitchen-zone-windows-save-error"
-                                role="alert"
-                                tone="danger"
-                                title={t('kitchen:windows.saveError')}
-                                body={windowsServer.unplaced ?? windowsFailure.message}
-                            />
-                        )}
-                    </Stack>
-                </FormSection>
-            )}
-
-            {/* ── archive ──────────────────────────────────────────────────────────────────── */}
-            <Dialog
-                testID="kitchen-zone-archive-dialog"
-                open={showArchive}
-                onClose={() => {
-                    setShowArchive(false);
-                }}
-                title={t('kitchen:zones.archiveTitle')}
-                description={t('kitchen:zones.archiveBody')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-zone-archive-cancel"
-                            variant="quiet"
-                            label={t('kitchen:common.cancel')}
-                            onPress={() => {
-                                setShowArchive(false);
-                            }}
-                        />
-                        <Button
-                            testID="kitchen-zone-archive-confirm"
-                            variant="danger"
-                            label={t('kitchen:zones.archiveConfirm')}
-                            loading={archive.isPending}
-                            onPress={() => {
-                                if (data === undefined) return;
-                                archive.mutate(
-                                    {
-                                        zoneId: data.id,
-                                        request: { lockVersion: data.meta.lockVersion },
-                                    },
-                                    {
-                                        onSuccess: () => {
-                                            setShowArchive(false);
-                                            toast.show({
-                                                testID: 'kitchen-zone-archived-toast',
-                                                tone: 'success',
-                                                message: t('kitchen:zones.archivedToast', {
-                                                    name: displayName(data.name, locale).value,
-                                                }),
-                                            });
-                                        },
-                                        onError: (error) => {
-                                            setShowArchive(false);
-                                            concurrency.capture(error);
-                                        },
-                                    },
-                                );
-                            }}
-                        />
-                    </>
-                }
-            >
-                {/*
-                 * What archiving actually costs, counted from the record rather than described in
-                 * the abstract. A zone is only projected onto a branch while it is published, so
-                 * retiring one takes it off every branch that serves it — which is the consequence
-                 * a person needs before they agree, not afterwards.
-                 */}
-                <Stack space="xs">
-                    <Text testID="kitchen-zone-archive-consequence">
-                        {t('kitchen:zones.archiveConsequence')}
-                    </Text>
-                    {data === undefined ? null : (
-                        <Stack space="none">
-                            <Text testID="kitchen-zone-archive-branches" variant="caption">
-                                {t('kitchen:zones.archiveBranchCount', {
-                                    count: data.branchIds.length,
-                                })}
-                            </Text>
-                            <Text testID="kitchen-zone-archive-areas" variant="caption">
-                                {t('kitchen:zones.archiveAreaCount', {
-                                    count: data.areas.length,
-                                })}
-                            </Text>
-                            <Text testID="kitchen-zone-archive-windows" variant="caption">
-                                {t('kitchen:zones.archiveWindowCount', {
-                                    count: data.windowIds.length,
-                                })}
-                            </Text>
                         </Stack>
-                    )}
-                </Stack>
-            </Dialog>
+                    </FormSection>
+                )}
 
-            <EditorGuardDialogs
-                testID="kitchen-zone-editor-screen"
-                guard={guard}
-                concurrency={concurrency}
-            />
-        </Cascade>
+                {/* ── archive ──────────────────────────────────────────────────────────────────── */}
+                <Dialog
+                    testID="kitchen-zone-archive-dialog"
+                    open={showArchive}
+                    onClose={() => {
+                        setShowArchive(false);
+                    }}
+                    title={t('kitchen:zones.archiveTitle')}
+                    description={t('kitchen:zones.archiveBody')}
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-zone-archive-cancel"
+                                variant="quiet"
+                                label={t('kitchen:common.cancel')}
+                                onPress={() => {
+                                    setShowArchive(false);
+                                }}
+                            />
+                            <Button
+                                testID="kitchen-zone-archive-confirm"
+                                variant="danger"
+                                label={t('kitchen:zones.archiveConfirm')}
+                                loading={archive.isPending}
+                                onPress={() => {
+                                    if (data === undefined) return;
+                                    archive.mutate(
+                                        {
+                                            zoneId: data.id,
+                                            request: { lockVersion: data.meta.lockVersion },
+                                        },
+                                        {
+                                            onSuccess: () => {
+                                                setShowArchive(false);
+                                                toast.show({
+                                                    testID: 'kitchen-zone-archived-toast',
+                                                    tone: 'success',
+                                                    message: t('kitchen:zones.archivedToast', {
+                                                        name: displayName(data.name, locale).value,
+                                                    }),
+                                                });
+                                            },
+                                            onError: (error) => {
+                                                setShowArchive(false);
+                                                concurrency.capture(error);
+                                            },
+                                        },
+                                    );
+                                }}
+                            />
+                        </>
+                    }
+                >
+                    {/*
+                     * What archiving actually costs, counted from the record rather than described in
+                     * the abstract. A zone is only projected onto a branch while it is published, so
+                     * retiring one takes it off every branch that serves it — which is the consequence
+                     * a person needs before they agree, not afterwards.
+                     */}
+                    <Stack space="xs">
+                        <Text testID="kitchen-zone-archive-consequence">
+                            {t('kitchen:zones.archiveConsequence')}
+                        </Text>
+                        {data === undefined ? null : (
+                            <Stack space="none">
+                                <Text testID="kitchen-zone-archive-branches" variant="caption">
+                                    {t('kitchen:zones.archiveBranchCount', {
+                                        count: data.branchIds.length,
+                                    })}
+                                </Text>
+                                <Text testID="kitchen-zone-archive-areas" variant="caption">
+                                    {t('kitchen:zones.archiveAreaCount', {
+                                        count: data.areas.length,
+                                    })}
+                                </Text>
+                                <Text testID="kitchen-zone-archive-windows" variant="caption">
+                                    {t('kitchen:zones.archiveWindowCount', {
+                                        count: data.windowIds.length,
+                                    })}
+                                </Text>
+                            </Stack>
+                        )}
+                    </Stack>
+                </Dialog>
+
+                <EditorGuardDialogs
+                    testID="kitchen-zone-editor-screen"
+                    guard={guard}
+                    concurrency={concurrency}
+                />
+            </Cascade>
+        </IssueTrayFrame>
     );
 }
 

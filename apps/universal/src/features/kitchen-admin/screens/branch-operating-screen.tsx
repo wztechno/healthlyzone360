@@ -1,14 +1,16 @@
 import {
     Badge,
     Button,
-    Callout,
     Cascade,
     EmptyState,
     ErrorState,
     FormSection,
     FormSkeleton,
+    IssueTrayFrame,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
+import type { IssueCardItem, IssueTrayContent } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -33,10 +35,12 @@ import type { OperatingDayDraft } from '../delivery-model.ts';
 import { OperatingWeekRows } from '../delivery-row-editors.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
+import { focusSection } from '../field-focus.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
+import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -153,6 +157,11 @@ function BranchOperatingEditor() {
     const save = useSetBranchOperatingMutation();
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
+
+    // The page's issue tray; a refused save opens it.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+    useNudgeOnRefusal(save.error, nudgeTray);
 
     const [days, setDays] = useState<readonly OperatingDayDraft[]>([]);
     const [daysKey, setDaysKey] = useState<string | null>(null);
@@ -280,8 +289,8 @@ function BranchOperatingEditor() {
     }
 
     const saveFailure = toFailure(save.error);
-    // What the server refused, put on the day's field it named (BUG-06). No issue banner here, so
-    // the callout stays and carries whatever no field could.
+    // What the server refused, put on the day's field it named (BUG-06). The tray's card carries
+    // whatever no field could.
     const server = serverFieldErrors(saveFailure, {
         'days.*.weekday': {
             label: t('kitchen:branchHours.columnTrading'),
@@ -310,178 +319,206 @@ function BranchOperatingEditor() {
     const sideBySide = bodyWidth >= ASIDE_WIDTH + FORM_MIN_WIDTH + COLUMN_GAP;
     const dayCount = (count: number) =>
         `${String(count)} ${t('kitchen:branchHours.cardDayUnit', { count })}`;
+    const toWeek = {
+        onPress: () => {
+            focusSection('kitchen-branch-hours-week');
+        },
+    };
+
+    /*
+     * The page's problems, in its issue tray rather than in bands over the week. A refused save
+     * keeps the server's own words; a week with no open day is saveable, and so only a check.
+     */
+    const saveCards: IssueCardItem[] =
+        saveFailure === null
+            ? []
+            : [
+                  {
+                      key: 'save-error',
+                      tone: 'danger',
+                      label: t('kitchen:branchHours.saveError'),
+                      detail: server.unplaced ?? saveFailure.message,
+                      // A refusal placed on a day's field has somewhere to go: the week.
+                      action: server.items.length === 0 ? undefined : toWeek,
+                      testID: 'kitchen-branch-hours-save-error',
+                  },
+              ];
+    const checkCards: IssueCardItem[] = everyDayClosed
+        ? [
+              {
+                  key: 'all-closed',
+                  tone: 'warning',
+                  label: t('kitchen:branchHours.allClosedTitle'),
+                  action: canManage ? toWeek : undefined,
+                  testID: 'kitchen-branch-hours-all-closed',
+              },
+          ]
+        : [];
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-branch-hours-tray',
+        groups: [
+            { key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards },
+            { key: 'check', title: t('kitchen:tray.groupCheck'), items: checkCards },
+        ],
+    };
 
     return (
-        <Cascade space="md" testID="kitchen-branch-hours-screen">
-            {/*
-             * The opening the record forms share: the title, what kind of record it is, the unsaved
-             * marker and the week's one Save. No Back — the trail already leads to the workspace,
-             * and the unsaved guard stands on every exit.
-             */}
-            <RecordFormOpening
-                testID="kitchen-branch-hours-screen"
-                title={title}
-                dirty={guard.isDirty}
-                badges={
-                    <Badge
-                        variant="label"
-                        testID="kitchen-branch-hours-screen-chip"
-                        tone="neutral"
-                        icon={null}
-                        label={t('kitchen:branchHours.chip')}
+        <IssueTrayFrame tray={trayContent} controller={issueTray}>
+            <Cascade space="md" testID="kitchen-branch-hours-screen">
+                {/*
+                 * The opening the record forms share: the title, what kind of record it is, the unsaved
+                 * marker and the week's one Save. No Back — the trail already leads to the workspace,
+                 * and the unsaved guard stands on every exit.
+                 */}
+                <RecordFormOpening
+                    testID="kitchen-branch-hours-screen"
+                    title={title}
+                    dirty={guard.isDirty}
+                    badges={
+                        <Badge
+                            variant="label"
+                            testID="kitchen-branch-hours-screen-chip"
+                            tone="neutral"
+                            icon={null}
+                            label={t('kitchen:branchHours.chip')}
+                        />
+                    }
+                    actions={
+                        canManage ? (
+                            <Button
+                                testID="kitchen-branch-hours-screen-save"
+                                label={t('kitchen:branchHours.save')}
+                                loading={save.isPending}
+                                disabled={!dirty || dayIssues.size > 0 || save.isPending}
+                                onPress={saveWeek}
+                            />
+                        ) : undefined
+                    }
+                />
+
+                <View
+                    ref={Platform.OS === 'web' ? port.ref : undefined}
+                    onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
+                    className={
+                        sideBySide
+                            ? 'z-auto flex-row items-start gap-base'
+                            : 'z-auto flex-col gap-base'
+                    }
+                >
+                    {/* The week is the row's filler beside the fixed summary. */}
+                    <View className="z-auto min-w-0 flex-1 flex-col gap-base">
+                        <FormSection
+                            first
+                            variant="card"
+                            testID="kitchen-branch-hours-week"
+                            nativeID="kitchen-branch-hours-week"
+                            title={t('kitchen:branchHours.weekTitle')}
+                            description={t('kitchen:branchHours.cutOffHint')}
+                        >
+                            <OperatingWeekRows
+                                testID="kitchen-branch-hours-rows"
+                                rows={days}
+                                issues={dayIssues}
+                                serverError={dayError}
+                                canManage={canManage}
+                                announcement={announcement}
+                                onChange={(next) => {
+                                    markDirty(() => {
+                                        setDays(next);
+                                    });
+                                }}
+                                onCopyToOpenDays={(weekday) => {
+                                    markDirty(() => {
+                                        const next = copyDayToOpenDays(days, weekday);
+                                        setDays(next);
+                                        setAnnouncement(
+                                            t('kitchen:branchHours.copiedAnnouncement', {
+                                                day: t(weekdayKey(weekday)),
+                                                count: summariseOperating(next).openDays - 1,
+                                            }),
+                                        );
+                                    });
+                                }}
+                            />
+                        </FormSection>
+                    </View>
+
+                    {/*
+                     * The week in a few facts and in words, day by day — what the stat cards and each
+                     * row's sentence used to say, read top to bottom in one place.
+                     */}
+                    <RecordSummaryAside
+                        testID="kitchen-branch-hours-summary"
+                        title={t('kitchen:branchHours.summaryTitle')}
+                        width={sideBySide ? ASIDE_WIDTH : null}
+                        rows={[
+                            /*
+                             * Named only when the session knows the name: an organisation-wide
+                             * membership lists no branches, and a row that always read "—" for an
+                             * owner would be a fact the page does not have.
+                             */
+                            ...(branch === null
+                                ? []
+                                : [
+                                      {
+                                          key: 'branch',
+                                          label: t('kitchen:branchHours.summaryBranch'),
+                                          value: branch.name,
+                                      },
+                                  ]),
+                            // The zone every time on the page is read in — stated, because it is not
+                            // edited here (see the note on the screen).
+                            {
+                                key: 'time-zone',
+                                label: t('kitchen:branchHours.summaryTimeZone'),
+                                value: data?.timeZone ?? EM_DASH,
+                            },
+                            {
+                                key: 'closed',
+                                label: t('kitchen:branchHours.closedLabel'),
+                                value: dayCount(summary.closedDays),
+                            },
+                            {
+                                key: 'cut-off',
+                                label: t('kitchen:branchHours.cardCutOff'),
+                                value: dayCount(summary.withCutOff),
+                            },
+                        ]}
+                        total={{
+                            label: t('kitchen:branchHours.cardTrading'),
+                            value: `${String(summary.openDays)} ${t(
+                                'kitchen:branchHours.cardTradingUnit',
+                                { count: summary.openDays },
+                            )}`,
+                        }}
+                        list={{
+                            title: t('kitchen:branchHours.summaryDays'),
+                            // Never drawn: the week always has its seven days.
+                            empty: '',
+                            testID: 'kitchen-branch-hours-summary-days',
+                            emptyTestID: 'kitchen-branch-hours-summary-days-empty',
+                            items: days.map((day) => ({
+                                key: String(day.weekday),
+                                testID: `kitchen-branch-hours-summary-day-${String(day.weekday)}`,
+                                name: t(weekdayKey(day.weekday)),
+                                value: day.isClosed
+                                    ? t('kitchen:branchHours.closedLabel')
+                                    : t('kitchen:branchHours.dayHours', {
+                                          opens: day.opensAt === '' ? EM_DASH : day.opensAt,
+                                          closes: day.closesAt === '' ? EM_DASH : day.closesAt,
+                                      }),
+                            })),
+                        }}
                     />
-                }
-                actions={
-                    canManage ? (
-                        <Button
-                            testID="kitchen-branch-hours-screen-save"
-                            label={t('kitchen:branchHours.save')}
-                            loading={save.isPending}
-                            disabled={!dirty || dayIssues.size > 0 || save.isPending}
-                            onPress={saveWeek}
-                        />
-                    ) : undefined
-                }
-            />
-
-            {saveFailure === null ? null : (
-                <Callout
-                    testID="kitchen-branch-hours-save-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:branchHours.saveError')}
-                    body={server.unplaced ?? saveFailure.message}
-                />
-            )}
-
-            {everyDayClosed ? (
-                <Callout
-                    testID="kitchen-branch-hours-all-closed"
-                    role="alert"
-                    tone="warning"
-                    title={t('kitchen:branchHours.allClosedTitle')}
-                    body={t('kitchen:branchHours.allClosedBody')}
-                />
-            ) : null}
-
-            <View
-                ref={Platform.OS === 'web' ? port.ref : undefined}
-                onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
-                className={
-                    sideBySide ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
-                }
-            >
-                {/* The week is the row's filler beside the fixed summary. */}
-                <View className="z-auto min-w-0 flex-1 flex-col gap-base">
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-branch-hours-week"
-                        title={t('kitchen:branchHours.weekTitle')}
-                        description={t('kitchen:branchHours.cutOffHint')}
-                    >
-                        <OperatingWeekRows
-                            testID="kitchen-branch-hours-rows"
-                            rows={days}
-                            issues={dayIssues}
-                            serverError={dayError}
-                            canManage={canManage}
-                            announcement={announcement}
-                            onChange={(next) => {
-                                markDirty(() => {
-                                    setDays(next);
-                                });
-                            }}
-                            onCopyToOpenDays={(weekday) => {
-                                markDirty(() => {
-                                    const next = copyDayToOpenDays(days, weekday);
-                                    setDays(next);
-                                    setAnnouncement(
-                                        t('kitchen:branchHours.copiedAnnouncement', {
-                                            day: t(weekdayKey(weekday)),
-                                            count: summariseOperating(next).openDays - 1,
-                                        }),
-                                    );
-                                });
-                            }}
-                        />
-                    </FormSection>
                 </View>
 
-                {/*
-                 * The week in a few facts and in words, day by day — what the stat cards and each
-                 * row's sentence used to say, read top to bottom in one place.
-                 */}
-                <RecordSummaryAside
-                    testID="kitchen-branch-hours-summary"
-                    title={t('kitchen:branchHours.summaryTitle')}
-                    width={sideBySide ? ASIDE_WIDTH : null}
-                    rows={[
-                        /*
-                         * Named only when the session knows the name: an organisation-wide
-                         * membership lists no branches, and a row that always read "—" for an
-                         * owner would be a fact the page does not have.
-                         */
-                        ...(branch === null
-                            ? []
-                            : [
-                                  {
-                                      key: 'branch',
-                                      label: t('kitchen:branchHours.summaryBranch'),
-                                      value: branch.name,
-                                  },
-                              ]),
-                        // The zone every time on the page is read in — stated, because it is not
-                        // edited here (see the note on the screen).
-                        {
-                            key: 'time-zone',
-                            label: t('kitchen:branchHours.summaryTimeZone'),
-                            value: data?.timeZone ?? EM_DASH,
-                        },
-                        {
-                            key: 'closed',
-                            label: t('kitchen:branchHours.closedLabel'),
-                            value: dayCount(summary.closedDays),
-                        },
-                        {
-                            key: 'cut-off',
-                            label: t('kitchen:branchHours.cardCutOff'),
-                            value: dayCount(summary.withCutOff),
-                        },
-                    ]}
-                    total={{
-                        label: t('kitchen:branchHours.cardTrading'),
-                        value: `${String(summary.openDays)} ${t(
-                            'kitchen:branchHours.cardTradingUnit',
-                            { count: summary.openDays },
-                        )}`,
-                    }}
-                    list={{
-                        title: t('kitchen:branchHours.summaryDays'),
-                        // Never drawn: the week always has its seven days.
-                        empty: '',
-                        testID: 'kitchen-branch-hours-summary-days',
-                        emptyTestID: 'kitchen-branch-hours-summary-days-empty',
-                        items: days.map((day) => ({
-                            key: String(day.weekday),
-                            testID: `kitchen-branch-hours-summary-day-${String(day.weekday)}`,
-                            name: t(weekdayKey(day.weekday)),
-                            value: day.isClosed
-                                ? t('kitchen:branchHours.closedLabel')
-                                : t('kitchen:branchHours.dayHours', {
-                                      opens: day.opensAt === '' ? EM_DASH : day.opensAt,
-                                      closes: day.closesAt === '' ? EM_DASH : day.closesAt,
-                                  }),
-                        })),
-                    }}
+                <EditorGuardDialogs
+                    guard={guard}
+                    concurrency={concurrency}
+                    testID="kitchen-branch-hours-screen"
                 />
-            </View>
-
-            <EditorGuardDialogs
-                guard={guard}
-                concurrency={concurrency}
-                testID="kitchen-branch-hours-screen"
-            />
-        </Cascade>
+            </Cascade>
+        </IssueTrayFrame>
     );
 }

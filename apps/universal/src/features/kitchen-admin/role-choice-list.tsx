@@ -48,7 +48,7 @@ export interface RoleChoiceListProps {
     readonly noteFor?: ((roleId: string) => string | null) | undefined;
     /** Drawn under the list, and marks it invalid. */
     readonly error?: string | undefined;
-    /** The element id a `FormIssueBanner` chip scrolls to (`focusField`). */
+    /** The element id an issue tray card's Fix scrolls to (`focusField`). */
     readonly id?: string | undefined;
     /** The list. */
     readonly testID: string;

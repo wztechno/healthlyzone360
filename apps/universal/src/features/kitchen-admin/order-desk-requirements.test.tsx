@@ -4,7 +4,8 @@ import type {
     OrderDeskRequirements,
     OrderDeskRequirementsFilters,
 } from '@healthy360/api-client/contracts';
-import { screen, waitFor } from '@testing-library/react-native';
+import type { BranchId } from '@healthy360/domain-types';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import { kitchenManagerSession, testActiveContext } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
@@ -342,5 +343,62 @@ describe('order desk requirements — what the rows say', () => {
         expect(
             screen.getByTestId('kitchen-order-desk-requirements-figures-notComputable-value'),
         ).toHaveTextContent('0');
+    });
+});
+
+describe('order desk requirements — the weekly check', () => {
+    it("puts Monday's shortfalls in the tray, and points the window at that week from there", async () => {
+        const listRequirements = jest.fn(async () => answer([requirement()]));
+        await renderStubScreen(<OrderDeskRequirementsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                orderDesk: {
+                    listRequirements,
+                    getWeeklyStockCheck: async () => ({
+                        id: 'check-0001',
+                        branchId: 'test-0000-branch-0001' as BranchId,
+                        windowFrom: '2026-10-19',
+                        windowTo: '2026-10-25',
+                        checkedAt: '2026-10-19T04:00:00Z',
+                        requirementCount: 12,
+                        shortCount: 1,
+                        notComputableDays: 0,
+                        shortfalls: [
+                            {
+                                stockItemId: SHELF_ID,
+                                code: 'sku-flour',
+                                name: 'Flour',
+                                unitCode: 'kg',
+                                required: '10',
+                                available: '2',
+                                short: '8',
+                                suggestedBuy: '8',
+                            },
+                        ],
+                    }),
+                },
+            },
+        });
+        await settled();
+
+        // A card in the docked tray, not a band over the list.
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-weekly-check')).toBeTruthy();
+        });
+        expect(screen.getByTestId('kitchen-weekly-check')).toHaveTextContent(/Flour/);
+        expect(
+            within(screen.getByTestId('kitchen-order-desk-requirements-tray')).getByTestId(
+                'kitchen-weekly-check',
+            ),
+        ).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-weekly-check-show-window'));
+        });
+        await waitFor(() => {
+            expect(listRequirements).toHaveBeenLastCalledWith(
+                expect.objectContaining({ from: '2026-10-19', to: '2026-10-25' }),
+            );
+        });
     });
 });

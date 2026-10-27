@@ -28,6 +28,7 @@ import {
     testMembership,
     testOrganisation,
 } from '../../testing/session-fixtures.ts';
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import type { RepositoryOverrides } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
@@ -1042,10 +1043,9 @@ describe('editing a price list', () => {
 
         await pressSave();
 
-        await untilVisible('kitchen-price-list-editor-screen-issues-errors');
-        expect(
-            screen.getByTestId('kitchen-price-list-editor-screen-issues-errors'),
-        ).toHaveTextContent(/1 entry needs fixing/i);
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-price-list-editor-screen-issues-errors');
+        });
         expect(screen.getByTestId(`${row}-problems`)).toHaveTextContent(/needs an amount/i);
         expect(repositories.kitchenAdmin.setPriceListEntries).not.toHaveBeenCalled();
 
@@ -1166,21 +1166,24 @@ describe('editing a price list', () => {
         });
         await openEntriesStep();
 
-        await untilVisible('kitchen-price-list-gaps');
-        expect(screen.getByTestId('kitchen-price-list-gaps-title')).toHaveTextContent(
-            /2 items on sale have no entry/i,
-        );
-        expect(screen.getByTestId('kitchen-price-list-gaps-names')).toHaveTextContent(
-            /Meal 3, Meal 4/,
-        );
+        // A card in the tray, whose action adds them.
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-price-list-gaps');
+            expect(screen.getByTestId('kitchen-price-list-gaps')).toHaveTextContent(
+                /2 items on sale have no entry/i,
+            );
+            expect(screen.getByTestId('kitchen-price-list-gaps')).toHaveTextContent(
+                /Meal 3, Meal 4/,
+            );
 
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-price-list-gaps-add'));
-        });
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-price-list-gaps-add'));
+            });
 
-        // Two pending rows, no invented price, and nothing left to offer.
-        await waitFor(() => {
-            expect(screen.queryByTestId('kitchen-price-list-gaps')).toBeNull();
+            // Two pending rows, no invented price, and nothing left to offer.
+            await waitFor(() => {
+                expect(screen.queryByTestId('kitchen-price-list-gaps')).toBeNull();
+            });
         });
         expect(
             screen.getByTestId('kitchen-price-list-filter-placeholder-count', {
@@ -1340,7 +1343,10 @@ describe('editing a price list', () => {
         await untilVisible(firstRow);
         expect(screen.queryByTestId('kitchen-price-list-entries-row-entry-1')).toBeNull();
         expect(screen.queryByTestId('kitchen-price-list-save-bar')).toBeNull();
-        expect(screen.queryByTestId('kitchen-price-list-editor-screen-issues-errors')).toBeNull();
+        // The row's card is no longer open — it ticks off in the tray on its way out.
+        expect(
+            screen.queryByTestId('kitchen-price-list-editor-screen-issues-errors-entry-1'),
+        ).toBeNull();
     });
 
     it('offers reload-or-keep when somebody else has moved the list on', async () => {
@@ -1500,7 +1506,9 @@ describe('publishing a price list', () => {
             repositories: editorReads(() => UNPRICED_LIST),
         });
         await openEntriesStep();
-        await untilVisible('kitchen-price-list-draft-note');
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-price-list-draft-note');
+        });
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-price-list-add-entry'));
@@ -1566,7 +1574,9 @@ describe('publishing a price list', () => {
         });
         // A published list has no second publish control to press, and no draft notice.
         expect(screen.queryByTestId('kitchen-price-list-publish')).toBeNull();
-        expect(screen.queryByTestId('kitchen-price-list-draft-note')).toBeNull();
+        await withDeskWidth(async () => {
+            expect(screen.queryByTestId('kitchen-price-list-draft-note')).toBeNull();
+        });
 
         // Its save now charges customers, and the button says so.
         await act(async () => {

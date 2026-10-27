@@ -27,6 +27,7 @@ import {
     FormSkeleton,
     Icon,
     Inline,
+    IssueRevealScope,
     IssueTrayFrame,
     QuantityInput,
     Select,
@@ -65,6 +66,7 @@ import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     endProcess,
+    endProcessSavedOn,
     readActiveProcess,
     startProcess,
     useProcessStep,
@@ -780,6 +782,10 @@ function RecipeEditor({
     const [tab, setTab] = useState<RecipeTab>(
         fix === null ? (recipeTabOf(initialTab) ?? 'description') : 'production',
     );
+    // What a Selling card's Fix does first: the listing's fields are on that tab.
+    const revealSelling = useCallback(() => {
+        setTab('selling');
+    }, []);
     /** Set by a save that wrote everything; the header says so until the next edit. */
     const [allSaved, setAllSaved] = useState(false);
     const [listingSaving, setListingSaving] = useState(false);
@@ -1313,6 +1319,25 @@ function RecipeEditor({
         }
         return [...names].join(', ');
     }, [computed, libraryEntries, packagingLibrary, locale]);
+
+    /** The first uncosted line's ingredient — where the tray's card sends the reader to fix it. */
+    const firstUncosted = useMemo(() => {
+        if (computed === null) return null;
+        const found = (
+            [
+                [computed.production, 'ingredients'],
+                [computed.packaging, 'packaging'],
+            ] as const
+        )
+            .flatMap(([half, family]) =>
+                half.uncostedLineNumbers.map((lineNumber) => ({
+                    id: half.lines.find((line) => line.lineNumber === lineNumber)?.ingredientId,
+                    family,
+                })),
+            )
+            .find((entry) => entry.id !== undefined);
+        return found === undefined ? null : { id: String(found.id), family: found.family };
+    }, [computed]);
 
     /*
      * How many lines the server could not cost — by number, so it is known before the names of the
@@ -2047,6 +2072,7 @@ function RecipeEditor({
                 async (created) => {
                     const photoError = await writePhoto(created.id, null);
                     settle();
+                    endProcessSavedOn(ownPath);
                     toast.show({
                         testID: 'kitchen-recipe-created-toast',
                         tone: 'success',
@@ -2153,6 +2179,8 @@ function RecipeEditor({
         void run().then(
             async () => {
                 settle();
+                // Saved: the draft the process was keeping is written, so Continue has nothing to keep.
+                endProcessSavedOn(ownPath);
                 const photoError = await writePhoto(recipeId, savedPhoto);
                 if (photoError !== null) {
                     // The recipe is saved; only the photo is left to try again.
@@ -2401,8 +2429,11 @@ function RecipeEditor({
                                 key: 'costs',
                                 tab: 'costing' as const,
                                 label: t('kitchen:recipes.tabCosting'),
+                                // The price lives on the ingredient, so that is where the fix is.
                                 onPress: () => {
-                                    goToSection('costing', 'kitchen-recipe-cost-cascade');
+                                    if (firstUncosted === null)
+                                        goToSection('costing', 'kitchen-recipe-cost-cascade');
+                                    else openIngredient(firstUncosted.id, firstUncosted.family);
                                 },
                             },
                         ]
@@ -2761,9 +2792,42 @@ function RecipeEditor({
                   testID: `kitchen-recipe-check-${check.key}`,
               }));
 
+    /*
+     * An unpriced line on a version nobody is editing — a published one, or a reader who may not
+     * publish. The publish strip only speaks on an editable draft, so without this the tray read
+     * "All set" over a row marked "No price yet". Heads-up, not a block: the version is already out.
+     */
+    const uncostedNotice: IssueCardItem[] =
+        publishItems.length > 0 || isCreating || uncostedNames === '' || firstUncosted === null
+            ? []
+            : [
+                  {
+                      key: 'uncosted',
+                      tone: 'info',
+                      label: t('kitchen:recipes.uncostedLines', { names: uncostedNames }),
+                      detail: t('kitchen:recipes.sectionRawMaterials'),
+                      action: {
+                          onPress: () => {
+                              openIngredient(firstUncosted.id, firstUncosted.family);
+                          },
+                      },
+                      // The tray is no longer clear, so it cannot show its own way back.
+                      secondaryAction:
+                          fixPublished && cameBack
+                              ? {
+                                    label: t('kitchen:ops.exceptions.fix.back'),
+                                    onPress: finishFix,
+                                    testID: 'kitchen-recipe-uncosted-back',
+                                }
+                              : undefined,
+                      testID: 'kitchen-recipe-issues-uncosted',
+                  },
+              ];
+
     const firstUnmapped = unmappedDraftEntries[0];
     const headsUpCards: IssueCardItem[] = [
         ...quietChecks,
+        ...uncostedNotice,
         ...(firstUnmapped === undefined || lines.length === 0
             ? []
             : [
@@ -3650,10 +3714,16 @@ function RecipeEditor({
                  * It is its own `CascadeItem` so that `hidden` lands on the band's box: hidden one level
                  * further in, the band would still stand in the page and take a gap on every other tab.
                  */}
+                {/*
+                 * The listing's problems are cards in this page's tray (`useIssueGroup`), under the
+                 * tab's name and on every tab; each one's Fix switches here first.
+                 */}
                 {sellsAs === undefined ? null : (
                     <CascadeItem index={0} className={tab === 'selling' ? undefined : 'hidden'}>
                         <View className="relative z-raised" testID="kitchen-recipe-selling">
-                            {sellsAs.content}
+                            <IssueRevealScope reveal={revealSelling}>
+                                {sellsAs.content}
+                            </IssueRevealScope>
                         </View>
                     </CascadeItem>
                 )}
@@ -3879,6 +3949,7 @@ function RecipeEditor({
                                                 setShowPublish(false);
                                                 setSelectedVersionId(null);
                                                 if (fix !== null) setFixPublished(true);
+                                                endProcessSavedOn(ownPath);
                                                 toast.show({
                                                     testID: 'kitchen-recipe-published-toast',
                                                     tone: 'success',

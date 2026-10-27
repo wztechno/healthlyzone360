@@ -13,20 +13,27 @@ import {
 import {
     Badge,
     Button,
-    Callout,
     Cascade,
     Dialog,
     EmptyState,
     ErrorState,
     FilterChip,
     Inline,
+    IssueTrayFrame,
     Stack,
     Table,
     TableSkeleton,
     Text,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { MenuItem, RecordWindowField, TableColumn } from '@healthy360/design-system';
+import type {
+    IssueCardItem,
+    IssueTrayContent,
+    MenuItem,
+    RecordWindowField,
+    TableColumn,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useRouter } from 'expo-router';
@@ -83,6 +90,7 @@ import {
     useRememberedOpened,
     useRememberedQuery,
 } from '../list-memory.ts';
+import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 
 /** The order `?view=` names, read on its own when the loaded page does not hold it. */
@@ -662,6 +670,11 @@ function OrderRecord({
         toFailure(cancelOrder.error);
     const isConflict = actionFailure?.code === 'resource.conflict';
 
+    // The record's issue tray; a refused confirm, fulfil or cancel opens it.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+    useNudgeOnRefusal(confirmOrder.error ?? fulfilOrder.error ?? cancelOrder.error, nudgeTray);
+
     function clearActionState() {
         confirmOrder.reset();
         fulfilOrder.reset();
@@ -724,6 +737,49 @@ function OrderRecord({
     // The list row draws the page at once; the re-read replaces it, so every fact is current.
     const shown = order ?? seed;
 
+    /*
+     * A confirm, fulfil or cancel the server turned down, in the record's issue tray rather than
+     * above the status card's button. A stale version is its own card, whose way out is to read the
+     * order again; anything else keeps the server's own words.
+     */
+    const failedCards: IssueCardItem[] =
+        actionFailure === null
+            ? []
+            : isConflict
+              ? [
+                    {
+                        key: 'conflict',
+                        tone: 'warning',
+                        label: t('kitchen:ops.orders.conflictTitle'),
+                        action: {
+                            label: t('kitchen:ops.orders.conflictRefresh'),
+                            loading: detail.isFetching,
+                            onPress: () => {
+                                clearActionState();
+                                void detail.refetch();
+                            },
+                            testID: 'kitchen-orders-conflict-refresh',
+                        },
+                        testID: 'kitchen-orders-conflict',
+                    },
+                ]
+              : [
+                    {
+                        key: 'action',
+                        tone: 'danger',
+                        label: t('kitchen:ops.orders.saveFailed'),
+                        detail: actionFailure.message,
+                        testID: 'kitchen-orders-action-error',
+                    },
+                ];
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-orders-tray',
+        // A list page has no "done" to show: the tray appears only while it has something.
+        hideWhenClear: true,
+        groups: [{ key: 'failed', title: t('kitchen:tray.groupFailed'), items: failedCards }],
+    };
+
     const actionContent = (
         <Stack space="sm">
             {/* The server's `amendable` decides; the desk's sale page edits it. */}
@@ -741,32 +797,6 @@ function OrderRecord({
                         }}
                     />
                 </View>
-            )}
-            {actionFailure === null ? null : isConflict ? (
-                <Callout
-                    testID="kitchen-orders-conflict"
-                    tone="warning"
-                    role="alert"
-                    title={t('kitchen:ops.orders.conflictTitle')}
-                    body={t('kitchen:ops.orders.conflictBody')}
-                    actions={
-                        <Button
-                            testID="kitchen-orders-conflict-refresh"
-                            size="sm"
-                            variant="secondary"
-                            label={t('kitchen:ops.orders.conflictRefresh')}
-                            loading={detail.isFetching}
-                            onPress={() => {
-                                clearActionState();
-                                void detail.refetch();
-                            }}
-                        />
-                    }
-                />
-            ) : (
-                <Text testID="kitchen-orders-action-error" tone="danger">
-                    {actionFailure.message}
-                </Text>
             )}
             {order === null || !isDelivery || !canFulfilKitchenOrder(order.status) ? null : (
                 // Where the run stands, in the kitchen display's words.
@@ -1026,7 +1056,7 @@ function OrderRecord({
                   : undefined;
 
     return (
-        <>
+        <IssueTrayFrame tray={trayContent} controller={issueTray}>
             <RecordViewPage
                 testID="kitchen-orders-detail"
                 onBack={onBack}
@@ -1136,7 +1166,7 @@ function OrderRecord({
                     )}
                 </Stack>
             </Dialog>
-        </>
+        </IssueTrayFrame>
     );
 }
 

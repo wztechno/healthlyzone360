@@ -2134,14 +2134,17 @@ describe('the recipe list at desk width', () => {
             /doesn't lower stock: no pack weight or amount per sale/,
         );
 
-        await untilVisible(`kitchen-recipes-unformulated-${String(MEAL_ID)}`);
+        // A card in the page's tray, under a group that counts them.
+        await withDeskWidth(async () => {
+            await untilVisible(`kitchen-recipes-unformulated-${String(MEAL_ID)}`);
+            expect(screen.getByTestId('kitchen-recipes-unformulated')).toHaveTextContent(
+                /On the menu without a recipe · 1 item/,
+            );
+            expect(
+                screen.getByTestId(`kitchen-recipes-unformulated-${String(MEAL_ID)}`),
+            ).toHaveTextContent(/Tiramisu/);
+        });
         expect(asked).toContainEqual({ withoutRecipe: true });
-        expect(screen.getByTestId('kitchen-recipes-unformulated')).toHaveTextContent(
-            /On the menu without a recipe · 1 item/,
-        );
-        expect(
-            screen.getByTestId(`kitchen-recipes-unformulated-${String(MEAL_ID)}`),
-        ).toHaveTextContent('Tiramisu');
     });
 
     it('narrows the book by its own filing word, through the request', async () => {
@@ -3281,6 +3284,46 @@ describe('costing', () => {
         expect(screen.getByTestId('kitchen-recipe-cost-cascade')).toHaveTextContent(
             /purchase price/,
         );
+    });
+
+    it('names an unpriced line on a published version too, rather than reading "All set"', async () => {
+        const stored = recipe({
+            ordinal: 2,
+            name: 'Tahini sauce',
+            currentVersion: recipeVersion({
+                recipeOrdinal: 2,
+                overrides: {
+                    yieldUnit: 'kg',
+                    allergens: [],
+                    status: 'published',
+                    publishedAt: '2026-08-02T09:00:00.000Z',
+                },
+            }),
+            overrides: { meta: meta({ status: 'published', lockVersion: 3 }) },
+        });
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    previewRecipeRollup: async (draft) =>
+                        rollupPreview({
+                            allergenSources: [],
+                            computedCost: computedFor(draft, { uncosted: [2] }),
+                        }),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-recipe-issues-uncosted');
+            expect(screen.getByTestId('kitchen-recipe-issues-uncosted')).toHaveTextContent(
+                /Not costed: Olive oil/,
+            );
+            expect(screen.queryByTestId('kitchen-recipe-tray-clear')).toBeNull();
+        });
     });
 
     it('says costs are hidden to a member who may not see them, rather than drawing dashes', async () => {

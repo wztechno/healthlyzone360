@@ -12,8 +12,11 @@ import { PlanEditScreen } from './screens/plan-edit-screen.tsx';
 /*
  * The plan editor's way through, for a reader who is led rather than left to explore: Save the plan
  * is in the header on every step and there is no Previous / Next bar, a refused save opens the step
- * that holds the problem and says it under the field, the step's tab counts it, a refusal that
- * belongs to no field is one line under the steps, and Cancel steps back like the browser does.
+ * that holds the problem and says it under the field, the step's tab counts it, the page's issue
+ * tray lists it with a Fix that opens its step from any other, a refusal that belongs to no field is
+ * a card in that tray, and Cancel steps back like the browser does.
+ *
+ * The suite renders at 1280px, past `lg`, where the tray is docked beside the page and open.
  */
 
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
@@ -182,8 +185,10 @@ describe('the plan editor leads the reader', () => {
         expect(screen.getByTestId('kitchen-plan-editor-screen-save')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-plan-steps-nav')).toBeNull();
         expect(screen.queryByTestId('kitchen-plan-steps-nav-next')).toBeNull();
-        // No banner of issues over the steps: the steps' own counts are where problems are told.
+        // No banner of issues over the steps: the steps' own counts and the tray tell problems,
+        // and a form nobody has typed in yet has none — its blanks wait for Save.
         expect(screen.queryByTestId('kitchen-plan-issues')).toBeNull();
+        expect(screen.getByTestId('kitchen-plan-tray-clear')).toBeTruthy();
     });
 
     it('opens the first step that stops a new plan, and names the blank under its field', async () => {
@@ -200,6 +205,19 @@ describe('the plan editor leads the reader', () => {
         expect(screen.getByTestId('kitchen-plan-details')).toBeTruthy();
         expect(stepPill('plan')).toHaveTextContent('1');
         expect(repositories.kitchenAdmin.createPlan).not.toHaveBeenCalled();
+
+        // The tray names it too, and its Fix opens the plan step from wherever the reader is.
+        expect(screen.getByTestId('kitchen-plan-issues-errors-name')).toBeTruthy();
+        await press('kitchen-plan-editor-screen-steps-durations');
+        expect(screen.queryByTestId('kitchen-plan-details')).toBeNull();
+        await press('kitchen-plan-issues-errors-name-fix');
+        await untilVisible('kitchen-plan-details');
+
+        // Typed, the card clears itself.
+        await type('kitchen-plan-name-en-input', 'Autumn reset');
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-plan-issues-errors-name')).toBeNull();
+        });
     });
 
     it('opens the plan step when the server refuses a field there, and says so under it', async () => {
@@ -227,11 +245,12 @@ describe('the plan editor leads the reader', () => {
         );
         expect(screen.getByTestId('kitchen-plan-details')).toBeTruthy();
         expect(stepPill('plan')).toHaveTextContent('1');
-        // Placed on its field, so there is nothing left for the line under the steps to say.
+        // Placed on its field: the tray names the field, and has no words of its own to add.
+        expect(screen.getByTestId('kitchen-plan-issues-errors-server-name_ar')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-plan-save-error')).toBeNull();
     });
 
-    it('says a refusal that belongs to no field in one line under the steps', async () => {
+    it('says a refusal that belongs to no field as a card in the tray', async () => {
         await renderStubScreen(<PlanEditScreen plan={String(PLAN_ID)} />, {
             session: kitchenManagerSession(),
             repositories: {
@@ -247,8 +266,8 @@ describe('the plan editor leads the reader', () => {
         await press('kitchen-plan-editor-screen-save');
 
         await untilVisible('kitchen-plan-save-error');
-        expect(screen.getByTestId('kitchen-plan-save-error-summary')).toHaveTextContent(
-            'The kitchen is closed.',
+        expect(screen.getByTestId('kitchen-plan-save-error')).toHaveTextContent(
+            /The kitchen is closed\./,
         );
         expect(screen.getByTestId('kitchen-plan-details')).toBeTruthy();
     });

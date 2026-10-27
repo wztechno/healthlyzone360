@@ -2,7 +2,6 @@ import type { PurchaseOrderLine, StockItem } from '@healthy360/api-client/contra
 import {
     Badge,
     Button,
-    Callout,
     Cascade,
     DataList,
     Dialog,
@@ -10,14 +9,21 @@ import {
     ErrorState,
     FormSection,
     FormSkeleton,
+    IssueTrayFrame,
     QuantityInput,
     Select,
     Stack,
     Text,
     TextInputField,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { DataListColumn, SelectOption } from '@healthy360/design-system';
+import type {
+    DataListColumn,
+    IssueCardItem,
+    IssueTrayContent,
+    SelectOption,
+} from '@healthy360/design-system';
 import { PurchaseOrderId, StockItemId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -27,6 +33,7 @@ import { Platform, View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
+import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
     useCancelPurchaseOrderMutation,
@@ -60,6 +67,7 @@ import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { readQuantity } from '../supply-order-model.ts';
 import { trimDecimal } from '../format.ts';
+import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
@@ -86,9 +94,9 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * ## Three screens wearing one layout
  *
  * A draft is a form: quantities are editable, lines come and go, the note is typed, and Issue sits
- * in the opening. An issued order is a document: the same table, read-only, under
- * a notice explaining that it is frozen and that cancelling is still possible. A cancelled order is
- * a record: read-only, under a quieter notice, with nothing left to press.
+ * in the opening. An issued order is a document: the same table, read-only, its issue date a note
+ * in the issue tray and cancelling still possible. A cancelled order is a record: read-only, a note
+ * saying so, with nothing left to press.
  *
  * Which of the three is decided by the closed capability records in `ops-format.ts` rather than by
  * `status === 'draft'` tests scattered through the JSX. That matters for more than tidiness: those
@@ -107,7 +115,9 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * sheet's to show; this screen names the supplier in the opening and the summary, once each.
  *
  * The live reference stays available on an issued order for one thing only: its archive flag, which
- * is why a screen can explain that the supplier has since left the book.
+ * is why the tray can note that the supplier has since left the book. On a draft the same flag is a
+ * card under "Blocks issuing" — the server refuses to issue to an archived supplier — whose Fix
+ * opens the supplier, where Restore is.
  *
  * ## Issue and print is one action, and the order of the two halves matters
  *
@@ -303,9 +313,14 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
     const empty = lines.length === 0;
 
     /*
-     * What the server refused, put on the fields it named (BUG-06). The page has no issue banner,
-     * so this marks the quantity boxes and the note only.
+     * What the server refused, put on the fields it named (BUG-06) and named again as cards in the
+     * page's issue tray, each taking the reader to its field. A refusal opens the tray.
      */
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+    useNudgeOnRefusal(update.error, nudgeTray);
+    useNudgeOnRefusal(issue.error, nudgeTray);
+    useNudgeOnRefusal(cancel.error, nudgeTray);
     const updateFailure = toFailure(update.error);
     const otherFailure = toFailure(issue.error ?? cancel.error);
     /** The fields a save can be refused on, in the order the page draws them. */
@@ -329,12 +344,13 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
         },
     });
     const server = serverFieldErrors(updateFailure, saveTargets(savedLineIds));
-    const actionError: string | null =
-        updateFailure !== null
-            ? server.isValidation
-                ? server.unplaced
-                : updateFailure.message
-            : (otherFailure?.message ?? null);
+    // What is left of a refused save once its fields have their messages; `null` when nothing is.
+    const saveError: string | null =
+        updateFailure === null
+            ? null
+            : server.isValidation
+              ? server.unplaced
+              : updateFailure.message;
     const serverQuantityError = (stockItemId: string): string | undefined => {
         const index = savedLineIds.indexOf(stockItemId);
         return index === -1 ? undefined : server.errorFor(`lines.${String(index)}.quantity`);
@@ -685,428 +701,503 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
     const sideBySide = bodyWidth >= ASIDE_WIDTH + FORM_MIN_WIDTH + COLUMN_GAP;
     const lineCount = t('kitchen:ops.supplyOrders.receiptLineCount', { count: lines.length });
     const issueBlocked = dirty || invalid || empty;
-    const hasNotices =
-        status === 'cancelled' ||
-        data.issuedAt !== null ||
-        data.closeShortReason !== null ||
-        actionError !== null ||
-        data.supplier?.archivedAt != null;
+
+    /*
+     * The order's problems, in its issue tray rather than in a band under the opening. A refused
+     * save keeps the server's own words under its title — the fields it named are the opening's
+     * cards (`errors` below) — and a refused issue or cancel is what "didn't go through". Only one
+     * of the two is said, as the band said one: a save refused first is the one to fix.
+     */
+    const supplier = data.supplier;
+    const supplierArchived = supplier?.archivedAt != null;
+    const saveCards: IssueCardItem[] =
+        saveError === null
+            ? []
+            : [
+                  {
+                      key: 'save-error',
+                      tone: 'danger',
+                      label: t('kitchen:editor.saveError'),
+                      detail: saveError,
+                      testID: 'kitchen-supply-order-detail-action-error',
+                  },
+              ];
+    const failedCards: IssueCardItem[] =
+        updateFailure !== null || otherFailure === null
+            ? []
+            : [
+                  {
+                      key: 'act-error',
+                      tone: 'danger',
+                      label: t(
+                          issue.error == null
+                              ? 'kitchen:ops.supplyOrders.cancelFailed'
+                              : 'kitchen:ops.supplyOrders.issueFailed',
+                      ),
+                      detail: otherFailure.message,
+                      testID: 'kitchen-supply-order-detail-action-error',
+                  },
+              ];
+    // A draft cannot be issued to an archived supplier; Fix opens the supplier, where Restore is.
+    const issueCards: IssueCardItem[] =
+        !issuable || supplier === null || !supplierArchived
+            ? []
+            : [
+                  {
+                      key: 'supplier-archived',
+                      tone: 'warning',
+                      label: t('kitchen:ops.supplyOrders.supplierArchivedTitle'),
+                      detail: supplier.nameEn,
+                      action: {
+                          onPress: () => {
+                              guard.intercept(() => {
+                                  router.push(
+                                      withReturnTo(
+                                          `/kitchen/suppliers/${String(supplier.id)}`,
+                                          `/kitchen/supply-orders/${String(data.id)}`,
+                                      ) as never,
+                                  );
+                              });
+                          },
+                      },
+                      testID: 'kitchen-supply-order-detail-archived-notice',
+                  },
+              ];
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-supply-order-detail-tray',
+        groups: [
+            { key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards },
+            { key: 'issue', title: t('kitchen:tray.groupIssue'), items: issueCards },
+            { key: 'failed', title: t('kitchen:tray.groupFailed'), items: failedCards },
+        ],
+        /*
+         * Facts about the order, with nothing to fix here. "Issued", never "sent" (§2): nothing left
+         * this system — the person printed the sheet and handed it over. A short delivery closed
+         * "with an explicit reason" (§3.5) shows the reason too: *that* it closed short without
+         * *why* would be the worse half of the two.
+         */
+        notes: {
+            title: t('kitchen:tray.groupNote'),
+            testID: 'kitchen-supply-order-detail-notices',
+            lines: [
+                ...(status === 'cancelled'
+                    ? [
+                          {
+                              key: 'cancelled',
+                              text: t('kitchen:ops.supplyOrders.cancelledNoticeTitle'),
+                              testID: 'kitchen-supply-order-detail-cancelled-notice',
+                          },
+                      ]
+                    : data.issuedAt !== null
+                      ? [
+                            {
+                                key: 'issued',
+                                text: t('kitchen:ops.supplyOrders.issuedNoticeTitle', {
+                                    date: formatter.formatDate(data.issuedAt, {
+                                        dateStyle: 'medium',
+                                    }),
+                                }),
+                                testID: 'kitchen-supply-order-detail-issued-notice',
+                            },
+                        ]
+                      : []),
+                ...(data.closeShortReason === null
+                    ? []
+                    : [
+                          {
+                              key: 'close-short',
+                              text: t('kitchen:ops.supplyOrders.closedShortTitle'),
+                              testID: 'kitchen-supply-order-detail-close-short-notice',
+                          },
+                          {
+                              key: 'close-short-reason',
+                              text: data.closeShortReason,
+                              testID: 'kitchen-supply-order-detail-close-short-reason',
+                          },
+                      ]),
+                ...(supplierArchived && !issuable
+                    ? [
+                          {
+                              key: 'supplier-archived',
+                              text: t('kitchen:ops.supplyOrders.supplierArchivedTitle'),
+                              testID: 'kitchen-supply-order-detail-archived-notice',
+                          },
+                      ]
+                    : []),
+            ],
+        },
+    };
 
     return (
-        <Cascade space="md" testID="kitchen-supply-order-detail-screen">
-            {/*
-             * The opening the record forms share, as the builder draws it: the order and its status,
-             * the way back first and the commit last. The commit lives here only — the summary
-             * beside the cards states the order and does not repeat its buttons.
-             */}
-            <RecordFormOpening
-                testID="kitchen-supply-order-detail-screen"
-                title={title}
-                dirty={guard.isDirty}
-                badges={
-                    <Badge
-                        variant="label"
-                        testID="kitchen-supply-order-detail-status"
-                        tone={purchaseOrderStatusTone(data.status)}
-                        label={t(purchaseOrderStatusKey(data.status))}
-                    />
-                }
-                details={
-                    <Text
-                        variant="caption"
-                        tone="secondary"
-                        testID="kitchen-supply-order-detail-subtitle"
-                    >
-                        {t('kitchen:ops.supplyOrders.detailSubtitle', {
-                            supplier: supplierName,
-                            branch: branchName,
-                            date: madeOn,
-                        })}
-                    </Text>
-                }
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-supply-order-detail-screen-back"
-                            variant="secondary"
-                            label={t('kitchen:ops.supplyOrders.backToOrders')}
-                            onPress={() => {
-                                guard.intercept(back);
-                            }}
-                        />
-                        {printable ? (
-                            /*
-                             * One control, two labels. A draft says **Preview** because what comes
-                             * back is marked Draft and is not the document anybody hands over; an
-                             * issued order says **Print** because it is.
-                             */
-                            <Button
-                                testID="kitchen-supply-order-detail-print"
-                                variant={issuable ? 'ghost' : 'secondary'}
-                                label={
-                                    issuable
-                                        ? t('kitchen:ops.supplyOrders.print.preview')
-                                        : t('kitchen:ops.supplyOrders.print.printOrder')
-                                }
-                                onPress={openPrint}
-                            />
-                        ) : null}
-                        {cancellable ? (
-                            <Button
-                                testID="kitchen-supply-order-detail-cancel"
-                                variant="danger"
-                                label={t('kitchen:ops.supplyOrders.cancelOrder')}
-                                onPress={() => {
-                                    setConfirmingCancel(true);
-                                }}
-                            />
-                        ) : null}
-                        {receivable ? (
-                            <Button
-                                testID="kitchen-supply-order-detail-receive"
-                                label={t('kitchen:ops.supplyOrders.receiveDelivery')}
-                                onPress={goReceive}
-                            />
-                        ) : null}
-                        {/*
-                         * No save control at all on a frozen order — an editing affordance that
-                         * always refuses is worse than none.
-                         */}
-                        {editable ? (
-                            <Button
-                                testID="kitchen-supply-order-detail-screen-save"
-                                variant={issuable ? 'secondary' : 'primary'}
-                                label={t('kitchen:ops.supplyOrders.saveLines')}
-                                loading={update.isPending}
-                                // A wrong box does not disable Save: pressing it takes you there.
-                                disabled={!dirty || empty || update.isPending}
-                                onPress={save}
-                            />
-                        ) : null}
-                        {issuable ? (
-                            <Button
-                                testID="kitchen-supply-order-detail-issue"
-                                label={t('kitchen:ops.supplyOrders.issue')}
-                                disabled={issueBlocked}
-                                onPress={() => {
-                                    setConfirmingIssue(true);
-                                }}
-                            />
-                        ) : null}
-                    </>
-                }
-            />
-
-            {/* The order's notices, one band under the opening. */}
-            {!hasNotices ? null : (
-                <Stack space="xs" testID="kitchen-supply-order-detail-notices">
-                    {status === 'cancelled' ? (
-                        <Callout
-                            testID="kitchen-supply-order-detail-cancelled-notice"
-                            tone="info"
-                            title={t('kitchen:ops.supplyOrders.cancelledNoticeTitle')}
-                        />
-                    ) : data.issuedAt !== null ? (
-                        /*
-                         * "Issued", never "sent" (§2). Nothing left this system through any channel — the
-                         * person printed the sheet and handed it over.
-                         */
-                        <Callout
-                            testID="kitchen-supply-order-detail-issued-notice"
-                            tone="info"
-                            title={t('kitchen:ops.supplyOrders.issuedNoticeTitle', {
-                                date: formatter.formatDate(data.issuedAt, { dateStyle: 'medium' }),
-                            })}
-                        />
-                    ) : null}
-
-                    {data.closeShortReason === null ? null : (
-                        /*
-                         * §3.5 allows a short delivery to be closed "with an explicit reason", and the
-                         * reason is shown here rather than left in the audit log: seeing *that* it closed
-                         * short but not *why* would be the worse half of the two.
-                         */
-                        <Callout
-                            testID="kitchen-supply-order-detail-close-short-notice"
-                            tone="warning"
-                            title={t('kitchen:ops.supplyOrders.closedShortTitle')}
-                            body={data.closeShortReason}
-                        />
-                    )}
-
-                    {actionError === null ? null : (
-                        // A save, issue or cancel the server refused. Field refusals are already on their
-                        // fields; this says what is left, so a refused action never looks like nothing.
-                        <Callout
-                            testID="kitchen-supply-order-detail-action-error"
-                            tone="danger"
-                            role="alert"
-                            title={t('kitchen:editor.saveError')}
-                            body={actionError}
-                        />
-                    )}
-
-                    {data.supplier?.archivedAt == null ? null : (
-                        <Callout
-                            testID="kitchen-supply-order-detail-archived-notice"
-                            tone="warning"
-                            title={t('kitchen:ops.supplyOrders.supplierArchivedTitle')}
-                        />
-                    )}
-                </Stack>
-            )}
-
-            <View
-                ref={Platform.OS === 'web' ? port.ref : undefined}
-                onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
-                className={
-                    sideBySide ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
-                }
-            >
-                {/* The form is the row's filler beside the fixed summary. */}
-                <View className="z-auto min-w-0 flex-1 flex-col gap-base">
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-supply-order-detail-lines"
-                        title={t('kitchen:ops.supplyOrders.linesTitle')}
-                        aside={
-                            <Text
-                                variant="caption"
-                                tone="secondary"
-                                testID="kitchen-supply-order-detail-line-count"
-                            >
-                                {lineCount}
-                            </Text>
-                        }
-                    >
-                        <Stack space="sm">
-                            <DataList<LineDraft>
-                                testID="kitchen-supply-order-detail-lines-table"
-                                label={t('kitchen:ops.supplyOrders.linesCaption')}
-                                columns={columns}
-                                rows={lines}
-                                rowKey={(line) => line.stockItemId}
-                                density="sm"
-                            />
-
-                            {empty && editable ? (
-                                <Text
-                                    variant="caption"
-                                    tone="warning"
-                                    testID="kitchen-supply-order-detail-no-lines"
-                                >
-                                    {t('kitchen:ops.supplyOrders.noLines')}
-                                </Text>
-                            ) : null}
-
-                            {/* Under the rows it joins, as the builder's "Add something else". */}
-                            {editable ? (
-                                <View className="z-tooltip w-full max-w-field">
-                                    <Select
-                                        testID="kitchen-supply-order-detail-add-line"
-                                        label={t('kitchen:ops.supplyOrders.addLineLabel')}
-                                        labelHidden
-                                        size="sm"
-                                        options={addOptions}
-                                        searchable
-                                        value={null}
-                                        placeholder={t(
-                                            'kitchen:ops.supplyOrders.addLinePlaceholder',
-                                        )}
-                                        onChange={(value) => {
-                                            const item = (stockItems.data ?? []).find(
-                                                (candidate: StockItem) =>
-                                                    String(candidate.id) === value,
-                                            );
-
-                                            if (item === undefined) return;
-
-                                            edit([
-                                                ...lines,
-                                                {
-                                                    stockItemId: String(item.id),
-                                                    // Blank, never zero. The person types what they
-                                                    // want; a prefilled zero would read as a
-                                                    // decision.
-                                                    quantity: '',
-                                                    itemCode: item.code,
-                                                    itemNameEn: item.nameEn,
-                                                    unitCode: item.unitCode,
-                                                    // Resolved server-side from the saved supplier
-                                                    // link on save — the client never invents one.
-                                                    supplierItemRef: null,
-                                                    // A line nobody has ordered yet has nothing
-                                                    // against it, and the whole of it is to come.
-                                                    receivedQuantity: '0',
-                                                    outstandingQuantity: '',
-                                                },
-                                            ]);
-                                        }}
-                                    />
-                                </View>
-                            ) : null}
-                        </Stack>
-                    </FormSection>
-
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-supply-order-detail-notes"
-                        title={t('kitchen:ops.supplyOrders.notesTitle')}
-                    >
-                        {editable ? (
-                            <TextInputField
-                                testID="kitchen-supply-order-detail-notes-input"
-                                id="kitchen-supply-order-detail-notes-input"
-                                {...server.flag('notes')}
-                                label={t('kitchen:ops.supplyOrders.notesLabel')}
-                                hint={t('kitchen:ops.supplyOrders.notesHint')}
-                                placeholder={t('kitchen:ops.supplyOrders.notesPlaceholder')}
-                                size="sm"
-                                multiline
-                                value={notes}
-                                onChangeText={(next) => {
-                                    edit(lines, next);
-                                }}
-                            />
-                        ) : (
-                            <Text
-                                tone={notes === '' ? 'secondary' : 'primary'}
-                                testID="kitchen-supply-order-detail-notes-text"
-                            >
-                                {notes === '' ? t('kitchen:ops.supplyOrders.noNotes') : notes}
-                            </Text>
-                        )}
-                    </FormSection>
-                </View>
-
+        <IssueTrayFrame tray={trayContent} controller={issueTray}>
+            <Cascade space="md" testID="kitchen-supply-order-detail-screen">
                 {/*
-                 * The order in a few facts, what has arrived against it, and the next thing to do
-                 * with it. Deliveries are a list, not links: there is no receipt screen, and the
-                 * money on them is behind a permission this screen does not check — the purchases
-                 * ledger is where a cost holder reads it.
+                 * The opening the record forms share, as the builder draws it: the order and its
+                 * status, the way back first and the commit last. The commit lives here only — the
+                 * summary beside the cards states the order and does not repeat its buttons.
                  */}
-                <RecordSummaryAside
-                    testID="kitchen-supply-order-detail-summary"
-                    title={t('kitchen:ops.supplyOrders.detailSummaryTitle')}
-                    width={sideBySide ? ASIDE_WIDTH : null}
-                    rows={[
-                        {
-                            key: 'supplier',
-                            label: t('kitchen:ops.supplyOrders.columnSupplier'),
-                            value: supplierName,
-                        },
-                        {
-                            key: 'branch',
-                            label: t('kitchen:ops.supplyOrders.viewBranch'),
-                            value: branchName,
-                        },
-                        {
-                            key: 'made-on',
-                            label: t('kitchen:ops.supplyOrders.columnMadeOn'),
-                            value: madeOn,
-                        },
-                        ...(data.issuedAt === null
-                            ? []
-                            : [
-                                  {
-                                      key: 'issued-on',
-                                      label: t('kitchen:ops.supplyOrders.summaryIssuedOn'),
-                                      value: formatter.formatDate(data.issuedAt, {
-                                          dateStyle: 'medium',
-                                      }),
-                                  },
-                              ]),
-                    ]}
-                    total={{
-                        label: t('kitchen:ops.supplyOrders.summaryLineTotal'),
-                        value: formatter.formatNumber(lines.length),
-                    }}
-                    list={{
-                        title: t('kitchen:ops.supplyOrders.receiptsTitle'),
-                        empty: t('kitchen:ops.supplyOrders.receiptsEmpty'),
-                        testID: 'kitchen-supply-order-detail-receipts',
-                        emptyTestID: 'kitchen-supply-order-detail-receipts-empty',
-                        items: data.receipts.map((receipt) => ({
-                            key: String(receipt.id),
-                            testID: `kitchen-supply-order-detail-receipt-${String(receipt.id)}`,
-                            name: `${
-                                receipt.receivedOn === null
-                                    ? EM_DASH
-                                    : formatter.formatDate(receipt.receivedOn, {
-                                          dateStyle: 'medium',
-                                      })
-                            } · ${
-                                receipt.documentRef ??
-                                t('kitchen:ops.supplyOrders.receiptNoDocumentRef')
-                            }`,
-                            value: t('kitchen:ops.supplyOrders.receiptLineCount', {
-                                count: receipt.lineCount,
-                            }),
-                        })),
+                <RecordFormOpening
+                    testID="kitchen-supply-order-detail-screen"
+                    title={title}
+                    dirty={guard.isDirty}
+                    badges={
+                        <Badge
+                            variant="label"
+                            testID="kitchen-supply-order-detail-status"
+                            tone={purchaseOrderStatusTone(data.status)}
+                            label={t(purchaseOrderStatusKey(data.status))}
+                        />
+                    }
+                    details={
+                        <Text
+                            variant="caption"
+                            tone="secondary"
+                            testID="kitchen-supply-order-detail-subtitle"
+                        >
+                            {t('kitchen:ops.supplyOrders.detailSubtitle', {
+                                supplier: supplierName,
+                                branch: branchName,
+                                date: madeOn,
+                            })}
+                        </Text>
+                    }
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-supply-order-detail-screen-back"
+                                variant="secondary"
+                                label={t('kitchen:ops.supplyOrders.backToOrders')}
+                                onPress={() => {
+                                    guard.intercept(back);
+                                }}
+                            />
+                            {printable ? (
+                                /*
+                                 * One control, two labels. A draft says **Preview** because what
+                                 * comes back is marked Draft and is not the document anybody hands
+                                 * over; an issued order says **Print** because it is.
+                                 */
+                                <Button
+                                    testID="kitchen-supply-order-detail-print"
+                                    variant={issuable ? 'ghost' : 'secondary'}
+                                    label={
+                                        issuable
+                                            ? t('kitchen:ops.supplyOrders.print.preview')
+                                            : t('kitchen:ops.supplyOrders.print.printOrder')
+                                    }
+                                    onPress={openPrint}
+                                />
+                            ) : null}
+                            {cancellable ? (
+                                <Button
+                                    testID="kitchen-supply-order-detail-cancel"
+                                    variant="danger"
+                                    label={t('kitchen:ops.supplyOrders.cancelOrder')}
+                                    onPress={() => {
+                                        setConfirmingCancel(true);
+                                    }}
+                                />
+                            ) : null}
+                            {receivable ? (
+                                <Button
+                                    testID="kitchen-supply-order-detail-receive"
+                                    label={t('kitchen:ops.supplyOrders.receiveDelivery')}
+                                    onPress={goReceive}
+                                />
+                            ) : null}
+                            {/*
+                             * No save control at all on a frozen order — an editing affordance that
+                             * always refuses is worse than none.
+                             */}
+                            {editable ? (
+                                <Button
+                                    testID="kitchen-supply-order-detail-screen-save"
+                                    variant={issuable ? 'secondary' : 'primary'}
+                                    label={t('kitchen:ops.supplyOrders.saveLines')}
+                                    loading={update.isPending}
+                                    // A wrong box does not disable Save: pressing it takes you
+                                    // there.
+                                    disabled={!dirty || empty || update.isPending}
+                                    onPress={save}
+                                />
+                            ) : null}
+                            {issuable ? (
+                                <Button
+                                    testID="kitchen-supply-order-detail-issue"
+                                    label={t('kitchen:ops.supplyOrders.issue')}
+                                    disabled={issueBlocked}
+                                    onPress={() => {
+                                        setConfirmingIssue(true);
+                                    }}
+                                />
+                            ) : null}
+                        </>
+                    }
+                    errors={{
+                        summary: t('kitchen:forms.toFixCount', { count: server.items.length }),
+                        items: server.items,
                     }}
                 />
-            </View>
 
-            <EditorGuardDialogs guard={guard} testID="kitchen-supply-order-detail-screen" />
+                <View
+                    ref={Platform.OS === 'web' ? port.ref : undefined}
+                    onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
+                    className={
+                        sideBySide
+                            ? 'z-auto flex-row items-start gap-base'
+                            : 'z-auto flex-col gap-base'
+                    }
+                >
+                    {/* The form is the row's filler beside the fixed summary. */}
+                    <View className="z-auto min-w-0 flex-1 flex-col gap-base">
+                        <FormSection
+                            first
+                            variant="card"
+                            testID="kitchen-supply-order-detail-lines"
+                            title={t('kitchen:ops.supplyOrders.linesTitle')}
+                            aside={
+                                <Text
+                                    variant="caption"
+                                    tone="secondary"
+                                    testID="kitchen-supply-order-detail-line-count"
+                                >
+                                    {lineCount}
+                                </Text>
+                            }
+                        >
+                            <Stack space="sm">
+                                <DataList<LineDraft>
+                                    testID="kitchen-supply-order-detail-lines-table"
+                                    label={t('kitchen:ops.supplyOrders.linesCaption')}
+                                    columns={columns}
+                                    rows={lines}
+                                    rowKey={(line) => line.stockItemId}
+                                    density="sm"
+                                />
 
-            <Dialog
-                open={confirmingIssue}
-                onClose={() => {
-                    setConfirmingIssue(false);
-                }}
-                title={t('kitchen:ops.supplyOrders.issueConfirmTitle')}
-                description={t('kitchen:ops.supplyOrders.issueConfirmBody')}
-                testID="kitchen-supply-order-detail-issue-confirm"
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-supply-order-detail-issue-cancel"
-                            variant="secondary"
-                            label={t('kitchen:ops.supplyOrders.issueKeepEditing')}
-                            onPress={() => {
-                                setConfirmingIssue(false);
-                            }}
-                        />
-                        <Button
-                            testID="kitchen-supply-order-detail-issue-confirm-action"
-                            label={t('kitchen:ops.supplyOrders.issueConfirm')}
-                            loading={issue.isPending}
-                            onPress={confirmIssue}
-                        />
-                    </>
-                }
-            />
+                                {empty && editable ? (
+                                    <Text
+                                        variant="caption"
+                                        tone="warning"
+                                        testID="kitchen-supply-order-detail-no-lines"
+                                    >
+                                        {t('kitchen:ops.supplyOrders.noLines')}
+                                    </Text>
+                                ) : null}
 
-            <Dialog
-                open={confirmingCancel}
-                onClose={() => {
-                    setConfirmingCancel(false);
-                }}
-                title={t('kitchen:ops.supplyOrders.cancelConfirmTitle')}
-                description={t('kitchen:ops.supplyOrders.cancelConfirmBody')}
-                testID="kitchen-supply-order-detail-cancel-confirm"
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-supply-order-detail-cancel-keep"
-                            variant="quiet"
-                            label={t('kitchen:ops.supplyOrders.cancelKeep')}
-                            onPress={() => {
-                                setConfirmingCancel(false);
-                            }}
-                        />
-                        <Button
-                            testID="kitchen-supply-order-detail-cancel-confirm-action"
-                            variant="danger"
-                            label={t('kitchen:ops.supplyOrders.cancelConfirm')}
-                            loading={cancel.isPending}
-                            onPress={confirmCancel}
-                        />
-                    </>
-                }
-            />
-        </Cascade>
+                                {/*
+                                 * Under the rows it joins, as the builder's "Add something else".
+                                 */}
+                                {editable ? (
+                                    <View className="z-tooltip w-full max-w-field">
+                                        <Select
+                                            testID="kitchen-supply-order-detail-add-line"
+                                            label={t('kitchen:ops.supplyOrders.addLineLabel')}
+                                            labelHidden
+                                            size="sm"
+                                            options={addOptions}
+                                            searchable
+                                            value={null}
+                                            placeholder={t(
+                                                'kitchen:ops.supplyOrders.addLinePlaceholder',
+                                            )}
+                                            onChange={(value) => {
+                                                const item = (stockItems.data ?? []).find(
+                                                    (candidate: StockItem) =>
+                                                        String(candidate.id) === value,
+                                                );
+
+                                                if (item === undefined) return;
+
+                                                edit([
+                                                    ...lines,
+                                                    {
+                                                        stockItemId: String(item.id),
+                                                        // Blank, never zero. The person types
+                                                        // what they want; a prefilled zero
+                                                        // would read as a decision.
+                                                        quantity: '',
+                                                        itemCode: item.code,
+                                                        itemNameEn: item.nameEn,
+                                                        unitCode: item.unitCode,
+                                                        // Resolved server-side from the saved
+                                                        // supplier link on save — the client
+                                                        // never invents one.
+                                                        supplierItemRef: null,
+                                                        // A line nobody has ordered yet has
+                                                        // nothing against it, and the whole of
+                                                        // it is to come.
+                                                        receivedQuantity: '0',
+                                                        outstandingQuantity: '',
+                                                    },
+                                                ]);
+                                            }}
+                                        />
+                                    </View>
+                                ) : null}
+                            </Stack>
+                        </FormSection>
+
+                        <FormSection
+                            first
+                            variant="card"
+                            testID="kitchen-supply-order-detail-notes"
+                            title={t('kitchen:ops.supplyOrders.notesTitle')}
+                        >
+                            {editable ? (
+                                <TextInputField
+                                    testID="kitchen-supply-order-detail-notes-input"
+                                    id="kitchen-supply-order-detail-notes-input"
+                                    {...server.flag('notes')}
+                                    label={t('kitchen:ops.supplyOrders.notesLabel')}
+                                    hint={t('kitchen:ops.supplyOrders.notesHint')}
+                                    placeholder={t('kitchen:ops.supplyOrders.notesPlaceholder')}
+                                    size="sm"
+                                    multiline
+                                    value={notes}
+                                    onChangeText={(next) => {
+                                        edit(lines, next);
+                                    }}
+                                />
+                            ) : (
+                                <Text
+                                    tone={notes === '' ? 'secondary' : 'primary'}
+                                    testID="kitchen-supply-order-detail-notes-text"
+                                >
+                                    {notes === '' ? t('kitchen:ops.supplyOrders.noNotes') : notes}
+                                </Text>
+                            )}
+                        </FormSection>
+                    </View>
+
+                    {/*
+                     * The order in a few facts, what has arrived against it, and the next thing to
+                     * do with it. Deliveries are a list, not links: there is no receipt screen, and
+                     * the money on them is behind a permission this screen does not check — the
+                     * purchases ledger is where a cost holder reads it.
+                     */}
+                    <RecordSummaryAside
+                        testID="kitchen-supply-order-detail-summary"
+                        title={t('kitchen:ops.supplyOrders.detailSummaryTitle')}
+                        width={sideBySide ? ASIDE_WIDTH : null}
+                        rows={[
+                            {
+                                key: 'supplier',
+                                label: t('kitchen:ops.supplyOrders.columnSupplier'),
+                                value: supplierName,
+                            },
+                            {
+                                key: 'branch',
+                                label: t('kitchen:ops.supplyOrders.viewBranch'),
+                                value: branchName,
+                            },
+                            {
+                                key: 'made-on',
+                                label: t('kitchen:ops.supplyOrders.columnMadeOn'),
+                                value: madeOn,
+                            },
+                            ...(data.issuedAt === null
+                                ? []
+                                : [
+                                      {
+                                          key: 'issued-on',
+                                          label: t('kitchen:ops.supplyOrders.summaryIssuedOn'),
+                                          value: formatter.formatDate(data.issuedAt, {
+                                              dateStyle: 'medium',
+                                          }),
+                                      },
+                                  ]),
+                        ]}
+                        total={{
+                            label: t('kitchen:ops.supplyOrders.summaryLineTotal'),
+                            value: formatter.formatNumber(lines.length),
+                        }}
+                        list={{
+                            title: t('kitchen:ops.supplyOrders.receiptsTitle'),
+                            empty: t('kitchen:ops.supplyOrders.receiptsEmpty'),
+                            testID: 'kitchen-supply-order-detail-receipts',
+                            emptyTestID: 'kitchen-supply-order-detail-receipts-empty',
+                            items: data.receipts.map((receipt) => ({
+                                key: String(receipt.id),
+                                testID: `kitchen-supply-order-detail-receipt-${String(receipt.id)}`,
+                                name: `${
+                                    receipt.receivedOn === null
+                                        ? EM_DASH
+                                        : formatter.formatDate(receipt.receivedOn, {
+                                              dateStyle: 'medium',
+                                          })
+                                } · ${
+                                    receipt.documentRef ??
+                                    t('kitchen:ops.supplyOrders.receiptNoDocumentRef')
+                                }`,
+                                value: t('kitchen:ops.supplyOrders.receiptLineCount', {
+                                    count: receipt.lineCount,
+                                }),
+                            })),
+                        }}
+                    />
+                </View>
+
+                <EditorGuardDialogs guard={guard} testID="kitchen-supply-order-detail-screen" />
+
+                <Dialog
+                    open={confirmingIssue}
+                    onClose={() => {
+                        setConfirmingIssue(false);
+                    }}
+                    title={t('kitchen:ops.supplyOrders.issueConfirmTitle')}
+                    description={t('kitchen:ops.supplyOrders.issueConfirmBody')}
+                    testID="kitchen-supply-order-detail-issue-confirm"
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-supply-order-detail-issue-cancel"
+                                variant="secondary"
+                                label={t('kitchen:ops.supplyOrders.issueKeepEditing')}
+                                onPress={() => {
+                                    setConfirmingIssue(false);
+                                }}
+                            />
+                            <Button
+                                testID="kitchen-supply-order-detail-issue-confirm-action"
+                                label={t('kitchen:ops.supplyOrders.issueConfirm')}
+                                loading={issue.isPending}
+                                onPress={confirmIssue}
+                            />
+                        </>
+                    }
+                />
+
+                <Dialog
+                    open={confirmingCancel}
+                    onClose={() => {
+                        setConfirmingCancel(false);
+                    }}
+                    title={t('kitchen:ops.supplyOrders.cancelConfirmTitle')}
+                    description={t('kitchen:ops.supplyOrders.cancelConfirmBody')}
+                    testID="kitchen-supply-order-detail-cancel-confirm"
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-supply-order-detail-cancel-keep"
+                                variant="quiet"
+                                label={t('kitchen:ops.supplyOrders.cancelKeep')}
+                                onPress={() => {
+                                    setConfirmingCancel(false);
+                                }}
+                            />
+                            <Button
+                                testID="kitchen-supply-order-detail-cancel-confirm-action"
+                                variant="danger"
+                                label={t('kitchen:ops.supplyOrders.cancelConfirm')}
+                                loading={cancel.isPending}
+                                onPress={confirmCancel}
+                            />
+                        </>
+                    }
+                />
+            </Cascade>
+        </IssueTrayFrame>
     );
 }

@@ -21,16 +21,20 @@ import {
     FormSection,
     Icon,
     IconButton,
+    IssueRevealScope,
+    IssueTrayFrame,
     Select,
     Skeleton,
     Text,
     TextInputField,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
+import type { IssueCardItem, IssueTrayContent } from '@healthy360/design-system';
 import { fieldWidth } from '@healthy360/design-tokens';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 
@@ -91,6 +95,7 @@ import {
     withPaymentMethod,
 } from '../order-desk/sale-state.ts';
 import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
+import { useNudgeOnRefusal } from '../tray-nudge.ts';
 
 /**
  * `/kitchen/order-desk/sale` — ringing up a counter, collection or telephone sale. Kitchen v2 `4f`.
@@ -134,6 +139,11 @@ import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
  * Refusals arrive on a `200` as **data**. Placing is gated on a *fresh* `quote.quotable`, the server's
  * own verdict, as well as on the shortfall — an agent cannot place a ticket whose price is in flight
  * and then read out a number that changes under them.
+ *
+ * A total that could not be worked out is the page's issue tray's, not the ticket's, as are the
+ * customer and address cards' warnings — a shared number, an area nobody delivers to — which those
+ * cards register themselves (`order-desk/sale-customer.tsx`). A refused sale or edit stays on the
+ * ticket, beside the button that was pressed, with the edit's own reasons and its conflict.
  *
  * ## What the design draws that this does not
  *
@@ -354,6 +364,16 @@ function Sale() {
             ? t('kitchen:desk.sale.title')
             : t('kitchen:desk.edit.title', { number: editOrder.orderNumber }),
     );
+
+    // The page's issue tray; a refused sale or edit opens it.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+    useNudgeOnRefusal(isEditing ? amend.error : place.error, nudgeTray);
+
+    // A card a checkout section registers opens the checkout before its Fix runs.
+    const showCheckout = useCallback(() => {
+        setStage('checkout');
+    }, []);
 
     function update(next: SaleState) {
         setState(next);
@@ -627,207 +647,239 @@ function Sale() {
         );
     }
 
+    // A total the server could not work out is the tray's; it clears when the quote is asked again.
+    const quoteFailure = state.lines.length === 0 ? null : toFailure(ticketQuote.error);
+    const failedCards: IssueCardItem[] =
+        quoteFailure === null
+            ? []
+            : [
+                  {
+                      key: 'quote',
+                      tone: 'danger',
+                      label: t('kitchen:desk.sale.quoteErrorTitle'),
+                      detail: quoteFailure.message,
+                      testID: 'kitchen-order-desk-sale-quote-error',
+                  },
+              ];
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-order-desk-sale-tray',
+        groups: [{ key: 'failed', title: t('kitchen:tray.groupFailed'), items: failedCards }],
+    };
+
     return (
-        <View testID="kitchen-order-desk-sale-screen" className="z-auto flex-col gap-base">
-            {editOrder === null ? null : (
-                <Text variant="title" testID="kitchen-order-desk-sale-editing">
-                    {t('kitchen:desk.edit.title', { number: editOrder.orderNumber })}
-                </Text>
-            )}
-            <View
-                // Both measurement paths, each inert on the other's platform — as `CatalogueList`.
-                ref={Platform.OS === 'web' ? port.ref : undefined}
-                onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
-                className={
-                    sideBySide ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
-                }
-            >
-                {/*
-                 * Both columns stay mounted and the stage hides one: Back must find the customer and
-                 * the address cards as they were left, folded, not reset to an empty search.
-                 */}
+        <IssueTrayFrame tray={trayContent} controller={issueTray}>
+            <View testID="kitchen-order-desk-sale-screen" className="z-auto flex-col gap-base">
+                {editOrder === null ? null : (
+                    <Text variant="title" testID="kitchen-order-desk-sale-editing">
+                        {t('kitchen:desk.edit.title', { number: editOrder.orderNumber })}
+                    </Text>
+                )}
                 <View
-                    testID="kitchen-order-desk-sale-checkout"
-                    className="z-auto min-w-0 flex-col gap-base"
-                    style={[column, stage === 'checkout' ? null : HIDDEN]}
+                    // Both measurement paths, each inert on the other's platform — as `CatalogueList`.
+                    ref={Platform.OS === 'web' ? port.ref : undefined}
+                    onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
+                    className={
+                        sideBySide
+                            ? 'z-auto flex-row items-start gap-base'
+                            : 'z-auto flex-col gap-base'
+                    }
                 >
-                    <View className="flex-row">
-                        <Button
-                            testID="kitchen-order-desk-sale-back"
-                            size="sm"
-                            variant="secondary"
-                            label={t('kitchen:desk.sale.backToMenu')}
-                            iconStart={<Icon name="chevronBackward" size="sm" />}
-                            onPress={() => {
-                                setStage('menu');
+                    {/*
+                     * Both columns stay mounted and the stage hides one: Back must find the customer and
+                     * the address cards as they were left, folded, not reset to an empty search.
+                     */}
+                    <View
+                        testID="kitchen-order-desk-sale-checkout"
+                        className="z-auto min-w-0 flex-col gap-base"
+                        style={[column, stage === 'checkout' ? null : HIDDEN]}
+                    >
+                        <View className="flex-row">
+                            <Button
+                                testID="kitchen-order-desk-sale-back"
+                                size="sm"
+                                variant="secondary"
+                                label={t('kitchen:desk.sale.backToMenu')}
+                                iconStart={<Icon name="chevronBackward" size="sm" />}
+                                onPress={() => {
+                                    setStage('menu');
+                                }}
+                            />
+                        </View>
+
+                        {/* How it leaves and who it is for are fixed for the life of an order. */}
+                        {isEditing ? null : (
+                            <KindPicker
+                                value={kindChosen ? state.fulfilmentType : null}
+                                onChange={(type) => {
+                                    setKindChosen(true);
+                                    update(withFulfilmentType(state, type));
+                                }}
+                            />
+                        )}
+
+                        <IssueRevealScope reveal={showCheckout}>
+                            {!isEditing && kindChosen && needsCustomer(state.fulfilmentType) ? (
+                                <CustomerSection
+                                    customerAccountId={state.customerAccountId}
+                                    onChoose={(customer) => {
+                                        update(withCustomer(state, customer.id));
+                                    }}
+                                />
+                            ) : null}
+
+                            {editOrder !== null && needsAddress(state.fulfilmentType) ? (
+                                <FormSection
+                                    variant="card"
+                                    testID="kitchen-order-desk-sale-edit-address"
+                                    title={t('kitchen:desk.sale.addressTitle')}
+                                    actions={
+                                        <Button
+                                            testID="kitchen-order-desk-sale-edit-address-toggle"
+                                            size="sm"
+                                            variant="secondary"
+                                            label={t(
+                                                changingAddress
+                                                    ? 'kitchen:desk.edit.keepAddress'
+                                                    : 'kitchen:desk.edit.changeAddress',
+                                            )}
+                                            onPress={() => {
+                                                // Keeping the stored address drops one added meanwhile.
+                                                if (
+                                                    changingAddress &&
+                                                    state.customerAddressId !== null
+                                                ) {
+                                                    update({ ...state, customerAddressId: null });
+                                                }
+                                                setChangingAddress(!changingAddress);
+                                            }}
+                                        />
+                                    }
+                                >
+                                    <Text
+                                        variant="label"
+                                        testID="kitchen-order-desk-sale-edit-address-current"
+                                    >
+                                        {[
+                                            editOrder.delivery.lineOne,
+                                            editOrder.delivery.lineTwo,
+                                            locale.startsWith('ar')
+                                                ? editOrder.delivery.areaNameAr
+                                                : editOrder.delivery.areaNameEn,
+                                        ]
+                                            .filter(
+                                                (part): part is string =>
+                                                    part !== null && part !== '',
+                                            )
+                                            .join(', ') || EM_DASH}
+                                    </Text>
+                                </FormSection>
+                            ) : null}
+
+                            {/*
+                             * The same surface a new sale uses, unchanged: it only ever adds an address,
+                             * and on an edit the one it adds replaces the stored destination.
+                             */}
+                            {kindChosen &&
+                            needsAddress(state.fulfilmentType) &&
+                            (!isEditing || changingAddress) ? (
+                                <AddressSection
+                                    customerAccountId={state.customerAccountId}
+                                    customerAddressId={state.customerAddressId}
+                                    onSaved={(addressId) => {
+                                        update({ ...state, customerAddressId: addressId });
+                                    }}
+                                />
+                            ) : null}
+                        </IssueRevealScope>
+
+                        {!kindChosen || schedule === null ? null : (
+                            <WhenSection
+                                windows={windowList}
+                                zoneOffersNone={offeredCodes !== null && windowList.length === 0}
+                                schedule={schedule}
+                                ended={
+                                    schedule.requestedDeliveryDate === today ? overToday : new Set()
+                                }
+                                firstDay={firstOpenDay(today, windowCodes, overToday)}
+                                onSchedule={(next) => {
+                                    update({ ...state, ...next });
+                                }}
+                                // An edit leaves the run to the record page's own reassignment.
+                                drivers={
+                                    !isEditing && state.fulfilmentType === 'delivery'
+                                        ? (drivers.data?.rows ?? null)
+                                        : null
+                                }
+                                driverUserId={state.driverUserId}
+                                onDriver={(driverUserId) => {
+                                    update({ ...state, driverUserId });
+                                }}
+                            />
+                        )}
+                    </View>
+
+                    <View
+                        className="z-auto min-w-0 flex-col gap-snug"
+                        style={[column, stage === 'menu' ? null : HIDDEN]}
+                    >
+                        <CatalogueToolbar<MenuSection>
+                            testID="kitchen-order-desk-sale-menu-toolbar"
+                            search={query}
+                            onSearchChange={setQuery}
+                            searchLabel={t('kitchen:desk.sale.pickerSearchLabel')}
+                            searchPlaceholder={t('kitchen:desk.sale.pickerSearchPlaceholder')}
+                            statusLabel={t('kitchen:desk.sale.sectionsLabel')}
+                            statusSegments={MENU_SECTIONS.map((candidate) => ({
+                                value: candidate,
+                                label: t(SECTION_LABEL_KEYS[candidate]),
+                            }))}
+                            status={section}
+                            onStatusChange={setSection}
+                        />
+                        <MenuGrid
+                            tileWidth={grid.tileWidth}
+                            columns={grid.columns}
+                            section={section}
+                            query={query}
+                            customerAccountId={state.customerAccountId}
+                            amendingOrderId={editOrderId === null ? null : String(editOrderId)}
+                            lines={state.lines}
+                            onAdd={(tile) => {
+                                update({
+                                    ...state,
+                                    lines: addItem(state.lines, {
+                                        catalogueItemId: tile.id,
+                                        catalogueItemVariantId: null,
+                                        name: tile.name,
+                                        variantLabel: null,
+                                    }),
+                                });
                             }}
                         />
                     </View>
 
-                    {/* How it leaves and who it is for are fixed for the life of an order. */}
-                    {isEditing ? null : (
-                        <KindPicker
-                            value={kindChosen ? state.fulfilmentType : null}
-                            onChange={(type) => {
-                                setKindChosen(true);
-                                update(withFulfilmentType(state, type));
-                            }}
-                        />
-                    )}
-
-                    {!isEditing && kindChosen && needsCustomer(state.fulfilmentType) ? (
-                        <CustomerSection
-                            customerAccountId={state.customerAccountId}
-                            onChoose={(customer) => {
-                                update(withCustomer(state, customer.id));
-                            }}
-                        />
-                    ) : null}
-
-                    {editOrder !== null && needsAddress(state.fulfilmentType) ? (
-                        <FormSection
-                            variant="card"
-                            testID="kitchen-order-desk-sale-edit-address"
-                            title={t('kitchen:desk.sale.addressTitle')}
-                            actions={
-                                <Button
-                                    testID="kitchen-order-desk-sale-edit-address-toggle"
-                                    size="sm"
-                                    variant="secondary"
-                                    label={t(
-                                        changingAddress
-                                            ? 'kitchen:desk.edit.keepAddress'
-                                            : 'kitchen:desk.edit.changeAddress',
-                                    )}
-                                    onPress={() => {
-                                        // Keeping the stored address drops one added meanwhile.
-                                        if (changingAddress && state.customerAddressId !== null) {
-                                            update({ ...state, customerAddressId: null });
-                                        }
-                                        setChangingAddress(!changingAddress);
-                                    }}
-                                />
-                            }
-                        >
-                            <Text
-                                variant="label"
-                                testID="kitchen-order-desk-sale-edit-address-current"
-                            >
-                                {[
-                                    editOrder.delivery.lineOne,
-                                    editOrder.delivery.lineTwo,
-                                    locale.startsWith('ar')
-                                        ? editOrder.delivery.areaNameAr
-                                        : editOrder.delivery.areaNameEn,
-                                ]
-                                    .filter((part): part is string => part !== null && part !== '')
-                                    .join(', ') || EM_DASH}
-                            </Text>
-                        </FormSection>
-                    ) : null}
-
-                    {/*
-                     * The same surface a new sale uses, unchanged: it only ever adds an address,
-                     * and on an edit the one it adds replaces the stored destination.
-                     */}
-                    {kindChosen &&
-                    needsAddress(state.fulfilmentType) &&
-                    (!isEditing || changingAddress) ? (
-                        <AddressSection
-                            customerAccountId={state.customerAccountId}
-                            customerAddressId={state.customerAddressId}
-                            onSaved={(addressId) => {
-                                update({ ...state, customerAddressId: addressId });
-                            }}
-                        />
-                    ) : null}
-
-                    {!kindChosen || schedule === null ? null : (
-                        <WhenSection
-                            windows={windowList}
-                            zoneOffersNone={offeredCodes !== null && windowList.length === 0}
-                            schedule={schedule}
-                            ended={schedule.requestedDeliveryDate === today ? overToday : new Set()}
-                            firstDay={firstOpenDay(today, windowCodes, overToday)}
-                            onSchedule={(next) => {
-                                update({ ...state, ...next });
-                            }}
-                            // An edit leaves the run to the record page's own reassignment.
-                            drivers={
-                                !isEditing && state.fulfilmentType === 'delivery'
-                                    ? (drivers.data?.rows ?? null)
-                                    : null
-                            }
-                            driverUserId={state.driverUserId}
-                            onDriver={(driverUserId) => {
-                                update({ ...state, driverUserId });
-                            }}
-                        />
-                    )}
-                </View>
-
-                <View
-                    className="z-auto min-w-0 flex-col gap-snug"
-                    style={[column, stage === 'menu' ? null : HIDDEN]}
-                >
-                    <CatalogueToolbar<MenuSection>
-                        testID="kitchen-order-desk-sale-menu-toolbar"
-                        search={query}
-                        onSearchChange={setQuery}
-                        searchLabel={t('kitchen:desk.sale.pickerSearchLabel')}
-                        searchPlaceholder={t('kitchen:desk.sale.pickerSearchPlaceholder')}
-                        statusLabel={t('kitchen:desk.sale.sectionsLabel')}
-                        statusSegments={MENU_SECTIONS.map((candidate) => ({
-                            value: candidate,
-                            label: t(SECTION_LABEL_KEYS[candidate]),
-                        }))}
-                        status={section}
-                        onStatusChange={setSection}
-                    />
-                    <MenuGrid
-                        tileWidth={grid.tileWidth}
-                        columns={grid.columns}
-                        section={section}
-                        query={query}
-                        customerAccountId={state.customerAccountId}
-                        amendingOrderId={editOrderId === null ? null : String(editOrderId)}
-                        lines={state.lines}
-                        onAdd={(tile) => {
-                            update({
-                                ...state,
-                                lines: addItem(state.lines, {
-                                    catalogueItemId: tile.id,
-                                    catalogueItemVariantId: null,
-                                    name: tile.name,
-                                    variantLabel: null,
-                                }),
-                            });
+                    <Ticket
+                        beside={sideBySide}
+                        stage={stage}
+                        kindChosen={kindChosen}
+                        onCharge={() => {
+                            setStage('checkout');
                         }}
+                        state={state}
+                        quote={quote}
+                        quoteStale={quoteStale}
+                        onState={update}
+                        sold={sold}
+                        editing={editOrder}
+                        onReload={onReload}
+                        placing={place.isPending || amend.isPending}
+                        placeFailure={toFailure(isEditing ? amend.error : place.error)}
+                        onPlace={isEditing ? onSave : onPlace}
                     />
                 </View>
-
-                <Ticket
-                    beside={sideBySide}
-                    stage={stage}
-                    kindChosen={kindChosen}
-                    onCharge={() => {
-                        setStage('checkout');
-                    }}
-                    state={state}
-                    quote={quote}
-                    quoteStale={quoteStale}
-                    quoteFailed={toFailure(ticketQuote.error) !== null}
-                    quoteFailureMessage={toFailure(ticketQuote.error)?.message ?? null}
-                    onState={update}
-                    sold={sold}
-                    editing={editOrder}
-                    onReload={onReload}
-                    placing={place.isPending || amend.isPending}
-                    placeFailure={toFailure(isEditing ? amend.error : place.error)}
-                    onPlace={isEditing ? onSave : onPlace}
-                />
             </View>
-        </View>
+        </IssueTrayFrame>
     );
 }
 
@@ -1340,8 +1392,6 @@ function Ticket({
     state,
     quote,
     quoteStale,
-    quoteFailed,
-    quoteFailureMessage,
     onState,
     sold,
     editing,
@@ -1360,8 +1410,6 @@ function Ticket({
     readonly state: SaleState;
     readonly quote: OrderDeskQuote | null;
     readonly quoteStale: boolean;
-    readonly quoteFailed: boolean;
-    readonly quoteFailureMessage: string | null;
     readonly onState: (state: SaleState) => void;
     readonly sold: KitchenOrder | null;
     /** The order being edited, or `null` on a new sale. */
@@ -1653,15 +1701,8 @@ function Ticket({
                         </ScrollView>
                     )}
 
-                    {lines.length === 0 ? null : quoteFailed ? (
-                        <Callout
-                            testID="kitchen-order-desk-sale-quote-error"
-                            tone="danger"
-                            role="alert"
-                            title={t('kitchen:desk.sale.quoteErrorTitle')}
-                            body={quoteFailureMessage ?? undefined}
-                        />
-                    ) : (
+                    {/* A total that could not be worked out is the tray's to say; this shows "—". */}
+                    {lines.length === 0 ? null : (
                         <Totals
                             quote={quote}
                             money={money}

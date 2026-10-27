@@ -1,7 +1,6 @@
 import type { DeliveryWindow } from '@healthy360/api-client/contracts';
 import {
     Button,
-    Callout,
     Cascade,
     Dialog,
     EmptyState,
@@ -9,9 +8,12 @@ import {
     FormSection,
     FormSkeleton,
     Icon,
+    IssueTrayFrame,
     Text,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
+import type { IssueCardItem, IssueTrayContent } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -35,9 +37,11 @@ import {
 import type { DeliveryWindowDraft } from '../delivery-model.ts';
 import { DeliveryWindowRows } from '../delivery-row-editors.tsx';
 import { CATALOGUE_VIEW_PERMISSION, DELIVERY_ZONE_MANAGE_PERMISSION } from '../entity-registry.ts';
+import { focusSection } from '../field-focus.ts';
 import { displayName } from '../format.ts';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
+import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
@@ -86,6 +90,12 @@ function DeliveryWindowsEditor() {
     /** The saved row whose archive is being confirmed. */
     const [archiving, setArchiving] = useState<DeliveryWindowDraft | null>(null);
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
+
+    // The page's issue tray; a refused save or archive opens it.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+    useNudgeOnRefusal(save.error, nudgeTray);
+    useNudgeOnRefusal(archive.error, nudgeTray);
 
     const [rows, setRows] = useState<readonly DeliveryWindowDraft[]>([]);
     const [rowsKey, setRowsKey] = useState<number | null>(null);
@@ -173,7 +183,7 @@ function DeliveryWindowsEditor() {
                     message: t('kitchen:windows.savedToast', { count: pending.length }),
                 });
             } catch {
-                // `save.error` renders the callout; the rows written so far stay written.
+                // `save.error` is the tray's card; the rows written so far stay written.
                 setFailedKey(writing);
             } finally {
                 setSaving(false);
@@ -214,8 +224,8 @@ function DeliveryWindowsEditor() {
 
     const saveFailure = toFailure(save.error);
     /*
-     * What the server refused, put on the fields of the row it was writing (BUG-06). No issue
-     * banner here, so the callout stays and carries whatever no field could.
+     * What the server refused, put on the fields of the row it was writing (BUG-06). The tray's
+     * card carries whatever no field could.
      */
     const labelField = t('kitchen:windows.labelField');
     const rowId = `kitchen-windows-rows-row-${failedKey ?? ''}`;
@@ -250,162 +260,197 @@ function DeliveryWindowsEditor() {
         },
     });
 
+    /*
+     * The page's problems, in its issue tray rather than in bands around the rows. A refused save
+     * keeps the server's own words, and Fix goes to the first field it named, or to the rows; a
+     * refused archive is an act that did not go through.
+     */
+    const firstRefused = server.items[0];
+    const saveCards: IssueCardItem[] =
+        saveFailure === null
+            ? []
+            : [
+                  {
+                      key: 'save-error',
+                      tone: 'danger',
+                      label: t('kitchen:windows.saveError'),
+                      detail: server.unplaced ?? saveFailure.message,
+                      action:
+                          firstRefused !== undefined
+                              ? { onPress: firstRefused.onPress }
+                              : rows.length === 0
+                                ? undefined
+                                : {
+                                      onPress: () => {
+                                          focusSection('kitchen-windows-section');
+                                      },
+                                  },
+                      testID: 'kitchen-windows-save-error',
+                  },
+              ];
+    const archiveFailure = toFailure(archive.error);
+    const failedCards: IssueCardItem[] =
+        archiveFailure === null
+            ? []
+            : [
+                  {
+                      key: 'archive-error',
+                      tone: 'danger',
+                      label: t('kitchen:windows.archiveFailed'),
+                      detail: archiveFailure.message,
+                      testID: 'kitchen-windows-archive-error',
+                  },
+              ];
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-windows-tray',
+        groups: [
+            { key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards },
+            { key: 'failed', title: t('kitchen:tray.groupFailed'), items: failedCards },
+        ],
+    };
+
     return (
-        <Cascade space="md" testID="kitchen-windows-screen">
-            <RecordFormOpening
-                testID="kitchen-windows-screen"
-                title={title}
-                dirty={guard.isDirty}
-                actions={
-                    canManage ? (
-                        <Button
-                            testID="kitchen-windows-save"
-                            label={t('kitchen:windows.save')}
-                            loading={saving}
-                            disabled={!dirty || rowErrors.size > 0 || saving}
-                            onPress={saveAll}
-                        />
-                    ) : undefined
-                }
-            />
-
-            {saveFailure === null ? null : (
-                <Callout
-                    testID="kitchen-windows-save-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:windows.saveError')}
-                    body={server.unplaced ?? saveFailure.message}
-                />
-            )}
-
-            {rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-windows-empty"
-                    title={t('kitchen:deliveryWindows.emptyTitle')}
-                    body={t('kitchen:deliveryWindows.emptyBody')}
+        <IssueTrayFrame tray={trayContent} controller={issueTray}>
+            <Cascade space="md" testID="kitchen-windows-screen">
+                <RecordFormOpening
+                    testID="kitchen-windows-screen"
+                    title={title}
+                    dirty={guard.isDirty}
                     actions={
                         canManage ? (
                             <Button
-                                testID="kitchen-windows-empty-add"
-                                variant="secondary"
-                                iconStart={<Icon name="plus" />}
-                                label={t('kitchen:windows.add')}
-                                onPress={addRow}
+                                testID="kitchen-windows-save"
+                                label={t('kitchen:windows.save')}
+                                loading={saving}
+                                disabled={!dirty || rowErrors.size > 0 || saving}
+                                onPress={saveAll}
                             />
                         ) : undefined
                     }
                 />
-            ) : (
-                <FormSection
-                    first
-                    variant="card"
-                    testID="kitchen-windows-section"
-                    title={title}
-                    description={t('kitchen:deliveryWindows.intro')}
-                >
-                    <DeliveryWindowRows
-                        testID="kitchen-windows-rows"
-                        rows={rows}
-                        errors={rowErrors}
-                        refused={
-                            failedKey === null || !server.isValidation
-                                ? undefined
-                                : { key: failedKey, errorFor: server.errorFor }
+
+                {rows.length === 0 ? (
+                    <EmptyState
+                        testID="kitchen-windows-empty"
+                        title={t('kitchen:deliveryWindows.emptyTitle')}
+                        body={t('kitchen:deliveryWindows.emptyBody')}
+                        actions={
+                            canManage ? (
+                                <Button
+                                    testID="kitchen-windows-empty-add"
+                                    variant="secondary"
+                                    iconStart={<Icon name="plus" />}
+                                    label={t('kitchen:windows.add')}
+                                    onPress={addRow}
+                                />
+                            ) : undefined
                         }
-                        canManage={canManage}
-                        onChange={edit}
-                        onAdd={addRow}
-                        // Archiving writes straight away, so it waits until pending edits are saved.
-                        onArchive={
-                            dirty
-                                ? undefined
-                                : (row) => {
-                                      archive.reset();
-                                      setArchiving(row);
-                                  }
-                        }
-                        zonesCell={(row) => {
-                            const zoneIds =
-                                row.id === null
-                                    ? []
-                                    : (savedById.get(String(row.id))?.zoneIds ?? []);
-                            return zoneIds.length === 0 ? (
-                                <Text variant="caption" tone="secondary">
-                                    {t('kitchen:deliveryWindows.noZones')}
-                                </Text>
-                            ) : (
-                                <Text variant="caption" numberOfLines={2}>
-                                    {zoneIds
-                                        .map(
-                                            (id) =>
-                                                zoneNames.get(String(id)) ??
-                                                t('kitchen:deliveryWindows.unknownZone'),
-                                        )
-                                        .join(t('kitchen:common.listSeparator'))}
-                                </Text>
-                            );
-                        }}
                     />
-                </FormSection>
-            )}
-
-            <Dialog
-                testID="kitchen-windows-archive-dialog"
-                open={archiving !== null}
-                onClose={() => {
-                    setArchiving(null);
-                }}
-                title={t('kitchen:windows.archiveTitle')}
-                description={t('kitchen:windows.archiveBody')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-windows-archive-cancel"
-                            variant="quiet"
-                            label={t('kitchen:common.cancel')}
-                            onPress={() => {
-                                setArchiving(null);
+                ) : (
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-windows-section"
+                        nativeID="kitchen-windows-section"
+                        title={title}
+                        description={t('kitchen:deliveryWindows.intro')}
+                    >
+                        <DeliveryWindowRows
+                            testID="kitchen-windows-rows"
+                            rows={rows}
+                            errors={rowErrors}
+                            refused={
+                                failedKey === null || !server.isValidation
+                                    ? undefined
+                                    : { key: failedKey, errorFor: server.errorFor }
+                            }
+                            canManage={canManage}
+                            onChange={edit}
+                            onAdd={addRow}
+                            // Archiving writes straight away, so it waits until pending edits are saved.
+                            onArchive={
+                                dirty
+                                    ? undefined
+                                    : (row) => {
+                                          archive.reset();
+                                          setArchiving(row);
+                                      }
+                            }
+                            zonesCell={(row) => {
+                                const zoneIds =
+                                    row.id === null
+                                        ? []
+                                        : (savedById.get(String(row.id))?.zoneIds ?? []);
+                                return zoneIds.length === 0 ? (
+                                    <Text variant="caption" tone="secondary">
+                                        {t('kitchen:deliveryWindows.noZones')}
+                                    </Text>
+                                ) : (
+                                    <Text variant="caption" numberOfLines={2}>
+                                        {zoneIds
+                                            .map(
+                                                (id) =>
+                                                    zoneNames.get(String(id)) ??
+                                                    t('kitchen:deliveryWindows.unknownZone'),
+                                            )
+                                            .join(t('kitchen:common.listSeparator'))}
+                                    </Text>
+                                );
                             }}
                         />
-                        <Button
-                            testID="kitchen-windows-archive-confirm"
-                            variant="danger"
-                            label={t('kitchen:windows.archiveConfirm')}
-                            loading={archive.isPending}
-                            onPress={() => {
-                                if (archiving?.id == null) return;
-                                const name = displayName(archiving.label, locale).value;
-                                archive.mutate(archiving.id, {
-                                    onSuccess: () => {
-                                        setArchiving(null);
-                                        toast.show({
-                                            testID: 'kitchen-windows-archived-toast',
-                                            tone: 'success',
-                                            message: t('kitchen:windows.archivedToast', { name }),
-                                        });
-                                    },
-                                    onError: () => {
-                                        setArchiving(null);
-                                    },
-                                });
-                            }}
-                        />
-                    </>
-                }
-            />
+                    </FormSection>
+                )}
 
-            {archive.error === null ? null : (
-                <Callout
-                    testID="kitchen-windows-archive-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:windows.archiveFailed')}
-                    body={toFailure(archive.error)?.message}
+                <Dialog
+                    testID="kitchen-windows-archive-dialog"
+                    open={archiving !== null}
+                    onClose={() => {
+                        setArchiving(null);
+                    }}
+                    title={t('kitchen:windows.archiveTitle')}
+                    description={t('kitchen:windows.archiveBody')}
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-windows-archive-cancel"
+                                variant="quiet"
+                                label={t('kitchen:common.cancel')}
+                                onPress={() => {
+                                    setArchiving(null);
+                                }}
+                            />
+                            <Button
+                                testID="kitchen-windows-archive-confirm"
+                                variant="danger"
+                                label={t('kitchen:windows.archiveConfirm')}
+                                loading={archive.isPending}
+                                onPress={() => {
+                                    if (archiving?.id == null) return;
+                                    const name = displayName(archiving.label, locale).value;
+                                    archive.mutate(archiving.id, {
+                                        onSuccess: () => {
+                                            setArchiving(null);
+                                            toast.show({
+                                                testID: 'kitchen-windows-archived-toast',
+                                                tone: 'success',
+                                                message: t('kitchen:windows.archivedToast', {
+                                                    name,
+                                                }),
+                                            });
+                                        },
+                                        onError: () => {
+                                            setArchiving(null);
+                                        },
+                                    });
+                                }}
+                            />
+                        </>
+                    }
                 />
-            )}
 
-            <EditorGuardDialogs testID="kitchen-windows-screen" guard={guard} />
-        </Cascade>
+                <EditorGuardDialogs testID="kitchen-windows-screen" guard={guard} />
+            </Cascade>
+        </IssueTrayFrame>
     );
 }

@@ -7,22 +7,23 @@ import type {
 import {
     Badge,
     Button,
-    Callout,
     Cascade,
     EmptyState,
     ErrorState,
     FormGrid,
     FormSection,
     Inline,
+    IssueTrayFrame,
     SegmentedControl,
     Select,
     Stack,
     TableSkeleton,
     Text,
     TextInputField,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { BadgeTone, MenuItem } from '@healthy360/design-system';
+import type { BadgeTone, IssueTrayContent, MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { IngredientId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
@@ -67,6 +68,7 @@ import {
 } from '../entity-registry.ts';
 import { parseQuantity, withoutMinus } from '../format.ts';
 import { isOutOfStock, stockItemRowTestId } from '../ops-format.ts';
+import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { RecordPhoto } from '../catalogue/record-photo.tsx';
@@ -263,6 +265,10 @@ function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
     const resolveScan = useResolveBarcodeScan();
     /** What the last scan came to, when it came to nothing — an unknown code, a retired label. */
     const [scanMessage, setScanMessage] = useState<string | null>(null);
+    // The list's issue tray, which says a scan came to nothing; each such scan opens it.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+    useNudgeOnRefusal(scanMessage, nudgeTray);
 
     const levelByItem = useMemo(() => {
         const byItem = new Map<string, StockLevel>();
@@ -843,175 +849,200 @@ function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
         );
     }
 
-    return (
-        <Cascade space="md" testID="kitchen-stock-screen">
-            {failure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-stock-stats"
-                    cards={statCards(controls.rows, currentPage, unfiltered, t, clearFilters)}
-                    pending={pending}
-                />
-            )}
+    /*
+     * A scan that came to nothing — an unknown code, a retired label, a gap's shelf that does not
+     * exist yet — is a card in the list's tray until the next scan, not a strip above the rows.
+     */
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-stock-tray',
+        // A list: no "All set" beside the rows, only a card when a scan came to nothing.
+        hideWhenClear: true,
+        groups: [
+            {
+                key: 'failed',
+                title: t('kitchen:tray.groupFailed'),
+                items:
+                    scanMessage === null
+                        ? []
+                        : [
+                              {
+                                  key: 'scan',
+                                  tone: 'warning',
+                                  label: scanMessage,
+                                  testID: 'kitchen-stock-scan-message',
+                              },
+                          ],
+            },
+        ],
+    };
 
-            <CatalogueToolbar<LevelSegment>
-                testID="kitchen-stock-toolbar"
-                search={query}
-                onSearchChange={(next) => {
-                    setQuery(next);
-                    resetPage();
-                }}
-                onSearchSubmit={() => {
-                    openScan({ data: query, symbology: null }, true);
-                }}
-                onScan={(scan) => {
-                    openScan(scan, false);
-                }}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:ops.stock.searchPlaceholder')}
-                statusLabel={t('kitchen:ops.stock.levelLabel')}
-                statusSegments={levelSegments}
-                status={segment}
-                onStatusChange={(next) => {
-                    setSegment(next);
-                    resetPage();
-                }}
-                filters={
-                    <SegmentedControl
-                        testID="kitchen-stock-kind"
-                        label={t('kitchen:ops.stock.kindLabel')}
-                        items={kindSegments.map((kindSegment) => ({
-                            value: kindSegment.value,
-                            label: kindSegment.label,
-                            testID: `kitchen-stock-kind-${kindSegment.value}`,
-                        }))}
-                        value={kind}
-                        onChange={(next) => {
-                            setKind(next);
-                            resetPage();
-                        }}
+    return (
+        <IssueTrayFrame tray={trayContent} controller={issueTray}>
+            <Cascade space="md" testID="kitchen-stock-screen">
+                {failure !== null ? null : (
+                    <CatalogueStatCards
+                        testID="kitchen-stock-stats"
+                        cards={statCards(controls.rows, currentPage, unfiltered, t, clearFilters)}
+                        pending={pending}
                     />
-                }
-            >
-                <Inline space="xs" align="center">
-                    <ColumnPicker {...controls.picker} />
-                    {canManage ? (
-                        <CatalogueTransferActions
-                            testID="kitchen-stock-toolbar"
-                            importGuide={STOCK_COUNT_IMPORT_GUIDE}
-                            exportMenu={{
-                                excel: {
-                                    load: (repositories) => repositories.kitchenAdmin.exportStock(),
-                                    fallbackName: 'stock-count.xlsx',
-                                },
-                                pdf: [
-                                    {
-                                        key: 'pdf',
-                                        label: t('kitchen:transfer.export.pdf'),
-                                        disabled: pending,
-                                        onSelect: () => {
-                                            print.start(
-                                                listPrintJob({
-                                                    resource: 'stock',
-                                                    title: t('kitchen:transfer.stock.printTitle'),
-                                                    // ponytail: Last purchase is read for the visible
-                                                    // page only (the 414 URL limit above), so every
-                                                    // other row would print "Loading…". Add a batch
-                                                    // purchase read if the printed column is wanted.
-                                                    columns: controls.columns.filter(
-                                                        (column) => column.key !== 'lastPurchase',
-                                                    ),
-                                                    // Already filtered and sorted as the list shows it.
-                                                    rows: controls.rows,
-                                                }),
-                                            );
-                                        },
-                                    },
-                                ],
+                )}
+
+                <CatalogueToolbar<LevelSegment>
+                    testID="kitchen-stock-toolbar"
+                    search={query}
+                    onSearchChange={(next) => {
+                        setQuery(next);
+                        resetPage();
+                    }}
+                    onSearchSubmit={() => {
+                        openScan({ data: query, symbology: null }, true);
+                    }}
+                    onScan={(scan) => {
+                        openScan(scan, false);
+                    }}
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:ops.stock.searchPlaceholder')}
+                    statusLabel={t('kitchen:ops.stock.levelLabel')}
+                    statusSegments={levelSegments}
+                    status={segment}
+                    onStatusChange={(next) => {
+                        setSegment(next);
+                        resetPage();
+                    }}
+                    filters={
+                        <SegmentedControl
+                            testID="kitchen-stock-kind"
+                            label={t('kitchen:ops.stock.kindLabel')}
+                            items={kindSegments.map((kindSegment) => ({
+                                value: kindSegment.value,
+                                label: kindSegment.label,
+                                testID: `kitchen-stock-kind-${kindSegment.value}`,
+                            }))}
+                            value={kind}
+                            onChange={(next) => {
+                                setKind(next);
+                                resetPage();
                             }}
                         />
-                    ) : null}
-                </Inline>
-            </CatalogueToolbar>
-
-            {scanMessage === null ? null : (
-                <Callout
-                    testID="kitchen-stock-scan-message"
-                    role="alert"
-                    tone="warning"
-                    title={scanMessage}
-                />
-            )}
-
-            {pending ? (
-                <TableSkeleton testID="kitchen-stock-loading" partTestID="kitchen-stock" />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-stock-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void items.refetch();
-                        void levels.refetch();
-                    }}
-                    retrying={items.isFetching || levels.isFetching}
-                />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID={
-                        bookRows.length === 0
-                            ? `kitchen-stock-${kind}-empty`
-                            : 'kitchen-stock-filtered-empty'
                     }
-                    title={
-                        bookRows.length === 0
-                            ? t(
-                                  kind === 'ingredients'
-                                      ? 'kitchen:ops.stock.ingredientsEmptyTitle'
-                                      : 'kitchen:ops.stock.productsEmptyTitle',
-                              )
-                            : t('kitchen:list.filteredEmptyTitle')
-                    }
-                    body={
-                        bookRows.length === 0
-                            ? t(
-                                  kind === 'ingredients'
-                                      ? 'kitchen:ops.stock.ingredientsEmptyBody'
-                                      : 'kitchen:ops.stock.productsEmptyBody',
-                              )
-                            : t('kitchen:ops.stock.filteredEmptyBody')
-                    }
-                />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList<StockRow>
-                        testID="kitchen-stock-table"
-                        label={t(
-                            kind === 'ingredients'
-                                ? 'kitchen:ops.stock.kindIngredients'
-                                : 'kitchen:ops.stock.kindProducts',
-                        )}
-                        columns={controls.columns}
-                        rows={visible}
-                        rowKey={(row) => String(row.item.id)}
-                        density="sm"
-                        highlightedId={lastOpenedId}
-                        onRowPress={canManage ? openEditor : openView}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActions={rowActions}
-                    />
+                >
+                    <Inline space="xs" align="center">
+                        <ColumnPicker {...controls.picker} />
+                        {canManage ? (
+                            <CatalogueTransferActions
+                                testID="kitchen-stock-toolbar"
+                                importGuide={STOCK_COUNT_IMPORT_GUIDE}
+                                exportMenu={{
+                                    excel: {
+                                        load: (repositories) =>
+                                            repositories.kitchenAdmin.exportStock(),
+                                        fallbackName: 'stock-count.xlsx',
+                                    },
+                                    pdf: [
+                                        {
+                                            key: 'pdf',
+                                            label: t('kitchen:transfer.export.pdf'),
+                                            disabled: pending,
+                                            onSelect: () => {
+                                                print.start(
+                                                    listPrintJob({
+                                                        resource: 'stock',
+                                                        title: t(
+                                                            'kitchen:transfer.stock.printTitle',
+                                                        ),
+                                                        // ponytail: Last purchase is read for the visible
+                                                        // page only (the 414 URL limit above), so every
+                                                        // other row would print "Loading…". Add a batch
+                                                        // purchase read if the printed column is wanted.
+                                                        columns: controls.columns.filter(
+                                                            (column) =>
+                                                                column.key !== 'lastPurchase',
+                                                        ),
+                                                        // Already filtered and sorted as the list shows it.
+                                                        rows: controls.rows,
+                                                    }),
+                                                );
+                                            },
+                                        },
+                                    ],
+                                }}
+                            />
+                        ) : null}
+                    </Inline>
+                </CatalogueToolbar>
 
-                    <CataloguePager
-                        testID="kitchen-stock-pagination"
-                        page={currentPage}
-                        totalPages={totalPages}
-                        onPageChange={(next) => {
-                            setPaging({ key: controls.key, page: next });
-                            setViewing(null);
+                {pending ? (
+                    <TableSkeleton testID="kitchen-stock-loading" partTestID="kitchen-stock" />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-stock-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void items.refetch();
+                            void levels.refetch();
                         }}
-                        label={t('kitchen:catalogue.pagerLabel')}
+                        retrying={items.isFetching || levels.isFetching}
                     />
-                </Stack>
-            )}
-        </Cascade>
+                ) : controls.rows.length === 0 ? (
+                    <EmptyState
+                        testID={
+                            bookRows.length === 0
+                                ? `kitchen-stock-${kind}-empty`
+                                : 'kitchen-stock-filtered-empty'
+                        }
+                        title={
+                            bookRows.length === 0
+                                ? t(
+                                      kind === 'ingredients'
+                                          ? 'kitchen:ops.stock.ingredientsEmptyTitle'
+                                          : 'kitchen:ops.stock.productsEmptyTitle',
+                                  )
+                                : t('kitchen:list.filteredEmptyTitle')
+                        }
+                        body={
+                            bookRows.length === 0
+                                ? t(
+                                      kind === 'ingredients'
+                                          ? 'kitchen:ops.stock.ingredientsEmptyBody'
+                                          : 'kitchen:ops.stock.productsEmptyBody',
+                                  )
+                                : t('kitchen:ops.stock.filteredEmptyBody')
+                        }
+                    />
+                ) : (
+                    <Stack space="sm">
+                        <CatalogueList<StockRow>
+                            testID="kitchen-stock-table"
+                            label={t(
+                                kind === 'ingredients'
+                                    ? 'kitchen:ops.stock.kindIngredients'
+                                    : 'kitchen:ops.stock.kindProducts',
+                            )}
+                            columns={controls.columns}
+                            rows={visible}
+                            rowKey={(row) => String(row.item.id)}
+                            density="sm"
+                            highlightedId={lastOpenedId}
+                            onRowPress={canManage ? openEditor : openView}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            rowActions={rowActions}
+                        />
+
+                        <CataloguePager
+                            testID="kitchen-stock-pagination"
+                            page={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={(next) => {
+                                setPaging({ key: controls.key, page: next });
+                                setViewing(null);
+                            }}
+                            label={t('kitchen:catalogue.pagerLabel')}
+                        />
+                    </Stack>
+                )}
+            </Cascade>
+        </IssueTrayFrame>
     );
 }
 
@@ -1148,6 +1179,10 @@ function StockMovementEditor({
     const [notes, setNotes] = useState('');
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+    // The editor's issue tray; a refused post opens it.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+    useNudgeOnRefusal(saveError, nudgeTray);
     /*
      * Read from the node rather than `onLayout`, which on the web delivered one early width and
      * nothing after — see the sale screen. The port re-reads on resize and when the page panel settles.
@@ -1327,216 +1362,235 @@ function StockMovementEditor({
             : []),
     ];
 
+    // A refused post, in the server's own words, as a card in the editor's tray.
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-stock-editor-tray',
+        groups: [
+            {
+                key: 'save',
+                title: t('kitchen:tray.groupSave'),
+                items:
+                    saveError === null
+                        ? []
+                        : [
+                              {
+                                  key: 'save-error',
+                                  tone: 'danger',
+                                  label: t('kitchen:ops.stock.saveFailedTitle'),
+                                  detail: saveError,
+                                  testID: 'kitchen-stock-movement-error',
+                              },
+                          ],
+            },
+        ],
+    };
+
     return (
-        <Cascade space="md" testID="kitchen-stock-editor">
-            <RecordFormOpening
-                testID="kitchen-stock-editor"
-                title={name}
-                dirty={guard.isDirty}
-                badges={
-                    <Badge
-                        variant="caps"
-                        testID="kitchen-stock-editor-status"
-                        tone={STATE_TONE[row.state]}
-                        icon={null}
-                        label={t(STATE_LABEL[row.state])}
-                    />
-                }
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-stock-editor-back"
-                            variant="secondary"
-                            label={t('kitchen:editor.cancel')}
-                            onPress={() => {
-                                guard.intercept(onDone);
-                            }}
+        <IssueTrayFrame tray={trayContent} controller={issueTray}>
+            <Cascade space="md" testID="kitchen-stock-editor">
+                <RecordFormOpening
+                    testID="kitchen-stock-editor"
+                    title={name}
+                    dirty={guard.isDirty}
+                    badges={
+                        <Badge
+                            variant="caps"
+                            testID="kitchen-stock-editor-status"
+                            tone={STATE_TONE[row.state]}
+                            icon={null}
+                            label={t(STATE_LABEL[row.state])}
                         />
-                        <Button
-                            testID="kitchen-stock-editor-save"
-                            label={t('kitchen:ops.stock.saveLabel')}
-                            loading={saving}
-                            disabled={!canSave || saving}
-                            onPress={() => {
-                                void save();
-                            }}
-                        />
-                    </>
-                }
-            />
-
-            {saveError === null ? null : (
-                <Callout
-                    testID="kitchen-stock-movement-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:ops.stock.saveFailedTitle')}
-                    body={saveError}
+                    }
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-stock-editor-back"
+                                variant="secondary"
+                                label={t('kitchen:editor.cancel')}
+                                onPress={() => {
+                                    guard.intercept(onDone);
+                                }}
+                            />
+                            <Button
+                                testID="kitchen-stock-editor-save"
+                                label={t('kitchen:ops.stock.saveLabel')}
+                                loading={saving}
+                                disabled={!canSave || saving}
+                                onPress={() => {
+                                    void save();
+                                }}
+                            />
+                        </>
+                    }
                 />
-            )}
 
-            <View
-                ref={Platform.OS === 'web' ? port.ref : undefined}
-                onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
-                className={
-                    sideBySide ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
-                }
-            >
-                <View className="z-auto min-w-0 flex-1 flex-col gap-base">
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-stock-threshold-section"
-                        title={t('kitchen:ops.stock.sectionThreshold')}
-                        description={t('kitchen:ops.stock.thresholdNote')}
-                    >
-                        <FormGrid testID="kitchen-stock-threshold-grid">
-                            <TextInputField
-                                testID="kitchen-stock-threshold-value"
-                                label={t('kitchen:ops.stock.fieldThreshold')}
-                                placeholder={t('kitchen:ops.stock.thresholdPlaceholder')}
-                                error={
-                                    thresholdInvalid
-                                        ? t('kitchen:ops.stock.numberInvalid')
-                                        : undefined
-                                }
-                                value={thresholdValue}
-                                onChangeText={edit(setThresholdValue)}
-                                keyboardType="decimal-pad"
-                                size="sm"
-                            />
-                            <TextInputField
-                                testID="kitchen-stock-threshold-par"
-                                label={t('kitchen:ops.stock.fieldParLevel')}
-                                placeholder={t('kitchen:ops.stock.parLevelPlaceholder')}
-                                error={
-                                    parInvalid
-                                        ? t('kitchen:ops.stock.numberInvalid')
-                                        : parNotAbove
-                                          ? t('kitchen:ops.stock.parNotAboveThreshold')
-                                          : undefined
-                                }
-                                value={parLevelValue}
-                                onChangeText={edit(setParLevelValue)}
-                                keyboardType="decimal-pad"
-                                size="sm"
-                            />
-                        </FormGrid>
-                    </FormSection>
+                <View
+                    ref={Platform.OS === 'web' ? port.ref : undefined}
+                    onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
+                    className={
+                        sideBySide
+                            ? 'z-auto flex-row items-start gap-base'
+                            : 'z-auto flex-col gap-base'
+                    }
+                >
+                    <View className="z-auto min-w-0 flex-1 flex-col gap-base">
+                        <FormSection
+                            first
+                            variant="card"
+                            testID="kitchen-stock-threshold-section"
+                            title={t('kitchen:ops.stock.sectionThreshold')}
+                            description={t('kitchen:ops.stock.thresholdNote')}
+                        >
+                            <FormGrid testID="kitchen-stock-threshold-grid">
+                                <TextInputField
+                                    testID="kitchen-stock-threshold-value"
+                                    label={t('kitchen:ops.stock.fieldThreshold')}
+                                    placeholder={t('kitchen:ops.stock.thresholdPlaceholder')}
+                                    error={
+                                        thresholdInvalid
+                                            ? t('kitchen:ops.stock.numberInvalid')
+                                            : undefined
+                                    }
+                                    value={thresholdValue}
+                                    onChangeText={edit(setThresholdValue)}
+                                    keyboardType="decimal-pad"
+                                    size="sm"
+                                />
+                                <TextInputField
+                                    testID="kitchen-stock-threshold-par"
+                                    label={t('kitchen:ops.stock.fieldParLevel')}
+                                    placeholder={t('kitchen:ops.stock.parLevelPlaceholder')}
+                                    error={
+                                        parInvalid
+                                            ? t('kitchen:ops.stock.numberInvalid')
+                                            : parNotAbove
+                                              ? t('kitchen:ops.stock.parNotAboveThreshold')
+                                              : undefined
+                                    }
+                                    value={parLevelValue}
+                                    onChangeText={edit(setParLevelValue)}
+                                    keyboardType="decimal-pad"
+                                    size="sm"
+                                />
+                            </FormGrid>
+                        </FormSection>
 
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-stock-movement-section"
-                        title={t('kitchen:ops.stock.sectionMovement')}
-                        description={t('kitchen:ops.stock.ledgerNote')}
-                    >
-                        <FormGrid testID="kitchen-stock-movement-grid">
-                            <Select<MovementDirection>
-                                testID="kitchen-stock-movement-direction"
-                                label={t('kitchen:ops.stock.direction')}
-                                options={[
-                                    {
-                                        value: 'increase',
-                                        label: t('kitchen:ops.stock.directionIncrease'),
-                                    },
-                                    {
-                                        value: 'decrease',
-                                        label: t('kitchen:ops.stock.directionDecrease'),
-                                    },
-                                    { value: 'waste', label: t('kitchen:ops.stock.waste') },
-                                    {
-                                        value: 'count',
-                                        label: t('kitchen:ops.stock.directionCount'),
-                                    },
-                                ]}
-                                value={direction}
-                                onChange={(next) => {
-                                    setDirection(next);
-                                    guard.markDirty();
-                                }}
-                            />
-                            <TextInputField
-                                testID="kitchen-stock-movement-quantity"
-                                label={
-                                    isCount
-                                        ? t('kitchen:ops.stock.fieldCountedQuantity')
-                                        : t('kitchen:ops.stock.fieldAdjustQuantity')
-                                }
-                                hint={t('kitchen:ops.stock.quantityUnitHint', { unit })}
-                                placeholder={t('kitchen:fields.quantityPlaceholder')}
-                                error={
-                                    quantityInvalid
-                                        ? isCount
-                                            ? t('kitchen:ops.stock.countInvalid')
-                                            : t('kitchen:ops.stock.quantityInvalid')
-                                        : exceedsShelf
-                                          ? t('kitchen:ops.stock.exceedsShelf', {
-                                                amount: amount(onHand),
-                                            })
-                                          : undefined
-                                }
-                                value={quantity}
-                                // Waste, a decrease and a count are all magnitudes — never a minus.
-                                onChangeText={(next) => {
-                                    edit(setQuantity)(withoutMinus(next));
-                                }}
-                                keyboardType="decimal-pad"
-                                size="sm"
-                            />
-                            <TextInputField
-                                testID="kitchen-stock-movement-notes"
-                                span={2}
-                                label={t('kitchen:ops.stock.fieldNotes')}
-                                placeholder={t('kitchen:ops.stock.fieldNotesPlaceholder')}
-                                value={notes}
-                                onChangeText={edit(setNotes)}
-                                size="sm"
-                            />
-                        </FormGrid>
-                    </FormSection>
+                        <FormSection
+                            first
+                            variant="card"
+                            testID="kitchen-stock-movement-section"
+                            title={t('kitchen:ops.stock.sectionMovement')}
+                            description={t('kitchen:ops.stock.ledgerNote')}
+                        >
+                            <FormGrid testID="kitchen-stock-movement-grid">
+                                <Select<MovementDirection>
+                                    testID="kitchen-stock-movement-direction"
+                                    label={t('kitchen:ops.stock.direction')}
+                                    options={[
+                                        {
+                                            value: 'increase',
+                                            label: t('kitchen:ops.stock.directionIncrease'),
+                                        },
+                                        {
+                                            value: 'decrease',
+                                            label: t('kitchen:ops.stock.directionDecrease'),
+                                        },
+                                        { value: 'waste', label: t('kitchen:ops.stock.waste') },
+                                        {
+                                            value: 'count',
+                                            label: t('kitchen:ops.stock.directionCount'),
+                                        },
+                                    ]}
+                                    value={direction}
+                                    onChange={(next) => {
+                                        setDirection(next);
+                                        guard.markDirty();
+                                    }}
+                                />
+                                <TextInputField
+                                    testID="kitchen-stock-movement-quantity"
+                                    label={
+                                        isCount
+                                            ? t('kitchen:ops.stock.fieldCountedQuantity')
+                                            : t('kitchen:ops.stock.fieldAdjustQuantity')
+                                    }
+                                    hint={t('kitchen:ops.stock.quantityUnitHint', { unit })}
+                                    placeholder={t('kitchen:fields.quantityPlaceholder')}
+                                    error={
+                                        quantityInvalid
+                                            ? isCount
+                                                ? t('kitchen:ops.stock.countInvalid')
+                                                : t('kitchen:ops.stock.quantityInvalid')
+                                            : exceedsShelf
+                                              ? t('kitchen:ops.stock.exceedsShelf', {
+                                                    amount: amount(onHand),
+                                                })
+                                              : undefined
+                                    }
+                                    value={quantity}
+                                    // Waste, a decrease and a count are all magnitudes — never a
+                                    // minus.
+                                    onChangeText={(next) => {
+                                        edit(setQuantity)(withoutMinus(next));
+                                    }}
+                                    keyboardType="decimal-pad"
+                                    size="sm"
+                                />
+                                <TextInputField
+                                    testID="kitchen-stock-movement-notes"
+                                    span={2}
+                                    label={t('kitchen:ops.stock.fieldNotes')}
+                                    placeholder={t('kitchen:ops.stock.fieldNotesPlaceholder')}
+                                    value={notes}
+                                    onChangeText={edit(setNotes)}
+                                    size="sm"
+                                />
+                            </FormGrid>
+                        </FormSection>
+                    </View>
+
+                    <RecordSummaryAside
+                        testID="kitchen-stock-editor-summary"
+                        title={t('kitchen:ops.stock.summaryTitle')}
+                        width={sideBySide ? ASIDE_WIDTH : null}
+                        rows={[
+                            {
+                                key: 'reference',
+                                label: t('kitchen:list.columnReference'),
+                                value: row.item.code,
+                            },
+                            {
+                                key: 'levels',
+                                label: t('kitchen:ops.stock.columnReorderPar'),
+                                value: levelsText(savedReorder, savedPar),
+                            },
+                            {
+                                key: 'on-hand',
+                                label: t('kitchen:ops.stock.summaryOnHand'),
+                                value: amount(onHand),
+                            },
+                        ]}
+                        total={{
+                            label: t('kitchen:ops.stock.summaryAfter'),
+                            value: amount(onHand + delta),
+                        }}
+                        list={{
+                            title: t('kitchen:ops.stock.summaryEffects'),
+                            empty: t('kitchen:ops.stock.summaryNothing'),
+                            testID: 'kitchen-stock-editor-summary-effects',
+                            emptyTestID: 'kitchen-stock-editor-summary-nothing',
+                            items: effects,
+                        }}
+                    />
                 </View>
 
-                <RecordSummaryAside
-                    testID="kitchen-stock-editor-summary"
-                    title={t('kitchen:ops.stock.summaryTitle')}
-                    width={sideBySide ? ASIDE_WIDTH : null}
-                    rows={[
-                        {
-                            key: 'reference',
-                            label: t('kitchen:list.columnReference'),
-                            value: row.item.code,
-                        },
-                        {
-                            key: 'levels',
-                            label: t('kitchen:ops.stock.columnReorderPar'),
-                            value: levelsText(savedReorder, savedPar),
-                        },
-                        {
-                            key: 'on-hand',
-                            label: t('kitchen:ops.stock.summaryOnHand'),
-                            value: amount(onHand),
-                        },
-                    ]}
-                    total={{
-                        label: t('kitchen:ops.stock.summaryAfter'),
-                        value: amount(onHand + delta),
-                    }}
-                    list={{
-                        title: t('kitchen:ops.stock.summaryEffects'),
-                        empty: t('kitchen:ops.stock.summaryNothing'),
-                        testID: 'kitchen-stock-editor-summary-effects',
-                        emptyTestID: 'kitchen-stock-editor-summary-nothing',
-                        items: effects,
-                    }}
+                <EditorGuardDialogs
+                    testID="kitchen-stock-editor"
+                    guard={guard}
+                    concurrency={concurrency}
                 />
-            </View>
-
-            <EditorGuardDialogs
-                testID="kitchen-stock-editor"
-                guard={guard}
-                concurrency={concurrency}
-            />
-        </Cascade>
+            </Cascade>
+        </IssueTrayFrame>
     );
 }

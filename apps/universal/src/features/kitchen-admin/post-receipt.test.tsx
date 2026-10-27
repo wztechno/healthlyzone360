@@ -27,14 +27,16 @@ import { PostReceiptScreen } from './screens/post-receipt-screen.tsx';
  * The Post Receipt page (`/kitchen/procurement/new`), against a world this file authors.
  *
  * 1. **A market purchase refuses on press, and says why.** Post is never greyed out: pressing it
- *    with an incomplete line names each missing field in the banner and posts nothing; completing
- *    it posts exactly the rows on screen, with no supplier and no order.
+ *    with an incomplete line names each missing field in the issue tray and posts nothing;
+ *    completing it posts exactly the rows on screen, with no supplier and no order.
+ *
+ * The window is a desk's (1440 wide), so the tray is docked beside the page, open, its cards drawn.
  * 2. **A price far from the last one is flagged** — the size of a slipped decimal.
  * 3. **A delivery is filled from its order.** Choosing the order prefills what is still to come —
  *    and only that — ties each row to its order line, and brings the supplier with it.
  * 4. **An over-receipt has to be said out loud.** More than was outstanding opens the confirmation
  *    and the note, both named as blockers until given, and both sent once they are.
- * 5. **A server refusal lands on its fields** and in the banner, not in a generic callout (BUG-06).
+ * 5. **A server refusal lands on its fields** and in the tray, not in a generic card (BUG-06).
  */
 
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
@@ -214,6 +216,8 @@ function world(posted: PostGoodsReceiptRequest[]) {
 }
 
 const LINES = 'kitchen-procurement-post-lines';
+/** The tray's "Blocks save" cards: what stops the post, which the form's opening registers. */
+const ISSUES = 'kitchen-post-receipt-screen-issues-errors';
 
 /* ------------------------------------------------------------------------------------------------
  * The market purchase
@@ -230,12 +234,15 @@ describe('post a goods receipt — a market purchase', () => {
         await untilVisible(`${LINES}-row-line-first-item`);
         expect(screen.getByTestId('kitchen-post-receipt-rises-empty')).toBeTruthy();
 
-        // Pressed with an empty line: the banner names it, and nothing is sent.
+        // Pressed with an empty line: the tray names it, a card per field, and nothing is sent.
         await press('kitchen-procurement-post-confirm');
         await untilVisible('kitchen-post-receipt-screen-issues-errors');
-        expect(screen.getByText('2 things to fix before this can post')).toBeTruthy();
-        expect(screen.getByText('Line 1 — stock item')).toBeTruthy();
-        expect(screen.getByText('Line 1 — quantity')).toBeTruthy();
+        expect(screen.getByTestId(`${ISSUES}-line-line-first-item-label`)).toHaveTextContent(
+            'Line 1 — stock item',
+        );
+        expect(screen.getByTestId(`${ISSUES}-line-line-first-quantity-label`)).toHaveTextContent(
+            'Line 1 — quantity',
+        );
         expect(posted).toHaveLength(0);
 
         await choose(`${LINES}-row-line-first-item`, String(CHICKEN));
@@ -245,9 +252,11 @@ describe('post a goods receipt — a market purchase', () => {
         // The aside says what the shelves will read after.
         await untilVisible('kitchen-post-receipt-rises');
         expect(screen.getByText('+24 Kg')).toBeTruthy();
+        // Each card clears itself as its field is filled.
         await waitFor(() => {
-            expect(screen.queryByTestId('kitchen-post-receipt-screen-issues-errors')).toBeNull();
+            expect(screen.queryByTestId(`${ISSUES}-line-line-first-item`)).toBeNull();
         });
+        expect(screen.queryByTestId(`${ISSUES}-line-line-first-quantity`)).toBeNull();
 
         await press('kitchen-procurement-post-confirm');
         await waitFor(() => {
@@ -303,7 +312,8 @@ describe('post a goods receipt — a market purchase', () => {
             expect(posted).toHaveLength(1);
         });
         expect(posted[0]?.lines[0]).toMatchObject({ stockItemId: QUINOA, quantity: 5, unitId: KG });
-        expect(useRouter().replace).toHaveBeenCalledWith(gapReturn);
+        // `fixed=1`: the gap retries itself on arrival, with nothing left to press.
+        expect(useRouter().replace).toHaveBeenCalledWith(`${gapReturn}&fixed=1`);
     });
 
     it('flags a price ten per cent or more from the last one paid', async () => {
@@ -376,7 +386,7 @@ describe('post a goods receipt — a market purchase', () => {
         await choose(`${LINES}-row-line-first-item`, String(CHICKEN));
         await type(`${LINES}-row-line-first-quantity-input`, '-5');
 
-        // Before any press: the field says so, and the banner is not involved yet.
+        // Before any press: the field says so, and the tray is not involved yet.
         await waitFor(() => {
             expect(screen.getAllByText('Must be above 0').length).toBeGreaterThan(0);
         });
@@ -420,7 +430,7 @@ describe('post a goods receipt — a market purchase', () => {
         expect(posted).toHaveLength(0);
     });
 
-    it('puts a refusal on the fields the server named and names them in the banner (BUG-06)', async () => {
+    it('puts a refusal on the fields the server named and names them in the tray (BUG-06)', async () => {
         const base = world([]);
         await renderStubScreen(<PostReceiptScreen />, {
             session: kitchenManagerSession(),
@@ -452,10 +462,10 @@ describe('post a goods receipt — a market purchase', () => {
         expect(screen.getAllByText('The quantity must be at least 0.0001.').length).toBeGreaterThan(
             0,
         );
-        const banner = screen.getByTestId('kitchen-post-receipt-screen-issues-errors');
-        expect(banner).toHaveTextContent(/Invoice number/);
-        expect(banner).toHaveTextContent(/Line 1 — quantity/);
-        // Every refused field was placed, so the generic callout has nothing left to say.
+        const blocking = screen.getByTestId(ISSUES);
+        expect(blocking).toHaveTextContent(/Invoice number/);
+        expect(blocking).toHaveTextContent(/Line 1 — quantity/);
+        // Every refused field was placed, so the generic card has nothing left to say.
         expect(screen.queryByTestId('kitchen-procurement-post-error')).toBeNull();
     });
 });

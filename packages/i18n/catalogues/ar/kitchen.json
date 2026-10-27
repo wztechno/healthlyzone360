@@ -463,6 +463,8 @@
             "notStocked": "غير مخزَّن"
         },
         "supplyOrders": {
+            "cancelFailed": "تعذّر إلغاء الطلب.",
+            "issueFailed": "تعذّر إصدار الطلب.",
             "title": "طلبات التوريد",
             "subtitle": "ما ينقص هذا الفرع، والطلب الذي يعالجه.",
             "metrics": {
@@ -1683,7 +1685,6 @@
             "resolvedBadge": "محلولة",
             "unresolvedBadge": "غير محلولة",
             "clearBadge": "لا شيء معلّق",
-            "retry": "إعادة المحاولة",
             "resolve": "قبول النقص",
             "fixInRecipe": "أصلِح في الوصفة",
             "fixAction": {
@@ -1741,7 +1742,6 @@
                 "fieldResolutionNote": "ملاحظة الحل",
                 "fieldMoney": "المال",
                 "moneyValue": "لا شيء — الاستثناء يسمّي عملية بيع وفجوة مخزون، لا تقييمًا",
-                "retry": "إعادة محاولة الخصم",
                 "fieldIngredient": "المكوّن"
             },
             "fix": {
@@ -5368,6 +5368,14 @@
         "itemsReadError": "تعذّرت قراءة الأصناف الموجودة على القناة."
     },
     "tray": {
+        "noChannel": "لا توجد قناة بيع",
+        "groupIssue": "يمنع الإصدار",
+        "groupNote": "ملاحظة",
+        "onPublicMenu": "على قائمة الطعام العامة",
+        "mealNoServiceDay": "لا يوم خدمة بعد",
+        "mealUnsaved": "تغييرات غير محفوظة",
+        "mealNameMissing": "الاسم العربي مفقود",
+        "groupFailed": "لم يكتمل",
         "title": "للإصلاح",
         "groupSave": "يمنع الحفظ",
         "groupPublish": "يمنع النشر",

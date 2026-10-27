@@ -2,18 +2,19 @@ import { apiFailure, isDeletableRole, isValidationFailure } from '@healthy360/ap
 import type { ApiFailure } from '@healthy360/api-client/contracts';
 import {
     Button,
-    Callout,
     Cascade,
     Dialog,
     ErrorState,
     FormGrid,
     FormSection,
     FormSkeleton,
+    IssueTrayFrame,
     Text,
     TextInputField,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { TabItem } from '@healthy360/design-system';
+import type { IssueCardItem, IssueTrayContent, TabItem } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -41,6 +42,7 @@ import { RolePagesTab } from '../role-pages-tab.tsx';
 import { RolePermissionsTab } from '../role-permissions-tab.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';
+import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
@@ -100,7 +102,7 @@ const ROLE_CODE = /^[a-z][a-z0-9_]*$/;
 
 /**
  * Whether the server refused the permission set itself. The matrix has no field to carry the
- * message — it stays in the write callout — but the step that holds the codes still says so.
+ * message — it stays on the write card — but the step that holds the codes still says so.
  */
 function permissionsRefused(failure: ApiFailure | null): boolean {
     return (
@@ -217,8 +219,8 @@ function RoleEditor() {
      * **`create` and `remove` are deliberately left out, and `remove` is the one that matters.**
      * `capture()` fires on any `resource.conflict`, and a delete refused because six people still
      * hold the role is a `resource.conflict` that is *not* a lost race — swallowing it would offer
-     * "somebody else saved, reload?" for "six people hold this". That refusal keeps the banner,
-     * which already names the count. `create` has no version to lose in the first place.
+     * "somebody else saved, reload?" for "six people hold this". That refusal keeps its card in
+     * the tray, which already names the count. `create` has no version to lose in the first place.
      */
     const concurrency = useOptimisticConcurrency({
         onReload: () => {
@@ -236,11 +238,17 @@ function RoleEditor() {
     const loading = (sourceId !== undefined && source.isPending) || catalogue.isPending;
     const failure = toFailure(source.error) ?? toFailure(catalogue.error);
     // The lost-race conflict belongs to the dialog once it has been captured; leaving it in the
-    // banner too would say the same thing twice, in two voices, one of which offers no way out.
+    // tray too would say the same thing twice, in two voices, one of which offers no way out.
     const captured = concurrency.conflict !== null;
     const writeFailure = captured
         ? null
         : (toFailure(create.error) ?? toFailure(update.error) ?? toFailure(remove.error));
+
+    // The page's issue tray; a refused write opens it. On the raw errors, which keep their identity
+    // from one render to the next.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+    useNudgeOnRefusal(captured ? null : (create.error ?? update.error ?? remove.error), nudgeTray);
 
     if (loading) {
         return (
@@ -325,7 +333,7 @@ function RoleEditor() {
 
     /*
      * What the server refused, put on the fields it named (BUG-06). `permissions` is left out: the
-     * matrix has no field to carry a message, so that refusal stays in the callout.
+     * matrix has no field to carry a message, so that refusal stays on the write card.
      */
     const descriptionLabel = t('accessAdmin:role.description');
     // In the order the details step draws them, so the first refused is the first the reader meets.
@@ -354,7 +362,7 @@ function RoleEditor() {
 
     /**
      * Where a refused save takes the reader: the first field the server named, on Details, or the
-     * permission set on Advanced. Anything else is the write callout's, which every step shows.
+     * permission set on Advanced. Anything else is the write card's, in the tray beside every step.
      */
     function showRefusal(error: unknown) {
         const failure = toFailure(error);
@@ -417,7 +425,7 @@ function RoleEditor() {
                 },
                 onError: (error: unknown) => {
                     // `true` means the dialog is open and has the question; anything else falls
-                    // through to the fields it names and the banner below.
+                    // through to the fields it names and the tray's card.
                     if (!concurrency.capture(error)) showRefusal(error);
                 },
             },
@@ -435,6 +443,7 @@ function RoleEditor() {
         if (first !== undefined) {
             setStep('details');
             focusField(first.fieldId);
+            nudgeTray();
             return;
         }
         save();
@@ -470,8 +479,71 @@ function RoleEditor() {
 
     const deletable = !isNew && canManage && record !== undefined && isDeletableRole(record);
 
+    /*
+     * The page's problems, in its issue tray rather than in callouts under the opening. What stops
+     * the save is the opening's (`RecordFormOpening` registers it). A refused write keeps the words
+     * it was always said in; a refused delete is an act that did not go through, not a save.
+     */
+    const writeCards: IssueCardItem[] =
+        writeFailure === null || (server.isValidation && server.unplaced === null)
+            ? []
+            : [
+                  {
+                      key: 'write-error',
+                      tone: 'danger',
+                      label:
+                          writeFailure.code === 'access.self_lockout'
+                              ? t('accessAdmin:role.selfLockout')
+                              : writeFailure.code === 'resource.conflict' &&
+                                  writeFailure.membershipCount !== undefined
+                                ? t('accessAdmin:role.deleteBlocked', {
+                                      count: writeFailure.membershipCount,
+                                  })
+                                : (server.unplaced ?? writeFailure.message),
+                      // The permission set is the one refusal with somewhere to go: Advanced.
+                      action: permissionsRefused(writeFailure)
+                          ? {
+                                onPress: () => {
+                                    setStep('advanced');
+                                },
+                            }
+                          : undefined,
+                      testID: 'kitchen-role-editor-write-error',
+                  },
+              ];
+    const deleteRefused = create.error === null && update.error === null;
+    const checkCards: IssueCardItem[] = [
+        ...(create.data?.shadowsTemplate === true
+            ? [
+                  {
+                      key: 'shadows-template',
+                      tone: 'warning' as const,
+                      label: t('accessAdmin:role.shadowsTemplate'),
+                      testID: 'kitchen-role-editor-shadows-template',
+                  },
+              ]
+            : []),
+    ];
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-role-editor-tray',
+        groups: [
+            {
+                key: 'save',
+                title: t('kitchen:tray.groupSave'),
+                items: deleteRefused ? [] : writeCards,
+            },
+            {
+                key: 'failed',
+                title: t('kitchen:tray.groupFailed'),
+                items: deleteRefused ? writeCards : [],
+            },
+            { key: 'check', title: t('kitchen:tray.groupCheck'), items: checkCards },
+        ],
+    };
+
     return (
-        <>
+        <IssueTrayFrame tray={trayContent} controller={issueTray}>
             <Cascade space="md" testID="kitchen-role-editor-screen">
                 <RecordFormOpening<RoleStep>
                     testID="kitchen-role-editor"
@@ -512,8 +584,7 @@ function RoleEditor() {
                             ) : null}
                             {/*
                              * Save role, last, on every step. Not drawn at all on a role this
-                             * caller cannot change — every field is locked and the callout below
-                             * says why.
+                             * caller cannot change — every field is locked and the tray says why.
                              */}
                             {readOnly ? null : (
                                 <Button
@@ -562,33 +633,6 @@ function RoleEditor() {
                         onChange: setStep,
                     }}
                 />
-
-                {create.data?.shadowsTemplate === true ? (
-                    <Callout
-                        testID="kitchen-role-editor-shadows-template"
-                        tone="warning"
-                        title={t('accessAdmin:role.shadowsTemplate')}
-                    />
-                ) : null}
-
-                {writeFailure === null ||
-                (server.isValidation && server.unplaced === null) ? null : (
-                    <Callout
-                        testID="kitchen-role-editor-write-error"
-                        tone="danger"
-                        role="alert"
-                        title={
-                            writeFailure.code === 'access.self_lockout'
-                                ? t('accessAdmin:role.selfLockout')
-                                : writeFailure.code === 'resource.conflict' &&
-                                    writeFailure.membershipCount !== undefined
-                                  ? t('accessAdmin:role.deleteBlocked', {
-                                        count: writeFailure.membershipCount,
-                                    })
-                                  : (server.unplaced ?? writeFailure.message)
-                        }
-                    />
-                )}
 
                 {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
                 <View className="z-auto flex-col">
@@ -768,6 +812,6 @@ function RoleEditor() {
                     </>
                 }
             />
-        </>
+        </IssueTrayFrame>
     );
 }

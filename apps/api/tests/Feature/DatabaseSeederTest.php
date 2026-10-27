@@ -687,10 +687,28 @@ it('grants the platform permissions only inside the platform operator organisati
     expect(MembershipRole::withoutTenancy()->where('membership_id', $membership->getKey())->where('role_id', $role->getKey())->exists())
         ->toBeTrue();
 
-    // And the only organisation-scoped role any seeder writes: platform codes
-    // are granted deliberately, inside a platform-operator organisation, and
-    // never through a template (master plan v2 §4.16).
-    expect(Role::withoutTenancy()->whereNotNull('organisation_id')->pluck('code')->all())->toBe(['reference_editor']);
+    // And the only role holding a platform code: platform codes are granted
+    // deliberately, inside a platform-operator organisation, and never through a
+    // template (master plan v2 §4.16). Every organisation also owns a copy of
+    // each template (`OrganisationRoles::provision`), so this is asserted of the
+    // grants rather than of which organisation-scoped roles exist.
+    $platformCodeIds = Permission::query()
+        ->pluck('code', 'id')
+        ->filter(fn (string $code): bool => str_ends_with($code, '_platform'))
+        ->keys();
+
+    $holders = Role::withoutTenancy()
+        ->whereIn('id', RolePermission::withoutTenancy()->whereIn('permission_id', $platformCodeIds)->select('role_id'))
+        ->get();
+
+    expect($holders->map(fn (Role $holder): string => $holder->organisation_id.' '.$holder->code)->all())
+        ->toBe([$platform->getKey().' reference_editor']);
+
+    // Beside it, organisations own copies of the templates and nothing else.
+    $templateCodes = Role::withoutTenancy()->whereNull('organisation_id')->pluck('code')->all();
+
+    expect(Role::withoutTenancy()->whereNotNull('organisation_id')->pluck('code')->unique()->values()->all())
+        ->toEqualCanonicalizing([...$templateCodes, 'reference_editor']);
 });
 
 it('seeds the feature catalogue', function (): void {

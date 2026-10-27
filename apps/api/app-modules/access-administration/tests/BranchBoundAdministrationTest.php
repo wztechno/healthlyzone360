@@ -53,10 +53,11 @@ it('lists only the people in the administrator’s own branch', function (): voi
     $theirs = placedColleague($tenant, 'theirs@verdant.test', (string) $quoz->getKey());
     $everywhere = placedColleague($tenant, 'owner@verdant.test', null);
 
+    // A team member's summary names its membership `membership_id` (`TeamMemberPresenter`).
     $ids = collect($this->actingAs($tenant->user)
         ->getJson("/api/v1/organisations/{$tenant->organisation->getKey()}/memberships", AccessWorld::headers($tenant))
         ->assertOk()
-        ->json('data'))->pluck('id')->all();
+        ->json('data'))->pluck('membership_id')->all();
 
     expect($ids)->toContain((string) $mine->membership->getKey())
         ->and($ids)->not->toContain((string) $theirs->membership->getKey())

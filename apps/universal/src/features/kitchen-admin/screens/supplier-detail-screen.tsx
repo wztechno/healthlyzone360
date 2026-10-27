@@ -11,15 +11,22 @@ import {
     FormSkeleton,
     Icon,
     Inline,
+    IssueTrayFrame,
     Select,
     Stack,
     Table,
     Text,
     TextInputField,
     useFormSteps,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { TabItem, TableColumn } from '@healthy360/design-system';
+import type {
+    IssueCardItem,
+    IssueTrayContent,
+    TabItem,
+    TableColumn,
+} from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -50,7 +57,7 @@ import {
 import { displayName } from '../format.ts';
 import { returnCrumbLabel } from '../came-from.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
-import { focusField } from '../field-focus.ts';
+import { focusField, focusSection } from '../field-focus.ts';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { suppliedItemRowTestId, supplierContactRowTestId } from '../ops-format.ts';
 import { serverFieldErrors } from '../server-field-errors.ts';
@@ -66,6 +73,7 @@ import type {
     SupplierContactDraft,
     SupplierContactWireField,
 } from '../supplier-contact-editor.tsx';
+import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
@@ -237,6 +245,13 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
     const form = useFormSteps(isCreating ? SUPPLIER_CREATE_STEPS : SUPPLIER_STEPS);
 
+    // The page's issue tray; a refused save — details, contacts or a link — opens it.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+    useNudgeOnRefusal(update.error ?? create.error, nudgeTray);
+    useNudgeOnRefusal(saveContacts.error, nudgeTray);
+    useNudgeOnRefusal(linkItem.error ?? unlinkItem.error, nudgeTray);
+
     // The page draws no heading, so the top bar's trail is where the supplier is named. Opened as
     // a detour, the crumb above it is the page it came from.
     useKitchenTrailLeaf(
@@ -406,7 +421,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
 
     /**
      * Where a refused save takes the reader: the step the save belongs to, with the first field the
-     * server named focused. A refusal that names no field is that step's callout.
+     * server named focused. A refusal that names no field is a card in the tray.
      */
     const showRefusal = (
         step: SupplierStep,
@@ -804,8 +819,8 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
     const malformedContacts = contacts.filter(
         (draft) => !supplierContactsWellFormed([draft]),
     ).length;
-    // Drawn only for what no card could carry: a refusal placed on its cards is said there.
-    const contactsCallout =
+    // A tray card only for what no contact card could carry: one placed on its card is said there.
+    const contactsUnplaced =
         contactsFailure !== null &&
         !(contactsServer.isValidation && contactsServer.unplaced === null);
 
@@ -871,6 +886,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
         if (first !== undefined) {
             form.goTo('details');
             focusField(first.fieldId);
+            nudgeTray();
             return;
         }
         saveDetails();
@@ -889,7 +905,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
      */
     const stepIssueCount: Readonly<Record<SupplierStep, number>> = {
         details: detailsIssueCount,
-        contacts: malformedContacts + contactsServer.items.length + (contactsCallout ? 1 : 0),
+        contacts: malformedContacts + contactsServer.items.length + (contactsUnplaced ? 1 : 0),
         items: linkFailure === null ? 0 : 1,
     };
 
@@ -917,665 +933,735 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
         testID: `kitchen-supplier-screen-steps-${key}`,
     }));
 
+    /*
+     * The page's problems, in its issue tray rather than in callouts over the sections. What stops
+     * the details' save is the opening's (`RecordFormOpening` registers it); each refused write keeps
+     * the server's own words under its title, and Fix opens the step it was sent from.
+     */
+    const saveCards: IssueCardItem[] = [
+        ...(saveFailure === null || (server.isValidation && server.unplaced === null)
+            ? []
+            : [
+                  {
+                      key: 'save-error',
+                      tone: 'danger' as const,
+                      label: t('kitchen:editor.saveError'),
+                      detail: server.unplaced ?? saveFailure.message,
+                      testID: 'kitchen-supplier-save-error',
+                  },
+              ]),
+        ...(!contactsUnplaced || contactsFailure === null
+            ? []
+            : [
+                  {
+                      key: 'contacts-error',
+                      tone: 'danger' as const,
+                      label: t('kitchen:editor.saveError'),
+                      detail: contactsServer.unplaced ?? contactsFailure.message,
+                      action: {
+                          onPress: () => {
+                              form.goTo('contacts');
+                              focusSection('kitchen-supplier-contacts');
+                          },
+                      },
+                      testID: 'kitchen-supplier-contacts-error',
+                  },
+              ]),
+        // A refusal placed on a contact card is said under its field; this names it and goes there.
+        ...contactsServer.items.map((item) => ({
+            key: `contacts-${item.key}`,
+            tone: 'danger' as const,
+            label: item.label,
+            detail: t('kitchen:ops.suppliers.sectionContacts'),
+            action: {
+                onPress: () => {
+                    form.goTo('contacts');
+                    item.onPress();
+                },
+            },
+            testID: `kitchen-supplier-contacts-issues-${item.key}`,
+        })),
+    ];
+    // A link is written as it is pressed, so a refused one is an act that did not go through.
+    const linkRefusedField = (['stock_item_id', 'supplier_item_ref'] as const).find(
+        (field) => linkServer.errorFor(field) !== undefined,
+    );
+    const failedCards: IssueCardItem[] =
+        linkFailure === null
+            ? []
+            : [
+                  {
+                      key: 'items-error',
+                      tone: 'danger',
+                      label: t('kitchen:editor.saveError'),
+                      detail: linkServer.unplaced ?? linkFailure.message,
+                      action: {
+                          onPress: () => {
+                              form.goTo('items');
+                              if (linkRefusedField === 'stock_item_id')
+                                  focusField('kitchen-supplier-item-picker');
+                              else if (linkRefusedField === 'supplier_item_ref')
+                                  focusField(refFieldId);
+                              else focusSection('kitchen-supplier-supplied-items');
+                          },
+                      },
+                      testID: 'kitchen-supplier-items-error',
+                  },
+              ];
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-supplier-tray',
+        groups: [
+            { key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards },
+            { key: 'failed', title: t('kitchen:tray.groupFailed'), items: failedCards },
+        ],
+        // Archived is a state, not a problem: every field is locked and Restore is the way out.
+        notes: {
+            title: t('kitchen:tray.groupNote'),
+            lines: isArchived
+                ? [
+                      {
+                          key: 'archived',
+                          text: t('kitchen:ops.suppliers.archivedTitle'),
+                          testID: 'kitchen-supplier-archived',
+                      },
+                  ]
+                : [],
+        },
+    };
+
     return (
-        <Cascade space="md" testID="kitchen-supplier-screen">
-            <RecordFormOpening<SupplierStep>
-                testID="kitchen-supplier-screen"
-                title={
-                    isCreating
-                        ? t('kitchen:ops.suppliers.createTitle')
-                        : data === undefined
-                          ? t('kitchen:ops.suppliers.editTitle')
-                          : displayName(data.name, locale).value
-                }
-                dirty={guard.isDirty}
-                badges={
-                    details.code.trim() === '' || isCreating ? null : (
-                        <Text
-                            testID="kitchen-supplier-screen-reference"
-                            variant="mono"
-                            tone="secondary"
-                        >
-                            {details.code}
-                        </Text>
-                    )
-                }
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-supplier-screen-back"
-                            variant="secondary"
-                            label={t('kitchen:editor.cancel')}
-                            onPress={() => {
-                                guard.intercept(back.leave);
-                            }}
-                        />
-                        {isCreating || !canManage ? null : isArchived ? (
+        <IssueTrayFrame tray={trayContent} controller={issueTray}>
+            <Cascade space="md" testID="kitchen-supplier-screen">
+                <RecordFormOpening<SupplierStep>
+                    testID="kitchen-supplier-screen"
+                    title={
+                        isCreating
+                            ? t('kitchen:ops.suppliers.createTitle')
+                            : data === undefined
+                              ? t('kitchen:ops.suppliers.editTitle')
+                              : displayName(data.name, locale).value
+                    }
+                    dirty={guard.isDirty}
+                    badges={
+                        details.code.trim() === '' || isCreating ? null : (
+                            <Text
+                                testID="kitchen-supplier-screen-reference"
+                                variant="mono"
+                                tone="secondary"
+                            >
+                                {details.code}
+                            </Text>
+                        )
+                    }
+                    actions={
+                        <>
                             <Button
-                                testID="kitchen-supplier-restore"
+                                testID="kitchen-supplier-screen-back"
                                 variant="secondary"
-                                label={t('kitchen:ops.suppliers.restore')}
-                                loading={restore.isPending}
+                                label={t('kitchen:editor.cancel')}
+                                onPress={() => {
+                                    guard.intercept(back.leave);
+                                }}
+                            />
+                            {isCreating || !canManage ? null : isArchived ? (
+                                <Button
+                                    testID="kitchen-supplier-restore"
+                                    variant="secondary"
+                                    label={t('kitchen:ops.suppliers.restore')}
+                                    loading={restore.isPending}
+                                    onPress={() => {
+                                        if (parsed === null) return;
+                                        restore.mutate(parsed, {
+                                            onSuccess: () => {
+                                                toast.show({
+                                                    testID: 'kitchen-supplier-restored-toast',
+                                                    tone: 'success',
+                                                    message: t(
+                                                        'kitchen:ops.suppliers.restoredToast',
+                                                    ),
+                                                });
+                                            },
+                                        });
+                                    }}
+                                />
+                            ) : (
+                                <Button
+                                    testID="kitchen-supplier-archive"
+                                    variant="quiet"
+                                    label={t('kitchen:list.archive')}
+                                    onPress={() => {
+                                        setShowArchive(true);
+                                    }}
+                                />
+                            )}
+                            {/*
+                             * The details' Save, last, on every step. Hidden rather than disabled on an
+                             * archived supplier: every field is locked and the tray's note says why, so
+                             * a Save that could never work is noise.
+                             */}
+                            {!canManage || isArchived ? null : (
+                                <Button
+                                    testID="kitchen-supplier-screen-save"
+                                    label={t('kitchen:ops.suppliers.saveDetails')}
+                                    loading={create.isPending || update.isPending}
+                                    disabled={create.isPending || update.isPending}
+                                    onPress={attemptSave}
+                                />
+                            )}
+                        </>
+                    }
+                    errors={{
+                        summary: t(
+                            server.items.length === 0 &&
+                                shownIssues.every((entry) => entry.required)
+                                ? 'kitchen:forms.requiredCount'
+                                : 'kitchen:forms.toFixCount',
+                            { count: detailsIssueCount },
+                        ),
+                        items: [
+                            // No `fieldId`: the field keeps its own message under it, so the problem
+                            // is said where it is fixed and not only in this line.
+                            ...shownIssues.map((entry) => ({
+                                key: entry.key,
+                                label: entry.label,
+                                onPress: () => {
+                                    form.goTo('details');
+                                    focusField(entry.fieldId);
+                                },
+                            })),
+                            // Save is pressed from any step; the refused field is on Details.
+                            ...server.items.map((item) => ({
+                                ...item,
+                                onPress: () => {
+                                    form.goTo('details');
+                                    item.onPress();
+                                },
+                            })),
+                        ],
+                    }}
+                    steps={{
+                        label: t('kitchen:editor.stepsLabel'),
+                        value: form.current,
+                        onChange: form.goTo,
+                        // One step until the first save: contacts and supplied items hang off a record.
+                        items: stepItems,
+                    }}
+                />
+
+                {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
+                <View className="z-auto flex-col">
+                    {/* ── 1. the record ────────────────────────────────────────────────────────── */}
+                    {form.current !== 'details' ? null : (
+                        <FormSection
+                            first
+                            variant="card"
+                            testID="kitchen-supplier-details"
+                            title={t('kitchen:ops.suppliers.sectionDetails')}
+                        >
+                            {/*
+                             * The ingredient editor's grid: `sm` fields in tracks, the identifier first,
+                             * the bilingual name across two tracks with its halves side by side, and the
+                             * two free-text fields across the full row. A single column of full-width
+                             * default-size inputs was the one kitchen form still drawn the old way.
+                             */}
+                            <FormGrid testID="kitchen-supplier-details-grid">
+                                <TextInputField
+                                    testID="kitchen-supplier-code"
+                                    id="kitchen-supplier-code"
+                                    label={t('kitchen:ops.suppliers.fieldCode')}
+                                    placeholder={t('kitchen:ops.suppliers.codePlaceholder')}
+                                    size="sm"
+                                    value={details.code}
+                                    autoCapitalize="characters"
+                                    disabled={!editable}
+                                    {...server.flag('code')}
+                                    onChangeText={(code) => {
+                                        editDetails({ ...details, code });
+                                    }}
+                                />
+
+                                <BilingualField
+                                    span={2}
+                                    layout="row"
+                                    testID="kitchen-supplier-name"
+                                    fieldLabel={t('kitchen:ops.suppliers.fieldName')}
+                                    placeholder={{
+                                        en: t('kitchen:ops.suppliers.namePlaceholderEn'),
+                                        ar: t('kitchen:ops.suppliers.namePlaceholderAr'),
+                                    }}
+                                    value={details.name}
+                                    requiredEnglish
+                                    disabled={!editable}
+                                    onChange={(name) => {
+                                        editDetails({ ...details, name });
+                                    }}
+                                    {...(shows('name')
+                                        ? { englishError: t('kitchen:forms.required') }
+                                        : server.errorFor('name_en') === undefined
+                                          ? {}
+                                          : { englishError: server.errorFor('name_en') })}
+                                    {...(server.errorFor('name_ar') === undefined
+                                        ? {}
+                                        : { arabicError: server.errorFor('name_ar') })}
+                                />
+
+                                <TextInputField
+                                    testID="kitchen-supplier-email"
+                                    id="kitchen-supplier-email"
+                                    label={t('kitchen:ops.suppliers.fieldEmail')}
+                                    placeholder={t('kitchen:ops.suppliers.emailPlaceholder')}
+                                    size="sm"
+                                    value={details.contactEmail}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    disabled={!editable}
+                                    {...server.flag('contact_email')}
+                                    onChangeText={(contactEmail) => {
+                                        editDetails({ ...details, contactEmail });
+                                    }}
+                                />
+
+                                <TextInputField
+                                    testID="kitchen-supplier-phone"
+                                    id="kitchen-supplier-phone"
+                                    label={t('kitchen:ops.suppliers.fieldPhone')}
+                                    placeholder={t('kitchen:ops.suppliers.phonePlaceholder')}
+                                    size="sm"
+                                    value={details.contactPhone}
+                                    keyboardType="phone-pad"
+                                    disabled={!editable}
+                                    {...server.flag('contact_phone')}
+                                    onChangeText={(contactPhone) => {
+                                        editDetails({ ...details, contactPhone });
+                                    }}
+                                />
+
+                                {/*
+                                 * Displayed, never picked. Every price in this system is booked in one
+                                 * currency (there is no exchange rate — `MixedIngredientCostCurrency`), so
+                                 * a picker here would offer a choice the receipt path then refuses. A
+                                 * disabled field rather than a label over a line of text, so it sits in
+                                 * the grid the way the ingredient editor's read-only Id does.
+                                 */}
+                                <TextInputField
+                                    testID="kitchen-supplier-currency"
+                                    id="kitchen-supplier-currency"
+                                    label={t('kitchen:ops.suppliers.fieldCurrency')}
+                                    size="sm"
+                                    value={
+                                        data?.currencyCode ?? t('kitchen:ops.suppliers.noCurrency')
+                                    }
+                                    disabled
+                                    onChangeText={() => undefined}
+                                />
+
+                                <TextInputField
+                                    testID="kitchen-supplier-payment-terms"
+                                    id="kitchen-supplier-payment-terms"
+                                    label={t('kitchen:ops.suppliers.fieldPaymentTerms')}
+                                    placeholder={t('kitchen:ops.suppliers.paymentTermsPlaceholder')}
+                                    size="sm"
+                                    value={details.paymentTerms}
+                                    disabled={!editable}
+                                    {...server.flag('payment_terms')}
+                                    onChangeText={(paymentTerms) => {
+                                        editDetails({ ...details, paymentTerms });
+                                    }}
+                                />
+
+                                <TextInputField
+                                    testID="kitchen-supplier-lead-time"
+                                    id="kitchen-supplier-lead-time"
+                                    label={t('kitchen:ops.suppliers.fieldLeadTime')}
+                                    placeholder={t('kitchen:ops.suppliers.leadTimePlaceholder')}
+                                    size="sm"
+                                    value={details.leadTimeDays}
+                                    keyboardType="number-pad"
+                                    disabled={!editable}
+                                    onChangeText={(leadTimeDays) => {
+                                        editDetails({ ...details, leadTimeDays });
+                                    }}
+                                    {...(shows('lead-time')
+                                        ? { error: t('kitchen:ops.suppliers.leadTimeInvalid') }
+                                        : {})}
+                                    {...server.flag('lead_time_days')}
+                                />
+
+                                <TextInputField
+                                    testID="kitchen-supplier-address"
+                                    id="kitchen-supplier-address"
+                                    label={t('kitchen:ops.suppliers.fieldAddress')}
+                                    placeholder={t('kitchen:ops.suppliers.addressPlaceholder')}
+                                    size="sm"
+                                    fullWidth
+                                    value={details.address}
+                                    multiline
+                                    numberOfLines={3}
+                                    disabled={!editable}
+                                    {...server.flag('address')}
+                                    onChangeText={(address) => {
+                                        editDetails({ ...details, address });
+                                    }}
+                                />
+
+                                <TextInputField
+                                    testID="kitchen-supplier-notes"
+                                    id="kitchen-supplier-notes"
+                                    label={t('kitchen:ops.suppliers.fieldNotes')}
+                                    placeholder={t('kitchen:ops.suppliers.notesPlaceholder')}
+                                    size="sm"
+                                    fullWidth
+                                    value={details.notes}
+                                    multiline
+                                    numberOfLines={3}
+                                    disabled={!editable}
+                                    {...server.flag('notes')}
+                                    onChangeText={(notes) => {
+                                        editDetails({ ...details, notes });
+                                    }}
+                                />
+                            </FormGrid>
+                        </FormSection>
+                    )}
+
+                    {/* ── 2. named contacts ────────────────────────────────────────────────────── */}
+                    {isCreating || form.current !== 'contacts' ? null : (
+                        <FormSection
+                            first
+                            variant="card"
+                            testID="kitchen-supplier-contacts"
+                            nativeID="kitchen-supplier-contacts"
+                            title={t('kitchen:ops.suppliers.sectionContacts')}
+                            actions={
+                                editable ? (
+                                    <Button
+                                        testID="kitchen-supplier-contacts-add"
+                                        size="sm"
+                                        variant="secondary"
+                                        label={t('kitchen:ops.suppliers.addContact')}
+                                        iconStart={<Icon name="plus" size="sm" />}
+                                        onPress={() => {
+                                            editContacts([
+                                                ...contacts,
+                                                emptySupplierContact(takeKey()),
+                                            ]);
+                                        }}
+                                    />
+                                ) : null
+                            }
+                        >
+                            <Stack space="md">
+                                {contacts.length === 0 ? (
+                                    <Text testID="kitchen-supplier-contacts-empty" tone="secondary">
+                                        {t('kitchen:ops.suppliers.noContacts')}
+                                    </Text>
+                                ) : (
+                                    <Stack space="sm">
+                                        {contacts.map((draft, index) => (
+                                            <SupplierContactCard
+                                                key={draft.key}
+                                                draft={draft}
+                                                position={index + 1}
+                                                total={contacts.length}
+                                                canManage={editable}
+                                                serverError={(field) =>
+                                                    contactsServer.errorFor(
+                                                        `contacts.${String(index)}.${field}`,
+                                                    )
+                                                }
+                                                onChange={(next) => {
+                                                    editContacts(
+                                                        contacts.map((candidate) =>
+                                                            candidate.key === draft.key
+                                                                ? next
+                                                                : candidate,
+                                                        ),
+                                                    );
+                                                }}
+                                                onRemove={() => {
+                                                    editContacts(
+                                                        contacts.filter(
+                                                            (candidate) =>
+                                                                candidate.key !== draft.key,
+                                                        ),
+                                                    );
+                                                }}
+                                                onMakePrimary={() => {
+                                                    // Cleared everywhere else in the same edit: the
+                                                    // server refuses a set with two primaries, and the
+                                                    // screen must not be able to build one.
+                                                    editContacts(
+                                                        contacts.map((candidate) => ({
+                                                            ...candidate,
+                                                            isPrimary: candidate.key === draft.key,
+                                                        })),
+                                                    );
+                                                }}
+                                            />
+                                        ))}
+                                    </Stack>
+                                )}
+
+                                {/*
+                                 * One save for the whole section (§3.2). Deliberately not per card: the
+                                 * endpoint is a set-replace, so a save fired by one card would delete
+                                 * the card beside it that is still being typed.
+                                 */}
+                                {editable ? (
+                                    <Inline space="sm" justify="end" wrap>
+                                        <Button
+                                            testID="kitchen-supplier-contacts-save"
+                                            label={t('kitchen:ops.suppliers.saveContacts')}
+                                            loading={saveContacts.isPending}
+                                            disabled={contactsBlocked || saveContacts.isPending}
+                                            onPress={submitContacts}
+                                        />
+                                    </Inline>
+                                ) : null}
+                            </Stack>
+                        </FormSection>
+                    )}
+
+                    {/* ── 3. what you buy here (SUP2) ──────────────────────────────────────────── */}
+                    {isCreating || form.current !== 'items' ? null : (
+                        <FormSection
+                            first
+                            variant="card"
+                            testID="kitchen-supplier-supplied-items"
+                            nativeID="kitchen-supplier-supplied-items"
+                            title={t('kitchen:ops.suppliers.itemsTitle')}
+                            actions={
+                                <>
+                                    {/*
+                                     * Behind the cost permission because the ledger it opens is: a
+                                     * ghost button leading straight to a forbidden page would be a
+                                     * promise the destination refuses.
+                                     */}
+                                    {canViewCosts && parsed !== null ? (
+                                        <Button
+                                            testID="kitchen-supplier-see-ledger"
+                                            size="sm"
+                                            variant="ghost"
+                                            label={t('kitchen:ops.suppliers.seeLedger')}
+                                            onPress={() => {
+                                                router.push(
+                                                    `/kitchen/purchases-ledger?supplier=${String(parsed)}` as never,
+                                                );
+                                            }}
+                                        />
+                                    ) : null}
+                                </>
+                            }
+                        >
+                            <Stack space="md">
+                                {suppliedItems.length === 0 ? (
+                                    <Text testID="kitchen-supplier-items-empty" tone="secondary">
+                                        {t('kitchen:ops.suppliers.itemsEmptyBody')}
+                                    </Text>
+                                ) : (
+                                    <Table<SuppliedItem>
+                                        testID="kitchen-supplier-items-table"
+                                        caption={t('kitchen:ops.suppliers.itemsTitle')}
+                                        captionHidden
+                                        columns={suppliedColumns}
+                                        rows={suppliedItems}
+                                        rowKey={(row) => String(row.stockItem?.id ?? '')}
+                                        {...(suppliedRowAction === undefined
+                                            ? {}
+                                            : { rowAction: suppliedRowAction })}
+                                    />
+                                )}
+
+                                {/*
+                                 * No Save button, unlike the two sections above. A link is one fact
+                                 * about a pair rather than a document with a half-typed state, and its
+                                 * endpoint is an idempotent upsert — so **Link** writes it.
+                                 */}
+                                {editable ? (
+                                    <Inline space="sm" align="end" wrap>
+                                        <Select
+                                            testID="kitchen-supplier-item-picker"
+                                            id="kitchen-supplier-item-picker"
+                                            {...linkServer.flag('stock_item_id')}
+                                            label={t('kitchen:ops.suppliers.linkItemLabel')}
+                                            options={linkableItems.map((item) => ({
+                                                value: String(item.id),
+                                                label: item.nameEn,
+                                                keywords: item.code,
+                                            }))}
+                                            value={pickedItem}
+                                            onChange={setPickedItem}
+                                            placeholder={
+                                                linkableItems.length === 0
+                                                    ? t('kitchen:ops.suppliers.allItemsLinked')
+                                                    : t('kitchen:ops.suppliers.pickItem')
+                                            }
+                                            searchable
+                                            disabled={linkableItems.length === 0}
+                                            className="min-w-[220px] flex-1"
+                                        />
+                                        {/*
+                                         * Its own prefix rather than `…-item-ref`, which the row
+                                         * dialog below already owns: both can be on screen at once,
+                                         * and a Playwright prefix query matching two nodes silently
+                                         * finds the wrong one.
+                                         */}
+                                        <TextInputField
+                                            testID="kitchen-supplier-link-ref"
+                                            id="kitchen-supplier-link-ref"
+                                            {...(editingRef === null
+                                                ? linkServer.flag('supplier_item_ref')
+                                                : {})}
+                                            label={t('kitchen:ops.suppliers.fieldItemRef')}
+                                            placeholder={t(
+                                                'kitchen:ops.suppliers.itemRefPlaceholder',
+                                            )}
+                                            value={pickedRef}
+                                            autoCapitalize="characters"
+                                            onChangeText={setPickedRef}
+                                            className="w-48"
+                                        />
+                                        <Button
+                                            testID="kitchen-supplier-item-link"
+                                            label={t('kitchen:ops.suppliers.linkItem')}
+                                            loading={linkItem.isPending}
+                                            disabled={pickedItem === null || linkItem.isPending}
+                                            onPress={submitLink}
+                                        />
+                                    </Inline>
+                                ) : null}
+                            </Stack>
+                        </FormSection>
+                    )}
+                </View>
+
+                {/* ── supplier item reference ──────────────────────────────────────────────────── */}
+                <Dialog
+                    testID="kitchen-supplier-item-ref-dialog"
+                    open={editingRef !== null}
+                    onClose={() => {
+                        setEditingRef(null);
+                    }}
+                    title={t('kitchen:ops.suppliers.editRefTitle', {
+                        name: editingRef?.stockItem?.nameEn ?? '',
+                    })}
+                    description={t('kitchen:ops.suppliers.editRefBody')}
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-supplier-item-ref-cancel"
+                                variant="quiet"
+                                label={t('kitchen:common.cancel')}
+                                onPress={() => {
+                                    setEditingRef(null);
+                                }}
+                            />
+                            <Button
+                                testID="kitchen-supplier-item-ref-save"
+                                label={t('kitchen:common.save')}
+                                loading={linkItem.isPending}
+                                onPress={submitRef}
+                            />
+                        </>
+                    }
+                >
+                    <TextInputField
+                        testID="kitchen-supplier-item-ref-value"
+                        id="kitchen-supplier-item-ref-value"
+                        {...linkServer.flag('supplier_item_ref')}
+                        label={t('kitchen:ops.suppliers.fieldItemRef')}
+                        placeholder={t('kitchen:ops.suppliers.itemRefPlaceholder')}
+                        value={refDraft}
+                        autoCapitalize="characters"
+                        onChangeText={setRefDraft}
+                    />
+                </Dialog>
+
+                {/* ── unlink ───────────────────────────────────────────────────────────────────── */}
+                <Dialog
+                    testID="kitchen-supplier-unlink-dialog"
+                    open={unlinking !== null}
+                    onClose={() => {
+                        setUnlinking(null);
+                    }}
+                    title={t('kitchen:ops.suppliers.unlinkTitle', {
+                        name: unlinking?.stockItem?.nameEn ?? '',
+                    })}
+                    description={t('kitchen:ops.suppliers.unlinkBody')}
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-supplier-unlink-cancel"
+                                variant="quiet"
+                                label={t('kitchen:common.cancel')}
+                                onPress={() => {
+                                    setUnlinking(null);
+                                }}
+                            />
+                            <Button
+                                testID="kitchen-supplier-unlink-confirm"
+                                variant="danger"
+                                label={t('kitchen:ops.suppliers.unlinkConfirm')}
+                                loading={unlinkItem.isPending}
+                                onPress={submitUnlink}
+                            />
+                        </>
+                    }
+                >
+                    <Text testID="kitchen-supplier-unlink-consequence">
+                        {t('kitchen:ops.suppliers.unlinkConsequence')}
+                    </Text>
+                </Dialog>
+
+                {/* ── archive ──────────────────────────────────────────────────────────────────── */}
+                <Dialog
+                    testID="kitchen-supplier-archive-dialog"
+                    open={showArchive}
+                    onClose={() => {
+                        setShowArchive(false);
+                    }}
+                    title={t('kitchen:ops.suppliers.archiveTitle')}
+                    description={t('kitchen:ops.suppliers.archiveBody')}
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-supplier-archive-cancel"
+                                variant="quiet"
+                                label={t('kitchen:common.cancel')}
+                                onPress={() => {
+                                    setShowArchive(false);
+                                }}
+                            />
+                            <Button
+                                testID="kitchen-supplier-archive-confirm"
+                                variant="danger"
+                                label={t('kitchen:ops.suppliers.archiveConfirm')}
+                                loading={archive.isPending}
                                 onPress={() => {
                                     if (parsed === null) return;
-                                    restore.mutate(parsed, {
+                                    archive.mutate(parsed, {
                                         onSuccess: () => {
+                                            setShowArchive(false);
                                             toast.show({
-                                                testID: 'kitchen-supplier-restored-toast',
+                                                testID: 'kitchen-supplier-archived-toast',
                                                 tone: 'success',
-                                                message: t('kitchen:ops.suppliers.restoredToast'),
+                                                message: t('kitchen:ops.suppliers.archivedToast'),
                                             });
                                         },
                                     });
                                 }}
                             />
-                        ) : (
-                            <Button
-                                testID="kitchen-supplier-archive"
-                                variant="quiet"
-                                label={t('kitchen:list.archive')}
-                                onPress={() => {
-                                    setShowArchive(true);
-                                }}
-                            />
-                        )}
-                        {/*
-                         * The details' Save, last, on every step. Hidden rather than disabled on an
-                         * archived supplier: every field is locked and the callout says why, so a
-                         * Save that could never work is noise.
-                         */}
-                        {!canManage || isArchived ? null : (
-                            <Button
-                                testID="kitchen-supplier-screen-save"
-                                label={t('kitchen:ops.suppliers.saveDetails')}
-                                loading={create.isPending || update.isPending}
-                                disabled={create.isPending || update.isPending}
-                                onPress={attemptSave}
-                            />
-                        )}
-                    </>
-                }
-                errors={{
-                    summary: t(
-                        server.items.length === 0 && shownIssues.every((entry) => entry.required)
-                            ? 'kitchen:forms.requiredCount'
-                            : 'kitchen:forms.toFixCount',
-                        { count: detailsIssueCount },
-                    ),
-                    items: [
-                        // No `fieldId`: the field keeps its own message under it, so the problem
-                        // is said where it is fixed and not only in this line.
-                        ...shownIssues.map((entry) => ({
-                            key: entry.key,
-                            label: entry.label,
-                            onPress: () => {
-                                form.goTo('details');
-                                focusField(entry.fieldId);
-                            },
-                        })),
-                        // Save is pressed from any step; the refused field is on Details.
-                        ...server.items.map((item) => ({
-                            ...item,
-                            onPress: () => {
-                                form.goTo('details');
-                                item.onPress();
-                            },
-                        })),
-                    ],
-                }}
-                steps={{
-                    label: t('kitchen:editor.stepsLabel'),
-                    value: form.current,
-                    onChange: form.goTo,
-                    // One step until the first save: contacts and supplied items hang off a record.
-                    items: stepItems,
-                }}
-            />
+                        </>
+                    }
+                >
+                    <Text testID="kitchen-supplier-archive-consequence">
+                        {t('kitchen:ops.suppliers.archiveConsequence')}
+                    </Text>
+                </Dialog>
 
-            {isArchived ? (
-                <Callout
-                    testID="kitchen-supplier-archived"
-                    role="note"
-                    tone="info"
-                    title={t('kitchen:ops.suppliers.archivedTitle')}
-                />
-            ) : null}
-
-            {saveFailure === null || (server.isValidation && server.unplaced === null) ? null : (
-                <Callout
-                    testID="kitchen-supplier-save-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:editor.saveError')}
-                    body={server.unplaced ?? saveFailure.message}
-                />
-            )}
-
-            {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
-            <View className="z-auto flex-col">
-                {/* ── 1. the record ────────────────────────────────────────────────────────── */}
-                {form.current !== 'details' ? null : (
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-supplier-details"
-                        title={t('kitchen:ops.suppliers.sectionDetails')}
-                    >
-                        {/*
-                         * The ingredient editor's grid: `sm` fields in tracks, the identifier first,
-                         * the bilingual name across two tracks with its halves side by side, and the
-                         * two free-text fields across the full row. A single column of full-width
-                         * default-size inputs was the one kitchen form still drawn the old way.
-                         */}
-                        <FormGrid testID="kitchen-supplier-details-grid">
-                            <TextInputField
-                                testID="kitchen-supplier-code"
-                                id="kitchen-supplier-code"
-                                label={t('kitchen:ops.suppliers.fieldCode')}
-                                placeholder={t('kitchen:ops.suppliers.codePlaceholder')}
-                                size="sm"
-                                value={details.code}
-                                autoCapitalize="characters"
-                                disabled={!editable}
-                                {...server.flag('code')}
-                                onChangeText={(code) => {
-                                    editDetails({ ...details, code });
-                                }}
-                            />
-
-                            <BilingualField
-                                span={2}
-                                layout="row"
-                                testID="kitchen-supplier-name"
-                                fieldLabel={t('kitchen:ops.suppliers.fieldName')}
-                                placeholder={{
-                                    en: t('kitchen:ops.suppliers.namePlaceholderEn'),
-                                    ar: t('kitchen:ops.suppliers.namePlaceholderAr'),
-                                }}
-                                value={details.name}
-                                requiredEnglish
-                                disabled={!editable}
-                                onChange={(name) => {
-                                    editDetails({ ...details, name });
-                                }}
-                                {...(shows('name')
-                                    ? { englishError: t('kitchen:forms.required') }
-                                    : server.errorFor('name_en') === undefined
-                                      ? {}
-                                      : { englishError: server.errorFor('name_en') })}
-                                {...(server.errorFor('name_ar') === undefined
-                                    ? {}
-                                    : { arabicError: server.errorFor('name_ar') })}
-                            />
-
-                            <TextInputField
-                                testID="kitchen-supplier-email"
-                                id="kitchen-supplier-email"
-                                label={t('kitchen:ops.suppliers.fieldEmail')}
-                                placeholder={t('kitchen:ops.suppliers.emailPlaceholder')}
-                                size="sm"
-                                value={details.contactEmail}
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                                disabled={!editable}
-                                {...server.flag('contact_email')}
-                                onChangeText={(contactEmail) => {
-                                    editDetails({ ...details, contactEmail });
-                                }}
-                            />
-
-                            <TextInputField
-                                testID="kitchen-supplier-phone"
-                                id="kitchen-supplier-phone"
-                                label={t('kitchen:ops.suppliers.fieldPhone')}
-                                placeholder={t('kitchen:ops.suppliers.phonePlaceholder')}
-                                size="sm"
-                                value={details.contactPhone}
-                                keyboardType="phone-pad"
-                                disabled={!editable}
-                                {...server.flag('contact_phone')}
-                                onChangeText={(contactPhone) => {
-                                    editDetails({ ...details, contactPhone });
-                                }}
-                            />
-
-                            {/*
-                             * Displayed, never picked. Every price in this system is booked in one
-                             * currency (there is no exchange rate — `MixedIngredientCostCurrency`), so
-                             * a picker here would offer a choice the receipt path then refuses. A
-                             * disabled field rather than a label over a line of text, so it sits in
-                             * the grid the way the ingredient editor's read-only Id does.
-                             */}
-                            <TextInputField
-                                testID="kitchen-supplier-currency"
-                                id="kitchen-supplier-currency"
-                                label={t('kitchen:ops.suppliers.fieldCurrency')}
-                                size="sm"
-                                value={data?.currencyCode ?? t('kitchen:ops.suppliers.noCurrency')}
-                                disabled
-                                onChangeText={() => undefined}
-                            />
-
-                            <TextInputField
-                                testID="kitchen-supplier-payment-terms"
-                                id="kitchen-supplier-payment-terms"
-                                label={t('kitchen:ops.suppliers.fieldPaymentTerms')}
-                                placeholder={t('kitchen:ops.suppliers.paymentTermsPlaceholder')}
-                                size="sm"
-                                value={details.paymentTerms}
-                                disabled={!editable}
-                                {...server.flag('payment_terms')}
-                                onChangeText={(paymentTerms) => {
-                                    editDetails({ ...details, paymentTerms });
-                                }}
-                            />
-
-                            <TextInputField
-                                testID="kitchen-supplier-lead-time"
-                                id="kitchen-supplier-lead-time"
-                                label={t('kitchen:ops.suppliers.fieldLeadTime')}
-                                placeholder={t('kitchen:ops.suppliers.leadTimePlaceholder')}
-                                size="sm"
-                                value={details.leadTimeDays}
-                                keyboardType="number-pad"
-                                disabled={!editable}
-                                onChangeText={(leadTimeDays) => {
-                                    editDetails({ ...details, leadTimeDays });
-                                }}
-                                {...(shows('lead-time')
-                                    ? { error: t('kitchen:ops.suppliers.leadTimeInvalid') }
-                                    : {})}
-                                {...server.flag('lead_time_days')}
-                            />
-
-                            <TextInputField
-                                testID="kitchen-supplier-address"
-                                id="kitchen-supplier-address"
-                                label={t('kitchen:ops.suppliers.fieldAddress')}
-                                placeholder={t('kitchen:ops.suppliers.addressPlaceholder')}
-                                size="sm"
-                                fullWidth
-                                value={details.address}
-                                multiline
-                                numberOfLines={3}
-                                disabled={!editable}
-                                {...server.flag('address')}
-                                onChangeText={(address) => {
-                                    editDetails({ ...details, address });
-                                }}
-                            />
-
-                            <TextInputField
-                                testID="kitchen-supplier-notes"
-                                id="kitchen-supplier-notes"
-                                label={t('kitchen:ops.suppliers.fieldNotes')}
-                                placeholder={t('kitchen:ops.suppliers.notesPlaceholder')}
-                                size="sm"
-                                fullWidth
-                                value={details.notes}
-                                multiline
-                                numberOfLines={3}
-                                disabled={!editable}
-                                {...server.flag('notes')}
-                                onChangeText={(notes) => {
-                                    editDetails({ ...details, notes });
-                                }}
-                            />
-                        </FormGrid>
-                    </FormSection>
-                )}
-
-                {/* ── 2. named contacts ────────────────────────────────────────────────────── */}
-                {isCreating || form.current !== 'contacts' ? null : (
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-supplier-contacts"
-                        title={t('kitchen:ops.suppliers.sectionContacts')}
-                        actions={
-                            editable ? (
-                                <Button
-                                    testID="kitchen-supplier-contacts-add"
-                                    size="sm"
-                                    variant="secondary"
-                                    label={t('kitchen:ops.suppliers.addContact')}
-                                    iconStart={<Icon name="plus" size="sm" />}
-                                    onPress={() => {
-                                        editContacts([
-                                            ...contacts,
-                                            emptySupplierContact(takeKey()),
-                                        ]);
-                                    }}
-                                />
-                            ) : null
-                        }
-                    >
-                        <Stack space="md">
-                            {!contactsCallout || contactsFailure === null ? null : (
-                                <Callout
-                                    testID="kitchen-supplier-contacts-error"
-                                    role="alert"
-                                    tone="danger"
-                                    title={t('kitchen:editor.saveError')}
-                                    body={contactsServer.unplaced ?? contactsFailure.message}
-                                />
-                            )}
-
-                            {contacts.length === 0 ? (
-                                <Text testID="kitchen-supplier-contacts-empty" tone="secondary">
-                                    {t('kitchen:ops.suppliers.noContacts')}
-                                </Text>
-                            ) : (
-                                <Stack space="sm">
-                                    {contacts.map((draft, index) => (
-                                        <SupplierContactCard
-                                            key={draft.key}
-                                            draft={draft}
-                                            position={index + 1}
-                                            total={contacts.length}
-                                            canManage={editable}
-                                            serverError={(field) =>
-                                                contactsServer.errorFor(
-                                                    `contacts.${String(index)}.${field}`,
-                                                )
-                                            }
-                                            onChange={(next) => {
-                                                editContacts(
-                                                    contacts.map((candidate) =>
-                                                        candidate.key === draft.key
-                                                            ? next
-                                                            : candidate,
-                                                    ),
-                                                );
-                                            }}
-                                            onRemove={() => {
-                                                editContacts(
-                                                    contacts.filter(
-                                                        (candidate) => candidate.key !== draft.key,
-                                                    ),
-                                                );
-                                            }}
-                                            onMakePrimary={() => {
-                                                // Cleared everywhere else in the same edit: the
-                                                // server refuses a set with two primaries, and the
-                                                // screen must not be able to build one.
-                                                editContacts(
-                                                    contacts.map((candidate) => ({
-                                                        ...candidate,
-                                                        isPrimary: candidate.key === draft.key,
-                                                    })),
-                                                );
-                                            }}
-                                        />
-                                    ))}
-                                </Stack>
-                            )}
-
-                            {/*
-                             * One save for the whole section (§3.2). Deliberately not per card: the
-                             * endpoint is a set-replace, so a save fired by one card would delete
-                             * the card beside it that is still being typed.
-                             */}
-                            {editable ? (
-                                <Inline space="sm" justify="end" wrap>
-                                    <Button
-                                        testID="kitchen-supplier-contacts-save"
-                                        label={t('kitchen:ops.suppliers.saveContacts')}
-                                        loading={saveContacts.isPending}
-                                        disabled={contactsBlocked || saveContacts.isPending}
-                                        onPress={submitContacts}
-                                    />
-                                </Inline>
-                            ) : null}
-                        </Stack>
-                    </FormSection>
-                )}
-
-                {/* ── 3. what you buy here (SUP2) ──────────────────────────────────────────── */}
-                {isCreating || form.current !== 'items' ? null : (
-                    <FormSection
-                        first
-                        variant="card"
-                        testID="kitchen-supplier-supplied-items"
-                        title={t('kitchen:ops.suppliers.itemsTitle')}
-                        actions={
-                            <>
-                                {/*
-                                 * Behind the cost permission because the ledger it opens is: a
-                                 * ghost button leading straight to a forbidden page would be a
-                                 * promise the destination refuses.
-                                 */}
-                                {canViewCosts && parsed !== null ? (
-                                    <Button
-                                        testID="kitchen-supplier-see-ledger"
-                                        size="sm"
-                                        variant="ghost"
-                                        label={t('kitchen:ops.suppliers.seeLedger')}
-                                        onPress={() => {
-                                            router.push(
-                                                `/kitchen/purchases-ledger?supplier=${String(parsed)}` as never,
-                                            );
-                                        }}
-                                    />
-                                ) : null}
-                            </>
-                        }
-                    >
-                        <Stack space="md">
-                            {linkFailure === null ? null : (
-                                <Callout
-                                    testID="kitchen-supplier-items-error"
-                                    role="alert"
-                                    tone="danger"
-                                    title={t('kitchen:editor.saveError')}
-                                    body={linkServer.unplaced ?? linkFailure.message}
-                                />
-                            )}
-
-                            {suppliedItems.length === 0 ? (
-                                <Text testID="kitchen-supplier-items-empty" tone="secondary">
-                                    {t('kitchen:ops.suppliers.itemsEmptyBody')}
-                                </Text>
-                            ) : (
-                                <Table<SuppliedItem>
-                                    testID="kitchen-supplier-items-table"
-                                    caption={t('kitchen:ops.suppliers.itemsTitle')}
-                                    captionHidden
-                                    columns={suppliedColumns}
-                                    rows={suppliedItems}
-                                    rowKey={(row) => String(row.stockItem?.id ?? '')}
-                                    {...(suppliedRowAction === undefined
-                                        ? {}
-                                        : { rowAction: suppliedRowAction })}
-                                />
-                            )}
-
-                            {/*
-                             * No Save button, unlike the two sections above. A link is one fact
-                             * about a pair rather than a document with a half-typed state, and its
-                             * endpoint is an idempotent upsert — so **Link** writes it.
-                             */}
-                            {editable ? (
-                                <Inline space="sm" align="end" wrap>
-                                    <Select
-                                        testID="kitchen-supplier-item-picker"
-                                        id="kitchen-supplier-item-picker"
-                                        {...linkServer.flag('stock_item_id')}
-                                        label={t('kitchen:ops.suppliers.linkItemLabel')}
-                                        options={linkableItems.map((item) => ({
-                                            value: String(item.id),
-                                            label: item.nameEn,
-                                            keywords: item.code,
-                                        }))}
-                                        value={pickedItem}
-                                        onChange={setPickedItem}
-                                        placeholder={
-                                            linkableItems.length === 0
-                                                ? t('kitchen:ops.suppliers.allItemsLinked')
-                                                : t('kitchen:ops.suppliers.pickItem')
-                                        }
-                                        searchable
-                                        disabled={linkableItems.length === 0}
-                                        className="min-w-[220px] flex-1"
-                                    />
-                                    {/*
-                                     * Its own prefix rather than `…-item-ref`, which the row
-                                     * dialog below already owns: both can be on screen at once,
-                                     * and a Playwright prefix query matching two nodes silently
-                                     * finds the wrong one.
-                                     */}
-                                    <TextInputField
-                                        testID="kitchen-supplier-link-ref"
-                                        id="kitchen-supplier-link-ref"
-                                        {...(editingRef === null
-                                            ? linkServer.flag('supplier_item_ref')
-                                            : {})}
-                                        label={t('kitchen:ops.suppliers.fieldItemRef')}
-                                        placeholder={t('kitchen:ops.suppliers.itemRefPlaceholder')}
-                                        value={pickedRef}
-                                        autoCapitalize="characters"
-                                        onChangeText={setPickedRef}
-                                        className="w-48"
-                                    />
-                                    <Button
-                                        testID="kitchen-supplier-item-link"
-                                        label={t('kitchen:ops.suppliers.linkItem')}
-                                        loading={linkItem.isPending}
-                                        disabled={pickedItem === null || linkItem.isPending}
-                                        onPress={submitLink}
-                                    />
-                                </Inline>
-                            ) : null}
-                        </Stack>
-                    </FormSection>
-                )}
-            </View>
-
-            {/* ── supplier item reference ──────────────────────────────────────────────────── */}
-            <Dialog
-                testID="kitchen-supplier-item-ref-dialog"
-                open={editingRef !== null}
-                onClose={() => {
-                    setEditingRef(null);
-                }}
-                title={t('kitchen:ops.suppliers.editRefTitle', {
-                    name: editingRef?.stockItem?.nameEn ?? '',
-                })}
-                description={t('kitchen:ops.suppliers.editRefBody')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-supplier-item-ref-cancel"
-                            variant="quiet"
-                            label={t('kitchen:common.cancel')}
-                            onPress={() => {
-                                setEditingRef(null);
-                            }}
-                        />
-                        <Button
-                            testID="kitchen-supplier-item-ref-save"
-                            label={t('kitchen:common.save')}
-                            loading={linkItem.isPending}
-                            onPress={submitRef}
-                        />
-                    </>
-                }
-            >
-                <TextInputField
-                    testID="kitchen-supplier-item-ref-value"
-                    id="kitchen-supplier-item-ref-value"
-                    {...linkServer.flag('supplier_item_ref')}
-                    label={t('kitchen:ops.suppliers.fieldItemRef')}
-                    placeholder={t('kitchen:ops.suppliers.itemRefPlaceholder')}
-                    value={refDraft}
-                    autoCapitalize="characters"
-                    onChangeText={setRefDraft}
-                />
-            </Dialog>
-
-            {/* ── unlink ───────────────────────────────────────────────────────────────────── */}
-            <Dialog
-                testID="kitchen-supplier-unlink-dialog"
-                open={unlinking !== null}
-                onClose={() => {
-                    setUnlinking(null);
-                }}
-                title={t('kitchen:ops.suppliers.unlinkTitle', {
-                    name: unlinking?.stockItem?.nameEn ?? '',
-                })}
-                description={t('kitchen:ops.suppliers.unlinkBody')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-supplier-unlink-cancel"
-                            variant="quiet"
-                            label={t('kitchen:common.cancel')}
-                            onPress={() => {
-                                setUnlinking(null);
-                            }}
-                        />
-                        <Button
-                            testID="kitchen-supplier-unlink-confirm"
-                            variant="danger"
-                            label={t('kitchen:ops.suppliers.unlinkConfirm')}
-                            loading={unlinkItem.isPending}
-                            onPress={submitUnlink}
-                        />
-                    </>
-                }
-            >
-                <Text testID="kitchen-supplier-unlink-consequence">
-                    {t('kitchen:ops.suppliers.unlinkConsequence')}
-                </Text>
-            </Dialog>
-
-            {/* ── archive ──────────────────────────────────────────────────────────────────── */}
-            <Dialog
-                testID="kitchen-supplier-archive-dialog"
-                open={showArchive}
-                onClose={() => {
-                    setShowArchive(false);
-                }}
-                title={t('kitchen:ops.suppliers.archiveTitle')}
-                description={t('kitchen:ops.suppliers.archiveBody')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-supplier-archive-cancel"
-                            variant="quiet"
-                            label={t('kitchen:common.cancel')}
-                            onPress={() => {
-                                setShowArchive(false);
-                            }}
-                        />
-                        <Button
-                            testID="kitchen-supplier-archive-confirm"
-                            variant="danger"
-                            label={t('kitchen:ops.suppliers.archiveConfirm')}
-                            loading={archive.isPending}
-                            onPress={() => {
-                                if (parsed === null) return;
-                                archive.mutate(parsed, {
-                                    onSuccess: () => {
-                                        setShowArchive(false);
-                                        toast.show({
-                                            testID: 'kitchen-supplier-archived-toast',
-                                            tone: 'success',
-                                            message: t('kitchen:ops.suppliers.archivedToast'),
-                                        });
-                                    },
-                                });
-                            }}
-                        />
-                    </>
-                }
-            >
-                <Text testID="kitchen-supplier-archive-consequence">
-                    {t('kitchen:ops.suppliers.archiveConsequence')}
-                </Text>
-            </Dialog>
-
-            <EditorGuardDialogs testID="kitchen-supplier-screen" guard={guard} />
-        </Cascade>
+                <EditorGuardDialogs testID="kitchen-supplier-screen" guard={guard} />
+            </Cascade>
+        </IssueTrayFrame>
     );
 }

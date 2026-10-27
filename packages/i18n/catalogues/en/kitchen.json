@@ -431,6 +431,8 @@
             "notStocked": "Not stocked"
         },
         "supplyOrders": {
+            "cancelFailed": "The order could not be cancelled.",
+            "issueFailed": "The order could not be issued.",
             "title": "Supply orders",
             "subtitle": "What this branch is short of, and the order that fixes it.",
             "metrics": {
@@ -1492,7 +1494,6 @@
             "resolvedBadge": "Resolved",
             "unresolvedBadge": "Unresolved",
             "clearBadge": "All clear",
-            "retry": "Retry",
             "resolve": "Accept gap",
             "fixInRecipe": "Fix in recipe",
             "fixAction": {
@@ -1546,7 +1547,6 @@
                 "fieldResolutionNote": "Resolution note",
                 "fieldMoney": "Money",
                 "moneyValue": "None — an exception names a sale and a stock gap, not a valuation",
-                "retry": "Retry the deduction",
                 "fieldIngredient": "Ingredient"
             },
             "fix": {
@@ -4693,6 +4693,14 @@
         "itemsReadError": "Which items are on the channel could not be read."
     },
     "tray": {
+        "noChannel": "No sales channel",
+        "groupIssue": "Blocks issuing",
+        "groupNote": "Note",
+        "onPublicMenu": "On the public menu",
+        "mealNoServiceDay": "No service day yet",
+        "mealUnsaved": "Changes not saved",
+        "mealNameMissing": "Arabic name missing",
+        "groupFailed": "Didn't go through",
         "title": "To fix",
         "groupSave": "Blocks save",
         "groupPublish": "Blocks publish",

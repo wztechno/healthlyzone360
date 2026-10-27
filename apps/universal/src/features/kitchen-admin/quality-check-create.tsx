@@ -7,16 +7,17 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
-    Callout,
     FormSection,
+    IssueTrayFrame,
     SearchInput,
     Skeleton,
     Stack,
     Text,
     cx,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
+import type { IssueCardItem, IssueTrayContent } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -35,6 +36,7 @@ import {
 import { useAccessState } from '../../session/session-provider.tsx';
 import { ChoiceTiles, RadioMark } from './choice-tiles.tsx';
 import { EditorFrame } from './editor-frame.tsx';
+import { focusSection } from './field-focus.ts';
 import {
     ledgerQuantity,
     productionStatusKey,
@@ -42,6 +44,7 @@ import {
     qualityCheckStatusTone,
 } from './ops-format.ts';
 import { serverFieldErrors } from './server-field-errors.ts';
+import { useNudgeOnRefusal } from './tray-nudge.ts';
 import { useOptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from './use-unsaved-guard.ts';
 
@@ -133,6 +136,10 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
     const concurrency = useOptimisticConcurrency({ onReload: onDone });
     const createCheck = useCreateQualityCheckMutation();
     const holdCheck = useHoldQualityCheckMutation();
+    // The editor's issue tray; a refused open opens it.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+    useNudgeOnRefusal(createCheck.error, nudgeTray);
 
     const [kind, setKind] = useState<QualityCheckSubjectType>('goods_receipt');
     const [query, setQuery] = useState('');
@@ -266,7 +273,7 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
     const saveFailure = toFailure(createCheck.error);
     /*
      * The subject is a pick from a list, which has a border to mark but no line to say why — so a
-     * refusal of it is described to nobody here and its message stays in the callout (BUG-06).
+     * refusal of it is described to nobody here and its message stays on the tray's card (BUG-06).
      */
     const server = serverFieldErrors(saveFailure);
     const subjectRefused =
@@ -287,7 +294,10 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
 
     function submit() {
         setSubmitted(true);
-        if (picked === null) return;
+        if (picked === null) {
+            nudgeTray();
+            return;
+        }
         const subject = picked;
         createCheck.mutate(
             { subjectType: kind, subjectId: subject.id },
@@ -356,6 +366,86 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
             ),
         },
     ];
+
+    /*
+     * The editor's problems, in its issue tray rather than in a banner over the form: no subject
+     * picked, pointing at the subject list; a refused open in the server's own words, pointing there
+     * too when it was the subject refused; the subjects that could not be loaded; and, as a check, a
+     * subject that already has a check still open, with the way to that check.
+     */
+    const toSubject = { onPress: () => focusSection('kitchen-qc-create-subject') };
+    const saveCards: IssueCardItem[] = [
+        ...(missingSubject
+            ? [
+                  {
+                      key: 'missing',
+                      tone: 'danger' as const,
+                      label: t('kitchen:ops.qc.issueNoSubject'),
+                      action: toSubject,
+                      testID: 'kitchen-qc-create-missing',
+                  },
+              ]
+            : []),
+        ...(loading || loadFailure === null
+            ? []
+            : [
+                  {
+                      key: 'subjects-failed',
+                      tone: 'danger' as const,
+                      label: t('kitchen:ops.qc.subjectsFailed'),
+                      detail: loadFailure.message,
+                      testID: 'kitchen-qc-subject-error',
+                  },
+              ]),
+        ...(saveFailure === null
+            ? []
+            : [
+                  {
+                      key: 'create-error',
+                      tone: 'danger' as const,
+                      label: t('kitchen:ops.qc.createFailed'),
+                      detail: server.unplaced ?? saveFailure.message,
+                      action: subjectRefused ? toSubject : undefined,
+                      testID: 'kitchen-qc-create-error',
+                  },
+              ]),
+    ];
+    const checkCards: IssueCardItem[] =
+        duplicate === null || picked === null
+            ? []
+            : [
+                  {
+                      key: 'duplicate',
+                      tone: 'warning',
+                      label: t(
+                          duplicate.status === 'hold'
+                              ? 'kitchen:ops.qc.duplicateHold'
+                              : 'kitchen:ops.qc.duplicatePending',
+                          { subject: picked.ref, check: shortId(String(duplicate.id)) },
+                      ),
+                      action: {
+                          label: t('kitchen:ops.qc.duplicateOpen', {
+                              check: shortId(String(duplicate.id)),
+                          }),
+                          testID: 'kitchen-qc-create-duplicate-open',
+                          onPress: () => {
+                              // No "discard?" here: the only thing left behind is the pick of this
+                              // very subject, and its check is where the reader is going.
+                              guard.markClean();
+                              onOpenCheck(duplicate);
+                          },
+                      },
+                      testID: 'kitchen-qc-create-duplicate',
+                  },
+              ];
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-qc-create-tray',
+        groups: [
+            { key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards },
+            { key: 'check', title: t('kitchen:tray.groupCheck'), items: checkCards },
+        ],
+    };
 
     const rail = (
         <View className="flex-col gap-base web:sticky web:top-0">
@@ -436,259 +526,206 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
     );
 
     return (
-        <EditorFrame
-            testID="kitchen-qc-create-editor"
-            title={t('kitchen:ops.qc.createTitle')}
-            titleChip={{ label: t('kitchen:ops.qc.createChip'), tone: 'danger' }}
-            meta={null}
-            guard={guard}
-            concurrency={concurrency}
-            saveLabel={t(
-                start === 'hold'
-                    ? 'kitchen:ops.qc.createSubmitHold'
-                    : 'kitchen:ops.qc.createSubmit',
-            )}
-            saving={createCheck.isPending || holdCheck.isPending}
-            onSaveDraft={submit}
-            backLabel={t('kitchen:ops.qc.backToList')}
-            onBack={onDone}
-            rail={rail}
-            banner={
-                !missingSubject && saveFailure === null ? undefined : (
-                    <Stack space="sm">
-                        {missingSubject ? (
-                            <Callout
-                                testID="kitchen-qc-create-missing"
-                                role="alert"
-                                tone="danger"
-                                icon="warning"
-                                title={t('kitchen:ops.qc.issueNoSubject')}
-                            />
-                        ) : null}
-                        {saveFailure === null ? null : (
-                            <Callout
-                                testID="kitchen-qc-create-error"
-                                role="alert"
-                                tone="danger"
-                                title={t('kitchen:ops.qc.createFailed')}
-                                body={server.unplaced ?? saveFailure.message}
-                            />
-                        )}
-                    </Stack>
-                )
-            }
-        >
-            <View className="flex-col gap-base">
-                <FormSection
-                    first
-                    variant="card"
-                    testID="kitchen-qc-create-subject"
-                    title={t('kitchen:ops.qc.subjectSection')}
-                    aside={
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:ops.qc.subjectAside')}
-                        </Text>
-                    }
-                >
-                    <View className="flex-col gap-snug">
-                        <ChoiceTiles<QualityCheckSubjectType>
-                            testID="kitchen-qc-subject-type"
-                            label={t('kitchen:ops.qc.summarySubjectType')}
-                            tiles={[
-                                {
-                                    value: 'goods_receipt',
-                                    title: t('kitchen:ops.qc.kindReceiptTitle'),
-                                    body: t('kitchen:ops.qc.kindReceiptBody'),
-                                },
-                                {
-                                    value: 'production_order',
-                                    title: t('kitchen:ops.qc.kindBatchTitle'),
-                                    body: t('kitchen:ops.qc.kindBatchBody'),
-                                },
-                            ]}
-                            value={kind}
-                            onChange={chooseKind}
-                        />
-
-                        <View className="max-w-[420px]">
-                            <SearchInput
-                                testID="kitchen-qc-subject-search"
-                                label={t('kitchen:toolbar.searchLabel')}
-                                placeholder={t(
-                                    isReceipt
-                                        ? 'kitchen:ops.qc.searchReceipts'
-                                        : 'kitchen:ops.qc.searchBatches',
-                                )}
-                                size="sm"
-                                value={query}
-                                onChangeText={setQuery}
-                            />
-                        </View>
-
-                        {loading ? (
-                            <Stack space="xs" testID="kitchen-qc-subject-loading">
-                                {Array.from({ length: 4 }, (_, index) => (
-                                    <Skeleton key={index} heightClassName="h-10" />
-                                ))}
-                            </Stack>
-                        ) : loadFailure !== null ? (
-                            <Callout
-                                testID="kitchen-qc-subject-error"
-                                tone="danger"
-                                title={t('kitchen:ops.qc.subjectsFailed')}
-                                body={loadFailure.message}
-                            />
-                        ) : (
-                            <SubjectList
-                                isReceipt={isReceipt}
-                                rows={shown}
-                                pickedId={pickedId}
-                                invalid={missingSubject || subjectRefused}
-                                empty={
-                                    rows.length === 0
-                                        ? t(
-                                              isReceipt
-                                                  ? 'kitchen:ops.qc.receiptsNone'
-                                                  : 'kitchen:ops.qc.batchesNone',
-                                          )
-                                        : t('kitchen:ops.qc.subjectsNoMatch')
-                                }
-                                formatDate={formatDate}
-                                onPick={(id) => {
-                                    setPickedId(id);
-                                    guard.markDirty();
-                                }}
-                            />
-                        )}
-
-                        {matching.length > shown.length ? (
-                            <Text
-                                variant="caption"
-                                tone="secondary"
-                                testID="kitchen-qc-subject-more"
-                            >
-                                {t('kitchen:ops.qc.subjectsLimited', { count: shown.length })}
+        <IssueTrayFrame tray={trayContent} controller={issueTray}>
+            <EditorFrame
+                testID="kitchen-qc-create-editor"
+                title={t('kitchen:ops.qc.createTitle')}
+                titleChip={{ label: t('kitchen:ops.qc.createChip'), tone: 'danger' }}
+                meta={null}
+                guard={guard}
+                concurrency={concurrency}
+                saveLabel={t(
+                    start === 'hold'
+                        ? 'kitchen:ops.qc.createSubmitHold'
+                        : 'kitchen:ops.qc.createSubmit',
+                )}
+                saving={createCheck.isPending || holdCheck.isPending}
+                onSaveDraft={submit}
+                backLabel={t('kitchen:ops.qc.backToList')}
+                onBack={onDone}
+                rail={rail}
+            >
+                <View className="flex-col gap-base">
+                    <FormSection
+                        first
+                        variant="card"
+                        testID="kitchen-qc-create-subject"
+                        // Where the tray's subject cards take the reader.
+                        nativeID="kitchen-qc-create-subject"
+                        title={t('kitchen:ops.qc.subjectSection')}
+                        aside={
+                            <Text variant="caption" tone="secondary">
+                                {t('kitchen:ops.qc.subjectAside')}
                             </Text>
-                        ) : null}
-
-                        {duplicate === null || picked === null ? null : (
-                            <Callout
-                                testID="kitchen-qc-create-duplicate"
-                                tone="warning"
-                                title={t(
-                                    duplicate.status === 'hold'
-                                        ? 'kitchen:ops.qc.duplicateHold'
-                                        : 'kitchen:ops.qc.duplicatePending',
-                                    { subject: picked.ref, check: shortId(String(duplicate.id)) },
-                                )}
-                                actions={
-                                    <Button
-                                        testID="kitchen-qc-create-duplicate-open"
-                                        variant="ghost"
-                                        size="sm"
-                                        label={t('kitchen:ops.qc.duplicateOpen', {
-                                            check: shortId(String(duplicate.id)),
-                                        })}
-                                        onPress={() => {
-                                            // No "discard?" here: the only thing left behind is
-                                            // the pick of this very subject, and its check is
-                                            // where the reader is going.
-                                            guard.markClean();
-                                            onOpenCheck(duplicate);
-                                        }}
-                                    />
-                                }
-                            />
-                        )}
-                    </View>
-                </FormSection>
-
-                {picked === null ? null : (
-                    <>
-                        <FormSection
-                            first
-                            variant="card"
-                            testID="kitchen-qc-create-cover"
-                            title={t(
-                                isReceipt
-                                    ? 'kitchen:ops.qc.coverReceiptTitle'
-                                    : 'kitchen:ops.qc.coverBatchTitle',
-                            )}
-                            aside={
-                                <Text variant="caption" tone="secondary" numberOfLines={1}>
-                                    {t('kitchen:ops.qc.coverAside', {
-                                        ref: picked.ref,
-                                        who: picked.who,
-                                    })}
-                                </Text>
-                            }
-                        >
-                            <View className="flex-col">
-                                {picked.cover.map((line) => (
-                                    <View
-                                        key={line.key}
-                                        className="min-h-row-sm flex-row items-center justify-between gap-tight border-b border-stroke-subtle px-control-sm"
-                                    >
-                                        <Text
-                                            variant="caption"
-                                            numberOfLines={1}
-                                            className="min-w-0 shrink"
-                                        >
-                                            {line.name}
-                                        </Text>
-                                        <Text
-                                            variant="caption"
-                                            className="font-semibold tabular-nums"
-                                        >
-                                            {line.qty}
-                                        </Text>
-                                    </View>
-                                ))}
-                                {picked.more > 0 ? (
-                                    <Text
-                                        variant="micro"
-                                        tone="secondary"
-                                        testID="kitchen-qc-create-cover-more"
-                                        className="px-control-sm pt-tight"
-                                    >
-                                        {t('kitchen:ops.qc.coverMore', { count: picked.more })}
-                                    </Text>
-                                ) : null}
-                            </View>
-                        </FormSection>
-
-                        <FormSection
-                            first
-                            variant="card"
-                            testID="kitchen-qc-create-start"
-                            title={t('kitchen:ops.qc.startSection')}
-                        >
-                            <ChoiceTiles<StartAs>
-                                testID="kitchen-qc-start"
-                                label={t('kitchen:ops.qc.startSection')}
+                        }
+                    >
+                        <View className="flex-col gap-snug">
+                            <ChoiceTiles<QualityCheckSubjectType>
+                                testID="kitchen-qc-subject-type"
+                                label={t('kitchen:ops.qc.summarySubjectType')}
                                 tiles={[
                                     {
-                                        value: 'pending',
-                                        title: t('kitchen:ops.qc.startPendingTitle'),
-                                        body: t('kitchen:ops.qc.startPendingBody'),
+                                        value: 'goods_receipt',
+                                        title: t('kitchen:ops.qc.kindReceiptTitle'),
+                                        body: t('kitchen:ops.qc.kindReceiptBody'),
                                     },
                                     {
-                                        value: 'hold',
-                                        title: t('kitchen:ops.qc.startHoldTitle'),
-                                        body: t('kitchen:ops.qc.startHoldBody'),
+                                        value: 'production_order',
+                                        title: t('kitchen:ops.qc.kindBatchTitle'),
+                                        body: t('kitchen:ops.qc.kindBatchBody'),
                                     },
                                 ]}
-                                value={start}
-                                onChange={(next) => {
-                                    setStart(next);
-                                    guard.markDirty();
-                                }}
+                                value={kind}
+                                onChange={chooseKind}
                             />
-                        </FormSection>
-                    </>
-                )}
-            </View>
-        </EditorFrame>
+
+                            <View className="max-w-[420px]">
+                                <SearchInput
+                                    testID="kitchen-qc-subject-search"
+                                    label={t('kitchen:toolbar.searchLabel')}
+                                    placeholder={t(
+                                        isReceipt
+                                            ? 'kitchen:ops.qc.searchReceipts'
+                                            : 'kitchen:ops.qc.searchBatches',
+                                    )}
+                                    size="sm"
+                                    value={query}
+                                    onChangeText={setQuery}
+                                />
+                            </View>
+
+                            {/*
+                             * A failed read is the tray's card to say. No list under it: an empty
+                             * one would claim there is nothing to check.
+                             */}
+                            {loading ? (
+                                <Stack space="xs" testID="kitchen-qc-subject-loading">
+                                    {Array.from({ length: 4 }, (_, index) => (
+                                        <Skeleton key={index} heightClassName="h-10" />
+                                    ))}
+                                </Stack>
+                            ) : loadFailure !== null ? null : (
+                                <SubjectList
+                                    isReceipt={isReceipt}
+                                    rows={shown}
+                                    pickedId={pickedId}
+                                    invalid={missingSubject || subjectRefused}
+                                    empty={
+                                        rows.length === 0
+                                            ? t(
+                                                  isReceipt
+                                                      ? 'kitchen:ops.qc.receiptsNone'
+                                                      : 'kitchen:ops.qc.batchesNone',
+                                              )
+                                            : t('kitchen:ops.qc.subjectsNoMatch')
+                                    }
+                                    formatDate={formatDate}
+                                    onPick={(id) => {
+                                        setPickedId(id);
+                                        guard.markDirty();
+                                    }}
+                                />
+                            )}
+
+                            {matching.length > shown.length ? (
+                                <Text
+                                    variant="caption"
+                                    tone="secondary"
+                                    testID="kitchen-qc-subject-more"
+                                >
+                                    {t('kitchen:ops.qc.subjectsLimited', { count: shown.length })}
+                                </Text>
+                            ) : null}
+                        </View>
+                    </FormSection>
+
+                    {picked === null ? null : (
+                        <>
+                            <FormSection
+                                first
+                                variant="card"
+                                testID="kitchen-qc-create-cover"
+                                title={t(
+                                    isReceipt
+                                        ? 'kitchen:ops.qc.coverReceiptTitle'
+                                        : 'kitchen:ops.qc.coverBatchTitle',
+                                )}
+                                aside={
+                                    <Text variant="caption" tone="secondary" numberOfLines={1}>
+                                        {t('kitchen:ops.qc.coverAside', {
+                                            ref: picked.ref,
+                                            who: picked.who,
+                                        })}
+                                    </Text>
+                                }
+                            >
+                                <View className="flex-col">
+                                    {picked.cover.map((line) => (
+                                        <View
+                                            key={line.key}
+                                            className="min-h-row-sm flex-row items-center justify-between gap-tight border-b border-stroke-subtle px-control-sm"
+                                        >
+                                            <Text
+                                                variant="caption"
+                                                numberOfLines={1}
+                                                className="min-w-0 shrink"
+                                            >
+                                                {line.name}
+                                            </Text>
+                                            <Text
+                                                variant="caption"
+                                                className="font-semibold tabular-nums"
+                                            >
+                                                {line.qty}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                    {picked.more > 0 ? (
+                                        <Text
+                                            variant="micro"
+                                            tone="secondary"
+                                            testID="kitchen-qc-create-cover-more"
+                                            className="px-control-sm pt-tight"
+                                        >
+                                            {t('kitchen:ops.qc.coverMore', { count: picked.more })}
+                                        </Text>
+                                    ) : null}
+                                </View>
+                            </FormSection>
+
+                            <FormSection
+                                first
+                                variant="card"
+                                testID="kitchen-qc-create-start"
+                                title={t('kitchen:ops.qc.startSection')}
+                            >
+                                <ChoiceTiles<StartAs>
+                                    testID="kitchen-qc-start"
+                                    label={t('kitchen:ops.qc.startSection')}
+                                    tiles={[
+                                        {
+                                            value: 'pending',
+                                            title: t('kitchen:ops.qc.startPendingTitle'),
+                                            body: t('kitchen:ops.qc.startPendingBody'),
+                                        },
+                                        {
+                                            value: 'hold',
+                                            title: t('kitchen:ops.qc.startHoldTitle'),
+                                            body: t('kitchen:ops.qc.startHoldBody'),
+                                        },
+                                    ]}
+                                    value={start}
+                                    onChange={(next) => {
+                                        setStart(next);
+                                        guard.markDirty();
+                                    }}
+                                />
+                            </FormSection>
+                        </>
+                    )}
+                </View>
+            </EditorFrame>
+        </IssueTrayFrame>
     );
 }
 

@@ -972,6 +972,16 @@ export function useCostReportQuery(
 
 /* ── consumption exceptions (INV1.5) ─────────────────────────────────────────────────────────── */
 
+export interface ConsumptionExceptionQueryOptions {
+    /**
+     * Re-read on a timer. The API closes stock gaps by itself — when stock rises, and on a five-minute
+     * sweep — and this client has no push channel to say so, so the Stock gaps page polls while it is
+     * open. Every other caller leaves it off. `false` rather than `undefined` as the default so the
+     * option reads the same in the query as at the call site.
+     */
+    readonly refetchInterval?: number | false | undefined;
+}
+
 /**
  * The consumption-exception review list (INV1.5) — what confirmed orders could not deduct honestly,
  * filtered by resolution state and date, cursor-paginated. Behind `inventory.view_organisation` on
@@ -980,12 +990,14 @@ export function useCostReportQuery(
 export function useConsumptionExceptionsQuery(
     filter: ConsumptionExceptionFilter = {},
     enabled = true,
+    options: ConsumptionExceptionQueryOptions = {},
 ): UseQueryResult<CursorPage<ConsumptionException>> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.kitchenOps.consumptionExceptions(filter),
         enabled: enabled && repositories !== null,
+        refetchInterval: options.refetchInterval ?? false,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.listConsumptionExceptions(filter);
@@ -999,12 +1011,16 @@ export function useConsumptionExceptionsQuery(
  * dedicated count read so the hub never fetches the whole list to show one number, matching the
  * low-stock count beside it. `enabled` gates it on the permission the hub confirms before firing.
  */
-export function useConsumptionExceptionCountQuery(enabled = true): UseQueryResult<number> {
+export function useConsumptionExceptionCountQuery(
+    enabled = true,
+    options: ConsumptionExceptionQueryOptions = {},
+): UseQueryResult<number> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.kitchenOps.consumptionExceptionCount(),
         enabled: enabled && repositories !== null,
+        refetchInterval: options.refetchInterval ?? false,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.countUnresolvedConsumptionExceptions();
@@ -1018,12 +1034,14 @@ export function useConsumptionExceptionCountQuery(enabled = true): UseQueryResul
  */
 export function useConsumptionExceptionTotalsQuery(
     enabled = true,
+    options: ConsumptionExceptionQueryOptions = {},
 ): UseQueryResult<ConsumptionExceptionTotals> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.kitchenOps.consumptionExceptionTotals(),
         enabled: enabled && repositories !== null,
+        refetchInterval: options.refetchInterval ?? false,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.countConsumptionExceptions();

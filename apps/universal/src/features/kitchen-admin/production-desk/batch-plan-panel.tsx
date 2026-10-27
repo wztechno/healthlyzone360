@@ -1,5 +1,5 @@
 import type { ProductionPlan, ProductionPlanLine } from '@healthy360/api-client/contracts';
-import { Callout, Stack, Text } from '@healthy360/design-system';
+import { Callout, Stack, Text, useIssueGroup } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
@@ -34,8 +34,9 @@ import { ProductionTable } from './production-table.tsx';
  *
  * `notComputable` is part of a recipe nobody could turn into a quantity. "Need nothing for that"
  * and "we could not work out what this needs" are opposite statements, and the only reason they
- * arrive apart is so a client cannot merge them by accident. They render as their own notice, above
- * the tables, where somebody has to read them before pressing Confirm.
+ * arrive apart is so a client cannot merge them by accident. They are their own card in the page's
+ * issue tray, under "Check", where somebody has to read them before pressing Confirm — or their own
+ * notice above the tables, on a page without a tray.
  *
  * How many shelves are short, and what the batch is estimated to cost, are the page's to state —
  * in its figures and its cost card — so this panel is the tables and nothing that repeats them.
@@ -182,9 +183,28 @@ export function BatchPlanPanel({ testID, plan, costsVisible, first = false }: Ba
     // "Live, nothing claimed yet" belongs to the plan as a whole: behind the first table's (i).
     const liveCaption = t('kitchen:ops.production.planLiveCaption');
 
+    // Registered empty too, so the card goes once the plan has no holes left.
+    const inTray = useIssueGroup({
+        key: 'check',
+        title: t('kitchen:tray.groupCheck'),
+        items:
+            plan.notComputable.length === 0
+                ? []
+                : [
+                      {
+                          key: 'plan-holes',
+                          tone: 'warning',
+                          label: t('kitchen:ops.production.planHolesTitle'),
+                          // The server's own words for each hole, one to a line.
+                          detail: plan.notComputable.map((hole) => hole.detail).join('\n'),
+                          testID: `${testID}-holes`,
+                      },
+                  ],
+    });
+
     return (
         <Stack space="md" testID={testID}>
-            {plan.notComputable.length === 0 ? null : (
+            {inTray || plan.notComputable.length === 0 ? null : (
                 <Callout
                     testID={`${testID}-holes`}
                     tone="warning"

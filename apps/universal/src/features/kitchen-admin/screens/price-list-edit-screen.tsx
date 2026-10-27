@@ -10,15 +10,16 @@ import {
     FormIssueScope,
     FormSkeleton,
     Icon,
+    IssueTrayFrame,
     Stack,
     Text,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { FormIssueItem } from '@healthy360/design-system';
+import type { FormIssueItem, IssueCardItem, IssueTrayContent } from '@healthy360/design-system';
 import { PriceListId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useCallback, useMemo, useState } from 'react';
-import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -41,6 +42,8 @@ import { useOnlineStatus } from '../../../online/online-status.tsx';
 import { useSession } from '../../../session/session-provider.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
+import { PriceListChannelsCard } from '../price-list-channels-card.tsx';
+import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import {
     channelKey,
     displayName,
@@ -53,7 +56,6 @@ import {
 } from '../format.ts';
 import { returnCrumbLabel } from '../came-from.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
-import { PriceListChannelsCard } from '../price-list-channels-card.tsx';
 import {
     PriceEntriesCard,
     emptyPriceEntry,
@@ -264,6 +266,11 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
     }, [guard, record]);
 
     const concurrency = useOptimisticConcurrency({ onReload: reload });
+
+    // The page's issue tray; a refused save opens it.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+    useNudgeOnRefusal(save.error, nudgeTray);
 
     /* ── the catalogue, as what can be priced ──────────────────────────────────────────────── */
 
@@ -558,6 +565,7 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
                 const { rowId, fieldId } = problemFieldId(row, first);
                 focusField(fieldId ?? rowId);
             }
+            nudgeTray();
             return;
         }
 
@@ -730,352 +738,370 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
         .join(' · ');
 
     /*
-     * The page's notices, one band under the opening rather than a band each: a title on a line
-     * per notice. A refused save keeps the server's own words, because those are the message.
+     * The page's problems, in its issue tray rather than in bands above the entries. The entries
+     * that stop the save are the opening's (`RecordFormOpening` registers them); a refused save
+     * keeps the server's own words under its title.
      */
-    const notices = [
-        quarantined ? (
-            <Callout
-                key="quarantine"
-                testID={`${PAGE_ID}-quarantine`}
-                role="alert"
-                tone="warning"
-                title={t('kitchen:publish.quarantineTitle')}
-            />
-        ) : isPublished ? null : (
-            <Callout
-                key="draft-note"
-                testID={`${PAGE_ID}-draft-note`}
-                role="note"
-                tone="warning"
-                title={t('kitchen:priceLists.draftNoteTitle')}
-            />
-        ),
-        confidential ? (
-            <Callout
-                key="confidential"
-                testID={`${PAGE_ID}-confidential`}
-                role="note"
-                tone="warning"
-                title={t('kitchen:priceLists.confidentialTitle')}
-            />
-        ) : null,
-        saveFailure === null || (server.isValidation && server.unplaced === null) ? null : (
-            <Callout
-                key="save-error"
-                testID={`${PAGE_ID}-save-error`}
-                role="alert"
-                tone="danger"
-                title={t('kitchen:priceLists.saveFailedTitle')}
-                body={server.unplaced ?? saveFailure.message}
-            />
-        ),
-    ].filter((notice): notice is ReactElement => notice !== null);
+    const saveCards: IssueCardItem[] =
+        saveFailure === null || (server.isValidation && server.unplaced === null)
+            ? []
+            : [
+                  {
+                      key: 'save-error',
+                      tone: 'danger',
+                      label: t('kitchen:priceLists.saveFailedTitle'),
+                      detail: server.unplaced ?? saveFailure.message,
+                      testID: `${PAGE_ID}-save-error`,
+                  },
+              ];
+    const checkCards: IssueCardItem[] =
+        gaps.length === 0 || entries.length === 0
+            ? []
+            : [
+                  {
+                      key: 'gaps',
+                      tone: 'warning',
+                      label: t('kitchen:priceLists.gapTitle', { count: gaps.length }),
+                      detail: gapBody,
+                      action: !canManage
+                          ? undefined
+                          : {
+                                label: t('kitchen:priceLists.gapAdd'),
+                                onPress: addGaps,
+                                testID: `${PAGE_ID}-gaps-add`,
+                            },
+                      testID: `${PAGE_ID}-gaps`,
+                  },
+              ];
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: `${PAGE_ID}-tray`,
+        groups: [
+            { key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards },
+            {
+                key: 'publish',
+                title: t('kitchen:tray.groupPublish'),
+                items: quarantined
+                    ? [
+                          {
+                              key: 'quarantine',
+                              tone: 'warning',
+                              label: t('kitchen:publish.quarantineTitle'),
+                              testID: `${PAGE_ID}-quarantine`,
+                          },
+                      ]
+                    : [],
+            },
+            { key: 'check', title: t('kitchen:tray.groupCheck'), items: checkCards },
+        ],
+        // Facts about the list, with nothing to fix: it is a draft, its prices are negotiated.
+        notes: {
+            title: t('kitchen:tray.groupNote'),
+            lines: [
+                ...(quarantined || isPublished
+                    ? []
+                    : [
+                          {
+                              key: 'draft',
+                              text: t('kitchen:priceLists.draftNoteTitle'),
+                              testID: `${PAGE_ID}-draft-note`,
+                          },
+                      ]),
+                ...(confidential
+                    ? [
+                          {
+                              key: 'confidential',
+                              text: t('kitchen:priceLists.confidentialTitle'),
+                              testID: `${PAGE_ID}-confidential`,
+                          },
+                      ]
+                    : []),
+            ],
+        },
+    };
 
     return (
-        <Stack space="md" testID={SCREEN_ID}>
-            {/*
-             * The page's sections arrive in a cascade; the save bar does not join it. It sticks to
-             * the bottom of the page's own column, and inside a band it could only stick within
-             * that band's box — which is the bar itself.
-             */}
-            <Cascade space="md">
-                <RecordFormOpening
-                    testID={SCREEN_ID}
-                    title={title}
-                    dirty={false}
-                    badges={
-                        <>
-                            <Badge
-                                testID={`${PAGE_ID}-status`}
-                                tone={statusTone(data.meta.status)}
-                                label={t(statusKey(data.meta.status))}
-                            />
-                            <Text
-                                testID={`${PAGE_ID}-status-meta`}
-                                variant="caption"
-                                tone="secondary"
-                            >
-                                {statusMeta}
-                            </Text>
-                        </>
-                    }
-                    details={
-                        <View
-                            testID={`${PAGE_ID}-facts`}
-                            className="flex-row flex-wrap items-center gap-x-snug gap-y-1.5"
-                        >
-                            <Fact
-                                testID={`${PAGE_ID}-fact-currency`}
-                                label={t('kitchen:priceLists.currencyLabel')}
-                                value={data.currency}
-                            />
-                            {kitchenName === null ? null : (
-                                <Fact
-                                    testID={`${PAGE_ID}-fact-kitchen`}
-                                    label={t('kitchen:priceLists.kitchenLabel')}
-                                    value={kitchenName}
+        <IssueTrayFrame tray={trayContent} controller={issueTray}>
+            <Stack space="md" testID={SCREEN_ID}>
+                {/*
+                 * The page's sections arrive in a cascade; the save bar does not join it. It sticks to
+                 * the bottom of the page's own column, and inside a band it could only stick within
+                 * that band's box — which is the bar itself.
+                 */}
+                <Cascade space="md">
+                    <RecordFormOpening
+                        testID={SCREEN_ID}
+                        title={title}
+                        dirty={false}
+                        badges={
+                            <>
+                                <Badge
+                                    testID={`${PAGE_ID}-status`}
+                                    tone={statusTone(data.meta.status)}
+                                    label={t(statusKey(data.meta.status))}
                                 />
-                            )}
-                            <Fact
-                                testID={`${PAGE_ID}-fact-channels`}
-                                label={t('kitchen:priceLists.channelsLabel')}
-                                value={channelNames}
-                            />
-                            <View
-                                testID={`${PAGE_ID}-fixed`}
-                                accessibilityHint={t('kitchen:priceLists.fixedHint')}
-                                // The design's tooltip. The same words reach a screen reader as the hint.
-                                {...({ title: t('kitchen:priceLists.fixedHint') } as object)}
-                                className="h-5 flex-row items-center gap-1 rounded-sm bg-surface-sunken px-1.5"
-                            >
-                                <Icon name="lock" size="sm" className="text-content-secondary" />
-                                <Text variant="micro" tone="secondary" className="uppercase">
-                                    {t('kitchen:priceLists.fixedTag')}
+                                <Text
+                                    testID={`${PAGE_ID}-status-meta`}
+                                    variant="caption"
+                                    tone="secondary"
+                                >
+                                    {statusMeta}
                                 </Text>
+                            </>
+                        }
+                        details={
+                            <View
+                                testID={`${PAGE_ID}-facts`}
+                                className="flex-row flex-wrap items-center gap-x-snug gap-y-1.5"
+                            >
+                                <Fact
+                                    testID={`${PAGE_ID}-fact-currency`}
+                                    label={t('kitchen:priceLists.currencyLabel')}
+                                    value={data.currency}
+                                />
+                                {kitchenName === null ? null : (
+                                    <Fact
+                                        testID={`${PAGE_ID}-fact-kitchen`}
+                                        label={t('kitchen:priceLists.kitchenLabel')}
+                                        value={kitchenName}
+                                    />
+                                )}
+                                <Fact
+                                    testID={`${PAGE_ID}-fact-channels`}
+                                    label={t('kitchen:priceLists.channelsLabel')}
+                                    value={channelNames}
+                                />
+                                <View
+                                    testID={`${PAGE_ID}-fixed`}
+                                    accessibilityHint={t('kitchen:priceLists.fixedHint')}
+                                    // The design's tooltip. The same words reach a screen reader as the hint.
+                                    {...({ title: t('kitchen:priceLists.fixedHint') } as object)}
+                                    className="h-5 flex-row items-center gap-1 rounded-sm bg-surface-sunken px-1.5"
+                                >
+                                    <Icon
+                                        name="lock"
+                                        size="sm"
+                                        className="text-content-secondary"
+                                    />
+                                    <Text variant="micro" tone="secondary" className="uppercase">
+                                        {t('kitchen:priceLists.fixedTag')}
+                                    </Text>
+                                </View>
                             </View>
+                        }
+                        actions={
+                            <>
+                                <Button
+                                    testID={`${SCREEN_ID}-back`}
+                                    variant="secondary"
+                                    label={t('kitchen:priceLists.backToList')}
+                                    onPress={() => {
+                                        guard.intercept(backToBook);
+                                    }}
+                                />
+                                {isPublished || !canManage ? null : (
+                                    <Button
+                                        testID={`${PAGE_ID}-publish`}
+                                        label={t('kitchen:priceLists.publish')}
+                                        disabled={guard.isDirty || !online || quarantined}
+                                        onPress={() => {
+                                            setShowPublish(true);
+                                        }}
+                                    />
+                                )}
+                            </>
+                        }
+                        errors={{
+                            summary: t('kitchen:priceLists.issuesTitle', {
+                                count: allIssueItems.length,
+                            }),
+                            items: allIssueItems,
+                        }}
+                    />
+
+                    <PriceEntriesCard
+                        testID={PAGE_ID}
+                        rows={entries}
+                        onChange={applyRows}
+                        onAdd={() => {
+                            const key = `entry-${String(nextEntryOrdinal)}`;
+                            setNextEntryOrdinal(nextEntryOrdinal + 1);
+                            applyRows([...entries, emptyPriceEntry(key, todayIso())]);
+                        }}
+                        baseline={baseline}
+                        problems={shownProblems}
+                        refusals={refusals}
+                        options={itemOptions}
+                        currency={data.currency}
+                        canManage={canManage}
+                        mealPricesSetOnMeal={!isAgreementPriced(data.channels)}
+                        resolving={catalogueResolving}
+                    />
+
+                    <PriceListChannelsCard
+                        testID={`${PAGE_ID}-channels`}
+                        priceListId={data.id}
+                        canManage={canManage}
+                    />
+                </Cascade>
+
+                {/* ── the save bar ───────────────────────────────────────────────────────────────── */}
+                {changes.total === 0 || !canManage ? null : (
+                    <View
+                        testID={`${PAGE_ID}-save-bar`}
+                        className="z-sticky flex-row flex-wrap items-center gap-snug rounded border border-stroke-subtle bg-surface-raised px-base py-snug shadow-elevation-3 web:sticky web:bottom-0"
+                    >
+                        <View className="min-w-0 flex-1 gap-0.5" style={{ flexBasis: 320 }}>
+                            <Text testID={`${PAGE_ID}-changes-title`} variant="strong">
+                                {t('kitchen:priceLists.changesTitle', { count: changes.total })}
+                            </Text>
+                            <Text testID={`${PAGE_ID}-changes-body`} tone="secondary">
+                                {isPublished
+                                    ? t('kitchen:priceLists.changesBodyPublished', {
+                                          changes: changeParts,
+                                      })
+                                    : t('kitchen:priceLists.changesBodyDraft', {
+                                          changes: changeParts,
+                                      })}
+                            </Text>
                         </View>
-                    }
+                        <Button
+                            testID={`${PAGE_ID}-discard`}
+                            variant="secondary"
+                            label={t('kitchen:priceLists.discardChanges')}
+                            onPress={discard}
+                        />
+                        {/* The frame's own save id, so the guard and conflict flows find it. */}
+                        <Button
+                            testID={`${SCREEN_ID}-save`}
+                            label={
+                                isPublished
+                                    ? t('kitchen:priceLists.saveAndCharge')
+                                    : t('kitchen:priceLists.saveDraft')
+                            }
+                            loading={save.isPending}
+                            disabled={!online || save.isPending}
+                            onPress={attemptSave}
+                        />
+                    </View>
+                )}
+
+                <EditorGuardDialogs guard={guard} concurrency={concurrency} testID={SCREEN_ID} />
+
+                {/* ── publish ──────────────────────────────────────────────────────────────────── */}
+                <Dialog
+                    testID={`${PAGE_ID}-publish-dialog`}
+                    open={showPublish}
+                    onClose={() => {
+                        setShowPublish(false);
+                    }}
+                    title={t('kitchen:priceLists.publishTitle')}
+                    description={t('kitchen:priceLists.publishBody')}
                     actions={
                         <>
                             <Button
-                                testID={`${SCREEN_ID}-back`}
-                                variant="secondary"
-                                label={t('kitchen:priceLists.backToList')}
+                                testID={`${PAGE_ID}-publish-cancel`}
+                                variant="quiet"
+                                label={t('kitchen:common.cancel')}
                                 onPress={() => {
-                                    guard.intercept(backToBook);
+                                    setShowPublish(false);
                                 }}
                             />
-                            {isPublished || !canManage ? null : (
-                                <Button
-                                    testID={`${PAGE_ID}-publish`}
-                                    label={t('kitchen:priceLists.publish')}
-                                    disabled={guard.isDirty || !online || quarantined}
-                                    onPress={() => {
-                                        setShowPublish(true);
-                                    }}
-                                />
-                            )}
+                            <Button
+                                testID={`${PAGE_ID}-publish-confirm`}
+                                label={t('kitchen:publish.confirm')}
+                                loading={publish.isPending}
+                                disabled={publishBlockers.length > 0 || quarantined}
+                                onPress={() => {
+                                    publish.mutate(
+                                        {
+                                            priceListId: data.id,
+                                            request: { lockVersion: data.meta.lockVersion },
+                                        },
+                                        {
+                                            onSuccess: () => {
+                                                setShowPublish(false);
+                                                toast.show({
+                                                    testID: `${PAGE_ID}-published-toast`,
+                                                    tone: 'success',
+                                                    message: t(
+                                                        'kitchen:priceLists.publishedToast',
+                                                        {
+                                                            name: title,
+                                                        },
+                                                    ),
+                                                });
+                                            },
+                                            onError: (error) => {
+                                                concurrency.capture(error);
+                                            },
+                                        },
+                                    );
+                                }}
+                            />
                         </>
                     }
-                    errors={{
-                        summary: t('kitchen:priceLists.issuesTitle', {
-                            count: allIssueItems.length,
-                        }),
-                        items: allIssueItems,
-                    }}
-                />
-
-                {notices.length === 0 ? null : (
-                    <Stack space="xs" testID={`${PAGE_ID}-notices`}>
-                        {notices}
-                    </Stack>
-                )}
-
-                {gaps.length === 0 || entries.length === 0 ? null : (
-                    <View
-                        testID={`${PAGE_ID}-gaps`}
-                        className="flex-row flex-wrap items-center gap-snug rounded border border-stroke-subtle bg-surface-raised px-snug py-2.5"
-                    >
-                        <Icon name="tag" size="sm" className="text-warning-strong" />
-                        <View className="min-w-0 flex-1 gap-0.5" style={{ flexBasis: 300 }}>
-                            <Text testID={`${PAGE_ID}-gaps-title`} variant="strong">
-                                {t('kitchen:priceLists.gapTitle', { count: gaps.length })}
-                            </Text>
-                            <Text testID={`${PAGE_ID}-gaps-names`} tone="secondary">
-                                {gapBody}
-                            </Text>
-                        </View>
-                        {canManage ? (
-                            <Button
-                                testID={`${PAGE_ID}-gaps-add`}
-                                variant="secondary"
-                                label={t('kitchen:priceLists.gapAdd')}
-                                onPress={addGaps}
-                            />
-                        ) : null}
-                    </View>
-                )}
-
-                <PriceEntriesCard
-                    testID={PAGE_ID}
-                    rows={entries}
-                    onChange={applyRows}
-                    onAdd={() => {
-                        const key = `entry-${String(nextEntryOrdinal)}`;
-                        setNextEntryOrdinal(nextEntryOrdinal + 1);
-                        applyRows([...entries, emptyPriceEntry(key, todayIso())]);
-                    }}
-                    baseline={baseline}
-                    problems={shownProblems}
-                    refusals={refusals}
-                    options={itemOptions}
-                    currency={data.currency}
-                    canManage={canManage}
-                    mealPricesSetOnMeal={!isAgreementPriced(data.channels)}
-                    resolving={catalogueResolving}
-                />
-
-                <PriceListChannelsCard
-                    testID={`${PAGE_ID}-channels`}
-                    priceListId={data.id}
-                    canManage={canManage}
-                />
-            </Cascade>
-
-            {/* ── the save bar ───────────────────────────────────────────────────────────────── */}
-            {changes.total === 0 || !canManage ? null : (
-                <View
-                    testID={`${PAGE_ID}-save-bar`}
-                    className="z-sticky flex-row flex-wrap items-center gap-snug rounded border border-stroke-subtle bg-surface-raised px-base py-snug shadow-elevation-3 web:sticky web:bottom-0"
                 >
-                    <View className="min-w-0 flex-1 gap-0.5" style={{ flexBasis: 320 }}>
-                        <Text testID={`${PAGE_ID}-changes-title`} variant="strong">
-                            {t('kitchen:priceLists.changesTitle', { count: changes.total })}
+                    <Stack space="sm">
+                        {/*
+                         * The consequence, stated as a count rather than as a verb. `savedSummary` and
+                         * not the draft: publishing publishes what the server holds.
+                         */}
+                        <Text testID={`${PAGE_ID}-publish-consequence`}>
+                            {t('kitchen:priceLists.publishConsequence', {
+                                count: savedSummary?.confirmed ?? 0,
+                            })}
                         </Text>
-                        <Text testID={`${PAGE_ID}-changes-body`} tone="secondary">
-                            {isPublished
-                                ? t('kitchen:priceLists.changesBodyPublished', {
-                                      changes: changeParts,
-                                  })
-                                : t('kitchen:priceLists.changesBodyDraft', {
-                                      changes: changeParts,
-                                  })}
-                        </Text>
-                    </View>
-                    <Button
-                        testID={`${PAGE_ID}-discard`}
-                        variant="secondary"
-                        label={t('kitchen:priceLists.discardChanges')}
-                        onPress={discard}
-                    />
-                    {/* The frame's own save id, so the guard and conflict flows find it. */}
-                    <Button
-                        testID={`${SCREEN_ID}-save`}
-                        label={
-                            isPublished
-                                ? t('kitchen:priceLists.saveAndCharge')
-                                : t('kitchen:priceLists.saveDraft')
-                        }
-                        loading={save.isPending}
-                        disabled={!online || save.isPending}
-                        onPress={attemptSave}
-                    />
-                </View>
-            )}
 
-            <EditorGuardDialogs guard={guard} concurrency={concurrency} testID={SCREEN_ID} />
-
-            {/* ── publish ──────────────────────────────────────────────────────────────────── */}
-            <Dialog
-                testID={`${PAGE_ID}-publish-dialog`}
-                open={showPublish}
-                onClose={() => {
-                    setShowPublish(false);
-                }}
-                title={t('kitchen:priceLists.publishTitle')}
-                description={t('kitchen:priceLists.publishBody')}
-                actions={
-                    <>
-                        <Button
-                            testID={`${PAGE_ID}-publish-cancel`}
-                            variant="quiet"
-                            label={t('kitchen:common.cancel')}
-                            onPress={() => {
-                                setShowPublish(false);
-                            }}
-                        />
-                        <Button
-                            testID={`${PAGE_ID}-publish-confirm`}
-                            label={t('kitchen:publish.confirm')}
-                            loading={publish.isPending}
-                            disabled={publishBlockers.length > 0 || quarantined}
-                            onPress={() => {
-                                publish.mutate(
-                                    {
-                                        priceListId: data.id,
-                                        request: { lockVersion: data.meta.lockVersion },
-                                    },
-                                    {
-                                        onSuccess: () => {
-                                            setShowPublish(false);
-                                            toast.show({
-                                                testID: `${PAGE_ID}-published-toast`,
-                                                tone: 'success',
-                                                message: t('kitchen:priceLists.publishedToast', {
-                                                    name: title,
-                                                }),
-                                            });
-                                        },
-                                        onError: (error) => {
-                                            concurrency.capture(error);
-                                        },
-                                    },
-                                );
-                            }}
-                        />
-                    </>
-                }
-            >
-                <Stack space="sm">
-                    {/*
-                     * The consequence, stated as a count rather than as a verb. `savedSummary` and
-                     * not the draft: publishing publishes what the server holds.
-                     */}
-                    <Text testID={`${PAGE_ID}-publish-consequence`}>
-                        {t('kitchen:priceLists.publishConsequence', {
-                            count: savedSummary?.confirmed ?? 0,
-                        })}
-                    </Text>
-
-                    <Callout
-                        testID={`${PAGE_ID}-publish-excluded`}
-                        role="note"
-                        tone="warning"
-                        title={t('kitchen:priceLists.publishExcludedTitle')}
-                        body={t('kitchen:priceLists.publishExcludedBody', {
-                            placeholders: savedSummary?.placeholder ?? 0,
-                            market: savedSummary?.marketPriced ?? 0,
-                        })}
-                    />
-
-                    {confidential ? (
                         <Callout
-                            testID={`${PAGE_ID}-publish-confidential`}
+                            testID={`${PAGE_ID}-publish-excluded`}
                             role="note"
                             tone="warning"
-                            title={t('kitchen:priceLists.agreementBadge')}
-                            body={t('kitchen:priceLists.confidentialBody')}
+                            title={t('kitchen:priceLists.publishExcludedTitle')}
+                            body={t('kitchen:priceLists.publishExcludedBody', {
+                                placeholders: savedSummary?.placeholder ?? 0,
+                                market: savedSummary?.marketPriced ?? 0,
+                            })}
                         />
-                    ) : null}
 
-                    {publishBlockers.length === 0 ? null : (
-                        <Callout
-                            testID={`${PAGE_ID}-publish-blocked`}
-                            role="alert"
-                            tone="danger"
-                            title={t('kitchen:priceLists.publishBlockedTitle')}
-                        >
-                            <Stack space="xs">
-                                {publishBlockers.map((reason) => (
-                                    <Text key={reason} variant="caption">
-                                        {reason}
-                                    </Text>
-                                ))}
-                            </Stack>
-                        </Callout>
-                    )}
+                        {confidential ? (
+                            <Callout
+                                testID={`${PAGE_ID}-publish-confidential`}
+                                role="note"
+                                tone="warning"
+                                title={t('kitchen:priceLists.agreementBadge')}
+                                body={t('kitchen:priceLists.confidentialBody')}
+                            />
+                        ) : null}
 
-                    {publishFailure === null ? null : (
-                        <Text testID={`${PAGE_ID}-publish-error`} tone="danger">
-                            {publishRefusedByEntries
-                                ? t('kitchen:priceLists.publishRefusedEntries')
-                                : publishFailure.message}
-                        </Text>
-                    )}
-                </Stack>
-            </Dialog>
-        </Stack>
+                        {publishBlockers.length === 0 ? null : (
+                            <Callout
+                                testID={`${PAGE_ID}-publish-blocked`}
+                                role="alert"
+                                tone="danger"
+                                title={t('kitchen:priceLists.publishBlockedTitle')}
+                            >
+                                <Stack space="xs">
+                                    {publishBlockers.map((reason) => (
+                                        <Text key={reason} variant="caption">
+                                            {reason}
+                                        </Text>
+                                    ))}
+                                </Stack>
+                            </Callout>
+                        )}
+
+                        {publishFailure === null ? null : (
+                            <Text testID={`${PAGE_ID}-publish-error`} tone="danger">
+                                {publishRefusedByEntries
+                                    ? t('kitchen:priceLists.publishRefusedEntries')
+                                    : publishFailure.message}
+                            </Text>
+                        )}
+                    </Stack>
+                </Dialog>
+            </Stack>
+        </IssueTrayFrame>
     );
 }
 

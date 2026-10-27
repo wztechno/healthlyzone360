@@ -7,9 +7,11 @@ import {
     Select,
     Stack,
     TextInputField,
+    useIssueGroup,
 } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { isMeasureUnit } from '@healthy360/nutrition';
+import type { TFunction } from 'i18next';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -20,6 +22,7 @@ import {
 } from '../../data/kitchen-ops-hooks.ts';
 import { barcodeFailureText, shelfForIngredient, unlinkedScanMessage } from './barcode-scan.ts';
 import { CameraScanButton } from './camera-scan-button.tsx';
+import { focusField } from './field-focus.ts';
 import { unitShortKey } from './format.ts';
 import type { ScannedPack } from './receive-delivery-model.ts';
 
@@ -31,6 +34,10 @@ import type { ScannedPack } from './receive-delivery-model.ts';
  * on a row through `applyScan`. A readable code nobody has linked opens **Link this barcode** — the
  * receiver links it to an ingredient on the spot and the scan runs again. A retired kitchen label
  * and a weighed-item label each say what they are instead.
+ *
+ * What the last scan has to say is a card in the page's issue tray, under "Check" — it is about the
+ * process, not about the field — and it is live: the next scan replaces it, and the screen stops
+ * passing its notice once the fix lands. Without a tray around it, the bar draws it under itself.
  */
 export interface ReceiveScanBarProps {
     readonly testID: string;
@@ -38,7 +45,55 @@ export interface ReceiveScanBarProps {
     readonly stockItems: readonly StockItem[];
     readonly onScanned: (pack: ScannedPack) => void;
     /** What the screen has to say about the last scan it placed — a lot kept apart, a pack to type. */
-    readonly notice?: string | null | undefined;
+    readonly notice?: ScanNotice | null | undefined;
+}
+
+/** The screen's word on the last scan it placed, and the row it is about. */
+export interface ScanNotice {
+    readonly text: string;
+    /** `warning` while something is left to do (a quantity to type); `info` for a plain fact. */
+    readonly tone: 'warning' | 'info';
+    /** The control the card's Fix takes the reader to — the row the scan landed on. */
+    readonly fieldId?: string | undefined;
+}
+
+/** Where the last scan landed, when its placement had something to say (`applyScan`'s flags). */
+export interface PlacedScan {
+    readonly kind: 'keptApart' | 'typeQuantity';
+    /** The row it landed on. */
+    readonly key: string;
+    /** That row's quantity once the scan landed: typing another is the fix a pack with no size needs. */
+    readonly quantity: string;
+}
+
+/**
+ * What a placed scan still has to say, read off the rows as they are now: nothing once its row is
+ * gone, and nothing about a quantity once one has been typed. A lot kept apart is a fact, said until
+ * the next scan.
+ */
+export function placedScanNotice(
+    placed: PlacedScan | null,
+    lines: readonly { readonly key: string; readonly quantity: string }[],
+    t: TFunction,
+    quantityFieldId: (key: string) => string,
+): ScanNotice | null {
+    if (placed === null) return null;
+    const line = lines.find((candidate) => candidate.key === placed.key);
+    if (line === undefined) return null;
+    if (placed.kind === 'keptApart') {
+        return {
+            text: t('kitchen:barcodes.keptApart'),
+            tone: 'info',
+            fieldId: quantityFieldId(line.key),
+        };
+    }
+    return line.quantity === placed.quantity
+        ? {
+              text: t('kitchen:barcodes.typeQuantity'),
+              tone: 'warning',
+              fieldId: quantityFieldId(line.key),
+          }
+        : null;
 }
 
 export function ReceiveScanBar({ testID, stockItems, onScanned, notice }: ReceiveScanBarProps) {
@@ -83,7 +138,34 @@ export function ReceiveScanBar({ testID, stockItems, onScanned, notice }: Receiv
         );
     };
 
-    const shown = message ?? notice ?? null;
+    // A refused scan speaks over the screen's notice on the one before it.
+    const shown: ScanNotice | null =
+        message === null ? (notice ?? null) : { text: message, tone: 'warning' };
+    const fieldId = shown?.fieldId;
+    // Registered empty too, so the card goes the moment the next scan or the fix lands.
+    const inTray = useIssueGroup({
+        key: 'check',
+        title: t('kitchen:tray.groupCheck'),
+        items:
+            shown === null
+                ? []
+                : [
+                      {
+                          key: 'scan',
+                          tone: shown.tone,
+                          label: shown.text,
+                          action:
+                              fieldId === undefined
+                                  ? undefined
+                                  : {
+                                        onPress: () => {
+                                            focusField(fieldId);
+                                        },
+                                    },
+                          testID: `${testID}-message`,
+                      },
+                  ],
+    });
 
     return (
         <Stack space="sm" testID={testID}>
@@ -107,8 +189,13 @@ export function ReceiveScanBar({ testID, stockItems, onScanned, notice }: Receiv
                 }}
                 trailing={<CameraScanButton testID={`${testID}-camera`} onScan={run} />}
             />
-            {shown === null ? null : (
-                <Callout testID={`${testID}-message`} role="alert" tone="warning" title={shown} />
+            {inTray || shown === null ? null : (
+                <Callout
+                    testID={`${testID}-message`}
+                    role="alert"
+                    tone={shown.tone}
+                    title={shown.text}
+                />
             )}
             {linking === null ? null : (
                 <LinkBarcodeDialog
