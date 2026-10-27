@@ -47,7 +47,8 @@
         "alreadyTitle": "This invitation has already been accepted",
         "alreadyBody": "Nothing more to do here. If the workspace is not showing up, sign out and back in.",
         "noMembershipTitle": "Accepted, but not yet active",
-        "noMembershipBody": "We recorded your acceptance, but the membership was not created. Ask whoever invited you to check."
+        "noMembershipBody": "We recorded your acceptance, but the membership was not created. Ask whoever invited you to check.",
+        "openBusinessWorkspace": "Open the business workspace"
     },
     "expired": {
         "title": "This invitation has expired",

@@ -872,6 +872,25 @@ export const queryKeys = {
     },
 
     /**
+     * The platform reviewer's B2B onboarding queue and files.
+     *
+     * Its own root, never persisted: it carries applicants' identity documents' metadata, internal
+     * notes and contact details for companies the reader is not part of.
+     */
+    platformB2b: {
+        all: () => ['platformB2b'] as const,
+        applications: (filter?: QueryScope) =>
+            ['platformB2b', 'applications', scope(filter)] as const,
+        application: (applicationId: string) =>
+            ['platformB2b', 'application', applicationId] as const,
+        agreements: (applicationId: string) =>
+            ['platformB2b', 'agreements', applicationId] as const,
+        sellerPriceLists: () => ['platformB2b', 'sellerPriceLists'] as const,
+        invitations: (applicationId: string) =>
+            ['platformB2b', 'invitations', applicationId] as const,
+    },
+
+    /**
      * The token-scoped invitation read (PA1).
      *
      * **Keyed by the token**, which is the only thing that identifies it — the invitation's own id

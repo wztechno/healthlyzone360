@@ -44,6 +44,8 @@ use Healthy360\Organisations\Models\OrganisationMembership;
  */
 final readonly class AccessAdministrationQuery
 {
+    public function __construct(private AccessAdministrationLocator $locator) {}
+
     /**
      * The permission codes a role grants, in catalogue order.
      *
@@ -227,13 +229,19 @@ final readonly class AccessAdministrationQuery
      * Closed branches are excluded: scoping somebody to a branch that is shut
      * is a way to take their access away that does not read like one.
      *
+     * A branch-bound administrator is offered their own branch only — it is
+     * the only one `setScope()` will accept from them.
+     *
      * @return list<array{id: string, name: string}>
      */
     public function branchesOf(string $organisationId): array
     {
+        $actorBranch = $this->locator->actorBranchId();
+
         /** @var list<array{id: string, name: string}> */
         return OrganisationBranch::withoutTenancy()
             ->where('organisation_id', $organisationId)
+            ->when($actorBranch !== null, static fn ($query) => $query->whereKey($actorBranch))
             ->where('status', BranchStatus::Active)
             ->orderBy('name')
             ->get(['id', 'name'])

@@ -18,6 +18,7 @@ use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Orders\Contracts\HeldStockLookup;
 use Healthy360\Orders\Contracts\OrderSchedulingLookup;
 use Healthy360\Orders\Enums\FulfilmentType;
+use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Services\ComposedLine;
 use Healthy360\Orders\Services\SellerContext;
 
@@ -104,6 +105,12 @@ final readonly class DeskQuote
      * Stating it once is the alternative to this class quietly depending on the
      * caller having a tenant context at all, which a console command would not.
      *
+     * **Editing an order** (`$amending`) prices on that order's own channel —
+     * the caller passes it — and quotes what `OrderPlacementService::amend()`
+     * would save: a delivery with no new address keeps its stored zone and fee,
+     * the slot is checked only when it moved, and a passed cut-off is not a
+     * refusal because staff may override it.
+     *
      * @param  list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: string}>  $lines
      * @return array{
      *     lines: list<array<string, mixed>>,
@@ -125,11 +132,12 @@ final readonly class DeskQuote
         ?string $branchId = null,
         ?CarbonImmutable $requestedDate = null,
         ?string $deliveryWindowCode = null,
+        ?Order $amending = null,
     ): array {
         return $this->seller->during(
             (string) $channel->organisation_id,
             $branchId,
-            fn (): array => $this->quoteNow($channel, $fulfilmentType, $lines, $account, $address, $branchId, $requestedDate, $deliveryWindowCode),
+            fn (): array => $this->quoteNow($channel, $fulfilmentType, $lines, $account, $address, $branchId, $requestedDate, $deliveryWindowCode, $amending),
         );
     }
 
@@ -155,6 +163,7 @@ final readonly class DeskQuote
         ?string $branchId,
         ?CarbonImmutable $requestedDate,
         ?string $deliveryWindowCode,
+        ?Order $amending = null,
     ): array {
         $now = CarbonImmutable::now();
 
@@ -170,10 +179,37 @@ final readonly class DeskQuote
         // the two agreeing is what makes the quoted total the charged total.
         $currencyCode = $this->currencies->for($channel);
 
-        $refusals = $this->shapeRefusals($fulfilmentType, $account, $address);
+        // An edit with no new address still has one: the stored snapshot.
+        $keepsStoredAddress = $amending instanceof Order && $address === null && $fulfilmentType->requiresAddress();
+
+        $refusals = array_values(array_filter(
+            $this->shapeRefusals($fulfilmentType, $account, $address),
+            static fn (array $refusal): bool => ! ($keepsStoredAddress && $refusal['reason'] === 'address_required'),
+        ));
 
         $fee = null;
         $offeredWindowCodes = null;
+
+        if ($keepsStoredAddress) {
+            $fee = $amending->delivery_fee_minor;
+            $storedZone = $amending->delivery_zone_id === null
+                ? null
+                : DeliveryZone::query()->whereKey($amending->delivery_zone_id)->first();
+
+            if ($storedZone instanceof DeliveryZone) {
+                $offeredWindowCodes = $this->zoneWindows->offeredCodes($storedZone);
+
+                if ($deliveryWindowCode !== null
+                    && $deliveryWindowCode !== $amending->delivery_window_code
+                    && ! in_array($deliveryWindowCode, $offeredWindowCodes, true)) {
+                    $refusals[] = [
+                        'reason' => 'window_not_offered',
+                        'delivery_window_code' => $deliveryWindowCode,
+                        'delivery_zone_id' => (string) $storedZone->getKey(),
+                    ];
+                }
+            }
+        }
 
         if ($fulfilmentType->requiresAddress() && $address instanceof CustomerAddress) {
             // The one half of `addressReasons()` that survives explicit
@@ -225,8 +261,19 @@ final readonly class DeskQuote
 
         // Delivery and pickup, never a counter sale — the cut-off is about when
         // the food can be *made*, and a counter sale is handed over now.
-        if ($fulfilmentType !== FulfilmentType::Counter) {
+        if ($fulfilmentType !== FulfilmentType::Counter && ! $amending instanceof Order) {
             $refusals = [...$refusals, ...$this->scheduleRefusals($branchId, $requestedDate, $now)];
+        }
+
+        // An edit re-asks the schedule only for a day or slot that moved, and
+        // staff may override the cut-off — exactly as the save will.
+        if ($fulfilmentType !== FulfilmentType::Counter && $amending instanceof Order
+            && ($requestedDate?->toDateString() !== $amending->requested_delivery_date?->toDateString()
+                || $deliveryWindowCode !== $amending->delivery_window_code)) {
+            $refusals = [...$refusals, ...array_values(array_filter(
+                $this->scheduleRefusals($branchId, $requestedDate, $now),
+                static fn (array $refusal): bool => $refusal['reason'] !== 'cut_off_passed',
+            ))];
         }
 
         [$quoted, $lineRefused] = $this->lines($channel, $lines, $currencyCode, $requestedDate, $account, $branchId);

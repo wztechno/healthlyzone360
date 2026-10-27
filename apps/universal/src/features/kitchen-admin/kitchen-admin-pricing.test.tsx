@@ -87,8 +87,8 @@ jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
  * 3. **Publishing says what it will not do.** The dialog counts the confirmed entries and names the
  *    placeholder and market-priced ones as excluded, and it is refused — with the reason — while
  *    anything is unsaved or inconsistent.
- * 4. **The list tells the truth about what it cannot do.** No create control, because the contract
- *    publishes no `createPriceList`; no publish from a row, because the consequence needs the
+ * 4. **The list tells the truth about what it cannot do.** New price list opens a create dialog
+ *    (`createPriceList`, B2B slice 6); no publish from a row, because the consequence needs the
  *    editor's context.
  * 5. **The grid keeps count of what changed** — add, remove, edit and a percentage change are all
  *    counted against the list as it was read, the *Changed* filter and the save bar agree, and
@@ -716,7 +716,7 @@ describe('the price-list list', () => {
         expect(screen.getByTestId(`${base}-entries`)).toHaveTextContent(/2 entries · 0 confirmed/);
     });
 
-    it('offers no create control and no row publish, because neither is this screen’s to offer', async () => {
+    it('offers a manager New price list but no row publish, which needs the editor’s context', async () => {
         await renderStubScreen(<PriceListsScreen />, {
             session: kitchenManagerSession(),
             repositories: {
@@ -727,7 +727,7 @@ describe('the price-list list', () => {
         });
         await untilVisible('kitchen-price-lists-table');
 
-        expect(screen.queryByTestId('kitchen-price-lists-toolbar-create')).toBeNull();
+        expect(screen.getByTestId('kitchen-price-lists-toolbar-create')).toBeTruthy();
 
         const base = `kitchen-price-list-${String(CONFIRMED_LIST.id)}`;
         expect(screen.getByTestId(`${base}-open`)).toBeTruthy();

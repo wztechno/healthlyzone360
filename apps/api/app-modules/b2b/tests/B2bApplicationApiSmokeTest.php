@@ -326,6 +326,10 @@ it('walks an application from a blank draft to a provisioned tenant, and answers
         ->and($approved->json('data.application.provisioned_organisation_id'))->toBeNull()
         ->and($approved->json('data.application.customer_account_id'))->toBeNull();
 
+    // 6b. The agreement is signed. Provisioning refuses before that (the
+    //     owner's 2026-10-26 ruling); the signing itself has its own tests.
+    B2bWorld::signedAgreement(B2bApplication::query()->findOrFail($id), $this->applicant);
+
     // 7. Provision — 200 rather than 201, because several records were created
     //    and no one of them is *the* thing this endpoint made.
     //

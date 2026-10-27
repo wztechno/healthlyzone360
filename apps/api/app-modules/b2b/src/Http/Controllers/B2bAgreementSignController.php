@@ -12,7 +12,9 @@ use Healthy360\B2b\Services\AgreementService;
 use Healthy360\B2b\Services\B2bLocator;
 use Healthy360\B2b\Services\SigningEvidence;
 use Healthy360\Support\Api\ApiResponse;
+use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Verification\Enums\OtpChallengeStatus;
 use Healthy360\Verification\Services\OtpService;
 use Illuminate\Http\JsonResponse;
 
@@ -81,7 +83,16 @@ final class B2bAgreementSignController
         $terms = $this->locator->agreement($record, $agreement);
 
         $challenge = $this->signatoryChallengeFor($actor, $payload['challenge_id']);
-        $this->assertVerified($this->otp->verify($challenge, $payload['code']));
+
+        // The signing screen steps up through the shared passcode panel, which
+        // spends the code on the generic verify endpoint before this request.
+        // A challenge already verified by this signatory, for signing, within
+        // the step-up window is the proof; one still pending is verified here.
+        if ($challenge->status !== OtpChallengeStatus::Verified) {
+            $this->assertVerified($this->otp->verify($challenge, $payload['code']));
+        } elseif ($challenge->verified_at === null || $challenge->verified_at->lessThan(now()->subMinutes(15))) {
+            throw new ApiException(ErrorCode::OtpExpired);
+        }
 
         $signed = $this->agreements->sign(
             $terms,

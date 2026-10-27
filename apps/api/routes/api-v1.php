@@ -56,6 +56,11 @@ use Healthy360\B2b\Http\Controllers\OffboardingStoreController;
 use Healthy360\B2b\Http\Controllers\OrganisationInvitationIndexController;
 use Healthy360\B2b\Http\Controllers\OrganisationInvitationRevokeController;
 use Healthy360\B2b\Http\Controllers\OrganisationInvitationStoreController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bAgreementIndexController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bAgreementReviseController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bAgreementSendController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bAgreementStoreController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bAgreementUpdateController;
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationApproveController;
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationClaimController;
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationDeclineController;
@@ -63,8 +68,11 @@ use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationIndexController;
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationProvisionController;
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationRequestInformationController;
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationShowController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bInvitationIndexController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bInvitationResendController;
 use Healthy360\B2b\Http\Controllers\PlatformKycDocumentDownloadController;
 use Healthy360\B2b\Http\Controllers\PlatformKycDocumentReviewController;
+use Healthy360\B2b\Http\Controllers\PlatformSellerPriceListIndexController;
 use Healthy360\B2b\Http\Controllers\QuotationAcceptController;
 use Healthy360\B2b\Http\Controllers\QuotationDeclineController;
 use Healthy360\B2b\Http\Controllers\QuotationIndexController;
@@ -230,6 +238,7 @@ use Healthy360\Orders\Http\Controllers\OrderPaymentReceiptStoreController;
 use Healthy360\Orders\Http\Controllers\OrderStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\KitchenCustomerIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\KitchenCustomerShowController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskAmendmentController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCalendarController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCashReportController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAddressStoreController;
@@ -2137,6 +2146,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                     ->middleware('idempotency')
                     ->name('catalogue.order-desk.orders.store');
 
+                // Editing what was sold (a customer rang back). `If-Match` is the
+                // replay guard, so no idempotency key; see the controller.
+                Route::patch('/order-desk/orders/{order}', OrderDeskAmendmentController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.order-desk.orders.update');
+
                 // The slots a sale can be booked into, for the agent who is
                 // booking it. The admin list needs `delivery_zone.manage_
                 // organisation`, which a desk agent need not hold.
@@ -2675,7 +2690,45 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/applications/{application}/decline', PlatformB2bApplicationDeclineController::class)
                     ->middleware('precondition')
                     ->name('platform.b2b.applications.decline');
+
+                // The terms are the commercial half of the decision, so the
+                // authority that approves is the one that writes them. The
+                // applicant never sees a draft; `send` is what puts it in front
+                // of them, and `revise` takes back one they have not signed.
+                Route::post('/applications/{application}/agreements', PlatformB2bAgreementStoreController::class)
+                    ->name('platform.b2b.agreements.store');
+
+                Route::patch('/agreements/{agreement}', PlatformB2bAgreementUpdateController::class)
+                    ->middleware('precondition')
+                    ->name('platform.b2b.agreements.update');
+
+                Route::post('/agreements/{agreement}/send', PlatformB2bAgreementSendController::class)
+                    ->middleware('precondition')
+                    ->name('platform.b2b.agreements.send');
+
+                Route::post('/agreements/{agreement}/revise', PlatformB2bAgreementReviseController::class)
+                    ->middleware('precondition')
+                    ->name('platform.b2b.agreements.revise');
+
+                // Every kitchen's negotiated lists, read across tenancy, for the
+                // agreement editor's seller picker.
+                Route::get('/seller-price-lists', PlatformSellerPriceListIndexController::class)
+                    ->name('platform.b2b.seller-price-lists.index');
             });
+
+            Route::middleware('permission:b2b_application.view_platform')->group(function (): void {
+                Route::get('/applications/{application}/agreements', PlatformB2bAgreementIndexController::class)
+                    ->name('platform.b2b.agreements.index');
+
+                Route::get('/applications/{application}/invitations', PlatformB2bInvitationIndexController::class)
+                    ->name('platform.b2b.invitations.index');
+            });
+
+            // A fresh link is access to the company, the same authority as
+            // creating it.
+            Route::post('/applications/{application}/invitations/{invitation}/resend', PlatformB2bInvitationResendController::class)
+                ->middleware('permission:b2b_application.provision_platform')
+                ->name('platform.b2b.invitations.resend');
 
             // The irreversible half. Separate from deciding because an approval can be
             // revisited and a provisioned tenant cannot be un-provisioned.
@@ -2878,8 +2931,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         | DELETE stamps `revoked_at`; nothing is removed. Who was invited and who
         | withdrew it is exactly the trail an access review reads.
         |
+        | `branch.context` resolves (never requires) a branch, so a branch-bound
+        | administrator passes `PermissionChecker`'s branch-scope step and then
+        | manages invitations to their own branch only.
+        |
         */
-        Route::middleware('org.context')->prefix('/organisations/{organisation}')->group(function (): void {
+        Route::middleware(['org.context', 'branch.context'])->prefix('/organisations/{organisation}')->group(function (): void {
             Route::post('/invitations', OrganisationInvitationStoreController::class)
                 ->middleware('permission:membership.invite_organisation')
                 ->name('organisations.invitations.store');
@@ -2913,11 +2970,14 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         | and a mismatch is **404** — "no such organisation, as far as you are
         | concerned", the same answer and the same reason as next door.
         |
-        | **No `branch.context`, anywhere in this block.** Roles and memberships
-        | are organisation-wide. A membership's `branch_id` is data these endpoints
-        | *write* — it is how a kitchen says "this person works the airport branch"
-        | — not context they read, and requiring a selected branch to edit it would
-        | make the organisation-wide case unreachable from a branch-scoped session.
+        | **`branch.context` resolves, it never requires.** A membership's
+        | `branch_id` is data these endpoints *write* — it is how a kitchen says
+        | "this person works the airport branch". The middleware is here so that a
+        | branch-bound administrator passes `PermissionChecker`'s branch-scope step
+        | (without it, the context branch is null and they are refused
+        | everywhere); `AccessAdministrationLocator` then confines them to their
+        | own branch's people and keeps role definitions, which every branch
+        | shares, with whole-kitchen administrators.
         |
         | **No `org.trading`, anywhere in this block, and that is deliberate.**
         | A suspended kitchen may not sell: `org.trading` guards every catalogue
@@ -2943,7 +3003,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         | catalogue that offered one would be a form with a trap in it.
         |
         */
-        Route::middleware('org.context')->prefix('/organisations/{organisation}')->group(function (): void {
+        Route::middleware(['org.context', 'branch.context'])->prefix('/organisations/{organisation}')->group(function (): void {
             Route::middleware('permission:role.view_organisation')->group(function (): void {
                 Route::get('/permissions', PermissionCatalogueIndexController::class)
                     ->name('organisations.permissions.index');

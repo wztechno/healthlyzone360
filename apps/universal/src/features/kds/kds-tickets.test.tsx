@@ -113,6 +113,8 @@ function kitchenOrder(overrides: Partial<KitchenOrder> = {}): KitchenOrder {
         cancelledAt: null,
         cancellationReason: null,
         lockVersion: 1,
+        customerAccountId: null,
+        amendable: false,
         lineCount: lines.length,
         lines,
         ...overrides,

@@ -24,6 +24,14 @@ import type { MeasureUnit, NutritionFacts, Serving } from '@healthy360/nutrition
 
 import type { PackSize } from './marketplace.ts';
 import type { CursorPage, CursorPageRequest, OffsetPageRequest } from './pagination.ts';
+import type {
+    CreatePriceListRequest,
+    CreateSalesChannelRequest,
+    ItemChannelOffering,
+    PriceListChannels,
+    SalesChannelRecord,
+    SetPriceListChannelsRequest,
+} from './kitchen-wholesale.ts';
 
 /**
  * The kitchen-management contract (phase K1).
@@ -346,7 +354,26 @@ export interface IngredientAssistSuggestion {
         readonly relation: 'same' | 'more_specific' | 'different' | null;
         readonly reason: string | null;
     } | null;
-    readonly unavailable: readonly ('assistant' | 'nutrition')[];
+    /** How the kitchen buys and stocks it — a model estimate. */
+    readonly unit: 'kg' | 'l' | 'piece' | null;
+    /** The mass of one litre or one piece in grams, a bounded model estimate; null for kg. */
+    readonly gramsPerUnit: number | null;
+    readonly allergens: {
+        /** The Open Food Facts search the allergen picker runs. */
+        readonly candidates: readonly AllergenReferenceCandidate[];
+        readonly notices: readonly string[];
+        /** The importable product that is plainly this ingredient, if one is. */
+        readonly pick: number | null;
+        /** The model's own read for when no product fits; `null` when it did not answer. */
+        readonly codes:
+            | readonly {
+                  readonly allergenCode: AllergenCode;
+                  readonly containment: AllergenContainment;
+              }[]
+            | null;
+        readonly reason: string | null;
+    };
+    readonly unavailable: readonly ('assistant' | 'nutrition' | 'allergens')[];
 }
 
 export interface ConfirmIngredientAllergensRequest {
@@ -2489,6 +2516,31 @@ export interface KitchenAdminRepository {
     ): Promise<PriceListAdmin>;
     /** Refused while any entry breaks {@link isPriceEntryConsistent}. */
     publishPriceList(priceListId: PriceListId, request: LockedRequest): Promise<PriceListAdmin>;
+
+    /* ── wholesale setup (`./kitchen-wholesale.ts`) ─────────────────────────────────────────── */
+
+    /** The organisation's own channel rows, read fresh — a create must show up at once. */
+    listSalesChannels(): Promise<readonly SalesChannelRecord[]>;
+    /** Needs `catalogue.manage_organisation`. */
+    createSalesChannel(request: CreateSalesChannelRequest): Promise<SalesChannelRecord>;
+    /** A new draft list with no entries and no channels. Needs `price_list.manage_organisation`. */
+    createPriceList(request: CreatePriceListRequest): Promise<PriceListAdmin>;
+    getPriceListChannels(priceListId: PriceListId): Promise<PriceListChannels>;
+    /** Every list's scope and channels in one read — the price-list index with its channels. */
+    listPriceListChannels(): Promise<readonly PriceListChannels[]>;
+    /** Replaces the list's channel assignments; the list's lock version guards it. */
+    setPriceListChannels(
+        priceListId: PriceListId,
+        request: SetPriceListChannelsRequest,
+    ): Promise<PriceListChannels>;
+    getItemChannelOffering(itemId: string): Promise<ItemChannelOffering>;
+    /** The named items' channels, a hundred to a request — the items index with its channels. */
+    listItemChannelOfferings(itemIds: readonly string[]): Promise<readonly ItemChannelOffering[]>;
+    /**
+     * Offers the item on one more channel, keeping every assignment it already has. The item's
+     * channel write replaces the whole set, so this reads it first; already offered is a no-op.
+     */
+    offerItemOnChannel(itemId: string, salesChannelId: string): Promise<ItemChannelOffering>;
 
     /* ── meals ──────────────────────────────────────────────────────────────────────────────── */
 

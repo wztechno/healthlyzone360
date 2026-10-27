@@ -6,6 +6,7 @@ namespace Healthy360\B2b\Http\Concerns;
 
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Support\Api\Exceptions\StaleLockVersion;
 use Healthy360\Support\Http\Middleware\RequirePrecondition;
 use Illuminate\Http\Request;
 
@@ -47,5 +48,16 @@ trait ReadsPrecondition
         }
 
         return $expected;
+    }
+
+    /**
+     * Refuse a write against a version the caller no longer holds, for the
+     * services that take the row rather than an expected version.
+     */
+    protected function assertCurrentVersion(Request $request, int $current): void
+    {
+        if ($this->requiredLockVersion($request) !== $current) {
+            throw new StaleLockVersion($current);
+        }
     }
 }

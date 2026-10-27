@@ -9,6 +9,7 @@ import {
     Text,
     TextInputField,
 } from '@healthy360/design-system';
+import { useLocale } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -80,6 +81,7 @@ export function AgreementPanel({
     testID = 'b2b-agreement',
 }: AgreementPanelProps) {
     const { t } = useTranslation();
+    const { locale } = useLocale();
 
     const [typedName, setTypedName] = useState('');
     const [signatoryTitle, setSignatoryTitle] = useState('');
@@ -90,6 +92,7 @@ export function AgreementPanel({
         typedName.trim().length > 0 && signatoryTitle.trim().length > 0 && authorityConfirmed;
 
     const signed = agreement.signature;
+    const seller = agreement.seller;
 
     return (
         <Stack testID={testID} space="lg">
@@ -100,6 +103,18 @@ export function AgreementPanel({
                 <Text tone="secondary" variant="caption">
                     {t('b2bApplication:agreement.version', { version: agreement.version })}
                 </Text>
+                {/* Who the company buys from, and at which list — the thing the terms are about. */}
+                {seller === null ? null : (
+                    <Text testID={`${testID}-seller`}>
+                        {t('b2bApplication:agreement.seller', {
+                            seller: seller.organisationName,
+                            priceList:
+                                locale === 'ar' && (seller.priceListNameAr ?? '') !== ''
+                                    ? (seller.priceListNameAr ?? '')
+                                    : seller.priceListNameEn,
+                        })}
+                    </Text>
+                )}
             </Stack>
 
             {agreement.termsSummary === null ? null : (

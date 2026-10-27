@@ -45,7 +45,10 @@ use Illuminate\Support\Facades\DB;
  */
 final readonly class MembershipAdministration
 {
-    public function __construct(private PermissionCache $cache) {}
+    public function __construct(
+        private PermissionCache $cache,
+        private AccessAdministrationLocator $locator,
+    ) {}
 
     /**
      * Move somebody between branch-scoped and organisation-wide access.
@@ -55,6 +58,9 @@ final readonly class MembershipAdministration
      * wide, branch A" is not a thing, and a shape that could express it would
      * eventually be asked to mean something.
      *
+     * A branch-bound administrator may only set their own branch: never the
+     * whole kitchen, never another branch.
+     *
      * @throws ApiException
      */
     public function setScope(
@@ -62,6 +68,8 @@ final readonly class MembershipAdministration
         ?OrganisationBranch $branch,
         int $expectedLockVersion,
     ): OrganisationMembership {
+        $this->locator->assertWithinActorBranch($branch === null ? null : (string) $branch->getKey());
+
         if ($branch !== null && (string) $branch->organisation_id !== (string) $membership->organisation_id) {
             // Unreachable through the controller, which resolves the branch
             // inside the tenant scope. Stated anyway, because a service that

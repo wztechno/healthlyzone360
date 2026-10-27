@@ -288,6 +288,19 @@ export const PLATFORM_ADMINISTRATOR_PERMISSIONS: readonly string[] = [
     'session.revoke_own',
 ];
 
+/**
+ * A platform operator who also works the B2B onboarding queue — every authority on it, the way
+ * the seeded `reference_editor` role holds them.
+ */
+export const PLATFORM_B2B_REVIEWER_PERMISSIONS: readonly string[] = [
+    ...PLATFORM_ADMINISTRATOR_PERMISSIONS,
+    'b2b_application.view_platform',
+    'b2b_application.review_platform',
+    'b2b_application.decide_platform',
+    'b2b_application.provision_platform',
+    'kyc_document.view_platform',
+];
+
 /** What a consumer holds on their global identity, outside any organisation (plan §9 / D1). */
 export const CONSUMER_PERMISSIONS: readonly string[] = ['device.manage_own', 'session.revoke_own'];
 

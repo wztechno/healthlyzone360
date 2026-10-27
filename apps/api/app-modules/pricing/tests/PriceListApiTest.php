@@ -114,6 +114,32 @@ it('says what each entry prices, so the editor needs no read per article', funct
         ->catalogue_item_variant_code->toBeNull();
 });
 
+it('serves every list whole from the index when asked, so a screen needs no read per list', function (): void {
+    $list = PricingWorld::priceList($this->a->organisation);
+    $product = PricingWorld::product($this->a);
+    $channel = PricingWorld::channel($this->a->organisation);
+
+    PricingWorld::price($list, $product->item, $product->variant, 2200);
+    PricingWorld::assign($channel, $list);
+
+    $row = collect($this->getJson('/api/v1/catalogue/price-lists?include=entries,channels', $this->headers)
+        ->assertOk()
+        ->json('data'))
+        ->firstWhere('id', (string) $list->getKey());
+
+    expect($row['entries'])->toHaveCount(1)
+        ->and($row['entries'][0]['catalogue_item_variant_code'])->toBe('jar-250g')
+        ->and($row['channels'][0]['sales_channel_id'])->toBe((string) $channel->getKey());
+
+    // Without it, the rows stay rows.
+    $plain = $this->getJson('/api/v1/catalogue/price-lists', $this->headers)->assertOk()->json('data.0');
+    expect($plain)->not->toHaveKey('entries')->not->toHaveKey('channels');
+
+    $this->getJson('/api/v1/catalogue/price-lists?include=everything', $this->headers)
+        ->assertStatus(400)
+        ->assertJsonPath('error.details.parameter', 'include');
+});
+
 it('addresses a list by its code as well as its identifier', function (): void {
     PricingWorld::priceList($this->a->organisation, 'web-usd');
 

@@ -48,6 +48,7 @@ import type {
     AdminDeliveryArea,
     AdminIngredient,
     AdminPriceList,
+    AdminPriceListIndexRow,
     BranchOperatingEnvelope,
     AdminPriceListEntry,
     AdminRecipe,
@@ -1002,24 +1003,43 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         },
 
         async listPriceLists(filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>> {
-            const envelope = await transport.requestEnvelope<AdminPriceList[]>({
-                method: 'GET',
-                path: `/catalogue/price-lists${cursorQuery(pickCursorFilter(filter))}`,
-            });
-
-            const meta = envelope.meta as PaginatedOrNumberedMeta;
-            const page = mapAdminCursorPage(envelope.data, meta, (wire) => mapPriceListAdmin(wire));
-            if (filter?.withoutEntries === true) return page;
+            const whole = filter?.withoutEntries !== true;
 
             /*
              * Whole records, entries and channels included — the contract every caller reads this
              * with. The plan editor's publish gate counts a plan's confirmed prices from it, and the
-             * price-list screen its entry counts; the index endpoint carries neither, and mapping
-             * it alone drew every list as "Nothing priced yet" and refused to publish any plan.
-             * One full read per list, in parallel: a kitchen has a handful of lists, not hundreds.
+             * price-list screen its entry counts. The index serves both with
+             * `include=entries,channels`, so a page of lists is one request: it used to be a full
+             * read per list, two or three requests each, which on its own spent most of the API's
+             * per-minute allowance on the price-list and wholesale screens.
              */
-            const items = await Promise.all(page.items.map((list) => reads.getPriceList(list.id)));
-            return { ...page, items };
+            const [envelope, lookup] = await Promise.all([
+                transport.requestEnvelope<AdminPriceListIndexRow[]>({
+                    method: 'GET',
+                    path: `/catalogue/price-lists${cursorQuery(
+                        pickCursorFilter(filter),
+                        whole ? { include: 'entries,channels' } : undefined,
+                    )}`,
+                }),
+                whole ? loadSalesChannelLookup() : Promise.resolve(null),
+            ]);
+
+            const meta = envelope.meta as PaginatedOrNumberedMeta;
+            return mapAdminCursorPage(envelope.data, meta, (wire) =>
+                lookup === null
+                    ? mapPriceListAdmin(wire)
+                    : mapPriceListAdmin(wire, {
+                          channels: priceListChannelsFromAssignments(wire.channels ?? [], lookup),
+                          entries: (wire.entries ?? []).map((entry) =>
+                              mapPriceListEntry(
+                                  entry,
+                                  entry.catalogue_item_type ?? 'product',
+                                  entry.catalogue_item_id,
+                                  entry.catalogue_item_variant_code ?? null,
+                              ),
+                          ),
+                      }),
+            );
         },
 
         async getPriceList(priceListId: PriceListId): Promise<PriceListAdmin> {

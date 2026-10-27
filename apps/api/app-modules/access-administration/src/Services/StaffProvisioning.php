@@ -70,6 +70,7 @@ final readonly class StaffProvisioning
         private ContactPointRegistry $contacts,
         private StaffLoginIdentity $identity,
         private PermissionCache $cache,
+        private AccessAdministrationLocator $locator,
     ) {}
 
     /**
@@ -169,8 +170,8 @@ final readonly class StaffProvisioning
      * Every named role must be one this organisation may assign.
      *
      * Read through the tenant scope, so a cross-tenant identifier never becomes
-     * a readable row — and a platform template resolves happily, because
-     * assigning one is the ordinary case.
+     * a readable row — and never a platform template, which is a blueprint the
+     * organisation already holds its own copy of.
      *
      * @param  list<string>  $roleIds
      * @return list<Role>
@@ -183,7 +184,7 @@ final readonly class StaffProvisioning
             return [];
         }
 
-        $roles = Role::query()->whereIn('id', $roleIds)->get();
+        $roles = Role::query()->whereIn('id', $roleIds)->whereNotNull('organisation_id')->get();
         $found = $roles->map(static fn (Role $role): string => (string) $role->getKey())->all();
         $refused = array_values(array_diff($roleIds, $found));
 
@@ -202,10 +203,16 @@ final readonly class StaffProvisioning
     }
 
     /**
+     * A branch-bound administrator's new colleague lands in their branch: no
+     * branch named means theirs, and any other is refused.
+     *
      * @throws ApiException
      */
     private function resolveBranch(?string $branchId): ?OrganisationBranch
     {
+        $branchId ??= $this->locator->actorBranchId();
+        $this->locator->assertWithinActorBranch($branchId);
+
         if ($branchId === null) {
             return null;
         }

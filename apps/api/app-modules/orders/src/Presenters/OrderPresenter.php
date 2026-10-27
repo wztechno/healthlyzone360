@@ -7,6 +7,7 @@ namespace Healthy360\Orders\Presenters;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
 use Healthy360\Orders\Models\OrderPaymentReceipt;
+use Healthy360\Orders\Services\OrderAmendability;
 use Healthy360\Orders\Services\OrderWindowNames;
 
 /**
@@ -85,7 +86,10 @@ use Healthy360\Orders\Services\OrderWindowNames;
  */
 final class OrderPresenter
 {
-    public function __construct(private readonly OrderWindowNames $windows) {}
+    public function __construct(
+        private readonly OrderWindowNames $windows,
+        private readonly OrderAmendability $amendability,
+    ) {}
 
     /**
      * The receipt.
@@ -223,6 +227,10 @@ final class OrderPresenter
      * withholding it from the kitchen would be privacy theatre performed on the
      * one party that needs the data to do the job.
      *
+     * `amendable` is `OrderAmendability`'s answer: whether the Order Desk may
+     * still edit this order. A list passes it in, worked out for the whole page
+     * at once; a single order leaves it null and it is asked here.
+     *
      * @param  iterable<int, OrderLine>  $lines
      * @param  array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null}|null  $run  the order's delivery run, from `OrderDeliveryRuns`
      * @return array{
@@ -271,6 +279,7 @@ final class OrderPresenter
      *     created_by: string|null,
      *     placed_on_behalf_by: string|null,
      *     lock_version: int,
+     *     amendable: bool,
      *     line_count: int,
      *     lines: list<array{
      *         id: string,
@@ -292,13 +301,17 @@ final class OrderPresenter
      *     updated_at: string|null
      * }
      */
-    public function kitchen(Order $order, iterable $lines, ?array $run = null): array
+    public function kitchen(Order $order, iterable $lines, ?array $run = null, ?bool $amendable = null): array
     {
         $presented = [];
+        $held = [];
 
         foreach ($lines as $line) {
+            $held[] = $line;
             $presented[] = $this->kitchenLine($line);
         }
+
+        $amendable ??= $this->amendability->reason($order, $held) === null;
 
         return [
             'id' => (string) $order->getKey(),
@@ -366,6 +379,9 @@ final class OrderPresenter
             // path and answers a different question.
             'placed_on_behalf_by' => $order->placed_on_behalf_by,
             'lock_version' => $order->lock_version,
+            // Whether the Order Desk may still edit it. The server decides, so
+            // the button and the edit it leads to cannot disagree.
+            'amendable' => $amendable,
             'line_count' => count($presented),
             'lines' => $presented,
             'created_at' => $order->created_at?->toIso8601String(),

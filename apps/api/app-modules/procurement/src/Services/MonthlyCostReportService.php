@@ -14,6 +14,7 @@ use Healthy360\Orders\Models\OrderLine;
 use Healthy360\ReferenceData\Models\Currency;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -436,6 +437,7 @@ final readonly class MonthlyCostReportService
             ->join('orders', 'orders.id', '=', DB::raw('stock_movements.reference_id::uuid'))
             ->where('orders.organisation_id', $organisationId)
             ->where('orders.status', '!=', 'cancelled')
+            ->whereNotExists(fn (QueryBuilder $reversal): QueryBuilder => $this->reversalOf($reversal))
             ->selectRaw("to_char(stock_movements.created_at, 'YYYY-MM') as month")
             ->selectRaw('stock_movements.cost_currency_code as currency')
             ->selectRaw('SUM(stock_movements.cost_amount) as total')
@@ -444,6 +446,23 @@ final readonly class MonthlyCostReportService
         $this->boundMonths($query, "to_char(stock_movements.created_at, 'YYYY-MM')", $from, $to);
 
         return $this->pivot($query->get());
+    }
+
+    /**
+     * The reversal of one consume, matched on the order, the line and the stock
+     * item. A line an edit removed from a live order keeps its consume on the
+     * append-only ledger beside the reversal that released it; without this
+     * the report would cost food that was never sold. Cancelled orders are
+     * already dropped by the join, and their pre-INV1.5 reversals carry no line.
+     */
+    private function reversalOf(QueryBuilder $reversal): QueryBuilder
+    {
+        return $reversal->selectRaw('1')
+            ->from('stock_movements as reversal')
+            ->where('reversal.reference_type', 'order_reversal')
+            ->whereColumn('reversal.reference_id', 'stock_movements.reference_id')
+            ->whereColumn('reversal.order_line_id', 'stock_movements.order_line_id')
+            ->whereColumn('reversal.stock_item_id', 'stock_movements.stock_item_id');
     }
 
     /**
@@ -473,6 +492,7 @@ final readonly class MonthlyCostReportService
             ->join('orders', 'orders.id', '=', DB::raw('stock_movements.reference_id::uuid'))
             ->where('orders.organisation_id', $organisationId)
             ->where('orders.status', '!=', 'cancelled')
+            ->whereNotExists(fn (QueryBuilder $reversal): QueryBuilder => $this->reversalOf($reversal))
             ->selectRaw("to_char(stock_movements.created_at, 'YYYY-MM') as month")
             ->selectRaw('stock_movements.cost_currency_code as currency')
             ->selectRaw('stock_movements.sold_item_type as sold_item_type')

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Orders\Http\Controllers;
 
 use Carbon\CarbonImmutable;
+use Healthy360\Cart\Services\CartLocator;
 use Healthy360\Orders\Http\Requests\StoreOrderRequest;
 use Healthy360\Orders\Presenters\OrderPresenter;
 use Healthy360\Orders\Services\OrderLocator;
@@ -54,6 +55,7 @@ final class OrderStoreController
         private readonly OrderLocator $locator,
         private readonly OrderPlacementService $placement,
         private readonly OrderPresenter $presenter,
+        private readonly CartLocator $carts,
     ) {}
 
     /**
@@ -65,6 +67,7 @@ final class OrderStoreController
 
         $account = $this->locator->shopper();
         $cart = $this->locator->cart($account, $payload['cart_id']);
+        $this->carts->assertShopperMayTradeOnCart($account, $cart);
         $address = $this->locator->address($account, $payload['customer_address_id']);
 
         $requestedDate = $payload['requested_delivery_date'] ?? null;

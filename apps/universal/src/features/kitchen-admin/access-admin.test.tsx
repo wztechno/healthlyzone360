@@ -12,6 +12,8 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import {
     permissionsAdministratorSession,
     testActiveContext,
+    testBranch,
+    testMembership,
 } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
@@ -26,8 +28,9 @@ import { TeamScreen } from './screens/team-screen.tsx';
  *
  * Two claims are worth more than the rest and are asserted rather than implied:
  *
- *  - **a platform template offers Copy and never Edit**, because the server answers 404 to an edit
- *    and a door that slams is worse than one that is not drawn;
+ *  - **every role is the kitchen's own and offers Edit** — the standard ones included — except to an
+ *    administrator bound to one branch, who sees the role book read-only because a role is shared by
+ *    every branch;
  *  - **the Pages tab does not silently drop what it cannot show.** A role holding
  *    `recipe.publish_organisation` — a code no page names — must still hold it after a save made
  *    entirely on that tab, and the tab must say so rather than merely doing it.
@@ -132,16 +135,23 @@ function roleSummary(overrides: Partial<OrganisationRoleSummary> = {}): Organisa
     };
 }
 
-function template(): OrganisationRoleSummary {
+/** The kitchen's own copy of a standard role — as editable as any role it defined itself. */
+function standard(): OrganisationRoleSummary {
     return roleSummary({
         id: TEMPLATE_ID,
         code: 'kitchen_manager',
         nameEn: 'Kitchen manager',
         nameAr: 'مدير المطبخ',
         descriptionEn: null,
-        isSystem: true,
         holderCount: 1,
         permissionCount: 28,
+    });
+}
+
+/** An administrator whose membership is bound to one branch. */
+function branchManagerSession() {
+    return permissionsAdministratorSession({
+        memberships: [testMembership({ branches: [testBranch()] })],
     });
 }
 
@@ -349,47 +359,50 @@ describe('the team list', () => {
 /* ── the roles list ───────────────────────────────────────────────────────────────────────────── */
 
 describe('the roles list', () => {
-    it('separates the kitchen’s own roles from the platform templates', async () => {
+    it('offers Edit and Copy on every role, standard ones included', async () => {
         await renderStubScreen(<RolesScreen />, {
             session: permissionsAdministratorSession(),
             repositories: {
                 accessAdmin: {
-                    listRoles: jest.fn().mockResolvedValue([template(), roleSummary()]),
+                    listRoles: jest.fn().mockResolvedValue([standard(), roleSummary()]),
                 },
             },
         });
 
         await untilVisible('kitchen-roles-table');
 
-        expect(screen.getByTestId(`kitchen-roles-row-${String(ROLE_ID)}-kind`)).toBeTruthy();
-        expect(screen.getByTestId(`kitchen-roles-row-${String(TEMPLATE_ID)}-kind`)).toBeTruthy();
-        expect(screen.getByTestId(`kitchen-roles-row-${String(ROLE_ID)}-name`)).toBeTruthy();
-        expect(screen.getByTestId(`kitchen-roles-row-${String(TEMPLATE_ID)}-name`)).toBeTruthy();
+        for (const id of [TEMPLATE_ID, ROLE_ID]) {
+            expect(screen.getByTestId(`kitchen-roles-row-${String(id)}-open`)).toHaveAccessibleName(
+                'Edit',
+            );
+            expect(screen.getByTestId(`kitchen-roles-row-${String(id)}-copy`)).toBeTruthy();
+            expect(screen.queryByTestId(`kitchen-roles-row-${String(id)}-kind`)).toBeNull();
+        }
+        expect(screen.getByTestId('kitchen-roles-create')).toBeTruthy();
     });
 
-    it('offers Copy on a template and never Edit', async () => {
-        // The one claim in this file worth the most: an edit on a template answers 404, so drawing
-        // the control would be offering a door that slams.
+    it('draws the role book read-only for an administrator bound to one branch', async () => {
         await renderStubScreen(<RolesScreen />, {
-            session: permissionsAdministratorSession(),
+            session: branchManagerSession(),
             repositories: {
-                accessAdmin: {
-                    listRoles: jest.fn().mockResolvedValue([template(), roleSummary()]),
-                },
+                accessAdmin: { listRoles: jest.fn().mockResolvedValue([standard()]) },
             },
         });
 
         await untilVisible('kitchen-roles-table');
 
-        expect(screen.getByTestId(`kitchen-roles-row-${String(TEMPLATE_ID)}-copy`)).toBeTruthy();
-        expect(screen.queryByTestId(`kitchen-roles-row-${String(ROLE_ID)}-copy`)).toBeNull();
+        expect(screen.queryByTestId('kitchen-roles-create')).toBeNull();
+        expect(screen.queryByTestId(`kitchen-roles-row-${String(TEMPLATE_ID)}-copy`)).toBeNull();
+        expect(
+            screen.getByTestId(`kitchen-roles-row-${String(TEMPLATE_ID)}-open`),
+        ).toHaveAccessibleName('Open');
     });
 
-    it('sends Copy to a create seeded from the template', async () => {
+    it('sends Copy to a create seeded from the role', async () => {
         await renderStubScreen(<RolesScreen />, {
             session: permissionsAdministratorSession(),
             repositories: {
-                accessAdmin: { listRoles: jest.fn().mockResolvedValue([template()]) },
+                accessAdmin: { listRoles: jest.fn().mockResolvedValue([standard()]) },
             },
         });
 
@@ -583,7 +596,7 @@ describe('the role editor', () => {
         expect(saved.permissions).not.toContain('order.view_organisation');
     });
 
-    it('shows a template read-only, with the reason and the way out', async () => {
+    it('lets a standard role be edited like any other', async () => {
         setParams({ role: String(TEMPLATE_ID) });
 
         await renderStubScreen(<RoleEditorScreen />, {
@@ -591,16 +604,27 @@ describe('the role editor', () => {
             repositories: editorRepositories({
                 getRole: jest
                     .fn()
-                    .mockResolvedValue(
-                        role({ id: TEMPLATE_ID, code: 'kitchen_manager', isSystem: true }),
-                    ),
+                    .mockResolvedValue(role({ id: TEMPLATE_ID, code: 'kitchen_manager' })),
             }),
         });
 
-        await untilVisible('kitchen-role-editor-template-notice');
+        await untilVisible('kitchen-role-editor-save');
+
+        expect(screen.queryByTestId('kitchen-role-editor-template-notice')).toBeNull();
+    });
+
+    it('shows a role read-only to an administrator bound to one branch', async () => {
+        setParams({ role: String(ROLE_ID) });
+
+        await renderStubScreen(<RoleEditorScreen />, {
+            session: branchManagerSession(),
+            repositories: editorRepositories(),
+        });
+
+        await untilVisible('kitchen-role-editor-tabs');
 
         expect(screen.queryByTestId('kitchen-role-editor-save')).toBeNull();
-        expect(screen.getByTestId('kitchen-role-editor-copy')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-role-editor-delete')).toBeNull();
     });
 
     it('names a missing Arabic name on Save rather than sending a role the server refuses', async () => {
@@ -789,7 +813,7 @@ describe('adding a member of staff', () => {
         await renderStubScreen(<StaffCreateScreen />, {
             session: permissionsAdministratorSession(),
             repositories: staffRepositories({
-                listRoles: jest.fn().mockResolvedValue([roleSummary(), template()]),
+                listRoles: jest.fn().mockResolvedValue([roleSummary(), standard()]),
             }),
         });
 
@@ -943,6 +967,27 @@ describe('one member of staff', () => {
         await openMemberStep('scope');
         await untilVisible('kitchen-team-member-scope-single');
         expect(screen.queryByTestId('kitchen-team-member-scope-select')).toBeNull();
+    });
+
+    it('offers no whole-kitchen scope to an administrator bound to one branch', async () => {
+        await renderStubScreen(<TeamMemberScreen />, {
+            session: branchManagerSession(),
+            repositories: memberRepositories(),
+        });
+
+        await openMemberStep('scope');
+        await act(async () => {
+            fireEvent.press(await screen.findByTestId('kitchen-team-member-scope-select-trigger'));
+        });
+
+        expect(
+            await screen.findByTestId(
+                `kitchen-team-member-scope-select-option-${String(BRANCHES[0]?.id)}`,
+            ),
+        ).toBeTruthy();
+        expect(
+            screen.queryByTestId('kitchen-team-member-scope-select-option-__organisation__'),
+        ).toBeNull();
     });
 
     it('saves a changed role set against the version it was shown', async () => {

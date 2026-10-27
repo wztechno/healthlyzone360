@@ -11,6 +11,7 @@ use Healthy360\Orders\Models\OrderLine;
 use Healthy360\Orders\OrderDesk\Enums\OrderDeskWindow;
 use Healthy360\Orders\OrderDesk\Presenters\OrderDeskPresenter;
 use Healthy360\Orders\OrderDesk\Services\OrderDeskQueue;
+use Healthy360\Orders\Services\OrderAmendability;
 use Healthy360\Orders\Services\OrderLocator;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -65,6 +66,7 @@ final class OrderDeskQueueController
         private readonly OrderLocator $locator,
         private readonly OrderDeskQueue $queue,
         private readonly OrderDeskPresenter $presenter,
+        private readonly OrderAmendability $amendability,
     ) {}
 
     /**
@@ -121,6 +123,9 @@ final class OrderDeskQueueController
         // confirmed yet.
         $deliveryJobs = $this->queue->deliveryJobsByOrder($orderIds);
 
+        // Whether each row may still be edited, for the page at once.
+        $amendable = $this->amendability->reasons($orders, $lines);
+
         // Resolved once for the whole page rather than per row, and only when
         // it will be spent: an unpermitted caller never causes the confidential
         // columns to be read at all.
@@ -149,6 +154,7 @@ final class OrderDeskQueueController
                 $deliveryJobs[$id] ?? null,
                 $includeContact,
                 $contacts[$id] ?? null,
+                ($amendable[$id] ?? null) === null,
             );
         }
 

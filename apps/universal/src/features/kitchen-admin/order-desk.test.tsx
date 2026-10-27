@@ -39,9 +39,11 @@ beforeAll(() => {
 afterAll(() => {
     Dimensions.set({ window: narrowWindow, screen: narrowScreen });
 });
+/* `mock`-prefixed so the factory below may close over it — Jest's hoisting rule. */
+const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
     __esModule: true,
-    useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
+    useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
     usePathname: () => '/kitchen/order-desk',
     useLocalSearchParams: () => ({}),
     Redirect: () => null,
@@ -110,6 +112,8 @@ function deskRow(overrides: Partial<OrderDeskQueueRow> = {}): OrderDeskQueueRow 
         cancelledAt: null,
         cancellationReason: null,
         lockVersion: 1,
+        customerAccountId: null,
+        amendable: false,
         lineCount: 0,
         lines: [],
         dueAt: minutesFromNow(90),
@@ -759,6 +763,44 @@ describe('order desk queue — the payment cell', () => {
 });
 
 describe('order desk queue — the order record page', () => {
+    async function openRecord(fresh: KitchenOrder, row: OrderDeskQueueRow) {
+        await renderDeskWithDetail({
+            listQueue: async () => queue([row]),
+            getOrder: async () => fresh,
+        });
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-table')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-detail-body')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+    }
+
+    it('offers Edit order when the server says the order is amendable, and opens the sale page on it', async () => {
+        mockPush.mockClear();
+        const row = deskRow({ id: orderIdAt(1), status: 'placed' });
+        await openRecord(detailOrder(row, { amendable: true }), row);
+
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-detail-edit'));
+        expect(mockPush).toHaveBeenCalledWith(
+            `/kitchen/order-desk/sale?order=${encodeURIComponent(String(row.id))}`,
+        );
+    });
+
+    it('offers no Edit order once the server says the order cannot be edited', async () => {
+        const row = deskRow({ id: orderIdAt(1), status: 'confirmed' });
+        await openRecord(detailOrder(row, { amendable: false }), row);
+
+        expect(screen.queryByTestId('kitchen-order-desk-detail-edit')).toBeNull();
+    });
+
     it('stays shut until a row is opened, then re-reads the order rather than trusting the row', async () => {
         const row = deskRow({ id: orderIdAt(1), status: 'placed', lockVersion: 1 });
         // The queue row is a poll or two old; the detail read is the current truth.

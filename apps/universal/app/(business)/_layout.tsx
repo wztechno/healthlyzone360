@@ -1,4 +1,5 @@
 import { Slot } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
 import { AreaShell } from '../../src/shell/area-shell.tsx';
 
@@ -26,8 +27,10 @@ import { AreaShell } from '../../src/shell/area-shell.tsx';
  * workspace navigation arrives with the organisation, at `/corporate`.
  */
 export default function BusinessLayout() {
+    const { t } = useTranslation();
+
     return (
-        <AreaShell area="customer" title="Business account" testID="business-shell">
+        <AreaShell area="customer" title={t('b2bApplication:shellTitle')} testID="business-shell">
             <Slot />
         </AreaShell>
     );

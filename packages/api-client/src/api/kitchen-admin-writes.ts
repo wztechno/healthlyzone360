@@ -1,4 +1,5 @@
 import {
+    AllergenCode,
     DeliveryZoneId,
     IngredientId,
     MealId,
@@ -15,6 +16,7 @@ import type {
 import type { MeasureUnit } from '@healthy360/nutrition';
 
 import type {
+    AllergenReferenceCandidate,
     BranchOperating,
     CostAmount,
     CreateDeliveryWindowRequest,
@@ -103,6 +105,8 @@ import {
     type WireItemChannelPrices,
 } from './kitchen-admin-mappers.ts';
 import { createApiKitchenAdminReads } from './kitchen-admin-repository.ts';
+import { createApiKitchenAdminWholesale } from './kitchen-admin-wholesale.ts';
+import type { ApiKitchenAdminWholesale } from './kitchen-admin-wholesale.ts';
 import { MultipartBody } from './transport.ts';
 import type { Transport } from './transport.ts';
 
@@ -163,7 +167,8 @@ export type ApiKitchenAdminWrites = Pick<
     | 'updateDeliveryWindow'
     | 'archiveDeliveryWindow'
     | 'setBranchOperating'
->;
+> &
+    ApiKitchenAdminWholesale;
 
 function ifMatch(lockVersion: number): Readonly<Record<string, string>> {
     return { 'If-Match': `"${lockVersion}"` };
@@ -707,6 +712,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
     }
 
     return {
+        ...createApiKitchenAdminWholesale(transport),
         async searchAllergenReferences(request) {
             const params = new URLSearchParams();
             if (request.barcode) params.set('barcode', request.barcode);
@@ -762,6 +768,20 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                               relation: wire.nutrition.relation,
                               reason: wire.nutrition.reason,
                           },
+                unit: wire.unit,
+                gramsPerUnit: wire.grams_per_unit,
+                allergens: {
+                    candidates: wire.allergens
+                        .candidates as unknown as readonly AllergenReferenceCandidate[],
+                    notices: wire.allergens.notices,
+                    pick: wire.allergens.pick,
+                    codes:
+                        wire.allergens.codes?.map((entry) => ({
+                            allergenCode: AllergenCode.unsafe(entry.code),
+                            containment: entry.containment,
+                        })) ?? null,
+                    reason: wire.allergens.reason,
+                },
                 unavailable: wire.unavailable,
             };
         },

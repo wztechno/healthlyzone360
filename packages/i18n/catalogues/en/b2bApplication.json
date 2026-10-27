@@ -1,5 +1,6 @@
 {
     "title": "Business account application",
+    "shellTitle": "Business account",
     "subtitle": "Tell us about the company, upload two documents, and we will come back to you.",
     "reference": "Reference {{reference}}",
     "entry": {
@@ -44,7 +45,8 @@
         "blockedSection": "{{section}} — {{fields}}",
         "blockedDocuments": "Documents: {{kinds}}",
         "withdraw": "Withdraw this application",
-        "withdrawConfirm": "Withdrawing closes this application. You can start a new one later, and nothing you uploaded is kept."
+        "withdrawConfirm": "Withdrawing closes this application. You can start a new one later, and nothing you uploaded is kept.",
+        "notAddedYet": "Not added yet — you can send without it."
     },
     "sections": {
         "company": {
@@ -62,6 +64,53 @@
         "logistics": {
             "title": "Deliveries",
             "description": "How and when food should reach you. None of this is binding — it tells a reviewer what to plan for."
+        }
+    },
+    "contacts": {
+        "title": "Who we talk to",
+        "description": "The people we should reach at the company, by what they do. When the account opens, each of them with an email address is invited to it — the main contact to run it with you.",
+        "rowTitle": "Contact {{position}}",
+        "roleHint": "One person per role.",
+        "reachHint": "An email address or a phone number — we need one way to reach them.",
+        "add": "Add a contact",
+        "remove": "Remove this contact",
+        "empty": "Nobody named yet. Add the person we should talk to first.",
+        "roles": {
+            "primary": "Main contact",
+            "signatory": "Signatory",
+            "billing": "Billing",
+            "operations": "Operations"
+        },
+        "fields": {
+            "role": "What they do",
+            "name": "Full name",
+            "title": "Job title",
+            "email": "Email address",
+            "phone": "Phone number"
+        }
+    },
+    "locations": {
+        "title": "Where food goes",
+        "description": "Each site you want deliveries to. You can add more after the account opens.",
+        "rowTitle": "Location {{position}}",
+        "add": "Add a location",
+        "remove": "Remove this location",
+        "empty": "No locations yet. You can send the application without one, but we will ask.",
+        "fields": {
+            "label": "Name for this site",
+            "labelPlaceholder": "e.g. Head office",
+            "deliveryArea": "Delivery area",
+            "deliveryAreaPlaceholder": "Choose an area",
+            "addressLine1": "Street address",
+            "addressLine1Placeholder": "e.g. Building 4, Al Wasl Road",
+            "addressLine2": "Floor, unit or landmark",
+            "addressLine2Placeholder": "e.g. 3rd floor, reception",
+            "city": "City",
+            "cityPlaceholder": "e.g. Dubai",
+            "expectedHeadcount": "People eating here, roughly",
+            "expectedHeadcountPlaceholder": "e.g. 120",
+            "isPrimary": "This is the main delivery address",
+            "isBillingAddress": "Send invoices to this address"
         }
     },
     "fields": {
@@ -123,7 +172,13 @@
         "currency": "Enter a three-letter currency code, such as USD.",
         "tooLong": "That is longer than we can store.",
         "format": "That does not look right.",
-        "invalid": "Check this one."
+        "invalid": "Check this one.",
+        "reachable": "Give an email address or a phone number.",
+        "headcount": "Enter at least 1, or leave it empty.",
+        "duplicateRole": "Someone else already has this role. One person per role.",
+        "noPrimary": "Add a main contact — the person we talk to first.",
+        "onePrimary": "Only one location can be the main delivery address.",
+        "oneBilling": "Only one location can be the billing address."
     },
     "businessTypes": {
         "restaurant": "Restaurant",
@@ -310,7 +365,8 @@
         "otpNotVerified": "This acceptance was recorded without a code being verified.",
         "changedTitle": "This agreement changed",
         "changedBody": "The document on screen is no longer the one we hold. Reload it and read it again before accepting.",
-        "download": "Open the signed copy"
+        "download": "Open the signed copy",
+        "seller": "You buy from {{seller}}, at the {{priceList}} price list."
     },
     "provisioning": {
         "title": "Setting up your account",

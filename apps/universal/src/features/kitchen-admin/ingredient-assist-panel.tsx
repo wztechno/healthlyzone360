@@ -20,6 +20,8 @@ export function IngredientAssistPanel({
     result,
     pending,
     arabicFromAi,
+    unitFromAi = null,
+    gramsFromAi = null,
     categorySuggestion,
     onOpen,
     onRerun,
@@ -28,6 +30,10 @@ export function IngredientAssistPanel({
     readonly pending: boolean;
     /** The Arabic field still holds exactly what the assistant wrote into it. */
     readonly arabicFromAi: boolean;
+    /** The unit the assistant set (its label), while purchase and stock still hold it. */
+    readonly unitFromAi?: string | null;
+    /** The mass of one litre or piece the assistant estimated, while the field still holds it. */
+    readonly gramsFromAi?: { readonly grams: string; readonly unit: string } | null;
     /** A category pair the form could not apply because the cook had already chosen one. */
     readonly categorySuggestion: { readonly label: string; readonly onApply: () => void } | null;
     readonly onOpen: (id: IngredientAssistReference['id']) => void;
@@ -120,6 +126,16 @@ export function IngredientAssistPanel({
                             {t('kitchen:assist.arabicFilled')}
                         </Text>
                     ) : null}
+                    {unitFromAi === null ? null : (
+                        <Text testID="kitchen-ingredient-assist-unit" variant="caption">
+                            {t('kitchen:assist.unitFilled', { unit: unitFromAi })}
+                        </Text>
+                    )}
+                    {gramsFromAi === null ? null : (
+                        <Text testID="kitchen-ingredient-assist-grams" variant="caption">
+                            {t('kitchen:assist.gramsFilled', gramsFromAi)}
+                        </Text>
+                    )}
                     {categorySuggestion === null ? null : (
                         <Inline space="xs" align="center" wrap>
                             <Text variant="caption">

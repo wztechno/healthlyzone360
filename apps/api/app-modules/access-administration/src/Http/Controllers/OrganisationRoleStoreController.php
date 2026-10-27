@@ -73,6 +73,7 @@ final class OrganisationRoleStoreController
     public function __invoke(StoreOrganisationRoleRequest $request, string $organisation): JsonResponse
     {
         $tenant = $this->locator->contextOrganisation($organisation);
+        $this->locator->assertWholeKitchenActor();
 
         Gate::authorize('create', Role::class);
 

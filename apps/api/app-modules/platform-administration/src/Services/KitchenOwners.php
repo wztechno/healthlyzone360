@@ -9,12 +9,14 @@ use Healthy360\AccessControl\Services\PermissionCache;
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\B2b\Models\OrganisationInvitation;
 use Healthy360\B2b\Services\InvitationService;
+use Healthy360\B2b\Services\IssuedInvitation;
 use Healthy360\Organisations\Enums\MembershipStatus;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\PlatformAdministration\Mail\KitchenOwnerInvitationMessage;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Illuminate\Support\Facades\Mail;
 
 /**
@@ -79,6 +81,7 @@ final readonly class KitchenOwners
         private KitchenOverviewQuery $overview,
         private PermissionCache $permissions,
         private AuditRecorder $audit,
+        private DatabaseTenantContext $database,
     ) {}
 
     /**
@@ -93,13 +96,21 @@ final readonly class KitchenOwners
         ?string $message,
         User $actor,
     ): array {
-        $issued = $this->invitations->issue(
-            $kitchen,
-            $email,
-            self::OWNER_ROLE,
-            $actor,
+        // As the kitchen: `issue()` checks the kitchen owns the role, and
+        // `roles` carries row-level security the operator's session cannot
+        // see past now that every organisation has roles of its own.
+        $issued = $this->database->during(
+            (string) $actor->getKey(),
+            (string) $kitchen->getKey(),
             null,
-            $message,
+            fn (): IssuedInvitation => $this->invitations->issue(
+                $kitchen,
+                $email,
+                self::OWNER_ROLE,
+                $actor,
+                null,
+                $message,
+            ),
         );
 
         $mailed = $this->mail($kitchen, $issued->invitation->email, $name, $issued->token, $message);

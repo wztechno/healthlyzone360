@@ -7,6 +7,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Healthy360\AccessControl\Models\MembershipRole;
 use Healthy360\AccessControl\Models\Role;
+use Healthy360\AccessControl\Services\OrganisationRoles;
 use Healthy360\B2b\Enums\AgreementStatus;
 use Healthy360\B2b\Enums\ApplicationStatus;
 use Healthy360\B2b\Enums\PaymentTerms;
@@ -141,8 +142,10 @@ class B2bProgrammesDemoSeeder extends Seeder
             ],
         );
 
+        app(OrganisationRoles::class)->provision((string) $buyer->getKey());
+
         $ownerRole = Role::withoutTenancy()
-            ->whereNull('organisation_id')
+            ->where('organisation_id', $buyer->getKey())
             ->where('code', 'organisation_owner')
             ->first();
 

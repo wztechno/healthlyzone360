@@ -3,7 +3,10 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\Role;
+use Healthy360\AccessControl\Models\RolePermission;
+use Healthy360\AccessControl\Services\OrganisationRoles;
 use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Catalogues\Models\Catalogue;
 use Healthy360\Catalogues\Models\CatalogueItem;
@@ -733,6 +736,32 @@ it('never lets the application role write a platform template role', function ()
 
     expect(Role::withoutTenancy()->whereKey($template->getKey())->value('code'))->not->toBe('hijacked')
         ->and(Role::withoutTenancy()->where('code', 'forged_template')->exists())->toBeFalse();
+});
+
+it('lets provisioning copy a template into an organisation under the application role', function (): void {
+    // `OrganisationRoles::provision()` runs where no organisation is in
+    // context — kitchen creation, an approved application — so it declares
+    // the destination itself. This proves that declaration is what the
+    // `roles` and `role_permissions` insert policies admit.
+    $template = Role::factory()->template()->create(['code' => 'rls_standard']);
+    RolePermission::factory()->create([
+        'organisation_id' => null,
+        'role_id' => $template->getKey(),
+        'permission_id' => Permission::factory()->create()->getKey(),
+    ]);
+
+    RuntimeRole::context();
+
+    RuntimeRole::run(fn () => app(OrganisationRoles::class)->provision((string) $this->b->organisation->getKey()));
+
+    $copy = Role::withoutTenancy()
+        ->where('organisation_id', $this->b->organisation->getKey())
+        ->where('code', 'rls_standard')
+        ->sole();
+
+    expect(RolePermission::withoutTenancy()->where('role_id', $copy->getKey())->count())->toBe(1)
+        ->and(RolePermission::withoutTenancy()->where('role_id', $copy->getKey())->value('organisation_id'))
+        ->toBe((string) $this->b->organisation->getKey());
 });
 
 it('shows a person their own consent grants from the user context alone', function (): void {

@@ -50,7 +50,9 @@ import {
 } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import CustomerLayout from '../../../app/customer/_layout.tsx';
 import { clearPendingAdd, readPendingAdd, writePendingAdd } from '../commerce/pending-add.ts';
+import { useBasketAdd } from '../commerce/use-basket-add.tsx';
 import {
     RESUME_INTENT_MAX_AGE_MS,
     clearResumeIntent,
@@ -528,6 +530,13 @@ const ACTIVE_SUBSCRIPTION: Subscription = {
 
 /** The session the two signed-in surfaces below see: a consumer, no memberships. */
 const CONSUMER_SESSION = testMeResponse();
+
+/** A member of a corporate customer, with no organisation chosen yet. */
+const BUSINESS_BUYER_SESSION = testMeResponse({
+    memberships: [
+        testMembership({ organisation: testOrganisation({ type: 'corporate_customer' }) }),
+    ],
+});
 
 /* ── kitchen directory ───────────────────────────────────────────────────────────────────────── */
 
@@ -2063,26 +2072,20 @@ describe('ConsumerShell', () => {
         expect(screen.queryByTestId('marketplace-workspaces')).toBeNull();
     });
 
-    it('gives a business customer a Workspaces link, before any organisation is chosen', async () => {
+    it('gives a business buyer the view-only shop, before any organisation is chosen', async () => {
         await renderStubScreen(
             <ConsumerShell unguarded>
                 <></>
             </ConsumerShell>,
-            {
-                session: testMeResponse({
-                    memberships: [
-                        testMembership({
-                            organisation: testOrganisation({ type: 'corporate_customer' }),
-                        }),
-                    ],
-                }),
-            },
+            { session: BUSINESS_BUYER_SESSION },
         );
 
-        // Jest's window is a phone's, so the destination is behind the menu button.
-        await fireEvent.press(await screen.findByTestId('marketplace-shell-menu'));
-        await fireEvent.press(await screen.findByTestId('marketplace-workspaces'));
+        // They order wholesale from `/corporate`, which the Workspaces button leads to.
+        await fireEvent.press(await screen.findByTestId('marketplace-workspaces-button'));
         expect(routerMock.__push).toHaveBeenCalledWith('/workspace');
+        expect(screen.getByTestId('marketplace-sign-out')).toBeTruthy();
+        expect(screen.queryByTestId('marketplace-basket')).toBeNull();
+        expect(screen.queryByTestId('marketplace-account')).toBeNull();
     });
 
     it('gives staff a view-only shop: Workspaces and Sign out, no basket or account', async () => {
@@ -2126,6 +2129,63 @@ describe('the shop’s staff view', () => {
         await renderStubScreen(card(true));
         expect(screen.queryByTestId(`meal-card-${meal.slug}-add`)).toBeNull();
         expect(screen.getByText(meal.name)).toBeTruthy();
+    });
+
+    it('adds nothing while the shop is view-only, whatever presses Add', async () => {
+        function AddButton() {
+            const basket = useBasketAdd({ labelKey: 'catalogue:nav.meals', testID: 'probe' });
+            return (
+                <Pressable
+                    testID="probe-add"
+                    onPress={() => {
+                        basket.add({ id: meal.id, kitchenId: meal.kitchenId });
+                    }}
+                />
+            );
+        }
+        const { repositories } = await renderStubScreen(
+            <ShopViewOnlyProvider value>
+                <AddButton />
+            </ShopViewOnlyProvider>,
+            { session: kitchenManagerSession() },
+        );
+        const getCart = jest.spyOn(repositories.commerce, 'getCart');
+        const addCartItem = jest.spyOn(repositories.commerce, 'addCartItem');
+
+        await fireEvent.press(screen.getByTestId('probe-add'));
+
+        expect(getCart).not.toHaveBeenCalled();
+        expect(addCartItem).not.toHaveBeenCalled();
+        expect(readPendingAdd()).toBeNull();
+    });
+});
+
+describe('the customer area for a view-only shopper', () => {
+    it('sends a business buyer from the basket back to the shop', async () => {
+        routerMock.__set({ pathname: '/customer/cart' });
+        await renderStubScreen(<CustomerLayout />, { session: BUSINESS_BUYER_SESSION });
+
+        await waitFor(() => {
+            expect(routerMock.__redirect).toHaveBeenCalledWith('/discover');
+        });
+    });
+
+    it('lets a business buyer through to the wholesale checkout `/corporate` sends them to', async () => {
+        routerMock.__set({ pathname: '/customer/checkout', params: { channel: 'wholesale' } });
+        await renderStubScreen(<CustomerLayout />, { session: BUSINESS_BUYER_SESSION });
+
+        // The session has restored once the shop's chrome is the view-only one.
+        await screen.findByTestId('marketplace-workspaces-button');
+        expect(routerMock.__redirect).not.toHaveBeenCalledWith('/discover');
+    });
+
+    it('keeps staff off the wholesale checkout — it is a business buyer’s', async () => {
+        routerMock.__set({ pathname: '/customer/checkout', params: { channel: 'wholesale' } });
+        await renderStubScreen(<CustomerLayout />, { session: kitchenManagerSession() });
+
+        await waitFor(() => {
+            expect(routerMock.__redirect).toHaveBeenCalledWith('/discover');
+        });
     });
 });
 

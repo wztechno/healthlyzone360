@@ -10,6 +10,7 @@ use Healthy360\AccessControl\Models\MembershipRole;
 use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
+use Healthy360\AccessControl\Services\OrganisationRoles;
 use Healthy360\AccessControl\Services\PermissionRegistry;
 use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Organisations\Enums\MembershipStatus;
@@ -153,8 +154,10 @@ class PlatformOperatorSeeder extends Seeder
             ],
         ));
 
+        app(OrganisationRoles::class)->provision((string) $organisation->getKey());
+
         $role = Role::withoutTenancy()
-            ->whereNull('organisation_id')
+            ->where('organisation_id', $organisation->getKey())
             ->where('code', $templateRoleCode)
             ->firstOrFail();
 

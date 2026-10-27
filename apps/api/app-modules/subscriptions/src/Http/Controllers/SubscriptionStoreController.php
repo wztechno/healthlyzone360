@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Healthy360\Subscriptions\Http\Controllers;
 
 use Carbon\CarbonImmutable;
+use Healthy360\Cart\Services\CartLocator;
 use Healthy360\Catalogues\Models\PlanDuration;
+use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Subscriptions\Exceptions\SubscriptionRefused;
 use Healthy360\Subscriptions\Http\Requests\StoreSubscriptionRequest;
 use Healthy360\Subscriptions\Presenters\SubscriptionLocale;
@@ -35,6 +37,7 @@ final class SubscriptionStoreController
         private readonly SubscriptionPresenter $presenter,
         private readonly SubscriptionProjection $projection,
         private readonly StorefrontQuoting $storefront,
+        private readonly CartLocator $carts,
     ) {}
 
     /**
@@ -48,6 +51,14 @@ final class SubscriptionStoreController
         $address = $this->locator->address($account, $payload['customer_address_id']);
 
         [$salesChannelId, $planDurationId] = $this->resolvePurchaseCoordinates($payload);
+
+        // The shop's trading rule, asked of the channel the plan is bought on: kitchen staff and a
+        // business's people browse the shop and subscribe to nothing in it. An unknown channel is
+        // left to the service, which refuses it with its own reason.
+        $channel = SalesChannel::withoutTenancy()->find($salesChannelId);
+        if ($channel instanceof SalesChannel) {
+            $this->carts->assertShopperMayUseChannel($account, $channel);
+        }
 
         $startFrom = $payload['start_from'] ?? null;
 

@@ -41,6 +41,7 @@ import { createApiB2bApplicationRepository } from './b2b-repository.ts';
 import { createApiGuestRepository } from './guest-repository.ts';
 import { createApiAccessAdminRepository } from './access-admin-repository.ts';
 import { createApiPlatformAdminRepository } from './platform-admin-repository.ts';
+import { createApiPlatformB2bRepository } from './platform-b2b-repository.ts';
 import { createApiMarketplaceRepository } from './marketplace-repository.ts';
 import { createApiBusinessRepository } from './business-repository.ts';
 import { createApiInvitationsRepository } from './invitations-repository.ts';
@@ -546,6 +547,7 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
         driverJobs: createApiDriverJobsRepository(transport),
         invitations: createApiInvitationsRepository(transport),
         platformAdmin: createApiPlatformAdminRepository(transport),
+        platformB2b: createApiPlatformB2bRepository(transport),
         accessAdmin: createApiAccessAdminRepository(transport),
     };
 }

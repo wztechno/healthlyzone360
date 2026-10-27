@@ -4345,6 +4345,9 @@ describe('adding an ingredient from the line picker', () => {
                 relation: 'same',
                 reason: 'Ground sumac.',
             },
+            unit: null,
+            gramsPerUnit: null,
+            allergens: { candidates: [], notices: [], pick: null, codes: null, reason: null },
             unavailable: [],
             ...overrides,
         };

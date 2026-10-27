@@ -18,6 +18,7 @@ use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\ReferenceData\Exceptions\UnitConversionUnsupported;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\ReferenceData\Services\UnitConversionService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -136,11 +137,12 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         private OrderLineEstimator $estimator,
     ) {}
 
-    public function consume(Order $order): void
+    public function consume(Order $order, ?iterable $lines = null): void
     {
         // Never deduct twice for one order — the coarse guard the port promises
-        // for a redelivered confirm. A manager retry does not come through here.
-        if ($this->hasConsumed($order)) {
+        // for a redelivered confirm. An edit names its new lines and skips it;
+        // the per-(line, stock item) guard in `deduct()` still holds for those.
+        if ($lines === null && $this->hasConsumed($order)) {
             return;
         }
 
@@ -149,13 +151,16 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         if ($branchId === null) {
             // Stock is a per-branch quantity; an order with no branch, at a
             // kitchen with more than one, has no shelf to take from. Recorded
-            // rather than guessed.
-            $this->persistException($order, null, null, 'no_branch', 'The order has no branch and the kitchen has more than one active branch, so no stock could be deducted.');
+            // rather than guessed — once: an edit re-running consume must not
+            // open a second copy of the same order-level problem.
+            if (! $this->hasOpenOrderLevelException($order, 'no_branch')) {
+                $this->persistException($order, null, null, 'no_branch', 'The order has no branch and the kitchen has more than one active branch, so no stock could be deducted.');
+            }
 
             return;
         }
 
-        foreach ($order->lines()->get() as $line) {
+        foreach ($lines ?? $order->lines()->get() as $line) {
             /** @var list<ConsumptionFailure> $failures */
             $failures = [];
 
@@ -185,20 +190,59 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         }
     }
 
-    public function restore(Order $order): void
+    /**
+     * Reverse every consume that has not been reversed yet — or, given line ids,
+     * only those lines' consumes, settling their open exceptions too.
+     *
+     * Reversed-ness is decided per (order line, stock item), so a line released
+     * by an edit and the order's later cancellation each put back exactly what
+     * is still off the shelf, and neither puts anything back twice. A consume
+     * that predates INV1.5 carries no line and keeps the rule it always had: it
+     * counts as reversed once any line-less reversal exists for the order.
+     */
+    public function restore(Order $order, ?array $orderLineIds = null): void
     {
-        if ($this->hasRestored($order)) {
+        if ($orderLineIds === []) {
             return;
         }
+
+        $amending = $orderLineIds !== null;
 
         $movements = StockMovement::withoutTenancy()
             ->where('organisation_id', $order->organisation_id)
             ->where('reference_type', self::CONSUME_REFERENCE)
             ->where('reference_id', (string) $order->getKey())
             ->where('reason', 'consume')
+            ->when($amending, fn (Builder $query): Builder => $query->whereIn('order_line_id', $orderLineIds))
             ->get();
 
+        /** @var array<string, true> $reversed */
+        $reversed = [];
+        $legacyReversed = false;
+
+        $reversals = StockMovement::withoutTenancy()
+            ->where('organisation_id', $order->organisation_id)
+            ->where('reference_type', self::REVERSAL_REFERENCE)
+            ->where('reference_id', (string) $order->getKey())
+            ->get(['order_line_id', 'stock_item_id']);
+
+        foreach ($reversals as $reversal) {
+            if ($reversal->order_line_id === null) {
+                $legacyReversed = true;
+            } else {
+                $reversed[$reversal->order_line_id.'|'.$reversal->stock_item_id] = true;
+            }
+        }
+
         foreach ($movements as $movement) {
+            $alreadyReversed = $movement->order_line_id === null
+                ? $legacyReversed
+                : isset($reversed[$movement->order_line_id.'|'.$movement->stock_item_id]);
+
+            if ($alreadyReversed) {
+                continue;
+            }
+
             // The consume stored a negative delta; the reversal adds back its
             // magnitude, exactly what was removed.
             $addBack = bcmul($this->numeric((string) $movement->quantity_delta), '-1', self::SCALE);
@@ -215,11 +259,36 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
                 $addBack,
                 self::REVERSAL_REFERENCE,
                 (string) $order->getKey(),
-                notes: 'Reversal of consume '.$movement->getKey().' on order cancellation.',
+                notes: 'Reversal of consume '.$movement->getKey().($amending ? ' on order amendment.' : ' on order cancellation.'),
+                orderLineId: $movement->order_line_id === null ? null : (string) $movement->order_line_id,
             );
 
             $this->restoreQuantityOnHand($order, $movement, $addBack);
         }
+
+        if ($amending) {
+            $open = OrderConsumptionException::withoutTenancy()
+                ->where('organisation_id', $order->organisation_id)
+                ->where('order_id', (string) $order->getKey())
+                ->whereIn('order_line_id', $orderLineIds)
+                ->whereNull('resolved_at')
+                ->get();
+
+            foreach ($open as $exception) {
+                $this->markResolved($exception, null, 'Line amended away.');
+            }
+        }
+    }
+
+    public function hasUnattributedConsumption(Order $order): bool
+    {
+        return StockMovement::withoutTenancy()
+            ->where('organisation_id', $order->organisation_id)
+            ->where('reference_type', self::CONSUME_REFERENCE)
+            ->where('reference_id', (string) $order->getKey())
+            ->where('reason', 'consume')
+            ->whereNull('order_line_id')
+            ->exists();
     }
 
     /**
@@ -898,12 +967,14 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             ->exists();
     }
 
-    private function hasRestored(Order $order): bool
+    private function hasOpenOrderLevelException(Order $order, string $reasonCode): bool
     {
-        return StockMovement::withoutTenancy()
+        return OrderConsumptionException::withoutTenancy()
             ->where('organisation_id', $order->organisation_id)
-            ->where('reference_type', self::REVERSAL_REFERENCE)
-            ->where('reference_id', (string) $order->getKey())
+            ->where('order_id', (string) $order->getKey())
+            ->whereNull('order_line_id')
+            ->where('reason_code', $reasonCode)
+            ->whereNull('resolved_at')
             ->exists();
     }
 

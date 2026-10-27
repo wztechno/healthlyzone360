@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Orders\Contracts;
 
 use Healthy360\Orders\Models\Order;
+use Healthy360\Orders\Models\OrderLine;
 
 /**
  * The seam through which a confirmed order takes ingredients off the shelf, and
@@ -40,12 +41,31 @@ interface OrderStockConsumption
      * Deduct the ingredients this order's lines consume, valuing each deduction
      * at the ingredient's moving-average cost (COGS). Idempotent: a no-op if the
      * order's consumption movements already exist.
+     *
+     * With `$lines`, only those lines are deducted and the order-level guard is
+     * skipped — an edit to a confirmed order consumes the lines it inserted. The
+     * per-line guard still holds, so a line is never deducted twice.
+     *
+     * @param  iterable<int, OrderLine>|null  $lines
      */
-    public function consume(Order $order): void;
+    public function consume(Order $order, ?iterable $lines = null): void;
 
     /**
-     * Put back exactly what {@see consume()} removed. Idempotent: a no-op if the
-     * order was never consumed, or has already been restored.
+     * Put back exactly what {@see consume()} removed. Idempotent per line: a
+     * consume that has already been reversed is not reversed again.
+     *
+     * With `$orderLineIds`, only those lines' consumes are reversed and their
+     * open consumption exceptions are settled — an edit releasing the lines it
+     * is about to delete.
+     *
+     * @param  list<string>|null  $orderLineIds
      */
-    public function restore(Order $order): void;
+    public function restore(Order $order, ?array $orderLineIds = null): void;
+
+    /**
+     * Whether any consume on this order predates per-line attribution (INV1.5).
+     * Such an order cannot be edited once confirmed: its stock cannot be
+     * released line by line.
+     */
+    public function hasUnattributedConsumption(Order $order): bool;
 }

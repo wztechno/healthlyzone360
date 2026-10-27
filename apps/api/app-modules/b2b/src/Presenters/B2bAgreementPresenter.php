@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Healthy360\B2b\Presenters;
 
 use Healthy360\B2b\Models\B2bAgreement;
+use Healthy360\Organisations\Models\Organisation;
+use Healthy360\Pricing\Models\PriceList;
 
 /**
  * The wire shape of one version of a corporate agreement.
@@ -89,6 +91,7 @@ final class B2bAgreementPresenter
             'title' => $agreement->title,
             'currency_code' => $agreement->currency_code,
             'price_list_id' => $agreement->price_list_id,
+            'seller' => $this->seller($agreement),
             'payment_terms' => $agreement->payment_terms?->value,
             'credit_limit_minor' => $agreement->credit_limit_minor,
             'minimum_order_minor' => $agreement->minimum_order_minor,
@@ -99,6 +102,10 @@ final class B2bAgreementPresenter
             'auto_renews' => $agreement->auto_renews,
             'terms_summary' => $agreement->terms_summary,
             'signature_document_sha256' => $agreement->signature_document_sha256,
+            // What a signature now would be against: the digest recorded at
+            // signing, or — before that — of the terms as they stand, so the
+            // signing screen echoes the version it rendered.
+            'document_sha256' => $agreement->signature_document_sha256 ?? $this->termsDigest($agreement),
             'signatory_name' => $agreement->signatory_name,
             'signatory_title' => $agreement->signatory_title,
             'signatory_user_id' => $agreement->signatory_user_id,
@@ -113,6 +120,54 @@ final class B2bAgreementPresenter
             'created_at' => $agreement->created_at?->toIso8601String(),
             'updated_at' => $agreement->updated_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Who the company buys from: the kitchen that owns the agreement's list.
+     *
+     * Read across tenancy because the reader is the buyer or the platform,
+     * never the kitchen whose row it is.
+     *
+     * @return array{organisation_id: string, organisation_name: string, price_list_name_en: string, price_list_name_ar: string|null}|null
+     */
+    private function seller(B2bAgreement $agreement): ?array
+    {
+        if ($agreement->price_list_id === null) {
+            return null;
+        }
+
+        $list = PriceList::withoutTenancy()->whereKey($agreement->price_list_id)->first();
+
+        if (! $list instanceof PriceList) {
+            return null;
+        }
+
+        return [
+            'organisation_id' => $list->organisation_id,
+            'organisation_name' => (string) (Organisation::query()->whereKey($list->organisation_id)->value('name') ?? ''),
+            'price_list_name_en' => $list->name_en,
+            'price_list_name_ar' => $list->name_ar,
+        ];
+    }
+
+    private function termsDigest(B2bAgreement $agreement): string
+    {
+        return hash('sha256', (string) json_encode([
+            'id' => (string) $agreement->getKey(),
+            'version' => $agreement->version,
+            'title' => $agreement->title,
+            'currency_code' => $agreement->currency_code,
+            'price_list_id' => $agreement->price_list_id,
+            'payment_terms' => $agreement->payment_terms?->value,
+            'credit_limit_minor' => $agreement->credit_limit_minor,
+            'minimum_order_minor' => $agreement->minimum_order_minor,
+            'delivery_lead_time_days' => $agreement->delivery_lead_time_days,
+            'notice_period_days' => $agreement->notice_period_days,
+            'starts_on' => $agreement->starts_on?->toDateString(),
+            'ends_on' => $agreement->ends_on?->toDateString(),
+            'auto_renews' => $agreement->auto_renews,
+            'terms_summary' => $agreement->terms_summary,
+        ]));
     }
 
     private function nullableString(B2bAgreement $agreement, string $attribute): ?string
