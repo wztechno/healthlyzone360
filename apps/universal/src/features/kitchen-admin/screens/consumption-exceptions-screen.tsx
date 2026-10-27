@@ -174,6 +174,15 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
     const [viewingId, setViewingId] = useState<string | null>(initial.gap);
     // The open gap's fix has just been made: it is retried on arrival.
     const [fixed, setFixed] = useState(initial.fixed);
+
+    /*
+     * Arriving with a gap in the address is coming back by the fix's own way back — Back, Cancel,
+     * or after saving — not by the sidebar, which lands on the bare list. The reader is where the
+     * fix began, with nothing left behind to lose, so its Continue goes (2026-10-27).
+     */
+    useEffect(() => {
+        if (initial.gap !== null && readActiveProcess()?.kind === 'stockGapFix') endProcess();
+    }, [initial.gap]);
     const [resolving, setResolving] = useState<ConsumptionException | null>(null);
 
     const fromIsValid = from === '' || /^\d{4}-\d{2}-\d{2}$/.test(from);

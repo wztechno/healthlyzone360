@@ -587,6 +587,39 @@ describe('consumption exceptions at desk width', () => {
             expect(readActiveProcess()).toBeNull();
         });
 
+        /*
+         * Saved a draft, then Back: no fix to retry, but the reader is back where the fix began
+         * with nothing left behind, so its Continue goes. The sidebar lands on the bare list and
+         * keeps it.
+         */
+        it('ends the fix on the way back, and keeps it when the sidebar lands on the list', async () => {
+            const fixing = {
+                kind: 'stockGapFix',
+                subject: 'Grilled chicken bowl',
+                resumeHref: '/kitchen/recipes/recipe-1?fix=no_recipe_version',
+                originPath: '/kitchen/consumption-exceptions',
+                stepPaths: ['/kitchen/recipes/recipe-1'],
+            } as const;
+            const listing = {
+                kitchenOps: { listConsumptionExceptions: async () => pageOf([fixableGap()]) },
+            };
+
+            startProcess(fixing);
+            await renderStubScreen(<ConsumptionExceptionsScreen />, {
+                session: kitchenManagerSession(),
+                repositories: listing,
+            });
+            await untilVisible('kitchen-exception-exception-1-fix');
+            expect(readActiveProcess()).toEqual(expect.objectContaining({ kind: 'stockGapFix' }));
+
+            await renderStubScreen(<ConsumptionExceptionsScreen gap="exception-1" />, {
+                session: kitchenManagerSession(),
+                repositories: listing,
+            });
+            await untilVisible('kitchen-consumption-exceptions-window');
+            expect(readActiveProcess()).toBeNull();
+        });
+
         it('asks for the raised-between window the URL holds, both ends inclusive', async () => {
             const harness = await renderStubScreen(
                 <ConsumptionExceptionsScreen from="2026-08-01" to="2026-08-31" />,

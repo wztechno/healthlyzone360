@@ -66,6 +66,7 @@ import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     endProcess,
+    endProcessSavedOn,
     readActiveProcess,
     startProcess,
     useProcessStep,
@@ -2071,6 +2072,7 @@ function RecipeEditor({
                 async (created) => {
                     const photoError = await writePhoto(created.id, null);
                     settle();
+                    endProcessSavedOn(ownPath);
                     toast.show({
                         testID: 'kitchen-recipe-created-toast',
                         tone: 'success',
@@ -2177,6 +2179,8 @@ function RecipeEditor({
         void run().then(
             async () => {
                 settle();
+                // Saved: the draft the process was keeping is written, so Continue has nothing to keep.
+                endProcessSavedOn(ownPath);
                 const photoError = await writePhoto(recipeId, savedPhoto);
                 if (photoError !== null) {
                     // The recipe is saved; only the photo is left to try again.
@@ -3945,6 +3949,7 @@ function RecipeEditor({
                                                 setShowPublish(false);
                                                 setSelectedVersionId(null);
                                                 if (fix !== null) setFixPublished(true);
+                                                endProcessSavedOn(ownPath);
                                                 toast.show({
                                                     testID: 'kitchen-recipe-published-toast',
                                                     tone: 'success',

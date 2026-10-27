@@ -13,6 +13,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Dimensions } from 'react-native';
 
+import { readActiveProcess, startProcess } from '../../navigation/active-process.ts';
 import { TEST_ORGANISATION_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
@@ -522,6 +523,14 @@ describe('a recipe opened from a stock gap', () => {
     });
 
     it('offers the way back once published, telling Stock gaps the gap was fixed', async () => {
+        // Sent here by Stock gaps: the fix is the process the top bar's Continue keeps.
+        startProcess({
+            kind: 'stockGapFix',
+            subject: 'Lentil Soup',
+            resumeHref: `/kitchen/recipes/${String(RECIPE_ID)}`,
+            originPath: '/kitchen/consumption-exceptions',
+            stepPaths: [`/kitchen/recipes/${String(RECIPE_ID)}`],
+        });
         let stored = recipe();
         const { repositories } = await renderEditor(
             {
@@ -575,6 +584,8 @@ describe('a recipe opened from a stock gap', () => {
             { timeout: 5000 },
         );
         expect(screen.queryByTestId('kitchen-recipe-stock-gap')).toBeNull();
+        // Published: nothing is left to lose, so Continue has nothing to keep.
+        expect(readActiveProcess()).toBeNull();
         // The toast offers the same way back.
         await untilVisible('kitchen-recipe-published-back');
         expect(screen.queryByTestId('kitchen-recipe-yield-pieces-error')).toBeNull();
