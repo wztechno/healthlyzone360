@@ -2233,6 +2233,24 @@ function OrderDeskQueueList() {
                                     openDetail(row);
                                 },
                             },
+                            // Drawn on every row a seller sees, enabled where the server's
+                            // `amendable` says the edit would be accepted — as the record page does.
+                            ...(canSell
+                                ? [
+                                      {
+                                          key: 'edit',
+                                          label: t('kitchen:desk.edit.open'),
+                                          icon: CATALOGUE_ROW_ICONS.edit,
+                                          disabled: !row.amendable,
+                                          testID: `${orderDeskRowTestId(String(row.id))}-edit`,
+                                          onSelect: () => {
+                                              router.push(
+                                                  `/kitchen/order-desk/sale?order=${encodeURIComponent(String(row.id))}`,
+                                              );
+                                          },
+                                      },
+                                  ]
+                                : []),
                         ]}
                     />
 
