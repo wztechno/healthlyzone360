@@ -248,10 +248,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
     // Opened from a fix in progress — a stock gap, or an ingredient a recipe sent the reader to — this
     // form is one of its steps, so the top bar does not offer Continue over it.
     useProcessStep(
-        withReturnTo(
-            withQuery('/kitchen/procurement/new', { ingredient, item }),
-            back.returnTo,
-        ),
+        withReturnTo(withQuery('/kitchen/procurement/new', { ingredient, item }), back.returnTo),
         back.returnTo,
     );
     const toast = useToast();

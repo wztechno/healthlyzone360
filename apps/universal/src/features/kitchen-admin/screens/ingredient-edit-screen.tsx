@@ -2385,10 +2385,7 @@ function IngredientEditor({
             detail: item.section,
             // Food's price is read off receipts, so its fix is posting one, not the read-only field.
             action:
-                item.key === 'price' &&
-                family.food &&
-                canPostReceipt &&
-                recordDeliveryHref !== null
+                item.key === 'price' && family.food && canPostReceipt && recordDeliveryHref !== null
                     ? {
                           label: t('kitchen:ingredientFix.recordDelivery'),
                           testID: 'kitchen-ingredient-record-delivery',
