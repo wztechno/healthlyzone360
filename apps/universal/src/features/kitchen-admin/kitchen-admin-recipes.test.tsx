@@ -1205,26 +1205,33 @@ describe('the recipe list', () => {
             repositories: { kitchenAdmin: { listRecipes: listing.listRecipes } },
         });
 
-        await untilVisible('kitchen-recipes-kind');
-        expect(screen.getByTestId('kitchen-recipes-kind-sauce')).toBeSelected();
-        expect(screen.getByTestId('kitchen-recipes-kind-all')).not.toBeSelected();
-        // The page asked for sauces — not only the strip's counts, which ask for one row each.
+        await untilVisible('kitchen-recipes-kind-trigger');
+        expect(screen.getByTestId('kitchen-recipes-kind-trigger')).toHaveTextContent(/Sauce/);
+        // The page asked for sauces — not only the picker's counts, which ask for one row each.
         await waitFor(() => {
             expect(
                 listing.filters.some((sent) => sent.kind === 'sauce' && sent.perPage !== 1),
             ).toBe(true);
         });
 
-        // The URL is the tab's only copy, so a press writes the URL and nothing else.
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipes-kind-meal'));
-        });
+        // The URL is the kind's only copy, so a pick writes the URL and nothing else.
+        // The URL is mocked, so a pick does not re-render the page: the menu may still be open.
+        const pick = async (kind: string) => {
+            if (screen.queryByTestId(`kitchen-recipes-kind-${kind}`) === null) {
+                await act(async () => {
+                    fireEvent.press(screen.getByTestId('kitchen-recipes-kind-trigger'));
+                });
+            }
+            await untilVisible(`kitchen-recipes-kind-${kind}`);
+            await act(async () => {
+                fireEvent.press(screen.getByTestId(`kitchen-recipes-kind-${kind}`));
+            });
+        };
+        await pick('meal');
         expect(routerMock.__setParams).toHaveBeenLastCalledWith({ kind: 'meal' });
 
         // All is the absence of a kind, written as an empty parameter rather than a stale one.
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipes-kind-all'));
-        });
+        await pick('all');
         expect(routerMock.__setParams).toHaveBeenLastCalledWith({ kind: '' });
     });
 
@@ -1263,19 +1270,20 @@ describe('the recipe list', () => {
             repositories: { kitchenAdmin: { listRecipes: listing.listRecipes } },
         });
 
-        // The figure is an annotation, out of the tab's accessible name, so it is asked for as such.
-        const count = (tab: string) =>
-            screen.getByTestId(`kitchen-recipes-kind-${tab}-count`, {
-                includeHiddenElements: true,
-            });
-        await waitFor(() => {
-            expect(count('sauce')).toHaveTextContent('2');
+        // The counts ride on the Kind picker's options.
+        await untilVisible('kitchen-recipes-kind-trigger');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-kind-trigger'));
         });
-        expect(count('meal')).toHaveTextContent('1');
-        expect(count('dressing')).toHaveTextContent('0');
-        expect(count('frozen_meal')).toHaveTextContent('0');
-        expect(count('preparation')).toHaveTextContent('1');
-        expect(count('all')).toHaveTextContent('4');
+        const count = (kind: string) => screen.getByTestId(`kitchen-recipes-kind-${kind}`);
+        await waitFor(() => {
+            expect(count('sauce')).toHaveTextContent(/· 2$/);
+        });
+        expect(count('meal')).toHaveTextContent(/· 1$/);
+        expect(count('dressing')).toHaveTextContent(/· 0$/);
+        expect(count('frozen_meal')).toHaveTextContent(/· 0$/);
+        expect(count('preparation')).toHaveTextContent(/· 1$/);
+        expect(count('all')).toHaveTextContent(/· 4$/);
         // One row per kind: the count is the pager's own `totalCount`, so nothing walks pages.
         expect(listing.filters).toContainEqual({ kind: 'dressing', page: 1, perPage: 1 });
     });
@@ -1300,21 +1308,90 @@ describe('the recipe list', () => {
             repositories: { kitchenAdmin: { listRecipes: listing.listRecipes } },
         });
 
-        // The card is drawn while the page loads, with a placeholder where its figure goes; the
-        // figure is what says the listing has landed.
-        await untilVisible('kitchen-recipes-stats-onSale-value');
+        // The figure is drawn while the page loads, with a placeholder where its number goes; the
+        // number is what says the listing has landed.
+        await untilVisible('kitchen-recipes-toolbar-figure-onSale-value');
         // The sauce's item is live; the meal's is a draft, and the marination sells nothing.
-        expect(screen.getByTestId('kitchen-recipes-stats-onSale-value')).toHaveTextContent('1');
-        expect(screen.getByTestId('kitchen-recipes-stats-review')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-recipes-toolbar-figure-onSale-value')).toHaveTextContent(
+            '1',
+        );
+        expect(screen.getByTestId('kitchen-recipes-toolbar-figure-review')).toBeTruthy();
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipes-stats-onSale'));
+            fireEvent.press(screen.getByTestId('kitchen-recipes-toolbar-figure-onSale'));
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-recipes-stats-shown-value')).toHaveTextContent('1');
+            expect(screen.getByTestId('kitchen-recipes-toolbar-result')).toHaveTextContent(
+                '1 of 1',
+            );
         });
         expect(listing.filters.some((sent) => sent.sellingStatus === 'published')).toBe(true);
+        // The filter shows as a token, and the token lets go of it.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-toolbar-token-onSale-remove'));
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-recipes-toolbar-result')).toHaveTextContent(
+                '3 of 3',
+            );
+        });
+    });
+
+    it('narrows to a status from its figure without zeroing the other figures', async () => {
+        const listing = recordedListing(() => [
+            recipe({ ordinal: 1, name: 'Tabbouleh', overrides: { meta: meta() } }),
+            recipe({
+                ordinal: 2,
+                name: 'Fattoush',
+                overrides: { meta: meta({ status: 'published' }) },
+            }),
+            recipe({
+                ordinal: 3,
+                name: 'Hummus',
+                overrides: { meta: meta({ status: 'published' }) },
+            }),
+        ]);
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { listRecipes: listing.listRecipes } },
+        });
+
+        await untilVisible('kitchen-recipes-toolbar-figure-draft-value');
+        expect(screen.getByTestId('kitchen-recipes-toolbar-figure-draft-value')).toHaveTextContent(
+            '1',
+        );
+        expect(
+            screen.getByTestId('kitchen-recipes-toolbar-figure-published-value'),
+        ).toHaveTextContent('2');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-toolbar-figure-draft'));
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-recipes-toolbar-result')).toHaveTextContent(
+                '1 of 1',
+            );
+        });
+        expect(listing.filters.some((sent) => sent.statuses?.includes('draft') === true)).toBe(
+            true,
+        );
+        // Published still counts the scope, not the narrowed list.
+        expect(
+            screen.getByTestId('kitchen-recipes-toolbar-figure-published-value'),
+        ).toHaveTextContent('2');
+        expect(screen.getByTestId('kitchen-recipes-toolbar-token-status-draft')).toBeTruthy();
+
+        // Clear lets go of the status; the kind, a scope, would stay.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-toolbar-clear'));
+        });
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-recipes-toolbar-token-status-draft')).toBeNull();
+        });
+        expect(screen.queryByTestId('kitchen-recipes-toolbar-clear')).toBeNull();
     });
 
     it('trades Awaiting review for No pack on a packaged tab', async () => {
@@ -1350,9 +1427,11 @@ describe('the recipe list', () => {
 
         // A sauce with no pack has nothing a price list can point at — the figure the sauces page
         // showed in this slot. Read-only, because the contract has no parameter for it.
-        await untilVisible('kitchen-recipes-stats-noPack-value');
-        expect(screen.getByTestId('kitchen-recipes-stats-noPack-value')).toHaveTextContent('1');
-        expect(screen.queryByTestId('kitchen-recipes-stats-review')).toBeNull();
+        await untilVisible('kitchen-recipes-toolbar-figure-noPack-value');
+        expect(screen.getByTestId('kitchen-recipes-toolbar-figure-noPack-value')).toHaveTextContent(
+            '1',
+        );
+        expect(screen.queryByTestId('kitchen-recipes-toolbar-figure-review')).toBeNull();
     });
 
     it.each(RECIPE_KINDS)(
@@ -1427,9 +1506,9 @@ describe('the recipe list', () => {
         });
 
         await untilVisible('kitchen-recipes-table');
-        expect(screen.queryByTestId('kitchen-recipes-kind')).toBeNull();
-        expect(screen.queryByTestId('kitchen-recipes-stats-onSale')).toBeNull();
-        expect(screen.getByTestId('kitchen-recipes-stats-review')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-recipes-kind-trigger')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipes-toolbar-figure-onSale')).toBeNull();
+        expect(screen.getByTestId('kitchen-recipes-toolbar-figure-review')).toBeTruthy();
 
         // Not hidden but absent: the picker does not offer the seller tracks at all.
         await act(async () => {
@@ -4413,6 +4492,7 @@ describe('adding an ingredient from the line picker', () => {
         suitable: true,
         reasons: [],
         missing_nutrients: [],
+        unsupported_basis: false,
         source_hash: 'b'.repeat(64),
         retrieved_at: '2026-10-22T00:00:00Z',
     };

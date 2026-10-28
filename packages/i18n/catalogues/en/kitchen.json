@@ -4390,7 +4390,8 @@
         "confirmReview": "Confirm allergen assessment",
         "configuration": "Nutrition lookup needs configuration",
         "clearSelection": "Clear selection",
-        "missing": "Missing {{list}}"
+        "missing": "Missing {{list}}",
+        "notPerGram": "Not measured per gram"
     },
     "assist": {
         "title": "AI assistant",
@@ -4516,6 +4517,7 @@
         "nutrition": "Choose and confirm a nutrition match, then save.",
         "unit": "Enter what one {{unit}} weighs, then save.",
         "priceFood": "No price yet. It comes from the next delivery you receive.",
+        "recordDelivery": "Record a delivery",
         "pricePack": "Enter the pack price, then save.",
         "back": "Back to recipe",
         "backNamed": "Back to {{name}}",
@@ -4691,6 +4693,17 @@
         "itemsFailedTitle_other": "{{count}} items could not be offered",
         "itemFailure": "{{name}}: {{message}}",
         "itemsReadError": "Which items are on the channel could not be read."
+    },
+    "lens": {
+        "label": "List summary and filters",
+        "allIngredients": "All ingredients",
+        "allRecipes": "All recipes",
+        "allAction": "Show every status",
+        "publishedAction": "Show only published records",
+        "result": "{{shown}} of {{total}}",
+        "clear": "Clear",
+        "mix": "{{published}} published, {{draft}} draft, {{review}} awaiting review",
+        "token": "{{label}}: {{value}}"
     },
     "tray": {
         "noChannel": "No sales channel",

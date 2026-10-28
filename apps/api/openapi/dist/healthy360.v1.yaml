@@ -27409,6 +27409,7 @@ components:
         - suitable
         - reasons
         - missing_nutrients
+        - unsupported_basis
         - source_hash
         - retrieved_at
       properties:
@@ -27438,6 +27439,9 @@ components:
           type: array
           items:
             type: string
+        unsupported_basis:
+          type: boolean
+          description: A branded food not recorded per gram (per ml, or no serving unit), which cannot be read as per 100 g.
         source_hash:
           type: string
           pattern: ^[a-f0-9]{64}$

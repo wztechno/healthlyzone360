@@ -28,7 +28,6 @@ import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import {
@@ -50,17 +49,15 @@ import { RecipeCardGrid } from '../catalogue/recipe-card-grid.tsx';
 import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
+import { LensBar, LensScope, LensViewSwitch } from '../catalogue/lens-bar.tsx';
+import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
+import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField, RecordViewSection } from '../catalogue/record-view-page.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { RECIPE_IMPORT_GUIDE } from '../catalogue/import-guides.ts';
 import { TECHNICAL_SHEETS_MAX, listPrintJob, useListPrint } from '../catalogue/list-print.ts';
-import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
-import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import {
     identifierFragment,
@@ -82,6 +79,7 @@ import {
     channelKey,
     displayName,
     recipeRowTestId,
+    statusKey,
     statusShortKey,
     statusTone,
 } from '../format.ts';
@@ -294,8 +292,6 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
         },
     );
 
-    const segments = statusSegments(list.statuses, list.setStatuses, t);
-
     // One sheet per recipe the filters match, in the list's order — capped where the server is.
     const openTechnicalSheets = () => {
         const count = list.everyRow.length;
@@ -404,56 +400,97 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
     return (
         <IssueTrayFrame tray={trayContent}>
             <Cascade space="md" testID="kitchen-recipes-screen">
-                <CatalogueStatCards
-                    testID="kitchen-recipes-stats"
-                    cards={statCards(list, t)}
-                    pending={list.isPending}
-                    countsPending={list.countsPending}
-                />
-
                 {/*
-                 * The search and filter bar, then the kind strip under it, both directly over the list
-                 * they narrow — two matching cards at 8px, so they read as one set of controls. The
-                 * strip does not wait on the list, so the tabs do not blink while a new tab's page
-                 * loads.
+                 * The Lens bar — figures, mix, query row and actions as one object directly over the
+                 * list it narrows (`lens-bar.tsx`). It replaced the stat cards, the toolbar and the
+                 * kind strip; the kind is now the query row's scope picker.
                  */}
-                <Stack space="sm">
-                    <CatalogueToolbar<StatusSegmentValue>
-                        testID="kitchen-recipes-toolbar"
-                        search={list.query}
-                        onSearchChange={list.setQuery}
-                        searchLabel={t('kitchen:toolbar.searchLabel')}
-                        searchPlaceholder={t('kitchen:toolbar.searchRecipes')}
-                        statusLabel={t('kitchen:toolbar.statusLabel')}
-                        statusSegments={segments.segments}
-                        status={segments.value}
-                        onStatusChange={segments.onChange}
-                        filters={
-                            <SegmentedControl<RecipeLayout>
-                                testID="kitchen-recipes-layout"
-                                label={t('kitchen:list.layoutLabel')}
-                                value={layout}
-                                onChange={setLayout}
-                                items={[
-                                    {
-                                        value: 'table',
-                                        label: t('kitchen:list.layoutTable'),
-                                        icon: 'list',
-                                        testID: 'kitchen-recipes-layout-table',
-                                    },
-                                    {
-                                        value: 'cards',
-                                        label: t('kitchen:list.layoutCards'),
-                                        icon: 'layoutGrid',
-                                        testID: 'kitchen-recipes-layout-cards',
-                                    },
-                                ]}
+                <LensBar
+                    testID="kitchen-recipes-toolbar"
+                    label={t('kitchen:lens.label')}
+                    figures={lensFigures(list, t)}
+                    {...statusLensMix(list, t)}
+                    scope={
+                        list.sells ? (
+                            <RecipeKindScope
+                                value={list.kind}
+                                onChange={list.setKind}
+                                counts={kindCounts.data}
                             />
-                        }
-                    >
-                        {/* Columns are a table's question; a card draws every field it has. */}
-                        {layout === 'table' ? <ColumnPicker {...controls.picker} /> : null}
-                        {canManage ? (
+                        ) : undefined
+                    }
+                    search={list.query}
+                    onSearchChange={list.setQuery}
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:toolbar.searchRecipes')}
+                    tokens={lensTokens(list, t, locale)}
+                    result={
+                        list.total === null
+                            ? null
+                            : t('kitchen:lens.result', { shown: list.shown, total: list.total })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    // The kind is the scope the reader stands in, so Clear leaves it.
+                    {...(list.trimmed === '' &&
+                    list.statuses.length === 0 &&
+                    list.allergen === null &&
+                    list.category === null &&
+                    list.sellingStatus === null
+                        ? {}
+                        : {
+                              onClear: () => {
+                                  list.setQuery('');
+                                  list.setStatuses([]);
+                                  list.setAllergen(null);
+                                  list.setCategory(null);
+                                  list.setSellingStatus(null);
+                              },
+                          })}
+                    // Beside the issue tray the bar is narrow, and both controls become glyphs so
+                    // the query row stays one line.
+                    trailing={(narrow) => {
+                        const layoutOptions = [
+                            {
+                                value: 'table' as const,
+                                label: t('kitchen:list.layoutTable'),
+                                icon: 'list' as const,
+                                testID: 'kitchen-recipes-layout-table',
+                            },
+                            {
+                                value: 'cards' as const,
+                                label: t('kitchen:list.layoutCards'),
+                                icon: 'layoutGrid' as const,
+                                testID: 'kitchen-recipes-layout-cards',
+                            },
+                        ];
+                        return (
+                            <Inline space="xs" align="center">
+                                {narrow ? (
+                                    <LensViewSwitch<RecipeLayout>
+                                        testID="kitchen-recipes-layout"
+                                        label={t('kitchen:list.layoutLabel')}
+                                        value={layout}
+                                        onChange={setLayout}
+                                        options={layoutOptions}
+                                    />
+                                ) : (
+                                    <SegmentedControl<RecipeLayout>
+                                        testID="kitchen-recipes-layout"
+                                        label={t('kitchen:list.layoutLabel')}
+                                        value={layout}
+                                        onChange={setLayout}
+                                        items={layoutOptions}
+                                    />
+                                )}
+                                {/* Columns are a table's question; a card draws every field it has. */}
+                                {layout === 'table' ? (
+                                    <ColumnPicker {...controls.picker} compact={narrow} />
+                                ) : null}
+                            </Inline>
+                        );
+                    }}
+                    actions={
+                        canManage ? (
                             <Inline space="xs" align="center">
                                 <CatalogueTransferActions
                                     testID="kitchen-recipes-toolbar"
@@ -503,16 +540,9 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                                     onCreate={list.createNew}
                                 />
                             </Inline>
-                        ) : undefined}
-                    </CatalogueToolbar>
-                    {list.sells ? (
-                        <RecipeKindStrip
-                            value={list.kind}
-                            onChange={list.setKind}
-                            counts={kindCounts.data}
-                        />
-                    ) : null}
-                </Stack>
+                        ) : undefined
+                    }
+                />
 
                 {list.sells ? (
                     <UnformulatedItems testID="kitchen-recipes-unformulated" kind={list.kind} />
@@ -676,7 +706,7 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
  * both — the same rule the tabs filter by. A kind the server could not count shows no figure rather
  * than a zero it does not know.
  */
-function RecipeKindStrip({
+function RecipeKindScope({
     value,
     onChange,
     counts,
@@ -697,41 +727,30 @@ function RecipeKindStrip({
               }, 0);
 
     return (
-        /*
-         * The toolbar's own card — panel radius, border, raised fill and cast, 8px inset — so the
-         * strip reads as the second row of the same controls rather than a loose band of tabs.
-         * `block`: the six tabs share the card's width equally instead of packing at its start.
-         */
-        <View
-            testID="kitchen-recipes-kind-card"
-            className="rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
-        >
-            <SegmentedControl<RecipeKind | 'all'>
-                testID="kitchen-recipes-kind"
-                label={t('kitchen:recipes.columnKind')}
-                block
-                value={value ?? 'all'}
-                onChange={(next) => {
-                    onChange(next === 'all' ? null : next);
-                }}
-                items={[
-                    {
-                        value: 'all',
-                        label: t('kitchen:toolbar.statusAll'),
-                        icon: 'bookOpen',
-                        count: all,
-                        testID: 'kitchen-recipes-kind-all',
-                    },
-                    ...RECIPE_KINDS.map((kind) => ({
-                        value: kind,
-                        label: t(KIND_TAB_LABEL_KEYS[kind]),
-                        icon: KIND_ICONS[kind],
-                        count: counts?.[kind] ?? undefined,
-                        testID: `kitchen-recipes-kind-${kind}`,
-                    })),
-                ]}
-            />
-        </View>
+        <LensScope<RecipeKind | 'all'>
+            testID="kitchen-recipes-kind"
+            label={t('kitchen:recipes.columnKind')}
+            value={value ?? 'all'}
+            onChange={(next) => {
+                onChange(next === 'all' ? null : next);
+            }}
+            options={[
+                {
+                    value: 'all',
+                    label: t('kitchen:toolbar.statusAll'),
+                    icon: 'bookOpen',
+                    count: all,
+                    testID: 'kitchen-recipes-kind-all',
+                },
+                ...RECIPE_KINDS.map((kind) => ({
+                    value: kind,
+                    label: t(KIND_TAB_LABEL_KEYS[kind]),
+                    icon: KIND_ICONS[kind],
+                    count: counts?.[kind] ?? undefined,
+                    testID: `kitchen-recipes-kind-${kind}`,
+                })),
+            ]}
+        />
     );
 }
 
@@ -898,89 +917,116 @@ function rowActions(
 }
 
 /**
- * The four figures the summary line used to state, as cards.
+ * The Lens bar's figures: All · Published · Draft · Awaiting review, then On sale.
  *
- * `total` is the server's count for the filtered set; the three beside it are counted over the
- * loaded page, which is the only set this screen has. That difference is why Shown reads "18 of 84"
- * rather than claiming the others are catalogue-wide.
- *
- * Every card is a filter the request carries except No pack — the contract has no parameter for it,
- * and a card that looked pressable and did nothing would be worse than one that plainly does not.
+ * Awaiting review stands on All, Meals and Preparations — the quarantine a kitchen has to clear
+ * before anything can publish — and No pack on Sauces, Dressings and Frozen meals, where a packaged
+ * item with no pack has nothing to price against. No pack is read-only: the contract has no
+ * parameter for it. On sale narrows through the server's `sellingStatus`, and pressing it again
+ * lets go.
  */
-function statCards(list: RecipeListState, t: TFunction): readonly CatalogueStatCard[] {
-    const shown: CatalogueStatCard = {
-        key: 'shown',
-        label: t('kitchen:list.statShown'),
-        value: String(list.shown),
-        unit: t('kitchen:list.statShownUnit', { total: list.total ?? list.shown }),
-        caption: list.isUnfiltered
-            ? t('kitchen:list.statShownUnfiltered')
-            : t('kitchen:list.statShownFiltered'),
-        mark: 'list',
-        tone: 'brand',
-        // Pressable in both states: clearing nothing is a no-op, and a card that stopped being
-        // a target once the filters were clear would move the row's one affordance around.
-        onPress: list.clearFilters,
-        accessibilityLabel: t('kitchen:list.statShownAction'),
-    };
-    // What a shopper can buy now, whichever kind sells it — the meal page's Live, for the book.
-    const onSale: CatalogueStatCard = {
-        key: 'onSale',
-        label: t('kitchen:recipes.columnOnSale'),
-        value: String(list.onSaleCount),
-        unit: t('kitchen:list.statRecords'),
-        caption: t('kitchen:recipes.statOnSaleCaption'),
-        mark: 'eye',
-        onPress: () => {
-            list.setSellingStatus('published');
-        },
-        accessibilityLabel: t('kitchen:recipes.statOnSaleAction'),
-    };
-    const draft: CatalogueStatCard = {
-        key: 'draft',
-        label: t('kitchen:list.statDraft'),
-        value: String(list.draftCount),
-        unit: t('kitchen:list.statRecords'),
-        caption: t('kitchen:list.statDraftCaption'),
-        mark: 'fileDraft',
-        // Amber only while there is something to act on — see the note in the component.
-        tone: list.draftCount === 0 ? 'default' : 'warning',
-        onPress: () => {
-            list.setStatuses(['draft']);
-        },
-        accessibilityLabel: t('kitchen:list.statDraftAction'),
-    };
-    const review: CatalogueStatCard = {
-        key: 'review',
-        label: t('kitchen:recipes.statReview'),
-        value: String(list.reviewCount),
-        unit: t('kitchen:list.statRecords'),
-        caption: t('kitchen:recipes.statReviewCaption'),
-        mark: 'alert',
-        // The one figure that blocks publication outright, so it takes the danger ink while
-        // there is anything in it — and the ordinary raised fill, because the row spends its
-        // one coloured panel on Draft.
-        tone: list.reviewCount === 0 ? 'default' : 'danger',
-        onPress: () => {
-            list.setStatuses(['review_required']);
-        },
-        accessibilityLabel: t('kitchen:recipes.statReviewAction'),
-    };
-    // The packaged-goods pages' figure, in the slot they drew it in: a packaged item with no pack
-    // has nothing a price list can point at.
-    const noPack: CatalogueStatCard = {
-        key: 'noPack',
-        label: t('kitchen:products.statNoPack'),
-        value: String(list.noPackCount),
-        unit: t('kitchen:list.statRecords'),
-        caption: t('kitchen:products.statNoPackCaption'),
-        mark: 'package',
-        tone: list.noPackCount === 0 ? 'default' : 'warning',
-    };
+function lensFigures(list: RecipeListState, t: TFunction): readonly LensFigure[] {
+    const counted = (count: number) => (list.countsPending ? null : count);
     const packaged =
         list.kind === 'sauce' || list.kind === 'dressing' || list.kind === 'frozen_meal';
+    const onSaleActive = list.sellingStatus === 'published';
 
-    return [shown, ...(list.sells ? [onSale] : []), draft, packaged ? noPack : review];
+    return [
+        ...statusLensFigures(list, t, {
+            allLabel: t('kitchen:lens.allRecipes'),
+            review: !packaged,
+            reviewAction: t('kitchen:recipes.statReviewAction'),
+        }),
+        ...(list.sells
+            ? [
+                  {
+                      key: 'onSale',
+                      label: t('kitchen:recipes.columnOnSale'),
+                      value: counted(list.onSaleCount),
+                      icon: 'eye' as const,
+                      separated: true,
+                      active: onSaleActive,
+                      onPress: () => {
+                          list.setSellingStatus(onSaleActive ? null : 'published');
+                      },
+                      accessibilityLabel: t('kitchen:recipes.statOnSaleAction'),
+                  },
+              ]
+            : []),
+        ...(packaged
+            ? [
+                  {
+                      key: 'noPack',
+                      label: t('kitchen:products.statNoPack'),
+                      value: counted(list.noPackCount),
+                      tone: 'warning' as const,
+                      separated: !list.sells,
+                  },
+              ]
+            : []),
+    ];
+}
+
+/** The filters in force besides the search and the kind — each one removable on its own. */
+function lensTokens(list: RecipeListState, t: TFunction, locale: string): readonly LensToken[] {
+    const token = (key: string, label: string, onRemove: () => void): LensToken => ({
+        key,
+        label,
+        removeLabel: t('kitchen:toolbar.removeFilter', { filter: label }),
+        onRemove,
+    });
+    const allergen = list.allergenClasses.find((entry) => entry.code === list.allergen);
+
+    return [
+        ...statusLensTokens(list, t),
+        ...(list.sellingStatus === null
+            ? []
+            : [
+                  token(
+                      'onSale',
+                      list.sellingStatus === 'published'
+                          ? t('kitchen:recipes.columnOnSale')
+                          : t('kitchen:lens.token', {
+                                label: t('kitchen:recipes.columnOnSale'),
+                                value: t(statusKey(list.sellingStatus)),
+                            }),
+                      () => {
+                          list.setSellingStatus(null);
+                      },
+                  ),
+              ]),
+        ...(list.category === null
+            ? []
+            : [
+                  token(
+                      'category',
+                      t('kitchen:lens.token', {
+                          label: t('kitchen:toolbar.categoryLabel'),
+                          value: recipeCategoryLabel(list.category, t) ?? list.category,
+                      }),
+                      () => {
+                          list.setCategory(null);
+                      },
+                  ),
+              ]),
+        ...(list.allergen === null
+            ? []
+            : [
+                  token(
+                      'allergen',
+                      t('kitchen:lens.token', {
+                          label: t('kitchen:recipes.columnAllergens'),
+                          value:
+                              allergen === undefined
+                                  ? list.allergen
+                                  : displayName(allergen.name, locale).value,
+                      }),
+                      () => {
+                          list.setAllergen(null);
+                      },
+                  ),
+              ]),
+    ];
 }
 
 /** The sellers' channels as badges, in their own rail card. An empty set says so in words. */

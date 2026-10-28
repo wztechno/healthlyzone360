@@ -174,6 +174,26 @@ function useKitchenOpsWriteEffects(): () => void {
     };
 }
 
+/**
+ * The ops lists, and every recipe's costing: a priced receipt is where a food ingredient's price
+ * comes from, so a recipe that read "No price yet" a moment ago must not keep reading it from cache
+ * when the receipt form hands the reader back to it. The recipe, its roll-up preview and its
+ * technical sheets all sit under `['kitchenAdmin', 'recipe', …]`.
+ */
+function useReceiptWriteEffects(): () => void {
+    const queryClient = useQueryClient();
+    const onWritten = useKitchenOpsWriteEffects();
+    return () => {
+        onWritten();
+        void queryClient.invalidateQueries({
+            queryKey: [...queryKeys.kitchenAdmin.all(), 'recipe'],
+        });
+        void queryClient.invalidateQueries({
+            queryKey: [...queryKeys.kitchenAdmin.all(), 'recipe-technical-sheets'],
+        });
+    };
+}
+
 /*
  * No stock-item writer (INV2.0). A shelf is derived from an ingredient or from a
  * product the kitchen buys in to resell, so it appears when one of those does.
@@ -862,7 +882,7 @@ export function usePostGoodsReceiptMutation(): UseMutationResult<
     PostGoodsReceiptRequest
 > {
     const repositories = useRepositories();
-    const onWritten = useKitchenOpsWriteEffects();
+    const onWritten = useReceiptWriteEffects();
 
     return useMutation({
         mutationFn: (request: PostGoodsReceiptRequest) =>
@@ -891,7 +911,7 @@ export function useCompleteReceiptPricesMutation(): UseMutationResult<
     CompleteReceiptPricesVariables
 > {
     const repositories = useRepositories();
-    const onWritten = useKitchenOpsWriteEffects();
+    const onWritten = useReceiptWriteEffects();
 
     return useMutation({
         mutationFn: (variables: CompleteReceiptPricesVariables) =>

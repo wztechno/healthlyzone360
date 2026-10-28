@@ -31,6 +31,7 @@ import type { ReactNode } from 'react';
 import { Dimensions } from 'react-native';
 
 import {
+    KITCHEN_MANAGER_PERMISSIONS,
     MEMBER_PERMISSIONS,
     TEST_BRANCH_ID,
     TEST_ORGANISATION_ID,
@@ -145,6 +146,7 @@ const USDA_CANDIDATE: NutritionReferenceCandidate = {
     suitable: true,
     reasons: [],
     missing_nutrients: [],
+    unsupported_basis: false,
     source_hash: 'a'.repeat(64),
     retrieved_at: '2026-10-14T00:00:00Z',
 };
@@ -707,16 +709,31 @@ describe('the ingredient list at desk width', () => {
         });
 
         await untilVisible('kitchen-ingredients-loading');
-        // The cards are drawn while the list loads — label, caption, and a placeholder holding the
-        // figure's line — so the toolbar and table do not drop by a card's height when it lands.
-        expect(screen.getByTestId('kitchen-ingredients-stats-draft')).toHaveTextContent(/Draft/);
-        expect(screen.getByTestId('kitchen-ingredients-stats-draft-loading')).toBeTruthy();
-        expect(screen.queryByTestId('kitchen-ingredients-stats-draft-value')).toBeNull();
+        // The Lens bar's figures are drawn while the list loads — label, and a placeholder holding
+        // the number's line — so the table does not drop when they land.
+        expect(screen.getByTestId('kitchen-ingredients-toolbar-figure-draft')).toHaveTextContent(
+            /Draft/,
+        );
+        expect(screen.getByTestId('kitchen-ingredients-toolbar-figure-draft-loading')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-ingredients-toolbar-figure-draft-value')).toBeNull();
 
         await untilVisible('kitchen-ingredients-table');
 
-        expect(screen.queryByTestId('kitchen-ingredients-stats-draft-loading')).toBeNull();
-        expect(screen.getByTestId('kitchen-ingredients-stats-shown-value')).toHaveTextContent('2');
+        await waitFor(() => {
+            expect(
+                screen.queryByTestId('kitchen-ingredients-toolbar-figure-draft-loading'),
+            ).toBeNull();
+        });
+        expect(
+            screen.getByTestId('kitchen-ingredients-toolbar-figure-all-value'),
+        ).toHaveTextContent('2');
+        // One published, one draft — the mix and the figures agree.
+        expect(
+            screen.getByTestId('kitchen-ingredients-toolbar-figure-published-value'),
+        ).toHaveTextContent('1');
+        expect(screen.getByTestId('kitchen-ingredients-toolbar-result')).toHaveTextContent(
+            '2 of 2',
+        );
         // The rows arrive through their entrance; the row itself is the same element as ever.
         expect(
             screen.getByTestId(`kitchen-ingredients-table-row-${String(mapped.id)}-entrance`),
@@ -1884,6 +1901,80 @@ describe('the ingredient editor', () => {
  * editable, sent on their own. And a record whose figures a published recipe **derives** gets
  * neither, because the server refuses both on a derivation.
  */
+/**
+ * A recipe's "No price yet" on a food ingredient. Food is priced off its receipts, never typed, so
+ * the fix is posting one: the tray's card opens the receipt form on this ingredient, with the way
+ * back to the recipe that asked.
+ */
+describe('a food ingredient with no price, sent from a recipe', () => {
+    const RECIPE_RETURN = '/kitchen/recipes/01a08514-be2f-717f-96bd-8087ebf66134';
+
+    it('opens the receipt form on the ingredient, returning to the recipe', async () => {
+        const record = ingredient(92);
+        await renderStubScreen(
+            <IngredientEditScreen
+                ingredient={String(record.id)}
+                needs="price"
+                returnTo={RECIPE_RETURN}
+            />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [record]),
+                        getIngredient: async () => record,
+                    },
+                },
+            },
+        );
+
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-ingredient-record-delivery');
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-ingredient-record-delivery'));
+            });
+        });
+        await waitFor(() => {
+            expect(routerMock.__push).toHaveBeenCalledWith(
+                `/kitchen/procurement/new?ingredient=${String(record.id)}&returnTo=${encodeURIComponent(
+                    encodeURIComponent(RECIPE_RETURN),
+                )}`,
+            );
+        });
+    });
+
+    it('points at the price field for someone who may not post a receipt', async () => {
+        const record = ingredient(93);
+        await renderStubScreen(
+            <IngredientEditScreen
+                ingredient={String(record.id)}
+                needs="price"
+                returnTo={RECIPE_RETURN}
+            />,
+            {
+                session: kitchenManagerSession({
+                    activeContext: testActiveContext({
+                        permissions: KITCHEN_MANAGER_PERMISSIONS.filter(
+                            (permission) => permission !== 'inventory.manage_organisation',
+                        ),
+                    }),
+                }),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [record]),
+                        getIngredient: async () => record,
+                    },
+                },
+            },
+        );
+
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-ingredient-fix-price');
+            expect(screen.queryByTestId('kitchen-ingredient-record-delivery')).toBeNull();
+        });
+    });
+});
+
 describe('USDA lookup and explicit allergen review', () => {
     it('searches only on submission and explains an empty response', async () => {
         const onChange = jest.fn();
@@ -1924,6 +2015,43 @@ describe('USDA lookup and explicit allergen review', () => {
         expect(screen.getByTestId('nutrition-reference-select-usda:12345')).toBeDisabled();
         await fireEvent.press(screen.getByTestId('nutrition-reference-select-usda:12345'));
         expect(onChange).not.toHaveBeenCalled();
+        expect(screen.getByTestId('nutrition-reference-missing-usda:12345')).toBeTruthy();
+        expect(screen.queryByTestId('nutrition-reference-basis-usda:12345')).toBeNull();
+        expect(screen.getByTestId('nutrition-reference-none-usable')).toBeTruthy();
+    });
+
+    it('names a per-ml basis, and never draws an empty "Missing" tag', async () => {
+        await renderStubScreen(
+            <NutritionReferencePicker
+                name="louisiana sauce"
+                value={undefined}
+                onChange={jest.fn()}
+            />,
+            {
+                repositories: {
+                    kitchenAdmin: {
+                        searchNutritionReferences: async () => [
+                            {
+                                ...USDA_CANDIDATE,
+                                ref: 'usda:1909200',
+                                data_type: 'Branded',
+                                suitable: false,
+                                reasons: ['A confirmed gram basis is required.'],
+                                missing_nutrients: [],
+                                unsupported_basis: true,
+                            },
+                            USDA_CANDIDATE,
+                        ],
+                    },
+                },
+            },
+        );
+        await fireEvent.press(screen.getByTestId('nutrition-reference-search'));
+        await untilVisible('nutrition-reference-basis-usda:1909200');
+        expect(screen.queryByTestId('nutrition-reference-missing-usda:1909200')).toBeNull();
+        expect(screen.getByTestId('nutrition-reference-select-usda:1909200')).toBeDisabled();
+        // One usable match is a way forward, so there is nothing to warn about.
+        expect(screen.queryByTestId('nutrition-reference-none-usable')).toBeNull();
     });
 
     it('confirms unchanged pending mappings using review evidence and the snapshot token', async () => {

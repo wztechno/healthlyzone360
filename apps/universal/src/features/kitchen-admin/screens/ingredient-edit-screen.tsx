@@ -102,6 +102,7 @@ import { ingredientStockPhotoId } from '../catalogue/ingredient-photo.ts';
 import {
     CATALOGUE_MANAGE_PERMISSION,
     CATALOGUE_VIEW_PERMISSION,
+    INVENTORY_MANAGE_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
@@ -860,6 +861,19 @@ function IngredientEditor({
     );
     const latestPurchases = useItemLatestPurchasesQuery(latestPurchaseIds, canViewCosts);
     const latestPurchase = latestPurchases.data?.[0] ?? null;
+    /*
+     * Since the price is not typed here, "No price yet" is fixed by posting what was bought: the
+     * receipt form, opened on this ingredient, which goes back to the recipe that asked once it is
+     * posted — or to this page, sent here some other way. Only for someone who may post one.
+     */
+    const canPostReceipt = useCan(INVENTORY_MANAGE_PERMISSION);
+    const recordDeliveryHref =
+        isCreating || parsed === null
+            ? null
+            : withReturnTo(
+                  withQuery('/kitchen/procurement/new', { ingredient: String(parsed) }),
+                  back.returnTo ?? `${family.listRoute}/${String(parsed)}`,
+              );
 
     /**
      * Whether this record is in the stored quarantine — read from the record, not remembered.
@@ -2369,11 +2383,23 @@ function IngredientEditor({
             tone: 'warning',
             label: t(`kitchen:tray.need.${item.key}`),
             detail: item.section,
-            action: {
-                onPress: () => {
-                    goToTarget(item.targetId);
-                },
-            },
+            // Food's price is read off receipts, so its fix is posting one, not the read-only field.
+            action:
+                item.key === 'price' && family.food && canPostReceipt && recordDeliveryHref !== null
+                    ? {
+                          label: t('kitchen:ingredientFix.recordDelivery'),
+                          testID: 'kitchen-ingredient-record-delivery',
+                          onPress: () => {
+                              guard.intercept(() => {
+                                  router.push(recordDeliveryHref as never);
+                              });
+                          },
+                      }
+                    : {
+                          onPress: () => {
+                              goToTarget(item.targetId);
+                          },
+                      },
             testID: `kitchen-ingredient-fix-${item.key}`,
         }));
 

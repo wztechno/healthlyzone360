@@ -576,6 +576,7 @@ export const zNutritionReferenceCandidate = z.object({
     suitable: z.boolean(),
     reasons: z.array(z.string()),
     missing_nutrients: z.array(z.string()),
+    unsupported_basis: z.boolean(),
     source_hash: z.string().regex(/^[a-f0-9]{64}$/),
     retrieved_at: z.iso.datetime({ offset: true })
 });

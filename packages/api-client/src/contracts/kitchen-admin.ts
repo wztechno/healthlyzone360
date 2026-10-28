@@ -323,6 +323,8 @@ export interface NutritionReferenceCandidate {
     readonly suitable: boolean;
     readonly reasons: readonly string[];
     readonly missing_nutrients: readonly string[];
+    /** A branded food not recorded per gram — per ml, or no serving unit — so no per-100 g figure. */
+    readonly unsupported_basis: boolean;
     readonly source_hash: string;
     readonly retrieved_at: string;
 }

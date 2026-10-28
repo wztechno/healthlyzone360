@@ -189,6 +189,18 @@ export function NutritionReferencePicker({
                     body={t('kitchen:nutritionLookup.tryShorter')}
                 />
             ) : null}
+            {/* Matches came back, but not one can be chosen — every Select is dimmed, and the way
+                out is a different search ("pepper sauce" rather than a brand's own name). */}
+            {chosen === undefined &&
+            candidates.length > 0 &&
+            candidates.every((candidate) => !candidate.suitable) ? (
+                <Callout
+                    testID="nutrition-reference-none-usable"
+                    tone="warning"
+                    title={t('kitchen:nutritionLookup.unsuitable')}
+                    body={t('kitchen:nutritionLookup.tryShorter')}
+                />
+            ) : null}
 
             {candidates.length === 0 ? null : (
                 <View className="overflow-hidden rounded-md border border-stroke">
@@ -214,8 +226,19 @@ export function NutritionReferencePicker({
                                                 label={t('kitchen:assist.aiPick')}
                                             />
                                         ) : null}
-                                        {candidate.suitable ? null : (
+                                        {/* One tag per blocker. A branded sauce is usually listed per
+                                            ml, and a row that only named its missing nutrients hid
+                                            that — or read "Missing" with nothing after it. */}
+                                        {candidate.unsupported_basis ? (
                                             <Tag
+                                                testID={`nutrition-reference-basis-${candidate.ref}`}
+                                                tone="warning"
+                                                label={t('kitchen:nutritionLookup.notPerGram')}
+                                            />
+                                        ) : null}
+                                        {candidate.missing_nutrients.length === 0 ? null : (
+                                            <Tag
+                                                testID={`nutrition-reference-missing-${candidate.ref}`}
                                                 tone="warning"
                                                 label={t('kitchen:nutritionLookup.missing', {
                                                     list: candidate.missing_nutrients

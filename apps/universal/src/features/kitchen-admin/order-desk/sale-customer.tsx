@@ -2,6 +2,7 @@ import type { OrderDeskCustomer, ServiceArea } from '@healthy360/api-client/cont
 import {
     Badge,
     Button,
+    Callout,
     EmptyState,
     ErrorState,
     FormGrid,
@@ -13,10 +14,7 @@ import {
     Skeleton,
     Text,
     TextInputField,
-    useIssueGroup,
-    useIssueTrayController,
 } from '@healthy360/design-system';
-import type { IssueCardItem } from '@healthy360/design-system';
 import { fieldWidth } from '@healthy360/design-tokens';
 import { useLocale } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
@@ -55,11 +53,12 @@ import { useDebouncedValue } from './use-debounced-value.ts';
  * every time, and a returning customer gets a second copy of their own street. That is the wire's
  * shape rather than a choice made here, and the card says so before anybody types.
  *
- * ## Their warnings are the page's tray's
+ * ## Their warnings are their own
  *
- * A number somebody else already has and an address nobody delivers to are said as cards in the sale
- * page's issue tray (`useIssueGroup`), not as callouts inside the cards — each clearing itself once
- * the sale is no longer for that record, and each with its way out: the other record, the address.
+ * The sale page has no issue tray (taken off it on 2026-10-28, at the user's request), so a number
+ * somebody else already has and an address nobody delivers to are one-line `Callout` strips at the
+ * head of the card they concern — each clearing itself once the sale is no longer for that record,
+ * and each with its way out: the other record, the address.
  *
  * ## The a11y rule the rows follow
  *
@@ -102,7 +101,6 @@ export function CustomerSection({
 }) {
     const { t } = useTranslation();
     const dial = useKitchenDial();
-    const { nudge: nudgeTray } = useIssueTrayController();
     const [query, setQuery] = useState('');
     const [creating, setCreating] = useState(false);
     const [name, setName] = useState('');
@@ -188,9 +186,8 @@ export function CustomerSection({
                 onSuccess: (result) => {
                     setChosen(result.customer);
                     onChoose(result.customer);
-                    // Held open while somebody else shares the new number; the tray says who.
+                    // Held open while somebody else shares the new number; the card says who.
                     if (result.possibleDuplicates.length === 0) setEditing(false);
-                    else nudgeTray();
                 },
             },
         );
@@ -212,40 +209,45 @@ export function CustomerSection({
         }`;
     const created = create.data;
     const edited = update.data;
-    const duplicateCards: IssueCardItem[] = [
-        ...(created === undefined || created.customer.id !== customerAccountId
-            ? []
-            : created.possibleDuplicates.map((duplicate) => ({
-                  key: `duplicate-${duplicate.id}`,
-                  tone: 'warning' as const,
-                  label: t('kitchen:desk.sale.customerDuplicatesTitle'),
-                  detail: duplicateName(duplicate),
-                  action: {
-                      label: t('kitchen:desk.sale.customerUseInstead'),
-                      onPress: () => {
-                          choose(duplicate);
-                      },
-                      testID: `kitchen-order-desk-sale-customer-duplicate-${duplicate.id}-choose`,
-                  },
-                  testID: `kitchen-order-desk-sale-customer-duplicate-${duplicate.id}`,
-              }))),
-        ...(edited === undefined ||
-        edited.customer.id !== customerAccountId ||
-        edited.possibleDuplicates.length === 0
-            ? []
-            : [
-                  {
-                      key: 'edit-duplicates',
-                      tone: 'warning' as const,
-                      label: t('kitchen:desk.sale.customerEditDuplicatesTitle'),
-                      detail: edited.possibleDuplicates
-                          .map(duplicateName)
-                          .join(t('kitchen:common.listSeparator')),
-                      testID: 'kitchen-order-desk-sale-customer-edit-duplicates',
-                  },
-              ]),
-    ];
-    useIssueGroup({ key: 'check', title: t('kitchen:tray.groupCheck'), items: duplicateCards });
+    // Said as strips at the head of this card: the sale page has no issue tray.
+    const duplicateNotices = (
+        <>
+            {created === undefined || created.customer.id !== customerAccountId
+                ? null
+                : created.possibleDuplicates.map((duplicate) => (
+                      <Callout
+                          key={duplicate.id}
+                          testID={`kitchen-order-desk-sale-customer-duplicate-${duplicate.id}`}
+                          tone="warning"
+                          title={t('kitchen:desk.sale.customerDuplicatesTitle')}
+                          body={duplicateName(duplicate)}
+                          actions={
+                              <Button
+                                  testID={`kitchen-order-desk-sale-customer-duplicate-${duplicate.id}-choose`}
+                                  size="sm"
+                                  variant="secondary"
+                                  label={t('kitchen:desk.sale.customerUseInstead')}
+                                  onPress={() => {
+                                      choose(duplicate);
+                                  }}
+                              />
+                          }
+                      />
+                  ))}
+            {edited === undefined ||
+            edited.customer.id !== customerAccountId ||
+            edited.possibleDuplicates.length === 0 ? null : (
+                <Callout
+                    testID="kitchen-order-desk-sale-customer-edit-duplicates"
+                    tone="warning"
+                    title={t('kitchen:desk.sale.customerEditDuplicatesTitle')}
+                    body={edited.possibleDuplicates
+                        .map(duplicateName)
+                        .join(t('kitchen:common.listSeparator'))}
+                />
+            )}
+        </>
+    );
 
     return (
         <FormSection
@@ -277,6 +279,7 @@ export function CustomerSection({
                 ) : undefined
             }
         >
+            {duplicateNotices}
             {folded && chosen !== null && editing ? (
                 <View
                     testID="kitchen-order-desk-sale-customer-edit-form"
@@ -539,12 +542,11 @@ export function CustomerSection({
                                                     if (result.possibleDuplicates.length === 0) {
                                                         choose(result.customer);
                                                     } else {
-                                                        // Held open, and the tray opened on the
-                                                        // possible duplicates, so they are read.
+                                                        // Held open on the possible duplicates,
+                                                        // so they are read.
                                                         setChanging(true);
                                                         setChosen(result.customer);
                                                         onChoose(result.customer);
-                                                        nudgeTray();
                                                     }
                                                 },
                                             },
@@ -604,7 +606,6 @@ export function AddressSection({
     // then refuses with `area_not_served`.
     const deliveryAreas = useOrderDeskDeliveryAreasQuery();
     const save = useAddOrderDeskCustomerAddressMutation();
-    const { nudge: nudgeTray } = useIssueTrayController();
 
     const [areaId, setAreaId] = useState<string | null>(null);
     const [lineOne, setLineOne] = useState('');
@@ -639,30 +640,34 @@ export function AddressSection({
     /*
      * A warning rather than a block: the address is real and saved, and whether a zone covers it is
      * the *quote's* answer — `area_not_served`, with the sentence the agent reads out. Said while it
-     * is still the sale's address, whether or not the card is open to change it; Fix opens it.
+     * is still the sale's address, whether or not the card is open to change it. A strip at the
+     * head of this card — the sale page has no issue tray — and Change on it opens the address.
      */
-    useIssueGroup({
-        key: 'check',
-        title: t('kitchen:tray.groupCheck'),
-        items:
-            !isTheSales || saved.isDeliverable
-                ? []
-                : [
-                      {
-                          key: 'undeliverable',
-                          tone: 'warning',
-                          label: t('kitchen:desk.sale.addressUndeliverableTitle'),
-                          detail: saved.lineOne,
-                          action: {
-                              onPress: () => {
-                                  setChanging(true);
-                                  focusField('kitchen-order-desk-sale-address-area');
-                              },
-                          },
-                          testID: 'kitchen-order-desk-sale-address-undeliverable',
-                      },
-                  ],
-    });
+    const undeliverable =
+        !isTheSales || saved.isDeliverable ? null : (
+            <Callout
+                testID="kitchen-order-desk-sale-address-undeliverable"
+                tone="warning"
+                title={t('kitchen:desk.sale.addressUndeliverableTitle')}
+                body={saved.lineOne}
+                {...(folded
+                    ? {
+                          actions: (
+                              <Button
+                                  testID="kitchen-order-desk-sale-address-undeliverable-fix"
+                                  size="sm"
+                                  variant="secondary"
+                                  label={t('kitchen:desk.sale.change')}
+                                  onPress={() => {
+                                      setChanging(true);
+                                      focusField('kitchen-order-desk-sale-address-area');
+                                  }}
+                              />
+                          ),
+                      }
+                    : {})}
+            />
+        );
 
     const options = useMemo(
         () =>
@@ -698,6 +703,7 @@ export function AddressSection({
                 ) : undefined
             }
         >
+            {undeliverable}
             {folded ? (
                 <Text variant="label" testID="kitchen-order-desk-sale-address-saved">
                     {saved.lineOne}
@@ -793,7 +799,6 @@ export function AddressSection({
                                         onSuccess: (address) => {
                                             setChanging(false);
                                             onSaved(address.id);
-                                            if (!address.isDeliverable) nudgeTray();
                                         },
                                     },
                                 );

@@ -5049,7 +5049,8 @@
         "confirmReview": "تأكيد تقييم مسببات الحساسية",
         "configuration": "إعداد البحث الغذائي مطلوب",
         "clearSelection": "إلغاء اختيار المرجع",
-        "missing": "ينقصه {{list}}"
+        "missing": "ينقصه {{list}}",
+        "notPerGram": "غير مقاس بالغرام"
     },
     "assist": {
         "title": "مساعد الذكاء الاصطناعي",
@@ -5179,6 +5180,7 @@
         "nutrition": "اختر تطابقاً غذائياً وأكّده، ثم احفظ.",
         "unit": "أدخل وزن {{unit}} واحد، ثم احفظ.",
         "priceFood": "لا يوجد سعر بعد. يأتي من أول توريد تستلمه.",
+        "recordDelivery": "تسجيل توريد",
         "pricePack": "أدخل سعر العبوة، ثم احفظ.",
         "back": "العودة إلى الوصفة",
         "backNamed": "العودة إلى {{name}}",
@@ -5366,6 +5368,17 @@
         "itemsFailedTitle_other": "تعذّر عرض {{count}} صنف",
         "itemFailure": "{{name}}: {{message}}",
         "itemsReadError": "تعذّرت قراءة الأصناف الموجودة على القناة."
+    },
+    "lens": {
+        "label": "ملخص القائمة وعوامل التصفية",
+        "allIngredients": "كل المكونات",
+        "allRecipes": "كل الوصفات",
+        "allAction": "عرض كل الحالات",
+        "publishedAction": "عرض السجلات المنشورة فقط",
+        "result": "{{shown}} من {{total}}",
+        "clear": "مسح",
+        "mix": "{{published}} منشورة، {{draft}} مسودة، {{review}} بانتظار المراجعة",
+        "token": "{{label}}: {{value}}"
     },
     "tray": {
         "noChannel": "لا توجد قناة بيع",

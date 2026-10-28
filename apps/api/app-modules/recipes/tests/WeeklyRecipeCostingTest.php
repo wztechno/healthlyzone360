@@ -13,6 +13,7 @@ use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\Recipes\Models\RecipeVersionOutput;
+use Healthy360\Recipes\Services\RecipeVersionService;
 use Healthy360\Recipes\Services\WeeklyLineCost;
 use Healthy360\Recipes\Services\WeeklyRecipeCostingService;
 use Healthy360\Recipes\Tests\Fixtures\RecipeWorld;
@@ -530,4 +531,42 @@ it('prices a kitchen copy from its original until the copy has a price of its ow
     $own = $this->weekly->cost((string) $this->organisation->getKey(), $version);
 
     expect($own->production->totalInputCostAmount)->toBe('6.000000');
+});
+
+it('prices a new recipe line from what was paid when the ingredient has no typed price', function (): void {
+    $soy = RecipeWorld::verifiedCleanIngredient($this->organisation, 'Soya sauce');
+    $soy->default_unit_id = $this->kilograms;
+    $soy->purchase_unit_id = null;
+    $soy->purchase_price_amount = null;
+    $soy->purchase_price_currency = null;
+    $soy->save();
+
+    publishWeeklyPrice($this->organisation, $soy, '4.000000', $this->kilograms);
+
+    // The editor sends no cost and the catalogue has none typed: the line takes the price
+    // actually paid, restated into its own unit, rather than reading "No price yet".
+    $prepared = app(RecipeVersionService::class)->prepareLines([
+        ['ingredient_id' => (string) $soy->getKey(), 'quantity' => '500', 'unit_id' => $this->grams],
+    ]);
+
+    expect($prepared[0]['unit_cost_amount'])->toBe('0.004000')
+        ->and($prepared[0]['cost_currency_code'])->toBe('USD')
+        ->and($prepared[0]['line_cost_amount'])->toBe('2.000000');
+});
+
+it('keeps a typed price ahead of what was paid on a new recipe line', function (): void {
+    $spice = RecipeWorld::verifiedCleanIngredient($this->organisation, 'Sumac');
+    $spice->default_unit_id = $this->kilograms;
+    $spice->purchase_unit_id = null;
+    $spice->purchase_price_amount = '20.000000';
+    $spice->purchase_price_currency = 'usd';
+    $spice->save();
+
+    publishWeeklyPrice($this->organisation, $spice, '4.000000', $this->kilograms);
+
+    $prepared = app(RecipeVersionService::class)->prepareLines([
+        ['ingredient_id' => (string) $spice->getKey(), 'quantity' => '1', 'unit_id' => $this->kilograms],
+    ]);
+
+    expect($prepared[0]['unit_cost_amount'])->toBe('20.000000');
 });

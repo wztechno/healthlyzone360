@@ -72,6 +72,7 @@ final readonly class RecipeVersionService
         private RecipeNutritionService $nutrition,
         private RecipeOutputNutritionWriter $outputNutrition,
         private UnitConversionService $conversion,
+        private WeeklyRecipeCostingService $paidPrices,
     ) {}
 
     /**
@@ -326,6 +327,7 @@ final readonly class RecipeVersionService
     {
         $prepared = [];
         $currencies = [];
+        $unpriced = [];
 
         foreach ($lines as $index => $line) {
             $ingredient = $this->usableIngredient((string) $line['ingredient_id'], "lines.{$index}.ingredient_id");
@@ -341,13 +343,17 @@ final readonly class RecipeVersionService
             // Nothing quoted on the request? Take what the catalogue says.
             if ($unitCost === null && $currency === null) {
                 [$unitCost, $currency] = $this->ingredientCostFor($ingredient, $unitId);
+
+                if ($unitCost === null && $unitId !== null) {
+                    $unpriced[$index] = [(string) $ingredient->getKey(), $unitId];
+                }
             }
 
             if ($currency !== null) {
                 $currencies[$currency] = true;
             }
 
-            $prepared[] = [
+            $prepared[$index] = [
                 'line_number' => $index + 1,
                 'ingredient_id' => (string) $ingredient->getKey(),
                 'quantity' => $quantity,
@@ -367,6 +373,25 @@ final readonly class RecipeVersionService
             ];
         }
 
+        foreach ($this->paidCostsFor($unpriced) as $index => [$unitCost, $currency]) {
+            // A paid price in a second currency stays uncosted rather than refusing the whole
+            // formulation: the line was never quoted in it, so there is nothing for the cook to fix.
+            if ($currencies !== [] && ! isset($currencies[$currency])) {
+                continue;
+            }
+
+            if (! isset($prepared[$index])) {
+                continue;
+            }
+
+            $currencies[$currency] = true;
+            $row = $prepared[$index];
+            $row['unit_cost_amount'] = $unitCost;
+            $row['line_cost_amount'] = $row['quantity'] === null ? null : $this->costing->lineCost($row['quantity'], $unitCost);
+            $row['cost_currency_code'] = $currency;
+            $prepared[$index] = $row;
+        }
+
         if (count($currencies) > 1) {
             throw $this->invalid(
                 'lines',
@@ -375,7 +400,7 @@ final readonly class RecipeVersionService
             );
         }
 
-        return $prepared;
+        return array_values($prepared);
     }
 
     /**
@@ -1226,6 +1251,69 @@ final readonly class RecipeVersionService
         $converted = $this->pricePerUnit((string) $price, $pricedIn, $lineUnitId);
 
         return $converted === null ? [null, null] : [$converted, mb_strtoupper($currency)];
+    }
+
+    /**
+     * What was actually paid, for the lines the catalogue left unpriced, as `[amount, currency]`
+     * by line index.
+     *
+     * A food ingredient's form no longer takes a typed price: it shows, read-only, what the
+     * kitchen last paid, so most ingredients bought since then have a price everywhere except
+     * here. The ingredient page said "priced" and the recipe said "No price yet" about the same
+     * soy sauce. This asks {@see WeeklyRecipeCostingService::unitCostsFor()} — the weekly price,
+     * then the latest purchase, then the recipe that makes it — so the line is priced from the
+     * same evidence the technical sheet's weekly block already uses.
+     *
+     * A fallback only: a typed price still wins, so nothing already costed moves.
+     *
+     * Batched by ingredient, because the costing service answers one unit per ingredient; a
+     * second line naming the same ingredient in another unit goes in the next batch.
+     *
+     * @param  array<int, array{0: string, 1: string}>  $unpriced  line index => [ingredient id, line unit id]
+     * @return array<int, array{0: numeric-string, 1: string}>
+     */
+    private function paidCostsFor(array $unpriced): array
+    {
+        $organisationId = $this->context->organisationId();
+        $costs = [];
+
+        if ($organisationId === null) {
+            return $costs;
+        }
+
+        while ($unpriced !== []) {
+            $batch = [];
+
+            foreach ($unpriced as $index => [$ingredientId, $unitId]) {
+                if (! isset($batch[$ingredientId])) {
+                    $batch[$ingredientId] = ['unit' => $unitId, 'indexes' => []];
+                }
+
+                if ($batch[$ingredientId]['unit'] === $unitId) {
+                    $batch[$ingredientId]['indexes'][] = $index;
+                    unset($unpriced[$index]);
+                }
+            }
+
+            $answers = $this->paidPrices->unitCostsFor(
+                $organisationId,
+                array_map(static fn (array $entry): string => $entry['unit'], $batch),
+            );
+
+            foreach ($batch as $ingredientId => $entry) {
+                $answer = $answers[(string) $ingredientId] ?? null;
+
+                if ($answer === null || $answer->unitCostAmount === null || $answer->currencyCode === null) {
+                    continue;
+                }
+
+                foreach ($entry['indexes'] as $index) {
+                    $costs[$index] = [$answer->unitCostAmount, mb_strtoupper($answer->currencyCode)];
+                }
+            }
+        }
+
+        return $costs;
     }
 
     /**

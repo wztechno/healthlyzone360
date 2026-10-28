@@ -679,7 +679,7 @@ describe('sale — a counter sale', () => {
                 ],
             });
         });
-        // At a desk's width, where the issue tray the refusal is said in is docked and open.
+        // At a desk's width, the sale page's own layout.
         await withDeskWidth(async () => {
             await renderSale({ placeSale });
             await tapMeal();
@@ -712,7 +712,7 @@ describe('sale — a counter sale', () => {
         });
     });
 
-    it('says a total that could not be worked out in the tray, and charges nothing', async () => {
+    it('says a total that could not be worked out under the ticket, and charges nothing', async () => {
         await withDeskWidth(async () => {
             await renderSale({
                 quoteSale: async (request) => {
@@ -734,6 +734,8 @@ describe('sale — a counter sale', () => {
             );
             expect(screen.getByTestId('kitchen-order-desk-sale-total')).toHaveTextContent('—');
             expect(screen.getByTestId(CHARGE)).toBeDisabled();
+            // The sale page has no issue tray, so nothing else says it.
+            expect(screen.queryByTestId('kitchen-order-desk-sale-tray')).toBeNull();
         });
     });
 });
@@ -886,7 +888,7 @@ describe('sale — collections and deliveries', () => {
         expect(listServiceAreas).not.toHaveBeenCalled();
     });
 
-    it('warns in the tray when nobody delivers to the saved address, and Fix reopens it', async () => {
+    it('warns on the address card when nobody delivers to it, and Change reopens it', async () => {
         const served: ServiceArea = {
             id: ServiceAreaId.unsafe('0198e3a0-0000-7000-8000-00000000a001'),
             name: { en: 'Achrafieh', ar: 'الأشرفية' },
@@ -932,14 +934,14 @@ describe('sale — collections and deliveries', () => {
                 fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-address-save'));
             });
 
-            // Saved and folded, and the warning is the tray's, naming the street.
+            // Saved and folded, and the warning heads the card, naming the street.
             await untilVisible('kitchen-order-desk-sale-address-saved');
             await untilVisible('kitchen-order-desk-sale-address-undeliverable');
             expect(
                 screen.getByTestId('kitchen-order-desk-sale-address-undeliverable'),
             ).toHaveTextContent(/Rue Sursock 12/);
 
-            // Fix opens the address again to change it; the warning stays until it is changed.
+            // Change opens the address again; the warning stays until it is changed.
             await act(async () => {
                 fireEvent.press(
                     screen.getByTestId('kitchen-order-desk-sale-address-undeliverable-fix'),
@@ -1063,7 +1065,7 @@ describe('sale — collections and deliveries', () => {
 
     it('surfaces possible duplicates as a warning with a way to use the other record', async () => {
         const other = customer({ id: 'test-0000-account-002', displayName: 'L. Haddad' });
-        // At a desk's width, where the issue tray the warning is said in is docked and open.
+        // At a desk's width, the sale page's own layout.
         await withDeskWidth(async () => {
             await renderSale({
                 createCustomer: async () => ({
@@ -1093,8 +1095,8 @@ describe('sale — collections and deliveries', () => {
                 fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-customer-create'));
             });
 
-            // A warning, never a refusal — a household genuinely shares a telephone — in the
-            // tray, with the other record one press away.
+            // A warning, never a refusal — a household genuinely shares a telephone — on the
+            // customer card, with the other record one press away.
             const card = `kitchen-order-desk-sale-customer-duplicate-${other.id}`;
             await untilVisible(card);
             expect(screen.getByTestId(card)).toHaveTextContent(/L\. Haddad/);

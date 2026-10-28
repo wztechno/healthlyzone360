@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9119 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9130 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3975,6 +3975,7 @@ export interface NamespaceKeys {
     | 'ingredientFix.nutrition'
     | 'ingredientFix.priceFood'
     | 'ingredientFix.pricePack'
+    | 'ingredientFix.recordDelivery'
     | 'ingredientFix.savedBack'
     | 'ingredientFix.savedBackNamed'
     | 'ingredientFix.title'
@@ -4015,6 +4016,15 @@ export interface NamespaceKeys {
     | 'kds.upcoming'
     | 'kds.waitingForDriver'
     | 'kds.withDriver'
+    | 'lens.allAction'
+    | 'lens.allIngredients'
+    | 'lens.allRecipes'
+    | 'lens.clear'
+    | 'lens.label'
+    | 'lens.mix'
+    | 'lens.publishedAction'
+    | 'lens.result'
+    | 'lens.token'
     | 'list.actionHeader'
     | 'list.allLoaded'
     | 'list.archive'
@@ -4205,6 +4215,7 @@ export interface NamespaceKeys {
     | 'nutritionLookup.estimated'
     | 'nutritionLookup.missing'
     | 'nutritionLookup.noMatches'
+    | 'nutritionLookup.notPerGram'
     | 'nutritionLookup.query'
     | 'nutritionLookup.reviewChanged'
     | 'nutritionLookup.reviewEvidence'
@@ -13112,6 +13123,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ingredientFix.nutrition',
   'kitchen:ingredientFix.priceFood',
   'kitchen:ingredientFix.pricePack',
+  'kitchen:ingredientFix.recordDelivery',
   'kitchen:ingredientFix.savedBack',
   'kitchen:ingredientFix.savedBackNamed',
   'kitchen:ingredientFix.title',
@@ -13152,6 +13164,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:kds.upcoming',
   'kitchen:kds.waitingForDriver',
   'kitchen:kds.withDriver',
+  'kitchen:lens.allAction',
+  'kitchen:lens.allIngredients',
+  'kitchen:lens.allRecipes',
+  'kitchen:lens.clear',
+  'kitchen:lens.label',
+  'kitchen:lens.mix',
+  'kitchen:lens.publishedAction',
+  'kitchen:lens.result',
+  'kitchen:lens.token',
   'kitchen:list.actionHeader',
   'kitchen:list.allLoaded',
   'kitchen:list.archive',
@@ -13342,6 +13363,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nutritionLookup.estimated',
   'kitchen:nutritionLookup.missing',
   'kitchen:nutritionLookup.noMatches',
+  'kitchen:nutritionLookup.notPerGram',
   'kitchen:nutritionLookup.query',
   'kitchen:nutritionLookup.reviewChanged',
   'kitchen:nutritionLookup.reviewEvidence',

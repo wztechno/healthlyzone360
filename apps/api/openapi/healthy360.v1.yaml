@@ -26636,7 +26636,7 @@ components:
 
     NutritionReferenceCandidate:
       type: object
-      required: [ref, provider, label, brand, data_type, nutrition_per_100g, suitable, reasons, missing_nutrients, source_hash, retrieved_at]
+      required: [ref, provider, label, brand, data_type, nutrition_per_100g, suitable, reasons, missing_nutrients, unsupported_basis, source_hash, retrieved_at]
       properties:
         ref:
           type: string
@@ -26661,6 +26661,9 @@ components:
           type: array
           items:
             type: string
+        unsupported_basis:
+          type: boolean
+          description: A branded food not recorded per gram (per ml, or no serving unit), which cannot be read as per 100 g.
         source_hash:
           type: string
           pattern: '^[a-f0-9]{64}$'

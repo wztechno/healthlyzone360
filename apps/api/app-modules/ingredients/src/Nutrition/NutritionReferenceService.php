@@ -108,7 +108,8 @@ final readonly class NutritionReferenceService
         if (! in_array($type, ['Foundation', 'SR Legacy', 'Branded'], true)) {
             $reasons[] = 'Unsupported USDA data type.';
         }
-        if ($type === 'Branded' && strtolower((string) ($food['servingSizeUnit'] ?? '')) !== 'g') {
+        $unsupportedBasis = $type === 'Branded' && strtolower((string) ($food['servingSizeUnit'] ?? '')) !== 'g';
+        if ($unsupportedBasis) {
             $reasons[] = 'A confirmed gram basis is required; volume and unknown bases are unsupported.';
         }
         if ($missing !== []) {
@@ -127,6 +128,9 @@ final readonly class NutritionReferenceService
             'label' => (string) ($food['description'] ?? ''), 'brand' => $brand === '' ? null : $brand,
             'data_type' => $type, 'nutrition_per_100g' => ['basis' => 'per_100g', 'amounts' => $amounts],
             'suitable' => $reasons === [], 'reasons' => $reasons, 'missing_nutrients' => $missing,
+            // Structured beside `reasons`, which is English prose: a branded sauce is usually listed
+            // per ml, and a row that only named its missing nutrients hid the bigger blocker.
+            'unsupported_basis' => $unsupportedBasis,
             'source_hash' => hash('sha256', json_encode($snapshot, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION)),
             'retrieved_at' => $record['retrieved_at'],
         ], $snapshot);
