@@ -5372,6 +5372,17 @@
     "tray": {
         "noChannel": "لا توجد قناة بيع",
         "groupIssue": "يمنع الإصدار",
+    "lens": {
+        "label": "ملخص القائمة وعوامل التصفية",
+        "allIngredients": "كل المكونات",
+        "allRecipes": "كل الوصفات",
+        "allAction": "عرض كل الحالات",
+        "publishedAction": "عرض السجلات المنشورة فقط",
+        "result": "{{shown}} من {{total}}",
+        "clear": "مسح",
+        "mix": "{{published}} منشورة، {{draft}} مسودة، {{review}} بانتظار المراجعة",
+        "token": "{{label}}: {{value}}"
+    },
         "groupNote": "ملاحظة",
         "onPublicMenu": "على قائمة الطعام العامة",
         "mealNoServiceDay": "لا يوم خدمة بعد",

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9121 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9130 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4018,6 +4018,15 @@ export interface NamespaceKeys {
     | 'kds.withDriver'
     | 'list.actionHeader'
     | 'list.allLoaded'
+    | 'lens.allAction'
+    | 'lens.allIngredients'
+    | 'lens.allRecipes'
+    | 'lens.clear'
+    | 'lens.label'
+    | 'lens.mix'
+    | 'lens.publishedAction'
+    | 'lens.result'
+    | 'lens.token'
     | 'list.archive'
     | 'list.archiveFailed'
     | 'list.archivedToast'
@@ -13160,6 +13169,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:list.archive',
   'kitchen:list.archiveFailed',
   'kitchen:list.archivedToast',
+  'kitchen:lens.allAction',
+  'kitchen:lens.allIngredients',
+  'kitchen:lens.allRecipes',
+  'kitchen:lens.clear',
+  'kitchen:lens.label',
+  'kitchen:lens.mix',
+  'kitchen:lens.publishedAction',
+  'kitchen:lens.result',
+  'kitchen:lens.token',
   'kitchen:list.caption',
   'kitchen:list.columnAllergens',
   'kitchen:list.columnB2bPrice',

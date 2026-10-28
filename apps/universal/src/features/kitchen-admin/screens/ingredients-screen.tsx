@@ -20,15 +20,13 @@ import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entit
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { IngredientDetail } from '../catalogue/ingredient-detail.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { ingredientImportGuide } from '../catalogue/import-guides.ts';
+import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
+import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
+import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import { listPrintJob, useListPrint } from '../catalogue/list-print.ts';
-import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
-import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import {
     INGREDIENT_DEFAULT_COLUMNS,
@@ -53,9 +51,9 @@ import {
  *
  * ```
  * Kitchen workspace › Ingredients                 <- drawn by the shell, not here
- *                                                 [ Import ]  [ + New ingredient ]
- * ┌ SHOWN ┐ ┌ DRAFT ┐ ┌ MISSING ARABIC ┐ ┌ UNCOSTED ┐
- * [ ⌕ 240px ]  [ All | Live | Draft | Review ]
+ * ┌ All │ ● Published ● Draft │ ● Missing Arabic ● Uncosted      Import Export [+ New] ┐
+ * ├▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆┤
+ * └ [Category All ▾] [ ⌕ Search ingredients ] [Status: Draft ×]   18 of 306  Clear │ ⫴ ┘
  * REF.   DESIGNATION   CATEGORY  UNIT  UNIT PRICE  ALLERGENS  STATUS  UPDATED   ⋯
  * Showing 1–25 of 306                                              [ ‹ 1 2 3 › ]
  * ```
@@ -85,10 +83,8 @@ import {
  * because those two are what the request carries — filtering the loaded page by unit or allergen
  * would narrow one page and misreport every page after it, which is a worse answer than no filter.
  *
- * **Two of the four cards are filters.** Shown clears every constraint; Draft narrows to the
- * drafts. Missing Arabic and Uncosted are read-only because `IngredientAdminFilter` carries no
- * parameter for either, and a card that looked pressable and did nothing would be worse than one
- * that plainly does not.
+ * **The status figures are filters.** All, Published and Draft set the status; Missing Arabic and
+ * Uncosted are read-only because `IngredientAdminFilter` carries no parameter for either.
  *
  * **Import is drawn and disabled.** There is no import route and no import endpoint — the library
  * arrives through the seeder — so the button holds its place with the reason on it rather than
@@ -172,8 +168,6 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
         },
     );
 
-    const segments = statusSegments(list.statuses, list.setStatuses, t);
-
     /*
      * View takes the whole page rather than a 400px drawer beside it.
      *
@@ -201,29 +195,32 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
     return (
         <Cascade space="md" testID="kitchen-ingredients-screen">
             {/*
-             * The opening — the actions and the four figures — is one block at 4px, nested inside
-             * the page's 16px rhythm.
-             *
-             * There is no trail here: `KitchenOpsShell` already draws `Kitchen workspace ›
-             * Ingredients` above every kitchen route, and a second one underneath it was two trails
-             * to the same page disagreeing about how they got there. With no trail and no title,
-             * the header is a right-aligned button row with nothing on its left — so at the page's
-             * own 16px it read as two empty bands stacked between the shell's trail and the first
-             * thing worth looking at. Tightening the whole page instead would put the cards back on
-             * top of the toolbar, which is the complaint that produced the 16px. So the gap that
-             * shrinks is the one inside the opening, and the rhythm below it is untouched.
+             * The Lens bar — the figures, the mix, the query row and the actions as one object
+             * directly over the list it narrows (`lens-bar.tsx`). It replaced four stat cards and
+             * the toolbar under them.
              */}
-            <Stack space="xs">
-                <CatalogueStatCards
-                    testID="kitchen-ingredients-stats"
-                    cards={statCards(list, t)}
-                    pending={list.isPending}
-                    countsPending={list.countsPending}
-                />
-            </Stack>
-
-            <CatalogueToolbar<StatusSegmentValue>
+            <LensBar
                 testID="kitchen-ingredients-toolbar"
+                label={t('kitchen:lens.label')}
+                figures={lensFigures(list, t)}
+                {...statusLensMix(list, t)}
+                scope={
+                    <LensScope<string>
+                        testID="kitchen-ingredients-category"
+                        label={t('kitchen:toolbar.categoryLabel')}
+                        value={list.category ?? ALL_SCOPE}
+                        onChange={(next) => {
+                            list.setCategory(next === ALL_SCOPE ? null : next);
+                        }}
+                        options={[
+                            { value: ALL_SCOPE, label: t('kitchen:toolbar.statusAll') },
+                            ...list.categories.map((entry) => ({
+                                value: entry.code,
+                                label: categoryName(entry.code),
+                            })),
+                        ]}
+                    />
+                }
                 search={list.query}
                 onSearchChange={list.setQuery}
                 // A camera read goes into the search box: the server matches a code there as well
@@ -233,65 +230,81 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                 }}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t('kitchen:toolbar.searchIngredients')}
-                statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={segments.segments}
-                status={segments.value}
-                onStatusChange={segments.onChange}
-            >
-                <Inline space="xs" align="center">
-                    <ColumnPicker {...controls.picker} />
-                    {canManage ? (
-                        <CatalogueTransferActions
-                            testID="kitchen-ingredients-toolbar"
-                            importGuide={ingredientImportGuide(
-                                list.categories.map((entry) => entry.code),
-                            )}
-                            exportMenu={{
-                                excel: {
-                                    load: (repositories) =>
-                                        repositories.kitchenAdmin.exportIngredients(list.filter),
-                                    fallbackName: 'ingredients.xlsx',
-                                },
-                                pdf: [
-                                    {
-                                        key: 'pdf',
-                                        label: t('kitchen:transfer.export.pdf'),
-                                        disabled: list.countsPending,
-                                        onSelect: () => {
-                                            print.start(
-                                                listPrintJob({
-                                                    resource: 'ingredients',
-                                                    title: t(
-                                                        'kitchen:transfer.ingredients.printTitle',
-                                                    ),
-                                                    columns: controls.columns,
-                                                    rows: list.everyRow,
-                                                    // The whole-set read drops the sort, so it is
-                                                    // put back here, by every column the header
-                                                    // could have sorted on.
-                                                    sort: {
-                                                        key: list.sortKey,
-                                                        direction: list.sortDirection,
-                                                        from: columns,
-                                                    },
-                                                }),
-                                            );
-                                        },
+                tokens={lensTokens(list, t, locale)}
+                result={
+                    list.total === null
+                        ? null
+                        : t('kitchen:lens.result', { shown: list.shown, total: list.total })
+                }
+                clearLabel={t('kitchen:lens.clear')}
+                // The category is the scope the reader stands in, so Clear leaves it.
+                {...(list.trimmed === '' && list.statuses.length === 0 && list.allergen === null
+                    ? {}
+                    : {
+                          onClear: () => {
+                              list.setQuery('');
+                              list.setStatuses([]);
+                              list.setAllergen(null);
+                          },
+                      })}
+                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                actions={
+                    <Inline space="xs" align="center">
+                        {canManage ? (
+                            <CatalogueTransferActions
+                                testID="kitchen-ingredients-toolbar"
+                                importGuide={ingredientImportGuide(
+                                    list.categories.map((entry) => entry.code),
+                                )}
+                                exportMenu={{
+                                    excel: {
+                                        load: (repositories) =>
+                                            repositories.kitchenAdmin.exportIngredients(
+                                                list.filter,
+                                            ),
+                                        fallbackName: 'ingredients.xlsx',
                                     },
-                                ],
-                            }}
-                        />
-                    ) : null}
-                    {canManage ? (
-                        <Button
-                            testID="kitchen-ingredients-toolbar-create"
-                            label={t('kitchen:toolbar.create')}
-                            iconStart={<Icon name="plus" size="sm" />}
-                            onPress={list.createNew}
-                        />
-                    ) : null}
-                </Inline>
-            </CatalogueToolbar>
+                                    pdf: [
+                                        {
+                                            key: 'pdf',
+                                            label: t('kitchen:transfer.export.pdf'),
+                                            disabled: list.countsPending,
+                                            onSelect: () => {
+                                                print.start(
+                                                    listPrintJob({
+                                                        resource: 'ingredients',
+                                                        title: t(
+                                                            'kitchen:transfer.ingredients.printTitle',
+                                                        ),
+                                                        columns: controls.columns,
+                                                        rows: list.everyRow,
+                                                        // The whole-set read drops the sort, so it is
+                                                        // put back here, by every column the header
+                                                        // could have sorted on.
+                                                        sort: {
+                                                            key: list.sortKey,
+                                                            direction: list.sortDirection,
+                                                            from: columns,
+                                                        },
+                                                    }),
+                                                );
+                                            },
+                                        },
+                                    ],
+                                }}
+                            />
+                        ) : null}
+                        {canManage ? (
+                            <Button
+                                testID="kitchen-ingredients-toolbar-create"
+                                label={t('kitchen:toolbar.create')}
+                                iconStart={<Icon name="plus" size="sm" />}
+                                onPress={list.createNew}
+                            />
+                        ) : null}
+                    </Inline>
+                }
+            />
 
             <CatalogueListBody
                 testID="kitchen-ingredients"
@@ -422,62 +435,71 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
     );
 }
 
+/** The Category picker's "every category" — a value no category code can take. */
+const ALL_SCOPE = '*';
+
 /**
- * The four figures the summary line used to state, as cards.
+ * The Lens bar's figures: All · Published · Draft, then the two that block publishing.
  *
- * `total` is the server's count for the filtered set; Draft, Missing Arabic and Uncosted are
- * counted over the loaded page, which is the only set this screen has. That difference is why Shown
- * reads "18 of 306" rather than claiming the three beside it are catalogue-wide.
+ * Missing Arabic and Uncosted are read-only: `IngredientAdminFilter` carries no parameter for
+ * either, and a figure that looked pressable and did nothing would be worse than one that plainly
+ * does not. They count the rows the list shows — the status included — like the cards did.
  */
-function statCards(list: IngredientListState, t: TFunction): readonly CatalogueStatCard[] {
+function lensFigures(list: IngredientListState, t: TFunction): readonly LensFigure[] {
+    const counted = (count: number) => (list.countsPending ? null : count);
     return [
-        {
-            key: 'shown',
-            label: t('kitchen:list.statShown'),
-            value: String(list.shown),
-            unit: t('kitchen:list.statShownUnit', { total: list.total ?? list.shown }),
-            caption: list.isUnfiltered
-                ? t('kitchen:list.statShownUnfiltered')
-                : t('kitchen:list.statShownFiltered'),
-            mark: 'list',
-            tone: 'brand',
-            // Pressable in both states: clearing nothing is a no-op, and a card that stopped being
-            // a target once the filters were clear would move the row's one affordance around.
-            onPress: list.clearFilters,
-            accessibilityLabel: t('kitchen:list.statShownAction'),
-        },
-        {
-            key: 'draft',
-            label: t('kitchen:list.statDraft'),
-            value: String(list.draftCount),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:list.statDraftCaption'),
-            mark: 'fileDraft',
-            // Amber only while there is something to act on — see the note in the component.
-            tone: list.draftCount === 0 ? 'default' : 'warning',
-            onPress: () => {
-                list.setStatuses(['draft']);
-            },
-            accessibilityLabel: t('kitchen:list.statDraftAction'),
-        },
+        ...statusLensFigures(list, t, {
+            allLabel: t('kitchen:lens.allIngredients'),
+            review: false,
+        }),
         {
             key: 'missingArabic',
             label: t('kitchen:list.statMissingArabic'),
-            value: String(list.missingArabicCount),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:list.statMissingArabicCaption'),
-            mark: 'languages',
-            tone: list.missingArabicCount === 0 ? 'default' : 'danger',
+            value: counted(list.missingArabicCount),
+            tone: 'danger',
+            alarm: true,
+            separated: true,
         },
         {
             key: 'uncosted',
             label: t('kitchen:list.statUncosted'),
-            value: String(list.uncostedCount),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:list.statUncostedCaption'),
-            mark: 'coins',
-            tone: list.uncostedCount === 0 ? 'default' : 'warning',
+            value: counted(list.uncostedCount),
+            tone: 'warning',
         },
+    ];
+}
+
+/** The filters in force besides the search and the category — each one removable on its own. */
+function lensTokens(list: IngredientListState, t: TFunction, locale: string): readonly LensToken[] {
+    const allergen =
+        list.allergen === null
+            ? undefined
+            : list.allergenClasses.find((entry) => entry.code === list.allergen);
+    const allergenLabel =
+        list.allergen === null
+            ? null
+            : t('kitchen:lens.token', {
+                  label: t('kitchen:recipes.columnAllergens'),
+                  value:
+                      allergen === undefined
+                          ? list.allergen
+                          : displayName(allergen.name, locale).value,
+              });
+
+    return [
+        ...statusLensTokens(list, t),
+        ...(allergenLabel === null
+            ? []
+            : [
+                  {
+                      key: 'allergen',
+                      label: allergenLabel,
+                      removeLabel: t('kitchen:toolbar.removeFilter', { filter: allergenLabel }),
+                      onRemove: () => {
+                          list.setAllergen(null);
+                      },
+                  },
+              ]),
     ];
 }
 

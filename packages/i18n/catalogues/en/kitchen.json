@@ -4697,6 +4697,17 @@
     "tray": {
         "noChannel": "No sales channel",
         "groupIssue": "Blocks issuing",
+    "lens": {
+        "label": "List summary and filters",
+        "allIngredients": "All ingredients",
+        "allRecipes": "All recipes",
+        "allAction": "Show every status",
+        "publishedAction": "Show only published records",
+        "result": "{{shown}} of {{total}}",
+        "clear": "Clear",
+        "mix": "{{published}} published, {{draft}} draft, {{review}} awaiting review",
+        "token": "{{label}}: {{value}}"
+    },
         "groupNote": "Note",
         "onPublicMenu": "On the public menu",
         "mealNoServiceDay": "No service day yet",

@@ -31,6 +31,7 @@ import {
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { missingPack, onSaleStatus, recipeHandle } from './recipe-columns.tsx';
+import { inStatuses, statusTally, withoutStatuses } from './use-catalogue-filters.ts';
 import { useDestructiveRow } from './use-destructive-row.ts';
 import {
     useListMemory,
@@ -197,6 +198,9 @@ export interface RecipeListState {
     readonly filter: RecipeAdminFilter;
     /** Every row the filters match, every page, in the list's sort — empty while `countsPending`. */
     readonly everyRow: readonly RecipeAdminSummary[];
+    /** Every row in scope — the filters bar the status — so the status figures do not zero each other. */
+    readonly scopeCount: number;
+    readonly statusCounts: Readonly<Record<PublishableStatus, number>>;
     readonly draftCount: number;
     /** Rows the store quarantined — a published allergen label a change has since contradicted. */
     readonly reviewCount: number;
@@ -250,6 +254,9 @@ export interface RecipeListState {
 }
 
 /** `view` is the route's `?view=` — the record whose page is open (`use-viewed-record.ts`). */
+/** No rows yet, with one identity across renders so the memos below do not re-run on every one. */
+const NO_RECIPES: readonly RecipeAdminSummary[] = [];
+
 export function useRecipeList(view?: string): RecipeListState {
     const router = useRouter();
     const { locale } = useLocale();
@@ -314,9 +321,12 @@ export function useRecipeList(view?: string): RecipeListState {
     useRestoredPageFallback(memory, page, recipes.isError, () => {
         setPage(1);
     });
-    // The cards count every page the filters match, not the eighteen rows on this one.
-    const wholeSet = useRecipeWholeSetQuery(filter);
-    const everyRow = wholeSet.data ?? [];
+    // The figures count every page the filters match, not the eighteen rows on this one — and
+    // every status in scope, so pressing one does not zero the others; `everyRow` re-applies it.
+    const wholeSet = useRecipeWholeSetQuery(withoutStatuses(filter));
+    const scopeRows = wholeSet.data ?? NO_RECIPES;
+    const everyRow = useMemo(() => inStatuses(scopeRows, statuses), [scopeRows, statuses]);
+    const statusCounts = useMemo(() => statusTally(scopeRows), [scopeRows]);
     const allergenClasses = useAllergenClassesQuery();
     const retire = useDestructiveRow(useRetireRecipeMutation(), (row: RecipeAdminSummary) => ({
         recipeId: row.id,
@@ -345,8 +355,8 @@ export function useRecipeList(view?: string): RecipeListState {
     );
     // The whole set in the list's own order — what Export prints and the sheets batch names.
     const everySorted = useMemo(
-        () => sortRecipes(wholeSet.data ?? [], sortKey, sortDirection, locale),
-        [wholeSet.data, sortKey, sortDirection, locale],
+        () => sortRecipes(everyRow, sortKey, sortDirection, locale),
+        [everyRow, sortKey, sortDirection, locale],
     );
     const viewed = useViewedRecord(
         view,
@@ -354,9 +364,9 @@ export function useRecipeList(view?: string): RecipeListState {
         (row) => String(row.id),
         recipes.isSuccess && !recipes.isFetching,
         {
-            // No by-id read answers a summary row; the whole set the cards count holds every match.
+            // No by-id read answers a summary row; the whole set the figures count holds every match.
             useLookup: (id) => {
-                const match = everyRow.find((row) => String(row.id) === id);
+                const match = scopeRows.find((row) => String(row.id) === id);
                 return {
                     data: match,
                     isError: match === undefined && wholeSet.isSuccess && !wholeSet.isFetching,
@@ -365,8 +375,8 @@ export function useRecipeList(view?: string): RecipeListState {
         },
     );
 
-    const draftCount = everyRow.filter((row) => row.meta.status === 'draft').length;
-    const reviewCount = everyRow.filter((row) => row.meta.status === 'review_required').length;
+    const draftCount = statusCounts.draft;
+    const reviewCount = statusCounts.review_required;
     const onSaleCount = everyRow.filter((row) => onSaleStatus(row) === 'published').length;
     const noPackCount = everyRow.filter((row) => (row.soldAs ?? []).some(missingPack)).length;
 
@@ -442,6 +452,8 @@ export function useRecipeList(view?: string): RecipeListState {
         everyRow: everySorted,
         // Rows up to the end of this page: 18 of 306 on the first, 36 on the second.
         shown: Math.min(page * KITCHEN_PAGE_SIZE, total ?? sorted.length),
+        scopeCount: scopeRows.length,
+        statusCounts,
         draftCount,
         reviewCount,
         onSaleCount,

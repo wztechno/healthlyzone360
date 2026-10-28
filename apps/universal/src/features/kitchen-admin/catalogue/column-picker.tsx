@@ -1,4 +1,4 @@
-import { Button, Checkbox, Dialog, Icon, Text } from '@healthy360/design-system';
+import { Button, Checkbox, Dialog, Icon, IconButton, Text } from '@healthy360/design-system';
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -241,7 +241,11 @@ export function ColumnPicker({
     onClear,
     canClear,
     testID,
-}: ColumnPickerProps) {
+    compact,
+}: ColumnPickerProps & {
+    /** The trigger as an icon button — the Lens bar, where the row has no room for its words. */
+    readonly compact?: boolean | undefined;
+}) {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const close = useCallback(() => {
@@ -250,17 +254,33 @@ export function ColumnPicker({
 
     return (
         <View testID={testID}>
-            <Button
-                testID={`${testID}-trigger`}
-                variant="secondary"
-                label={t('kitchen:catalogue.columnsButton', { shown, max })}
-                iconStart={<Icon name="layoutGrid" size="sm" className="text-content-primary" />}
-                hint={t('kitchen:catalogue.columnsHint', { max })}
-                aria-haspopup="dialog"
-                onPress={() => {
-                    setOpen(true);
-                }}
-            />
+            {compact === true ? (
+                // The Lens bar's form: the glyph alone, its full name on hover and to a reader.
+                <IconButton
+                    testID={`${testID}-trigger`}
+                    variant="secondary"
+                    label={t('kitchen:catalogue.columnsButton', { shown, max })}
+                    icon={<Icon name="layoutGrid" size="sm" className="text-content-primary" />}
+                    aria-haspopup="dialog"
+                    onPress={() => {
+                        setOpen(true);
+                    }}
+                />
+            ) : (
+                <Button
+                    testID={`${testID}-trigger`}
+                    variant="secondary"
+                    label={t('kitchen:catalogue.columnsButton', { shown, max })}
+                    iconStart={
+                        <Icon name="layoutGrid" size="sm" className="text-content-primary" />
+                    }
+                    hint={t('kitchen:catalogue.columnsHint', { max })}
+                    aria-haspopup="dialog"
+                    onPress={() => {
+                        setOpen(true);
+                    }}
+                />
+            )}
             <Dialog
                 testID={`${testID}-dialog`}
                 open={open}

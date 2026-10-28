@@ -709,16 +709,31 @@ describe('the ingredient list at desk width', () => {
         });
 
         await untilVisible('kitchen-ingredients-loading');
-        // The cards are drawn while the list loads — label, caption, and a placeholder holding the
-        // figure's line — so the toolbar and table do not drop by a card's height when it lands.
-        expect(screen.getByTestId('kitchen-ingredients-stats-draft')).toHaveTextContent(/Draft/);
-        expect(screen.getByTestId('kitchen-ingredients-stats-draft-loading')).toBeTruthy();
-        expect(screen.queryByTestId('kitchen-ingredients-stats-draft-value')).toBeNull();
+        // The Lens bar's figures are drawn while the list loads — label, and a placeholder holding
+        // the number's line — so the table does not drop when they land.
+        expect(screen.getByTestId('kitchen-ingredients-toolbar-figure-draft')).toHaveTextContent(
+            /Draft/,
+        );
+        expect(screen.getByTestId('kitchen-ingredients-toolbar-figure-draft-loading')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-ingredients-toolbar-figure-draft-value')).toBeNull();
 
         await untilVisible('kitchen-ingredients-table');
 
-        expect(screen.queryByTestId('kitchen-ingredients-stats-draft-loading')).toBeNull();
-        expect(screen.getByTestId('kitchen-ingredients-stats-shown-value')).toHaveTextContent('2');
+        await waitFor(() => {
+            expect(
+                screen.queryByTestId('kitchen-ingredients-toolbar-figure-draft-loading'),
+            ).toBeNull();
+        });
+        expect(
+            screen.getByTestId('kitchen-ingredients-toolbar-figure-all-value'),
+        ).toHaveTextContent('2');
+        // One published, one draft — the mix and the figures agree.
+        expect(
+            screen.getByTestId('kitchen-ingredients-toolbar-figure-published-value'),
+        ).toHaveTextContent('1');
+        expect(screen.getByTestId('kitchen-ingredients-toolbar-result')).toHaveTextContent(
+            '2 of 2',
+        );
         // The rows arrive through their entrance; the row itself is the same element as ever.
         expect(
             screen.getByTestId(`kitchen-ingredients-table-row-${String(mapped.id)}-entrance`),
@@ -2007,7 +2022,11 @@ describe('USDA lookup and explicit allergen review', () => {
 
     it('names a per-ml basis, and never draws an empty "Missing" tag', async () => {
         await renderStubScreen(
-            <NutritionReferencePicker name="louisiana sauce" value={undefined} onChange={jest.fn()} />,
+            <NutritionReferencePicker
+                name="louisiana sauce"
+                value={undefined}
+                onChange={jest.fn()}
+            />,
             {
                 repositories: {
                     kitchenAdmin: {

@@ -32,6 +32,7 @@ import {
     useIngredientQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
+import { inStatuses, statusTally, withoutStatuses } from './use-catalogue-filters.ts';
 import { useDestructiveRow } from './use-destructive-row.ts';
 import {
     useListMemory,
@@ -198,6 +199,9 @@ export interface IngredientListState {
      * printing it orders it itself.
      */
     readonly everyRow: readonly IngredientAdmin[];
+    /** Every row in scope — the filters bar the status — so the status figures do not zero each other. */
+    readonly scopeCount: number;
+    readonly statusCounts: Readonly<Record<PublishableStatus, number>>;
     readonly draftCount: number;
     readonly missingArabicCount: number;
     /** Rows with no unit price on file, so no cost per kilo can resolve downstream. */
@@ -312,7 +316,8 @@ export function useIngredientList(view?: string): IngredientListState {
     useRestoredPageFallback(memory, page, ingredients.isError, () => {
         setPage(1);
     });
-    const wholeSet = useIngredientWholeSetQuery(filter);
+    // Without the status, so the figures count every state in scope; `everyRow` re-applies it.
+    const wholeSet = useIngredientWholeSetQuery(withoutStatuses(filter));
     const categories = useIngredientCategoriesQuery();
     const allergenClasses = useAllergenClassesQuery();
     const archive = useDestructiveRow(useArchiveIngredientMutation(), (row: IngredientAdmin) => ({
@@ -338,9 +343,11 @@ export function useIngredientList(view?: string): IngredientListState {
         { useLookup: useIngredientById },
     );
 
-    // The cards count every page the filters match, not the eighteen rows on this one.
-    const everyRow = wholeSet.data ?? NO_ROWS;
-    const draftCount = everyRow.filter((row) => row.meta.status === 'draft').length;
+    // The figures count every page the filters match, not the eighteen rows on this one.
+    const scopeRows = wholeSet.data ?? NO_ROWS;
+    const everyRow = useMemo(() => inStatuses(scopeRows, statuses), [scopeRows, statuses]);
+    const statusCounts = useMemo(() => statusTally(scopeRows), [scopeRows]);
+    const draftCount = statusCounts.draft;
     const missingArabicCount = everyRow.filter(
         (row) => displayName(row.name, locale).isFallback,
     ).length;
@@ -394,6 +401,8 @@ export function useIngredientList(view?: string): IngredientListState {
         everyRow,
         // Rows up to the end of this page: 18 of 306 on the first, 36 on the second.
         shown: Math.min(page * KITCHEN_PAGE_SIZE, total ?? pageRows.length),
+        scopeCount: scopeRows.length,
+        statusCounts,
         draftCount,
         missingArabicCount,
         uncostedCount,
