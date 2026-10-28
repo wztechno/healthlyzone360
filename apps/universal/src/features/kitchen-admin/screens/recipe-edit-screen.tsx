@@ -2678,8 +2678,15 @@ function RecipeEditor({
         }
         return shownBlockers.find((entry) => entry.key === item.key)?.tab ?? null;
     };
-    const fixCard = (item: FormIssueItem): IssueCardItem['action'] => ({
-        onPress: item.onPress,
+    /*
+     * A card's Fix opens the field's tab first: tabs unmount when they are left, and a server
+     * refusal's own press only focuses — on another tab there is nothing to focus.
+     */
+    const fixCard = (item: FormIssueItem, target: RecipeTab | null): IssueCardItem['action'] => ({
+        onPress: () => {
+            if (target !== null) setTab(target);
+            item.onPress();
+        },
     });
 
     const saveCards: IssueCardItem[] = [
@@ -2688,7 +2695,7 @@ function RecipeEditor({
             tone: 'danger' as const,
             label: item.label,
             detail: tabName(saveItemTab(item)),
-            action: fixCard(item),
+            action: fixCard(item, saveItemTab(item)),
             testID: `kitchen-recipe-issues-errors-${item.key}`,
         })),
         // What has no field to sit on: a network failure, a refused photo, an unplaced refusal.
@@ -2739,7 +2746,7 @@ function RecipeEditor({
                     item.tab === null
                         ? t('kitchen:recipes.sectionRawMaterials')
                         : tabName(item.tab),
-                action: fixCard(item),
+                action: fixCard(item, item.tab),
                 testID: `kitchen-recipe-issues-publish-${item.key}`,
             };
         }),
@@ -2829,9 +2836,53 @@ function RecipeEditor({
                   },
               ];
 
+    /*
+     * The two optional fields the page still has an opinion on, each pointed at: a new meal's piece
+     * count, which the publish strip says once the recipe exists, and a packaging line at zero.
+     */
+    const firstZeroPackaging = zeroPackaging[0];
+    const optionalFieldCards: IssueCardItem[] = [
+        ...(isCreating && piecesOwed
+            ? [
+                  {
+                      key: 'check-pieces',
+                      tone: 'info' as const,
+                      label: t('kitchen:publish.blockNoPieces'),
+                      detail: t('kitchen:recipes.tabProduction'),
+                      action: {
+                          onPress: () => {
+                              goTo('production', 'kitchen-recipe-yield-pieces');
+                          },
+                      },
+                      testID: 'kitchen-recipe-check-pieces',
+                  },
+              ]
+            : []),
+        ...(firstZeroPackaging === undefined
+            ? []
+            : [
+                  {
+                      key: 'zero-packaging',
+                      tone: 'info' as const,
+                      label: t('kitchen:forms.zeroQuantity'),
+                      detail: t('kitchen:recipes.sectionPackaging'),
+                      action: {
+                          onPress: () => {
+                              goTo(
+                                  'packaging',
+                                  lineCellId(PACKAGING_TABLE, firstZeroPackaging.key, 'qty'),
+                              );
+                          },
+                      },
+                      testID: 'kitchen-recipe-issues-zero-packaging',
+                  },
+              ]),
+    ];
+
     const firstUnmapped = unmappedDraftEntries[0];
     const headsUpCards: IssueCardItem[] = [
         ...quietChecks,
+        ...optionalFieldCards,
         ...uncostedNotice,
         ...(firstUnmapped === undefined || lines.length === 0
             ? []
@@ -2856,6 +2907,15 @@ function RecipeEditor({
               ]),
     ];
 
+    /*
+     * While the field the gap is about still says what it needs — Pieces produced, or the line's
+     * Qty — the card's Fix takes the reader there; once it is filled, the card's action is Publish.
+     */
+    const fixStillOwed =
+        piecesFixMessage !== undefined ||
+        (fixRow !== undefined && fixLineMessage(fixRow) !== undefined);
+    const fixOwedFieldId = fixStillOwed && editable ? fixFieldId : null;
+
     const stockGapCards: IssueCardItem[] =
         fix === null || fixPublished
             ? []
@@ -2868,7 +2928,14 @@ function RecipeEditor({
                       testID: 'kitchen-recipe-stock-gap',
                       action: !canManage
                           ? undefined
-                          : isEditable
+                          : fixOwedFieldId !== null
+                            ? {
+                                  onPress: () => {
+                                      goTo('production', fixOwedFieldId);
+                                  },
+                                  testID: 'kitchen-recipe-stock-gap-field',
+                              }
+                            : isEditable
                             ? {
                                   label: t('kitchen:publish.action'),
                                   onPress: savePublish,

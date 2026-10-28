@@ -557,6 +557,10 @@ describe('a recipe opened from a stock gap', () => {
             },
             () => stored,
             {
+                updateRecipe: async () => {
+                    stored = recipe(version({ yieldPieces: 12 }));
+                    return stored;
+                },
                 publishRecipe: async () => {
                     const published = version({
                         status: 'published',
@@ -584,7 +588,21 @@ describe('a recipe opened from a stock gap', () => {
             /Stock gap to fix: Recipe has no pieces produced/,
         );
 
-        // The card's own Publish, through the usual dialog.
+        // Until there is a count, the card points at Pieces produced — from any tab.
+        expect(screen.queryByTestId('kitchen-recipe-stock-gap-publish')).toBeNull();
+        await press('kitchen-recipe-tab-description');
+        expect(isSelected('description')).toBe(true);
+        focusMock.mockClear();
+        await press('kitchen-recipe-stock-gap-field');
+        expect(isSelected('production')).toBe(true);
+        await waitFor(() => {
+            expect(focusMock).toHaveBeenCalledWith('kitchen-recipe-yield-pieces');
+        });
+
+        // Counted: the card's action becomes its own Publish, through the usual dialog.
+        await type('kitchen-recipe-yield-pieces-input', '12');
+        await untilVisible('kitchen-recipe-stock-gap-publish');
+        expect(screen.queryByTestId('kitchen-recipe-stock-gap-field')).toBeNull();
         await press('kitchen-recipe-stock-gap-publish');
         await untilVisible('kitchen-recipe-publish-confirm');
         await press('kitchen-recipe-publish-confirm');
@@ -650,6 +668,32 @@ describe('a recipe opened from a stock gap', () => {
         // Cancel still goes back to where it came from.
         await press('kitchen-recipe-editor-screen-discard');
         expect(routerMock.__dismissTo).toHaveBeenCalledWith(RETURN_TO);
+    });
+
+    it('takes a refused optional field’s card to its tab, from any other', async () => {
+        const stored = recipe();
+        await renderEditor({}, () => stored, {
+            updateRecipe: async () =>
+                throwFailure(
+                    validationFailure({
+                        yield_piece_count: ['The pieces produced must be at least 1.'],
+                    }),
+                ),
+        });
+
+        await untilVisible('kitchen-recipe-name-en-input');
+        await type('kitchen-recipe-name-en-input', 'Mujadara');
+        await press('kitchen-recipe-editor-screen-save');
+        await untilVisible('kitchen-recipe-yield-pieces-error');
+
+        await press('kitchen-recipe-tab-description');
+        expect(isSelected('description')).toBe(true);
+        focusMock.mockClear();
+        await press('kitchen-recipe-issues-errors-server-yield_piece_count-fix');
+        expect(isSelected('production')).toBe(true);
+        await waitFor(() => {
+            expect(focusMock).toHaveBeenCalledWith('kitchen-recipe-yield-pieces');
+        });
     });
 });
 
