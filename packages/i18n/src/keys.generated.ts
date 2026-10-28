@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9085 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9090 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2484,12 +2484,17 @@ export interface NamespaceKeys {
     | 'fileUpload.uploading'
     | 'infoTip.label'
     | 'issueTray.allSet'
+    | 'issueTray.andMore'
+    | 'issueTray.beforePublishing'
+    | 'issueTray.beforeSaving'
     | 'issueTray.checking'
     | 'issueTray.close'
     | 'issueTray.fix'
+    | 'issueTray.notNow'
     | 'issueTray.openCount'
     | 'issueTray.passed'
     | 'issueTray.progress'
+    | 'issueTray.showMe'
     | 'issueTray.toFix'
     | 'numberStepper.decrease'
     | 'numberStepper.increase'
@@ -11591,12 +11596,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:fileUpload.uploading',
   'designSystem:infoTip.label',
   'designSystem:issueTray.allSet',
+  'designSystem:issueTray.andMore',
+  'designSystem:issueTray.beforePublishing',
+  'designSystem:issueTray.beforeSaving',
   'designSystem:issueTray.checking',
   'designSystem:issueTray.close',
   'designSystem:issueTray.fix',
+  'designSystem:issueTray.notNow',
   'designSystem:issueTray.openCount',
   'designSystem:issueTray.passed',
   'designSystem:issueTray.progress',
+  'designSystem:issueTray.showMe',
   'designSystem:issueTray.toFix',
   'designSystem:numberStepper.decrease',
   'designSystem:numberStepper.increase',

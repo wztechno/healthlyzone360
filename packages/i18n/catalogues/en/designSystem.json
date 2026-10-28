@@ -233,7 +233,15 @@
         "fix": "Fix",
         "close": "Close",
         "checking": "Checking",
-        "passed": "Passed"
+        "passed": "Passed",
+        "beforeSaving_one": "{{count}} thing before saving",
+        "beforeSaving_other": "{{count}} things before saving",
+        "beforePublishing_one": "{{count}} thing before publishing",
+        "beforePublishing_other": "{{count}} things before publishing",
+        "andMore_one": "and {{count}} more",
+        "andMore_other": "and {{count}} more",
+        "notNow": "Not now",
+        "showMe": "Show me"
     },
     "timeField": {
         "hour": "Hour",

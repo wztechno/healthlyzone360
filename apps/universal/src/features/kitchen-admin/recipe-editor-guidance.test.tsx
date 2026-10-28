@@ -410,8 +410,17 @@ describe('errors at the field', () => {
         await press('kitchen-recipe-tab-description');
         await press('kitchen-recipe-editor-screen-save');
 
+        // The notice names it; Show me switches to its tab and into the cell.
+        await untilVisible('kitchen-recipe-tray-blocked');
+        expect(screen.getByTestId('kitchen-recipe-tray-blocked-list')).toHaveTextContent(
+            /Raw materials/,
+        );
+        await press('kitchen-recipe-tray-blocked-show-me');
+
         await untilVisible('kitchen-recipe-lines-table-row-line-1-qty-error');
-        expect(isSelected('production')).toBe(true);
+        await waitFor(() => {
+            expect(isSelected('production')).toBe(true);
+        });
         expect(
             screen.getByTestId('kitchen-recipe-lines-table-row-line-1-qty-error'),
         ).toHaveTextContent('Enter a quantity');
@@ -432,7 +441,7 @@ describe('errors at the field', () => {
         expect(tabLabel('production')).toBe('Production, 1 to fix');
     });
 
-    it('leads Publish over a blocked draft to the field, not to a dialog', async () => {
+    it('answers Publish over a blocked draft with a notice whose Show me leads to the field', async () => {
         await renderEditor({}, () => recipe());
 
         await untilVisible('kitchen-recipe-name-en-input');
@@ -440,10 +449,19 @@ describe('errors at the field', () => {
         await press('kitchen-recipe-tab-production');
         await press('kitchen-recipe-publish');
 
-        await untilVisible('kitchen-recipe-name-en-input');
-        expect(isSelected('description')).toBe(true);
-        expect(focusMock).toHaveBeenLastCalledWith('kitchen-recipe-name-en');
+        // Not the publish dialog: a notice naming what stops the save the publish needs first.
+        await untilVisible('kitchen-recipe-tray-blocked');
+        expect(screen.getByTestId('kitchen-recipe-tray-blocked-title')).toHaveTextContent(
+            '1 thing before saving',
+        );
         expect(screen.queryByTestId('kitchen-recipe-publish-consequence')).toBeNull();
+
+        await press('kitchen-recipe-tray-blocked-show-me');
+        await waitFor(() => {
+            expect(focusMock).toHaveBeenLastCalledWith('kitchen-recipe-name-en');
+        });
+        expect(isSelected('description')).toBe(true);
+        expect(screen.queryByTestId('kitchen-recipe-tray-blocked')).toBeNull();
     });
 });
 

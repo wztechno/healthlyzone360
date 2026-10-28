@@ -628,9 +628,9 @@ function IngredientEditor({
     const { locale } = useLocale();
     const formatter = useFormatter();
     const toast = useToast();
-    // The page's issue tray; a refused save opens it (`nudge`). See the recipe editor.
+    // The page's issue tray; a Save that cannot go through asks it to explain why (`explain`).
     const issueTray = useIssueTrayController();
-    const { nudge: nudgeTray } = issueTray;
+    const { explain: explainBlocked } = issueTray;
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
 
     const isCreating = ingredient === undefined || ingredient === 'new';
@@ -1727,14 +1727,9 @@ function IngredientEditor({
     const save = () => {
         if (!editable || currencyMissing) return;
         setAttempted(true);
-        if (referenceBlocked) {
-            nudgeTray();
-            return;
-        }
-        if (blockers.length > 0) {
-            // The tray names every field; the first one is also where the reader is taken.
-            focusField(blockers[0]!.fieldId);
-            nudgeTray();
+        // A notice names what stops it, from the tray's cards; its "Show me" runs the first Fix.
+        if (referenceBlocked || blockers.length > 0) {
+            explainBlocked({ action: 'save', groups: ['save'] });
             return;
         }
 
@@ -2692,9 +2687,8 @@ function IngredientEditor({
                                         testID="kitchen-ingredient-editor-screen-save"
                                         label={t('kitchen:editor.save')}
                                         loading={busy}
-                                        disabled={
-                                            !editable || currencyMissing || busy || referenceBlocked
-                                        }
+                                        // Pressable over an unconfirmed match: the notice says so.
+                                        disabled={!editable || currencyMissing || busy}
                                         onPress={save}
                                     />
                                 )}

@@ -27,8 +27,9 @@ type DemoTab = 'details' | 'ingredients' | 'yield' | 'selling';
  *
  * Every card here is derived from the fields on every render, exactly as a real editor does it:
  * fill a field and its card ticks and leaves by itself; empty it again and the card comes back.
- * Fix switches the tab, focuses the field and spotlights it. Save draft with a blocking card open
- * nudges the tray — it opens, and the pill in the top bar shakes.
+ * Fix switches the tab, focuses the field and spotlights it. Save draft or Publish with a blocking
+ * card open asks the tray to explain: a notice in the middle names what is left, and "Show me" opens
+ * the tray and runs the first card's Fix.
  *
  * The Selling tab is a part of the page with its own problems, the way a listing sits inside a
  * recipe: it registers them with `useIssueGroup` from inside the frame, under an `IssueRevealScope`
@@ -152,13 +153,20 @@ export function IssueTrayShowcaseScreen() {
                                     variant="secondary"
                                     label="Save draft"
                                     onPress={() => {
-                                        if (!portionsOk) tray.nudge();
+                                        if (!portionsOk)
+                                            tray.explain({ action: 'save', groups: ['save'] });
                                     }}
                                 />
                                 <Button
                                     label="Publish"
                                     onPress={() => {
-                                        if (save.length + publish.length > 0) tray.nudge();
+                                        if (save.length > 0)
+                                            tray.explain({ action: 'save', groups: ['save'] });
+                                        else if (publish.length > 0)
+                                            tray.explain({
+                                                action: 'publish',
+                                                groups: ['publish', 'selling'],
+                                            });
                                         else setPublished(true);
                                     }}
                                 />
