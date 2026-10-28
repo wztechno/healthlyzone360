@@ -40,7 +40,8 @@ import { Platform, View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
-import { pathnameOf, withQuery } from '../../../navigation/return-to.ts';
+import { useProcessStep } from '../../../navigation/active-process.ts';
+import { pathnameOf, withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
     useCreateSupplierMutation,
@@ -244,6 +245,15 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
     // Cancel steps back to wherever the form was opened from — the book on its filter and page, or
     // the stock gap that sent the reader here to add stock.
     const back = useReturnTo(returnTo, BOOK_ROUTE);
+    // Opened from a fix in progress — a stock gap, or an ingredient a recipe sent the reader to — this
+    // form is one of its steps, so the top bar does not offer Continue over it.
+    useProcessStep(
+        withReturnTo(
+            withQuery('/kitchen/procurement/new', { ingredient, item }),
+            back.returnTo,
+        ),
+        back.returnTo,
+    );
     const toast = useToast();
     const access = useAccessState();
     const { me } = useSession();

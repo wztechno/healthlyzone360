@@ -547,6 +547,10 @@ function useIngredientWriteEffects(): (ingredient: IngredientAdmin) => void {
     return (ingredient: IngredientAdmin) => {
         queryClient.setQueryData(queryKeys.kitchenAdmin.ingredient(ingredient.id), ingredient);
         void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+        // A shelf is derived from its ingredient — made with it, named and measured by it — so a
+        // stock list read before this write can miss a new copy's shelf: a receipt opened on that
+        // copy then started on an empty line (2026-10-28).
+        void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOps.stockItems() });
     };
 }
 

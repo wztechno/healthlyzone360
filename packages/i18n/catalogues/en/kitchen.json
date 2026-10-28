@@ -4517,6 +4517,7 @@
         "nutrition": "Choose and confirm a nutrition match, then save.",
         "unit": "Enter what one {{unit}} weighs, then save.",
         "priceFood": "No price yet. It comes from the next delivery you receive.",
+        "recordDelivery": "Record a delivery",
         "pricePack": "Enter the pack price, then save.",
         "back": "Back to recipe",
         "backNamed": "Back to {{name}}",

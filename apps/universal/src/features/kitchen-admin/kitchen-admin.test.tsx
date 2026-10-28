@@ -31,6 +31,7 @@ import type { ReactNode } from 'react';
 import { Dimensions } from 'react-native';
 
 import {
+    KITCHEN_MANAGER_PERMISSIONS,
     MEMBER_PERMISSIONS,
     TEST_BRANCH_ID,
     TEST_ORGANISATION_ID,
@@ -1885,6 +1886,80 @@ describe('the ingredient editor', () => {
  * editable, sent on their own. And a record whose figures a published recipe **derives** gets
  * neither, because the server refuses both on a derivation.
  */
+/**
+ * A recipe's "No price yet" on a food ingredient. Food is priced off its receipts, never typed, so
+ * the fix is posting one: the tray's card opens the receipt form on this ingredient, with the way
+ * back to the recipe that asked.
+ */
+describe('a food ingredient with no price, sent from a recipe', () => {
+    const RECIPE_RETURN = '/kitchen/recipes/01a08514-be2f-717f-96bd-8087ebf66134';
+
+    it('opens the receipt form on the ingredient, returning to the recipe', async () => {
+        const record = ingredient(92);
+        await renderStubScreen(
+            <IngredientEditScreen
+                ingredient={String(record.id)}
+                needs="price"
+                returnTo={RECIPE_RETURN}
+            />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [record]),
+                        getIngredient: async () => record,
+                    },
+                },
+            },
+        );
+
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-ingredient-record-delivery');
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-ingredient-record-delivery'));
+            });
+        });
+        await waitFor(() => {
+            expect(routerMock.__push).toHaveBeenCalledWith(
+                `/kitchen/procurement/new?ingredient=${String(record.id)}&returnTo=${encodeURIComponent(
+                    encodeURIComponent(RECIPE_RETURN),
+                )}`,
+            );
+        });
+    });
+
+    it('points at the price field for someone who may not post a receipt', async () => {
+        const record = ingredient(93);
+        await renderStubScreen(
+            <IngredientEditScreen
+                ingredient={String(record.id)}
+                needs="price"
+                returnTo={RECIPE_RETURN}
+            />,
+            {
+                session: kitchenManagerSession({
+                    activeContext: testActiveContext({
+                        permissions: KITCHEN_MANAGER_PERMISSIONS.filter(
+                            (permission) => permission !== 'inventory.manage_organisation',
+                        ),
+                    }),
+                }),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [record]),
+                        getIngredient: async () => record,
+                    },
+                },
+            },
+        );
+
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-ingredient-fix-price');
+            expect(screen.queryByTestId('kitchen-ingredient-record-delivery')).toBeNull();
+        });
+    });
+});
+
 describe('USDA lookup and explicit allergen review', () => {
     it('searches only on submission and explains an empty response', async () => {
         const onChange = jest.fn();
