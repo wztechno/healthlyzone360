@@ -83,6 +83,18 @@ function variant(plan: number, index: number, weekly: number, meals: number): Pl
         fatRange: null,
         mealsPerDay: meals,
         snacksPerDay: 0,
+        // The server's rule: two meals are lunch and dinner, a third adds breakfast.
+        sittings:
+            meals >= 3
+                ? [
+                      { slot: 'breakfast', sequence: 1 },
+                      { slot: 'lunch', sequence: 1 },
+                      { slot: 'dinner', sequence: 1 },
+                  ]
+                : [
+                      { slot: 'lunch', sequence: 1 },
+                      { slot: 'dinner', sequence: 1 },
+                  ],
         pricePerWeek: { amount: weekly, currency: 'AED' },
     };
 }
@@ -106,7 +118,6 @@ function plan(ordinal: number, name: string, slug: string): SubscriptionPlan {
         // The dearer band first: the advertised price must still be the cheapest one's.
         variants: [variant(ordinal, 1, 28000, 3), variant(ordinal, 0, 21000, 2)],
         durations: DURATIONS,
-        sampleMealIds: [],
         imagePlaceholderId: `plan-${slug}`,
         rating: null,
         ratingCount: 0,
@@ -143,7 +154,7 @@ const SUBSCRIPTION: Subscription = {
             countryCode: 'AE',
             instructions: null,
         },
-        selectedMealIds: [],
+        days: [],
     },
     planName: 'Balanced week',
     kitchenId: KITCHEN_ID,

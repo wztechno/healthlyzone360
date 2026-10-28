@@ -5,7 +5,6 @@ import {
     Button,
     Callout,
     Cascade,
-    DatePickerButton,
     Dialog,
     ErrorState,
     FilterChip,
@@ -15,8 +14,6 @@ import {
     Icon,
     Inline,
     IssueTrayFrame,
-    Skeleton,
-    spanWidth,
     Stack,
     Tabs,
     Text,
@@ -37,15 +34,11 @@ import { View } from 'react-native';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
-    mealsFromPages,
     priceListsFromPages,
-    useAdminMealsQuery,
     useAdminPlanQuery,
     useCreatePlanMutation,
-    usePlanMenuQuery,
     usePriceListsQuery,
     usePublishPlanMutation,
-    useReplacePlanMenuMutation,
     useRetirePlanMutation,
     useSetPlanDurationsMutation,
     useSetPlanVariantsMutation,
@@ -69,23 +62,6 @@ import {
 } from '../format.ts';
 import { returnCrumbLabel } from '../came-from.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
-import {
-    EMPTY_MENU,
-    MENU_CYCLE_DAY_MAX,
-    isFirstPublication,
-    isMenuPublished,
-    isMenuWithdrawal,
-    menuDays,
-    menuDocumentErrors,
-    menuDraft,
-    largestServing,
-    menuEntryErrors,
-    menuRequest,
-    withAnchorDate,
-    withCycleDays,
-} from '../plan-menu.ts';
-import type { MenuDraft } from '../plan-menu.ts';
-import { PlanMenuDays } from '../plan-menu-row-editors.tsx';
 import { PlanDurationRows, PlanVariantRows } from '../plan-row-editors.tsx';
 import {
     combinationDraft,
@@ -110,29 +86,25 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 /**
  * `/kitchen/plans/{plan}` — the commercial definition of a subscription plan.
  *
- * ## Five writes, five save controls, and that is the contract's shape rather than a preference
+ * ## Four writes, four save controls, and that is the contract's shape rather than a preference
  *
- * `KitchenAdminRepository` publishes `updatePlan`, `setPlanCombinations`, `setPlanVariants`,
- * `setPlanDurations` and `replacePlanMenu` as five separate lock-versioned methods. Each section
- * therefore saves itself, exactly as the meal editor's availability does: one request, one
- * `lockVersion` read at the moment of pressing, one refusal to render if the server has moved on.
- * Folding them into a single button would mean chaining five writes and inventing an answer to "the
- * second one failed — is the first one still applied?", which is a question a screen should never
- * have to ask. All five carry the **catalogue item's** version, including the menu, whose own table
- * is not lock-versioned at all.
+ * `KitchenAdminRepository` publishes `updatePlan`, `setPlanCombinations`, `setPlanVariants` and
+ * `setPlanDurations` as four separate lock-versioned methods. Each section therefore saves itself,
+ * exactly as the meal editor's availability does: one request, one `lockVersion` read at the moment
+ * of pressing, one refusal to render if the server has moved on. Folding them into a single button
+ * would mean chaining four writes and inventing an answer to "the second one failed — is the first
+ * one still applied?", which is a question a screen should never have to ask. All four carry the
+ * **catalogue item's** version.
  *
  * A **new** plan is the exception, and only because there is nothing to lock yet: its one `Save the
- * plan` creates the record and then chains the configurations, the durations and the menu on each
- * other's echo (see `createPlan`).
+ * plan` creates the record and then chains the configurations and the durations on each other's
+ * echo (see `createPlan`).
  *
- * ## The menu is the one section that changes what a kitchen cooks
+ * ## No menu, by decision
  *
- * The other four are commercial: what is sold, in what sizes, for how long, at what price. The fifth
- * says which dish is served on which day — and publishing one for the first time is a **cutover**.
- * Until a plan has a menu its generated subscription orders carry no meal lines and deduct no stock;
- * from the first save they do, and an un-recipe'd dish starts producing consumption exceptions. That
- * is stated once, as a card in the page's issue tray that appears only when this save would be the
- * first one (see `../plan-menu.ts`'s `isFirstPublication`), rather than as a warning on every visit.
+ * Every section here is commercial: what is sold, in what sizes, for how long, at what price. Which
+ * dish is served on which day is not the kitchen's to fix — a subscriber chooses every meal of every
+ * delivery day themselves (2026-10-28) — so the editor has no menu step.
  *
  * ## The matrix, and what it is *not*
  *
@@ -221,7 +193,7 @@ function sameDiets(
 interface CutOffFieldProps extends GridSpanProps {
     readonly label: string;
     readonly hint: string;
-    /** Drawn inside the frame at its trailing edge, the way the menu's cycle field carries "days". */
+    /** Drawn inside the frame at its trailing edge. */
     readonly unit: string;
     readonly placeholder: string;
     /** The figure in plain words, under the field; `null` while there is no figure to explain. */
@@ -293,12 +265,11 @@ function CutOffField({
 
 /*
  * The plan first — its name, summary and cut-off, which is what a new plan is asked before anything
- * else — then Configurations · Matrix · Durations, the design's three (Commercial §3.3), then the
- * fixed menu. A new plan walks the same five steps, because the design's `New plan` is the same
- * editor with nothing in it, and its one Save writes all of them. The menu is optional there as
- * everywhere: left empty, the plan is created with no menu.
+ * else — then Configurations · Matrix · Durations, the design's three (Commercial §3.3). A new plan
+ * walks the same four steps, because the design's `New plan` is the same editor with nothing in it,
+ * and its one Save writes all of them.
  */
-const PLAN_STEPS = ['plan', 'variants', 'matrix', 'durations', 'menu'] as const;
+const PLAN_STEPS = ['plan', 'variants', 'matrix', 'durations'] as const;
 type PlanStep = (typeof PLAN_STEPS)[number];
 
 /*
@@ -330,7 +301,6 @@ const PLAN_STEP_LABELS: Record<PlanStep, string> = {
     matrix: 'kitchen:plans.tabMatrix',
     durations: 'kitchen:plans.sectionDurations',
     plan: 'kitchen:plans.sectionDetails',
-    menu: 'kitchen:plans.sectionMenu',
 };
 
 /** The section a tray card lights when its problem is a whole step rather than one field on it. */
@@ -339,7 +309,6 @@ const PLAN_STEP_SECTIONS: Record<PlanStep, string> = {
     variants: 'kitchen-plan-variants-section',
     matrix: 'kitchen-plan-matrix',
     durations: 'kitchen-plan-durations',
-    menu: 'kitchen-plan-menu',
 };
 
 /* ------------------------------------------------------------------------------------------------
@@ -380,7 +349,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
     const back = useReturnTo(returnTo, '/kitchen/plans');
 
     const isCreating = plan === undefined || plan === 'new';
-    // Every plan, new or saved, opens on the plan itself and walks the same five steps.
+    // Every plan, new or saved, opens on the plan itself and walks the same four steps.
     const planSteps: readonly PlanStep[] = PLAN_STEPS;
     const form = useFormSteps(planSteps);
     /*
@@ -393,23 +362,11 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
 
     const record = useAdminPlanQuery(parsed);
     const priceLists = usePriceListsQuery({ limit: 100 });
-    const menuRecord = usePlanMenuQuery(parsed);
-    /*
-     * The dishes the menu picker offers.
-     *
-     * Published only, because the server refuses anything else with `422` — "a menu entry is a
-     * promise to serve the dish" — and a picker that offered a draft would turn that promise into a
-     * refusal after the fact. Whole listing rather than a page, for the reason every editor here
-     * takes one: a page control on a select is nonsense. A new plan needs it too — its menu is
-     * written in the same pass as everything else.
-     */
-    const meals = useAdminMealsQuery({ limit: 100, statuses: ['published'] });
 
     const create = useCreatePlanMutation();
     const update = useUpdatePlanMutation();
     const saveVariantsMutation = useSetPlanVariantsMutation();
     const saveDurationsMutation = useSetPlanDurationsMutation();
-    const saveMenuMutation = useReplacePlanMenuMutation();
     const publish = usePublishPlanMutation();
     const retire = useRetirePlanMutation();
 
@@ -431,11 +388,6 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
         isCreating ? [emptyDuration(STARTER_DURATION_KEY)] : [],
     );
     const [durationsDirty, setDurationsDirty] = useState(false);
-
-    const [menu, setMenu] = useState<MenuDraft>(EMPTY_MENU);
-    const [menuKey, setMenuKey] = useState<string | null>(null);
-    const [menuDirty, setMenuDirty] = useState(false);
-    const [showWithdrawMenu, setShowWithdrawMenu] = useState(false);
 
     const [matrixKey, setMatrixKey] = useState<string | null>(null);
     const [ordinal, setOrdinal] = useState(1);
@@ -487,24 +439,6 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
         setDurations(data.durations.map(durationDraft));
     }
 
-    /*
-     * The menu rebases on its own key, not on the record's.
-     *
-     * It is a separate document on a separate read, and it moves for reasons the record does not:
-     * the *item's* lock version is what both carry, so any other section's save advances it and
-     * refetches this. Rebasing is skipped while the menu is dirty, exactly as the four above skip
-     * theirs — a refetch that discarded a half-written fortnight would be the worst of the five.
-     */
-    const menuServerKey =
-        menuRecord.data === undefined
-            ? null
-            : `${String(menuRecord.data.planId)}:${String(menuRecord.data.meta.lockVersion)}`;
-
-    if (menuRecord.data !== undefined && menuServerKey !== menuKey && !menuDirty) {
-        setMenuKey(menuServerKey);
-        setMenu(menuDraft(menuRecord.data));
-    }
-
     const takeKey = (prefix: string): string => {
         const key = `${prefix}-${String(ordinal)}`;
         setOrdinal(ordinal + 1);
@@ -521,27 +455,18 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
         readonly combinations?: boolean;
         readonly variants?: boolean;
         readonly durations?: boolean;
-        readonly menu?: boolean;
     }) => {
         const after = {
             details: next.details ?? detailsDirty,
             combinations: next.combinations ?? combinationsDirty,
             variants: next.variants ?? variantsDirty,
             durations: next.durations ?? durationsDirty,
-            menu: next.menu ?? menuDirty,
         };
         setDetailsDirty(after.details);
         setCombinationsDirty(after.combinations);
         setVariantsDirty(after.variants);
         setDurationsDirty(after.durations);
-        setMenuDirty(after.menu);
-        if (
-            !after.details &&
-            !after.combinations &&
-            !after.variants &&
-            !after.durations &&
-            !after.menu
-        ) {
+        if (!after.details && !after.combinations && !after.variants && !after.durations) {
             guard.markClean();
         }
     };
@@ -551,24 +476,20 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
         setCombinationsDirty(false);
         setVariantsDirty(false);
         setDurationsDirty(false);
-        setMenuDirty(false);
         setDetailsKey(null);
         setMatrixKey(null);
-        setMenuKey(null);
         guard.markClean();
         void record.refetch();
-        void menuRecord.refetch();
-    }, [guard, record, menuRecord]);
+    }, [guard, record]);
 
     const concurrency = useOptimisticConcurrency({ onReload: reload });
 
-    // The page's issue tray; a refused write — any of the five — opens it.
+    // The page's issue tray; a refused write — any of the four — opens it.
     const issueTray = useIssueTrayController();
     const { nudge: nudgeTray } = issueTray;
     useNudgeOnRefusal(update.error ?? create.error, nudgeTray);
     useNudgeOnRefusal(saveVariantsMutation.error, nudgeTray);
     useNudgeOnRefusal(saveDurationsMutation.error, nudgeTray);
-    useNudgeOnRefusal(saveMenuMutation.error, nudgeTray);
 
     /* ── derived vocabularies ────────────────────────────────────────────────────────────────── */
 
@@ -610,41 +531,6 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                 discountInvalid: t('kitchen:plans.discountInvalid'),
             }),
         [durations, t],
-    );
-
-    const menuRowErrors = useMemo(() => {
-        const serving = largestServing(variants);
-        return menuEntryErrors(
-            menu,
-            {
-                beyondCycle: t('kitchen:plans.menuBeyondCycle'),
-                mealRequired: t('kitchen:plans.menuMealRequired'),
-                sequenceRequired: t('kitchen:plans.menuSequenceRequired'),
-                duplicateCoordinate: t('kitchen:plans.menuDuplicateCoordinate'),
-            },
-            serving === null
-                ? undefined
-                : {
-                      ...serving,
-                      message: t('kitchen:plans.menuOverServing', {
-                          meals: serving.meals,
-                          snacks: serving.snacks,
-                      }),
-                  },
-        );
-    }, [menu, variants, t]);
-
-    const menuBlockers = useMemo(
-        () =>
-            menuDocumentErrors(menu, {
-                entriesRequired: t('kitchen:plans.menuEntriesRequired'),
-                cycleRequired: t('kitchen:plans.menuCycleRequired'),
-                anchorRequired: t('kitchen:plans.menuAnchorRequired'),
-                cycleOutOfRange: t('kitchen:plans.menuCycleOutOfRange'),
-                anchorMalformed: t('kitchen:plans.menuAnchorMalformed'),
-                tooManyEntries: t('kitchen:plans.menuTooManyEntries'),
-            }),
-        [menu, t],
     );
 
     const nameMissing = details.name.en.trim() === '';
@@ -689,7 +575,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
 
     /*
      * Everything on the form that needs the reader, each naming the step it is on and the field
-     * that fixes it — the recipe editor's list, on the plan's five steps. Counted on each step's
+     * that fixes it — the recipe editor's list, on the plan's four steps. Counted on each step's
      * tab; Save takes the reader to the first of them in step order (`saveBlockers`).
      *
      * `required` separates a blank, which waits for Save to be pressed, from something already
@@ -757,24 +643,6 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                   },
               ]
             : []),
-        /*
-         * The menu's rows always, and its document rule too while creating — then the one Save
-         * writes the menu, so a half-written one (a cycle with no dishes, dishes with no anchor)
-         * has to stop it here rather than be refused by the server after the plan already exists.
-         * On a saved plan the section's own Save refuses the document and its tray card says why.
-         */
-        ...(menuRowErrors.size > 0 || (isCreating && menuBlockers.length > 0)
-            ? [
-                  {
-                      key: 'menu',
-                      label: t('kitchen:plans.sectionMenu'),
-                      step: 'menu' as const,
-                      fieldId: null,
-                      required: false,
-                      blocksSave: isCreating,
-                  },
-              ]
-            : []),
     ];
 
     /* Before the first Save, only what has already been typed wrong; after it, everything. */
@@ -789,7 +657,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
         form.goTo(step);
         if (fieldId !== null) focusField(fieldId);
     };
-    /** A problem that is a whole step — its rows, its document — not one field: lit whole. */
+    /** A problem that is a whole step — its rows — not one field: lit whole. */
     const goToSection = (step: PlanStep) => {
         form.goTo(step);
         focusSection(PLAN_STEP_SECTIONS[step]);
@@ -835,34 +703,11 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
         if (coverage !== null && coverage.confirmed === 0) {
             reasons.push(t('kitchen:plans.blockNoConfirmedPrice'));
         }
-        /*
-         * The *saved* menu, for the same reason as every other line here. A rotation with a day
-         * nobody is served on is a subscriber who gets nothing that day; a plan with no menu at
-         * all is a different, legitimate state (orders without dishes) and is not a blocker.
-         */
-        if (menuRecord.data !== undefined && menuRecord.data.cycleDays !== null) {
-            const emptyDays = menuDays(menuDraft(menuRecord.data)).filter(
-                (day) => !day.isBeyondCycle && day.entries.length === 0,
-            ).length;
-            if (emptyDays > 0) {
-                reasons.push(t('kitchen:plans.blockMenuDaysEmpty', { count: emptyDays }));
-            }
-        }
-        if (detailsDirty || combinationsDirty || variantsDirty || durationsDirty || menuDirty) {
+        if (detailsDirty || combinationsDirty || variantsDirty || durationsDirty) {
             reasons.push(t('kitchen:plans.blockUnsaved'));
         }
         return reasons;
-    }, [
-        data,
-        menuRecord.data,
-        coverage,
-        detailsDirty,
-        combinationsDirty,
-        variantsDirty,
-        durationsDirty,
-        menuDirty,
-        t,
-    ]);
+    }, [data, coverage, detailsDirty, combinationsDirty, variantsDirty, durationsDirty, t]);
 
     /* ── saving ──────────────────────────────────────────────────────────────────────────────── */
 
@@ -924,17 +769,15 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
     };
 
     /**
-     * The new-plan save (Commercial §3.3, `New plan`): the record, then its configurations, its
-     * durations and its menu, from the one `Save the plan` button the design draws.
+     * The new-plan save (Commercial §3.3, `New plan`): the record, then its configurations and its
+     * durations, from the one `Save the plan` button the design draws.
      *
-     * Four lock-versioned methods still, so this is up to four writes chained on each other's echo —
-     * each carries the `lockVersion` the previous one returned, and a section with nothing in it is
-     * skipped (an empty menu is no menu, which is what every plan starts with). A later write can
-     * fail with the earlier ones applied: the failing section keeps its rows and says why, `created`
-     * keeps the minted record, and pressing Save again finishes that plan rather than creating
-     * another. The menu is last because it is the only write that leaves the item's version behind
-     * it unread — nothing follows it but the navigation. The address moves to the record only once
-     * every write has landed, so nothing typed is discarded by a navigation.
+     * Three lock-versioned methods still, so this is up to three writes chained on each other's
+     * echo — each carries the `lockVersion` the previous one returned, and a section with nothing in
+     * it is skipped. A later write can fail with the earlier ones applied: the failing section keeps
+     * its rows and says why, `created` keeps the minted record, and pressing Save again finishes that
+     * plan rather than creating another. The address moves to the record only once every write has
+     * landed, so nothing typed is discarded by a navigation.
      *
      * Save is pressed from whichever step the reader is on, so a refusal of another section's rows
      * would land out of sight: `stage` names the step each write is about, and a refusal opens it,
@@ -977,21 +820,8 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                     });
                     setCreated(record);
                 }
-                if (!isMenuWithdrawal(menu)) {
-                    stage = 'menu';
-                    const body = menuRequest(menu);
-                    await saveMenuMutation.mutateAsync({
-                        planId: record.id,
-                        request: {
-                            lockVersion: record.meta.lockVersion,
-                            entries: body.entries,
-                            cycleDays: body.cycleDays,
-                            anchorDate: body.anchorDate,
-                        },
-                    });
-                }
 
-                settle({ details: false, variants: false, durations: false, menu: false });
+                settle({ details: false, variants: false, durations: false });
                 toast.show({
                     testID: 'kitchen-plan-created-toast',
                     tone: 'success',
@@ -1133,56 +963,6 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
         );
     };
 
-    /**
-     * The fifth write.
-     *
-     * `data.meta.lockVersion` is read **here**, at the moment of pressing, exactly as its four
-     * siblings do: the menu read carries the same number, but taking it from the record keeps all
-     * five saves answering to one version of one row rather than to two copies that can disagree.
-     *
-     * The whole document goes up every time — entries, cycle length and anchor — because that is
-     * what the endpoint takes and what "replace" means. Withdrawal is the same call with all three
-     * empty, which is why it needs no method of its own.
-     */
-    const saveMenu = (next: MenuDraft) => {
-        if (data === undefined) return;
-        const withdrawing = isMenuWithdrawal(next);
-        const body = menuRequest(next);
-
-        saveMenuMutation.mutate(
-            {
-                planId: data.id,
-                request: {
-                    lockVersion: data.meta.lockVersion,
-                    entries: body.entries,
-                    cycleDays: body.cycleDays,
-                    anchorDate: body.anchorDate,
-                },
-            },
-            {
-                onSuccess: (saved) => {
-                    // Rebased on the server's echo, for `saveVariants`'s reason: the whole-record
-                    // rebuild above is skipped while any other section is dirty, so each save
-                    // rebases its own rows or the next one sends stale coordinates.
-                    setMenu(menuDraft(saved));
-                    setShowWithdrawMenu(false);
-                    settle({ menu: false });
-                    toast.show({
-                        testID: 'kitchen-plan-menu-saved-toast',
-                        tone: 'success',
-                        message: withdrawing
-                            ? t('kitchen:plans.menuWithdrawnToast')
-                            : t('kitchen:plans.menuSavedToast', { count: saved.entries.length }),
-                    });
-                },
-                onError: (error) => {
-                    setShowWithdrawMenu(false);
-                    showRefusal('menu', error);
-                },
-            },
-        );
-    };
-
     /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
 
     if (!isCreating && parsed === null) {
@@ -1236,7 +1016,6 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
     const saveFailure = toFailure(update.error ?? create.error);
     const matrixFailure = toFailure(saveVariantsMutation.error);
     const durationsFailure = toFailure(saveDurationsMutation.error);
-    const menuFailure = toFailure(saveMenuMutation.error);
 
     /* ── what the server refused, put on the fields it named (BUG-06) ──────────────────────── */
 
@@ -1268,14 +1047,13 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
     const matrixUnplaced =
         matrixFailure !== null &&
         !(variantsServer.isValidation && variantsServer.unplaced === null);
-    // Neither of these has a field to mark: a refusal's own words go on the section's tray card.
+    // It has no field to mark: a refusal's own words go on the section's tray card.
     const durationsServer = serverFieldErrors(durationsFailure);
-    const menuServer = serverFieldErrors(menuFailure);
 
     /*
      * What the server turned down on each step, for that step's red pill: the plan's own fields,
      * the configuration rows it named and anything about them it could not place, and the
-     * durations' and the menu's refusals — neither has a field of its own to mark.
+     * durations' refusal — which has no field of its own to mark.
      */
     const refusedOn = (step: PlanStep): number =>
         step === 'plan'
@@ -1286,27 +1064,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                 ? durationsFailure === null
                     ? 0
                     : 1
-                : step === 'menu'
-                  ? menuFailure === null
-                      ? 0
-                      : 1
-                  : 0;
-    const menuLoadFailure = toFailure(menuRecord.error);
-    const mealRows = mealsFromPages(meals.data?.pages);
-    /*
-     * The cutover question, asked of the *server's* menu rather than the draft's origin: has this
-     * plan ever had one, and is this draft about to give it one?
-     */
-    /*
-     * Never on a new plan: the warning is about orders that have been generated without dishes
-     * until now, and a plan that does not exist yet has none.
-     */
-    const menuCutover =
-        !isCreating && menuRecord.data !== undefined && isFirstPublication(menuRecord.data, menu);
-    const menuOnServer = menuRecord.data !== undefined && isMenuPublished(menuRecord.data);
-    // A saved plan's menu waits for its own read; a new plan's has nothing to read.
-    const menuLoading = !isCreating && menuRecord.isPending;
-    const menuLoadBlocked = !isCreating && menuLoadFailure !== null;
+                : 0;
     const publishFailure = toFailure(publish.error);
     const publishFields =
         publishFailure !== null && isValidationFailure(publishFailure) ? publishFailure.fields : {};
@@ -1318,10 +1076,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
     const busy =
         create.isPending ||
         update.isPending ||
-        (isCreating &&
-            (saveVariantsMutation.isPending ||
-                saveDurationsMutation.isPending ||
-                saveMenuMutation.isPending));
+        (isCreating && (saveVariantsMutation.isPending || saveDurationsMutation.isPending));
     const status = data?.meta.status ?? 'draft';
 
     const title = isCreating
@@ -1338,9 +1093,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
             ? { count: variants.length }
             : key === 'durations'
               ? { count: durations.length }
-              : key === 'menu'
-                ? { count: menu.entries.length }
-                : {}),
+              : {}),
         issues: stepIssues(key, refusedOn(key)),
         // The ids the progress row used to carry, so a suite that walks the steps still can.
         testID: `kitchen-plan-editor-screen-steps-${key}`,
@@ -1357,25 +1110,22 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
      * What used to stand under the steps and at the head of each step's section, as cards. What
      * stops a save comes first — the form's own checks, each taking the reader to its step and
      * field, then what the server refused — and a refusal keeps the server's own words under its
-     * title. A card's Fix switches the step before it scrolls, so it works from any of the five.
+     * title. A card's Fix switches the step before it scrolls, so it works from any of the four.
      */
     const saveCards: IssueCardItem[] = [
-        // A new plan's half-written menu is the document card's below; its rows are this one's.
-        ...shownIssues
-            .filter((entry) => entry.key !== 'menu' || menuRowErrors.size > 0)
-            .map((entry) => ({
-                key: entry.key,
-                tone: 'danger' as const,
-                label: entry.label,
-                detail: whereOn(entry.step, entry.label),
-                action: {
-                    onPress: () => {
-                        if (entry.fieldId === null) goToSection(entry.step);
-                        else goTo(entry.step, entry.fieldId);
-                    },
+        ...shownIssues.map((entry) => ({
+            key: entry.key,
+            tone: 'danger' as const,
+            label: entry.label,
+            detail: whereOn(entry.step, entry.label),
+            action: {
+                onPress: () => {
+                    if (entry.fieldId === null) goToSection(entry.step);
+                    else goTo(entry.step, entry.fieldId);
                 },
-                testID: `kitchen-plan-issues-errors-${entry.key}`,
-            })),
+            },
+            testID: `kitchen-plan-issues-errors-${entry.key}`,
+        })),
         // The plan's own fields the server named; every one of them is on the plan step.
         ...server.items.map((item) => ({
             key: item.key,
@@ -1436,51 +1186,6 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                       testID: 'kitchen-plan-durations-error',
                   },
               ]),
-        ...(menuFailure === null
-            ? []
-            : [
-                  {
-                      key: 'menu-error',
-                      tone: 'danger' as const,
-                      label: t('kitchen:plans.menuSaveError'),
-                      detail: menuServer.unplaced ?? menuFailure.message,
-                      action: {
-                          onPress: () => {
-                              goToSection('menu');
-                          },
-                      },
-                      testID: 'kitchen-plan-menu-error',
-                  },
-              ]),
-        /*
-         * The one-document rule: a cycle, an anchor and dishes, all three or none. Its reasons are
-         * the card's detail; Fix goes to the cycle when that is the first of them, otherwise to
-         * the menu — the anchor's picker has no field to focus, and the dishes are the whole table.
-         */
-        ...(menuBlockers.length === 0
-            ? []
-            : [
-                  {
-                      key: 'menu-blocked',
-                      tone: 'warning' as const,
-                      label: t('kitchen:plans.menuBlockedTitle'),
-                      detail: menuBlockers.join(' '),
-                      action: {
-                          onPress: () => {
-                              const first = menuBlockers[0];
-                              if (
-                                  first === t('kitchen:plans.menuCycleRequired') ||
-                                  first === t('kitchen:plans.menuCycleOutOfRange')
-                              ) {
-                                  goTo('menu', 'kitchen-plan-menu-cycle-days');
-                              } else {
-                                  goToSection('menu');
-                              }
-                          },
-                      },
-                      testID: 'kitchen-plan-menu-blocked',
-                  },
-              ]),
     ];
 
     // Stated, never resolved from here: `review_required` blocks publication structurally.
@@ -1491,27 +1196,6 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                   tone: 'warning',
                   label: t('kitchen:publish.quarantineTitle'),
                   testID: 'kitchen-plan-quarantine',
-              },
-          ]
-        : [];
-
-    /*
-     * The menu cutover is a consequence, not a problem: said beside the problems, never counted,
-     * and gone once the first menu is saved — see `isFirstPublication`.
-     */
-    const checkCards: IssueCardItem[] = menuCutover
-        ? [
-              {
-                  key: 'menu-cutover',
-                  tone: 'info',
-                  label: t('kitchen:plans.menuCutoverTitle'),
-                  detail: stepName('menu'),
-                  action: {
-                      onPress: () => {
-                          goToSection('menu');
-                      },
-                  },
-                  testID: 'kitchen-plan-menu-cutover',
               },
           ]
         : [];
@@ -1559,7 +1243,6 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                 testID: 'kitchen-plan-issues-errors',
             },
             { key: 'publish', title: t('kitchen:tray.groupPublish'), items: publishCards },
-            { key: 'check', title: t('kitchen:tray.groupCheck'), items: checkCards },
             { key: 'note', title: t('kitchen:tray.groupNote'), items: noteCards },
         ],
     };
@@ -1982,244 +1665,6 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                         </FormSection>
                     )}
 
-                    {/* ── the fixed menu ───────────────────────────────────────────────────── */}
-                    {/*
-                     * Drawn the way the durations are: the section's own Withdraw and Save at the
-                     * heading's inline end on a saved plan (a new plan has one Save, under the
-                     * form), the state as two badges beside the title, the two document fields on
-                     * the half track, then the days as a table.
-                     */}
-                    {form.current !== 'menu' ? null : (
-                        <FormSection
-                            first
-                            variant="card"
-                            testID="kitchen-plan-menu"
-                            nativeID={PLAN_STEP_SECTIONS.menu}
-                            title={t('kitchen:plans.sectionMenu')}
-                            aside={
-                                menuLoading || menuLoadBlocked ? undefined : (
-                                    <Inline space="xs" wrap testID="kitchen-plan-menu-summary">
-                                        <Badge
-                                            testID="kitchen-plan-menu-entry-count"
-                                            variant="label"
-                                            tone={menu.entries.length === 0 ? 'neutral' : 'info'}
-                                            icon={null}
-                                            label={t('kitchen:plans.menuEntryCount', {
-                                                count: menu.entries.length,
-                                            })}
-                                        />
-                                        {isCreating ? null : (
-                                            <Badge
-                                                testID="kitchen-plan-menu-state"
-                                                variant="label"
-                                                tone={menuOnServer ? 'success' : 'neutral'}
-                                                icon={null}
-                                                label={
-                                                    menuOnServer
-                                                        ? t('kitchen:plans.menuStatePublished')
-                                                        : t('kitchen:plans.menuStateNone')
-                                                }
-                                            />
-                                        )}
-                                    </Inline>
-                                )
-                            }
-                            actions={
-                                canManage && !isCreating && !menuLoading && !menuLoadBlocked ? (
-                                    <Inline space="xs" wrap>
-                                        {menuOnServer ? (
-                                            <Button
-                                                testID="kitchen-plan-menu-withdraw"
-                                                size="sm"
-                                                variant="ghost"
-                                                label={t('kitchen:plans.menuWithdraw')}
-                                                onPress={() => {
-                                                    setShowWithdrawMenu(true);
-                                                }}
-                                            />
-                                        ) : null}
-                                        <Button
-                                            testID="kitchen-plan-menu-save"
-                                            size="sm"
-                                            label={t('kitchen:plans.saveMenu')}
-                                            loading={saveMenuMutation.isPending}
-                                            disabled={
-                                                saveMenuMutation.isPending ||
-                                                menuRowErrors.size > 0 ||
-                                                menuBlockers.length > 0
-                                            }
-                                            onPress={() => {
-                                                if (
-                                                    menuRowErrors.size > 0 ||
-                                                    menuBlockers.length > 0
-                                                ) {
-                                                    return;
-                                                }
-                                                saveMenu(menu);
-                                            }}
-                                        />
-                                    </Inline>
-                                ) : undefined
-                            }
-                        >
-                            <Stack space="md">
-                                {menuLoading ? (
-                                    <Skeleton
-                                        testID="kitchen-plan-menu-skeleton"
-                                        heightClassName="h-32"
-                                    />
-                                ) : menuLoadBlocked && menuLoadFailure !== null ? (
-                                    /*
-                                     * The editing controls are withheld rather than rendered empty.
-                                     * An empty menu is a *legitimate save* — the one that withdraws
-                                     * it — so a menu that merely failed to load, drawn as though it
-                                     * had none, is one save away from turning this plan's stock
-                                     * deduction off by accident.
-                                     */
-                                    <ErrorState
-                                        testID="kitchen-plan-menu-load-error"
-                                        failure={menuLoadFailure}
-                                        title={t('kitchen:plans.menuLoadErrorTitle')}
-                                        onRetry={() => {
-                                            void menuRecord.refetch();
-                                        }}
-                                        retrying={menuRecord.isFetching}
-                                    />
-                                ) : (
-                                    <>
-                                        {/*
-                                         * The two fields that make the menu a rotation, and under
-                                         * them the one sentence that keeps them apart from the step
-                                         * before: a cycle is how often the *dishes* repeat, not how
-                                         * long anybody subscribes, and day 1 is fixed for the plan,
-                                         * not for each subscriber. One line under both rather than
-                                         * a hint on each, because the picker carries no hint and
-                                         * two fields whose boxes start at different heights read as
-                                         * misaligned.
-                                         */}
-                                        <View className="z-auto flex-row flex-wrap items-start gap-x-base gap-y-snug">
-                                            <View style={{ width: spanWidth(1) }}>
-                                                <TextInputField
-                                                    testID="kitchen-plan-menu-cycle-days"
-                                                    id="kitchen-plan-menu-cycle-days"
-                                                    label={t('kitchen:plans.menuCycleDaysLabel')}
-                                                    hint={t('kitchen:plans.menuExplainer')}
-                                                    /*
-                                                     * The day number counts calendar days from
-                                                     * day 1, so only a whole number of weeks keeps
-                                                     * Monday's dishes on a Monday. Anything else is
-                                                     * allowed — a cycle of 1 is every day the
-                                                     * same — and said.
-                                                     */
-                                                    {...(menu.cycleDays !== null &&
-                                                    menu.cycleDays > 1 &&
-                                                    menu.cycleDays % 7 !== 0
-                                                        ? {
-                                                              warning: t(
-                                                                  'kitchen:plans.menuCycleNotWeekly',
-                                                              ),
-                                                          }
-                                                        : {})}
-                                                    size="sm"
-                                                    inputMode="numeric"
-                                                    autoCorrect={false}
-                                                    disabled={!canManage}
-                                                    trailing={
-                                                        <Text variant="caption" tone="secondary">
-                                                            {t('kitchen:plans.daysUnit')}
-                                                        </Text>
-                                                    }
-                                                    value={
-                                                        menu.cycleDays === null
-                                                            ? ''
-                                                            : String(menu.cycleDays)
-                                                    }
-                                                    onChangeText={(text) => {
-                                                        const digits = text.replace(/[^0-9]/g, '');
-                                                        const next =
-                                                            digits === ''
-                                                                ? null
-                                                                : Math.min(
-                                                                      Number.parseInt(digits, 10),
-                                                                      MENU_CYCLE_DAY_MAX,
-                                                                  );
-                                                        markDirty(() => {
-                                                            setMenu(withCycleDays(menu, next));
-                                                            setMenuDirty(true);
-                                                        });
-                                                    }}
-                                                />
-                                            </View>
-                                            <View
-                                                style={{ width: spanWidth(1) }}
-                                                className="z-auto"
-                                            >
-                                                {/*
-                                                 * Picked from a month, as every date on the desk
-                                                 * is. Clearable, because an empty anchor is half of
-                                                 * the one legal empty menu. Read-only without the
-                                                 * permission: the picker has no disabled state to
-                                                 * fall back on.
-                                                 */}
-                                                {canManage ? (
-                                                    <DatePickerButton
-                                                        testID="kitchen-plan-menu-anchor"
-                                                        label={t('kitchen:plans.menuAnchorLabel')}
-                                                        labelVisible
-                                                        placeholder={t(
-                                                            'kitchen:plans.menuAnchorPlaceholder',
-                                                        )}
-                                                        value={menu.anchorDate ?? ''}
-                                                        onChange={(next) => {
-                                                            markDirty(() => {
-                                                                setMenu(withAnchorDate(menu, next));
-                                                                setMenuDirty(true);
-                                                            });
-                                                        }}
-                                                        onClear={() => {
-                                                            markDirty(() => {
-                                                                setMenu(withAnchorDate(menu, null));
-                                                                setMenuDirty(true);
-                                                            });
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    <Stack
-                                                        space="none"
-                                                        testID="kitchen-plan-menu-anchor"
-                                                    >
-                                                        <Text variant="label">
-                                                            {t('kitchen:plans.menuAnchorLabel')}
-                                                        </Text>
-                                                        <Text tone="secondary">
-                                                            {menu.anchorDate ?? '—'}
-                                                        </Text>
-                                                    </Stack>
-                                                )}
-                                            </View>
-                                        </View>
-
-                                        <PlanMenuDays
-                                            testID="kitchen-plan-menu-days"
-                                            draft={menu}
-                                            errors={menuRowErrors}
-                                            meals={mealRows}
-                                            mealsPending={meals.isPending}
-                                            canManage={canManage}
-                                            nextKey={() => takeKey('menu')}
-                                            onChange={(next) => {
-                                                markDirty(() => {
-                                                    setMenu(next);
-                                                    setMenuDirty(true);
-                                                });
-                                            }}
-                                        />
-                                    </>
-                                )}
-                            </Stack>
-                        </FormSection>
-                    )}
-
                     {/* ── prices, stated rather than edited ────────────────────────────────── */}
                     {form.current !== 'plan' || isCreating ? null : (
                         <FormSection
@@ -2406,46 +1851,6 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                             />
                         )}
                     </Stack>
-                </Dialog>
-
-                {/* ── withdraw the menu ─────────────────────────────────────────────────────── */}
-                <Dialog
-                    testID="kitchen-plan-menu-withdraw-dialog"
-                    open={showWithdrawMenu}
-                    onClose={() => {
-                        setShowWithdrawMenu(false);
-                    }}
-                    title={t('kitchen:plans.menuWithdrawTitle')}
-                    description={t('kitchen:plans.menuWithdrawBody')}
-                    actions={
-                        <>
-                            <Button
-                                testID="kitchen-plan-menu-withdraw-cancel"
-                                variant="quiet"
-                                label={t('kitchen:common.cancel')}
-                                onPress={() => {
-                                    setShowWithdrawMenu(false);
-                                }}
-                            />
-                            <Button
-                                testID="kitchen-plan-menu-withdraw-confirm"
-                                variant="danger"
-                                label={t('kitchen:plans.menuWithdrawConfirm')}
-                                loading={saveMenuMutation.isPending}
-                                onPress={() => {
-                                    // All three parts empty, in one deliberate write. This is the
-                                    // only control in the section that does not send what is on
-                                    // screen — the dialog above is where the consequence was
-                                    // agreed to.
-                                    saveMenu(EMPTY_MENU);
-                                }}
-                            />
-                        </>
-                    }
-                >
-                    <Text testID="kitchen-plan-menu-withdraw-consequence">
-                        {t('kitchen:plans.menuWithdrawConsequence')}
-                    </Text>
                 </Dialog>
 
                 {/* ── retire ────────────────────────────────────────────────────────────────── */}

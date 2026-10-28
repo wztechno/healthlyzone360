@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9130 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9085 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1794,7 +1794,6 @@ export interface NamespaceKeys {
     | 'plan.priceForRun'
     | 'plan.pricePerDay'
     | 'plan.priceTitle'
-    | 'plan.sampleMenuTitle'
     | 'plan.variantLabel'
     | 'plan.variantsTitle'
     | 'plans.allKitchens'
@@ -2104,16 +2103,13 @@ export interface NamespaceKeys {
     | 'checkout.summaryTitle'
     | 'checkout.theKitchen'
     | 'checkout.title'
-    | 'choices.body'
-    | 'choices.bodyDated'
+    | 'choices.change'
     | 'choices.confirm'
-    | 'choices.cutOffBody'
-    | 'choices.cutOffTitle'
-    | 'choices.open'
-    | 'choices.selectLabel'
-    | 'choices.sources.customer'
-    | 'choices.sources.kitchen_default'
-    | 'choices.sources.substituted'
+    | 'choices.empty'
+    | 'choices.notChosen'
+    | 'choices.repeated'
+    | 'choices.sectionTitle'
+    | 'choices.substituted'
     | 'choices.title'
     | 'common.cancel'
     | 'common.close'
@@ -2150,6 +2146,7 @@ export interface NamespaceKeys {
     | 'configurator.issues.areaUnserved'
     | 'configurator.issues.deliveryDayUnavailable'
     | 'configurator.issues.duration'
+    | 'configurator.issues.mealsMissing'
     | 'configurator.issues.noDeliveryDays'
     | 'configurator.issues.slot'
     | 'configurator.issues.startDate'
@@ -2158,11 +2155,16 @@ export interface NamespaceKeys {
     | 'configurator.issues.terms'
     | 'configurator.issues.variant'
     | 'configurator.issuesTitle'
-    | 'configurator.meals.selectLabel'
-    | 'configurator.meals.title'
-    | 'configurator.meals.unknown'
-    | 'configurator.mealsUnsavedBody'
-    | 'configurator.mealsUnsavedTitle'
+    | 'configurator.meals.daysChosen'
+    | 'configurator.meals.missing'
+    | 'configurator.meals.placeholder'
+    | 'configurator.meals.progress'
+    | 'configurator.meals.repeatWeek'
+    | 'configurator.meals.slot.breakfast'
+    | 'configurator.meals.slot.dinner'
+    | 'configurator.meals.slot.lunch'
+    | 'configurator.meals.slot.snack'
+    | 'configurator.meals.week'
     | 'configurator.next'
     | 'configurator.notFoundBody'
     | 'configurator.notFoundTitle'
@@ -2173,12 +2175,14 @@ export interface NamespaceKeys {
     | 'configurator.previewEmptyTitle'
     | 'configurator.progressLabel'
     | 'configurator.review.deliveryTitle'
+    | 'configurator.review.mealsTitle'
     | 'configurator.review.planTitle'
     | 'configurator.review.priceTitle'
     | 'configurator.setupBody'
     | 'configurator.setupTitle'
     | 'configurator.startOver'
     | 'configurator.steps.delivery'
+    | 'configurator.steps.meals'
     | 'configurator.steps.plan'
     | 'configurator.steps.review'
     | 'configurator.subscribeBlockedHint'
@@ -2192,6 +2196,7 @@ export interface NamespaceKeys {
     | 'configurator.summary.duration'
     | 'configurator.summary.everyDay'
     | 'configurator.summary.gross'
+    | 'configurator.summary.meals'
     | 'configurator.summary.perDayList'
     | 'configurator.summary.perDelivery'
     | 'configurator.summary.plan'
@@ -2724,6 +2729,12 @@ export interface NamespaceKeys {
     | 'subscriptionRefusal.duration_unknown'
     | 'subscriptionRefusal.guest_may_not_subscribe'
     | 'subscriptionRefusal.kitchen_closed'
+    | 'subscriptionRefusal.meal_not_a_meal'
+    | 'subscriptionRefusal.meal_not_published'
+    | 'subscriptionRefusal.meal_unknown'
+    | 'subscriptionRefusal.meals_incomplete'
+    | 'subscriptionRefusal.meals_missing'
+    | 'subscriptionRefusal.not_a_delivery_day'
     | 'subscriptionRefusal.plan_not_published'
     | 'subscriptionRefusal.plan_not_subscription'
     | 'subscriptionRefusal.plan_unknown'
@@ -4633,6 +4644,8 @@ export interface NamespaceKeys {
     | 'ops.orders.nothingToDo'
     | 'ops.orders.pickedUpAt'
     | 'ops.orders.placedAt'
+    | 'ops.orders.planDay.repeated'
+    | 'ops.orders.planDay.substituted'
     | 'ops.orders.preparingAt'
     | 'ops.orders.readyAt'
     | 'ops.orders.reason.addressUnreachable'
@@ -5269,12 +5282,11 @@ export interface NamespaceKeys {
     | 'ops.requirements.notComputableBody'
     | 'ops.requirements.notComputableTitle'
     | 'ops.requirements.reason.meal_has_no_recipe'
-    | 'ops.requirements.reason.menu_dish_withdrawn'
+    | 'ops.requirements.reason.meals_not_chosen'
     | 'ops.requirements.reason.no_ingredient_link'
     | 'ops.requirements.reason.no_stock_item'
     | 'ops.requirements.reason.no_stock_unit'
     | 'ops.requirements.reason.no_yield_piece_count'
-    | 'ops.requirements.reason.plan_has_no_menu'
     | 'ops.requirements.reason.unit_conversion_unsupported'
     | 'ops.requirements.reason.unquantified_recipe_line'
     | 'ops.requirements.reasonEntry'
@@ -5768,7 +5780,6 @@ export interface NamespaceKeys {
     | 'plans.bandRange'
     | 'plans.blockDurations'
     | 'plans.blockInconsistentDurations'
-    | 'plans.blockMenuDaysEmpty'
     | 'plans.blockName'
     | 'plans.blockNoConfirmedPrice'
     | 'plans.blockSummary'
@@ -5802,7 +5813,6 @@ export interface NamespaceKeys {
     | 'plans.daysLabel'
     | 'plans.daysNone'
     | 'plans.daysRequired'
-    | 'plans.daysUnit'
     | 'plans.descriptionLabel'
     | 'plans.descriptionPlaceholderAr'
     | 'plans.descriptionPlaceholderEn'
@@ -5842,59 +5852,6 @@ export interface NamespaceKeys {
     | 'plans.matrixSaveError'
     | 'plans.mealsPerDayLabel'
     | 'plans.mealsPerDayPlaceholder'
-    | 'plans.menuAddDish'
-    | 'plans.menuAddedAnnouncement'
-    | 'plans.menuAnchorLabel'
-    | 'plans.menuAnchorMalformed'
-    | 'plans.menuAnchorPlaceholder'
-    | 'plans.menuAnchorRequired'
-    | 'plans.menuBeyondCycle'
-    | 'plans.menuBlockedTitle'
-    | 'plans.menuCutoverBody'
-    | 'plans.menuCutoverTitle'
-    | 'plans.menuCycleDaysLabel'
-    | 'plans.menuCycleNotWeekly'
-    | 'plans.menuCycleOutOfRange'
-    | 'plans.menuCycleRequired'
-    | 'plans.menuDayBeyond'
-    | 'plans.menuDayEmptyHint'
-    | 'plans.menuDayLabel'
-    | 'plans.menuDayNumber'
-    | 'plans.menuDuplicateCoordinate'
-    | 'plans.menuEmpty'
-    | 'plans.menuEmptyDish'
-    | 'plans.menuEntriesRequired'
-    | 'plans.menuEntryCount'
-    | 'plans.menuEntryNumber'
-    | 'plans.menuEntryRemoved'
-    | 'plans.menuExplainer'
-    | 'plans.menuLoadErrorTitle'
-    | 'plans.menuMealLabel'
-    | 'plans.menuMealPlaceholder'
-    | 'plans.menuMealRequired'
-    | 'plans.menuMealUnavailable'
-    | 'plans.menuMealsPending'
-    | 'plans.menuOverServing'
-    | 'plans.menuSaveError'
-    | 'plans.menuSavedToast'
-    | 'plans.menuSequenceLabel'
-    | 'plans.menuSequenceRequired'
-    | 'plans.menuSequenceShort'
-    | 'plans.menuSlotBreakfast'
-    | 'plans.menuSlotDinner'
-    | 'plans.menuSlotLabel'
-    | 'plans.menuSlotLunch'
-    | 'plans.menuSlotSnack'
-    | 'plans.menuStateNone'
-    | 'plans.menuStatePublished'
-    | 'plans.menuTooManyEntries'
-    | 'plans.menuUnknownMeal'
-    | 'plans.menuWithdraw'
-    | 'plans.menuWithdrawBody'
-    | 'plans.menuWithdrawConfirm'
-    | 'plans.menuWithdrawConsequence'
-    | 'plans.menuWithdrawTitle'
-    | 'plans.menuWithdrawnToast'
     | 'plans.nameRequired'
     | 'plans.noDurations'
     | 'plans.noVariants'
@@ -5921,12 +5878,10 @@ export interface NamespaceKeys {
     | 'plans.retireTitle'
     | 'plans.retiredToast'
     | 'plans.saveDurations'
-    | 'plans.saveMenu'
     | 'plans.savePlan'
     | 'plans.saveVariants'
     | 'plans.sectionDetails'
     | 'plans.sectionDurations'
-    | 'plans.sectionMenu'
     | 'plans.sectionPrices'
     | 'plans.servingsMeals'
     | 'plans.servingsRequired'
@@ -10949,7 +10904,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plan.priceForRun',
   'catalogue:plan.pricePerDay',
   'catalogue:plan.priceTitle',
-  'catalogue:plan.sampleMenuTitle',
   'catalogue:plan.variantLabel',
   'catalogue:plan.variantsTitle',
   'catalogue:plans.allKitchens',
@@ -11258,16 +11212,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.summaryTitle',
   'commerce:checkout.theKitchen',
   'commerce:checkout.title',
-  'commerce:choices.body',
-  'commerce:choices.bodyDated',
+  'commerce:choices.change',
   'commerce:choices.confirm',
-  'commerce:choices.cutOffBody',
-  'commerce:choices.cutOffTitle',
-  'commerce:choices.open',
-  'commerce:choices.selectLabel',
-  'commerce:choices.sources.customer',
-  'commerce:choices.sources.kitchen_default',
-  'commerce:choices.sources.substituted',
+  'commerce:choices.empty',
+  'commerce:choices.notChosen',
+  'commerce:choices.repeated',
+  'commerce:choices.sectionTitle',
+  'commerce:choices.substituted',
   'commerce:choices.title',
   'commerce:common.cancel',
   'commerce:common.close',
@@ -11304,6 +11255,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.issues.areaUnserved',
   'commerce:configurator.issues.deliveryDayUnavailable',
   'commerce:configurator.issues.duration',
+  'commerce:configurator.issues.mealsMissing',
   'commerce:configurator.issues.noDeliveryDays',
   'commerce:configurator.issues.slot',
   'commerce:configurator.issues.startDate',
@@ -11312,11 +11264,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.issues.terms',
   'commerce:configurator.issues.variant',
   'commerce:configurator.issuesTitle',
-  'commerce:configurator.meals.selectLabel',
-  'commerce:configurator.meals.title',
-  'commerce:configurator.meals.unknown',
-  'commerce:configurator.mealsUnsavedBody',
-  'commerce:configurator.mealsUnsavedTitle',
+  'commerce:configurator.meals.daysChosen',
+  'commerce:configurator.meals.missing',
+  'commerce:configurator.meals.placeholder',
+  'commerce:configurator.meals.progress',
+  'commerce:configurator.meals.repeatWeek',
+  'commerce:configurator.meals.slot.breakfast',
+  'commerce:configurator.meals.slot.dinner',
+  'commerce:configurator.meals.slot.lunch',
+  'commerce:configurator.meals.slot.snack',
+  'commerce:configurator.meals.week',
   'commerce:configurator.next',
   'commerce:configurator.notFoundBody',
   'commerce:configurator.notFoundTitle',
@@ -11327,12 +11284,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.previewEmptyTitle',
   'commerce:configurator.progressLabel',
   'commerce:configurator.review.deliveryTitle',
+  'commerce:configurator.review.mealsTitle',
   'commerce:configurator.review.planTitle',
   'commerce:configurator.review.priceTitle',
   'commerce:configurator.setupBody',
   'commerce:configurator.setupTitle',
   'commerce:configurator.startOver',
   'commerce:configurator.steps.delivery',
+  'commerce:configurator.steps.meals',
   'commerce:configurator.steps.plan',
   'commerce:configurator.steps.review',
   'commerce:configurator.subscribeBlockedHint',
@@ -11346,6 +11305,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.summary.duration',
   'commerce:configurator.summary.everyDay',
   'commerce:configurator.summary.gross',
+  'commerce:configurator.summary.meals',
   'commerce:configurator.summary.perDayList',
   'commerce:configurator.summary.perDelivery',
   'commerce:configurator.summary.plan',
@@ -11875,6 +11835,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:subscriptionRefusal.duration_unknown',
   'errors:subscriptionRefusal.guest_may_not_subscribe',
   'errors:subscriptionRefusal.kitchen_closed',
+  'errors:subscriptionRefusal.meal_not_a_meal',
+  'errors:subscriptionRefusal.meal_not_published',
+  'errors:subscriptionRefusal.meal_unknown',
+  'errors:subscriptionRefusal.meals_incomplete',
+  'errors:subscriptionRefusal.meals_missing',
+  'errors:subscriptionRefusal.not_a_delivery_day',
   'errors:subscriptionRefusal.plan_not_published',
   'errors:subscriptionRefusal.plan_not_subscription',
   'errors:subscriptionRefusal.plan_unknown',
@@ -13781,6 +13747,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.nothingToDo',
   'kitchen:ops.orders.pickedUpAt',
   'kitchen:ops.orders.placedAt',
+  'kitchen:ops.orders.planDay.repeated',
+  'kitchen:ops.orders.planDay.substituted',
   'kitchen:ops.orders.preparingAt',
   'kitchen:ops.orders.readyAt',
   'kitchen:ops.orders.reason.addressUnreachable',
@@ -14417,12 +14385,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.requirements.notComputableBody',
   'kitchen:ops.requirements.notComputableTitle',
   'kitchen:ops.requirements.reason.meal_has_no_recipe',
-  'kitchen:ops.requirements.reason.menu_dish_withdrawn',
+  'kitchen:ops.requirements.reason.meals_not_chosen',
   'kitchen:ops.requirements.reason.no_ingredient_link',
   'kitchen:ops.requirements.reason.no_stock_item',
   'kitchen:ops.requirements.reason.no_stock_unit',
   'kitchen:ops.requirements.reason.no_yield_piece_count',
-  'kitchen:ops.requirements.reason.plan_has_no_menu',
   'kitchen:ops.requirements.reason.unit_conversion_unsupported',
   'kitchen:ops.requirements.reason.unquantified_recipe_line',
   'kitchen:ops.requirements.reasonEntry',
@@ -14916,7 +14883,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.bandRange',
   'kitchen:plans.blockDurations',
   'kitchen:plans.blockInconsistentDurations',
-  'kitchen:plans.blockMenuDaysEmpty',
   'kitchen:plans.blockName',
   'kitchen:plans.blockNoConfirmedPrice',
   'kitchen:plans.blockSummary',
@@ -14950,7 +14916,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.daysLabel',
   'kitchen:plans.daysNone',
   'kitchen:plans.daysRequired',
-  'kitchen:plans.daysUnit',
   'kitchen:plans.descriptionLabel',
   'kitchen:plans.descriptionPlaceholderAr',
   'kitchen:plans.descriptionPlaceholderEn',
@@ -14990,59 +14955,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.matrixSaveError',
   'kitchen:plans.mealsPerDayLabel',
   'kitchen:plans.mealsPerDayPlaceholder',
-  'kitchen:plans.menuAddDish',
-  'kitchen:plans.menuAddedAnnouncement',
-  'kitchen:plans.menuAnchorLabel',
-  'kitchen:plans.menuAnchorMalformed',
-  'kitchen:plans.menuAnchorPlaceholder',
-  'kitchen:plans.menuAnchorRequired',
-  'kitchen:plans.menuBeyondCycle',
-  'kitchen:plans.menuBlockedTitle',
-  'kitchen:plans.menuCutoverBody',
-  'kitchen:plans.menuCutoverTitle',
-  'kitchen:plans.menuCycleDaysLabel',
-  'kitchen:plans.menuCycleNotWeekly',
-  'kitchen:plans.menuCycleOutOfRange',
-  'kitchen:plans.menuCycleRequired',
-  'kitchen:plans.menuDayBeyond',
-  'kitchen:plans.menuDayEmptyHint',
-  'kitchen:plans.menuDayLabel',
-  'kitchen:plans.menuDayNumber',
-  'kitchen:plans.menuDuplicateCoordinate',
-  'kitchen:plans.menuEmpty',
-  'kitchen:plans.menuEmptyDish',
-  'kitchen:plans.menuEntriesRequired',
-  'kitchen:plans.menuEntryCount',
-  'kitchen:plans.menuEntryNumber',
-  'kitchen:plans.menuEntryRemoved',
-  'kitchen:plans.menuExplainer',
-  'kitchen:plans.menuLoadErrorTitle',
-  'kitchen:plans.menuMealLabel',
-  'kitchen:plans.menuMealPlaceholder',
-  'kitchen:plans.menuMealRequired',
-  'kitchen:plans.menuMealUnavailable',
-  'kitchen:plans.menuMealsPending',
-  'kitchen:plans.menuOverServing',
-  'kitchen:plans.menuSaveError',
-  'kitchen:plans.menuSavedToast',
-  'kitchen:plans.menuSequenceLabel',
-  'kitchen:plans.menuSequenceRequired',
-  'kitchen:plans.menuSequenceShort',
-  'kitchen:plans.menuSlotBreakfast',
-  'kitchen:plans.menuSlotDinner',
-  'kitchen:plans.menuSlotLabel',
-  'kitchen:plans.menuSlotLunch',
-  'kitchen:plans.menuSlotSnack',
-  'kitchen:plans.menuStateNone',
-  'kitchen:plans.menuStatePublished',
-  'kitchen:plans.menuTooManyEntries',
-  'kitchen:plans.menuUnknownMeal',
-  'kitchen:plans.menuWithdraw',
-  'kitchen:plans.menuWithdrawBody',
-  'kitchen:plans.menuWithdrawConfirm',
-  'kitchen:plans.menuWithdrawConsequence',
-  'kitchen:plans.menuWithdrawTitle',
-  'kitchen:plans.menuWithdrawnToast',
   'kitchen:plans.nameRequired',
   'kitchen:plans.noDurations',
   'kitchen:plans.noVariants',
@@ -15069,12 +14981,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.retireTitle',
   'kitchen:plans.retiredToast',
   'kitchen:plans.saveDurations',
-  'kitchen:plans.saveMenu',
   'kitchen:plans.savePlan',
   'kitchen:plans.saveVariants',
   'kitchen:plans.sectionDetails',
   'kitchen:plans.sectionDurations',
-  'kitchen:plans.sectionMenu',
   'kitchen:plans.sectionPrices',
   'kitchen:plans.servingsMeals',
   'kitchen:plans.servingsRequired',

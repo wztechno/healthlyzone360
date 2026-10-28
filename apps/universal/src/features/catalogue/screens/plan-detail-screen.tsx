@@ -15,7 +15,6 @@ import {
     useBreakpoint,
 } from '@healthy360/design-system';
 
-import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { EntityImage } from '../../../media/entity-image.tsx';
 import type { PlanVariant, SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { SubscriptionPlanId } from '@healthy360/domain-types';
@@ -28,7 +27,7 @@ import { View } from 'react-native';
 
 import { StaffReturnButton } from '../../marketplace/staff-return-button.tsx';
 
-import { mealsFromPages, useMealsQuery, usePlanQuery } from '../../../data/catalogue-hooks.ts';
+import { usePlanQuery } from '../../../data/catalogue-hooks.ts';
 import { estimatedTotal } from '../../commerce/configurator.ts';
 import { configuratorHref } from '../../commerce/configurator-draft.ts';
 import { variantName } from '../../commerce/configurator-steps.tsx';
@@ -41,8 +40,6 @@ import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { recordResumeIntent } from '../../marketplace/resume-intent.ts';
 import { useShopViewOnly } from '../../marketplace/shop-view-only.tsx';
-import { CardGrid, CardGridItem } from '../../marketplace/section-header.tsx';
-import { MealCard } from '../../marketplace/meal-card.tsx';
 import { listDayPrice } from '../plan-balance.ts';
 import { durationWithBalance } from '../plan-duration-label.ts';
 import { isLiveSubscription } from '../plan-subscriber-panel.tsx';
@@ -132,7 +129,6 @@ function macroRanges(variant: PlanVariant) {
 
 export function PlanDetailScreen({ planId, returnTo }: PlanDetailScreenProps) {
     const { t } = useTranslation();
-    const basket = useBasketAdd({ labelKey: 'catalogue:nav.plans', testID: 'plan-detail' });
     const router = useRouter();
     const navigateUp = useNavigateUp();
     const goToAuth = useGoToAuth();
@@ -188,17 +184,6 @@ export function PlanDetailScreen({ planId, returnTo }: PlanDetailScreenProps) {
             ? undefined
             : (item.variants.find((variant) => String(variant.id) === variantId) ??
               item.variants[Math.floor(item.variants.length / 2)]);
-
-    // The sample menu is drawn from the kitchen's own menu in one request rather than five
-    // `getMeal` calls; the plan publishes identifiers, and this is the query that already holds
-    // that kitchen's meals.
-    const kitchenMeals = useMealsQuery(
-        item === undefined ? undefined : { kitchenIds: [item.kitchenId], limit: 50 },
-    );
-    const sampleIds = new Set((item?.sampleMealIds ?? []).map((id) => String(id)));
-    const sampleMeals = mealsFromPages(kitchenMeals.data?.pages).filter((meal) =>
-        sampleIds.has(String(meal.id)),
-    );
 
     const browseAction = (
         <Button
@@ -530,7 +515,9 @@ export function PlanDetailScreen({ planId, returnTo }: PlanDetailScreenProps) {
                                     </View>
                                 </Card>
 
-                                {/* A signed-in reader's allergy list against the plan's dishes. */}
+                                {/* A signed-in reader's allergy list. The dishes are chosen at set-up,
+                                    where each pick names its clash, so there is nothing to check
+                                    against here yet. */}
                                 {signedIn ? (
                                     <Card
                                         testID="plan-detail-allergies"
@@ -540,41 +527,12 @@ export function PlanDetailScreen({ planId, returnTo }: PlanDetailScreenProps) {
                                     >
                                         <PlanAllergyNotice
                                             testID="plan-detail-allergy-notice"
-                                            meals={sampleMeals}
-                                            checked={kitchenMeals.isFetched}
+                                            meals={[]}
+                                            checked
                                             returnTo={here}
                                         />
                                     </Card>
                                 ) : null}
-
-                                {/* Only once the plan's dishes have loaded: a card that says a sample is
-                                    not published tells the reader nothing they can act on. */}
-                                {sampleMeals.length === 0 ? null : (
-                                    <Card
-                                        testID="plan-detail-sample-menu"
-                                        tone="raised"
-                                        padding="md"
-                                        title={t('catalogue:plan.sampleMenuTitle')}
-                                    >
-                                        <CardGrid testID="plan-detail-sample-grid">
-                                            {sampleMeals.map((meal) => (
-                                                <CardGridItem key={meal.id}>
-                                                    <MealCard
-                                                        meal={meal}
-                                                        onPress={() => {
-                                                            router.push(
-                                                                `/meals/${String(meal.id)}` as never,
-                                                            );
-                                                        }}
-                                                        onAdd={() => {
-                                                            basket.add(meal);
-                                                        }}
-                                                    />
-                                                </CardGridItem>
-                                            ))}
-                                        </CardGrid>
-                                    </Card>
-                                )}
                             </View>
 
                             <View
@@ -692,8 +650,6 @@ export function PlanDetailScreen({ planId, returnTo }: PlanDetailScreenProps) {
                     )}
                 </QueryStates>
             )}
-
-            {basket.dialog}
         </View>
     );
 }

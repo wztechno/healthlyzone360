@@ -7,13 +7,12 @@ namespace Healthy360\Subscriptions\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Validation for choosing ahead on a Free Selection day (§7).
+ * Validation for choosing a day's meals ahead.
  *
- * **`meals` is `present` rather than `required`**, and that is the whole shape
- * of the endpoint. `{"date": "…", "meals": []}` is a customer saying "I have
- * not chosen; send me the kitchen's default", which is a real and expected
- * state — `required` would reject the one payload that expresses it, and a
- * client would have to fake it by choosing something.
+ * **`meals` is required and must fill the day.** Every plan is
+ * choose-your-own now and there is no kitchen menu to fall back on, so an empty
+ * day is no longer a state anybody can ask for; `MealChoiceService` refuses a
+ * day that does not fill the subscriber's sittings as `meals_incomplete`.
  *
  * `slot` is a free string with a length limit rather than an enumerated
  * vocabulary. The column is `string(20)` with the comment
@@ -47,7 +46,7 @@ class ReplaceSubscriptionChoicesRequest extends FormRequest
         return [
             'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
 
-            'meals' => ['present', 'array', 'max:12'],
+            'meals' => ['required', 'array', 'min:1', 'max:12'],
             'meals.*.slot' => ['required', 'string', 'max:20'],
             'meals.*.sequence' => ['nullable', 'integer', 'min:1', 'max:20'],
             'meals.*.catalogue_item_id' => ['required', 'uuid'],

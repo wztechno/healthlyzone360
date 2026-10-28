@@ -185,6 +185,8 @@ Two tables, and **no new PostgreSQL policy**. The `RlsTest` pin stays at eleven.
 
 **Data loading**: no seeder. A menu is a kitchen's own decision about what it cooks, and a seeded one would be a claim about a real kitchen's production. `DemoTenantSeeder` leaves every plan menu-less, which is also the state that keeps the demo's subscription orders deducting nothing. Test fixtures are built by `PlanMenuEntryFactory`.
 
+**Retired 2026-10-28.** Customers now choose every meal of every delivery day themselves, at purchase and before each day's cut-off, so a plan no longer states a menu. `plan_menu_entries` and the two `subscription_plan_profiles` columns are dropped (`2026_10_28_000001_drop_plan_menu_entries_table`); the `kitchen_default` meal-choice rows the menu wrote stay as the record of what was sent. The stock cut-over above now happens per subscription day instead: every chosen day carries meal lines. A day nobody chose for — a balance day a skip or a pause pushed later — is filled from the customer's own latest choices for that weekday, as `subscription_meal_choices.source = 'repeated'` (`2026_10_28_000101_admit_repeated_meal_choice_source`).
+
 ## Internal production — phase PROD1 (weekly prices, production items, reservations)
 
 Four new tables and three widened ones, and **no new PostgreSQL policy**: the `RlsTest` pin stays at

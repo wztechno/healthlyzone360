@@ -568,7 +568,6 @@
         "durationTotal": "{{total}} إجمالًا",
         "durationDiscount": "خصم {{discount}}%",
         "durationNoDiscount": "بلا خصم",
-        "sampleMenuTitle": "أسبوع نموذجي",
         "configure": "إعداد الخطة",
         "configureSignIn": "سجّل الدخول لضبطه",
         "priceTitle": "السعر",

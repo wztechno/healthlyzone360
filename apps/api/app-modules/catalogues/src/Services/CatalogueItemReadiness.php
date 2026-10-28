@@ -12,7 +12,6 @@ use Healthy360\Catalogues\Enums\VariantType;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemIngredient;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
-use Healthy360\Catalogues\Models\PlanMenuEntry;
 use Healthy360\Catalogues\Models\PlanVariantDuration;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
@@ -195,8 +194,6 @@ final readonly class CatalogueItemReadiness
             ];
         }
 
-        $reasons = [...$reasons, ...$this->menuReasons($item, $profile)];
-
         /** @var array<string, string> $activeConfigurations identifier → code */
         $activeConfigurations = CatalogueItemVariant::withoutTenancy()
             ->where('catalogue_item_id', $item->getKey())
@@ -256,52 +253,6 @@ final readonly class CatalogueItemReadiness
         }
 
         return $reasons;
-    }
-
-    /**
-     * A menu is whole or it is absent; a half-written one is neither.
-     *
-     * A plan with no menu at all is publishable — generation falls back to the
-     * variant's meal count and the customer's own choices, which is how every
-     * plan worked before the menu table existed. But once `menu_cycle_days` is
-     * set the plan has *promised* a dish for every day of the cycle, and a day
-     * with no entry is a delivery the kitchen has not decided. `PlanMenuService`
-     * refuses an entries-less cycle at write time; this is the same rule for
-     * the cycle a kitchen lengthened after writing the entries.
-     *
-     * @return list<array{code: string, detail: string, context: array<string, mixed>}>
-     */
-    private function menuReasons(CatalogueItem $item, ?SubscriptionPlanProfile $profile): array
-    {
-        $cycleDays = $profile?->menu_cycle_days;
-
-        if ($cycleDays === null || $cycleDays < 1) {
-            return [];
-        }
-
-        /** @var list<int> $filled */
-        $filled = PlanMenuEntry::withoutTenancy()
-            ->where('catalogue_item_id', $item->getKey())
-            ->distinct()
-            ->pluck('cycle_day')
-            ->map(static fn (mixed $day): int => (int) $day)
-            ->all();
-
-        $empty = array_values(array_diff(range(1, $cycleDays), $filled));
-
-        if ($empty === []) {
-            return [];
-        }
-
-        return [[
-            'code' => 'menu_days_empty',
-            'detail' => 'The menu runs on a cycle, and some days of that cycle name no dish. A subscriber on one of those days would be sent nothing the kitchen decided on. Fill every day, or withdraw the cycle to sell the plan without a fixed menu.',
-            'context' => [
-                'menu_cycle_days' => $cycleDays,
-                'empty_day_count' => count($empty),
-                'empty_days' => $empty,
-            ],
-        ]];
     }
 
     private function hasActiveVariant(CatalogueItem $item): bool

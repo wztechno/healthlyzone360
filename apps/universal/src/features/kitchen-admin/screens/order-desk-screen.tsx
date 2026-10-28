@@ -62,6 +62,7 @@ import {
 } from '../../../data/order-desk-hooks.ts';
 import { useOnlineStatus } from '../../../online/online-status.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
+import { PlanDayMeals, isPlanDayLine, visibleOrderLines } from '../plan-day-meals.tsx';
 import {
     ORDER_CREATE_ON_BEHALF_PERMISSION,
     ORDER_MANAGE_PERMISSION,
@@ -1577,7 +1578,7 @@ function OrderDeskQueueList() {
                                                           testID="kitchen-order-desk-detail-lines"
                                                           className="flex-col"
                                                       >
-                                                          {order.lines.map(
+                                                          {visibleOrderLines(order).map(
                                                               (line: KitchenOrderLine) => (
                                                                   <View
                                                                       key={line.id}
@@ -1599,6 +1600,15 @@ function OrderDeskQueueList() {
                                                                                   }
                                                                               </Text>
                                                                           )}
+                                                                          {isPlanDayLine(
+                                                                              order,
+                                                                              line,
+                                                                          ) ? (
+                                                                              <PlanDayMeals
+                                                                                  order={order}
+                                                                                  testID="kitchen-order-desk-detail-plan-day"
+                                                                              />
+                                                                          ) : null}
                                                                       </View>
                                                                       <Text
                                                                           variant="mono"

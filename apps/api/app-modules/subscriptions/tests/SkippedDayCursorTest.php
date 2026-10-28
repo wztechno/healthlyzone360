@@ -149,6 +149,9 @@ it('quotes the earliest start and refuses a purchase that asks for an earlier da
         'weekdays' => [1, 2, 3, 4, 5, 6, 7],
     ];
 
+    $meal = SubscriptionWorld::dish($this->world, 'Grilled chicken');
+    $purchase['days'] = SubscriptionWorld::everyDay(CarbonImmutable::parse($everyDay), $this->world->duration->duration_days, (string) $meal->getKey(), (string) $meal->getKey());
+
     // Today is always inside a 24-hour window on itself. Refused on the field,
     // naming the day that would have been accepted, with the window's own
     // reason beside it — not quietly started on a different day.

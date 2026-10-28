@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Healthy360\Orders\Presenters;
 
+use Healthy360\Orders\Contracts\OrderPlanDays;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
 use Healthy360\Orders\Models\OrderPaymentReceipt;
 use Healthy360\Orders\Services\OrderAmendability;
 use Healthy360\Orders\Services\OrderWindowNames;
+use Healthy360\Orders\Services\PriceOverride;
 
 /**
  * The two wire shapes of an order, built separately on purpose.
@@ -86,10 +88,29 @@ use Healthy360\Orders\Services\OrderWindowNames;
  */
 final class OrderPresenter
 {
+    /** @var array<string, list<array{slot: string, sequence: int, catalogue_item_id: string, source: string}>> order id → its plan day's meals, read ahead for a page */
+    private array $planDays = [];
+
     public function __construct(
         private readonly OrderWindowNames $windows,
         private readonly OrderAmendability $amendability,
+        private readonly OrderPlanDays $plans,
     ) {}
+
+    /**
+     * Read the plan days of a whole page at once, so `kitchen()` for each row
+     * asks nothing of its own.
+     *
+     * @param  list<string>  $orderIds
+     */
+    public function preloadPlanDays(array $orderIds): void
+    {
+        $found = $this->plans->forOrders($orderIds);
+
+        foreach ($orderIds as $orderId) {
+            $this->planDays[$orderId] = $found[$orderId] ?? [];
+        }
+    }
 
     /**
      * The receipt.
@@ -297,6 +318,7 @@ final class OrderPresenter
      *         price_list_id: string|null,
      *         price_list_item_id: string|null
      *     }>,
+     *     plan_day: array{plan_line_id: string|null, meals: list<array{slot: string, sequence: int, catalogue_item_id: string, line_id: string|null, source: string}>}|null,
      *     created_at: string|null,
      *     updated_at: string|null
      * }
@@ -384,8 +406,50 @@ final class OrderPresenter
             'amendable' => $amendable,
             'line_count' => count($presented),
             'lines' => $presented,
+            'plan_day' => $this->planDay((string) $order->getKey(), $held),
             'created_at' => $order->created_at?->toIso8601String(),
             'updated_at' => $order->updated_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Which meal of a subscription day went in which sitting — or null when the
+     * order is not a plan day.
+     *
+     * Each meal points at the order's own line for that dish, so the name the
+     * kitchen reads is the snapshot the order took. A dish chosen for two
+     * sittings is one line of two, and both sittings point at it.
+     *
+     * @param  list<OrderLine>  $lines
+     * @return array{plan_line_id: string|null, meals: list<array{slot: string, sequence: int, catalogue_item_id: string, line_id: string|null, source: string}>}|null
+     */
+    private function planDay(string $orderId, array $lines): ?array
+    {
+        if (! array_key_exists($orderId, $this->planDays)) {
+            $this->preloadPlanDays([$orderId]);
+        }
+
+        $planLine = null;
+        $mealLines = [];
+
+        foreach ($lines as $line) {
+            if ($line->price_source === PriceOverride::SUBSCRIPTION_CAPTURE) {
+                $planLine = $line;
+            } elseif ($line->price_source === PriceOverride::SUBSCRIPTION_INCLUDED) {
+                $mealLines[$line->catalogue_item_id] = (string) $line->getKey();
+            }
+        }
+
+        if (! $planLine instanceof OrderLine) {
+            return null;
+        }
+
+        return [
+            'plan_line_id' => (string) $planLine->getKey(),
+            'meals' => array_map(static fn (array $meal): array => [
+                ...$meal,
+                'line_id' => $mealLines[$meal['catalogue_item_id']] ?? null,
+            ], $this->planDays[$orderId] ?? []),
         ];
     }
 

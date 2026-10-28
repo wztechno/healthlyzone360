@@ -41,3 +41,24 @@ it('names an unnamed configuration after its energy band', function (): void {
         expect($variant['name'])->not->toBe('');
     }
 });
+
+it('names the sittings a customer fills for every configuration', function (): void {
+    $plan = CatalogueItem::withoutTenancy()
+        ->where('item_type', CatalogueItemType::SubscriptionPlan->value)
+        ->where('slug', 'balanced-week')
+        ->sole();
+
+    $variants = $this->getJson('/api/v1/marketplace/meal-plans/'.$plan->slug)
+        ->assertOk()
+        ->json('data.variants');
+
+    expect($variants)->not->toBeEmpty();
+
+    foreach ($variants as $variant) {
+        // One picker per meal and per snack, so the storefront never counts.
+        expect($variant['sittings'])->toHaveCount($variant['meals_per_day'] + $variant['snacks_per_day']);
+    }
+
+    expect($plan)->not->toBeNull()
+        ->and($this->getJson('/api/v1/marketplace/meal-plans/'.$plan->slug)->json('data'))->not->toHaveKey('sample_meal_ids');
+});

@@ -583,7 +583,7 @@ describe('createApiOrderDeskRepository — requirements', () => {
                 body: {
                     data: {
                         requirements: [ROW],
-                        not_computable: { days: 2, reasons: { plan_has_no_menu: 2 } },
+                        not_computable: { days: 2, reasons: { meals_not_chosen: 2 } },
                     },
                     meta: REQUIREMENTS_META,
                 },
@@ -612,7 +612,7 @@ describe('createApiOrderDeskRepository — requirements', () => {
                 suggestedBuy: '8.0000',
             },
         ]);
-        expect(answer.notComputable).toEqual({ days: 2, reasons: { plan_has_no_menu: 2 } });
+        expect(answer.notComputable).toEqual({ days: 2, reasons: { meals_not_chosen: 2 } });
         expect(answer.meta).toEqual({
             from: '2026-09-07',
             to: '2026-09-20',

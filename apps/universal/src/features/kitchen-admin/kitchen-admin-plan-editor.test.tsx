@@ -1,5 +1,5 @@
 import { throwFailure, validationFailure } from '@healthy360/api-client/contracts';
-import type { AdminEntityMeta, PlanAdmin, PlanMenu } from '@healthy360/api-client/contracts';
+import type { AdminEntityMeta, PlanAdmin } from '@healthy360/api-client/contracts';
 import { KitchenId, SubscriptionPlanId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
@@ -90,7 +90,7 @@ async function type(testID: string, value: string) {
     });
 }
 
-type PlanStep = 'plan' | 'variants' | 'matrix' | 'durations' | 'menu';
+type PlanStep = 'plan' | 'variants' | 'matrix' | 'durations';
 
 /** A step tab's red count. Hidden from assistive technology: the tab's own name says it. */
 function stepPill(step: PlanStep) {
@@ -130,20 +130,11 @@ const PLAN: PlanAdmin = {
     deliveryWeekdays: [1, 2, 3, 4, 5],
 };
 
-const MENU: PlanMenu = {
-    planId: PLAN_ID,
-    meta: PLAN.meta,
-    cycleDays: null,
-    anchorDate: null,
-    entries: [],
-};
-
 /** What a new plan's editor reads before it can render. */
 function newPlanReads() {
     return {
         listPlans: async () => page([]),
         listPriceLists: async () => page([]),
-        listMeals: async () => page([]),
     };
 }
 
@@ -151,7 +142,6 @@ function savedPlanReads() {
     return {
         ...newPlanReads(),
         getPlan: async () => PLAN,
-        getPlanMenu: async () => MENU,
     };
 }
 
@@ -198,7 +188,7 @@ describe('the plan editor leads the reader', () => {
         });
         await fillStarterRows();
         // Pressed from the last step, with the plan's own name still blank on the first.
-        await press('kitchen-plan-editor-screen-steps-menu');
+        await press('kitchen-plan-editor-screen-steps-durations');
         await press('kitchen-plan-editor-screen-save');
 
         await untilVisible('kitchen-plan-name-en-error');
@@ -236,7 +226,7 @@ describe('the plan editor leads the reader', () => {
         await type('kitchen-plan-name-en-input', 'Autumn reset');
         await type('kitchen-plan-name-ar-input', 'إعادة ضبط الخريف');
         await fillStarterRows();
-        await press('kitchen-plan-editor-screen-steps-menu');
+        await press('kitchen-plan-editor-screen-steps-durations');
         await press('kitchen-plan-editor-screen-save');
 
         await untilVisible('kitchen-plan-name-ar-error');
@@ -286,7 +276,7 @@ describe('the plan editor leads the reader', () => {
             },
         });
         await type('kitchen-plan-cut-off-input', '48');
-        await press('kitchen-plan-editor-screen-steps-menu');
+        await press('kitchen-plan-editor-screen-steps-durations');
         await press('kitchen-plan-editor-screen-save');
 
         await untilVisible('kitchen-plan-cut-off-error');

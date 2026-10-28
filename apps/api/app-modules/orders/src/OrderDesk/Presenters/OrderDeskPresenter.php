@@ -125,6 +125,17 @@ final class OrderDeskPresenter
     public function __construct(private readonly OrderPresenter $orders) {}
 
     /**
+     * Read the page's plan days in one go, for the rows `row()` is about to
+     * present.
+     *
+     * @param  list<string>  $orderIds
+     */
+    public function preloadPlanDays(array $orderIds): void
+    {
+        $this->orders->preloadPlanDays($orderIds);
+    }
+
+    /**
      * One queue row.
      *
      * `due_at` is computed in SQL and handed in rather than derived here, and

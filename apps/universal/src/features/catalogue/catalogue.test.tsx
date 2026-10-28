@@ -460,6 +460,16 @@ function testVariant(planOrdinal: number, index: number, name: string): PlanVari
         fatRange: { min: 40 + index * 10, max: 60 + index * 10 },
         mealsPerDay: 3,
         snacksPerDay: index,
+        // Three meals are breakfast, lunch and dinner; each snack is a sitting of its own.
+        sittings: [
+            { slot: 'breakfast', sequence: 1 },
+            { slot: 'lunch', sequence: 1 },
+            { slot: 'dinner', sequence: 1 },
+            ...Array.from({ length: index }, (_, snack) => ({
+                slot: 'snack' as const,
+                sequence: snack + 1,
+            })),
+        ],
         pricePerWeek: { amount: 20000 + planOrdinal * 1000 + index * 3000, currency: 'AED' },
     };
 }
@@ -487,7 +497,6 @@ interface PlanSeed {
     readonly kitchen: Kitchen;
     readonly categorySlugs: readonly string[];
     readonly rating: number;
-    readonly sampleMealIds?: readonly MealId[] | undefined;
 }
 
 function testPlan(seed: PlanSeed): SubscriptionPlan {
@@ -506,15 +515,11 @@ function testPlan(seed: PlanSeed): SubscriptionPlan {
             testVariant(seed.ordinal, 2, 'Higher'),
         ],
         durations: DURATIONS,
-        sampleMealIds: seed.sampleMealIds ?? [],
         imagePlaceholderId: `plan-${seed.slug}`,
         rating: seed.rating,
         ratingCount: 18,
     };
 }
-
-/** Two of the catalogue's meals stand in as the plan's representative week. */
-const SAMPLE_MEAL_IDS: readonly MealId[] = CATALOGUE_MEALS.slice(0, 2).map((meal) => meal.id);
 
 const PLANS: readonly SubscriptionPlan[] = [
     testPlan({
@@ -524,7 +529,6 @@ const PLANS: readonly SubscriptionPlan[] = [
         kitchen: VERDANT,
         categorySlugs: ['high-protein'],
         rating: 4.9,
-        sampleMealIds: SAMPLE_MEAL_IDS,
     }),
     testPlan({
         ordinal: 2,
@@ -1993,10 +1997,11 @@ describe('PlanComparisonScreen', () => {
 describe('PlanDetailScreen', () => {
     const [STRENGTH_BUILD] = PLANS;
 
-    it('renders variants, macro ranges, durations, delivery and the sample menu', async () => {
-        await renderStubScreen(<PlanDetailScreen planId={String(STRENGTH_BUILD!.id)} />, {
-            repositories: CATALOGUE_REPOSITORIES,
-        });
+    it('renders variants, macro ranges, durations and delivery, and no dishes of its own', async () => {
+        const harness = await renderStubScreen(
+            <PlanDetailScreen planId={String(STRENGTH_BUILD!.id)} />,
+            { repositories: CATALOGUE_REPOSITORIES },
+        );
 
         await waitFor(() => {
             expect(screen.getByTestId('plan-detail-name')).toBeTruthy();
@@ -2011,9 +2016,10 @@ describe('PlanDetailScreen', () => {
         // The prose-only delivery note and the disclaimer moved off this page.
         expect(screen.queryByTestId('plan-detail-delivery')).toBeNull();
 
-        await waitFor(() => {
-            expect(screen.getByTestId('plan-detail-sample-grid')).toBeTruthy();
-        });
+        // A subscriber chooses every meal while setting the plan up, so the plan page lists no
+        // dishes of its own — and reads no menu to draw them from.
+        expect(screen.queryByTestId('plan-detail-sample-menu')).toBeNull();
+        expect(harness.repositories.marketplace.listMeals).not.toHaveBeenCalled();
     });
 
     /**

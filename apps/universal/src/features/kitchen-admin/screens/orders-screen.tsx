@@ -54,6 +54,7 @@ import {
 import { formatMoney } from '../../marketplace/format.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { PlanDayMeals, isPlanDayLine, visibleOrderLines } from '../plan-day-meals.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
@@ -570,6 +571,10 @@ function OrderLinesTable({
                             {line.variantLabel}
                         </Text>
                     )}
+                    {/* A subscription day: which dish is for which sitting, under the plan. */}
+                    {isPlanDayLine(order, line) ? (
+                        <PlanDayMeals order={order} testID={`${testID}-plan-day`} />
+                    ) : null}
                     {line.allergens.length === 0 ? (
                         <Text variant="caption" tone="secondary">
                             {t('kitchen:ops.orders.noAllergens')}
@@ -625,7 +630,7 @@ function OrderLinesTable({
             caption={t('kitchen:ops.orders.linesHeading')}
             captionHidden
             columns={lineColumns}
-            rows={order.lines}
+            rows={visibleOrderLines(order)}
             rowKey={(line) => line.id}
         />
     );

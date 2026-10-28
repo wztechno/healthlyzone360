@@ -179,6 +179,7 @@
         "steps": {
             "plan": "Plan",
             "delivery": "Delivery",
+            "meals": "Meals",
             "review": "Review"
         },
         "issues": {
@@ -192,6 +193,7 @@
             "slot": "Choose a delivery window.",
             "address": "Choose a delivery address.",
             "areaUnserved": "This kitchen does not deliver to that area, so this subscription cannot go ahead.",
+            "mealsMissing": "Choose a meal for every sitting of every day to continue.",
             "terms": "Tick the box below to subscribe."
         },
         "plan": {
@@ -230,14 +232,25 @@
             "areaUnknown": "Your area is confirmed before the first delivery"
         },
         "meals": {
-            "selectLabel": "Meal for {{date}}",
-            "unknown": "Chosen by the kitchen",
-            "title": "Pick your first week’s meals"
+            "placeholder": "Choose a meal",
+            "missing": "Choose a meal",
+            "progress": "{{done}} of {{total}} meals chosen",
+            "repeatWeek": "Repeat week 1",
+            "week": "Week {{number}}",
+            "daysChosen_one": "{{count}} day chosen",
+            "daysChosen_other": "{{count}} days chosen",
+            "slot": {
+                "breakfast": "Breakfast",
+                "lunch": "Lunch",
+                "dinner": "Dinner",
+                "snack": "Snack"
+            }
         },
         "summary": {
             "plan": "Plan",
             "duration": "Length",
             "days": "Days",
+            "meals": "Meals",
             "address": "Address",
             "allergens": "Your allergy list",
             "window": "Deliveries",
@@ -258,14 +271,12 @@
         },
         "successTitle": "Your subscription is set up",
         "successBody": "{{plan}} is now on your account.",
-        "mealsUnsavedTitle_one": "{{count}} meal pick wasn't saved",
-        "mealsUnsavedTitle_other": "{{count}} meal picks weren't saved",
-        "mealsUnsavedBody": "Those days get the kitchen's menu. You can choose again below.",
         "titleFor": "Set up {{plan}}",
         "edit": "Edit",
         "review": {
             "planTitle": "Your plan",
             "deliveryTitle": "Delivery",
+            "mealsTitle": "Your meals",
             "priceTitle": "Price"
         },
         "startOver": "Start over",
@@ -422,19 +433,14 @@
         "cutOffBody_other": "Deliveries less than {{count}} hours away go ahead as planned. The change starts after that."
     },
     "choices": {
-        "open": "Choose your meals",
-        "title": "Choose the meal for this delivery",
-        "body": "Pick what you would like on your next delivery day.",
-        "bodyDated": "Pick what you would like delivered on {{date}}.",
-        "confirm": "Save choice",
-        "selectLabel": "Meal for {{slot}}",
-        "cutOffTitle": "Choose ahead of the cut-off",
-        "cutOffBody": "Choices close before the delivery is prepared. After that the kitchen cooks its default for that day.",
-        "sources": {
-            "customer": "You chose {{meal}}.",
-            "kitchen_default": "The kitchen will cook {{meal}} unless you choose something else.",
-            "substituted": "{{meal}} was substituted, within your allergen declarations."
-        }
+        "sectionTitle": "Your meals",
+        "empty": "No upcoming deliveries.",
+        "change": "Change",
+        "title": "Meals for {{date}}",
+        "confirm": "Save",
+        "notChosen": "Not chosen",
+        "repeated": "Repeated",
+        "substituted": "Swapped"
     },
     "basketConflict": {
         "title": "Start a new basket?",
@@ -460,8 +466,8 @@
         "planTitle_one": "{{count}} dish in this plan contains something on your allergy list",
         "planTitle_other": "{{count}} dishes in this plan contain something on your allergy list",
         "planBody": "The kitchen swaps these for a safe dish or skips that slot. Keep your list up to date so it can.",
-        "planNone": "Nothing in this plan’s sample week crosses your allergy list.",
-        "planUnchecked": "This plan has not published its dishes yet, so they cannot be checked against your allergy list."
+        "planNone": "None of these dishes crosses your allergy list.",
+        "planUnchecked": "No dishes to check yet."
     },
     "receipt": {
         "printerLabel": "Receipt printer",

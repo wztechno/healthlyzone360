@@ -3612,97 +3612,6 @@ export type PlanProfileEnvelope = {
 };
 
 /**
- * The four sittings, the same vocabulary a subscription meal choice
- * stores — generation copies this value straight onto a choice row.
- *
- */
-export type PlanMenuSlot = 'breakfast' | 'lunch' | 'dinner' | 'snack';
-
-/**
- * One dish, in one slot, on one day of the plan's cycle.
- *
- */
-export type PlanMenuEntry = {
-    id: Uuid;
-    /**
-     * 1-based day of the cycle. **Day 1 is the anchor date itself**, and
-     * the cycle is anchored to the *plan*, not to each subscriber — every
-     * subscriber eats the same dish on the same date, which is what makes
-     * a day one production run rather than an à la carte service.
-     *
-     */
-    cycle_day: number;
-    slot: PlanMenuSlot;
-    /**
-     * Disambiguates the kitchen that serves lunch twice. Defaults to 1.
-     *
-     */
-    sequence: number;
-    meal_catalogue_item_id: Uuid;
-    meal_name_en: string | null;
-    meal_name_ar: string | null;
-};
-
-/**
- * The rotation the entries sit on. **Both null means no menu is
- * published**, which is the behaviour every plan has by default and the
- * state in which a subscription order deducts no stock.
- *
- */
-export type PlanMenuCycle = {
-    cycle_days: number | null;
-    /**
-     * The date cycle day 1 falls on. A date rather than an instant: a
-     * cycle turns over at the kitchen's midnight.
-     *
-     */
-    anchor_date: string | null;
-};
-
-export type PlanMenuEnvelope = {
-    data: {
-        item: AdminCatalogueItem;
-        cycle: PlanMenuCycle;
-        entries: Array<PlanMenuEntry>;
-    };
-    meta: Meta & {
-        count: number;
-    };
-};
-
-/**
- * The complete menu. All three fields are required to be *present* and
- * may all be null or empty: that combination withdraws the menu, which is
- * a decision a kitchen makes and not a field they forgot.
- *
- * They move together. Entries with no cycle length, or a cycle length
- * with no entries, or a cycle length with no anchor, are each `422` —
- * see the operation description.
- *
- * `catalogue_item_id` is not a field: the plan is in the URL.
- *
- */
-export type ReplacePlanMenuRequest = {
-    entries: Array<{
-        cycle_day: number;
-        slot: PlanMenuSlot;
-        /**
-         * Defaults to 1.
-         */
-        sequence?: number | null;
-        /**
-         * Must be a **published meal** of this kitchen. A menu entry is
-         * a promise to serve the dish, so a draft or a retired one is
-         * `422`.
-         *
-         */
-        meal_catalogue_item_id: Uuid;
-    }>;
-    menu_cycle_days: number | null;
-    menu_cycle_anchor_date: string | null;
-};
-
-/**
  * One cell of a plan's availability matrix, together with the variant that
  * carries it. **The variant is the priceable thing**: a price row names
  * `catalogue_item_variant_id`, exactly as it does for a pack.
@@ -4489,6 +4398,13 @@ export type MarketplacePlanVariant = {
     meals_per_day: number;
     snacks_per_day: number;
     /**
+     * The places a customer fills with a dish on every delivery day — one
+     * per meal and one per snack. The customer chooses every meal; this
+     * is the shape each day must fill at purchase and on `PUT …/choices`.
+     *
+     */
+    sittings: Array<PlanSitting>;
+    /**
      * Derived from the confirmed price on the basis the plan declares:
      * `per_week` unchanged, `per_day` multiplied by seven. A plan priced as
      * a `total` has no weekly figure and its configurations are omitted
@@ -4554,23 +4470,6 @@ export type MarketplacePlan = {
     diet_classifications: Array<string>;
     variants: Array<MarketplacePlanVariant>;
     durations: Array<MarketplacePlanDuration>;
-    /**
-     * The first dishes of the plan's own fixed menu, distinct and in the
-     * order the kitchen serves them — cycle day, then sitting in the order
-     * of the day, then sequence. Published dishes only: a withdrawn one is
-     * omitted rather than advertised.
-     *
-     * **Empty when the plan publishes no menu**, which is the ordinary
-     * case for a free-selection plan and for a plan whose kitchen has not
-     * written its menu down. The identifiers are always read from the
-     * kitchen's stated menu and never assembled from its catalogue — a
-     * sample the platform composed itself would be the platform writing a
-     * menu.
-     *
-     * Capped at twelve: it is a sample of the menu, not the menu.
-     *
-     */
-    sample_meal_ids: Array<Uuid>;
     image_placeholder_id: string;
     rating: number | null;
     rating_count: number;
@@ -8634,8 +8533,28 @@ export type KitchenOrder = {
     amendable: boolean;
     line_count: number;
     lines: Array<KitchenOrderLine>;
+    /**
+     * Which meal of a subscription day went in which sitting — `null` when
+     * the order is not a plan day. Each meal points at the order's own
+     * line for its dish (`line_id`), so the name read is the order's
+     * snapshot; a dish chosen for two sittings is one line of two and both
+     * sittings point at it.
+     *
+     */
+    plan_day: KitchenOrderPlanDay | null;
     created_at: string | null;
     updated_at: string | null;
+};
+
+export type KitchenOrderPlanDay = {
+    plan_line_id: Uuid | null;
+    meals: Array<{
+        slot: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+        sequence: number;
+        catalogue_item_id: Uuid;
+        line_id: Uuid | null;
+        source: MealChoiceSource;
+    }>;
 };
 
 export type CustomerOrderEnvelope = {
@@ -9531,14 +9450,14 @@ export type OrderDeskCalendarWindow = {
     /**
      * For an order, the delivery slot's own code. For a subscription day,
      * the **sitting** — `breakfast`, `lunch`, `dinner` or `snack` — with
-     * one count per meal the plan serves that day (its menu's entries for
-     * that cycle day, or its configuration's `meals_per_day` and
-     * `snacks_per_day` dealt onto the day), so `scheduled` and
+     * one count per meal the plan serves that day (its configuration's
+     * `meals_per_day` and `snacks_per_day` dealt onto the day), so
+     * `scheduled` and
      * `projected` count food rather than days. A screen folds a window
      * code and its sitting onto one row (`midday` and `lunch` are one
      * row). **`null`** is the day's unslotted work — legitimate on both
-     * books, and the only answer for a subscription whose plan has
-     * neither a menu nor a configuration. Null rather than a placeholder
+     * books, and the only answer for a subscription whose plan has no
+     * configuration. Null rather than a placeholder
      * word because a code is a kitchen's own vocabulary and any word
      * invented here would be one a kitchen could also have typed. The
      * null entry, if present, is last.
@@ -9689,7 +9608,7 @@ export type OrderDeskNotComputable = {
      * same consequence.
      *
      * Only reasons that actually occurred appear. The vocabulary is
-     * `plan_has_no_menu`, `menu_dish_withdrawn`, `meal_has_no_recipe`,
+     * `meals_not_chosen`, `meal_has_no_recipe`,
      * `no_yield_piece_count`, `unquantified_recipe_line`,
      * `no_ingredient_link`, `no_stock_item`, `no_stock_unit` and
      * `unit_conversion_unsupported`; the map is left open so a code added
@@ -9761,7 +9680,7 @@ export type StockSufficiencyCheck = {
      */
     short_count: number;
     /**
-     * Days with demand nobody could work out — a missing recipe, an unwritten menu.
+     * Days with demand nobody could work out — a missing recipe, a day nobody chose meals for.
      */
     not_computable_days: number;
     shortfalls: Array<StockSufficiencyShortfall>;
@@ -13319,15 +13238,64 @@ export type SubscriptionStatus = 'active' | 'paused' | 'cancelled' | 'completed'
 export type SubscriptionDeliveryStatus = 'scheduled' | 'generated' | 'skipped_customer' | 'skipped_no_safe_meal' | 'skipped_unavailable' | 'delivered' | 'cancelled';
 
 /**
- * Who chose the meal on a Free Selection day. `customer` picked it before
- * the cut-off; `kitchen_default` filled the slot because they did not; and
+ * Who chose the meal. `customer` picked it; `repeated` means nobody chose
+ * for that date (a skip or a pause pushed the balance onto it) and
+ * generation repeated the customer's own latest choices for that weekday;
+ * `kitchen_default` is a slot the retired plan menu filled; and
  * `substituted` means something chosen was unavailable or unsafe and
  * generation replaced it. Collapsing these into one value would make the
  * substitution audit unreadable, which is the one audit an allergy
  * complaint needs most.
  *
  */
-export type MealChoiceSource = 'customer' | 'kitchen_default' | 'substituted';
+export type MealChoiceSource = 'customer' | 'kitchen_default' | 'substituted' | 'repeated';
+
+/**
+ * One place a dish goes on a plan day — a second lunch is `lunch` / `2`.
+ */
+export type PlanSitting = {
+    slot: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+    sequence: number;
+};
+
+export type ChosenMeal = {
+    slot: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+    sequence?: number | null;
+    catalogue_item_id: Uuid;
+};
+
+export type ChosenDay = {
+    date: string;
+    meals: Array<ChosenMeal>;
+};
+
+export type SubscriptionDay = {
+    delivery_date: string;
+    /**
+     * `actual` is a delivery row that exists; `projected` is a day the
+     * weekdays and the balance say is coming, which no row asserts yet.
+     *
+     */
+    basis: 'actual' | 'projected';
+    status: string;
+    /**
+     * Whether the day's meals may still be changed — the change window is open and nothing has been generated.
+     */
+    editable: boolean;
+    change_deadline: string;
+    meals: Array<SubscriptionMealChoice>;
+};
+
+export type SubscriptionDaysEnvelope = {
+    data: {
+        /**
+         * The sittings every day of this subscription fills, as sold.
+         */
+        sittings: Array<PlanSitting>;
+        days: Array<SubscriptionDay>;
+    };
+    meta: Meta;
+};
 
 /**
  * `recorded` means the platform has computed what is owed; `settled`
@@ -13844,6 +13812,17 @@ export type CreateSubscriptionRequest = {
      *
      */
     start_from?: string | null;
+    /**
+     * The customer's meals for **every** delivery day the balance covers —
+     * from the first delivery, on the chosen weekdays, one per balance
+     * day — each filling the configuration's `sittings`. A day missing is
+     * refused as `meals_missing` (with the dates), a day that does not
+     * fill its sittings as `meals_incomplete`, and a date that is not a
+     * delivery day as `not_a_delivery_day`; the choices are written in the
+     * same transaction as the subscription.
+     *
+     */
+    days: Array<ChosenDay>;
 };
 
 export type SkipSubscriptionDayRequest = {
@@ -13875,9 +13854,9 @@ export type UpdateSubscriptionWeekdaysRequest = {
 };
 
 /**
- * One day's chosen meals, replaced whole. An **empty `meals` array is a
- * real payload**: it is a customer saying "I have not chosen; send me the
- * kitchen's default", and a merge-shaped write could not express it.
+ * One day's chosen meals, replaced whole. The day must fill every sitting
+ * the subscriber bought; otherwise it is refused as `meals_incomplete`,
+ * naming the `missing` and `unexpected` sittings.
  *
  */
 export type ReplaceSubscriptionChoicesRequest = {
@@ -24432,175 +24411,6 @@ export type ReplacePlanVariantsResponses = {
 };
 
 export type ReplacePlanVariantsResponse = ReplacePlanVariantsResponses[keyof ReplacePlanVariantsResponses];
-
-export type GetPlanMenuData = {
-    body?: never;
-    headers: {
-        /**
-         * The active organisation. Never trusted without server-side validation
-         * against an active membership.
-         *
-         */
-        'X-Organisation-Id': Uuid;
-        /**
-         * An opaque client-generated identifier for support correlation. Logged
-         * and echoed back; never used as the correlation identifier.
-         *
-         */
-        'X-Client-Request-Id'?: string;
-    };
-    path: {
-        /**
-         * The item identifier, or its `slug`. Both are accepted because both are
-         * natural — a client that walked the list holds identifiers, a
-         * marketplace integration or a support engineer holds
-         * `harissa-paste-250g` — and a slug is unique per organisation and
-         * immutable, so the two answers cannot drift apart.
-         *
-         */
-        item: Uuid | string;
-    };
-    query?: never;
-    url: '/catalogue/plans/{item}/menu';
-};
-
-export type GetPlanMenuErrors = {
-    /**
-     * No usable credential was presented.
-     */
-    401: ErrorEnvelope;
-    /**
-     * The context was refused (`context.organisation_forbidden`,
-     * `context.branch_out_of_scope`) or the membership's roles do not grant
-     * the required permission (`authz.permission_denied`, with the denying
-     * RBAC step in `details.reason`).
-     *
-     */
-    403: ErrorEnvelope;
-    /**
-     * The resource does not exist, or is not the caller's to see.
-     */
-    404: ErrorEnvelope;
-    /**
-     * The submitted data is invalid.
-     */
-    422: ErrorEnvelope;
-    /**
-     * The rate limit for this endpoint was exceeded.
-     */
-    429: ErrorEnvelope;
-};
-
-export type GetPlanMenuError = GetPlanMenuErrors[keyof GetPlanMenuErrors];
-
-export type GetPlanMenuResponses = {
-    /**
-     * The plan, its cycle configuration and every entry on its menu.
-     */
-    200: PlanMenuEnvelope;
-};
-
-export type GetPlanMenuResponse = GetPlanMenuResponses[keyof GetPlanMenuResponses];
-
-export type ReplacePlanMenuData = {
-    body: ReplacePlanMenuRequest;
-    headers: {
-        /**
-         * The active organisation. Never trusted without server-side validation
-         * against an active membership.
-         *
-         */
-        'X-Organisation-Id': Uuid;
-        /**
-         * The `ETag` the resource was last served with. Required on writes to
-         * lock-versioned resources: absent is **428**
-         * `request.precondition_required`, stale is **409** `resource.conflict`
-         * carrying `details.current_lock_version`. `*` is accepted and means
-         * "as long as the resource exists".
-         *
-         */
-        'If-Match': string;
-        /**
-         * An opaque client-generated identifier for support correlation. Logged
-         * and echoed back; never used as the correlation identifier.
-         *
-         */
-        'X-Client-Request-Id'?: string;
-    };
-    path: {
-        /**
-         * The item identifier, or its `slug`. Both are accepted because both are
-         * natural — a client that walked the list holds identifiers, a
-         * marketplace integration or a support engineer holds
-         * `harissa-paste-250g` — and a slug is unique per organisation and
-         * immutable, so the two answers cannot drift apart.
-         *
-         */
-        item: Uuid | string;
-    };
-    query?: never;
-    url: '/catalogue/plans/{item}/menu';
-};
-
-export type ReplacePlanMenuErrors = {
-    /**
-     * The request could not be processed as sent — typically a session
-     * endpoint reached without a first-party `Origin`.
-     *
-     */
-    400: ErrorEnvelope;
-    /**
-     * No usable credential was presented.
-     */
-    401: ErrorEnvelope;
-    /**
-     * The context was refused (`context.organisation_forbidden`,
-     * `context.branch_out_of_scope`) or the membership's roles do not grant
-     * the required permission (`authz.permission_denied`, with the denying
-     * RBAC step in `details.reason`).
-     *
-     */
-    403: ErrorEnvelope;
-    /**
-     * The resource does not exist, or is not the caller's to see.
-     */
-    404: ErrorEnvelope;
-    /**
-     * The change conflicts with the current state. On a lock-versioned
-     * write this is a lost race, and `details.current_lock_version` is the
-     * value to reload against, so a client can offer "reload" or "keep
-     * mine" without a second round trip.
-     *
-     */
-    409: ErrorEnvelope;
-    /**
-     * The submitted data is invalid.
-     */
-    422: ErrorEnvelope;
-    /**
-     * The resource is lock-versioned and the write carried no `If-Match`.
-     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
-     * never entered one — and the fix is to read the resource and retry with
-     * its validator.
-     *
-     */
-    428: ErrorEnvelope;
-    /**
-     * The rate limit for this endpoint was exceeded.
-     */
-    429: ErrorEnvelope;
-};
-
-export type ReplacePlanMenuError = ReplacePlanMenuErrors[keyof ReplacePlanMenuErrors];
-
-export type ReplacePlanMenuResponses = {
-    /**
-     * The plan, the cycle it now runs on, and every entry it now has.
-     */
-    200: PlanMenuEnvelope;
-};
-
-export type ReplacePlanMenuResponse = ReplacePlanMenuResponses[keyof ReplacePlanMenuResponses];
 
 export type ListPlanVariantDurationsData = {
     body?: never;
@@ -42985,6 +42795,64 @@ export type ListSubscriptionDeliveriesResponses = {
 };
 
 export type ListSubscriptionDeliveriesResponse = ListSubscriptionDeliveriesResponses[keyof ListSubscriptionDeliveriesResponses];
+
+export type ListSubscriptionDaysData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The subscription identifier. Always resolved inside the caller's own
+         * customer account: somebody else's is `404 resource.not_found`, never a
+         * 403, because the row carries a delivery address, a weekday pattern and
+         * a price somebody negotiated.
+         *
+         */
+        subscription: Uuid;
+    };
+    query?: never;
+    url: '/me/subscriptions/{subscription}/days';
+};
+
+export type ListSubscriptionDaysErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListSubscriptionDaysError = ListSubscriptionDaysErrors[keyof ListSubscriptionDaysErrors];
+
+export type ListSubscriptionDaysResponses = {
+    /**
+     * The run, day by day, with the sittings every day fills.
+     */
+    200: SubscriptionDaysEnvelope;
+};
+
+export type ListSubscriptionDaysResponse = ListSubscriptionDaysResponses[keyof ListSubscriptionDaysResponses];
 
 export type ListSubscriptionScheduleData = {
     body?: never;

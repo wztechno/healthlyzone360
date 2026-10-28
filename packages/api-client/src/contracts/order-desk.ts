@@ -497,8 +497,8 @@ export interface OrderDeskRequirement {
  * on one Tuesday is one day the buy list is incomplete for. `reasons` counts, per code, the days
  * that code spoiled — so an elaborate recipe failing on one day does not outweigh a simple one.
  *
- * `reasons` is an open map on purpose. The server's vocabulary today is `plan_has_no_menu`,
- * `menu_dish_withdrawn`, `meal_has_no_recipe`, `no_yield_piece_count`, `unquantified_recipe_line`,
+ * `reasons` is an open map on purpose. The server's vocabulary today is `meals_not_chosen`,
+ * `meal_has_no_recipe`, `no_yield_piece_count`, `unquantified_recipe_line`,
  * `no_ingredient_link`, `no_stock_item`, `no_stock_unit` and `unit_conversion_unsupported`; a code
  * added later must reach a screen as data rather than as a parse failure, so a renderer looks its
  * label up with a fallback to the code itself.

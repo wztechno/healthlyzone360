@@ -8,7 +8,9 @@ import type {
     PriceListId,
 } from '@healthy360/domain-types';
 
+import type { MealChoiceSource } from './commerce.ts';
 import type { DriverJobStatus, DriverJobTrackingStatus } from './driver-jobs.ts';
+import type { MealSlot } from './marketplace.ts';
 
 /**
  * The kitchen's own view of the orders placed against it — the seller side of the same rows the
@@ -181,6 +183,28 @@ export interface KitchenOrderDeliveryRun {
 export const KITCHEN_ORDER_FULFILMENT_TYPES = ['delivery', 'pickup', 'counter'] as const;
 export type KitchenOrderFulfilmentType = (typeof KITCHEN_ORDER_FULFILMENT_TYPES)[number];
 
+/** One sitting of a subscription day, and the order line that carries its dish. */
+export interface KitchenOrderPlanMeal {
+    readonly slot: MealSlot;
+    readonly sequence: number;
+    readonly catalogueItemId: string;
+    /**
+     * The order's own line for the dish, so the name read is the order's snapshot. A dish chosen for
+     * two sittings is one line of two, and both sittings point at it. `null` only when the line is
+     * missing — an allergen skip removed it, say.
+     */
+    readonly lineId: string | null;
+    readonly source: MealChoiceSource;
+}
+
+/** Which meal of a subscription day went in which sitting. */
+export interface KitchenOrderPlanDay {
+    /** The plan line — the day at the captured price. */
+    readonly planLineId: string | null;
+    /** In the order of the day: breakfast, lunch, dinner, snack. */
+    readonly meals: readonly KitchenOrderPlanMeal[];
+}
+
 export interface KitchenOrder {
     readonly id: OrderId;
     /** The human-quotable reference — what a customer reads over the phone. Unique platform-wide. */
@@ -233,6 +257,11 @@ export interface KitchenOrder {
     /** The server's own count, so a collapsed list row can say "4 items" without holding the lines. */
     readonly lineCount: number;
     readonly lines: readonly KitchenOrderLine[];
+    /**
+     * Which meal is for which sitting, when the order is one day of a subscription. `null` on any
+     * other order; absent on payloads that predate it.
+     */
+    readonly planDay?: KitchenOrderPlanDay | null;
 }
 
 /**

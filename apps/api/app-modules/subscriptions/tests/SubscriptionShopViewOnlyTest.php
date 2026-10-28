@@ -36,6 +36,7 @@ it('refuses kitchen staff a subscription from the shop', function (): void {
             'plan_duration_id' => (string) $this->world->duration->getKey(),
             'customer_address_id' => (string) $this->world->customer->address->getKey(),
             'weekdays' => [1, 2, 3, 4, 5, 6, 7],
+            'days' => SubscriptionWorld::everyDay(SubscriptionWorld::firstDay($this->world), 1, (string) $this->world->plan->getKey(), (string) $this->world->plan->getKey()),
         ], firstPartyHeaders() + ['Idempotency-Key' => 'staff-plan-1'])
         ->assertForbidden()
         ->assertJsonPath('error.code', 'shop.view_only');

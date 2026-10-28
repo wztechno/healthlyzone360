@@ -58,6 +58,7 @@ import type {
     SubscriptionDelivery,
     SubscriptionDeliveryFilter,
     SubscriptionMealChoice,
+    SubscriptionPlanDays,
     SubscriptionPreview,
     SubscriptionQuote,
     SubscriptionQuoteRequest,
@@ -92,7 +93,6 @@ import type {
     MealAdminFilter,
     PlanAdmin,
     PlanAdminFilter,
-    PlanMenu,
     PriceListAdmin,
     PriceListAdminFilter,
     ProductAdmin,
@@ -103,7 +103,6 @@ import type {
     RecipeAdminSummary,
     RecipeRollupDraft,
     RecipeRollupPreview,
-    ReplacePlanMenuRequest,
     ServiceArea,
     ServiceAreaFilter,
     SetBranchOperatingRequest,
@@ -646,6 +645,9 @@ export const apiCommerceRepository: CommerceRepository = {
     ): Promise<readonly SubscriptionMealChoice[]> {
         return notImplemented(`PUT ${BASE}/me/subscriptions/{subscription}/choices`);
     },
+    listSubscriptionDays(_subscriptionId: SubscriptionId): Promise<SubscriptionPlanDays> {
+        return notImplemented(`GET ${BASE}/me/subscriptions/{subscription}/days`);
+    },
 };
 
 /* ------------------------------------------------------------------------------------------------
@@ -1015,15 +1017,6 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         _request: SetPlanCombinationsRequest,
     ): Promise<PlanAdmin> {
         return notImplemented(`PUT ${BASE}/catalogue/plan-vocabulary/combinations`);
-    },
-    getPlanMenu(_planId: SubscriptionPlanId): Promise<PlanMenu> {
-        return notImplemented(`GET ${BASE}/catalogue/plans/{plan}/menu`);
-    },
-    replacePlanMenu(
-        _planId: SubscriptionPlanId,
-        _request: ReplacePlanMenuRequest,
-    ): Promise<PlanMenu> {
-        return notImplemented(`PUT ${BASE}/catalogue/plans/{plan}/menu`);
     },
 
     listZones(_filter?: DeliveryZoneAdminFilter): Promise<CursorPage<DeliveryZoneAdmin>> {

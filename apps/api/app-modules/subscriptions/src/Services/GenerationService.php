@@ -6,8 +6,6 @@ namespace Healthy360\Subscriptions\Services;
 
 use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Models\CatalogueItem;
-use Healthy360\Catalogues\Models\PlanMenuEntry;
-use Healthy360\Catalogues\Services\PlanMenuService;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Orders\Contracts\OrderSchedulingLookup;
@@ -89,7 +87,6 @@ final readonly class GenerationService
         private DeliveryCursor $cursor,
         private RenewalService $renewals,
         private SubscriptionJournal $journal,
-        private PlanMenuService $menus,
         private IdentifierService $identifiers,
         private TenantContext $context,
         private OrderSchedulingLookup $scheduling,
@@ -326,11 +323,19 @@ final readonly class GenerationService
             ),
         )];
 
+        // One line per dish, not per sitting: `order_lines` is unique per
+        // article, so a dish chosen for lunch and dinner is one line of two.
+        $counts = [];
+
         foreach ($meals as $meal) {
+            $counts[(string) $meal->getKey()] = ($counts[(string) $meal->getKey()] ?? 0) + 1;
+        }
+
+        foreach ($counts as $mealId => $count) {
             $lines[] = new ComposedLine(
-                catalogueItemId: (string) $meal->getKey(),
+                catalogueItemId: $mealId,
                 catalogueItemVariantId: null,
-                quantity: '1',
+                quantity: (string) $count,
                 price: new PriceOverride(0, $subscription->currency_code, PriceOverride::SUBSCRIPTION_INCLUDED),
             );
         }
@@ -398,38 +403,17 @@ final readonly class GenerationService
     /**
      * The dishes that make up one day, after the allergen gate.
      *
-     * **Where the dishes come from.** A customer's choices for the date, when
-     * the plan allows Free Selection and they made some before the cut-off
-     * (§7). When they made none, the kitchen's default fills the slot — and the
-     * kitchen's default is now a thing the kitchen has written down.
+     * **Where the dishes come from.** The customer's own choices for the date,
+     * made at purchase or changed before the cut-off. A date nobody chose for —
+     * a balance day a skip, a pause or a closed day pushed later — is filled by
+     * `repeatChosenDay()` from the customer's own earlier choices before this
+     * method reads anything, and from there the rows are indistinguishable: the
+     * same allergen check, the same substitution rules, the same ledger. The
+     * safety gate must not have two doors.
      *
-     * **The gap this docblock used to record is closed.** It said K1 had no
-     * menu table, so the only honest default was *no named dish at all*: the
-     * order carried the plan-day line and the kitchen packed to the plan.
-     * `plan_menu_entries` now states what a fixed-menu plan serves in each slot
-     * of each day of its cycle, and `fillFromPlanMenu()` — which runs before
-     * this method reads anything — turns the day's entries into real
-     * `kitchen_default` choice rows. From there they are indistinguishable from
-     * a customer's own: the same allergen check, the same substitution rules,
-     * the same ledger. Nothing below this line knows where a row came from,
-     * which is the point — the safety gate must not have two doors.
-     *
-     * **A plan with no menu behaves exactly as it did.**
-     * `menu_cycle_days IS NULL` is the entire signal, `fillFromPlanMenu()`
-     * returns on it before writing anything, and such a day still generates
-     * with no meal lines at all. Publishing a menu is therefore the per-plan
-     * cut-over: it is the act that starts generating meal lines and, through
-     * them, starts deducting ingredients on confirm.
-     *
-     * **A withdrawn dish leaves the slot empty rather than being packed.** A
-     * menu entry is a promise the kitchen made when it wrote the menu; a dish
-     * that is no longer published is one the kitchen has since taken off sale,
-     * and the two together are a promise it has retracted. Such a slot is left
-     * exactly as a menu-less day leaves it — unfilled, no row, no line — rather
-     * than shipping food the kitchen withdrew, because the rule the old
-     * docblock refused to break still holds: never invent a dish, and never let
-     * the allergen record claim a check nobody performed on food nobody agreed
-     * to send.
+     * **A day with no choices at all still generates** — a subscription bought
+     * before customers chose, with nothing to repeat — and the order carries
+     * the plan-day line alone. Never invent a dish.
      *
      * @return array{0: list<CatalogueItem>, 1: list<array<string, mixed>>} the safe dishes, and the slots that could not be filled
      */
@@ -439,7 +423,7 @@ final readonly class GenerationService
         CarbonImmutable $date,
         CarbonImmutable $now,
     ): array {
-        $this->fillFromPlanMenu($subscription, $date);
+        $this->repeatChosenDay($subscription, $date);
 
         $choices = SubscriptionMealChoice::query()
             ->where('subscription_id', $subscription->getKey())
@@ -519,107 +503,68 @@ final readonly class GenerationService
     }
 
     /**
-     * Write the plan's own menu into this day's empty slots, and return.
+     * Fill a date nobody chose for with the customer's own latest choices for
+     * the same weekday — or, failing that, their latest chosen day.
      *
-     * **The customer wins without a read-first race.** Every row goes in
-     * through one `insertOrIgnore`, and `subscription_meal_choices_one_per_slot`
-     * — unique on `(subscription_id, delivery_date, slot, sequence)` — is what
-     * decides. A slot the customer already chose, or that a previous tick
-     * already defaulted, silently keeps the row it has. Reading first and
-     * writing what was missing would be the same answer with a window in the
-     * middle of it, and two application servers ticking at once is exactly the
-     * situation `claim()` is built around.
+     * Every delivery day is chosen at purchase, but the balance moves: a skip,
+     * a pause or a day the kitchen was shut carries a day onto a date past the
+     * last one chosen, and a weekday change lands days on dates nobody picked
+     * for. The honest default for such a day is what this customer already
+     * chose, not something the kitchen picks for them. A substituted row
+     * repeats what the person chose (`replaced_catalogue_item_id`), and the
+     * allergen gate runs over the repeat like any other row.
      *
-     * **A menu-less plan is untouched.** `cycleFor()` answers null for a plan
-     * with no menu, for a plan with no profile at all, and for one whose menu
-     * has been withdrawn — one shape of nothing — and this returns on it before
-     * a single row is written. That is what keeps every plan that has no menu
-     * generating precisely the orders it generated yesterday.
-     *
-     * **The dish's status is re-read, in one query for the whole day.** A menu
-     * is written once and read for months; a dish on it can be retired in
-     * between, and a retired dish is one the kitchen has withdrawn from sale.
-     * Packing it to a customer because a months-old row still names it is the
-     * failure this service has always refused, so such an entry produces no
-     * row and the slot stays empty. `mealsFor()` reads the day's dishes
-     * together rather than one per slot, so the honesty costs one query and not
-     * one per sitting.
-     *
-     * **Tenancy.** This runs inside the hourly job, which has no ambient
-     * tenant: every catalogue read is `withoutTenancy()` with the
-     * subscription's own `organisation_id` stated explicitly — the seller is
-     * the subscription's column, never a header somebody chose. The choice rows
-     * themselves carry no tenancy scope (`SubscriptionMealChoice` is not
-     * `OrganisationScoped`, the decision `Subscription` records) and are
-     * narrowed by the subscription instead.
+     * **Race-free like the claim.** The rows go in through one
+     * `insertOrIgnore` against `(subscription_id, delivery_date, slot,
+     * sequence)`, so a choice the customer made, or a repeat a previous tick
+     * wrote, keeps the row it has.
      */
-    private function fillFromPlanMenu(Subscription $subscription, CarbonImmutable $date): void
+    private function repeatChosenDay(Subscription $subscription, CarbonImmutable $date): void
     {
-        $plan = CatalogueItem::withoutTenancy()
-            ->whereKey($subscription->catalogue_item_id)
-            ->where('organisation_id', $subscription->organisation_id)
-            ->first();
+        $chosen = SubscriptionMealChoice::query()
+            ->where('subscription_id', $subscription->getKey())
+            ->whereDate('delivery_date', $date->toDateString())
+            ->exists();
 
-        if (! $plan instanceof CatalogueItem) {
+        if ($chosen) {
             return;
         }
 
-        $cycle = $this->menus->cycleFor($plan);
-        $cycleDays = $cycle['cycle_days'];
-        $anchorDate = $cycle['anchor_date'];
+        $earlier = SubscriptionMealChoice::query()
+            ->where('subscription_id', $subscription->getKey())
+            ->whereDate('delivery_date', '<', $date->toDateString())
+            ->orderByDesc('delivery_date')
+            ->limit(400)
+            ->get()
+            ->groupBy(static fn (SubscriptionMealChoice $choice): string => $choice->delivery_date->toDateString());
 
-        if ($cycleDays === null || $anchorDate === null) {
+        if ($earlier->isEmpty()) {
             return;
         }
 
-        $cycleDay = PlanMenuEntry::cycleDayFor($date, CarbonImmutable::parse($anchorDate), $cycleDays);
+        $source = $earlier->first(static fn ($rows, string $day): bool => CarbonImmutable::parse($day)->dayOfWeekIso === $date->dayOfWeekIso)
+            ?? $earlier->first();
 
-        // The day as this subscriber bought it: a 2-meal subscriber on a day
-        // written for 3 + 1 gets the first two meals.
-        $entries = $this->menus->servedTo(array_values(array_filter(
-            $this->menus->entriesFor($plan),
-            static fn (PlanMenuEntry $entry): bool => $entry->cycle_day === $cycleDay,
-        )), ...$subscription->servings($this->menus->configuration($subscription->catalogue_item_variant_id)));
-
-        if ($entries === []) {
-            return;
-        }
-
-        $meals = $this->menus->mealsFor($entries);
         $now = CarbonImmutable::now();
         $rows = [];
 
-        foreach ($entries as $entry) {
-            $meal = $meals[$entry->meal_catalogue_item_id] ?? null;
-
-            if (! $meal instanceof CatalogueItem || ! $meal->status->isConsumerVisible()) {
-                continue;
-            }
-
+        foreach ($source as $choice) {
             $rows[] = [
                 'id' => $this->identifiers->generate(),
                 'subscription_id' => (string) $subscription->getKey(),
                 'organisation_id' => $subscription->organisation_id,
-                // Left null for the reason `MealChoiceService` gives about a
-                // customer's own row: nothing reads it, and the delivery row is
-                // reachable from the date this one already carries.
                 'subscription_delivery_id' => null,
                 'delivery_date' => $date->toDateString(),
-                'slot' => $entry->slot,
-                'sequence' => $entry->sequence,
-                'catalogue_item_id' => $entry->meal_catalogue_item_id,
+                'slot' => $choice->slot,
+                'sequence' => $choice->sequence,
+                'catalogue_item_id' => $choice->replaced_catalogue_item_id ?? $choice->catalogue_item_id,
                 'catalogue_item_variant_id' => null,
-                'source' => MealChoiceSource::KitchenDefault->value,
-                // No actor: an hourly job is not a person, and a column that
-                // named one would be naming whoever last touched the menu.
+                'source' => MealChoiceSource::Repeated->value,
+                // No actor: an hourly job is not a person.
                 'created_by' => null,
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
-        }
-
-        if ($rows === []) {
-            return;
         }
 
         SubscriptionMealChoice::query()->insertOrIgnore($rows);

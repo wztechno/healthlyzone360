@@ -2031,7 +2031,9 @@ describe('subscriptions (S1)', () => {
         expect(subscription.configuration.duration).toBe('28d');
         expect(subscription.configuration.startDate).toBe('2026-08-05');
         expect(subscription.configuration.address.label).toBe('Home');
-        expect(subscription.configuration.selectedMealIds).toEqual(['meal-7']);
+        // The run's meals are their own read (`listSubscriptionDays`); the projection's flat list
+        // of chosen dishes is no longer what a configuration carries.
+        expect(subscription.configuration.days).toEqual([]);
         expect(subscription.skippedDates).toEqual(['2026-08-08']);
     });
 
@@ -2130,7 +2132,13 @@ describe('subscriptions (S1)', () => {
 
         const choices = await repositories.commerce.setSubscriptionMealChoices(
             'subscription-1' as never,
-            { date: '2026-08-11', choices: [{ slot: 'lunch', mealId: 'meal-7' as never }] },
+            {
+                date: '2026-08-11',
+                choices: [
+                    { slot: 'lunch', sequence: 1, mealId: 'meal-7' as never },
+                    { slot: 'dinner', sequence: 1, mealId: 'meal-9' as never },
+                ],
+            },
         );
 
         expect(calls[0]?.method).toBe('PUT');
@@ -2138,18 +2146,23 @@ describe('subscriptions (S1)', () => {
             'https://api.example/api/v1/me/subscriptions/subscription-1/choices',
         );
         // No name on the way out. A caller-supplied label on a surface this close to safety could
-        // disagree with the dish actually recorded.
+        // disagree with the dish actually recorded. Every sitting of the day goes, each with its
+        // sequence — a second lunch is a sitting of its own.
         expect(calls[0]?.body).toEqual({
             date: '2026-08-11',
-            meals: [{ slot: 'lunch', catalogue_item_id: 'meal-7' }],
+            meals: [
+                { slot: 'lunch', sequence: 1, catalogue_item_id: 'meal-7' },
+                { slot: 'dinner', sequence: 1, catalogue_item_id: 'meal-9' },
+            ],
         });
 
-        // The whole day comes back, including the default nobody overrode, each dish named by the
-        // server — so the editor redraws from one answer.
+        // The whole day comes back, each dish named by the server — so the editor redraws from one
+        // answer.
         expect(choices).toEqual([
             {
                 date: '2026-08-11',
                 slot: 'lunch',
+                sequence: 1,
                 mealId: 'meal-7',
                 mealName: 'Grilled Chicken & Quinoa',
                 source: 'customer',
@@ -2157,11 +2170,113 @@ describe('subscriptions (S1)', () => {
             {
                 date: '2026-08-11',
                 slot: 'dinner',
+                sequence: 1,
                 mealId: 'meal-9',
                 mealName: 'Lentil Soup',
                 source: 'kitchen_default',
             },
         ]);
+    });
+
+    it('reads the run day by day, with the sittings every day fills', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: {
+                            sittings: [
+                                { slot: 'lunch', sequence: 1 },
+                                { slot: 'dinner', sequence: 1 },
+                            ],
+                            days: [
+                                {
+                                    delivery_date: '2026-08-11',
+                                    basis: 'actual',
+                                    status: 'scheduled',
+                                    editable: true,
+                                    change_deadline: '2026-08-10T12:00:00+00:00',
+                                    meals: [
+                                        {
+                                            slot: 'lunch',
+                                            sequence: 1,
+                                            catalogue_item_id: 'meal-7',
+                                            name: 'Grilled Chicken & Quinoa',
+                                            source: 'customer',
+                                        },
+                                        {
+                                            slot: 'dinner',
+                                            sequence: 1,
+                                            catalogue_item_id: 'meal-9',
+                                            name: 'Lentil Soup',
+                                            source: 'repeated',
+                                        },
+                                    ],
+                                },
+                                {
+                                    delivery_date: '2026-08-13',
+                                    basis: 'projected',
+                                    status: 'projected',
+                                    editable: false,
+                                    change_deadline: '2026-08-12T12:00:00+00:00',
+                                    meals: [],
+                                },
+                            ],
+                        },
+                        meta: {},
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const run = await repositories.commerce.listSubscriptionDays('subscription-1' as never);
+
+        expect(calls[0]?.method).toBe('GET');
+        expect(calls[0]?.url).toBe(
+            'https://api.example/api/v1/me/subscriptions/subscription-1/days',
+        );
+        expect(run).toEqual({
+            sittings: [
+                { slot: 'lunch', sequence: 1 },
+                { slot: 'dinner', sequence: 1 },
+            ],
+            days: [
+                {
+                    date: '2026-08-11',
+                    basis: 'actual',
+                    status: 'scheduled',
+                    editable: true,
+                    changeDeadline: '2026-08-10T12:00:00+00:00',
+                    meals: [
+                        {
+                            date: '2026-08-11',
+                            slot: 'lunch',
+                            sequence: 1,
+                            mealId: 'meal-7',
+                            mealName: 'Grilled Chicken & Quinoa',
+                            source: 'customer',
+                        },
+                        {
+                            date: '2026-08-11',
+                            slot: 'dinner',
+                            sequence: 1,
+                            mealId: 'meal-9',
+                            mealName: 'Lentil Soup',
+                            source: 'repeated',
+                        },
+                    ],
+                },
+                {
+                    date: '2026-08-13',
+                    basis: 'projected',
+                    status: 'projected',
+                    editable: false,
+                    changeDeadline: '2026-08-12T12:00:00+00:00',
+                    meals: [],
+                },
+            ],
+        });
     });
 
     it('opens a cart, hydrates lines from marketplace meals, and previews without inventing delivery', async () => {
@@ -2653,7 +2768,22 @@ describe('subscriptions (S1)', () => {
                     countryCode: 'AE',
                     instructions: null,
                 },
-                selectedMealIds: [],
+                days: [
+                    {
+                        date: '2026-08-05',
+                        meals: [
+                            { slot: 'lunch', sequence: 1, mealId: 'meal-7' as never },
+                            { slot: 'dinner', sequence: 1, mealId: 'meal-9' as never },
+                        ],
+                    },
+                    {
+                        date: '2026-08-07',
+                        meals: [
+                            { slot: 'lunch', sequence: 1, mealId: 'meal-9' as never },
+                            { slot: 'dinner', sequence: 1, mealId: 'meal-7' as never },
+                        ],
+                    },
+                ],
             },
         });
 
@@ -2670,6 +2800,24 @@ describe('subscriptions (S1)', () => {
             delivery_window_code: 'morning',
             start_from: '2026-08-05',
         });
+        // Every day's meals ride on the one create call — identifiers only, each sitting named by
+        // slot and sequence.
+        expect(calls[0]?.body).toHaveProperty('days', [
+            {
+                date: '2026-08-05',
+                meals: [
+                    { slot: 'lunch', sequence: 1, catalogue_item_id: 'meal-7' },
+                    { slot: 'dinner', sequence: 1, catalogue_item_id: 'meal-9' },
+                ],
+            },
+            {
+                date: '2026-08-07',
+                meals: [
+                    { slot: 'lunch', sequence: 1, catalogue_item_id: 'meal-9' },
+                    { slot: 'dinner', sequence: 1, catalogue_item_id: 'meal-7' },
+                ],
+            },
+        ]);
         expect(calls[0]?.body).not.toHaveProperty('sales_channel_id');
         expect(calls[0]?.body).not.toHaveProperty('plan_duration_id');
         expect(created.id).toBe('subscription-1');
@@ -2697,7 +2845,7 @@ describe('subscriptions (S1)', () => {
                         countryCode: 'AE',
                         instructions: null,
                     },
-                    selectedMealIds: [],
+                    days: [],
                 },
             }),
         ).rejects.toMatchObject({ code: 'validation.failed' });

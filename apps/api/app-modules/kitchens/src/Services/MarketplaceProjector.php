@@ -172,7 +172,6 @@ final class MarketplaceProjector
             $this->meals->dietClassificationCodesOf($plan),
             $configurations,
             $durations,
-            $this->plans->sampleMealIdsOf($plan, $profile),
         );
     }
 

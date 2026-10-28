@@ -20,6 +20,8 @@ import {
     SUBSCRIPTION_QUOTE_REFUSALS,
     SUBSCRIPTION_SKIP_REASONS,
 } from '../contracts/commerce.ts';
+import { MEAL_SLOTS } from '../contracts/marketplace.ts';
+import type { MealSlot } from '../contracts/marketplace.ts';
 import type {
     CancelSubscriptionRequest,
     ChangeAddressRequest,
@@ -40,6 +42,8 @@ import type {
     SubscriptionDeliveryStatus,
     SubscriptionFilter,
     SubscriptionMealChoice,
+    SubscriptionPlanDay,
+    SubscriptionPlanDays,
     SubscriptionPreview,
     SubscriptionQuote,
     SubscriptionQuoteRefusal,
@@ -63,6 +67,7 @@ import type {
     SubscriptionBalance as WireBalance,
     SubscriptionCancellationEnvelope,
     SubscriptionChoicesEnvelope,
+    SubscriptionDaysEnvelope,
     SubscriptionDeliveriesEnvelope,
     SubscriptionDelivery as WireDelivery,
     SubscriptionEnvelope,
@@ -284,7 +289,8 @@ export function mapSubscription(wire: WireSubscription): Subscription {
             deliveryWeekdays: wire.weekdays,
             slotCode: wire.delivery_window_code ?? '',
             address: mapDeliveryAddress(wire.delivery_address),
-            selectedMealIds: (wire.chosen_catalogue_item_ids ?? []).map((id) => MealId.unsafe(id)),
+            // The run's days are their own read (`listSubscriptionDays`).
+            days: [],
         },
         planName: wire.plan?.name ?? '',
         kitchenId: KitchenId.unsafe(wire.kitchen?.id ?? ''),
@@ -322,10 +328,16 @@ export function mapCreditMemo(wire: WireCreditMemo, subscriptionId: Subscription
     };
 }
 
+/** A sitting the server named, narrowed to the four this build draws. */
+function mealSlot(value: string): MealSlot {
+    return (MEAL_SLOTS as readonly string[]).includes(value) ? (value as MealSlot) : 'lunch';
+}
+
 export function mapMealChoice(wire: WireMealChoice, date: string): SubscriptionMealChoice {
     return {
         date,
-        slot: wire.slot,
+        slot: mealSlot(wire.slot),
+        sequence: wire.sequence,
         mealId: MealId.unsafe(wire.catalogue_item_id),
         // Server-derived: the request has no field for a name and must not grow one.
         mealName: wire.name,
@@ -394,6 +406,7 @@ export interface ApiSubscriptionReads {
         subscriptionId: SubscriptionId,
         request: SetSubscriptionMealChoicesRequest,
     ): Promise<readonly SubscriptionMealChoice[]>;
+    listSubscriptionDays(subscriptionId: SubscriptionId): Promise<SubscriptionPlanDays>;
     listSubscriptions(filter?: SubscriptionFilter): Promise<CursorPage<Subscription>>;
     getSubscription(subscriptionId: SubscriptionId): Promise<Subscription>;
     pause(
@@ -682,12 +695,35 @@ export function createApiSubscriptionReads(transport: Transport): ApiSubscriptio
                     date: request.date,
                     meals: request.choices.map((choice) => ({
                         slot: choice.slot,
+                        sequence: choice.sequence,
                         catalogue_item_id: String(choice.mealId),
                     })),
                 },
             });
 
             return data.meals.map((meal) => mapMealChoice(meal, data.delivery_date));
+        },
+
+        async listSubscriptionDays(subscriptionId: SubscriptionId): Promise<SubscriptionPlanDays> {
+            const data = await transport.request<SubscriptionDaysEnvelope['data']>({
+                method: 'GET',
+                path: subscriptionPath(subscriptionId, '/days'),
+            });
+
+            return {
+                sittings: data.sittings.map((sitting) => ({
+                    slot: sitting.slot,
+                    sequence: sitting.sequence,
+                })),
+                days: data.days.map((day): SubscriptionPlanDay => ({
+                    date: day.delivery_date,
+                    basis: day.basis,
+                    status: day.status,
+                    editable: day.editable,
+                    changeDeadline: day.change_deadline,
+                    meals: day.meals.map((meal) => mapMealChoice(meal, day.delivery_date)),
+                })),
+            };
         },
 
         async listSubscriptions(filter?: SubscriptionFilter): Promise<CursorPage<Subscription>> {
@@ -814,6 +850,14 @@ export function createApiSubscriptionReads(transport: Transport): ApiSubscriptio
                     delivery_window_code:
                         configuration.slotCode === '' ? null : configuration.slotCode,
                     start_from: configuration.startDate === '' ? null : configuration.startDate,
+                    days: configuration.days.map((day) => ({
+                        date: day.date,
+                        meals: day.meals.map((meal) => ({
+                            slot: meal.slot,
+                            sequence: meal.sequence,
+                            catalogue_item_id: String(meal.mealId),
+                        })),
+                    })),
                 },
             });
 
@@ -823,7 +867,13 @@ export function createApiSubscriptionReads(transport: Transport): ApiSubscriptio
         async previewSubscription(
             configuration: SubscriptionConfiguration,
         ): Promise<SubscriptionPreview> {
-            const mealIds = [...new Set(configuration.selectedMealIds.map(String))];
+            const mealIds = [
+                ...new Set(
+                    configuration.days.flatMap((day) =>
+                        day.meals.map((meal) => String(meal.mealId)),
+                    ),
+                ),
+            ];
 
             const [quote, conflicts] = await Promise.all([
                 this.getSubscriptionQuote({

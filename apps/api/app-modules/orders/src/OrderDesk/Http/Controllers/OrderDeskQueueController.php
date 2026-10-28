@@ -137,6 +137,9 @@ final class OrderDeskQueueController
         // `OrderDeskQueue::contactsForOrders()`.
         $contacts = $includeContact ? $this->queue->contactsForOrders($orders) : [];
 
+        // Which meal went in which sitting, for every plan day on the page.
+        $this->presenter->preloadPlanDays($orderIds);
+
         $rows = [];
 
         foreach ($orders as $order) {
