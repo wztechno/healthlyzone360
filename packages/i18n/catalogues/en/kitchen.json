@@ -4694,9 +4694,6 @@
         "itemFailure": "{{name}}: {{message}}",
         "itemsReadError": "Which items are on the channel could not be read."
     },
-    "tray": {
-        "noChannel": "No sales channel",
-        "groupIssue": "Blocks issuing",
     "lens": {
         "label": "List summary and filters",
         "allIngredients": "All ingredients",
@@ -4708,6 +4705,9 @@
         "mix": "{{published}} published, {{draft}} draft, {{review}} awaiting review",
         "token": "{{label}}: {{value}}"
     },
+    "tray": {
+        "noChannel": "No sales channel",
+        "groupIssue": "Blocks issuing",
         "groupNote": "Note",
         "onPublicMenu": "On the public menu",
         "mealNoServiceDay": "No service day yet",

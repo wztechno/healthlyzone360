@@ -4016,8 +4016,6 @@ export interface NamespaceKeys {
     | 'kds.upcoming'
     | 'kds.waitingForDriver'
     | 'kds.withDriver'
-    | 'list.actionHeader'
-    | 'list.allLoaded'
     | 'lens.allAction'
     | 'lens.allIngredients'
     | 'lens.allRecipes'
@@ -4027,6 +4025,8 @@ export interface NamespaceKeys {
     | 'lens.publishedAction'
     | 'lens.result'
     | 'lens.token'
+    | 'list.actionHeader'
+    | 'list.allLoaded'
     | 'list.archive'
     | 'list.archiveFailed'
     | 'list.archivedToast'
@@ -13164,11 +13164,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:kds.upcoming',
   'kitchen:kds.waitingForDriver',
   'kitchen:kds.withDriver',
-  'kitchen:list.actionHeader',
-  'kitchen:list.allLoaded',
-  'kitchen:list.archive',
-  'kitchen:list.archiveFailed',
-  'kitchen:list.archivedToast',
   'kitchen:lens.allAction',
   'kitchen:lens.allIngredients',
   'kitchen:lens.allRecipes',
@@ -13178,6 +13173,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.publishedAction',
   'kitchen:lens.result',
   'kitchen:lens.token',
+  'kitchen:list.actionHeader',
+  'kitchen:list.allLoaded',
+  'kitchen:list.archive',
+  'kitchen:list.archiveFailed',
+  'kitchen:list.archivedToast',
   'kitchen:list.caption',
   'kitchen:list.columnAllergens',
   'kitchen:list.columnB2bPrice',

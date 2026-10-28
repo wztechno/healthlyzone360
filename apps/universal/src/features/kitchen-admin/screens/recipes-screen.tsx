@@ -79,8 +79,8 @@ import {
     channelKey,
     displayName,
     recipeRowTestId,
-    statusShortKey,
     statusKey,
+    statusShortKey,
     statusTone,
 } from '../format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
@@ -929,6 +929,7 @@ function lensFigures(list: RecipeListState, t: TFunction): readonly LensFigure[]
     const counted = (count: number) => (list.countsPending ? null : count);
     const packaged =
         list.kind === 'sauce' || list.kind === 'dressing' || list.kind === 'frozen_meal';
+    const onSaleActive = list.sellingStatus === 'published';
 
     return [
         ...statusLensFigures(list, t, {
@@ -1039,7 +1040,6 @@ function lensTokens(list: RecipeListState, t: TFunction, locale: string): readon
 function frozenLabelSection(
     codes: readonly AllergenCode[] | undefined,
     t: TFunction,
-    const onSaleActive = list.sellingStatus === 'published';
 ): RecordViewSection {
     return {
         key: 'frozen-allergens',
