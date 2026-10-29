@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9164 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9166 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4075,6 +4075,7 @@ export interface NamespaceKeys {
     | 'lens.batchMix'
     | 'lens.clear'
     | 'lens.confirmedBatchesAction'
+    | 'lens.deskMix'
     | 'lens.draftBatchesAction'
     | 'lens.draftOnPage'
     | 'lens.gapsMix'
@@ -4096,6 +4097,7 @@ export interface NamespaceKeys {
     | 'lens.receiptsPartialAction'
     | 'lens.receiptsUnpricedAction'
     | 'lens.releasedChecksAction'
+    | 'lens.requirementsMix'
     | 'lens.resolvedAction'
     | 'lens.result'
     | 'lens.reviewAction'
@@ -13257,6 +13259,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.batchMix',
   'kitchen:lens.clear',
   'kitchen:lens.confirmedBatchesAction',
+  'kitchen:lens.deskMix',
   'kitchen:lens.draftBatchesAction',
   'kitchen:lens.draftOnPage',
   'kitchen:lens.gapsMix',
@@ -13278,6 +13281,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.receiptsPartialAction',
   'kitchen:lens.receiptsUnpricedAction',
   'kitchen:lens.releasedChecksAction',
+  'kitchen:lens.requirementsMix',
   'kitchen:lens.resolvedAction',
   'kitchen:lens.result',
   'kitchen:lens.reviewAction',

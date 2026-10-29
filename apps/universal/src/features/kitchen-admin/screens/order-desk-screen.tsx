@@ -28,7 +28,6 @@ import {
     Icon,
     Inline,
     IssueTrayFrame,
-    SearchInput,
     SegmentedControl,
     Select,
     Skeleton,
@@ -71,7 +70,7 @@ import {
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { CatalogueStatCards } from '../catalogue/index.ts';
+import { LensBar } from '../catalogue/lens-bar.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
@@ -80,7 +79,7 @@ import {
     compareText,
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
-import type { CatalogueStatCard } from '../catalogue/index.ts';
+import type { LensBarProps, LensFigure } from '../catalogue/lens-bar.tsx';
 import { minorAmountToInput, parseMinorAmount } from '../format.ts';
 import {
     canAssignDeliveryJob,
@@ -252,11 +251,8 @@ const EM_DASH = '—';
 const ANY_FULFILMENT_TYPE = '__any__';
 
 /**
- * The toolbar's fixed sizes — stated as styles because neither has a token. The search never
- * narrows below an order number and a short name, and takes whatever its zone has left over; the
- * kind picker is wide enough for its longest label.
+ * The kind picker's width — a style because it has no token: wide enough for its longest label.
  */
-const SEARCH_MIN_WIDTH = 200;
 const KIND_WIDTH = 140;
 
 /** Rows per page. The queue arrives whole, so the pages are cut from the loaded rows. */
@@ -1121,39 +1117,62 @@ function OrderDeskQueueList() {
     ).length;
     const unsettledCount = rows.filter((row) => !row.payment.receipted).length;
 
-    const figures: readonly CatalogueStatCard[] = [
-        {
-            key: 'open',
-            label: t('kitchen:desk.figures.open'),
-            value: formatter.formatNumber(rows.length),
-            caption: t('kitchen:desk.figures.openCaption'),
-            mark: 'clipboardList',
-            tone: 'brand',
-        },
+    const counted = (count: number): Pick<LensFigure, 'value' | 'display'> =>
+        queue.isPending
+            ? { value: null }
+            : failure !== null
+              ? { value: 0, display: t('kitchen:list.noValue') }
+              : { value: count, display: formatter.formatNumber(count) };
+    const figures: readonly LensFigure[] = [
+        { key: 'open', label: t('kitchen:desk.figures.open'), ...counted(rows.length) },
         {
             key: 'late',
             label: t('kitchen:desk.figures.late'),
-            value: formatter.formatNumber(lateCount),
-            caption: t('kitchen:desk.figures.lateCaption'),
-            mark: 'clock',
-            tone: overdueCount > 0 ? 'danger' : 'default',
+            ...counted(lateCount),
+            tone: 'danger',
+            // Red only once a late order is past its grace too — the badges' own rule.
+            alarm: overdueCount > 0,
+            separated: true,
         },
         {
             key: 'needsDriver',
             label: t('kitchen:desk.delivery.unassigned'),
-            value: formatter.formatNumber(needsDriverCount),
-            caption: t('kitchen:desk.figures.needsDriverCaption'),
-            mark: 'truck',
-            tone: needsDriverCount > 0 ? 'warning' : 'default',
+            ...counted(needsDriverCount),
+            tone: 'warning',
         },
         {
             key: 'unsettled',
             label: t('kitchen:desk.payment.notReceipted'),
-            value: formatter.formatNumber(unsettledCount),
-            caption: t('kitchen:desk.figures.unsettledCaption'),
-            mark: 'wallet',
+            ...counted(unsettledCount),
+            tone: 'info',
         },
     ];
+    const placedCount = rows.filter((row) => row.status === 'placed').length;
+    const confirmedCount = rows.filter((row) => row.status === 'confirmed').length;
+    const onlyStatus = statuses.length === 1 ? statuses[0] : undefined;
+    const deskMix: Pick<LensBarProps, 'mix' | 'mixLabel'> =
+        queue.isPending || failure !== null
+            ? {}
+            : {
+                  mix: [
+                      {
+                          key: 'placed',
+                          value: placedCount,
+                          tone: 'warning',
+                          dimmed: onlyStatus !== undefined && onlyStatus !== 'placed',
+                      },
+                      {
+                          key: 'confirmed',
+                          value: confirmedCount,
+                          tone: 'info',
+                          dimmed: onlyStatus !== undefined && onlyStatus !== 'confirmed',
+                      },
+                  ],
+                  mixLabel: t('kitchen:lens.deskMix', {
+                      placed: placedCount,
+                      confirmed: confirmedCount,
+                  }),
+              };
 
     const columns: readonly ControlledColumn<
         OrderDeskQueueRow,
@@ -1969,183 +1988,155 @@ function OrderDeskQueueList() {
     return (
         <Cascade space="md" testID="kitchen-order-desk-screen">
             {/*
-             * No title, no summary line: the shell's trail names the page, and the four cards are
-             * the figures — the ingredients screen's opening, for the same reasons.
+             * The Lens bar: the four figures, the queue's placed/confirmed mix, then the query row —
+             * search, the window, the span, the status chips and the kind — and New sale. Two filters
+             * on it look alike and are not: the status chips are a *subset* filter — neither selected
+             * means both — while the kind of sale is a single choice because the endpoint takes
+             * exactly one value or none. See the file header.
              */}
-            <CatalogueStatCards
-                testID="kitchen-order-desk-figures"
-                cards={figures}
-                pending={queue.isPending}
-            />
-
-            {/*
-             * One row of 28px controls, in two zones. Two filters on it look alike and are not: the
-             * status chips are a *subset* filter — neither selected means both — while the kind of
-             * sale is a single choice because the endpoint takes exactly one value or none. See the
-             * file header.
-             *
-             * The filters take the leftover width and wrap inside their own zone; the column picker,
-             * Clear and New sale never wrap, so on a laptop's narrower page it is a filter that drops
-             * a line and the primary keeps the end of the first one. One wrapping row put New sale on
-             * a line of its own instead — the last control is the first to go.
-             *
-             * `z-tooltip` because React Native Web gives every view its own stacking context: the
-             * kind picker's panel would otherwise paint under the table that follows the row.
-             */}
-            <View
+            <LensBar
                 testID="kitchen-order-desk-toolbar"
-                className="z-tooltip min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
-            >
-                <View
-                    testID="kitchen-order-desk-toolbar-filters"
-                    // eslint-disable-next-line no-restricted-syntax -- the row's own filler; it wraps inside before the row wraps outside.
-                    className="z-auto flex-1 flex-row flex-wrap items-center gap-tight"
-                    style={{ minWidth: SEARCH_MIN_WIDTH }}
-                >
-                    {/* eslint-disable-next-line no-restricted-syntax -- the search takes the row's leftover width. */}
-                    <View className="flex-1" style={{ minWidth: SEARCH_MIN_WIDTH }}>
-                        <SearchInput
-                            testID="kitchen-order-desk-search"
-                            label={t('kitchen:desk.searchLabel')}
-                            placeholder={t('kitchen:desk.searchPlaceholder')}
-                            value={query}
-                            onChangeText={setQuery}
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                        />
-                    </View>
-
-                    <SegmentedControl<OrderDeskWindow>
-                        testID="kitchen-order-desk-window"
-                        label={t('kitchen:desk.windowLabel')}
-                        value={deskWindow}
-                        onChange={(next) => {
-                            setDeskWindow(next);
-                            setRangeFrom('');
-                            setRangeTo('');
-                        }}
-                        items={SEGMENT_WINDOWS.map((candidate) => ({
-                            value: candidate,
-                            label: t(WINDOW_LABEL_KEYS[candidate]),
-                            testID: `kitchen-order-desk-window-${candidate}`,
-                        }))}
-                    />
-
-                    {/*
-                     * Any span of days, past or future — the orders `overdue` and `next_7` cannot
-                     * reach. Each end bounds the other, so the span can never run backwards, and
-                     * clearing either returns the desk to today. `z-tooltip` so the month opens over
-                     * the rows below, as the kind filter does.
-                     */}
-                    <View
-                        testID="kitchen-order-desk-range"
-                        role="group"
-                        aria-label={t('kitchen:desk.window.range')}
-                        className="z-tooltip flex-row items-center gap-hair"
-                    >
-                        <DatePickerButton
-                            testID="kitchen-order-desk-from"
-                            label={t('kitchen:desk.window.from')}
-                            placeholder={t('kitchen:desk.window.from')}
-                            value={deskWindow === 'range' ? rangeFrom : ''}
-                            {...(deskWindow === 'range' && rangeTo !== '' ? { max: rangeTo } : {})}
+                label={t('kitchen:lens.label')}
+                figures={figures}
+                {...deskMix}
+                search={query}
+                onSearchChange={setQuery}
+                searchLabel={t('kitchen:desk.searchLabel')}
+                searchPlaceholder={t('kitchen:desk.searchPlaceholder')}
+                scope={
+                    <>
+                        <SegmentedControl<OrderDeskWindow>
+                            testID="kitchen-order-desk-window"
+                            label={t('kitchen:desk.windowLabel')}
+                            value={deskWindow}
                             onChange={(next) => {
-                                setRangeFrom(next);
-                                if (deskWindow !== 'range' || rangeTo === '' || rangeTo < next) {
-                                    setRangeTo(next);
-                                }
-                                setDeskWindow('range');
+                                setDeskWindow(next);
+                                setRangeFrom('');
+                                setRangeTo('');
                             }}
-                            onClear={clearRange}
+                            items={SEGMENT_WINDOWS.map((candidate) => ({
+                                value: candidate,
+                                label: t(WINDOW_LABEL_KEYS[candidate]),
+                                testID: `kitchen-order-desk-window-${candidate}`,
+                            }))}
                         />
-                        <DatePickerButton
-                            testID="kitchen-order-desk-to"
-                            label={t('kitchen:desk.window.to')}
-                            placeholder={t('kitchen:desk.window.to')}
-                            value={deskWindow === 'range' ? rangeTo : ''}
-                            {...(deskWindow === 'range' && rangeFrom !== ''
-                                ? { min: rangeFrom }
-                                : {})}
-                            align="end"
-                            onChange={(next) => {
-                                setRangeTo(next);
-                                if (
-                                    deskWindow !== 'range' ||
-                                    rangeFrom === '' ||
-                                    rangeFrom > next
-                                ) {
+
+                        {/*
+                         * Any span of days, past or future — the orders `overdue` and `next_7` cannot
+                         * reach. Each end bounds the other, so the span can never run backwards, and
+                         * clearing either returns the desk to today. `z-tooltip` so the month opens over
+                         * the rows below, as the kind filter does.
+                         */}
+                        <View
+                            testID="kitchen-order-desk-range"
+                            role="group"
+                            aria-label={t('kitchen:desk.window.range')}
+                            className="z-tooltip flex-row items-center gap-hair"
+                        >
+                            <DatePickerButton
+                                testID="kitchen-order-desk-from"
+                                label={t('kitchen:desk.window.from')}
+                                placeholder={t('kitchen:desk.window.from')}
+                                value={deskWindow === 'range' ? rangeFrom : ''}
+                                {...(deskWindow === 'range' && rangeTo !== ''
+                                    ? { max: rangeTo }
+                                    : {})}
+                                onChange={(next) => {
                                     setRangeFrom(next);
-                                }
-                                setDeskWindow('range');
-                            }}
-                            onClear={clearRange}
-                        />
-                    </View>
-
-                    <View
-                        testID="kitchen-order-desk-status"
-                        role="group"
-                        aria-label={t('kitchen:desk.statusLabel')}
-                        className="flex-row items-center gap-hair"
-                    >
-                        {ORDER_DESK_QUEUE_STATUSES.map((candidate) => (
-                            <FilterChip
-                                key={candidate}
-                                size="sm"
-                                testID={`kitchen-order-desk-status-${candidate}`}
-                                label={t(kitchenOrderStatusKey(candidate))}
-                                selected={statuses.includes(candidate)}
-                                onChange={(selected) => {
-                                    toggleStatus(candidate, selected);
+                                    if (
+                                        deskWindow !== 'range' ||
+                                        rangeTo === '' ||
+                                        rangeTo < next
+                                    ) {
+                                        setRangeTo(next);
+                                    }
+                                    setDeskWindow('range');
                                 }}
+                                onClear={clearRange}
                             />
-                        ))}
-                    </View>
+                            <DatePickerButton
+                                testID="kitchen-order-desk-to"
+                                label={t('kitchen:desk.window.to')}
+                                placeholder={t('kitchen:desk.window.to')}
+                                value={deskWindow === 'range' ? rangeTo : ''}
+                                {...(deskWindow === 'range' && rangeFrom !== ''
+                                    ? { min: rangeFrom }
+                                    : {})}
+                                align="end"
+                                onChange={(next) => {
+                                    setRangeTo(next);
+                                    if (
+                                        deskWindow !== 'range' ||
+                                        rangeFrom === '' ||
+                                        rangeFrom > next
+                                    ) {
+                                        setRangeFrom(next);
+                                    }
+                                    setDeskWindow('range');
+                                }}
+                                onClear={clearRange}
+                            />
+                        </View>
 
-                    <View className="z-tooltip" style={{ width: KIND_WIDTH }}>
-                        <Select<OrderDeskFulfilmentType | typeof ANY_FULFILMENT_TYPE>
-                            testID="kitchen-order-desk-type"
-                            id="kitchen-order-desk-type"
-                            label={t('kitchen:desk.filterTypeLabel')}
-                            labelHidden
-                            value={fulfilmentType ?? ANY_FULFILMENT_TYPE}
-                            onChange={(next) => {
-                                setFulfilmentType(next === ANY_FULFILMENT_TYPE ? null : next);
-                            }}
-                            options={[
-                                {
-                                    value: ANY_FULFILMENT_TYPE,
-                                    label: t('kitchen:desk.filterTypeAll'),
-                                },
-                                ...ORDER_DESK_FULFILMENT_TYPES.map((candidate) => ({
-                                    value: candidate,
-                                    // The wizard's own labels, through the shared table — translating
-                                    // "Collection" twice would eventually produce two translations of
-                                    // it.
-                                    label: t(kitchenOrderFulfilmentTypeKey(candidate)),
-                                })),
-                            ]}
-                        />
-                    </View>
-                </View>
+                        <View
+                            testID="kitchen-order-desk-status"
+                            role="group"
+                            aria-label={t('kitchen:desk.statusLabel')}
+                            className="flex-row items-center gap-hair"
+                        >
+                            {ORDER_DESK_QUEUE_STATUSES.map((candidate) => (
+                                <FilterChip
+                                    key={candidate}
+                                    size="sm"
+                                    testID={`kitchen-order-desk-status-${candidate}`}
+                                    label={t(kitchenOrderStatusKey(candidate))}
+                                    selected={statuses.includes(candidate)}
+                                    onChange={(selected) => {
+                                        toggleStatus(candidate, selected);
+                                    }}
+                                />
+                            ))}
+                        </View>
 
-                <View
-                    testID="kitchen-order-desk-toolbar-actions"
-                    className="z-auto ms-auto flex-row items-center gap-tight self-start"
-                >
-                    <ColumnPicker {...controls.picker} />
-
-                    {filtered ? (
-                        <Button
-                            testID="kitchen-order-desk-toolbar-clear"
-                            size="sm"
-                            variant="ghost"
-                            label={t('kitchen:desk.clearFilters')}
-                            onPress={clearFilters}
-                        />
-                    ) : null}
-
-                    {/* The page's one primary, at the end of the row the queue is worked from. */}
+                        <View className="z-tooltip" style={{ width: KIND_WIDTH }}>
+                            <Select<OrderDeskFulfilmentType | typeof ANY_FULFILMENT_TYPE>
+                                testID="kitchen-order-desk-type"
+                                id="kitchen-order-desk-type"
+                                label={t('kitchen:desk.filterTypeLabel')}
+                                labelHidden
+                                value={fulfilmentType ?? ANY_FULFILMENT_TYPE}
+                                onChange={(next) => {
+                                    setFulfilmentType(next === ANY_FULFILMENT_TYPE ? null : next);
+                                }}
+                                options={[
+                                    {
+                                        value: ANY_FULFILMENT_TYPE,
+                                        label: t('kitchen:desk.filterTypeAll'),
+                                    },
+                                    ...ORDER_DESK_FULFILMENT_TYPES.map((candidate) => ({
+                                        value: candidate,
+                                        // The wizard's own labels, through the shared table — translating
+                                        // "Collection" twice would eventually produce two translations of
+                                        // it.
+                                        label: t(kitchenOrderFulfilmentTypeKey(candidate)),
+                                    })),
+                                ]}
+                            />
+                        </View>
+                    </>
+                }
+                result={
+                    queue.isPending
+                        ? null
+                        : t('kitchen:lens.result', {
+                              shown: controls.rows.length,
+                              total: rows.length,
+                          })
+                }
+                clearLabel={t('kitchen:desk.clearFilters')}
+                {...(filtered ? { onClear: clearFilters } : {})}
+                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                actions={
                     <Button
                         testID="kitchen-order-desk-new-sale"
                         label={t('kitchen:desk.newSale')}
@@ -2154,8 +2145,8 @@ function OrderDeskQueueList() {
                             router.push('/kitchen/order-desk/sale');
                         }}
                     />
-                </View>
-            </View>
+                }
+            />
 
             {queue.isPending ? (
                 <TableSkeleton

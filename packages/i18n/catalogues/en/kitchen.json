@@ -4703,7 +4703,9 @@
         "releasedChecksAction": "Show only released checks",
         "qcMix": "{{pending}} pending, {{hold}} on hold, {{released}} released, {{passed}} passed",
         "allProducts": "All products",
-        "reviewAction": "Show only records awaiting review"
+        "reviewAction": "Show only records awaiting review",
+        "requirementsMix": "{{short}} short, {{covered}} covered",
+        "deskMix": "{{placed}} placed, {{confirmed}} confirmed"
     },
     "tray": {
         "noChannel": "No sales channel",

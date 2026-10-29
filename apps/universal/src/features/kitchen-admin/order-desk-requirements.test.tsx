@@ -321,10 +321,10 @@ describe('order desk requirements — what the rows say', () => {
 
         await settled();
 
-        const card = screen.getByTestId('kitchen-order-desk-requirements-figures-notComputable');
+        const card = screen.getByTestId('kitchen-order-desk-requirements-toolbar-figure-notComputable');
 
         expect(
-            screen.getByTestId('kitchen-order-desk-requirements-figures-notComputable-value'),
+            screen.getByTestId('kitchen-order-desk-requirements-toolbar-figure-notComputable-value'),
         ).toHaveTextContent('3');
         expect(card).toHaveTextContent(/Meals not chosen yet \(2\)/);
         expect(card).toHaveTextContent(/Meal has no recipe \(1\)/);
@@ -341,7 +341,7 @@ describe('order desk requirements — what the rows say', () => {
         await settled();
 
         expect(
-            screen.getByTestId('kitchen-order-desk-requirements-figures-notComputable-value'),
+            screen.getByTestId('kitchen-order-desk-requirements-toolbar-figure-notComputable-value'),
         ).toHaveTextContent('0');
     });
 });

@@ -1,5 +1,5 @@
 import type { BarcodeScan } from '@healthy360/api-client/contracts';
-import { Icon, Menu, SearchInput, Skeleton, Text } from '@healthy360/design-system';
+import { Icon, InfoTip, Menu, SearchInput, Skeleton, Text } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -52,6 +52,8 @@ export interface LensFigure {
     readonly icon?: IconName | undefined;
     /** The figure is the filter in force. */
     readonly active?: boolean | undefined;
+    /** Translated. Why the figure is what it is, behind an (i) beside it — never a line on the bar. */
+    readonly info?: string | undefined;
     /** Draws the figure in the danger ink while it is above zero: it blocks work. */
     readonly alarm?: boolean | undefined;
     /** A hairline before this figure, to start a new group. */
@@ -90,9 +92,10 @@ export interface LensBarProps {
 
     /** The scope pickers, before the search — kind, category. */
     readonly scope?: ReactNode | undefined;
-    readonly search: string;
-    readonly onSearchChange: (search: string) => void;
-    readonly searchLabel: string;
+    /** Omit the three for a page with nothing to search — a day's report, a window's totals. */
+    readonly search?: string | undefined;
+    readonly onSearchChange?: ((search: string) => void) | undefined;
+    readonly searchLabel?: string | undefined;
     readonly searchPlaceholder?: string | undefined;
     /**
      * Enter in the search does something besides filter — a scan field that looks a code up. The
@@ -242,25 +245,27 @@ export function LensBar({
                 {scope === undefined || scope === null ? null : (
                     <View className="z-auto flex-row items-center gap-tight">{scope}</View>
                 )}
-                {/* eslint-disable-next-line no-restricted-syntax -- the search absorbs the row; the exempt case. */}
-                <View className="flex-1" style={{ minWidth: SEARCH_MIN_WIDTH }}>
-                    <SearchInput
-                        value={search}
-                        onChangeText={onSearchChange}
-                        label={searchLabel}
-                        placeholder={searchPlaceholder}
-                        size="sm"
-                        {...(onSearchSubmit === undefined
-                            ? {}
-                            : {
-                                  onSubmitEditing: onSearchSubmit,
-                                  blurOnSubmit: false,
-                                  autoCorrect: false,
-                                  autoCapitalize: 'none' as const,
-                              })}
-                        testID={`${testID}-search`}
-                    />
-                </View>
+                {onSearchChange === undefined ? null : (
+                    // eslint-disable-next-line no-restricted-syntax -- the search absorbs the row; the exempt case.
+                    <View className="flex-1" style={{ minWidth: SEARCH_MIN_WIDTH }}>
+                        <SearchInput
+                            value={search ?? ''}
+                            onChangeText={onSearchChange}
+                            label={searchLabel ?? ''}
+                            placeholder={searchPlaceholder}
+                            size="sm"
+                            {...(onSearchSubmit === undefined
+                                ? {}
+                                : {
+                                      onSubmitEditing: onSearchSubmit,
+                                      blurOnSubmit: false,
+                                      autoCorrect: false,
+                                      autoCapitalize: 'none' as const,
+                                  })}
+                            testID={`${testID}-search`}
+                        />
+                    </View>
+                )}
                 {onScan === undefined ? null : (
                     <CameraScanButton testID={`${testID}-camera`} onScan={onScan} />
                 )}
@@ -526,6 +531,9 @@ function LensFigureCell({
                 >
                     {figure.display ?? String(value)}
                 </Text>
+            )}
+            {figure.info === undefined ? null : (
+                <InfoTip label={figure.label} text={figure.info} testID={`${testID}-info`} />
             )}
         </>
     );

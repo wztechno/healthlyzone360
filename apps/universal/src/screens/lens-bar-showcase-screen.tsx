@@ -212,6 +212,37 @@ export function LensBarShowcaseScreen() {
                         result="18 of 32"
                         clearLabel="Clear"
                     />
+
+                    <Text variant="title">No search, a figure with a reason</Text>
+                    <LensBar
+                        testID="showcase-lens-report"
+                        label="Requirements summary"
+                        figures={[
+                            { key: 'ingredients', label: 'Ingredients needed', value: 24 },
+                            {
+                                key: 'short',
+                                label: 'Short',
+                                value: 3,
+                                tone: 'danger',
+                                alarm: true,
+                                separated: true,
+                            },
+                            {
+                                key: 'notComputable',
+                                label: 'Days not worked out',
+                                value: 2,
+                                tone: 'warning',
+                                info: 'Meals not chosen yet (2)',
+                            },
+                        ]}
+                        mix={[
+                            { key: 'short', value: 3, tone: 'danger' },
+                            { key: 'covered', value: 21, tone: 'success' },
+                        ]}
+                        mixLabel="3 short, 21 covered"
+                        result="24 of 24"
+                        clearLabel="Clear"
+                    />
                 </Cascade>
             </View>
         </DensityProvider>

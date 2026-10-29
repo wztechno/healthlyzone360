@@ -275,7 +275,7 @@ describe('order desk cash report — rows, totals and the em dash', () => {
         expect(screen.queryByTestId('kitchen-order-desk-cash-report-measured-on')).toBeNull();
         expect(screen.queryByTestId('kitchen-order-desk-cash-report-scope')).toBeNull();
         expect(
-            screen.getByTestId('kitchen-order-desk-cash-report-figures-receipts-value'),
+            screen.getByTestId('kitchen-order-desk-cash-report-toolbar-figure-receipts-value'),
         ).toHaveTextContent('5');
     });
 });

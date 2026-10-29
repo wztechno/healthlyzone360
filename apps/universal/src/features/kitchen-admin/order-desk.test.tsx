@@ -535,7 +535,7 @@ describe('order desk queue — filters and the query key', () => {
         // Whitespace is not a search. The filter object is memoised on the *trimmed* value, so
         // these keystrokes re-render the screen and change nothing the endpoint would answer
         // differently.
-        const search = screen.getByTestId('kitchen-order-desk-search-input');
+        const search = screen.getByTestId('kitchen-order-desk-toolbar-search-input');
         await act(async () => {
             fireEvent.changeText(search, ' ');
             fireEvent.changeText(search, '  ');

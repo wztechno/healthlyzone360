@@ -22,7 +22,6 @@ import { useOrderDeskCashReportQuery } from '../../../data/order-desk-hooks.ts';
 import { todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
-import { CatalogueStatCards } from '../catalogue/index.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
@@ -33,7 +32,8 @@ import {
 } from '../catalogue/use-column-controls.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
 
 /**
  * `/kitchen/order-desk/cash-report` — who took what, on one day.
@@ -240,59 +240,66 @@ function OrderDeskCashReport() {
     return (
         <Cascade space="md" testID="kitchen-order-desk-cash-report-screen">
             {/*
-             * The figures first. While the day is in flight each card holds a placeholder where its
-             * figure goes — a zero there would claim an answer the screen does not have yet — and a
-             * day that answers with no rows keeps none: the empty table below says so.
+             * The Lens bar: the day's figures over the day picker, as on every list page. While the
+             * day is in flight each figure holds a placeholder — a zero there would claim an answer
+             * the screen does not have yet — and with no day to read, or a failed read, a dash.
              */}
-            {filters === null ||
-            failure !== null ||
-            (!report.isPending && rows.length === 0) ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-order-desk-cash-report-figures"
-                    cards={[
+            <LensBar
+                testID="kitchen-order-desk-cash-report-toolbar"
+                label={t('kitchen:lens.label')}
+                figures={(() => {
+                    const unknown = filters === null || failure !== null;
+                    const figure = (count: number): Pick<LensFigure, 'value' | 'display'> =>
+                        unknown
+                            ? { value: 0, display: t('kitchen:list.noValue') }
+                            : report.isPending
+                              ? { value: null }
+                              : { value: count, display: formatter.formatNumber(count) };
+                    return [
                         {
                             key: 'receipts',
                             label: t('kitchen:ops.cashReport.kpiReceipts'),
-                            value: formatter.formatNumber(
-                                rows.reduce((sum, row) => sum + row.receiptCount, 0),
-                            ),
-                            caption: t('kitchen:ops.cashReport.kpiReceiptsCaption'),
-                            mark: 'receipt',
-                            tone: 'brand',
+                            ...figure(rows.reduce((sum, row) => sum + row.receiptCount, 0)),
                         },
                         {
                             key: 'rows',
                             label: t('kitchen:ops.cashReport.kpiRows'),
-                            value: formatter.formatNumber(rows.length),
-                            caption: t('kitchen:ops.cashReport.kpiRowsCaption'),
-                            mark: 'list',
+                            ...figure(rows.length),
+                            tone: 'brand',
+                            separated: true,
                         },
                         {
                             key: 'currencies',
                             label: t('kitchen:ops.cashReport.kpiCurrencies'),
-                            value: formatter.formatNumber(
-                                new Set(totals.map((total) => total.currencyCode)).size,
-                            ),
-                            caption: t('kitchen:ops.cashReport.kpiCurrenciesCaption'),
-                            mark: 'coins',
+                            ...figure(new Set(totals.map((total) => total.currencyCode)).size),
+                            tone: 'info',
                         },
-                    ]}
-                    pending={report.isPending}
-                />
-            )}
-
-            {/* The day, below the figures, with the column picker at the row's inline end. */}
-            <ToolbarPanel
-                testID="kitchen-order-desk-cash-report-toolbar"
-                end={rows.length === 0 ? undefined : <ColumnPicker {...controls.picker} />}
-            >
-                <DatePickerButton
-                    testID="kitchen-order-desk-cash-report-date"
-                    label={t('kitchen:ops.cashReport.dateLabel')}
-                    value={date}
-                    onChange={setDate}
-                />
-            </ToolbarPanel>
+                    ];
+                })()}
+                scope={
+                    <DatePickerButton
+                        testID="kitchen-order-desk-cash-report-date"
+                        label={t('kitchen:ops.cashReport.dateLabel')}
+                        value={date}
+                        onChange={setDate}
+                    />
+                }
+                result={
+                    report.isPending && filters !== null
+                        ? null
+                        : t('kitchen:lens.result', {
+                              shown: controls.rows.length,
+                              total: rows.length,
+                          })
+                }
+                clearLabel={t('kitchen:lens.clear')}
+                {...(controls.filtered ? { onClear: controls.clearFilters } : {})}
+                trailing={
+                    rows.length === 0
+                        ? undefined
+                        : (narrow) => <ColumnPicker {...controls.picker} compact={narrow} />
+                }
+            />
 
             {filters === null ? (
                 <Callout

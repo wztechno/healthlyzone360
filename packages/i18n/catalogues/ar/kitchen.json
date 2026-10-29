@@ -5366,7 +5366,9 @@
         "releasedChecksAction": "اعرض الفحوصات المُفرج عنها فقط",
         "qcMix": "{{pending}} معلّقة، {{hold}} موقوفة، {{released}} مُفرج عنها، {{passed}} ناجحة",
         "allProducts": "كل المنتجات",
-        "reviewAction": "عرض السجلات بانتظار المراجعة فقط"
+        "reviewAction": "عرض السجلات بانتظار المراجعة فقط",
+        "requirementsMix": "{{short}} ناقص، {{covered}} متوفر",
+        "deskMix": "{{placed}} مقدّم، {{confirmed}} مؤكد"
     },
     "tray": {
         "noChannel": "لا توجد قناة بيع",
