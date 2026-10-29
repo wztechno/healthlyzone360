@@ -2048,6 +2048,7 @@
             "chargeEmpty": "Add a product",
             "chargeTotal": "Charge {{total}}",
             "backToMenu": "Back to menu",
+            "backToDesk": "Back to the order desk",
             "kindTitle": "How is this order leaving?",
             "kindPending": "Choose how the order is leaving.",
             "charge": "Charge {{total}} · {{method}}",

@@ -801,6 +801,20 @@ function Sale() {
                     className="z-auto min-w-0 flex-col gap-snug"
                     style={[column, stage === 'menu' ? null : HIDDEN]}
                 >
+                    {/* The menu's own way out, as checkout has its way back to the menu. A ticket
+                        with something on it still asks first, through the unsaved guard. */}
+                    <View className="flex-row">
+                        <Button
+                            testID="kitchen-order-desk-sale-back-to-desk"
+                            size="sm"
+                            variant="secondary"
+                            label={t('kitchen:desk.sale.backToDesk')}
+                            iconStart={<Icon name="chevronBackward" size="sm" />}
+                            onPress={() => {
+                                router.push('/kitchen/order-desk');
+                            }}
+                        />
+                    </View>
                     <CatalogueToolbar<MenuSection>
                         testID="kitchen-order-desk-sale-menu-toolbar"
                         search={query}

@@ -516,6 +516,17 @@ describe('sale — the menu', () => {
         await untilVisible('kitchen-order-desk-sale-menu-error');
         expect(screen.queryByTestId(MEAL_TILE)).toBeNull();
     });
+
+    it('goes back to the order desk from the menu', async () => {
+        await renderSale();
+        await untilVisible('kitchen-order-desk-sale-back-to-desk');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-back-to-desk'));
+        });
+
+        expect(mockPush).toHaveBeenCalledWith('/kitchen/order-desk');
+    });
 });
 
 describe('sale — the ticket is priced by the quote alone', () => {
