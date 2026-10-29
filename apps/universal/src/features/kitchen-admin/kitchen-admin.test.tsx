@@ -1121,7 +1121,7 @@ describe('the ingredient editor', () => {
         });
     });
 
-    it('keeps new food Save disabled until a suitable reference is confirmed', async () => {
+    it('saves no new food until a suitable reference is confirmed, and says why', async () => {
         const { repositories } = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
             session: kitchenManagerSession(),
             repositories: { kitchenAdmin: editorReads(() => []) },
@@ -1136,8 +1136,17 @@ describe('the ingredient editor', () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
         });
 
-        expect(screen.getByTestId('kitchen-ingredient-editor-screen-save')).toBeDisabled();
+        // Pressable, and answered: the notice names the unconfirmed match with the blank fields.
+        await untilVisible('kitchen-ingredient-tray-blocked');
+        expect(screen.getByTestId('kitchen-ingredient-tray-blocked-list')).toHaveTextContent(
+            /Confirm the nutrition match to save/,
+        );
         expect(repositories.kitchenAdmin.createIngredient).not.toHaveBeenCalled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-tray-blocked-not-now'));
+        });
+        expect(screen.queryByTestId('kitchen-ingredient-tray-blocked')).toBeNull();
     });
 
     it('forks a platform-library record on arrival and lands on the copy', async () => {
@@ -2449,8 +2458,8 @@ describe('composition and allergens', () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
         });
 
-        // …and the record Save, which would remount the allergen editor, does not run.
-        await untilVisible('kitchen-ingredient-issues');
+        // …and the record Save, which would remount the allergen editor, does not run: it says why.
+        await untilVisible('kitchen-ingredient-tray-blocked');
         expect(updateIngredient).not.toHaveBeenCalled();
     });
 
@@ -2836,7 +2845,11 @@ it('includes acknowledged allergen suggestions when creating a new ingredient an
     await fireEvent.press(screen.getByTestId('allergen-reference-search'));
     await untilVisible('allergen-reference-select-off:3017620422003');
     await fireEvent.press(screen.getByTestId('allergen-reference-select-off:3017620422003'));
-    expect(screen.getByTestId('kitchen-ingredient-editor-screen-save')).toBeDisabled();
+    // Unconfirmed, a Save is answered with the notice and sends nothing.
+    await fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+    await untilVisible('kitchen-ingredient-tray-blocked');
+    expect(repositories.kitchenAdmin.createIngredient).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('kitchen-ingredient-tray-blocked-not-now'));
     await fireEvent.press(screen.getByTestId('allergen-reference-confirm-control'));
     await fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
     await waitFor(() =>

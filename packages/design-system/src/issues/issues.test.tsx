@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { useState } from 'react';
 import { Dimensions, Pressable, Text as RNText } from 'react-native';
 
@@ -39,6 +39,12 @@ function Page({
         <>
             <IssueTrayButton />
             <Pressable testID="nudge" onPress={controller.nudge} />
+            <Pressable
+                testID="explain"
+                onPress={() => {
+                    controller.explain({ action: 'publish', groups: ['publish'] });
+                }}
+            />
             <IssueTrayFrame
                 controller={controller}
                 tray={{
@@ -209,6 +215,96 @@ describe('the issue tray on a phone', () => {
         });
         expect(screen.getByTestId('tray-sheet')).toBeTruthy();
         expect(screen.getByTestId('card-a')).toBeTruthy();
+    });
+});
+
+describe('a press that could not go through', () => {
+    async function pressBlocked(items: readonly IssueCardItem[], locale: 'en' | 'ar' = 'en') {
+        await act(async () => {
+            render(page({ items }, locale));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('explain'));
+        });
+    }
+
+    it('names what stops it in a notice, counting only what blocks', async () => {
+        deskWidth();
+        await pressBlocked([card('a', 'danger'), card('b', 'warning'), card('c', 'info')]);
+
+        expect(screen.getByTestId('tray-blocked-title')).toHaveTextContent(
+            '2 things before publishing',
+        );
+        expect(screen.getByTestId('tray-blocked-list')).toHaveTextContent(/Problem a/);
+        expect(screen.getByTestId('tray-blocked-list')).toHaveTextContent(/Problem b/);
+        // A heads-up is not a reason the press failed.
+        expect(screen.getByTestId('tray-blocked-list')).not.toHaveTextContent(/Problem c/);
+    });
+
+    it('names three and counts the rest', async () => {
+        deskWidth();
+        await pressBlocked(['a', 'b', 'c', 'd', 'e'].map((key) => card(key, 'warning')));
+
+        expect(screen.getByTestId('tray-blocked-list')).not.toHaveTextContent(/Problem d/);
+        expect(screen.getByTestId('tray-blocked-list')).toHaveTextContent(/and 2 more/);
+    });
+
+    it('runs the first card’s Fix on Show me, with the tray open beside the page', async () => {
+        deskWidth();
+        const first = jest.fn();
+        const second = jest.fn();
+        await pressBlocked([card('a', 'warning', first), card('b', 'warning', second)]);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('tray-blocked-show-me'));
+        });
+        expect(screen.queryByTestId('tray-blocked')).toBeNull();
+        await waitFor(() => {
+            expect(first).toHaveBeenCalledTimes(1);
+        });
+        expect(second).not.toHaveBeenCalled();
+        expect(screen.getByTestId('tray-frame')).toBeTruthy();
+        expect(screen.getByTestId('card-a')).toBeTruthy();
+    });
+
+    it('does nothing on Not now but close', async () => {
+        deskWidth();
+        const fix = jest.fn();
+        await pressBlocked([card('a', 'warning', fix)]);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('tray-blocked-not-now'));
+        });
+        expect(screen.queryByTestId('tray-blocked')).toBeNull();
+        expect(fix).not.toHaveBeenCalled();
+    });
+
+    it('leaves the sheet closed on a phone, where it would cover the field', async () => {
+        const fix = jest.fn();
+        await pressBlocked([card('a', 'danger', fix)]);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('tray-blocked-show-me'));
+        });
+        await waitFor(() => {
+            expect(fix).toHaveBeenCalledTimes(1);
+        });
+        expect(screen.queryByTestId('card-a')).toBeNull();
+    });
+
+    it('opens the tray instead when it has nothing to name', async () => {
+        await pressBlocked([card('c', 'info')]);
+
+        await waitFor(() => {
+            expect(screen.getByTestId('tray-sheet')).toBeTruthy();
+        });
+        expect(screen.queryByTestId('tray-blocked')).toBeNull();
+    });
+
+    it('is logical in Arabic', async () => {
+        deskWidth();
+        await pressBlocked([card('a', 'danger'), card('b', 'warning')], 'ar');
+        assertSubtreeIsLogical(screen.getByTestId('tray-blocked'));
     });
 });
 

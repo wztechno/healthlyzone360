@@ -462,7 +462,7 @@ describe('the ingredient editor', () => {
         expect(routerMock.__push).not.toHaveBeenCalled();
     });
 
-    it('takes Save over a blank to the field, which says so itself', async () => {
+    it('answers Save over a blank with a notice whose Show me takes the reader to the field', async () => {
         const record = ingredient();
         const { repositories } = await renderStubScreen(
             <IngredientEditScreen ingredient={String(record.id)} />,
@@ -478,12 +478,18 @@ describe('the ingredient editor', () => {
         });
         await press('kitchen-ingredient-editor-screen-save');
 
-        expect(focusMock.focusField).toHaveBeenCalledWith('kitchen-ingredient-name-en');
-        await untilVisible('kitchen-ingredient-issues');
-        expect(screen.getByTestId('kitchen-ingredient-issues').props.className).toContain(
-            'flex-col',
+        // The field says so under itself, and the notice names it.
+        await untilVisible('kitchen-ingredient-tray-blocked');
+        expect(screen.getByTestId('kitchen-ingredient-tray-blocked-title')).toHaveTextContent(
+            '1 thing before saving',
         );
         expect(screen.getByTestId('kitchen-ingredient-name-en-error')).toBeTruthy();
+        expect(focusMock.focusField).not.toHaveBeenCalledWith('kitchen-ingredient-name-en');
+
+        await press('kitchen-ingredient-tray-blocked-show-me');
+        await waitFor(() => {
+            expect(focusMock.focusField).toHaveBeenCalledWith('kitchen-ingredient-name-en');
+        });
         expect(repositories.kitchenAdmin.updateIngredient).not.toHaveBeenCalled();
     });
 

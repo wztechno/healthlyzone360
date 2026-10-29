@@ -18,8 +18,8 @@ use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
 
 /**
- * PUT /api/v1/me/subscriptions/{subscription}/choices — Free Selection,
- * choose-ahead (§7).
+ * PUT /api/v1/me/subscriptions/{subscription}/choices — change one day's
+ * meals ahead of its cut-off.
  *
  * **One day per call, named in the body rather than in the path.** A date is
  * not an identifier of anything — the delivery row usually does not exist yet,
@@ -27,11 +27,6 @@ use Illuminate\Http\JsonResponse;
  * looks like a resource and is not one. It also keeps the door open for a
  * future call that sets a week in one transaction without changing the URL's
  * meaning.
- *
- * **`{"meals": []}` is a real payload.** It is a customer saying "I have not
- * chosen; send me the kitchen's default", and the request declares `meals`
- * `present` rather than `required` so that it is expressible. A merge-shaped
- * `PATCH` could not say it at all.
  *
  * **No allergen verdict in the response, and that is deliberate.** Generation
  * runs `MealSafety::check()` over every choice at the moment it builds the day,

@@ -4,19 +4,15 @@ import {
     Dialog,
     FilterChip,
     Inline,
-    Select,
     Stack,
     Text,
 } from '@healthy360/design-system';
 import type {
     CreditMemo,
     SubscriptionBalance,
-    SubscriptionMealChoice,
     SubscriptionQuote,
 } from '@healthy360/api-client/contracts';
-import type { MealId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { toFailure } from '../../data/commerce-hooks.ts';
@@ -331,132 +327,6 @@ export function WeekdayEditorDialog({
                     body={t('commerce:weekdays.cutOffBody', {
                         count: balance?.changeCutoffHours ?? quote?.changeCutoffHours ?? 24,
                     })}
-                />
-
-                <DialogFailure error={error} testID={`${testID}-failure`} />
-            </Stack>
-        </Dialog>
-    );
-}
-
-/* ── Free Selection ──────────────────────────────────────────────────────────────────────────── */
-
-export interface MealChoiceOption {
-    readonly id: MealId;
-    readonly name: string;
-}
-
-export interface MealChoicesDialogProps {
-    readonly open: boolean;
-    readonly date: string | null;
-    readonly options: readonly MealChoiceOption[];
-    readonly current: readonly SubscriptionMealChoice[];
-    readonly slotCode: string;
-    readonly pending: boolean;
-    /** The refusal of the last attempt, drawn inside the dialog ({@link DialogFailure}). */
-    readonly error?: unknown;
-    readonly onClose: () => void;
-    readonly onConfirm: (mealId: MealId) => void;
-    readonly testID?: string | undefined;
-}
-
-/**
- * Choosing the meal for one delivery day, ahead of the cut-off.
- *
- * ## What the current state actually is
- *
- * A day nobody has chosen for is not empty — the kitchen has a default, and that default is what
- * will be cooked. So the dialog opens showing it, labelled as the kitchen's rather than the
- * person's. Presenting an unchosen day as blank would imply that not choosing means not eating.
- *
- * ## One slot, and the reason it is one
- *
- * `SubscriptionConfiguration` carries a single `slotCode`, so a day has one delivery and the editor
- * offers one choice. A plan with breakfast, lunch and dinner in separate slots would need the
- * configuration to publish them; inventing three rows from one code would be the interface making
- * up a shape the data does not have.
- */
-export function MealChoicesDialog({
-    open,
-    date,
-    options,
-    current,
-    slotCode,
-    pending,
-    error,
-    onClose,
-    onConfirm,
-    testID = 'subscription-choices',
-}: MealChoicesDialogProps) {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
-
-    const existing = current[0] ?? null;
-    const [choice, setChoice] = useState<string | null>(null);
-    const value = choice ?? (existing === null ? null : String(existing.mealId));
-
-    return (
-        <Dialog
-            testID={`${testID}-dialog`}
-            open={open}
-            onClose={onClose}
-            title={t('commerce:choices.title')}
-            description={
-                date === null
-                    ? t('commerce:choices.body')
-                    : t('commerce:choices.bodyDated', {
-                          date: formatter.formatDate(date, { dateStyle: 'full' }),
-                      })
-            }
-            actions={
-                <>
-                    <Button
-                        testID={`${testID}-cancel`}
-                        variant="quiet"
-                        label={t('commerce:common.cancel')}
-                        onPress={onClose}
-                    />
-                    <Button
-                        testID={`${testID}-confirm`}
-                        label={t('commerce:choices.confirm')}
-                        loading={pending}
-                        disabled={value === null}
-                        onPress={() => {
-                            if (value !== null) onConfirm(value as MealId);
-                        }}
-                    />
-                </>
-            }
-        >
-            <Stack space="md">
-                {existing === null ? null : (
-                    <Text tone="secondary" variant="caption" testID={`${testID}-current`}>
-                        {t(`commerce:choices.sources.${existing.source}`, {
-                            meal: existing.mealName,
-                        })}
-                    </Text>
-                )}
-
-                <Select
-                    testID={`${testID}-select`}
-                    label={t('commerce:choices.selectLabel', {
-                        slot: t(`commerce:slots.${slotCode}`, { defaultValue: slotCode }),
-                    })}
-                    value={value}
-                    onChange={setChoice}
-                    options={options.map((option) => ({
-                        value: String(option.id),
-                        label: option.name,
-                    }))}
-                />
-
-                <Callout
-                    testID={`${testID}-cutoff`}
-                    role="note"
-                    tone="info"
-                    icon="info"
-                    title={t('commerce:choices.cutOffTitle')}
-                    body={t('commerce:choices.cutOffBody')}
                 />
 
                 <DialogFailure error={error} testID={`${testID}-failure`} />

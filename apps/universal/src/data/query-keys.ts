@@ -264,6 +264,9 @@ export const queryKeys = {
             ['commerce', 'subscription', 'quote', request] as const,
         subscriptionMealChoices: (subscriptionId: SubscriptionId, date: string) =>
             ['commerce', 'subscription', subscriptionId, 'meal-choices', date] as const,
+        /** The customer's meals, day by day — under the subscription, so every mutation refreshes it. */
+        subscriptionDays: (subscriptionId: SubscriptionId) =>
+            ['commerce', 'subscription', subscriptionId, 'days'] as const,
     },
 
     /**
@@ -391,15 +394,6 @@ export const queryKeys = {
         plansPage: (filter: QueryScope | undefined, page: number) =>
             ['kitchenAdmin', 'plans', 'page', scope(filter), page] as const,
         plan: (planId: SubscriptionPlanId) => ['kitchenAdmin', 'plan', planId] as const,
-        /**
-         * The plan's fixed menu — its own entry rather than part of the record.
-         *
-         * `getPlan` does not carry it and the editor's other four sections do not need it, so
-         * folding it into the detail key would make every plan read fetch a menu nobody asked for.
-         * Saving the menu invalidates both: the write moves the *item's* lock version, which is the
-         * number the other four sections send with their next save.
-         */
-        planMenu: (planId: SubscriptionPlanId) => ['kitchenAdmin', 'plan-menu', planId] as const,
 
         zones: (filter?: QueryScope) => ['kitchenAdmin', 'zones', scope(filter)] as const,
         zonesPage: (filter: QueryScope | undefined, page: number) =>

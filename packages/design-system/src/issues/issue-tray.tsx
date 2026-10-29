@@ -14,6 +14,7 @@ import { Collapse } from '../motion/collapse.tsx';
 import { SlideIn } from '../motion/slide-in.tsx';
 import { useMotion } from '../motion/use-motion.ts';
 import { Drawer } from '../overlays/drawer.tsx';
+import { Notice } from '../overlays/notice.tsx';
 import { createIssueRegistry, IssueRegistryProvider } from './issue-group.tsx';
 import type { IssueRegistry, RegisteredIssues } from './issue-group.tsx';
 import { IssueTrayFrameControllerProvider, useIssueTrayController } from './issue-tray-context.tsx';
@@ -169,6 +170,9 @@ const DOCKED_WIDTH = 344;
 const NO_GROUPS: readonly IssueGroup[] = [];
 const NO_KEYS: readonly string[] = [];
 
+/** How many of the blocking cards the notice names before "and 2 more". */
+const NOTICE_LINES = 3;
+
 /**
  * The page with its tray: docked beside the content from `lg`, a bottom sheet below. The screen's
  * own root (its `Cascade`) goes inside as `children`, so the page still arrives as it always has.
@@ -321,10 +325,15 @@ function IssueTrayFrameBody({
      * moment (an older version on screen, a list with nothing to say) must not be remounted —
      * that would replay its entrance and take the focus out of the box being typed in.
      */
+    const blocked = (
+        <BlockedNotice tray={tray} controller={tray$} wide={wide} testID={`${base}-blocked`} />
+    );
+
     if (!wide) {
         return (
             <>
                 {page}
+                {blocked}
                 {tray === null ? null : (
                     <Drawer
                         testID={`${base}-sheet`}
@@ -343,29 +352,149 @@ function IssueTrayFrameBody({
     }
 
     return (
-        <View
-            testID={tray === null ? undefined : `${base}-frame`}
-            className="z-auto flex-row items-start gap-6"
-        >
-            <View className="z-auto min-w-0 flex-1">{page}</View>
-            {docked ? (
-                // Sticky against the shell's scroll port, so the tray stays beside whatever part of
-                // a long form the reader is on. Its own scroll when it is taller than the window.
-                <SlideIn
-                    edge="end"
-                    distance="small"
-                    className="w-80 shrink-0 self-start web:sticky web:top-0"
-                >
-                    <View
-                        role="complementary"
-                        aria-label={tray.title}
-                        className="rounded-lg border border-stroke-subtle bg-surface-raised p-4 web:max-h-[85vh] web:overflow-y-auto"
+        <>
+            {blocked}
+            <View
+                testID={tray === null ? undefined : `${base}-frame`}
+                className="z-auto flex-row items-start gap-6"
+            >
+                <View className="z-auto min-w-0 flex-1">{page}</View>
+                {docked ? (
+                    // Sticky against the shell's scroll port, so the tray stays beside whatever part of
+                    // a long form the reader is on. Its own scroll when it is taller than the window.
+                    <SlideIn
+                        edge="end"
+                        distance="small"
+                        className="w-80 shrink-0 self-start web:sticky web:top-0"
                     >
-                        {panel}
+                        <View
+                            role="complementary"
+                            aria-label={tray.title}
+                            className="rounded-lg border border-stroke-subtle bg-surface-raised p-4 web:max-h-[85vh] web:overflow-y-auto"
+                        >
+                            {panel}
+                        </View>
+                    </SlideIn>
+                ) : null}
+            </View>
+        </>
+    );
+}
+
+/**
+ * A press that could not go through, answered in the middle of the page: how many things stop it,
+ * named from the tray's own cards so the two never disagree, and "Show me" — the tray opened and
+ * the first card's Fix run, which takes the reader to the field and lights it.
+ *
+ * Below `lg` the tray is a sheet that would cover that field, so there "Show me" runs the Fix alone
+ * and the pill still counts what is left.
+ */
+function BlockedNotice({
+    tray,
+    controller,
+    wide,
+    testID,
+}: {
+    readonly tray: MergedTray | null;
+    readonly controller: IssueTrayController;
+    readonly wide: boolean;
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    const { explaining: press, endExplaining, nudge, setOpen } = controller;
+    const cards = useMemo(
+        () =>
+            press === null || tray === null
+                ? []
+                : tray.groups
+                      .filter((group) => press.groups?.includes(group.key) ?? true)
+                      .flatMap((group) => group.items.filter((item) => item.tone !== 'info')),
+        [press, tray],
+    );
+
+    /*
+     * Nothing to name: a part's cards register a render after the press, so wait that long; a press
+     * still unexplained after it opens the tray, as a refused save did before there was a notice.
+     */
+    const unexplained = press !== null && cards.length === 0;
+    useEffect(() => {
+        if (!unexplained) return undefined;
+        const timer = setTimeout(() => {
+            endExplaining();
+            nudge();
+        }, 0);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, [unexplained, endExplaining, nudge]);
+
+    /*
+     * "Show me" runs its Fix once the notice is down. Its modal hands focus back to the button that
+     * opened it as it unmounts, and a Fix run any earlier lost that race on a heavy page — the field
+     * lit, the cursor on Save. React runs the unmount's cleanup before this effect, so it cannot.
+     */
+    const pendingFix = useRef<IssueAction | null>(null);
+    useEffect(() => {
+        if (press !== null) return;
+        const fix = pendingFix.current;
+        pendingFix.current = null;
+        fix?.onPress();
+    }, [press]);
+
+    const first = cards[0];
+    if (press === null || first === undefined) return null;
+
+    const named = cards.slice(0, NOTICE_LINES);
+    const more = cards.length - named.length;
+    const showMe = () => {
+        pendingFix.current = first.action ?? null;
+        endExplaining();
+        if (wide || first.action === undefined) setOpen(true);
+    };
+
+    return (
+        <Notice
+            open
+            testID={testID}
+            tone="warning"
+            title={t(
+                press.action === 'publish'
+                    ? 'designSystem:issueTray.beforePublishing'
+                    : 'designSystem:issueTray.beforeSaving',
+                { count: cards.length },
+            )}
+            onClose={endExplaining}
+            secondary={{
+                label: t('designSystem:issueTray.notNow'),
+                onPress: endExplaining,
+                testID: `${testID}-not-now`,
+            }}
+            primary={{
+                label: t('designSystem:issueTray.showMe'),
+                onPress: showMe,
+                testID: `${testID}-show-me`,
+            }}
+        >
+            <View testID={`${testID}-list`} className="flex-col gap-1.5">
+                {named.map((card) => (
+                    <View key={card.key} className="flex-row items-start gap-2">
+                        <Icon
+                            name={TONE_ICON[card.tone]}
+                            size="sm"
+                            className={cx('mt-0.5', TONE_MARK[card.tone])}
+                        />
+                        <RNText className="min-w-0 flex-1 text-base text-content-primary text-start">
+                            {card.label}
+                        </RNText>
                     </View>
-                </SlideIn>
-            ) : null}
-        </View>
+                ))}
+                {more <= 0 ? null : (
+                    <RNText className="text-sm text-content-secondary text-start">
+                        {t('designSystem:issueTray.andMore', { count: more })}
+                    </RNText>
+                )}
+            </View>
+        </Notice>
     );
 }
 

@@ -31,7 +31,12 @@ use Healthy360\Customers\Models\CustomerAddress;
 final readonly class NewSubscription
 {
     /**
+     * `days` is the customer's meals for every delivery day the balance covers,
+     * chosen before paying. The storefront always sends it; `null` is the
+     * console and fixture path, which stands a subscription up without a menu.
+     *
      * @param  list<int>  $weekdays  ISO weekdays, 1 = Monday … 7 = Sunday
+     * @param  list<array{date: string, meals: list<array{slot: string, sequence?: int|null, catalogue_item_id: string}>}>|null  $days
      */
     public function __construct(
         public CustomerAccount $account,
@@ -45,5 +50,6 @@ final readonly class NewSubscription
         public ?string $deliveryWindowCode = null,
         public bool $noSubstitutions = false,
         public ?CarbonImmutable $startFrom = null,
+        public ?array $days = null,
     ) {}
 }

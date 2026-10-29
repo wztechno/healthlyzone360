@@ -116,7 +116,13 @@
         "weekdays_empty": "Choose at least one delivery day.",
         "weekdays_invalid": "One of the delivery days you chose is not offered.",
         "kitchen_closed": "The kitchen is closed on one of the delivery days you chose.",
-        "guest_may_not_subscribe": "Sign in to start a subscription."
+        "guest_may_not_subscribe": "Sign in to start a subscription.",
+        "meals_missing": "Choose meals for every delivery day.",
+        "meals_incomplete": "Every meal of the day needs a dish.",
+        "not_a_delivery_day": "One of the days is not a delivery day.",
+        "meal_unknown": "One of the chosen dishes is not on this kitchen’s menu.",
+        "meal_not_a_meal": "One of the chosen items is not a meal.",
+        "meal_not_published": "One of the chosen dishes is no longer available."
     },
     "cart": {
         "otherKitchen": "This meal is from a different kitchen than the meals in your basket."

@@ -16,6 +16,8 @@ use Healthy360\Customers\Enums\AllergenSeverity;
 use Healthy360\Customers\Models\CustomerAllergenDeclaration;
 use Healthy360\Customers\Models\CustomerDietaryProfile;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
+use Healthy360\Subscriptions\Models\Subscription;
+use Healthy360\Subscriptions\Services\ChangeWindow;
 use Healthy360\Subscriptions\Services\NewSubscription;
 
 /**
@@ -103,12 +105,14 @@ final class SubscriptionWorld
      *
      * @param  list<int>  $weekdays  ISO; every day by default, so a test asserting about
      *                               balance arithmetic does not also have to reason about the calendar
+     * @param  list<array{date: string, meals: list<array{slot: string, sequence?: int|null, catalogue_item_id: string}>}>|null  $days
      */
     public static function request(
         object $world,
         array $weekdays = [1, 2, 3, 4, 5, 6, 7],
         bool $noSubstitutions = false,
         ?CarbonImmutable $startFrom = null,
+        ?array $days = null,
     ): NewSubscription {
         return new NewSubscription(
             account: $world->customer->account,
@@ -122,7 +126,61 @@ final class SubscriptionWorld
             deliveryWindowCode: null,
             noSubstitutions: $noSubstitutions,
             startFrom: $startFrom,
+            days: $days,
         );
+    }
+
+    /**
+     * A published, offered, priced dish of the world's kitchen — one a
+     * customer may choose for a sitting.
+     */
+    public static function dish(object $world, string $nameEn): CatalogueItem
+    {
+        $meal = CheckoutWorld::publishedMeal($world->tenant, $nameEn);
+        CheckoutWorld::offer($world->channel, $meal);
+        PricingWorld::price($world->priceList, $meal, null, 1500);
+
+        return $meal;
+    }
+
+    /**
+     * The first day a purchase made now delivers on — what the quote names as
+     * `earliest_start_date` and the service starts on.
+     *
+     * @param  list<int>  $weekdays
+     */
+    public static function firstDay(object $world, array $weekdays = [1, 2, 3, 4, 5, 6, 7], bool $withBranch = true): CarbonImmutable
+    {
+        $prototype = new Subscription;
+        $prototype->branch_id = $withBranch ? (string) $world->branch->getKey() : null;
+        $prototype->catalogue_item_id = (string) $world->plan->getKey();
+        $prototype->weekdays = $weekdays;
+
+        return app(ChangeWindow::class)->firstChangeableDate($prototype, CarbonImmutable::now())->startOfDay();
+    }
+
+    /**
+     * Every delivery day from `$first`, on every weekday, filled with the same
+     * dishes — the shape the storefront sends at purchase. The world's option
+     * is 2 meals a day (lunch and dinner).
+     *
+     * @return list<array{date: string, meals: list<array{slot: string, sequence: int, catalogue_item_id: string}>}>
+     */
+    public static function everyDay(CarbonImmutable $first, int $count, string $lunchId, string $dinnerId): array
+    {
+        $days = [];
+
+        for ($day = 0; $day < $count; $day++) {
+            $days[] = [
+                'date' => $first->addDays($day)->toDateString(),
+                'meals' => [
+                    ['slot' => 'lunch', 'sequence' => 1, 'catalogue_item_id' => $lunchId],
+                    ['slot' => 'dinner', 'sequence' => 1, 'catalogue_item_id' => $dinnerId],
+                ],
+            ];
+        }
+
+        return $days;
     }
 
     /**

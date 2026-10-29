@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\DB;
  * authority nobody granted them.
  *
  * Replace-whole-set is also the house idiom already (`setRecipeLines`,
- * `replacePlanMenu`, `replaceSupplierContacts`), and it is the only shape that
+ * `replaceSupplierContacts`), and it is the only shape that
  * can carry `starts_at`/`expires_at` without a second endpoint for the bounds.
  *
  * ## The time bounds are honoured, and the lock-out guard ignores them

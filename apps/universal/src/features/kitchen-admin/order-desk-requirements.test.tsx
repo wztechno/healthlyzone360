@@ -315,7 +315,7 @@ describe('order desk requirements — what the rows say', () => {
         await renderRequirements(async () =>
             answer([requirement()], {
                 days: 3,
-                reasons: { plan_has_no_menu: 2, meal_has_no_recipe: 1 },
+                reasons: { meals_not_chosen: 2, meal_has_no_recipe: 1 },
             }),
         );
 
@@ -326,7 +326,7 @@ describe('order desk requirements — what the rows say', () => {
         expect(
             screen.getByTestId('kitchen-order-desk-requirements-figures-notComputable-value'),
         ).toHaveTextContent('3');
-        expect(card).toHaveTextContent(/Plan has no menu \(2\)/);
+        expect(card).toHaveTextContent(/Meals not chosen yet \(2\)/);
         expect(card).toHaveTextContent(/Meal has no recipe \(1\)/);
 
         // And the table still carries exactly the one row that could be computed.

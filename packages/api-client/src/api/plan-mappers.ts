@@ -1,6 +1,5 @@
 import {
     KitchenId,
-    MealId,
     PlanVariantId,
     SubscriptionPlanId,
     planDuration,
@@ -76,6 +75,10 @@ export function mapPlanVariant(wire: WireVariant): PlanVariant | null {
         fatRange: wire.fat_range,
         mealsPerDay: wire.meals_per_day,
         snacksPerDay: wire.snacks_per_day,
+        sittings: wire.sittings.map((sitting) => ({
+            slot: sitting.slot,
+            sequence: sitting.sequence,
+        })),
         pricePerWeek,
     };
 }
@@ -108,7 +111,6 @@ export function mapSubscriptionPlan(wire: WirePlan): SubscriptionPlan | null {
         dietClassifications: wire.diet_classifications as readonly DietClassification[],
         variants,
         durations,
-        sampleMealIds: wire.sample_meal_ids.map((id) => MealId.unsafe(id)),
         imagePlaceholderId: wire.image_placeholder_id,
         rating: wire.rating,
         ratingCount: wire.rating_count,

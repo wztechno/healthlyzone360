@@ -7,8 +7,6 @@ namespace Healthy360\Inventory\Services;
 use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Models\CatalogueItem;
-use Healthy360\Catalogues\Models\PlanMenuEntry;
-use Healthy360\Catalogues\Services\PlanMenuService;
 use Healthy360\Inventory\Contracts\SubscriptionMealDemand;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
@@ -30,29 +28,28 @@ use RuntimeException;
  * the explosion — is not merely worse, it is unavailable: the registry edge runs
  * Inventory → Orders, so Orders → Inventory would close the cycle the
  * architecture test rejects. Two of the three demand populations were already
- * reachable from here (`order_lines` over that same Orders edge,
- * `plan_menu_entries` over Catalogues); the third arrives through
- * {@see SubscriptionMealDemand}, this module's first outward port.
+ * reachable from here (`order_lines` over that same Orders edge); the
+ * customer's meal choices arrive through {@see SubscriptionMealDemand}, this
+ * module's first outward port.
  *
- * ## Three populations, one explosion
+ * ## Two populations, one explosion
  *
- * A window's demand comes from three places, and they are counted separately
- * because they are three different kinds of promise:
+ * A window's demand comes from two places, and they are counted separately
+ * because they are two different kinds of promise:
  *
  *  1. **Real order lines** on every non-cancelled order whose requested delivery
  *     date falls in the window — meals and resold products alike. Somebody
  *     agreed to this and the kitchen wrote it down.
  *  2. **Meal choices** standing against subscription days that are *not yet*
- *     orders. A customer (or the kitchen's own default) has said what fills the
- *     slot; generation has not turned it into a line yet.
- *  3. **Plan-menu days**: for those same subscription days, every slot the
- *     plan's menu names that no choice row has claimed. This is what generation
- *     will write when it reaches the day, computed a fortnight early.
+ *     orders. The customer has said what fills each sitting; generation has
+ *     not turned it into a line yet. A day whose sittings are not all chosen —
+ *     a balance day a skip pushed later, which generation will fill by
+ *     repeating the customer's own choices — is a `meals_not_chosen` hole for
+ *     whatever is missing, because the forecast cannot name it.
  *
- * They can never double-count, because population 2 and 3 only ever see days no
+ * They can never double-count, because population 2 only ever sees days no
  * order exists for — the port refuses to answer for a generated day, and says
- * why — and within them a slot with a choice is population 2's and a slot
- * without is population 3's.
+ * why.
  *
  * **The quantities are summed per meal before anything is exploded, and that is
  * exactness rather than economy.** Explosion is linear in the quantity — every
@@ -98,7 +95,7 @@ use RuntimeException;
  *
  * ## Holes are never folded into numbers
  *
- * A meal with no published recipe, a menu that was never written, a recipe line
+ * A meal with no published recipe, a day nobody chose meals for, a recipe line
  * measured in a unit that will not convert into the shelf's — none of these
  * produce a quantity, and none of them produce a zero either. They produce an
  * entry in `not_computable`, because "buy nothing for that" and "we could not
@@ -134,13 +131,6 @@ final readonly class RequirementForecast
     private const int COMPARISON_SCALE = 4;
 
     /**
-     * A demand item that is neither a meal nor a product contributes one of
-     * these to every date it appears on. Today only the withdrawn-dish case
-     * reaches it.
-     */
-    private const string DISH_WITHDRAWN = 'menu_dish_withdrawn';
-
-    /**
      * The explosion's vocabulary translated into the forecast's.
      *
      * Only `no_recipe_version` is actually renamed, and it is renamed because
@@ -163,7 +153,6 @@ final readonly class RequirementForecast
     public function __construct(
         private MealExplosion $explosion,
         private SubscriptionMealDemand $demand,
-        private PlanMenuService $menus,
         private ReservationService $reservations,
     ) {}
 
@@ -200,7 +189,7 @@ final readonly class RequirementForecast
         $subscriptions = $this->demand->forWindow($organisationId, $start, $end, null);
 
         $this->tallyChoices($subscriptions['choices'], $demanded);
-        $this->tallyPlanMenus($organisationId, $subscriptions['days'], $subscriptions['choices'], $demanded, $holes);
+        $this->tallyUnchosenDays($subscriptions['days'], $subscriptions['choices'], $holes);
 
         $required = $this->explodeDemand($organisationId, $branchId, $demanded, $holes);
 
@@ -293,149 +282,37 @@ final readonly class RequirementForecast
     }
 
     /**
-     * Population 3 — what the plan's menu will put in the slots nobody has
-     * chosen for.
+     * The days whose sittings are not all chosen yet — a hole each, never a
+     * guess.
      *
-     * This is `GenerationService::fillFromPlanMenu()` read rather than written,
-     * and it mirrors that method rule for rule because any divergence would show
-     * up as a kitchen buying for a dish it then does not cook:
-     *
-     *  * the cycle day comes from the same double-modulus helper against the
-     *    plan's own anchor;
-     *  * the day is cut to the subscriber's own meals and snacks through the
-     *    same `PlanMenuService::servedTo()`;
-     *  * a plan with no `menu_cycle_days` fills nothing — and here contributes
-     *    `plan_has_no_menu` for a day nobody has chosen for either, because such
-     *    a day is one the kitchen genuinely cannot plan a purchase for. A day
-     *    with choices on a menu-less plan is fully answered by population 2 and
-     *    raises nothing;
-     *  * **a withdrawn dish fills nothing.** Generation refuses to pack a dish
-     *    the kitchen has taken off sale, so forecasting it would buy ingredients
-     *    for food that will never leave the building. It is a hole rather than a
-     *    silence, because the slot will be filled by *something* the forecast
-     *    cannot name.
-     *
-     * The plan's menu is read once per plan however many days it serves — three
-     * reads for a plan appearing on sixty days rather than a hundred and eighty.
+     * Every day is chosen at purchase, so this is a balance day a skip, a pause
+     * or a closed day pushed past the last chosen date, or a subscription
+     * bought before customers chose. Generation will fill such a day by
+     * repeating the customer's own choices, but which ones depends on what they
+     * change before then, so the forecast says it cannot name the food rather
+     * than buying for a guess.
      *
      * @param  list<array{subscription_id: string, plan_catalogue_item_id: string, meals_per_day: int|null, snacks_per_day: int|null, delivery_date: string, basis: string}>  $days
      * @param  list<array{subscription_id: string, delivery_date: string, slot: string, sequence: int, catalogue_item_id: string}>  $choices
-     * @param  array<string, array{quantity: numeric-string, dates: array<string, true>}>  $demanded
      * @param  array<string, array<string, true>>  $holes
      */
-    private function tallyPlanMenus(
-        string $organisationId,
-        array $days,
-        array $choices,
-        array &$demanded,
-        array &$holes,
-    ): void {
-        if ($days === []) {
-            return;
-        }
-
-        /** @var array<string, true> $claimed */
-        $claimed = [];
+    private function tallyUnchosenDays(array $days, array $choices, array &$holes): void
+    {
+        /** @var array<string, int> $chosen subscription|date → sittings chosen */
+        $chosen = [];
 
         foreach ($choices as $choice) {
-            $claimed[$choice['subscription_id'].'|'.$choice['delivery_date'].'|'.$choice['slot'].'|'.$choice['sequence']] = true;
+            $key = $choice['subscription_id'].'|'.$choice['delivery_date'];
+            $chosen[$key] = ($chosen[$key] ?? 0) + 1;
         }
-
-        /** @var array<string, true> $chosenDays */
-        $chosenDays = [];
-
-        foreach ($choices as $choice) {
-            $chosenDays[$choice['subscription_id'].'|'.$choice['delivery_date']] = true;
-        }
-
-        /** @var array<string, array{cycle_days: int|null, anchor_date: string|null, entries: list<PlanMenuEntry>, meals: array<string, CatalogueItem>}|null> $plans */
-        $plans = [];
 
         foreach ($days as $day) {
-            $planId = $day['plan_catalogue_item_id'];
+            $needed = max(1, ($day['meals_per_day'] ?? 0) + ($day['snacks_per_day'] ?? 0));
 
-            if (! array_key_exists($planId, $plans)) {
-                $plans[$planId] = $this->readMenu($organisationId, $planId);
-            }
-
-            $menu = $plans[$planId];
-            $cycleDays = $menu === null ? null : $menu['cycle_days'];
-            $anchorDate = $menu === null ? null : $menu['anchor_date'];
-
-            if ($menu === null || $cycleDays === null || $anchorDate === null) {
-                if (! array_key_exists($day['subscription_id'].'|'.$day['delivery_date'], $chosenDays)) {
-                    $this->addHole($holes, $day['delivery_date'], 'plan_has_no_menu');
-                }
-
-                continue;
-            }
-
-            $cycleDay = PlanMenuEntry::cycleDayFor(
-                CarbonImmutable::parse($day['delivery_date']),
-                CarbonImmutable::parse($anchorDate),
-                $cycleDays,
-            );
-
-            // Cut to the subscriber's own count, as generation cuts it.
-            $served = $this->menus->servedTo(array_values(array_filter(
-                $menu['entries'],
-                static fn (PlanMenuEntry $entry): bool => $entry->cycle_day === $cycleDay,
-            )), $day['meals_per_day'], $day['snacks_per_day']);
-
-            foreach ($served as $entry) {
-                $coordinate = $day['subscription_id'].'|'.$day['delivery_date'].'|'.$entry->slot.'|'.$entry->sequence;
-
-                if (array_key_exists($coordinate, $claimed)) {
-                    // Population 2 already counted this slot. A customer's own
-                    // choice beats the menu's default here for the same reason
-                    // it does at generation: the row that exists is the one the
-                    // kitchen will read back.
-                    continue;
-                }
-
-                $meal = $menu['meals'][$entry->meal_catalogue_item_id] ?? null;
-
-                if (! $meal instanceof CatalogueItem || ! $meal->status->isConsumerVisible()) {
-                    $this->addHole($holes, $day['delivery_date'], self::DISH_WITHDRAWN);
-
-                    continue;
-                }
-
-                $this->addDemand($demanded, (string) $meal->getKey(), '1', $day['delivery_date']);
+            if (($chosen[$day['subscription_id'].'|'.$day['delivery_date']] ?? 0) < $needed) {
+                $this->addHole($holes, $day['delivery_date'], 'meals_not_chosen');
             }
         }
-    }
-
-    /**
-     * One plan's menu, read once and kept.
-     *
-     * Returns null when the plan itself cannot be read as this organisation's —
-     * a state the schema forbids (`subscriptions.catalogue_item_id` is a
-     * constrained foreign key) and which is therefore handled as a menu-less
-     * plan rather than as a crash.
-     *
-     * @return array{cycle_days: int|null, anchor_date: string|null, entries: list<PlanMenuEntry>, meals: array<string, CatalogueItem>}|null
-     */
-    private function readMenu(string $organisationId, string $planId): ?array
-    {
-        $plan = CatalogueItem::withoutTenancy()
-            ->where('id', $planId)
-            ->where('organisation_id', $organisationId)
-            ->first();
-
-        if (! $plan instanceof CatalogueItem) {
-            return null;
-        }
-
-        $cycle = $this->menus->cycleFor($plan);
-        $entries = $this->menus->entriesFor($plan);
-
-        return [
-            'cycle_days' => $cycle['cycle_days'],
-            'anchor_date' => $cycle['anchor_date'],
-            'entries' => $entries,
-            'meals' => $this->menus->mealsFor($entries),
-        ];
     }
 
     /**

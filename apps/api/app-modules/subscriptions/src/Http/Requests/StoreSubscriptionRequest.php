@@ -16,6 +16,11 @@ use Illuminate\Validation\Validator;
  * 2. **Storefront** — `plan_duration_days` instead; the controller resolves the
  *    channel and duration the same way `GET /subscriptions/quote` does, because
  *    a shopper never holds those identifiers.
+ *
+ * `days` is the customer's meals for every delivery day the balance covers.
+ * Whether the dates and sittings are the right ones is the service's question
+ * — it knows the first delivery and the subscriber's sittings — and it answers
+ * with `meals_missing` / `meals_incomplete` rather than a field error.
  */
 class StoreSubscriptionRequest extends FormRequest
 {
@@ -44,6 +49,13 @@ class StoreSubscriptionRequest extends FormRequest
             'delivery_window_code' => ['nullable', 'string', 'max:40'],
             'no_substitutions' => ['nullable', 'boolean'],
             'start_from' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today'],
+
+            'days' => ['required', 'array', 'min:1', 'max:366'],
+            'days.*.date' => ['required', 'date_format:Y-m-d', 'distinct'],
+            'days.*.meals' => ['required', 'array', 'min:1', 'max:12'],
+            'days.*.meals.*.slot' => ['required', 'string', 'in:breakfast,lunch,dinner,snack'],
+            'days.*.meals.*.sequence' => ['nullable', 'integer', 'min:1', 'max:20'],
+            'days.*.meals.*.catalogue_item_id' => ['required', 'uuid'],
         ];
     }
 
@@ -75,6 +87,7 @@ class StoreSubscriptionRequest extends FormRequest
      *     delivery_window_code?: string|null,
      *     no_substitutions?: bool|null,
      *     start_from?: string|null,
+     *     days: list<array{date: string, meals: list<array{slot: string, sequence?: int|null, catalogue_item_id: string}>}>,
      * }
      */
     public function payload(): array
@@ -91,6 +104,7 @@ class StoreSubscriptionRequest extends FormRequest
          *     delivery_window_code?: string|null,
          *     no_substitutions?: bool|null,
          *     start_from?: string|null,
+         *     days: list<array{date: string, meals: list<array{slot: string, sequence?: int|null, catalogue_item_id: string}>}>,
          * } $validated
          */
         $validated = $this->validated();

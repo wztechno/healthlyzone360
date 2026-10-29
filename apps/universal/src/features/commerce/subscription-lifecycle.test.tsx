@@ -143,7 +143,7 @@ function testConfiguration(
         deliveryWeekdays: [1, 3, 5],
         slotCode: 'morning',
         address: ADDRESS,
-        selectedMealIds: [],
+        days: [],
         ...overrides,
     };
 }
@@ -315,6 +315,15 @@ function renderDetail(world: World, overrides: Partial<CommerceRepository> = {})
                 getSubscriptionBalance: async () => world.balance,
                 listSubscriptionDeliveries: async () => page(world.deliveries),
                 getSubscriptionQuote: async () => world.quote,
+                // The run's meals have their own section and their own suite (`commerce.test`);
+                // here they are the sittings sold and no day to show.
+                listSubscriptionDays: async () => ({
+                    sittings: [
+                        { slot: 'lunch', sequence: 1 },
+                        { slot: 'dinner', sequence: 1 },
+                    ],
+                    days: [],
+                }),
                 ...overrides,
             },
         },

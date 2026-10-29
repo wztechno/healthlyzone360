@@ -725,10 +725,11 @@ function RecipeEditor({
     const toast = useToast();
     /*
      * The page's issue tray. Taken here rather than inside the frame so a refused save can open it
-     * (`nudge`) — the tray is where the reader is sent instead of a strip under the tabs.
+     * (`nudge`) — the tray is where the reader is sent instead of a strip under the tabs — and a
+     * Save or Publish that cannot go through can ask it to say why (`explain`).
      */
     const issueTray = useIssueTrayController();
-    const { nudge: nudgeTray } = issueTray;
+    const { nudge: nudgeTray, explain: explainBlocked } = issueTray;
     const canManage = useCan(RECIPE_MANAGE_PERMISSION);
     const canViewCosts = useCan(RECIPE_VIEW_COSTS_PERMISSION);
 
@@ -1839,15 +1840,14 @@ function RecipeEditor({
 
     /*
      * Save draft is pressable over an incomplete form. The press marks the form attempted — every
-     * blank required field says so under itself, and each tab counts its own — and takes the reader
-     * to the first, switching tab on the way. Only a clean draft reaches `saveAll`.
+     * blank required field says so under itself, and each tab counts its own — and a notice names
+     * what is left, its "Show me" taking the reader to the first, switching tab on the way. Only a
+     * clean draft reaches `saveAll`.
      */
     const attemptSave = () => {
         setAttempted(true);
-        const first = blockers[0];
-        if (first !== undefined) {
-            goTo(first.tab, first.fieldId);
-            nudgeTray();
+        if (blockers.length > 0) {
+            explainBlocked({ action: 'save', groups: ['save'] });
             return;
         }
         saveAll();
@@ -2218,6 +2218,11 @@ function RecipeEditor({
         // way Save does, rather than open a dialog about a version that is not the one on screen.
         if (blockers.length > 0) {
             attemptSave();
+            return;
+        }
+        // What the draft on screen still owes before it can be published: said, not a dialog.
+        if (publishItems.length > 0) {
+            explainBlocked({ action: 'publish', groups: ['publish'] });
             return;
         }
         if ((anyDirty || listingDirty) && !saveBlocked) {
@@ -2673,8 +2678,15 @@ function RecipeEditor({
         }
         return shownBlockers.find((entry) => entry.key === item.key)?.tab ?? null;
     };
-    const fixCard = (item: FormIssueItem): IssueCardItem['action'] => ({
-        onPress: item.onPress,
+    /*
+     * A card's Fix opens the field's tab first: tabs unmount when they are left, and a server
+     * refusal's own press only focuses — on another tab there is nothing to focus.
+     */
+    const fixCard = (item: FormIssueItem, target: RecipeTab | null): IssueCardItem['action'] => ({
+        onPress: () => {
+            if (target !== null) setTab(target);
+            item.onPress();
+        },
     });
 
     const saveCards: IssueCardItem[] = [
@@ -2683,7 +2695,7 @@ function RecipeEditor({
             tone: 'danger' as const,
             label: item.label,
             detail: tabName(saveItemTab(item)),
-            action: fixCard(item),
+            action: fixCard(item, saveItemTab(item)),
             testID: `kitchen-recipe-issues-errors-${item.key}`,
         })),
         // What has no field to sit on: a network failure, a refused photo, an unplaced refusal.
@@ -2734,7 +2746,7 @@ function RecipeEditor({
                     item.tab === null
                         ? t('kitchen:recipes.sectionRawMaterials')
                         : tabName(item.tab),
-                action: fixCard(item),
+                action: fixCard(item, item.tab),
                 testID: `kitchen-recipe-issues-publish-${item.key}`,
             };
         }),
@@ -2824,9 +2836,53 @@ function RecipeEditor({
                   },
               ];
 
+    /*
+     * The two optional fields the page still has an opinion on, each pointed at: a new meal's piece
+     * count, which the publish strip says once the recipe exists, and a packaging line at zero.
+     */
+    const firstZeroPackaging = zeroPackaging[0];
+    const optionalFieldCards: IssueCardItem[] = [
+        ...(isCreating && piecesOwed
+            ? [
+                  {
+                      key: 'check-pieces',
+                      tone: 'info' as const,
+                      label: t('kitchen:publish.blockNoPieces'),
+                      detail: t('kitchen:recipes.tabProduction'),
+                      action: {
+                          onPress: () => {
+                              goTo('production', 'kitchen-recipe-yield-pieces');
+                          },
+                      },
+                      testID: 'kitchen-recipe-check-pieces',
+                  },
+              ]
+            : []),
+        ...(firstZeroPackaging === undefined
+            ? []
+            : [
+                  {
+                      key: 'zero-packaging',
+                      tone: 'info' as const,
+                      label: t('kitchen:forms.zeroQuantity'),
+                      detail: t('kitchen:recipes.sectionPackaging'),
+                      action: {
+                          onPress: () => {
+                              goTo(
+                                  'packaging',
+                                  lineCellId(PACKAGING_TABLE, firstZeroPackaging.key, 'qty'),
+                              );
+                          },
+                      },
+                      testID: 'kitchen-recipe-issues-zero-packaging',
+                  },
+              ]),
+    ];
+
     const firstUnmapped = unmappedDraftEntries[0];
     const headsUpCards: IssueCardItem[] = [
         ...quietChecks,
+        ...optionalFieldCards,
         ...uncostedNotice,
         ...(firstUnmapped === undefined || lines.length === 0
             ? []
@@ -2851,6 +2907,15 @@ function RecipeEditor({
               ]),
     ];
 
+    /*
+     * While the field the gap is about still says what it needs — Pieces produced, or the line's
+     * Qty — the card's Fix takes the reader there; once it is filled, the card's action is Publish.
+     */
+    const fixStillOwed =
+        piecesFixMessage !== undefined ||
+        (fixRow !== undefined && fixLineMessage(fixRow) !== undefined);
+    const fixOwedFieldId = fixStillOwed && editable ? fixFieldId : null;
+
     const stockGapCards: IssueCardItem[] =
         fix === null || fixPublished
             ? []
@@ -2863,20 +2928,27 @@ function RecipeEditor({
                       testID: 'kitchen-recipe-stock-gap',
                       action: !canManage
                           ? undefined
-                          : isEditable
+                          : fixOwedFieldId !== null
                             ? {
-                                  label: t('kitchen:publish.action'),
-                                  onPress: savePublish,
-                                  testID: 'kitchen-recipe-stock-gap-publish',
+                                  onPress: () => {
+                                      goTo('production', fixOwedFieldId);
+                                  },
+                                  testID: 'kitchen-recipe-stock-gap-field',
                               }
-                            : isViewingCurrent
+                            : isEditable
                               ? {
-                                    label: t('kitchen:recipes.newDraft'),
-                                    loading: openDraft.isPending,
-                                    onPress: openNewDraft,
-                                    testID: 'kitchen-recipe-stock-gap-new-draft',
+                                    label: t('kitchen:publish.action'),
+                                    onPress: savePublish,
+                                    testID: 'kitchen-recipe-stock-gap-publish',
                                 }
-                              : undefined,
+                              : isViewingCurrent
+                                ? {
+                                      label: t('kitchen:recipes.newDraft'),
+                                      loading: openDraft.isPending,
+                                      onPress: openNewDraft,
+                                      testID: 'kitchen-recipe-stock-gap-new-draft',
+                                  }
+                                : undefined,
                       secondaryAction: !cameBack
                           ? undefined
                           : {

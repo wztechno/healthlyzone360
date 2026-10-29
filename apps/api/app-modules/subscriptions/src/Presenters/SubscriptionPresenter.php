@@ -231,9 +231,8 @@ final class SubscriptionPresenter
             'starts_on' => $facts['started_on'] ?? null,
             'weekly_price_minor' => $subscription->effective_day_price_minor * $weekdayCount,
 
-            'allows_free_selection' => $profile instanceof SubscriptionPlanProfile
-                ? $profile->allows_free_selection
-                : false,
+            // Every plan is choose-your-own: the customer picks each day's meals.
+            'allows_free_selection' => true,
             'change_cutoff_hours' => $profile instanceof SubscriptionPlanProfile
                 ? $profile->change_cutoff_hours
                 : ChangeWindow::DEFAULT_CUTOFF_HOURS,

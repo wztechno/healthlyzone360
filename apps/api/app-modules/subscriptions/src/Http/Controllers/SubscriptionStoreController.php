@@ -74,6 +74,7 @@ final class SubscriptionStoreController
             deliveryWindowCode: $payload['delivery_window_code'] ?? null,
             noSubstitutions: (bool) ($payload['no_substitutions'] ?? false),
             startFrom: $startFrom === null ? null : CarbonImmutable::createFromFormat('Y-m-d', $startFrom)->startOfDay(),
+            days: $payload['days'],
         ));
 
         return ApiResponse::data(

@@ -13,6 +13,7 @@ import type {
     SubscriptionState,
 } from '@healthy360/domain-types';
 
+import type { MealSlot, PlanSitting } from './marketplace.ts';
 import type { CursorPage, CursorPageRequest } from './pagination.ts';
 
 /**
@@ -149,14 +150,28 @@ export interface SubscriptionConfiguration {
     readonly slotCode: string;
     readonly address: DeliveryAddress;
     /**
-     * Explicit meal choices, where the plan allows selection.
+     * The customer's meals for every delivery day, chosen before paying. Empty on a subscription
+     * read back from the server — its days are {@link CommerceRepository.listSubscriptionDays}.
      *
      * There is no diet or allergen field here on purpose. Neither is a property of a subscription:
      * a plan's diet classification belongs to the plan, and safety comes from the customer's
-     * dietary profile, which generation applies to every delivery. A per-subscription "leave out"
-     * list used to be collected here and sent nowhere.
+     * dietary profile, which generation applies to every delivery.
      */
-    readonly selectedMealIds: readonly MealId[];
+    readonly days: readonly ChosenDay[];
+}
+
+/** One sitting of one day, filled with a dish. */
+export interface ChosenMeal {
+    readonly slot: MealSlot;
+    readonly sequence: number;
+    readonly mealId: MealId;
+}
+
+/** One delivery day's meals — every sitting the configuration serves. */
+export interface ChosenDay {
+    /** `YYYY-MM-DD`. */
+    readonly date: string;
+    readonly meals: readonly ChosenMeal[];
 }
 
 export interface SubscriptionPreview {
@@ -386,17 +401,49 @@ export interface SetSubscriptionWeekdaysRequest {
     readonly deliveryWeekdays: readonly number[];
 }
 
-/** Who chose this meal. `kitchen_default` is the fallback when nobody chose ahead of the cut-off. */
-export const MEAL_CHOICE_SOURCES = ['customer', 'kitchen_default', 'substituted'] as const;
+/**
+ * Who chose this meal. `repeated` is a day nobody chose for (a skip pushed the balance onto it),
+ * filled with the customer's own latest choices for that weekday; `kitchen_default` is a slot the
+ * retired plan menu filled.
+ */
+export const MEAL_CHOICE_SOURCES = [
+    'customer',
+    'kitchen_default',
+    'substituted',
+    'repeated',
+] as const;
 export type MealChoiceSource = (typeof MEAL_CHOICE_SOURCES)[number];
 
 export interface SubscriptionMealChoice {
     /** `YYYY-MM-DD` — the delivery day this choice is for. */
     readonly date: string;
-    readonly slot: string;
+    readonly slot: MealSlot;
+    readonly sequence: number;
     readonly mealId: MealId;
     readonly mealName: string;
     readonly source: MealChoiceSource;
+}
+
+/**
+ * One delivery day of a subscription, from today to the end of the balance, with its meals.
+ *
+ * `basis` says whether the day has a delivery row (`actual`) or is what the weekdays and the
+ * balance say is coming (`projected`). `editable` is the server's answer — the change window is
+ * open and nothing has been generated — so a screen never offers a change the write will refuse.
+ */
+export interface SubscriptionPlanDay {
+    readonly date: string;
+    readonly basis: 'actual' | 'projected';
+    readonly status: string;
+    readonly editable: boolean;
+    readonly changeDeadline: IsoDateTime;
+    readonly meals: readonly SubscriptionMealChoice[];
+}
+
+export interface SubscriptionPlanDays {
+    /** The sittings every day of this subscription fills, as sold. */
+    readonly sittings: readonly PlanSitting[];
+    readonly days: readonly SubscriptionPlanDay[];
 }
 
 /**
@@ -408,7 +455,8 @@ export interface SubscriptionMealChoice {
  */
 export interface SetSubscriptionMealChoicesRequest {
     readonly date: string;
-    readonly choices: readonly { readonly slot: string; readonly mealId: MealId }[];
+    /** Every sitting of the day — the server refuses a partial day as `meals_incomplete`. */
+    readonly choices: readonly ChosenMeal[];
 }
 
 /** Why a plan cannot be quoted. The backend's own refusal vocabulary, verbatim. */
@@ -622,15 +670,19 @@ export interface CommerceRepository {
     ): Promise<Subscription>;
 
     /**
-     * `PUT /api/v1/subscriptions/{subscription}/meal-choices` — Free Selection, choosing ahead.
-     *
-     * Answers the day's choices as they now stand, including the `kitchen_default` rows the person
-     * did not override, so the editor can redraw the whole day from one answer.
+     * `PUT /api/v1/me/subscriptions/{subscription}/choices` — change one day's meals before its
+     * cut-off. The whole day, every sitting.
      */
     setSubscriptionMealChoices(
         subscriptionId: SubscriptionId,
         request: SetSubscriptionMealChoicesRequest,
     ): Promise<readonly SubscriptionMealChoice[]>;
+
+    /**
+     * `GET /api/v1/me/subscriptions/{subscription}/days` — the customer's meals, day by day, to
+     * the end of the balance.
+     */
+    listSubscriptionDays(subscriptionId: SubscriptionId): Promise<SubscriptionPlanDays>;
 }
 
 /** Placed orders. Declared for completeness of the identifier vocabulary; not read in Phase 2. */

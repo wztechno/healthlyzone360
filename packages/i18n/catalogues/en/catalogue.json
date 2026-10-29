@@ -476,7 +476,6 @@
         "durationTotal": "{{total}} in total",
         "durationDiscount": "{{discount}}% off",
         "durationNoDiscount": "No discount",
-        "sampleMenuTitle": "A sample week",
         "configure": "Set up plan",
         "configureSignIn": "Sign in to configure it",
         "priceTitle": "Price",

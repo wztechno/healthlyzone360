@@ -8,21 +8,17 @@ import {
 import type {
     AdminEntityMeta,
     CursorPage,
-    MealAdmin,
     PlanAdmin,
     PlanAdminFilter,
     PlanCombination,
     PlanDurationAdmin,
-    PlanMenu,
     PlanVariantAdmin,
     PriceListAdmin,
     PriceListEntry,
     PublishableStatus,
 } from '@healthy360/api-client/contracts';
 import {
-    IngredientId,
     KitchenId,
-    MealId,
     PlanVariantId,
     PriceListId,
     RoleId,
@@ -142,11 +138,10 @@ beforeEach(() => {
 });
 
 /**
- * Opens one of the plan editor's steps from its progress row (Commercial §3.3). The durations and
- * the fixed menu each have a step of their own, so a suite that works on them presses it first, as a
- * person would.
+ * Opens one of the plan editor's steps from its progress row (Commercial §3.3). The durations have a
+ * step of their own, so a suite that works on them presses it first, as a person would.
  */
-async function openPlanStep(step: 'variants' | 'matrix' | 'durations' | 'plan' | 'menu') {
+async function openPlanStep(step: 'variants' | 'matrix' | 'durations' | 'plan') {
     await untilVisible(`kitchen-plan-editor-screen-steps-${step}`);
     await act(async () => {
         fireEvent.press(screen.getByTestId(`kitchen-plan-editor-screen-steps-${step}`));
@@ -232,7 +227,7 @@ function untilVisible(testID: string) {
  * Waits for a step tab's red count. The pill is hidden from assistive technology — the tab's own
  * name says it — so it is found with the hidden elements included.
  */
-function untilStepPill(step: 'variants' | 'matrix' | 'durations' | 'plan' | 'menu') {
+function untilStepPill(step: 'variants' | 'matrix' | 'durations' | 'plan') {
     return waitFor(
         () => {
             expect(
@@ -245,7 +240,7 @@ function untilStepPill(step: 'variants' | 'matrix' | 'durations' | 'plan' | 'men
     );
 }
 
-function stepPill(step: 'variants' | 'matrix' | 'durations' | 'plan' | 'menu') {
+function stepPill(step: 'variants' | 'matrix' | 'durations' | 'plan') {
     return screen.queryByTestId(`kitchen-plan-editor-screen-steps-${step}-issues`, {
         includeHiddenElements: true,
     });
@@ -307,91 +302,6 @@ function planCombination(overrides: Partial<PlanCombination> = {}): PlanCombinat
 
 function planDuration(overrides: Partial<PlanDurationAdmin> = {}): PlanDurationAdmin {
     return { kind: 'fixed_days', days: 5, discountPercent: 0, ...overrides };
-}
-
-function mealIdentifier(ordinal: number): MealId {
-    return MealId.unsafe(`01935f6d-0000-7000-8000-0000000e00${String(ordinal).padStart(2, '0')}`);
-}
-
-/** A published dish, as the menu picker's listing hands it over. */
-function adminMeal(ordinal: number, overrides: Partial<MealAdmin> = {}): MealAdmin {
-    return {
-        id: mealIdentifier(ordinal),
-        meta: meta(),
-        name: { en: `Dish ${String(ordinal)}`, ar: `طبق ${String(ordinal)}` },
-        description: { en: '', ar: '' },
-        kitchenCategory: null,
-        kitchenSubcategory: null,
-        composition: null,
-        kitchenId: KITCHEN_ID,
-        recipeId: null,
-        recipeVersionId: null,
-        productionMode: null,
-        ingredientId: null,
-        sellsFromFinishedStock: false,
-        netContentQuantity: null,
-        netContentUnitId: null,
-        portionFactor: 1,
-        mealTypes: [],
-        dietClassifications: [],
-        allergens: [],
-        channelAvailability: [],
-        availability: [],
-        imagePlaceholderId: '',
-        marginPercent: null,
-        ...overrides,
-    };
-}
-
-/**
- * A plan's menu, defaulting to the one every plan has: none.
- *
- * `meta` is the *item's*, which is what makes the menu's save and the other four answer to one lock
- * version — see {@link planWorld}, where the world enforces exactly that.
- */
-function planMenu(plan: PlanAdmin, overrides: Partial<PlanMenu> = {}): PlanMenu {
-    return {
-        planId: plan.id,
-        meta: plan.meta,
-        cycleDays: null,
-        anchorDate: null,
-        entries: [],
-        ...overrides,
-    };
-}
-
-/** A published week: two dishes on day 1, one on day 3. */
-function publishedMenu(plan: PlanAdmin): PlanMenu {
-    return planMenu(plan, {
-        cycleDays: 7,
-        anchorDate: '2026-09-07',
-        entries: [
-            {
-                id: 'menu-1',
-                cycleDay: 1,
-                slot: 'breakfast',
-                sequence: 1,
-                mealId: mealIdentifier(1),
-                mealName: adminMeal(1).name,
-            },
-            {
-                id: 'menu-2',
-                cycleDay: 1,
-                slot: 'lunch',
-                sequence: 1,
-                mealId: mealIdentifier(2),
-                mealName: adminMeal(2).name,
-            },
-            {
-                id: 'menu-3',
-                cycleDay: 3,
-                slot: 'dinner',
-                sequence: 1,
-                mealId: mealIdentifier(2),
-                mealName: adminMeal(2).name,
-            },
-        ],
-    });
 }
 
 /**
@@ -577,18 +487,9 @@ function planListing(
 interface PlanWorld {
     /** The record as the world holds it *now* — the replacement for a mock-store reach-in. */
     read: () => PlanAdmin;
-    /** The plan's menu as the world holds it now. Its own document, on its own endpoint. */
-    readMenu: () => PlanMenu;
     /** Moves the record on behind the screen's back, the way another writer would. */
     write: (next: PlanAdmin) => void;
     readonly overrides: RepositoryOverrides;
-}
-
-interface PlanWorldOptions {
-    /** What the server already holds. Defaults to no menu, which is what a new plan has. */
-    readonly menu?: PlanMenu;
-    /** The published dishes the menu picker offers. */
-    readonly meals?: readonly MealAdmin[];
 }
 
 /**
@@ -603,15 +504,9 @@ interface PlanWorldOptions {
  * next save would be minted a *fresh* identifier and orphan every price entry pointing at the old
  * one.
  */
-function planWorld(
-    initial: PlanAdmin,
-    priceLists: readonly PriceListAdmin[] = [],
-    options: PlanWorldOptions = {},
-): PlanWorld {
+function planWorld(initial: PlanAdmin, priceLists: readonly PriceListAdmin[] = []): PlanWorld {
     let stored = initial;
     let minted = 0;
-    const meals = options.meals ?? [];
-    let storedMenu = options.menu ?? planMenu(initial);
 
     const requireVersion = (lockVersion: number): void => {
         if (lockVersion !== stored.meta.lockVersion) {
@@ -638,7 +533,6 @@ function planWorld(
 
     return {
         read: () => stored,
-        readMenu: () => storedMenu,
         write: (next) => {
             stored = next;
         },
@@ -646,33 +540,7 @@ function planWorld(
             kitchenAdmin: {
                 listPlans: planListing(() => [stored]),
                 listPriceLists: async () => page(priceLists),
-                listMeals: async () => page(meals),
                 getPlan: async () => stored,
-                // The menu always reports the *item's* current version, because that is the one
-                // `If-Match` carries: `subscription_plan_profiles` has no lock version of its own.
-                getPlanMenu: async () => ({ ...storedMenu, meta: stored.meta }),
-                replacePlanMenu: async (_planId, request) => {
-                    requireVersion(request.lockVersion);
-                    const committed = commit({});
-                    storedMenu = {
-                        planId: committed.id,
-                        meta: committed.meta,
-                        cycleDays: request.cycleDays,
-                        anchorDate: request.anchorDate,
-                        entries: request.entries.map((entry, index) => ({
-                            id: `saved-menu-${String(index)}`,
-                            cycleDay: entry.cycleDay,
-                            slot: entry.slot,
-                            sequence: entry.sequence,
-                            mealId: entry.mealId,
-                            mealName: meals.find((meal) => meal.id === entry.mealId)?.name ?? {
-                                en: '',
-                                ar: '',
-                            },
-                        })),
-                    };
-                    return storedMenu;
-                },
                 updatePlan: async (_planId, request) => {
                     requireVersion(request.lockVersion);
                     return commit({
@@ -1328,11 +1196,10 @@ describe('editing the matrix', () => {
         await renderStubScreen(<PlanEditScreen plan="not-a-uuid" />, {
             session: kitchenManagerSession(),
             // The record query never runs — the identifier does not parse — but the price
-            // coverage and the menu picker's dish listing are unconditional hooks and still ask.
+            // coverage is an unconditional hook and still asks.
             repositories: {
                 kitchenAdmin: {
                     listPriceLists: async () => page([]),
-                    listMeals: async () => page([]),
                 },
             },
         });
@@ -2072,273 +1939,6 @@ describe('editing the durations', () => {
  * Publication
  * ---------------------------------------------------------------------------------------------- */
 
-/* ------------------------------------------------------------------------------------------------
- * The fifth section
- * ---------------------------------------------------------------------------------------------- */
-
-describe('editing the fixed menu', () => {
-    /** Both dishes this kitchen has published, which is all the picker may offer. */
-    const publishedMeals = [adminMeal(1), adminMeal(2)];
-
-    /** `menuEntryDraft` keys a server row `seed-menu-{index}-{id}`; the fixture ids are ours. */
-    const rowTestId = (index: number, id: string): string =>
-        `kitchen-plan-menu-days-row-seed-menu-${String(index)}-${id}`;
-
-    it('draws the rotation a day at a time, including the days nothing is served on', async () => {
-        const spread = spreadPlan();
-        const world = planWorld(spread, pricedVariants(spread), {
-            menu: publishedMenu(spread),
-            meals: publishedMeals,
-        });
-
-        await renderStubScreen(<PlanEditScreen plan={String(spread.id)} />, {
-            session: kitchenManagerSession(),
-            repositories: world.overrides,
-        });
-        await openPlanStep('menu');
-        await untilVisible('kitchen-plan-menu-days');
-
-        // Seven cards for a seven-day rotation. A blank Thursday is a fact about the menu, so it
-        // is drawn and says so rather than simply not appearing.
-        expect(screen.getByTestId('kitchen-plan-menu-days-day-1')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-plan-menu-days-day-7')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-plan-menu-days-day-4-empty')).toBeTruthy();
-        expect(screen.queryByTestId('kitchen-plan-menu-days-day-8')).toBeNull();
-
-        // Day 1 holds two dishes; day 3 holds one.
-        expect(screen.getByTestId(rowTestId(0, 'menu-1'))).toBeTruthy();
-        expect(screen.getByTestId(rowTestId(1, 'menu-2'))).toBeTruthy();
-        expect(screen.getByTestId(rowTestId(2, 'menu-3'))).toBeTruthy();
-
-        // A published menu says so, and offers the withdrawal rather than hiding it.
-        expect(screen.getByTestId('kitchen-plan-menu-withdraw')).toBeTruthy();
-        expect(screen.queryByTestId('kitchen-plan-menu-cutover')).toBeNull();
-    });
-
-    it('saves the menu on its own control, carrying the version it was read at', async () => {
-        const spread = spreadPlan();
-        const world = planWorld(spread, pricedVariants(spread), {
-            menu: publishedMenu(spread),
-            meals: publishedMeals,
-        });
-
-        const { repositories } = await renderStubScreen(
-            <PlanEditScreen plan={String(spread.id)} />,
-            {
-                session: kitchenManagerSession(),
-                repositories: world.overrides,
-            },
-        );
-        await openPlanStep('menu');
-        await untilVisible('kitchen-plan-menu-days');
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${rowTestId(1, 'menu-2')}-remove`));
-        });
-        await waitFor(() => {
-            expect(screen.queryByTestId(rowTestId(1, 'menu-2'))).toBeNull();
-        });
-        // Editing the menu arms the same guard the other four sections arm.
-        expect(screen.getByTestId('kitchen-plan-editor-screen-dirty')).toBeTruthy();
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-plan-menu-save'));
-        });
-
-        await waitFor(() => {
-            expect(world.readMenu().entries).toHaveLength(2);
-        });
-
-        // The fifth write, like the four before it, sends the *item's* lock version — and the
-        // whole document, cycle and anchor included, because that is what "replace" means.
-        expect(repositories.kitchenAdmin.replacePlanMenu).toHaveBeenCalledWith(
-            spread.id,
-            expect.objectContaining({
-                lockVersion: spread.meta.lockVersion,
-                cycleDays: 7,
-                anchorDate: '2026-09-07',
-            }),
-        );
-        expect(world.read().meta.lockVersion).toBe(spread.meta.lockVersion + 1);
-    });
-
-    it('picks a dish from this kitchen’s published meals and saves it into the slot', async () => {
-        const spread = spreadPlan();
-        const world = planWorld(spread, pricedVariants(spread), {
-            menu: publishedMenu(spread),
-            meals: publishedMeals,
-        });
-
-        await renderStubScreen(<PlanEditScreen plan={String(spread.id)} />, {
-            session: kitchenManagerSession(),
-            repositories: world.overrides,
-        });
-        await openPlanStep('menu');
-        await untilVisible('kitchen-plan-menu-days');
-
-        const picker = `${rowTestId(0, 'menu-1')}-meal`;
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${picker}-trigger`));
-        });
-        await untilVisible(`${picker}-list`);
-
-        // Both published dishes are offered; nothing else can be.
-        expect(screen.getByTestId(`${picker}-option-${String(mealIdentifier(1))}`)).toBeTruthy();
-        expect(screen.getByTestId(`${picker}-option-${String(mealIdentifier(2))}`)).toBeTruthy();
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${picker}-option-${String(mealIdentifier(2))}`));
-        });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-plan-menu-save'));
-        });
-
-        await waitFor(() => {
-            expect(String(world.readMenu().entries[0]?.mealId)).toBe(String(mealIdentifier(2)));
-        });
-    });
-
-    it('offers a published meal that is linked to an ingredient', async () => {
-        const spread = spreadPlan();
-        // A stocked meal carries an ingredient link and is still a dish a plan can serve.
-        const stocked = adminMeal(3, {
-            name: { en: 'Hummus Dip', ar: 'حمص' },
-            ingredientId: IngredientId.unsafe('01935f6d-0000-7000-8000-0000000f0003'),
-        });
-        const world = planWorld(spread, pricedVariants(spread), {
-            menu: publishedMenu(spread),
-            meals: [...publishedMeals, stocked],
-        });
-
-        await renderStubScreen(<PlanEditScreen plan={String(spread.id)} />, {
-            session: kitchenManagerSession(),
-            repositories: world.overrides,
-        });
-        await openPlanStep('menu');
-        await untilVisible('kitchen-plan-menu-days');
-
-        const picker = `${rowTestId(0, 'menu-1')}-meal`;
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`${picker}-trigger`));
-        });
-        await untilVisible(`${picker}-list`);
-
-        expect(screen.getByTestId(`${picker}-option-${String(mealIdentifier(2))}`)).toBeTruthy();
-        expect(screen.getByTestId(`${picker}-option-${String(stocked.id)}`)).toBeTruthy();
-    });
-
-    it('states the stock cutover only when this save would publish the first menu', async () => {
-        const spread = spreadPlan();
-        const world = planWorld(spread, pricedVariants(spread), { meals: publishedMeals });
-
-        const { repositories } = await renderStubScreen(
-            <PlanEditScreen plan={String(spread.id)} />,
-            {
-                session: kitchenManagerSession(),
-                repositories: world.overrides,
-            },
-        );
-        await openPlanStep('menu');
-        await untilVisible('kitchen-plan-menu');
-
-        // A plan with no menu has nothing to withdraw, and is not warned about anything.
-        expect(screen.queryByTestId('kitchen-plan-menu-cutover')).toBeNull();
-        expect(screen.queryByTestId('kitchen-plan-menu-withdraw')).toBeNull();
-
-        // Giving the rotation a length is already enough to make this a menu — and a cutover.
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-plan-menu-cycle-days-input'), '7');
-        });
-        await untilVisible('kitchen-plan-menu-cutover');
-
-        // ...and the one-document rule refuses the save until all three parts are there.
-        expect(screen.getByTestId('kitchen-plan-menu-blocked')).toBeTruthy();
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-plan-menu-save'));
-        });
-        expect(repositories.kitchenAdmin.replacePlanMenu).not.toHaveBeenCalled();
-    });
-
-    it('marks the days a shortened cycle leaves behind rather than deleting them', async () => {
-        const spread = spreadPlan();
-        const world = planWorld(spread, pricedVariants(spread), {
-            menu: publishedMenu(spread),
-            meals: publishedMeals,
-        });
-
-        const { repositories } = await renderStubScreen(
-            <PlanEditScreen plan={String(spread.id)} />,
-            {
-                session: kitchenManagerSession(),
-                repositories: world.overrides,
-            },
-        );
-        await openPlanStep('menu');
-        await untilVisible('kitchen-plan-menu-days');
-
-        // Seven days down to two.
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-plan-menu-cycle-days-input'), '2');
-        });
-
-        await untilVisible('kitchen-plan-menu-days-day-3-beyond');
-        // The dish is still there. It is marked, not discarded.
-        expect(screen.getByTestId(rowTestId(2, 'menu-3'))).toBeTruthy();
-        expect(screen.getByTestId(`${rowTestId(2, 'menu-3')}-error`)).toBeTruthy();
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-plan-menu-save'));
-        });
-        expect(repositories.kitchenAdmin.replacePlanMenu).not.toHaveBeenCalled();
-        expect(world.readMenu().entries).toHaveLength(3);
-    });
-
-    it('withdraws the menu through a dialog that says what stops', async () => {
-        const spread = spreadPlan();
-        const world = planWorld(spread, pricedVariants(spread), {
-            menu: publishedMenu(spread),
-            meals: publishedMeals,
-        });
-
-        const { repositories } = await renderStubScreen(
-            <PlanEditScreen plan={String(spread.id)} />,
-            {
-                session: kitchenManagerSession(),
-                repositories: world.overrides,
-            },
-        );
-        await openPlanStep('menu');
-        await untilVisible('kitchen-plan-menu-withdraw');
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-plan-menu-withdraw'));
-        });
-        await untilVisible('kitchen-plan-menu-withdraw-dialog');
-        expect(screen.getByTestId('kitchen-plan-menu-withdraw-consequence')).toBeTruthy();
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-plan-menu-withdraw-confirm'));
-        });
-
-        await waitFor(() => {
-            expect(world.readMenu().entries).toHaveLength(0);
-        });
-        expect(world.readMenu().cycleDays).toBeNull();
-        expect(world.readMenu().anchorDate).toBeNull();
-
-        // All three parts are *stated* as empty rather than omitted — that is the withdrawal.
-        expect(repositories.kitchenAdmin.replacePlanMenu).toHaveBeenCalledWith(
-            spread.id,
-            expect.objectContaining({
-                lockVersion: spread.meta.lockVersion,
-                cycleDays: null,
-                anchorDate: null,
-                entries: [],
-            }),
-        );
-    });
-});
-
 describe('publishing a plan', () => {
     it('creates a plan as a draft rather than publishing one on sight', async () => {
         let created: PlanAdmin | null = null;
@@ -2390,11 +1990,12 @@ describe('publishing a plan', () => {
         await untilVisible('kitchen-plan-details');
 
         // A new plan is the whole editor with nothing in it (Commercial §3.3): the matrix,
-        // configurations, durations and the menu are offered now and written by the one Save.
-        // Publication is never offered before the record exists.
+        // configurations and durations are offered now and written by the one Save. There is no
+        // menu step — subscribers choose their own meals. Publication is never offered before the
+        // record exists.
         expect(screen.getByTestId('kitchen-plan-editor-screen-steps-matrix')).toBeTruthy();
         expect(screen.getByTestId('kitchen-plan-editor-screen-steps-durations')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-plan-editor-screen-steps-menu')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-plan-editor-screen-steps-menu')).toBeNull();
         expect(screen.queryByTestId('kitchen-plan-publish')).toBeNull();
 
         await act(async () => {
@@ -2419,7 +2020,7 @@ describe('publishing a plan', () => {
         expect(stepPill('variants')).toBeNull();
 
         // Saved from the last step, as somebody who walked the whole form would.
-        await openPlanStep('menu');
+        await openPlanStep('durations');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-plan-editor-screen-save'));
         });
@@ -2451,14 +2052,11 @@ describe('publishing a plan', () => {
             fireEvent.changeText(screen.getByTestId(`${duration}-days-input`), '20');
         });
 
-        // The menu is optional: left empty, the plan is created with none and nothing is written.
-        await openPlanStep('menu');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-plan-editor-screen-save'));
         });
 
         await untilVisible('kitchen-plan-created-toast');
-        expect(repositories.kitchenAdmin.replacePlanMenu).not.toHaveBeenCalled();
         expect(repositories.kitchenAdmin.setPlanVariants).toHaveBeenCalledWith(
             planIdentifier(9),
             expect.objectContaining({ lockVersion: 1 }),
@@ -2485,174 +2083,6 @@ describe('publishing a plan', () => {
         expect(routerMock.__replace).toHaveBeenCalledWith(
             `/kitchen/plans/${String(planIdentifier(9))}`,
         );
-    });
-
-    it('writes a new plan’s menu in the same Save, after its durations', async () => {
-        let created: PlanAdmin | null = null;
-        const bump = (lockVersion: number): PlanAdmin => {
-            created = {
-                ...created!,
-                meta: meta({ status: 'draft', lockVersion: lockVersion + 1 }),
-            };
-            return created;
-        };
-
-        const { repositories } = await renderStubScreen(<PlanEditScreen plan="new" />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenAdmin: {
-                    listPlans: planListing(() => (created === null ? [] : [created])),
-                    listPriceLists: async () => page([]),
-                    listMeals: async () => page([adminMeal(1)]),
-                    createPlan: async (request) => {
-                        created = {
-                            id: planIdentifier(9),
-                            meta: meta({ status: 'draft', lockVersion: 1 }),
-                            name: request.name,
-                            summary: request.summary,
-                            description: request.description,
-                            kitchenId: KITCHEN_ID,
-                            categorySlugs: [],
-                            dietClassifications: [],
-                            variants: [],
-                            durations: [],
-                            combinations: [],
-                            changeCutOffHours: 24,
-                            deliveryWeekdays: [1, 2, 3, 4, 5],
-                        };
-                        return created;
-                    },
-                    setPlanVariants: async (_id, request) => bump(request.lockVersion),
-                    setPlanDurations: async (_id, request) => bump(request.lockVersion),
-                    replacePlanMenu: async (_id, request) => {
-                        const saved = bump(request.lockVersion);
-                        return {
-                            planId: saved.id,
-                            meta: saved.meta,
-                            cycleDays: request.cycleDays,
-                            anchorDate: request.anchorDate,
-                            entries: [],
-                        };
-                    },
-                },
-            },
-        });
-        await untilVisible('kitchen-plan-details');
-
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-plan-name-en-input'), 'Autumn reset');
-        });
-
-        await openPlanStep('variants');
-        const configuration = 'kitchen-plan-variants-row-variant-starter';
-        for (const [field, value] of [
-            ['name', 'Standard 1500'],
-            ['meals', '3'],
-            ['snacks', '1'],
-            ['energy-min', '1400'],
-            ['energy-max', '1600'],
-        ] as const) {
-            await act(async () => {
-                fireEvent.changeText(screen.getByTestId(`${configuration}-${field}-input`), value);
-            });
-        }
-
-        await openPlanStep('durations');
-        await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId('kitchen-plan-duration-rows-row-duration-starter-days-input'),
-                '20',
-            );
-        });
-
-        // A one-day rotation, its day 1 picked from the calendar, and one dish on it. The picker
-        // opens on the current month, so the first of it is always on screen.
-        const anchor = `${new Date().toISOString().slice(0, 8)}01`;
-        await openPlanStep('menu');
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-plan-menu-cycle-days-input'), '1');
-        });
-        const pick = async (select: string, value: string) => {
-            await act(async () => {
-                fireEvent.press(screen.getByTestId(`${select}-trigger`));
-            });
-            await untilVisible(`${select}-option-${value}`);
-            await act(async () => {
-                fireEvent.press(screen.getByTestId(`${select}-option-${value}`));
-            });
-        };
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-plan-menu-anchor-trigger'));
-        });
-        await untilVisible(`kitchen-plan-menu-anchor-day-${anchor}`);
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`kitchen-plan-menu-anchor-day-${anchor}`));
-        });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-plan-menu-days-day-1-add'));
-        });
-        await pick('kitchen-plan-menu-days-row-menu-1-meal', String(mealIdentifier(1)));
-
-        // No cutover warning: it speaks of orders generated without dishes, and there are none.
-        expect(screen.queryByTestId('kitchen-plan-menu-cutover')).toBeNull();
-        expect(screen.queryByTestId('kitchen-plan-menu-save')).toBeNull();
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-plan-editor-screen-save'));
-        });
-        await untilVisible('kitchen-plan-created-toast');
-
-        // Fourth in the chain, at the version the durations' echo carried.
-        expect(repositories.kitchenAdmin.replacePlanMenu).toHaveBeenCalledWith(
-            planIdentifier(9),
-            expect.objectContaining({
-                lockVersion: 3,
-                cycleDays: 1,
-                anchorDate: anchor,
-                entries: [
-                    {
-                        cycleDay: 1,
-                        slot: 'breakfast',
-                        sequence: 1,
-                        mealId: mealIdentifier(1),
-                    },
-                ],
-            }),
-        );
-        expect(repositories.kitchenAdmin.createPlan).toHaveBeenCalledTimes(1);
-    });
-
-    it('will not create a plan over a half-written menu', async () => {
-        const { repositories } = await renderStubScreen(<PlanEditScreen plan="new" />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenAdmin: {
-                    listPlans: planListing(() => []),
-                    listPriceLists: async () => page([]),
-                    listMeals: async () => page([adminMeal(1)]),
-                },
-            },
-        });
-        await untilVisible('kitchen-plan-details');
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-plan-name-en-input'), 'Autumn reset');
-        });
-
-        // A cycle with no anchor and no dishes is not a menu the server would take.
-        await openPlanStep('menu');
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-plan-menu-cycle-days-input'), '7');
-        });
-        await untilVisible('kitchen-plan-menu-blocked');
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-plan-editor-screen-save'));
-        });
-        // Counted on its step beside the empty starter rows, so the reader is told before
-        // anything is written.
-        await untilStepPill('menu');
-        expect(stepPill('variants')).toBeTruthy();
-        expect(repositories.kitchenAdmin.createPlan).not.toHaveBeenCalled();
     });
 
     it('lists every reason a half-built plan cannot be published', async () => {
@@ -2690,42 +2120,12 @@ describe('publishing a plan', () => {
         });
     });
 
-    it('blocks publication while a saved menu has days nobody is served on', async () => {
-        const ready = spreadPlan({ meta: meta({ status: 'retired' }) });
-        // Seven days, dishes on two of them: five subscribers' days with nothing on the plate.
-        const world = planWorld(ready, pricedVariants(ready), {
-            menu: publishedMenu(ready),
-            meals: [adminMeal(1), adminMeal(2)],
-        });
-
-        await renderStubScreen(<PlanEditScreen plan={String(ready.id)} />, {
-            session: kitchenManagerSession(),
-            repositories: world.overrides,
-        });
-        await untilVisible('kitchen-plan-publish');
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-plan-publish'));
-        });
-        await untilVisible('kitchen-plan-publish-dialog');
-
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-plan-publish-blocked')).toHaveTextContent(
-                /5 menu days have no dish/i,
-            );
-        });
-        expect(
-            screen.getByTestId('kitchen-plan-publish-confirm').props.accessibilityState?.disabled,
-        ).toBe(true);
-    });
-
     it('opens the step the server refused when the one Save of a new plan fails there', async () => {
         const { repositories } = await renderStubScreen(<PlanEditScreen plan="new" />, {
             session: kitchenManagerSession(),
             repositories: {
                 kitchenAdmin: {
                     listPriceLists: async () => page([]),
-                    listMeals: async () => page([]),
                     createPlan: async (request) => ({
                         id: planIdentifier(9),
                         meta: meta({ status: 'draft', lockVersion: 1 }),
@@ -2779,7 +2179,6 @@ describe('publishing a plan', () => {
         });
 
         // Save is pressed from the last step; the refusal is about the second.
-        await openPlanStep('menu');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-plan-editor-screen-save'));
         });

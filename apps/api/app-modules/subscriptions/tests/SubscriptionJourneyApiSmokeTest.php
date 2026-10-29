@@ -96,6 +96,10 @@ it('quotes, buys, skips, pauses and cancels without ever losing a balance day', 
 
     // --------------------------------------------------------------------- buy
 
+    // Every delivery day's meals, chosen before paying.
+    $lunch = SubscriptionWorld::dish($this->world, 'Grilled chicken');
+    $dinner = SubscriptionWorld::dish($this->world, 'Red lentil soup');
+
     $created = $this->postJson('/api/v1/subscriptions', [
         'sales_channel_id' => (string) $this->world->channel->getKey(),
         'branch_id' => (string) $this->world->branch->getKey(),
@@ -104,6 +108,7 @@ it('quotes, buys, skips, pauses and cancels without ever losing a balance day', 
         'plan_duration_id' => (string) $this->world->duration->getKey(),
         'customer_address_id' => (string) $this->world->customer->address->getKey(),
         'weekdays' => [1, 2, 3, 4, 5, 6, 7],
+        'days' => SubscriptionWorld::everyDay(SubscriptionWorld::firstDay($this->world), 20, (string) $lunch->getKey(), (string) $dinner->getKey()),
     ], firstPartyHeaders())
         ->assertCreated()
         ->assertJsonPath('data.subscription.status', SubscriptionStatus::Active->value)
@@ -222,12 +227,15 @@ it('starts a plan its kitchen never put on a channel, because plans have no chan
 
     $this->actingAs($this->customer);
 
+    $meal = SubscriptionWorld::dish($this->world, 'Grilled chicken');
+
     $this->postJson('/api/v1/subscriptions', [
         'catalogue_item_id' => (string) $this->world->plan->getKey(),
         'catalogue_item_variant_id' => (string) $this->world->configuration->getKey(),
         'plan_duration_days' => $this->world->duration->duration_days,
         'customer_address_id' => (string) $this->world->customer->address->getKey(),
         'weekdays' => [1, 2, 3, 4, 5, 6, 7],
+        'days' => SubscriptionWorld::everyDay(SubscriptionWorld::firstDay($this->world, withBranch: false), 20, (string) $meal->getKey(), (string) $meal->getKey()),
     ], firstPartyHeaders())
         ->assertCreated()
         ->assertJsonPath('data.subscription.status', SubscriptionStatus::Active->value);

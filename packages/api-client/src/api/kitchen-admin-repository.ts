@@ -29,7 +29,6 @@ import type {
     MealAdminFilter,
     PlanAdmin,
     PlanAdminFilter,
-    PlanMenu,
     PriceListAdmin,
     PriceListAdminFilter,
     ProductAdmin,
@@ -67,8 +66,6 @@ import type {
     PaginatedOrNumberedMeta,
     PlanDurationAssignment,
     PlanDurationOption,
-    PlanMenuCycle as WirePlanMenuCycle,
-    PlanMenuEntry as WirePlanMenuEntry,
     PlanProfile,
     PlanVariantCell,
     PriceListChannelAssignment,
@@ -93,7 +90,6 @@ import {
     mapMealAdminFromItem,
     mapPlanAdminFromItem,
     mapPlanCombination,
-    mapPlanMenu,
     mapPlanVariantsFromCells,
     mapPriceListAdmin,
     mapPriceListEntry,
@@ -223,7 +219,6 @@ export type ApiKitchenAdminReads = Pick<
     | 'getMeal'
     | 'listPlans'
     | 'getPlan'
-    | 'getPlanMenu'
     | 'listPriceLists'
     | 'getPriceList'
     | 'listZones'
@@ -1128,27 +1123,6 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     (code): code is DietClassification => isDietClassification(code),
                 ),
             });
-        },
-
-        /**
-         * The plan's fixed menu.
-         *
-         * One request, and **no `.catch(() => [])`** of the kind `getPlan` uses for its vocabulary
-         * reads: a menu that failed to load and rendered as an empty one would invite somebody to
-         * save that emptiness back, which is the write that withdraws the menu and turns the
-         * kitchen's stock deduction off again. A failure here has to reach the screen.
-         */
-        async getPlanMenu(planId: SubscriptionPlanId): Promise<PlanMenu> {
-            const envelope = await transport.requestEnvelope<{
-                item: AdminCatalogueItem;
-                cycle: WirePlanMenuCycle;
-                entries: WirePlanMenuEntry[];
-            }>({
-                method: 'GET',
-                path: `/catalogue/plans/${encodeURIComponent(String(planId))}/menu`,
-            });
-
-            return mapPlanMenu(envelope.data.item, envelope.data.cycle, envelope.data.entries);
         },
 
         async listPriceLists(filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>> {

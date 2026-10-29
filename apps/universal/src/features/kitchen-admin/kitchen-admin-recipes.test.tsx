@@ -2979,10 +2979,14 @@ describe('the steps', () => {
         expect(screen.getByTestId('kitchen-recipe-expiry-error')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-recipe-issues')).toBeNull();
 
-        // Save, from anywhere, takes the reader back to it.
+        // Save, from anywhere, says what stops it; its Show me takes the reader back to it.
         await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
+        });
+        await untilVisible('kitchen-recipe-tray-blocked');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-tray-blocked-show-me'));
         });
         await untilVisible('kitchen-recipe-expiry-input');
         expect(screen.getByTestId('kitchen-recipe-expiry-error')).toBeTruthy();
@@ -4832,33 +4836,50 @@ describe('adding an ingredient from the line picker', () => {
         expect(screen.queryByTestId(QUICK_ADD)).toBeNull();
     });
 
-    it('names a line ingredient that still owes its nutrition reference in the publish dialog', async () => {
+    it('names a line ingredient that still owes its nutrition reference when Publish is pressed', async () => {
         const owed = ingredient(4, {
             name: { en: 'Sumac', ar: 'سماق' },
             pendingNutrition: { suggestion: null },
         });
         const record = stored(6, [line(owed)]);
 
-        await renderStubScreen(<RecipeEditScreen recipe={String(record.id)} />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenAdmin: {
-                    ...editorReads(() => record),
-                    getIngredient: ingredientShow([...LIBRARY, owed]),
+        const { repositories, queryClient } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(record.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => record),
+                        getIngredient: ingredientShow([...LIBRARY, owed]),
+                    },
                 },
             },
-        });
+        );
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('sheet');
         await untilVisible('kitchen-recipe-publish');
+        // What the line owes is read off its ingredient, which loads after the version: until
+        // Sumac's read has landed there is nothing to name, so the press waits for it.
+        await waitFor(
+            () => {
+                expect(repositories.kitchenAdmin.getIngredient).toHaveBeenCalledWith(owed.id);
+                expect(queryClient.isFetching()).toBe(0);
+            },
+            { timeout: 10000 },
+        );
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-publish'));
         });
 
-        await untilVisible('kitchen-recipe-publish-blocked');
-        expect(screen.getByTestId('kitchen-recipe-publish-blocked')).toHaveTextContent(
+        // Owed by the draft on screen, so the notice says it rather than the publish dialog.
+        await untilVisible('kitchen-recipe-tray-blocked');
+        expect(screen.getByTestId('kitchen-recipe-tray-blocked-title')).toHaveTextContent(
+            '1 thing before publishing',
+        );
+        expect(screen.getByTestId('kitchen-recipe-tray-blocked-list')).toHaveTextContent(
             /Sumac needs its nutrition confirmed/,
         );
+        expect(screen.queryByTestId('kitchen-recipe-publish-dialog')).toBeNull();
     });
 });

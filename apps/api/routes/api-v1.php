@@ -109,8 +109,6 @@ use Healthy360\Catalogues\Http\Controllers\PlanDurationUpdateController;
 use Healthy360\Catalogues\Http\Controllers\PlanEnergyBandIndexController;
 use Healthy360\Catalogues\Http\Controllers\PlanEnergyBandStoreController;
 use Healthy360\Catalogues\Http\Controllers\PlanEnergyBandUpdateController;
-use Healthy360\Catalogues\Http\Controllers\PlanMenuIndexController;
-use Healthy360\Catalogues\Http\Controllers\PlanMenuReplaceController;
 use Healthy360\Catalogues\Http\Controllers\PlanProfileShowController;
 use Healthy360\Catalogues\Http\Controllers\PlanProfileUpdateController;
 use Healthy360\Catalogues\Http\Controllers\PlanVariantDurationIndexController;
@@ -345,6 +343,7 @@ use Healthy360\Recipes\Http\Controllers\RecipeVersionStoreController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionUpdateController;
 use Healthy360\Subscriptions\Http\Controllers\AllergenConflictIndexController;
 use Healthy360\Subscriptions\Http\Controllers\KitchenSubscriptionScheduleController;
+use Healthy360\Subscriptions\Http\Controllers\MySubscriptionDayIndexController;
 use Healthy360\Subscriptions\Http\Controllers\MySubscriptionDeliveryIndexController;
 use Healthy360\Subscriptions\Http\Controllers\MySubscriptionIndexController;
 use Healthy360\Subscriptions\Http\Controllers\MySubscriptionShowController;
@@ -923,6 +922,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         // days there that nothing has committed to.
         Route::get('/me/subscriptions/{subscription}/deliveries', MySubscriptionDeliveryIndexController::class)->name('me.subscriptions.deliveries.index');
 
+        // The customer's own meals, day by day, to the end of the balance —
+        // the projection, labelled as one, because these are the days they
+        // chose for and can still change.
+        Route::get('/me/subscriptions/{subscription}/days', MySubscriptionDayIndexController::class)->name('me.subscriptions.days.index');
+
         /*
         |------------------------------------------------------------------
         | Account closure — the customer's own (J2)
@@ -1475,33 +1479,6 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::put('/plans/{item}/variant-durations', PlanVariantDurationReplaceController::class)
                     ->middleware('precondition')
                     ->name('catalogue.plans.variant-durations.replace');
-
-                /*
-                | The fixed menu — what the plan serves, on which day of its
-                | cycle. A fourth face of the same listing, so it takes the
-                | same `If-Match` on the **item's** validator that the profile
-                | and the matrix do.
-                |
-                | The read sits here rather than beside the profile read
-                | below, because the boundary that section draws is between
-                | what a customer will be shown and what a merchandiser
-                | decides. A menu editor is the second; the customer-facing
-                | "what is for dinner on Thursday" is a marketplace surface
-                | with its own presenter.
-                |
-                | The PUT also carries `menu_cycle_days` and
-                | `menu_cycle_anchor_date`, which are columns on
-                | `subscription_plan_profiles` and are **not** writable
-                | through `PUT …/profile`: that endpoint is a whole-document
-                | write, and a client sending a body written before those
-                | columns existed would silently withdraw a kitchen's menu.
-                | `PlanMenuService` is their only writer.
-                */
-                Route::get('/plans/{item}/menu', PlanMenuIndexController::class)->name('catalogue.plans.menu.index');
-
-                Route::put('/plans/{item}/menu', PlanMenuReplaceController::class)
-                    ->middleware('precondition')
-                    ->name('catalogue.plans.menu.replace');
             });
 
             /*

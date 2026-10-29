@@ -114,7 +114,7 @@ class Subscription extends BaseModel
     /**
      * Meals and snacks a day this subscriber is served: the counts captured at
      * purchase, or the configuration's own for a subscription that has none.
-     * Null serves the whole menu day — see `PlanMenuEntry::servedPositions()`.
+     * `PlanSittings` turns the pair into the sittings a day is made of.
      *
      * @return array{0: int|null, 1: int|null}
      */

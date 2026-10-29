@@ -160,6 +160,19 @@ export function mapKitchenOrder(wire: WireKitchenOrder): KitchenOrder {
         amendable: wire.amendable,
         lineCount: wire.line_count,
         lines: wire.lines.map(mapLine),
+        planDay:
+            wire.plan_day === null || wire.plan_day === undefined
+                ? null
+                : {
+                      planLineId: wire.plan_day.plan_line_id,
+                      meals: wire.plan_day.meals.map((meal) => ({
+                          slot: meal.slot,
+                          sequence: meal.sequence,
+                          catalogueItemId: meal.catalogue_item_id,
+                          lineId: meal.line_id,
+                          source: meal.source,
+                      })),
+                  },
     };
 }
 

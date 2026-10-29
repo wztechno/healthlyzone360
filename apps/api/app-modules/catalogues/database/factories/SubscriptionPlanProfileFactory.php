@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Healthy360\Catalogues\Database\Factories;
 
-use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Enums\PlanPricingBasis;
 use Healthy360\Catalogues\Enums\PlanType;
 use Healthy360\Catalogues\Models\CatalogueItem;
@@ -34,26 +33,6 @@ class SubscriptionPlanProfileFactory extends Factory
             'change_cutoff_hours' => 24,
             'summary_en' => null,
             'summary_ar' => null,
-
-            // No menu, stated rather than left to the column default: this is
-            // the behaviour every plan has today, and it is the state the
-            // stock cut-over is measured from.
-            'menu_cycle_days' => null,
-            'menu_cycle_anchor_date' => null,
         ];
-    }
-
-    /**
-     * A plan whose menu is published on a cycle of `$days`.
-     *
-     * The anchor defaults to today, so a fixture asking "what is on today's
-     * menu" gets day 1 without having to work it out.
-     */
-    public function onMenuCycle(int $days = 7, ?string $anchorDate = null): static
-    {
-        return $this->state(fn (array $attributes): array => [
-            'menu_cycle_days' => $days,
-            'menu_cycle_anchor_date' => $anchorDate ?? CarbonImmutable::now()->toDateString(),
-        ]);
     }
 }

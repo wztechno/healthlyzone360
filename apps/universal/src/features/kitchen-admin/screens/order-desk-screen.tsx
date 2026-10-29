@@ -62,6 +62,7 @@ import {
 } from '../../../data/order-desk-hooks.ts';
 import { useOnlineStatus } from '../../../online/online-status.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
+import { PlanDayMeals, isPlanDayLine, visibleOrderLines } from '../plan-day-meals.tsx';
 import {
     ORDER_CREATE_ON_BEHALF_PERMISSION,
     ORDER_MANAGE_PERMISSION,
@@ -1577,7 +1578,7 @@ function OrderDeskQueueList() {
                                                           testID="kitchen-order-desk-detail-lines"
                                                           className="flex-col"
                                                       >
-                                                          {order.lines.map(
+                                                          {visibleOrderLines(order).map(
                                                               (line: KitchenOrderLine) => (
                                                                   <View
                                                                       key={line.id}
@@ -1599,6 +1600,15 @@ function OrderDeskQueueList() {
                                                                                   }
                                                                               </Text>
                                                                           )}
+                                                                          {isPlanDayLine(
+                                                                              order,
+                                                                              line,
+                                                                          ) ? (
+                                                                              <PlanDayMeals
+                                                                                  order={order}
+                                                                                  testID="kitchen-order-desk-detail-plan-day"
+                                                                              />
+                                                                          ) : null}
                                                                       </View>
                                                                       <Text
                                                                           variant="mono"
@@ -2223,6 +2233,24 @@ function OrderDeskQueueList() {
                                     openDetail(row);
                                 },
                             },
+                            // Drawn on every row a seller sees, enabled where the server's
+                            // `amendable` says the edit would be accepted — as the record page does.
+                            ...(canSell
+                                ? [
+                                      {
+                                          key: 'edit',
+                                          label: t('kitchen:desk.edit.open'),
+                                          icon: CATALOGUE_ROW_ICONS.edit,
+                                          disabled: !row.amendable,
+                                          testID: `${orderDeskRowTestId(String(row.id))}-edit`,
+                                          onSelect: () => {
+                                              router.push(
+                                                  `/kitchen/order-desk/sale?order=${encodeURIComponent(String(row.id))}`,
+                                              );
+                                          },
+                                      },
+                                  ]
+                                : []),
                         ]}
                     />
 

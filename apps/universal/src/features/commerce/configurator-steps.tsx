@@ -3,11 +3,9 @@ import {
     Callout,
     Checkbox,
     Chip,
-    Collapse,
     DateField,
     Icon,
     Select,
-    cx,
 } from '@healthy360/design-system';
 import type {
     CustomerAddress,
@@ -16,13 +14,11 @@ import type {
     SubscriptionPlan,
     SubscriptionPreview,
 } from '@healthy360/api-client/contracts';
-import type { MealId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
-import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Text as RNText, View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
 import { MedicalDisclaimer } from '../../safety/medical-disclaimer.tsx';
 import { PillChip } from '../../ui/pill-chip.tsx';
@@ -33,7 +29,6 @@ import { formatAddress, toDeliveryAddress } from './address.ts';
 import { OptionCard } from './checkout-frame.tsx';
 import {
     combinationKey,
-    FIRST_WEEK_DAYS,
     configuredDeliveryDates,
     durationOption,
     estimatedTotal,
@@ -45,13 +40,7 @@ import type { ConfiguratorState, ConfiguratorStep } from './configurator.ts';
 import { isoWeekday, nextAllowedDate } from './dates.ts';
 import { DELIVERY_SLOTS } from './delivery.ts';
 import type { DeliveryAreaStatus } from './delivery.ts';
-import {
-    PlanAllergyNotice,
-    YourAllergens,
-    clashingAllergens,
-    useAllergenNames,
-    useMyAllergenCodes,
-} from './my-allergens.tsx';
+import { PlanAllergyNotice } from './my-allergens.tsx';
 import { PriceSummary } from './price-summary.tsx';
 import { CardPanel, SummaryCard } from './summary-card.tsx';
 import type { PriceRow } from './price-summary.tsx';
@@ -336,9 +325,10 @@ export interface DeliveryStepProps {
     readonly areaStatus: DeliveryAreaStatus;
     readonly servedAreas: readonly string[];
     /** The plan's published dishes, checked against the person's allergy list. */
-    readonly sampleMeals: readonly MarketplaceMeal[];
-    /** False until the kitchen's menu has loaded, so an empty sample is not read as safe. */
-    readonly sampleMealsLoaded: boolean;
+    /** The dishes picked so far — none yet on a first pass — checked against the allergy list. */
+    readonly chosenMeals: readonly MarketplaceMeal[];
+    /** False until the kitchen's menu has loaded, so an empty list is not read as safe. */
+    readonly chosenMealsLoaded: boolean;
     /** This step's own URL — where the allergy editor comes back to. */
     readonly returnTo: string;
     readonly showIssues: boolean;
@@ -384,8 +374,8 @@ export function DeliveryStep({
     cutoffHours,
     areaStatus,
     servedAreas,
-    sampleMeals,
-    sampleMealsLoaded,
+    chosenMeals,
+    chosenMealsLoaded,
     returnTo,
     showIssues,
     savedAddresses,
@@ -582,8 +572,8 @@ export function DeliveryStep({
             >
                 <PlanAllergyNotice
                     testID="configurator-allergy-notice"
-                    meals={sampleMeals}
-                    checked={sampleMealsLoaded}
+                    meals={chosenMeals}
+                    checked={chosenMealsLoaded}
                     returnTo={returnTo}
                 />
             </Row>
@@ -652,48 +642,37 @@ function AreaStatus({
     );
 }
 
-/* ── ③ review: the choices, the server's price, first-week meals ────────────────────────────── */
+/* ── ④ review: the choices, the meals, the server's price ───────────────────────────────────── */
 
 export interface ReviewStepProps {
     readonly plan: SubscriptionPlan;
     readonly state: ConfiguratorState;
-    readonly patch: StepPatch;
     readonly preview: SubscriptionPreview | undefined;
     /** The saved address chosen on the delivery step, when one was. */
     readonly savedAddress: CustomerAddress | undefined;
-    readonly menu: readonly MarketplaceMeal[];
-    /** The plan's published dishes, checked against the person's allergy list once more here. */
-    readonly sampleMeals: readonly MarketplaceMeal[];
-    readonly sampleMealsLoaded: boolean;
+    /** The dishes picked for the run, checked against the person's allergy list once more here. */
+    readonly chosenMeals: readonly MarketplaceMeal[];
+    readonly chosenMealsLoaded: boolean;
     /** This step's own URL — where the allergy editor comes back to. */
     readonly returnTo: string;
-    /**
-     * The plan lets a subscriber choose their meals (`allowsFreeSelection` on the quote). Off, the
-     * first-week picker is not drawn: the server refuses choices on such a plan, and a picker whose
-     * answers go nowhere would be a promise the kitchen does not make.
-     */
-    readonly freeSelection: boolean;
     readonly onEdit: (step: ConfiguratorStep) => void;
 }
 
 export function ReviewStep({
     plan,
     state,
-    patch,
     preview,
     savedAddress,
-    menu,
-    sampleMeals,
-    sampleMealsLoaded,
+    chosenMeals,
+    chosenMealsLoaded,
     returnTo,
-    freeSelection,
     onEdit,
 }: ReviewStepProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const variant = variantById(plan, state.variantId);
     const option = durationOption(plan, state.duration);
-    const [mealsOpen, setMealsOpen] = useState(false);
+    const days = configuredDeliveryDates(state, plan).length;
 
     const rows: readonly PriceRow[] =
         preview === undefined
@@ -797,13 +776,33 @@ export function ReviewStep({
             />
 
             <SummaryCard
+                testID="configurator-review-meals"
+                title={t('commerce:configurator.review.mealsTitle')}
+                action={{
+                    label: t('commerce:configurator.edit'),
+                    testID: 'configurator-review-meals-edit',
+                    onPress: () => {
+                        onEdit('meals');
+                    },
+                }}
+                rows={[
+                    {
+                        key: 'meals',
+                        testID: 'configurator-summary-meals',
+                        label: t('commerce:configurator.summary.meals'),
+                        value: t('commerce:configurator.meals.daysChosen', { count: days }),
+                    },
+                ]}
+            />
+
+            <SummaryCard
                 testID="configurator-review-allergens"
                 title={t('commerce:configurator.summary.allergens')}
             >
                 <PlanAllergyNotice
                     testID="configurator-review-allergy-notice"
-                    meals={sampleMeals}
-                    checked={sampleMealsLoaded}
+                    meals={chosenMeals}
+                    checked={chosenMealsLoaded}
                     returnTo={returnTo}
                 />
             </SummaryCard>
@@ -827,39 +826,6 @@ export function ReviewStep({
                     title={t(warningMessageKey(code), { code })}
                 />
             ))}
-
-            {freeSelection ? (
-                <CardPanel className="gap-0 py-2">
-                    <Pressable
-                        testID="configurator-meals-toggle"
-                        role="button"
-                        accessibilityRole="button"
-                        aria-expanded={mealsOpen}
-                        accessibilityState={{ expanded: mealsOpen }}
-                        aria-controls="configurator-meals"
-                        onPress={() => {
-                            setMealsOpen((open) => !open);
-                        }}
-                        className="min-h-touch flex-row items-center justify-between gap-3"
-                    >
-                        <RNText className="text-base font-semibold text-content-primary text-start">
-                            {t('commerce:configurator.meals.title')}
-                        </RNText>
-                        <Icon
-                            name={mealsOpen ? 'chevronUp' : 'chevronDown'}
-                            size="sm"
-                            className="text-content-secondary"
-                        />
-                    </Pressable>
-                    <Collapse
-                        open={mealsOpen}
-                        nativeID="configurator-meals"
-                        testID="configurator-meals"
-                    >
-                        <FirstWeekMeals plan={plan} state={state} patch={patch} menu={menu} />
-                    </Collapse>
-                </CardPanel>
-            ) : null}
 
             <MedicalDisclaimer context={t('commerce:configurator.disclaimerContext')} />
         </View>
@@ -890,111 +856,6 @@ export function TermsAcknowledgement({
             label={t('commerce:configurator.confirm.acknowledgeLabel')}
             required
         />
-    );
-}
-
-/** The first week's meals, one picker per delivery day. Optional: untouched, the plan's rotation. */
-function FirstWeekMeals({
-    plan,
-    state,
-    patch,
-    menu,
-}: {
-    readonly plan: SubscriptionPlan;
-    readonly state: ConfiguratorState;
-    readonly patch: StepPatch;
-    readonly menu: readonly MarketplaceMeal[];
-}) {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
-    const myAllergens = useMyAllergenCodes();
-    const allergenNames = useAllergenNames();
-    const dates = configuredDeliveryDates(state, plan).slice(0, FIRST_WEEK_DAYS);
-    const swappable = menu.length > 0;
-
-    /** An option names the clash before it is picked, so the list itself warns. */
-    const optionLabel = (meal: MarketplaceMeal): string => {
-        const clashing = clashingAllergens(meal.allergens, myAllergens);
-        return clashing.length === 0
-            ? meal.name
-            : t('commerce:myAllergens.option', {
-                  meal: meal.name,
-                  count: clashing.length,
-                  allergens: allergenNames(clashing),
-              });
-    };
-
-    /** The default meal for a slot: the plan's own sample list, rotated. */
-    const defaultMealId = (index: number): MealId | null =>
-        plan.sampleMealIds[index % Math.max(1, plan.sampleMealIds.length)] ?? null;
-    const chosenAt = (index: number): MealId | null =>
-        state.selectedMealIds[index] ?? defaultMealId(index);
-    const nameFor = (mealId: MealId | null): string =>
-        mealId === null
-            ? t('commerce:configurator.meals.unknown')
-            : (menu.find((meal) => meal.id === mealId)?.name ??
-              t('commerce:configurator.meals.unknown'));
-
-    const select = (index: number, mealId: MealId) => {
-        const next = dates.map((_, position) =>
-            position === index ? mealId : (chosenAt(position) ?? mealId),
-        );
-        patch({ selectedMealIds: next.filter((value): value is MealId => value !== null) });
-    };
-
-    return (
-        <View testID="configurator-meals-week" className="flex-col gap-3 pb-4 pt-2">
-            {dates.map((date, index) => {
-                const mealId = chosenAt(index);
-                const day = formatter.formatDate(date, { dateStyle: 'medium' });
-                return (
-                    <View
-                        key={date}
-                        testID={`configurator-meal-${date}`}
-                        className="flex-col gap-1 md:flex-row md:items-center md:gap-4"
-                    >
-                        <RNText className="self-start text-sm text-content-secondary text-start md:w-[140px] md:self-center">
-                            {day}
-                        </RNText>
-                        <View className={cx('min-w-0 md:flex-1')}>
-                            {swappable ? (
-                                <Select
-                                    testID={`configurator-meal-${date}-select`}
-                                    label={t('commerce:configurator.meals.selectLabel', {
-                                        date: day,
-                                    })}
-                                    labelHidden
-                                    value={mealId === null ? null : String(mealId)}
-                                    placeholder={t('commerce:configurator.meals.unknown')}
-                                    onChange={(next) => {
-                                        const meal = menu.find(
-                                            (option) => String(option.id) === next,
-                                        );
-                                        if (meal !== undefined) select(index, meal.id);
-                                    }}
-                                    options={menu.map((meal) => ({
-                                        value: String(meal.id),
-                                        label: optionLabel(meal),
-                                    }))}
-                                />
-                            ) : (
-                                <RNText
-                                    testID={`configurator-meal-${date}-static`}
-                                    className="self-start text-base text-content-primary text-start"
-                                >
-                                    {nameFor(mealId)}
-                                </RNText>
-                            )}
-                            <YourAllergens
-                                allergens={menu.find((meal) => meal.id === mealId)?.allergens}
-                                testID={`configurator-meal-${date}-your-allergens`}
-                                className="mt-1"
-                            />
-                        </View>
-                    </View>
-                );
-            })}
-        </View>
     );
 }
 

@@ -2318,77 +2318,6 @@ export const zPlanProfileEnvelope = z.object({
 });
 
 /**
- * The four sittings, the same vocabulary a subscription meal choice
- * stores — generation copies this value straight onto a choice row.
- *
- */
-export const zPlanMenuSlot = z.enum([
-    'breakfast',
-    'lunch',
-    'dinner',
-    'snack'
-]);
-
-/**
- * One dish, in one slot, on one day of the plan's cycle.
- *
- */
-export const zPlanMenuEntry = z.object({
-    id: zUuid,
-    cycle_day: z.int().gte(1).lte(366),
-    slot: zPlanMenuSlot,
-    sequence: z.int().gte(1).lte(12),
-    meal_catalogue_item_id: zUuid,
-    meal_name_en: z.string().nullable(),
-    meal_name_ar: z.string().nullable()
-});
-
-/**
- * The rotation the entries sit on. **Both null means no menu is
- * published**, which is the behaviour every plan has by default and the
- * state in which a subscription order deducts no stock.
- *
- */
-export const zPlanMenuCycle = z.object({
-    cycle_days: z.int().gte(1).lte(366).nullable(),
-    anchor_date: z.iso.date().nullable()
-});
-
-export const zPlanMenuEnvelope = z.object({
-    data: z.object({
-        item: zAdminCatalogueItem,
-        cycle: zPlanMenuCycle,
-        entries: z.array(zPlanMenuEntry)
-    }),
-    meta: zMeta.and(z.object({
-        count: z.int()
-    }))
-});
-
-/**
- * The complete menu. All three fields are required to be *present* and
- * may all be null or empty: that combination withdraws the menu, which is
- * a decision a kitchen makes and not a field they forgot.
- *
- * They move together. Entries with no cycle length, or a cycle length
- * with no entries, or a cycle length with no anchor, are each `422` —
- * see the operation description.
- *
- * `catalogue_item_id` is not a field: the plan is in the URL.
- *
- */
-export const zReplacePlanMenuRequest = z.object({
-    entries: z.array(z.object({
-        cycle_day: z.int().gte(1).lte(366),
-        slot: zPlanMenuSlot,
-        sequence: z.int().gte(1).lte(12).nullish(),
-        meal_catalogue_item_id: zUuid
-    })).max(400),
-    menu_cycle_days: z.int().gte(1).lte(366).nullable(),
-    menu_cycle_anchor_date: z.iso.date().nullable()
-});
-
-/**
  * One cell of a plan's availability matrix, together with the variant that
  * carries it. **The variant is the priceable thing**: a price row names
  * `catalogue_item_variant_id`, exactly as it does for a pack.
@@ -2956,19 +2885,6 @@ export const zMarketplaceEnergyBand = z.object({
     max: z.int()
 });
 
-export const zMarketplacePlanVariant = z.object({
-    id: zUuid,
-    plan_id: zUuid,
-    name: z.string(),
-    energy_range: zMarketplaceEnergyBand.nullable(),
-    protein_range: z.null(),
-    carbohydrate_range: z.null(),
-    fat_range: z.null(),
-    meals_per_day: z.int().gte(1),
-    snacks_per_day: z.int().gte(0),
-    price_per_week: zMarketplaceMoney.nullable()
-});
-
 /**
  * **A documented widening of the proposed draft** (master plan v2 §4.3,
  * amending OD-3). The draft typed a duration as one of `1w`, `2w`, `4w`,
@@ -2988,23 +2904,6 @@ export const zMarketplacePlanDuration = z.object({
     total_price: zMarketplaceMoney.nullable()
 });
 
-export const zMarketplacePlan = z.object({
-    id: zUuid,
-    kitchen_id: zUuid,
-    name: z.string(),
-    slug: z.string(),
-    summary: z.string(),
-    description: z.string(),
-    category_slugs: z.array(z.string()),
-    diet_classifications: z.array(z.string()),
-    variants: z.array(zMarketplacePlanVariant),
-    durations: z.array(zMarketplacePlanDuration),
-    sample_meal_ids: z.array(zUuid).max(12),
-    image_placeholder_id: z.string(),
-    rating: z.number().nullable(),
-    rating_count: z.int().gte(0)
-});
-
 export const zMarketplaceListMeta = zPaginationMeta.and(z.object({
     locale: z.enum(['en', 'ar']),
     unsupported_filters: z.array(z.string())
@@ -3017,11 +2916,6 @@ export const zMarketplaceKitchensEnvelope = z.object({
 
 export const zMarketplaceMealsEnvelope = z.object({
     data: z.array(zMarketplaceMeal),
-    meta: zMarketplaceListMeta
-});
-
-export const zMarketplacePlansEnvelope = z.object({
-    data: z.array(zMarketplacePlan),
     meta: zMarketplaceListMeta
 });
 
@@ -7767,63 +7661,6 @@ export const zKitchenOrderDeliveryRun = z.object({
 });
 
 /**
- * The seller's view of the same row. Built independently of the customer
- * shape rather than as a superset of it: a wide shape and a narrow one
- * derived from it by subtraction is how a column added next year quietly
- * reaches a receipt.
- *
- * `lock_version` is here because this is the audience that **writes** — a
- * screen that could not read the validator could not send the `If-Match`
- * the three lifecycle actions demand.
- *
- * **`customer_account_id` is nullable and `fulfilment_type` says when.**
- * A counter sale may be a stranger buying a sandwich, and there is nobody
- * to name; a delivery and a pickup always have somebody. The pair has to
- * be read together — a null customer is a fact about a walk-in, never a
- * row that failed to load.
- *
- */
-export const zKitchenOrder = z.object({
-    id: zUuid,
-    order_number: z.string(),
-    organisation_id: zUuid,
-    customer_account_id: z.uuid().nullable(),
-    sales_channel_id: zUuid,
-    branch_id: z.uuid().nullable(),
-    status: zOrderStatus,
-    currency_code: z.string().length(3),
-    subtotal_minor: z.int(),
-    delivery_fee_minor: z.int().nullable(),
-    total_minor: z.int(),
-    payment_method: zPaymentMethod,
-    fulfilment_type: zFulfilmentType,
-    delivery: zKitchenOrderDelivery,
-    placed_at: z.iso.datetime({ offset: true }),
-    confirmed_at: z.iso.datetime({ offset: true }).nullable(),
-    preparing_at: z.iso.datetime({ offset: true }).nullish(),
-    ready_at: z.iso.datetime({ offset: true }).nullish(),
-    fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
-    cancelled_at: z.iso.datetime({ offset: true }).nullable(),
-    cancellation_reason: zCancellationReason.nullable(),
-    delivery_run: zKitchenOrderDeliveryRun.nullish(),
-    created_by: z.uuid().nullable(),
-    placed_on_behalf_by: z.uuid().nullable(),
-    lock_version: z.int().gte(0),
-    amendable: z.boolean(),
-    line_count: z.int().gte(0),
-    lines: z.array(zKitchenOrderLine),
-    created_at: z.iso.datetime({ offset: true }).nullable(),
-    updated_at: z.iso.datetime({ offset: true }).nullable()
-});
-
-export const zKitchenOrderEnvelope = z.object({
-    data: z.object({
-        order: zKitchenOrder
-    }),
-    meta: zMeta
-});
-
-/**
  * The run this order became: which driver has it, what state it is in, and
  * when it was assigned.
  *
@@ -7852,27 +7689,6 @@ export const zOrderDeskDeliveryJob = z.object({
     driver_user_id: zUuid.nullable(),
     assigned_at: z.iso.datetime({ offset: true }).nullable(),
     lock_version: z.int()
-});
-
-export const zOrderDeskRow = zKitchenOrder.and(z.object({
-    due_at: z.iso.datetime({ offset: true }),
-    payment: zOrderPaymentSummary,
-    delivery_job: zOrderDeskDeliveryJob.nullable(),
-    customer: zOrderDeskCustomerContact.optional()
-}));
-
-export const zOrderDeskQueueEnvelope = z.object({
-    data: z.array(zOrderDeskRow),
-    meta: zMeta.and(z.object({
-        count: z.int().gte(0),
-        limit: z.int(),
-        truncated: z.boolean(),
-        window: zOrderDeskWindow,
-        from: z.iso.date().nullish(),
-        to: z.iso.date().nullish(),
-        today: z.iso.date(),
-        timezone: z.string()
-    }))
 });
 
 /**
@@ -8844,8 +8660,10 @@ export const zSubscriptionDeliveryStatus = z.enum([
 ]);
 
 /**
- * Who chose the meal on a Free Selection day. `customer` picked it before
- * the cut-off; `kitchen_default` filled the slot because they did not; and
+ * Who chose the meal. `customer` picked it; `repeated` means nobody chose
+ * for that date (a skip or a pause pushed the balance onto it) and
+ * generation repeated the customer's own latest choices for that weekday;
+ * `kitchen_default` is a slot the retired plan menu filled; and
  * `substituted` means something chosen was unavailable or unsafe and
  * generation replaced it. Collapsing these into one value would make the
  * substitution audit unreadable, which is the one audit an allergy
@@ -8855,8 +8673,168 @@ export const zSubscriptionDeliveryStatus = z.enum([
 export const zMealChoiceSource = z.enum([
     'customer',
     'kitchen_default',
-    'substituted'
+    'substituted',
+    'repeated'
 ]);
+
+export const zKitchenOrderPlanDay = z.object({
+    plan_line_id: zUuid.nullable(),
+    meals: z.array(z.object({
+        slot: z.enum([
+            'breakfast',
+            'lunch',
+            'dinner',
+            'snack'
+        ]),
+        sequence: z.int().gte(1),
+        catalogue_item_id: zUuid,
+        line_id: zUuid.nullable(),
+        source: zMealChoiceSource
+    }))
+});
+
+/**
+ * The seller's view of the same row. Built independently of the customer
+ * shape rather than as a superset of it: a wide shape and a narrow one
+ * derived from it by subtraction is how a column added next year quietly
+ * reaches a receipt.
+ *
+ * `lock_version` is here because this is the audience that **writes** — a
+ * screen that could not read the validator could not send the `If-Match`
+ * the three lifecycle actions demand.
+ *
+ * **`customer_account_id` is nullable and `fulfilment_type` says when.**
+ * A counter sale may be a stranger buying a sandwich, and there is nobody
+ * to name; a delivery and a pickup always have somebody. The pair has to
+ * be read together — a null customer is a fact about a walk-in, never a
+ * row that failed to load.
+ *
+ */
+export const zKitchenOrder = z.object({
+    id: zUuid,
+    order_number: z.string(),
+    organisation_id: zUuid,
+    customer_account_id: z.uuid().nullable(),
+    sales_channel_id: zUuid,
+    branch_id: z.uuid().nullable(),
+    status: zOrderStatus,
+    currency_code: z.string().length(3),
+    subtotal_minor: z.int(),
+    delivery_fee_minor: z.int().nullable(),
+    total_minor: z.int(),
+    payment_method: zPaymentMethod,
+    fulfilment_type: zFulfilmentType,
+    delivery: zKitchenOrderDelivery,
+    placed_at: z.iso.datetime({ offset: true }),
+    confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    preparing_at: z.iso.datetime({ offset: true }).nullish(),
+    ready_at: z.iso.datetime({ offset: true }).nullish(),
+    fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
+    cancelled_at: z.iso.datetime({ offset: true }).nullable(),
+    cancellation_reason: zCancellationReason.nullable(),
+    delivery_run: zKitchenOrderDeliveryRun.nullish(),
+    created_by: z.uuid().nullable(),
+    placed_on_behalf_by: z.uuid().nullable(),
+    lock_version: z.int().gte(0),
+    amendable: z.boolean(),
+    line_count: z.int().gte(0),
+    lines: z.array(zKitchenOrderLine),
+    plan_day: zKitchenOrderPlanDay.nullable(),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zKitchenOrderEnvelope = z.object({
+    data: z.object({
+        order: zKitchenOrder
+    }),
+    meta: zMeta
+});
+
+export const zOrderDeskRow = zKitchenOrder.and(z.object({
+    due_at: z.iso.datetime({ offset: true }),
+    payment: zOrderPaymentSummary,
+    delivery_job: zOrderDeskDeliveryJob.nullable(),
+    customer: zOrderDeskCustomerContact.optional()
+}));
+
+export const zOrderDeskQueueEnvelope = z.object({
+    data: z.array(zOrderDeskRow),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0),
+        limit: z.int(),
+        truncated: z.boolean(),
+        window: zOrderDeskWindow,
+        from: z.iso.date().nullish(),
+        to: z.iso.date().nullish(),
+        today: z.iso.date(),
+        timezone: z.string()
+    }))
+});
+
+/**
+ * One place a dish goes on a plan day — a second lunch is `lunch` / `2`.
+ */
+export const zPlanSitting = z.object({
+    slot: z.enum([
+        'breakfast',
+        'lunch',
+        'dinner',
+        'snack'
+    ]),
+    sequence: z.int().gte(1)
+});
+
+export const zMarketplacePlanVariant = z.object({
+    id: zUuid,
+    plan_id: zUuid,
+    name: z.string(),
+    energy_range: zMarketplaceEnergyBand.nullable(),
+    protein_range: z.null(),
+    carbohydrate_range: z.null(),
+    fat_range: z.null(),
+    meals_per_day: z.int().gte(1),
+    snacks_per_day: z.int().gte(0),
+    sittings: z.array(zPlanSitting),
+    price_per_week: zMarketplaceMoney.nullable()
+});
+
+export const zMarketplacePlan = z.object({
+    id: zUuid,
+    kitchen_id: zUuid,
+    name: z.string(),
+    slug: z.string(),
+    summary: z.string(),
+    description: z.string(),
+    category_slugs: z.array(z.string()),
+    diet_classifications: z.array(z.string()),
+    variants: z.array(zMarketplacePlanVariant),
+    durations: z.array(zMarketplacePlanDuration),
+    image_placeholder_id: z.string(),
+    rating: z.number().nullable(),
+    rating_count: z.int().gte(0)
+});
+
+export const zMarketplacePlansEnvelope = z.object({
+    data: z.array(zMarketplacePlan),
+    meta: zMarketplaceListMeta
+});
+
+export const zChosenMeal = z.object({
+    slot: z.enum([
+        'breakfast',
+        'lunch',
+        'dinner',
+        'snack'
+    ]),
+    sequence: z.int().gte(1).lte(20).nullish(),
+    catalogue_item_id: zUuid
+});
+
+export const zChosenDay = z.object({
+    date: z.iso.date(),
+    meals: z.array(zChosenMeal).min(1).max(12)
+});
 
 /**
  * `recorded` means the platform has computed what is owed; `settled`
@@ -9105,6 +9083,23 @@ export const zSubscriptionMealChoice = z.object({
     replaced_name: z.string().nullish()
 });
 
+export const zSubscriptionDay = z.object({
+    delivery_date: z.iso.date(),
+    basis: z.enum(['actual', 'projected']),
+    status: z.string(),
+    editable: z.boolean(),
+    change_deadline: z.iso.datetime({ offset: true }),
+    meals: z.array(zSubscriptionMealChoice)
+});
+
+export const zSubscriptionDaysEnvelope = z.object({
+    data: z.object({
+        sittings: z.array(zPlanSitting),
+        days: z.array(zSubscriptionDay)
+    }),
+    meta: zMeta
+});
+
 /**
  * One delivery day — the row a balance day is spent on.
  *
@@ -9244,7 +9239,8 @@ export const zCreateSubscriptionRequest = z.object({
     weekdays: z.array(z.int().gte(1).lte(7)).min(1).max(7),
     delivery_window_code: z.string().max(40).nullish(),
     no_substitutions: z.boolean().optional(),
-    start_from: z.iso.date().nullish()
+    start_from: z.iso.date().nullish(),
+    days: z.array(zChosenDay).min(1).max(366)
 });
 
 export const zSkipSubscriptionDayRequest = z.object({
@@ -9264,9 +9260,9 @@ export const zUpdateSubscriptionWeekdaysRequest = z.object({
 });
 
 /**
- * One day's chosen meals, replaced whole. An **empty `meals` array is a
- * real payload**: it is a customer saying "I have not chosen; send me the
- * kitchen's default", and a merge-shaped write could not express it.
+ * One day's chosen meals, replaced whole. The day must fill every sitting
+ * the subscriber bought; otherwise it is refused as `meals_incomplete`,
+ * naming the `missing` and `unexpected` sittings.
  *
  */
 export const zReplaceSubscriptionChoicesRequest = z.object({
@@ -9276,7 +9272,7 @@ export const zReplaceSubscriptionChoicesRequest = z.object({
         sequence: z.int().gte(1).lte(20).nullish(),
         catalogue_item_id: zUuid,
         catalogue_item_variant_id: zUuid.nullish()
-    })).max(12)
+    })).min(1).max(12)
 });
 
 export const zSubscriptionChoicesEnvelope = z.object({
@@ -12777,43 +12773,6 @@ export const zReplacePlanVariantsPath = z.object({
  *
  */
 export const zReplacePlanVariantsResponse = zPlanVariantsEnvelope;
-
-export const zGetPlanMenuHeaders = z.object({
-    'X-Organisation-Id': zUuid,
-    'X-Client-Request-Id': z.string().max(128).optional()
-});
-
-export const zGetPlanMenuPath = z.object({
-    item: z.union([
-        zUuid,
-        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-    ])
-});
-
-/**
- * The plan, its cycle configuration and every entry on its menu.
- */
-export const zGetPlanMenuResponse = zPlanMenuEnvelope;
-
-export const zReplacePlanMenuBody = zReplacePlanMenuRequest;
-
-export const zReplacePlanMenuHeaders = z.object({
-    'X-Organisation-Id': zUuid,
-    'If-Match': z.string(),
-    'X-Client-Request-Id': z.string().max(128).optional()
-});
-
-export const zReplacePlanMenuPath = z.object({
-    item: z.union([
-        zUuid,
-        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-    ])
-});
-
-/**
- * The plan, the cycle it now runs on, and every entry it now has.
- */
-export const zReplacePlanMenuResponse = zPlanMenuEnvelope;
 
 export const zListPlanVariantDurationsHeaders = z.object({
     'X-Organisation-Id': zUuid,
@@ -16754,6 +16713,20 @@ export const zListSubscriptionDeliveriesPath = z.object({
  * Every delivery day this subscription has, newest first, with the balance in `meta`.
  */
 export const zListSubscriptionDeliveriesResponse = zSubscriptionDeliveriesEnvelope;
+
+export const zListSubscriptionDaysHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListSubscriptionDaysPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The run, day by day, with the sittings every day fills.
+ */
+export const zListSubscriptionDaysResponse = zSubscriptionDaysEnvelope;
 
 export const zListSubscriptionScheduleHeaders = z.object({
     'X-Organisation-Id': zUuid,

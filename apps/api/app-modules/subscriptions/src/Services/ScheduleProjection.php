@@ -87,48 +87,48 @@ final readonly class ScheduleProjection
             $branchKey = $subscription->branch_id ?? '';
             $closed[$branchKey] ??= $this->scheduling->closedWeekdays($organisationId, $subscription->branch_id);
 
-            $actual = SubscriptionDelivery::query()
-                ->where('subscription_id', $subscription->getKey())
-                ->whereBetween('delivery_date', [$start->toDateString(), $end->toDateString()])
-                ->get()
-                ->keyBy(static fn (SubscriptionDelivery $row): string => $row->delivery_date->toDateString());
-
-            $remaining = $subscription->remainingDays();
-
-            for ($day = $start; $day->lessThanOrEqualTo($end); $day = $day->addDay()) {
-                $key = $day->toDateString();
-                $existing = $actual->get($key);
-
-                if ($existing instanceof SubscriptionDelivery) {
-                    $rows[] = $this->row($subscription, $day, 'actual', $existing->status->value, $existing->delivery_window_code);
-
-                    if ($existing->consumed) {
-                        $remaining--;
-                    }
-
-                    continue;
-                }
-
-                if (! $subscription->deliversOnWeekday($day->dayOfWeekIso)
-                    || in_array($day->dayOfWeekIso, $closed[$branchKey], true)) {
-                    continue;
-                }
-
-                if ($remaining < 1) {
-                    // The balance runs out mid-window. Projecting past it would
-                    // promise the kitchen food nobody has bought.
-                    break;
-                }
-
-                $remaining--;
-
-                $rows[] = $this->row($subscription, $day, 'projected', SubscriptionDeliveryStatus::Scheduled->value, $subscription->delivery_window_code);
-            }
+            $rows = [...$rows, ...$this->daysOf($subscription, $start, $end, $closed[$branchKey])];
         }
 
         usort($rows, static fn (array $left, array $right): int => [$left['delivery_date'], $left['subscription_id']] <=> [$right['delivery_date'], $right['subscription_id']]);
 
         return $rows;
+    }
+
+    /**
+     * One subscription's days in the window — the rows that exist and the
+     * days its weekdays and balance say are coming, in date order. What the
+     * customer's own "your meals" list is drawn from.
+     *
+     * Nothing is projected before the generation cursor: a subscription that
+     * starts on Friday has no Wednesday, however open the window is.
+     *
+     * @return list<array{
+     *     delivery_date: string,
+     *     subscription_id: string,
+     *     customer_account_id: string,
+     *     branch_id: string|null,
+     *     delivery_window_code: string|null,
+     *     basis: string,
+     *     status: string,
+     * }>
+     */
+    public function forSubscription(Subscription $subscription, CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $start = $from->startOfDay();
+        $end = $to->startOfDay();
+
+        if ($end->lessThan($start)) {
+            return [];
+        }
+
+        return $this->daysOf(
+            $subscription,
+            $start,
+            $end,
+            $this->scheduling->closedWeekdays($subscription->organisation_id, $subscription->branch_id),
+            $subscription->next_generation_date?->startOfDay(),
+        );
     }
 
     /**
@@ -159,6 +159,69 @@ final readonly class ScheduleProjection
         }
 
         return $counts;
+    }
+
+    /**
+     * @param  list<int>  $closed  the weekdays the subscription's kitchen is shut
+     * @param  CarbonImmutable|null  $projectFrom  the first day a projection may land on, when narrower than the window
+     * @return list<array{
+     *     delivery_date: string,
+     *     subscription_id: string,
+     *     customer_account_id: string,
+     *     branch_id: string|null,
+     *     delivery_window_code: string|null,
+     *     basis: string,
+     *     status: string,
+     * }>
+     */
+    private function daysOf(
+        Subscription $subscription,
+        CarbonImmutable $start,
+        CarbonImmutable $end,
+        array $closed,
+        ?CarbonImmutable $projectFrom = null,
+    ): array {
+        $rows = [];
+
+        $actual = SubscriptionDelivery::query()
+            ->where('subscription_id', $subscription->getKey())
+            ->whereBetween('delivery_date', [$start->toDateString(), $end->toDateString()])
+            ->get()
+            ->keyBy(static fn (SubscriptionDelivery $row): string => $row->delivery_date->toDateString());
+
+        $remaining = $subscription->status === SubscriptionStatus::Active ? $subscription->remainingDays() : 0;
+
+        for ($day = $start; $day->lessThanOrEqualTo($end); $day = $day->addDay()) {
+            $key = $day->toDateString();
+            $existing = $actual->get($key);
+
+            if ($existing instanceof SubscriptionDelivery) {
+                // A consumed day is already off `remainingDays()` — generation
+                // bumps the counter in the same transaction — so it is not
+                // taken off again here.
+                $rows[] = $this->row($subscription, $day, 'actual', $existing->status->value, $existing->delivery_window_code);
+
+                continue;
+            }
+
+            if (! $subscription->deliversOnWeekday($day->dayOfWeekIso)
+                || in_array($day->dayOfWeekIso, $closed, true)
+                || ($projectFrom instanceof CarbonImmutable && $day->lessThan($projectFrom))) {
+                continue;
+            }
+
+            if ($remaining < 1) {
+                // The balance runs out mid-window. Projecting past it would
+                // promise the kitchen food nobody has bought.
+                break;
+            }
+
+            $remaining--;
+
+            $rows[] = $this->row($subscription, $day, 'projected', SubscriptionDeliveryStatus::Scheduled->value, $subscription->delivery_window_code);
+        }
+
+        return $rows;
     }
 
     /**

@@ -1,8 +1,9 @@
 import type {
+    ChosenDay,
     CustomerAddress,
     PlanDurationOption,
+    PlanSitting,
     PlanVariant,
-    SetSubscriptionMealChoicesRequest,
     SubscriptionConfiguration,
     SubscriptionPlan,
 } from '@healthy360/api-client/contracts';
@@ -13,7 +14,7 @@ import { EMPTY_ADDRESS } from './address.ts';
 import type { AddressValues } from './address.ts';
 import type { DeliveryAreaStatus } from './delivery.ts';
 import { DEFAULT_SLOT_CODE, isDeliverySlotCode } from './delivery.ts';
-import { deliveryDatesFor, isIsoDate, isoWeekday } from './dates.ts';
+import { daysBetween, deliveryDatesFor, isIsoDate, isoWeekday } from './dates.ts';
 
 /**
  * The subscription configurator: its steps, its arithmetic and its rules.
@@ -47,7 +48,7 @@ import { deliveryDatesFor, isIsoDate, isoWeekday } from './dates.ts';
  * between them; the screen states the coupling rather than hiding it. Recorded as a contract gap.
  */
 
-export const CONFIGURATOR_STEPS = ['plan', 'delivery', 'review'] as const;
+export const CONFIGURATOR_STEPS = ['plan', 'delivery', 'meals', 'review'] as const;
 export type ConfiguratorStep = (typeof CONFIGURATOR_STEPS)[number];
 
 export const CONFIGURATOR_STEP_COUNT = CONFIGURATOR_STEPS.length;
@@ -225,7 +226,12 @@ export interface ConfiguratorState {
      * a saved address's identifier and nothing else (D-084).
      */
     readonly address: AddressValues;
-    readonly selectedMealIds: readonly MealId[];
+    /**
+     * The dish chosen for each sitting of each delivery day, keyed by {@link pickKey}. Kept by
+     * date, so a pick survives a step back to change the length; only the dates the configuration
+     * delivers on are ever sent.
+     */
+    readonly mealPicks: MealPicks;
     /** The terms summary on the confirm step. `createSubscription` rejects without it. */
     readonly termsAcknowledged: boolean;
 }
@@ -249,7 +255,7 @@ export function initialConfiguratorState(options: InitialStateOptions): Configur
         deliveryWeekdays: [...allowed],
         slotCode: DEFAULT_SLOT_CODE,
         address: EMPTY_ADDRESS,
-        selectedMealIds: [],
+        mealPicks: {},
         termsAcknowledged: false,
     };
 }
@@ -296,6 +302,11 @@ export function validateConfiguratorStep(
 
         case 'delivery':
             return deliveryIssues(state, context);
+
+        case 'meals':
+            return missingPicks(state, context.plan) === 0
+                ? []
+                : ['commerce:configurator.issues.mealsMissing'];
 
         case 'review':
             return state.termsAcknowledged ? [] : ['commerce:configurator.issues.terms'];
@@ -409,7 +420,7 @@ export function toConfiguration(
         deliveryWeekdays: [...state.deliveryWeekdays].sort((left, right) => left - right),
         slotCode: state.slotCode,
         address: toAddress(state.address),
-        selectedMealIds: [...state.selectedMealIds],
+        days: chosenDays(state, plan),
     };
 }
 
@@ -428,39 +439,90 @@ export function configuredDeliveryDates(
     return deliveryDatesFor(state.startDate, state.deliveryWeekdays, option.days);
 }
 
-/** How many delivery days the first-week picker covers: one week, the rotation the kitchen publishes. */
-export const FIRST_WEEK_DAYS = 7;
+/* ── the meals ───────────────────────────────────────────────────────────────────────────────── */
 
-/**
- * The meal slot a first-week pick is sent under.
- *
- * The picker offers one dish per day, and the public plan does not publish its menu's slots. Lunch
- * is the sitting every meals-per-day count includes, so a pick there takes the place of the
- * kitchen's lunch rather than arriving beside it; a snacks-only band has no lunch to replace.
- */
-export function firstWeekChoiceSlot(variant: PlanVariant | null): string {
-    return variant !== null && variant.mealsPerDay === 0 && variant.snacksPerDay > 0
-        ? 'snack'
-        : 'lunch';
+/** The dish chosen for each sitting of each day: `pickKey(date, sitting)` → meal. */
+export type MealPicks = Readonly<Record<string, MealId>>;
+
+/** One sitting of one day, as a key: `2026-11-02|lunch:1`. */
+export function pickKey(date: string, sitting: PlanSitting): string {
+    return `${date}|${sitting.slot}:${String(sitting.sequence)}`;
+}
+
+/** The sittings each delivery day of the chosen band fills. Empty until a band is chosen. */
+export function sittingsOf(
+    plan: SubscriptionPlan,
+    state: ConfiguratorState,
+): readonly PlanSitting[] {
+    return variantById(plan, state.variantId)?.sittings ?? [];
+}
+
+/** How many sittings across the whole run are still without a dish. */
+export function missingPicks(state: ConfiguratorState, plan: SubscriptionPlan): number {
+    const sittings = sittingsOf(plan, state);
+    const dates = configuredDeliveryDates(state, plan);
+    if (dates.length === 0 || sittings.length === 0) return dates.length === 0 ? 0 : 1;
+    let missing = 0;
+    for (const date of dates) {
+        for (const sitting of sittings) {
+            if (state.mealPicks[pickKey(date, sitting)] === undefined) missing += 1;
+        }
+    }
+    return missing;
 }
 
 /**
- * One `PUT …/choices` per day the person picked a dish for in the first week.
- *
- * Nothing when they never opened the picker: the plan's own rotation is what they agreed to, and
- * sending its defaults back as choices would pin the kitchen's menu as though the person chose it.
+ * Every delivery day with its meals, as the purchase sends them. A day missing a sitting is sent
+ * as far as it goes — the server refuses it by name — but the meals step does not let a person
+ * reach Subscribe with one.
  */
-export function firstWeekChoices(
-    state: ConfiguratorState,
-    plan: SubscriptionPlan,
-    variant: PlanVariant | null,
-): readonly SetSubscriptionMealChoicesRequest[] {
-    if (state.selectedMealIds.length === 0) return [];
-    const slot = firstWeekChoiceSlot(variant);
-    return configuredDeliveryDates(state, plan)
-        .slice(0, FIRST_WEEK_DAYS)
-        .flatMap((date, index) => {
-            const mealId = state.selectedMealIds[index];
-            return mealId === undefined ? [] : [{ date, choices: [{ slot, mealId }] }];
-        });
+export function chosenDays(state: ConfiguratorState, plan: SubscriptionPlan): readonly ChosenDay[] {
+    const sittings = sittingsOf(plan, state);
+    return configuredDeliveryDates(state, plan).map((date) => ({
+        date,
+        meals: sittings.flatMap((sitting) => {
+            const mealId = state.mealPicks[pickKey(date, sitting)];
+            return mealId === undefined
+                ? []
+                : [{ slot: sitting.slot, sequence: sitting.sequence, mealId }];
+        }),
+    }));
+}
+
+/** The distinct dishes the run has picked so far, for the allergy notice. */
+export function pickedMealIds(state: ConfiguratorState, plan: SubscriptionPlan): readonly MealId[] {
+    return [
+        ...new Set(chosenDays(state, plan).flatMap((day) => day.meals.map((meal) => meal.mealId))),
+    ];
+}
+
+/** How many days the first week of the run covers — what "Repeat week 1" copies from. */
+export const REPEAT_WINDOW_DAYS = 7;
+
+/**
+ * Week 1's picks copied onto every later day of the same weekday — the quick way to fill a long
+ * run. A later day the person already filled keeps what they chose; only empty sittings are
+ * filled.
+ */
+export function repeatFirstWeek(state: ConfiguratorState, plan: SubscriptionPlan): MealPicks {
+    const sittings = sittingsOf(plan, state);
+    const dates = configuredDeliveryDates(state, plan);
+    const [first] = dates;
+    if (first === undefined) return state.mealPicks;
+
+    const firstWeek = dates.filter((date) => (daysBetween(first, date) ?? 0) < REPEAT_WINDOW_DAYS);
+    const byWeekday = new Map(firstWeek.map((date) => [isoWeekday(date), date] as const));
+    const next: Record<string, MealId> = { ...state.mealPicks };
+
+    for (const date of dates.slice(firstWeek.length)) {
+        const source = byWeekday.get(isoWeekday(date));
+        if (source === undefined) continue;
+        for (const sitting of sittings) {
+            const key = pickKey(date, sitting);
+            const picked = state.mealPicks[pickKey(source, sitting)];
+            if (next[key] === undefined && picked !== undefined) next[key] = picked;
+        }
+    }
+
+    return next;
 }

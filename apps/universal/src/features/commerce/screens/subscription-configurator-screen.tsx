@@ -9,12 +9,11 @@ import {
 import type {
     CustomerAddress,
     MarketplaceMeal,
-    SetSubscriptionMealChoicesRequest,
     SubscriptionPreview,
     SubscriptionRefusal,
 } from '@healthy360/api-client/contracts';
 import { SubscriptionPlanId } from '@healthy360/domain-types';
-import type { PlanVariantId, SubscriptionId } from '@healthy360/domain-types';
+import type { PlanVariantId } from '@healthy360/domain-types';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -26,9 +25,7 @@ import {
     toFailure,
     useCreateSubscriptionMutation,
     usePlanAvailabilityQuery,
-    useSetSubscriptionMealChoicesMutation,
     useSubscriptionPreviewQuery,
-    useSubscriptionQuoteQuery,
 } from '../../../data/commerce-hooks.ts';
 import { useAccountChecklistQuery, useAddressesQuery } from '../../../data/account-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
@@ -65,11 +62,11 @@ import {
     CONFIGURATOR_STEPS,
     combinationKey,
     firstIncompleteStep,
-    firstWeekChoices,
     initialConfiguratorState,
     isStepReachable,
     mealCombinations,
     nextConfiguratorStep,
+    pickedMealIds,
     previousConfiguratorStep,
     savedAddressValues,
     stepPosition,
@@ -83,17 +80,19 @@ import { earliestStartDate, nextAllowedDate } from '../dates.ts';
 import { servedAreas } from '../delivery.ts';
 import type { DeliveryAreaStatus } from '../delivery.ts';
 import { PlanReceipt } from '../order-receipt.tsx';
+import { MealsStep } from '../plan-meal-picker.tsx';
 import { PlanSetupSummary } from '../plan-setup-summary.tsx';
 import { ReceiptPrinter } from '../receipt-printer.tsx';
 import type { ReceiptPrinterStage } from '../receipt-printer.tsx';
 
 /**
- * `/customer/subscriptions/new?plan={id}` — setting up a subscription, in three steps.
+ * `/customer/subscriptions/new?plan={id}` — setting up a subscription, in four steps.
  *
  * ① **Plan** — calorie band, meals a day, length. ② **Delivery** — days, start, window, address,
- * and the allergy list the kitchen will read. ③ **Review** — the choices with an Edit back to
- * each, the server's price, the first week's meals (optional, folded away) and the terms.
- * `configurator.ts` holds the rules.
+ * and the allergy list the kitchen will read. ③ **Meals** — a dish for every sitting of every
+ * delivery day, from any meal the kitchen publishes; the customer decides what they eat, and
+ * Subscribe waits until every day is filled. ④ **Review** — the choices with an Edit back to each,
+ * the server's price and the terms. `configurator.ts` holds the rules.
  *
  * Beside the step, from `lg`, a summary card states what has been chosen and the price, and carries
  * the action that moves the flow on; below `lg` it is a bar pinned to the foot of the page. The
@@ -168,17 +167,18 @@ export function SubscriptionConfiguratorScreen({
 
     const kitchen = useKitchenQuery(item?.kitchenId ?? null);
     const menuQuery = useMealsQuery(
-        item === undefined ? undefined : { kitchenIds: [item.kitchenId], limit: 50 },
+        item === undefined
+            ? undefined
+            : { kitchenIds: [item.kitchenId], itemTypes: ['meal'], limit: 50 },
         item !== undefined,
     );
     const menu: readonly MarketplaceMeal[] = mealsFromPages(menuQuery.data?.pages);
-    // The plan's own dishes, as far as the kitchen's menu holds them: what the allergy notice
-    // checks against the person's list on the delivery and review steps.
-    const sampleMeals = useMemo<readonly MarketplaceMeal[]>(() => {
-        const ids = new Set((item?.sampleMealIds ?? []).map(String));
-        return menu.filter((meal) => ids.has(String(meal.id)));
-    }, [item, menu]);
-    const sampleMealsLoaded = menuQuery.isFetched;
+    // Every dish the kitchen publishes is a choice, so the whole menu is read, a page at a time.
+    const { hasNextPage, isFetchingNextPage, fetchNextPage } = menuQuery;
+    useEffect(() => {
+        if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+    }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+    const menuLoaded = menuQuery.isFetched && !hasNextPage;
 
     const [showIssues, setShowIssues] = useState(false);
     const [termsAcknowledged, setTermsAcknowledged] = useState(false);
@@ -324,6 +324,13 @@ export function SubscriptionConfiguratorScreen({
     const variant =
         item === undefined || state === null ? null : variantById(item, state.variantId);
 
+    // The dishes picked so far: what the allergy notice checks against the person's list.
+    const chosenMeals = useMemo<readonly MarketplaceMeal[]>(() => {
+        if (item === undefined || state === null) return [];
+        const ids = new Set(pickedMealIds(state, item).map(String));
+        return menu.filter((meal) => ids.has(String(meal.id)));
+    }, [item, menu, state]);
+
     // A saved address carries the server's own answer, computed against the published zone
     // coverage — authoritative over any client-side comparison of area strings, whose
     // granularities (gazetteer rows vs a zone's display label) need not match textually.
@@ -387,25 +394,9 @@ export function SubscriptionConfiguratorScreen({
     const create = useCreateSubscriptionMutation();
     const createFailure = toFailure(create.error);
 
-    // Whether the plan lets a subscriber choose meals at all — the quote's answer, from the same
-    // cache entry the weekday probe and the preview read. Unknown counts as no: the picker appears
-    // once the server has said yes, rather than being withdrawn after somebody has used it.
-    const quote = useSubscriptionQuoteQuery(
-        item === undefined ||
-            state === null ||
-            state.variantId === null ||
-            state.duration === null ||
-            step !== 'review'
-            ? null
-            : { planId: item.id, variantId: state.variantId, duration: state.duration },
-    );
-    const freeSelection = quote.data?.allowsFreeSelection === true;
-    const setMealChoices = useSetSubscriptionMealChoicesMutation();
-    const [savingChoices, setSavingChoices] = useState(false);
-
     /*
-     * The receipt printer beside Subscribe. "Processing" covers the create call and the first
-     * week's meal picks; then the receipt prints the priced preview of exactly what was created,
+     * The receipt printer beside Subscribe. "Processing" covers the create call; then the receipt
+     * prints the priced preview of exactly what was created,
      * and "View plan" is the step on, so the new subscription opens when the customer is ready
      * rather than mid-print.
      */
@@ -494,25 +485,9 @@ export function SubscriptionConfiguratorScreen({
         router.setParams({ step: undefined, address: undefined } as never);
     };
 
-    /**
-     * The first week's picks, sent once the subscription exists — `POST /subscriptions` carries no
-     * meals; choosing is its own write, `PUT …/choices`, one day at a time. Each day stands alone:
-     * one refused (inside the cut-off, not a delivery day after all) does not lose the others, and
-     * the count of refused days goes to the new subscription's page, which says so.
-     */
-    const sendFirstWeekChoices = async (
-        subscriptionId: SubscriptionId,
-        days: readonly SetSubscriptionMealChoicesRequest[],
-    ): Promise<number> => {
-        const results = await Promise.allSettled(
-            days.map((request) => setMealChoices.mutateAsync({ subscriptionId, request })),
-        );
-        return results.filter((result) => result.status === 'rejected').length;
-    };
-
     const onCreate = () => {
         if (state === null || item === undefined || context === null) return;
-        if (setupSteps.length > 0 || savingChoices) return;
+        if (setupSteps.length > 0) return;
         if (validateConfiguratorStep('review', state, context).length > 0) {
             setShowIssues(true);
             return;
@@ -522,7 +497,6 @@ export function SubscriptionConfiguratorScreen({
             setShowIssues(true);
             return;
         }
-        const picks = freeSelection ? firstWeekChoices(state, item, variant) : [];
         setReceipt({ stage: 'processing', preview: null, href: null });
         create.mutate(
             {
@@ -531,18 +505,12 @@ export function SubscriptionConfiguratorScreen({
                 ...(addressId === null ? {} : { addressId }),
             },
             {
-                onSuccess: async (subscription) => {
+                onSuccess: (subscription) => {
                     configuratorDrafts.clear(draftKey);
-                    let refused = 0;
-                    if (picks.length > 0) {
-                        setSavingChoices(true);
-                        refused = await sendFirstWeekChoices(subscription.id, picks);
-                    }
                     // Replaces the set-up: the new subscription has a URL of its own, a refresh
                     // shows it, and Back is not a second chance to create it (plans-04).
                     const href = withQuery(`/customer/subscriptions/${String(subscription.id)}`, {
                         created: '1',
-                        ...(refused === 0 ? {} : { unsavedMeals: String(refused) }),
                     });
                     // The price of the configuration that was sent, read when it exists: a pick
                     // made just before Subscribe can still have its preview in flight at the press.
@@ -763,8 +731,8 @@ export function SubscriptionConfiguratorScreen({
                                     cutoffHours={cutoffHours}
                                     areaStatus={areaStatus}
                                     servedAreas={areas}
-                                    sampleMeals={sampleMeals}
-                                    sampleMealsLoaded={sampleMealsLoaded}
+                                    chosenMeals={chosenMeals}
+                                    chosenMealsLoaded={menuLoaded}
                                     returnTo={here}
                                     showIssues={showIssues}
                                     savedAddresses={addressList}
@@ -773,6 +741,17 @@ export function SubscriptionConfiguratorScreen({
                                         router.setParams({ address: next ?? undefined } as never);
                                     }}
                                     onAddAddress={onAddAddress}
+                                />
+                            ) : null}
+
+                            {step === 'meals' ? (
+                                <MealsStep
+                                    plan={item}
+                                    state={state}
+                                    patch={patch}
+                                    menu={menu}
+                                    menuLoading={!menuLoaded}
+                                    showIssues={showIssues}
                                 />
                             ) : null}
 
@@ -788,14 +767,11 @@ export function SubscriptionConfiguratorScreen({
                                     <ReviewStep
                                         plan={item}
                                         state={state}
-                                        patch={patch}
                                         preview={preview.data}
                                         savedAddress={savedAddress}
-                                        menu={menu}
-                                        sampleMeals={sampleMeals}
-                                        sampleMealsLoaded={sampleMealsLoaded}
+                                        chosenMeals={chosenMeals}
+                                        chosenMealsLoaded={menuLoaded}
                                         returnTo={here}
-                                        freeSelection={freeSelection}
                                         onEdit={goTo}
                                     />
                                 </QueryStates>
@@ -869,11 +845,7 @@ export function SubscriptionConfiguratorScreen({
                                     // days, stored allergies, the address book): a step taken before
                                     // they arrive could be judged unreachable a moment later and
                                     // silently put back.
-                                    actionLoading={
-                                        step === 'review'
-                                            ? create.isPending || savingChoices
-                                            : !settled
-                                    }
+                                    actionLoading={step === 'review' ? create.isPending : !settled}
                                     actionDisabled={
                                         step === 'review' &&
                                         (setupSteps.length > 0 || receipt !== null)

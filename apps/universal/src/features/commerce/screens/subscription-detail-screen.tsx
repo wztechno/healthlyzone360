@@ -34,13 +34,13 @@ import {
     useSetSubscriptionWeekdaysMutation,
     useSkipDayMutation,
     useSubscriptionBalanceQuery,
+    useSubscriptionDaysQuery,
     useSubscriptionDeliveriesQuery,
     useSubscriptionQuery,
     useSubscriptionQuoteQuery,
 } from '../../../data/commerce-hooks.ts';
 import { useAddressesQuery } from '../../../data/account-hooks.ts';
-import { mealsFromPages, useMealsQuery, usePlanQuery } from '../../../data/catalogue-hooks.ts';
-import { useKitchenMenuQuery } from '../../../data/marketplace-hooks.ts';
+import { mealsFromPages, useMealsQuery } from '../../../data/catalogue-hooks.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 import { subscriptionDayPrice } from '../../catalogue/plan-balance.ts';
@@ -61,12 +61,12 @@ import {
     isTerminalSubscriptionState,
 } from '../state-badge.tsx';
 import { SubscriptionBalanceCard, SubscriptionDeliveries } from '../subscription-balance.tsx';
+import { SubscriptionMeals } from '../subscription-meals.tsx';
 import { CardPanel, SummaryCard } from '../summary-card.tsx';
 import type { SummaryCardRow } from '../summary-card.tsx';
 import {
     CancelSubscriptionDialog,
     DialogFailure,
-    MealChoicesDialog,
     WeekdayEditorDialog,
 } from '../subscription-editors.tsx';
 
@@ -111,9 +111,6 @@ import {
  * - `?created=1` — the set-up replaced itself with this page once the subscription existed, and the
  *   confirmation is said here, where a refresh still finds it (plans-04). Dismissing it takes the
  *   flag off the entry.
- * - `?unsavedMeals={n}` — beside `created`: that many of the first week's picks were refused by
- *   `PUT …/choices` after the subscription was made. Said here rather than on the set-up, which is
- *   gone by then and could only offer to create the subscription a second time.
  * - `?dialog=address&address={id}` — the way back from "Add a new address" in the address dialog.
  *   The page is a sibling in the customer `<Slot/>`, so the detour unmounted it; the dialog opens
  *   again on the address just saved, and both parameters are taken off the entry (plans-06).
@@ -150,9 +147,6 @@ function single(value: string | string[] | undefined): string | null {
     return first === undefined || first === '' ? null : first;
 }
 
-/** How many meals the Free Selection picker offers. The kitchen's menu, not the whole catalogue. */
-const CHOICE_OPTIONS = 20;
-
 /** How many upcoming delivery days the skip sheet offers. */
 const SKIP_CHOICES = 6;
 
@@ -163,12 +157,10 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
     const formatter = useFormatter();
     const params = useLocalSearchParams<{
         created?: string;
-        unsavedMeals?: string;
         dialog?: string;
         address?: string;
     }>();
     const justCreated = single(params.created) === '1';
-    const unsavedMeals = Number.parseInt(single(params.unsavedMeals) ?? '', 10);
     const requestedDialog = single(params.dialog) === 'address' ? 'address' : null;
     const requestedAddress = single(params.address);
 
@@ -195,19 +187,28 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
               },
     );
 
-    // The plan's published dishes, for the allergy notice: the plan names them, the kitchen's menu
-    // holds them. Both reads are cached from the plan page and the set-up.
-    const plan = usePlanQuery(subscription?.configuration.planId ?? null);
+    // The customer's meals, day by day, and the kitchen's menu they were chosen from — what a day
+    // may be changed to, and what the allergy notice checks the chosen dishes against.
+    const daysQuery = useSubscriptionDaysQuery(parsed);
     const kitchenMeals = useMealsQuery(
         subscription === undefined
             ? undefined
-            : { kitchenIds: [subscription.kitchenId], limit: 50 },
+            : { kitchenIds: [subscription.kitchenId], itemTypes: ['meal'], limit: 50 },
         subscription !== undefined,
     );
-    const sampleMeals = useMemo<readonly MarketplaceMeal[]>(() => {
-        const ids = new Set((plan.data?.sampleMealIds ?? []).map(String));
-        return mealsFromPages(kitchenMeals.data?.pages).filter((meal) => ids.has(String(meal.id)));
-    }, [kitchenMeals.data, plan.data]);
+    const { hasNextPage, isFetchingNextPage, fetchNextPage } = kitchenMeals;
+    useEffect(() => {
+        if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+    }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+    const menu = useMemo(() => mealsFromPages(kitchenMeals.data?.pages), [kitchenMeals.data]);
+    const chosenMeals = useMemo<readonly MarketplaceMeal[]>(() => {
+        const ids = new Set(
+            (daysQuery.data?.days ?? []).flatMap((day) =>
+                day.meals.map((meal) => String(meal.mealId)),
+            ),
+        );
+        return menu.filter((meal) => ids.has(String(meal.id)));
+    }, [daysQuery.data, menu]);
 
     const [dialog, setDialog] = useState<OpenDialog>(null);
     const [skipSheetOpen, setSkipSheetOpen] = useState(false);
@@ -229,20 +230,6 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
     const changeWeekdays = useSetSubscriptionWeekdaysMutation();
     const setMealChoices = useSetSubscriptionMealChoicesMutation();
     const cancel = useCancelSubscriptionMutation();
-
-    /**
-     * Free Selection's options: this kitchen's own menu.
-     *
-     * Not the whole catalogue. A subscription belongs to one kitchen and only that kitchen can cook
-     * the substitute, so offering a meal from another one would be offering something nobody will
-     * deliver. Enabled only when the plan actually allows selection — the picker is not merely
-     * hidden, the request is not made.
-     */
-    const freeSelection = quoteQuery.data?.allowsFreeSelection === true;
-    const menu = useKitchenMenuQuery(
-        freeSelection && subscription !== undefined ? subscription.kitchenId : null,
-        { limit: CHOICE_OPTIONS },
-    );
 
     /**
      * Every dialog opens on a clean slate: its mutation is reset first, so the refusal of an earlier
@@ -526,30 +513,6 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                             />
                         ) : null}
 
-                        {unsavedMeals > 0 ? (
-                            <Callout
-                                testID="subscription-meals-unsaved"
-                                role="alert"
-                                tone="warning"
-                                icon="warning"
-                                title={t('commerce:configurator.mealsUnsavedTitle', {
-                                    count: unsavedMeals,
-                                })}
-                                body={t('commerce:configurator.mealsUnsavedBody')}
-                                actions={
-                                    <Button
-                                        testID="subscription-meals-unsaved-dismiss"
-                                        variant="quiet"
-                                        size="sm"
-                                        label={t('common:action.dismiss')}
-                                        onPress={() => {
-                                            router.setParams({ unsavedMeals: undefined } as never);
-                                        }}
-                                    />
-                                }
-                            />
-                        ) : null}
-
                         {/* The opening: the plan, its state on the title's line, and the two facts
                             somebody opens this page for — what it costs and when the next one comes. */}
                         <View className="flex-col gap-1.5">
@@ -609,14 +572,37 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                     }))}
                                 />
 
+                                <SubscriptionMeals
+                                    days={daysQuery.data}
+                                    loading={daysQuery.isLoading}
+                                    menu={menu}
+                                    menuLoading={!kitchenMeals.isFetched || hasNextPage}
+                                    canChange={live}
+                                    busy={busy}
+                                    pending={setMealChoices.isPending}
+                                    error={setMealChoices.error}
+                                    onOpen={() => {
+                                        setMealChoices.reset();
+                                    }}
+                                    onSave={(date, meals, saved) => {
+                                        setMealChoices.mutate(
+                                            {
+                                                subscriptionId: subscription.id,
+                                                request: { date, choices: meals },
+                                            },
+                                            { onSuccess: saved },
+                                        );
+                                    }}
+                                />
+
                                 <SummaryCard
                                     testID="subscription-detail-allergies"
                                     title={t('commerce:subscription.rows.allergens')}
                                 >
                                     <PlanAllergyNotice
                                         testID="subscription-detail-allergy-notice"
-                                        meals={sampleMeals}
-                                        checked={plan.isFetched && kitchenMeals.isFetched}
+                                        meals={chosenMeals}
+                                        checked={daysQuery.isFetched && kitchenMeals.isFetched}
                                         returnTo={here}
                                     />
                                 </SummaryCard>
@@ -695,19 +681,6 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                                     disabled={busy || upcoming.length === 0}
                                                     onPress={() => {
                                                         setSkipSheetOpen(true);
-                                                    }}
-                                                />
-                                            ) : null}
-                                            {freeSelection &&
-                                            subscription.nextDeliveryDate !== null ? (
-                                                <Button
-                                                    testID="subscription-choose-meals"
-                                                    variant="secondary"
-                                                    block
-                                                    label={t('commerce:choices.open')}
-                                                    disabled={busy}
-                                                    onPress={() => {
-                                                        openDialog('choices');
                                                     }}
                                                 />
                                             ) : null}
@@ -1111,34 +1084,6 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                         {
                             subscriptionId: subscription.id,
                             request: { deliveryWeekdays: editedWeekdays },
-                        },
-                        { onSuccess: close },
-                    );
-                }}
-            />
-
-            {/* ── Free Selection, for the next delivery day ──────────────────────────────────── */}
-            <MealChoicesDialog
-                open={dialog === 'choices'}
-                date={subscription?.nextDeliveryDate ?? null}
-                options={(menu.data?.items ?? []).map((meal) => ({
-                    id: meal.id,
-                    name: meal.name,
-                }))}
-                current={[]}
-                slotCode={subscription?.configuration.slotCode ?? ''}
-                pending={setMealChoices.isPending}
-                error={setMealChoices.error}
-                onClose={close}
-                onConfirm={(mealId) => {
-                    if (subscription?.nextDeliveryDate == null) return;
-                    setMealChoices.mutate(
-                        {
-                            subscriptionId: subscription.id,
-                            request: {
-                                date: subscription.nextDeliveryDate,
-                                choices: [{ slot: subscription.configuration.slotCode, mealId }],
-                            },
                         },
                         { onSuccess: close },
                     );

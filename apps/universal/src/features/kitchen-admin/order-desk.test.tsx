@@ -794,6 +794,34 @@ describe('order desk queue — the order record page', () => {
         );
     });
 
+    it('puts Edit order beside View on the row, enabled only where the order is amendable', async () => {
+        mockPush.mockClear();
+        await renderDeskWithDetail({
+            listQueue: async () =>
+                queue([
+                    deskRow({ id: orderIdAt(1), amendable: true }),
+                    deskRow({ id: orderIdAt(2), amendable: false }),
+                ]),
+            getOrder: async () => {
+                throw new Error('the row opens the sale page, not the record');
+            },
+        });
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(rowTestId(1, 'edit'))).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        expect(screen.getByTestId(rowTestId(2, 'edit')).props.accessibilityState?.disabled).toBe(
+            true,
+        );
+        fireEvent.press(screen.getByTestId(rowTestId(1, 'edit')));
+        expect(mockPush).toHaveBeenCalledWith(
+            `/kitchen/order-desk/sale?order=${encodeURIComponent(String(orderIdAt(1)))}`,
+        );
+    });
+
     it('offers no Edit order once the server says the order cannot be edited', async () => {
         const row = deskRow({ id: orderIdAt(1), status: 'confirmed' });
         await openRecord(detailOrder(row, { amendable: false }), row);

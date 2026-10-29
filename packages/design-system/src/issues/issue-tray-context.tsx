@@ -19,6 +19,14 @@ export interface IssueTraySummary {
     readonly title: string;
 }
 
+/** What a press that could not go through asks the tray to explain. */
+export interface BlockedPress {
+    /** What was pressed — it titles the notice: "2 things before saving". */
+    readonly action: 'save' | 'publish';
+    /** The groups whose cards stopped it — `save`, `publish`. Every blocking card when absent. */
+    readonly groups?: readonly string[] | undefined;
+}
+
 export interface IssueTrayController {
     readonly open: boolean;
     readonly setOpen: (open: boolean) => void;
@@ -32,6 +40,14 @@ export interface IssueTrayController {
     /** When something asked to be looked at (a refused save); the pill shakes once. */
     readonly nudgedAt: number;
     readonly nudge: () => void;
+    /**
+     * A press that could not go through: the tray answers with a notice in the middle of the page
+     * naming what stops it, and "Show me" opens the tray on the first card and runs its Fix.
+     */
+    readonly explain: (press: BlockedPress) => void;
+    /** The press being explained, while its notice is open. */
+    readonly explaining: BlockedPress | null;
+    readonly endExplaining: () => void;
 }
 
 const IssueTrayContext = createContext<IssueTrayController | null>(null);
@@ -62,6 +78,7 @@ function useIssueTrayState(): IssueTrayController {
     const [summary, setSummary] = useState<IssueTraySummary | null>(null);
     const [resolvedAt, setResolvedAt] = useState(0);
     const [nudgedAt, setNudgedAt] = useState(0);
+    const [explaining, setExplaining] = useState<BlockedPress | null>(null);
 
     const open = chosen ?? wide;
     const setOpen = useCallback((next: boolean) => {
@@ -86,6 +103,12 @@ function useIssueTrayState(): IssueTrayController {
         setChosen(true);
         setNudgedAt(Date.now());
     }, []);
+    const explain = useCallback((press: BlockedPress) => {
+        setExplaining(press);
+    }, []);
+    const endExplaining = useCallback(() => {
+        setExplaining(null);
+    }, []);
 
     return useMemo(
         () => ({
@@ -98,8 +121,24 @@ function useIssueTrayState(): IssueTrayController {
             markResolved,
             nudgedAt,
             nudge,
+            explain,
+            explaining,
+            endExplaining,
         }),
-        [open, setOpen, toggle, summary, publish, resolvedAt, markResolved, nudgedAt, nudge],
+        [
+            open,
+            setOpen,
+            toggle,
+            summary,
+            publish,
+            resolvedAt,
+            markResolved,
+            nudgedAt,
+            nudge,
+            explain,
+            explaining,
+            endExplaining,
+        ],
     );
 }
 
