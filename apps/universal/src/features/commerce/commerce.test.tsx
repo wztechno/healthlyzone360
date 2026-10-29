@@ -4776,10 +4776,13 @@ describe('SubscriptionDetailScreen', () => {
             fireEvent.press(screen.getByTestId(`subscription-meals-day-${NEXT_DELIVERY}-change`));
         });
         const dialog = await screen.findByTestId('subscription-meals-dialog');
-        // The day's own meals are where the editor starts.
-        expect(
-            within(dialog).getByTestId('subscription-meals-dialog-day-lunch-1-value'),
-        ).toHaveTextContent(harvest.name);
+        // The day's own meals are where the editor starts — named once the menu's meals load,
+        // which can trail the dialog ("Choose a meal" until then).
+        await waitFor(() => {
+            expect(
+                within(dialog).getByTestId('subscription-meals-dialog-day-lunch-1-value'),
+            ).toHaveTextContent(harvest.name);
+        });
         await fireEvent.press(
             within(dialog).getByTestId('subscription-meals-dialog-day-dinner-1-trigger'),
         );
