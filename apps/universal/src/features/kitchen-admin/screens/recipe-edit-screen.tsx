@@ -2936,19 +2936,19 @@ function RecipeEditor({
                                   testID: 'kitchen-recipe-stock-gap-field',
                               }
                             : isEditable
-                            ? {
-                                  label: t('kitchen:publish.action'),
-                                  onPress: savePublish,
-                                  testID: 'kitchen-recipe-stock-gap-publish',
-                              }
-                            : isViewingCurrent
                               ? {
-                                    label: t('kitchen:recipes.newDraft'),
-                                    loading: openDraft.isPending,
-                                    onPress: openNewDraft,
-                                    testID: 'kitchen-recipe-stock-gap-new-draft',
+                                    label: t('kitchen:publish.action'),
+                                    onPress: savePublish,
+                                    testID: 'kitchen-recipe-stock-gap-publish',
                                 }
-                              : undefined,
+                              : isViewingCurrent
+                                ? {
+                                      label: t('kitchen:recipes.newDraft'),
+                                      loading: openDraft.isPending,
+                                      onPress: openNewDraft,
+                                      testID: 'kitchen-recipe-stock-gap-new-draft',
+                                  }
+                                : undefined,
                       secondaryAction: !cameBack
                           ? undefined
                           : {
