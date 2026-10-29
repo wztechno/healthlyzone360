@@ -6,7 +6,6 @@ import {
     Dialog,
     Icon,
     Inline,
-    Stack,
     Text,
     useToast,
 } from '@healthy360/design-system';
@@ -24,12 +23,10 @@ import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
-import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
-import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
+import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
@@ -100,10 +97,9 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  * Flags sort by nothing — each is a set, and narrowing one loaded page by a set would misreport
  * every page after it.
  *
- * **Two of the four cards are filters.** Shown clears every constraint; Draft narrows to the
- * drafts. Missing Arabic and No pack are read-only, because the filter carries no parameter for
- * either and a card that looked pressable and did nothing would be worse than one that plainly does
- * not.
+ * **The status figures are filters.** All clears the status; Published and Draft narrow to it.
+ * Missing Arabic and No pack are read-only, because the filter carries no parameter for either and a
+ * figure that looked pressable and did nothing would be worse than one that plainly does not.
  */
 
 type SortKey = ProductSortKey;
@@ -127,6 +123,8 @@ export interface GoodsFamily {
     /** The eyebrow over the View drawer — "Product", "Sauce", "Dressing". */
     readonly viewKind: string;
     readonly searchPlaceholder: string;
+    /** The Lens bar's first figure — "All products". */
+    readonly allLabel: string;
 }
 
 export const PRODUCTS_FAMILY: GoodsFamily = {
@@ -139,6 +137,7 @@ export const PRODUCTS_FAMILY: GoodsFamily = {
     emptyBody: 'kitchen:products.emptyBody',
     viewKind: 'kitchen:products.viewKind',
     searchPlaceholder: 'kitchen:products.searchPlaceholder',
+    allLabel: 'kitchen:lens.allProducts',
 };
 
 export function ProductsScreen({
@@ -203,8 +202,6 @@ function ProductsList({
         },
     );
 
-    const segments = statusSegments(list.statuses, list.setStatuses, t);
-
     /*
      * View takes the whole page (`IngredientView.dc.html`), in place of the list rather than on a
      * route of its own — Back is a state change, so the list's page, sort and filters survive it.
@@ -256,44 +253,41 @@ function ProductsList({
     return (
         <Cascade space="md" testID="kitchen-products-screen">
             {/*
-             * The opening — the actions and the four figures — is one block at 4px, nested inside
-             * the page's 16px rhythm. The reasoning is the ingredient list's: with no trail and no
-             * title of its own, the header is a right-aligned button row, and at the page's own
-             * 16px it read as two empty bands stacked above the first thing worth looking at.
+             * The Lens bar — figures, mix, query row and actions as one object directly over the
+             * list it narrows (`lens-bar.tsx`), as on the ingredient list.
              */}
-            <Stack space="xs">
-                <CatalogueStatCards
-                    testID="kitchen-products-stats"
-                    cards={statCards(list, t)}
-                    pending={list.isPending}
-                    countsPending={list.countsPending}
-                />
-            </Stack>
-
-            <CatalogueToolbar<StatusSegmentValue>
+            <LensBar
                 testID="kitchen-products-toolbar"
+                label={t('kitchen:lens.label')}
+                figures={lensFigures(list, t, t(family.allLabel))}
+                {...statusLensMix(list, t)}
                 search={list.query}
                 onSearchChange={list.setQuery}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t(family.searchPlaceholder)}
-                statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={segments.segments}
-                status={segments.value}
-                onStatusChange={segments.onChange}
-            >
-                <ColumnPicker {...controls.picker} />
-                {canManage ? (
-                    <Inline space="xs" align="center">
-                        <CatalogueTransferActions testID="kitchen-products-toolbar" />
-                        <Button
-                            testID="kitchen-products-toolbar-create"
-                            label={t(family.create)}
-                            iconStart={<Icon name="plus" size="sm" />}
-                            onPress={list.createNew}
-                        />
-                    </Inline>
-                ) : undefined}
-            </CatalogueToolbar>
+                tokens={statusLensTokens(list, t)}
+                result={
+                    list.total === null
+                        ? null
+                        : t('kitchen:lens.result', { shown: list.shown, total: list.total })
+                }
+                clearLabel={t('kitchen:lens.clear')}
+                {...(list.isUnfiltered ? {} : { onClear: list.clearFilters })}
+                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                actions={
+                    canManage ? (
+                        <Inline space="xs" align="center">
+                            <CatalogueTransferActions testID="kitchen-products-toolbar" />
+                            <Button
+                                testID="kitchen-products-toolbar-create"
+                                label={t(family.create)}
+                                iconStart={<Icon name="plus" size="sm" />}
+                                onPress={list.createNew}
+                            />
+                        </Inline>
+                    ) : undefined
+                }
+            />
 
             <CatalogueListBody
                 testID="kitchen-products"
@@ -410,58 +404,30 @@ function ProductsList({
 }
 
 /**
- * The four figures the summary line used to state, as cards.
- *
- * `total` is the server's count for the filtered set; Draft, Missing Arabic and No pack are counted
- * over the loaded page, which is the only set this screen has. That difference is why Shown reads
- * "18 of 240" rather than claiming the three beside it are catalogue-wide.
+ * The Lens bar's figures: All · Published · Draft · Awaiting review, then the two that block
+ * publishing. Missing Arabic and No pack count the rows the list shows, the status included.
  */
-function statCards(list: ProductListState, t: TFunction): readonly CatalogueStatCard[] {
+function lensFigures(list: ProductListState, t: TFunction, allLabel: string): readonly LensFigure[] {
+    const counted = (count: number) => (list.countsPending ? null : count);
     return [
-        {
-            key: 'shown',
-            label: t('kitchen:list.statShown'),
-            value: String(list.shown),
-            unit: t('kitchen:list.statShownUnit', { total: list.total ?? list.shown }),
-            caption: list.isUnfiltered
-                ? t('kitchen:list.statShownUnfiltered')
-                : t('kitchen:list.statShownFiltered'),
-            mark: 'list',
-            tone: 'brand',
-            onPress: list.clearFilters,
-            accessibilityLabel: t('kitchen:list.statShownAction'),
-        },
-        {
-            key: 'draft',
-            label: t('kitchen:list.statDraft'),
-            value: String(list.draftCount),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:list.statDraftCaption'),
-            mark: 'fileDraft',
-            // Amber only while there is something to act on.
-            tone: list.draftCount === 0 ? 'default' : 'warning',
-            onPress: () => {
-                list.setStatuses(['draft']);
-            },
-            accessibilityLabel: t('kitchen:list.statDraftAction'),
-        },
+        ...statusLensFigures(list, t, {
+            allLabel,
+            review: true,
+            reviewAction: t('kitchen:lens.reviewAction'),
+        }),
         {
             key: 'missingArabic',
             label: t('kitchen:list.statMissingArabic'),
-            value: String(list.missingArabicCount),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:list.statMissingArabicCaption'),
-            mark: 'languages',
-            tone: list.missingArabicCount === 0 ? 'default' : 'danger',
+            value: counted(list.missingArabicCount),
+            tone: 'danger',
+            alarm: true,
+            separated: true,
         },
         {
             key: 'noPack',
             label: t('kitchen:products.statNoPack'),
-            value: String(list.noPackCount),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:products.statNoPackCaption'),
-            mark: 'package',
-            tone: list.noPackCount === 0 ? 'default' : 'warning',
+            value: counted(list.noPackCount),
+            tone: 'warning',
         },
     ];
 }

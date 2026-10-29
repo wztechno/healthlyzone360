@@ -25,13 +25,11 @@ import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
-import type { AllergenListState, AllergenStatusFilter } from '../catalogue/use-allergen-list.ts';
+import type { AllergenListState } from '../catalogue/use-allergen-list.ts';
 import { NO_MARKET, useAllergenList } from '../catalogue/use-allergen-list.ts';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
@@ -43,8 +41,8 @@ import { useListMemory, useRememberedOpened } from '../list-memory.ts';
  *
  * ```
  * Kitchen workspace › Allergen classes            <- drawn by the shell, not here
- * ┌ SHOWN ┐ ┌ SEVERE ┐ ┌ WITHDRAWN ┐ ┌ WITH A THRESHOLD ┐
- *          [ ⌕ 240px ]  [ All | Active | Withdrawn ]
+ * (All classes 14) │ ● Active 13  ● Withdrawn 1 │ ● Severe  ● With a threshold
+ * [ ⌕ Search ] [Markets: GCC ×]                                     9 of 14  Clear │ ▤
  * ID  CLASS  REGULATION  DECLARABLE IN  THRESHOLD  STATUS  ⋯
  * ```
  *
@@ -57,7 +55,7 @@ import { useListMemory, useRememberedOpened } from '../list-memory.ts';
  * a seventh layout for the same job.
  *
  * It now takes the same parts in the same order as Ingredients, Packaging, Recipes, Resale and
- * Meals: the compact header, the stat row, the one-row toolbar, the fitted list with sort-and-filter
+ * Meals: the compact header, the Lens bar, the fitted list with sort-and-filter
  * column headers, and the View panel. Which means the eight or nine decisions those screens have
  * accumulated — the equal share of leftover width, the sort arrow on every sortable header, the row
  * that floors rather than clips, the centred figures — arrive here for free, and the next one will
@@ -102,9 +100,6 @@ export function AllergenClassesScreen({ view }: { readonly view?: string | undef
     );
 }
 
-/** All · Active · Withdrawn — the `isActive` split, which is this record's whole lifecycle. */
-const SEGMENTS: readonly AllergenStatusFilter[] = ['all', 'active', 'withdrawn'];
-
 function AllergenClasses({ view }: { readonly view?: string | undefined }) {
     const { t } = useTranslation();
     const { locale } = useLocale();
@@ -140,18 +135,6 @@ function AllergenClasses({ view }: { readonly view?: string | undefined }) {
         },
     );
 
-    const statusSegments: readonly CatalogueStatusSegment<AllergenStatusFilter>[] = SEGMENTS.map(
-        (value) => ({
-            value,
-            label:
-                value === 'all'
-                    ? t('kitchen:toolbar.statusAll')
-                    : value === 'active'
-                      ? t('kitchen:classes.active')
-                      : t('kitchen:classes.withdrawn'),
-        }),
-    );
-
     /*
      * View takes the whole page (`IngredientView.dc.html`), in place of the list rather than on a
      * route of its own — Back is a state change, so the list's page, sort and filters survive it.
@@ -179,29 +162,45 @@ function AllergenClasses({ view }: { readonly view?: string | undefined }) {
     return (
         <Cascade space="md" testID="kitchen-allergen-classes-screen">
             {/*
-             * No header row. This list has no actions at all - allergen classes are the platform's
-             * to govern, which the notice below says in words - so the header was an empty box
-             * holding the cards apart from nothing.
+             * The Lens bar — figures, mix and query row as one object directly over the list it
+             * narrows (`lens-bar.tsx`). No actions: allergen classes are the platform's to govern.
              */}
-            <CatalogueStatCards
-                testID="kitchen-allergen-classes-stats"
-                cards={statCards(list, t)}
-                pending={list.isPending}
-            />
-
-            <CatalogueToolbar<AllergenStatusFilter>
+            <LensBar
                 testID="kitchen-allergen-classes-toolbar"
+                label={t('kitchen:lens.label')}
+                figures={lensFigures(list, t)}
+                mix={[
+                    {
+                        key: 'active',
+                        value: list.total - list.withdrawnCount,
+                        tone: 'success',
+                        dimmed: list.status === 'withdrawn',
+                    },
+                    {
+                        key: 'withdrawn',
+                        value: list.withdrawnCount,
+                        tone: 'warning',
+                        dimmed: list.status === 'active',
+                    },
+                ]}
+                mixLabel={t('kitchen:lens.allergenMix', {
+                    active: list.total - list.withdrawnCount,
+                    withdrawn: list.withdrawnCount,
+                })}
                 search={list.query}
                 onSearchChange={list.setQuery}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t('kitchen:classes.searchPlaceholder')}
-                statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={statusSegments}
-                status={list.status}
-                onStatusChange={list.setStatus}
-            >
-                <ColumnPicker {...controls.picker} />
-            </CatalogueToolbar>
+                tokens={lensTokens(list, t)}
+                result={
+                    list.isPending
+                        ? null
+                        : t('kitchen:lens.result', { shown: list.shown, total: list.total })
+                }
+                clearLabel={t('kitchen:lens.clear')}
+                {...(list.isUnfiltered ? {} : { onClear: list.clearFilters })}
+                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+            />
 
             {list.isPending ? (
                 <TableSkeleton
@@ -277,59 +276,102 @@ function AllergenClasses({ view }: { readonly view?: string | undefined }) {
 }
 
 /**
- * The four figures the page opens with.
- *
- * Two are filters and two are not, which is the rule {@link CatalogueStatCards} states: Shown clears
- * every constraint and Withdrawn narrows to the deactivated classes, because both are cuts this list
- * can actually make. Severe and With a threshold are read-only — `severeByDefault` and
- * `declarationThreshold` are not filters this screen offers, and a card that looked pressable and
- * then did nothing would be worse than one that does not.
+ * The Lens bar's figures: All · Active · Withdrawn — the `isActive` split, which is this record's
+ * whole lifecycle — then Severe and With a threshold. Those two are read-only: `severeByDefault`
+ * and `declarationThreshold` are not filters this screen offers. Every figure counts all fourteen.
  */
-function statCards(list: AllergenListState, t: TFunction): readonly CatalogueStatCard[] {
+function lensFigures(list: AllergenListState, t: TFunction): readonly LensFigure[] {
+    const counted = (count: number) => (list.isPending ? null : count);
     return [
         {
-            key: 'shown',
-            label: t('kitchen:list.statShown'),
-            value: String(list.shown),
-            unit: t('kitchen:list.statShownUnit', { total: list.total }),
-            caption: list.isUnfiltered
-                ? t('kitchen:list.statShownUnfiltered')
-                : t('kitchen:list.statShownFiltered'),
-            mark: 'list',
-            tone: 'brand',
-            onPress: list.clearFilters,
-            accessibilityLabel: t('kitchen:list.statShownAction'),
+            key: 'all',
+            label: t('kitchen:lens.allAllergenClasses'),
+            value: counted(list.total),
+            active: list.status === 'all',
+            onPress: () => {
+                list.setStatus('all');
+            },
+            accessibilityLabel: t('kitchen:lens.allAction'),
         },
         {
-            key: 'severe',
-            label: t('kitchen:classes.statSevere'),
-            value: String(list.severeCount),
-            unit: t('kitchen:classes.statUnit'),
-            caption: t('kitchen:classes.statSevereCaption'),
-            mark: 'alert',
-            tone: 'danger',
+            key: 'active',
+            label: t('kitchen:classes.active'),
+            value: counted(list.total - list.withdrawnCount),
+            tone: 'success',
+            separated: true,
+            active: list.status === 'active',
+            onPress: () => {
+                list.setStatus('active');
+            },
+            accessibilityLabel: t('kitchen:lens.activeAction'),
         },
         {
             key: 'withdrawn',
             label: t('kitchen:classes.withdrawn'),
-            value: String(list.withdrawnCount),
-            unit: t('kitchen:classes.statUnit'),
-            caption: t('kitchen:classes.statWithdrawnCaption'),
-            mark: 'hidden',
+            value: counted(list.withdrawnCount),
             tone: 'warning',
+            active: list.status === 'withdrawn',
             onPress: () => {
-                list.setStatus(list.status === 'withdrawn' ? 'all' : 'withdrawn');
+                list.setStatus('withdrawn');
             },
             accessibilityLabel: t('kitchen:classes.statWithdrawnAction'),
         },
         {
+            // Danger for the dot only: a severe class is a fact about the allergen, not work that
+            // is blocked, so it does not take the alarm ink.
+            key: 'severe',
+            label: t('kitchen:classes.statSevere'),
+            value: counted(list.severeCount),
+            tone: 'danger',
+            separated: true,
+        },
+        {
             key: 'threshold',
             label: t('kitchen:classes.statThreshold'),
-            value: String(list.thresholdCount),
-            unit: t('kitchen:classes.statUnit'),
-            caption: t('kitchen:classes.statThresholdCaption'),
-            mark: 'infoCircle',
+            value: counted(list.thresholdCount),
+            tone: 'info',
         },
+    ];
+}
+
+/** The status and the market in force, as removable tokens. */
+function lensTokens(list: AllergenListState, t: TFunction): readonly LensToken[] {
+    const token = (key: string, label: string, value: string, onRemove: () => void): LensToken => {
+        const text = t('kitchen:lens.token', { label, value });
+        return {
+            key,
+            label: text,
+            removeLabel: t('kitchen:toolbar.removeFilter', { filter: text }),
+            onRemove,
+        };
+    };
+    return [
+        ...(list.status === 'all'
+            ? []
+            : [
+                  token(
+                      'status',
+                      t('kitchen:toolbar.statusLabel'),
+                      list.status === 'active'
+                          ? t('kitchen:classes.active')
+                          : t('kitchen:classes.withdrawn'),
+                      () => {
+                          list.setStatus('all');
+                      },
+                  ),
+              ]),
+        ...(list.market === null
+            ? []
+            : [
+                  token(
+                      'market',
+                      t('kitchen:classes.columnMarkets'),
+                      list.market === NO_MARKET ? t('kitchen:classes.noMarkets') : list.market,
+                      () => {
+                          list.setMarket(null);
+                      },
+                  ),
+              ]),
     ];
 }
 

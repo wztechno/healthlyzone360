@@ -26,10 +26,9 @@ import { toFailure } from '../../../data/hooks.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import {
     compareNumber,
     compareText,
@@ -43,8 +42,8 @@ import { useListMemory, useRememberedOpened, useRememberedQuery } from '../list-
  * `/kitchen/roles` — what each job title is allowed to reach (AA1), on the Catalogue list.
  *
  * ```
- * ┌ SHOWN ┐ ┌ UNASSIGNED ┐
- * [ ⌕ search ]  [ ▦ ]  [ + New role ]
+ * All roles 9 │ ○ Unassigned 2                                              [ + New role ]
+ * [ ⌕ search                                   ]                          9 of 9 │ ▦
  * ROLE     DESCRIPTION     HELD BY     PERMISSIONS     ⧉ ✎
  * ```
  *
@@ -218,40 +217,45 @@ function RolesList() {
 
     return (
         <Cascade space="md" testID="kitchen-roles-screen">
-            {failure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-roles-stats"
-                    cards={statCards({
-                        all: roles.data ?? [],
-                        shown: controls.rows.length,
-                        unfiltered,
-                        t,
-                        clear: () => {
-                            setQuery('');
-                            controls.clearFilters();
-                        },
-                    })}
-                    pending={roles.isPending}
-                />
-            )}
-
-            <CatalogueToolbar
+            <LensBar
                 testID="kitchen-roles-toolbar"
+                label={t('kitchen:lens.label')}
+                figures={lensFigures(roles.data, roles.isPending, t)}
                 search={query}
                 onSearchChange={setQuery}
                 searchLabel={t('accessAdmin:roles.searchLabel')}
                 searchPlaceholder={t('accessAdmin:roles.searchHint')}
-            >
-                <ColumnPicker {...controls.picker} />
-                {canManage ? (
-                    <Button
-                        testID="kitchen-roles-create"
-                        label={t('accessAdmin:roles.create')}
-                        iconStart={<Icon name="plus" size="sm" />}
-                        onPress={createRole}
-                    />
-                ) : null}
-            </CatalogueToolbar>
+                result={
+                    roles.isPending
+                        ? null
+                        : failure !== null
+                          ? t('kitchen:list.noValue')
+                          : t('kitchen:lens.result', {
+                                shown: controls.rows.length,
+                                total: roles.data?.length ?? 0,
+                            })
+                }
+                clearLabel={t('kitchen:lens.clear')}
+                {...(unfiltered
+                    ? {}
+                    : {
+                          onClear: () => {
+                              setQuery('');
+                              controls.clearFilters();
+                          },
+                      })}
+                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                actions={
+                    canManage ? (
+                        <Button
+                            testID="kitchen-roles-create"
+                            label={t('accessAdmin:roles.create')}
+                            iconStart={<Icon name="plus" size="sm" />}
+                            onPress={createRole}
+                        />
+                    ) : undefined
+                }
+            />
 
             {roles.isPending ? (
                 <TableSkeleton testID="kitchen-roles-loading" partTestID="kitchen-roles" />
@@ -323,45 +327,33 @@ function RolesList() {
 }
 
 /**
- * Counted over the whole role book, which is all in hand: the list is unpaged. Shown is the one
- * card that follows the search; the other describes the book.
+ * Counted over the whole role book, which is all in hand: the list is unpaged. A failed read counts
+ * nothing, so its figures are dashes rather than zeros.
  */
-function statCards({
-    all,
-    shown,
-    unfiltered,
-    t,
-    clear,
-}: {
-    readonly all: readonly OrganisationRoleSummary[];
-    readonly shown: number;
-    readonly unfiltered: boolean;
-    readonly t: TFunction;
-    readonly clear: () => void;
-}): readonly CatalogueStatCard[] {
-    const unheld = all.filter((role) => role.holderCount === 0).length;
+function lensFigures(
+    all: readonly OrganisationRoleSummary[] | undefined,
+    pending: boolean,
+    t: TFunction,
+): readonly LensFigure[] {
+    const figure = (count: (roles: readonly OrganisationRoleSummary[]) => number) =>
+        pending
+            ? { value: null }
+            : all === undefined
+              ? { value: 0, display: t('kitchen:list.noValue') }
+              : { value: count(all) };
 
     return [
         {
-            key: 'shown',
-            label: t('kitchen:list.statShown'),
-            value: String(shown),
-            unit: t('kitchen:list.statShownUnit', { total: all.length }),
-            caption: unfiltered
-                ? t('kitchen:list.statShownUnfiltered')
-                : t('kitchen:list.statShownFiltered'),
-            mark: 'list',
-            tone: 'brand',
-            onPress: clear,
-            accessibilityLabel: t('kitchen:list.statShownAction'),
+            key: 'all',
+            label: t('kitchen:lens.allRoles'),
+            ...figure((roles) => roles.length),
         },
         {
             key: 'unheld',
             label: t('accessAdmin:roles.statUnheld'),
-            value: String(unheld),
-            unit: t('accessAdmin:roles.statRoles'),
-            caption: t('accessAdmin:roles.statUnheldCaption'),
-            mark: 'users',
+            ...figure((roles) => roles.filter((role) => role.holderCount === 0).length),
+            tone: 'neutral',
+            separated: true,
         },
     ];
 }

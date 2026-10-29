@@ -210,14 +210,19 @@ describe('the production desk queue', () => {
         });
 
         // Two drafts on screen out of who knows how many. "1" would be a claim about the kitchen
-        // that nobody earned, so the tile shows the em dash instead. Waited for on a figure: the
-        // cards themselves are drawn while the page is still in flight.
+        // that nobody earned, so the figure shows the em dash instead. Waited for on a figure: the
+        // bar itself is drawn while the page is still in flight.
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-production-desk-summary-draft-value')).toBeTruthy();
+            expect(
+                screen.getByTestId('kitchen-production-desk-toolbar-figure-draft-value'),
+            ).toBeTruthy();
         });
+        // All batches, the three open states and Unvalued.
         expect(
-            within(screen.getByTestId('kitchen-production-desk-summary')).getAllByText('—'),
-        ).toHaveLength(4);
+            within(screen.getByTestId('kitchen-production-desk-toolbar-figures')).getAllByText(
+                '—',
+            ),
+        ).toHaveLength(5);
     });
 
     it('advances a draft on the version it was read at', async () => {

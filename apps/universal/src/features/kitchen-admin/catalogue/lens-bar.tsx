@@ -41,6 +41,11 @@ export interface LensFigure {
     readonly label: string;
     /** `null` while the figure is still in flight — a placeholder holds its line. */
     readonly value: number | null;
+    /**
+     * The figure as drawn, when it is not a plain count — a sum of money, a weight. The page owns the
+     * numbering system, so it formats. `value` still decides the alarm and the hollow zero dot.
+     */
+    readonly display?: string | undefined;
     /** The dot's tone. Omit for the scope's total, which carries no dot. */
     readonly tone?: LensTone | undefined;
     /** A mark in place of the dot — the On sale eye. */
@@ -89,6 +94,11 @@ export interface LensBarProps {
     readonly onSearchChange: (search: string) => void;
     readonly searchLabel: string;
     readonly searchPlaceholder?: string | undefined;
+    /**
+     * Enter in the search does something besides filter — a scan field that looks a code up. The
+     * field keeps focus after it and stops correcting what is typed, because what is typed is a code.
+     */
+    readonly onSearchSubmit?: (() => void) | undefined;
     readonly onScan?: ((scan: BarcodeScan) => void) | undefined;
     readonly tokens?: readonly LensToken[] | undefined;
     /** "18 of 111". `null` while the page is in flight. */
@@ -139,6 +149,7 @@ export function LensBar({
     onSearchChange,
     searchLabel,
     searchPlaceholder,
+    onSearchSubmit,
     onScan,
     tokens = [],
     result,
@@ -239,6 +250,14 @@ export function LensBar({
                         label={searchLabel}
                         placeholder={searchPlaceholder}
                         size="sm"
+                        {...(onSearchSubmit === undefined
+                            ? {}
+                            : {
+                                  onSubmitEditing: onSearchSubmit,
+                                  blurOnSubmit: false,
+                                  autoCorrect: false,
+                                  autoCapitalize: 'none' as const,
+                              })}
                         testID={`${testID}-search`}
                     />
                 </View>
@@ -505,7 +524,7 @@ function LensFigureCell({
                     tone={alarm ? 'danger' : zero ? 'secondary' : 'primary'}
                     className="font-semibold tabular-nums"
                 >
-                    {String(value)}
+                    {figure.display ?? String(value)}
                 </Text>
             )}
         </>
@@ -529,7 +548,7 @@ function LensFigureCell({
                     testID={testID}
                     role="button"
                     accessibilityRole="button"
-                    accessibilityLabel={`${figure.label} ${value === null ? '' : String(value)}`.trim()}
+                    accessibilityLabel={`${figure.label} ${value === null ? '' : (figure.display ?? String(value))}`.trim()}
                     accessibilityHint={figure.accessibilityLabel}
                     accessibilityState={{ selected: active }}
                     onPress={figure.onPress}

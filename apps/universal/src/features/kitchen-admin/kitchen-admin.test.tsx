@@ -2604,11 +2604,11 @@ describe('the allergen class reference', () => {
         await untilVisible('kitchen-allergen-classes-table');
 
         expect(ALLERGEN_CLASSES).toHaveLength(14);
-        // The count moved from a caption line under the list to the Shown stat card every other
-        // Catalogue page opens with — the same figure, where a reader now looks for it.
-        expect(screen.getByTestId('kitchen-allergen-classes-stats-shown-value')).toHaveTextContent(
-            /14/,
-        );
+        // The count is the Lens bar's All figure every other Catalogue page opens with — the same
+        // number, where a reader now looks for it.
+        expect(
+            screen.getByTestId('kitchen-allergen-classes-toolbar-figure-all-value'),
+        ).toHaveTextContent(/14/);
         // No governance banner: the team's no-helper-copy rule.
         expect(screen.queryByTestId('kitchen-allergen-classes-governance')).toBeNull();
 
@@ -2673,14 +2673,14 @@ describe('the allergen class reference', () => {
             fireEvent.press(screen.getByTestId('kitchen-allergen-classes-column-markets-GCC'));
         });
 
-        // Every class but the EU-only one and the unregulated one: twelve, and Shown says twelve.
+        // Every class but the EU-only one and the unregulated one: twelve, and the result says so.
         await waitFor(() => {
             expect(screen.queryByTestId('kitchen-allergen-class-lupin-name')).toBeNull();
         });
         expect(screen.queryByTestId('kitchen-allergen-class-molluscs-name')).toBeNull();
         expect(screen.getByTestId('kitchen-allergen-class-gluten-name')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-allergen-classes-stats-shown-value')).toHaveTextContent(
-            /^12$/,
+        expect(screen.getByTestId('kitchen-allergen-classes-toolbar-result')).toHaveTextContent(
+            '12 of 14',
         );
 
         // A filter value leaves the menu open, so the next market is one press away.
@@ -2693,8 +2693,8 @@ describe('the allergen class reference', () => {
             expect(screen.getByTestId('kitchen-allergen-class-molluscs-name')).toBeTruthy();
         });
         expect(screen.queryByTestId('kitchen-allergen-class-gluten-name')).toBeNull();
-        expect(screen.getByTestId('kitchen-allergen-classes-stats-shown-value')).toHaveTextContent(
-            /^1$/,
+        expect(screen.getByTestId('kitchen-allergen-classes-toolbar-result')).toHaveTextContent(
+            '1 of 14',
         );
     });
 });

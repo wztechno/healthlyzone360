@@ -33,10 +33,10 @@ import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { StatusLensSource } from '../catalogue/lens-status.ts';
+import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
+import { statusTally, withoutStatuses } from '../catalogue/use-catalogue-filters.ts';
 import {
     compareNumber,
     compareText,
@@ -79,9 +79,8 @@ function usePlanById(id: string | null) {
  * `/kitchen/plans` — the plans this kitchen sells, and how much of each is decided (Commercial §3.3).
  *
  * ```
- *                                                                  [ + New plan ]
- * ┌ SHOWN ┐ ┌ NO CONFIGURATIONS ┐ ┌ NOTHING PRICED ┐
- * [ ⌕ search ]  [ All | Live | Draft | Review ]
+ * (All plans 12) │ ● Published 9  ● Draft 2  ● Awaiting review 1           [ + New plan ]
+ * [ ⌕ search ]  [Status: Draft ×]                                  2 of 12  Clear  ⫴
  * PLAN     CONFIGURATIONS                DURATIONS     PRICES             STATUS  UPDATED  ◉ ✎
  * ```
  *
@@ -105,7 +104,6 @@ export function PlansScreen({ view }: { readonly view?: string | undefined }) {
     );
 }
 
-const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'review_required'];
 type StatusSegmentValue = PublishableStatus | 'all';
 
 function PlansList({ view }: { readonly view?: string | undefined }) {
@@ -134,7 +132,8 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
     useRestoredPageFallback(memory, page, plans.isError, () => {
         setPage(1);
     });
-    const wholeSet = useAdminPlanWholeSetQuery(filter);
+    // Without the status, so the figures count every state the search leaves.
+    const wholeSet = useAdminPlanWholeSetQuery(withoutStatuses(filter));
     const priceLists = usePriceListsQuery({ limit: 100 });
 
     const rows = useMemo(() => plans.data?.items ?? [], [plans.data]);
@@ -362,62 +361,22 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
     const failure = toFailure(plans.error);
     const unfiltered = trimmed === '' && status === 'all';
 
-    const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
-        { value: 'all', label: t('kitchen:toolbar.statusAll') },
-        ...SEGMENT_STATUSES.map((value) => ({ value, label: t(statusShortKey(value)) })),
-    ];
-
-    // The design's three: Shown, Published ("on sale"), Draft ("half-built"). Published and Draft
-    // count every page the filters match, so a status segment still moves them with the list (§3z).
-    const everyPlan = wholeSet.data ?? [];
-    const published = everyPlan.filter((row) => row.meta.status === 'published').length;
-    const drafts = everyPlan.filter((row) => row.meta.status === 'draft').length;
     // Rows up to the end of this page: 18 of 40 on the first, 36 on the second.
     const shownSoFar = Math.min(page * KITCHEN_PAGE_SIZE, total ?? controls.rows.length);
-    const cards: readonly CatalogueStatCard[] = [
-        {
-            key: 'shown',
-            label: t('kitchen:list.statShown'),
-            value: String(shownSoFar),
-            unit: t('kitchen:list.statShownUnit', { total: total ?? shownSoFar }),
-            caption: unfiltered
-                ? t('kitchen:list.statShownUnfiltered')
-                : t('kitchen:list.statShownFiltered'),
-            mark: 'list',
-            tone: 'brand',
-            onPress: () => {
-                setQuery('');
-                setStatus('all');
-            },
-            accessibilityLabel: t('kitchen:list.statShownAction'),
+    const statuses: readonly PublishableStatus[] = status === 'all' ? [] : [status];
+    const scopeRows = wholeSet.data ?? [];
+    /** The status half of the Lens bar, over every plan the search leaves (`lens-status.ts`). */
+    const lens: StatusLensSource = {
+        total,
+        scopeCount: scopeRows.length,
+        statusCounts: statusTally(scopeRows),
+        countsPending: wholeSet.isPending,
+        statuses,
+        setStatuses: (next) => {
+            setStatus(next[0] ?? 'all');
+            setViewing(null);
         },
-        {
-            key: 'published',
-            label: t(statusShortKey('published')),
-            value: String(published),
-            unit: t('kitchen:plans.statPlansUnit'),
-            caption: t('kitchen:plans.statPublishedCaption'),
-            mark: 'circleCheck',
-            tone: 'default',
-            onPress: () => {
-                setStatus('published');
-            },
-            accessibilityLabel: t(statusShortKey('published')),
-        },
-        {
-            key: 'draft',
-            label: t(statusShortKey('draft')),
-            value: String(drafts),
-            unit: t('kitchen:plans.statPlansUnit'),
-            caption: t('kitchen:plans.statDraftCaption'),
-            mark: 'fileDraft',
-            tone: drafts === 0 ? 'default' : 'warning',
-            onPress: () => {
-                setStatus('draft');
-            },
-            accessibilityLabel: t(statusShortKey('draft')),
-        },
-    ];
+    };
 
     if (viewing !== null) {
         return (
@@ -473,45 +432,50 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
 
     return (
         <Cascade space="md" testID="kitchen-plans-screen">
-            {failure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-plans-stats"
-                    cards={cards}
-                    pending={plans.isPending}
-                    countsPending={wholeSet.isPending}
-                />
-            )}
-
-            <CatalogueToolbar<StatusSegmentValue>
+            <LensBar
                 testID="kitchen-plans-toolbar"
+                label={t('kitchen:lens.label')}
+                figures={statusLensFigures(lens, t, {
+                    allLabel: t('kitchen:lens.allPlans'),
+                    review: true,
+                    reviewAction: t('kitchen:lens.reviewAction'),
+                })}
+                {...statusLensMix(lens, t)}
                 search={query}
                 onSearchChange={(next) => {
                     setQuery(next);
                     setViewing(null);
                 }}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
-                statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={statusSegments}
-                // Archived, reached from the Status column's own filter, has no segment — the set
-                // reads "all" rather than lighting nothing.
-                status={status === 'all' || SEGMENT_STATUSES.includes(status) ? status : 'all'}
-                onStatusChange={(next) => {
-                    setStatus(next);
-                    setViewing(null);
-                }}
-            >
-                <ColumnPicker {...controls.picker} />
-                {canManage ? (
-                    <Button
-                        testID="kitchen-plans-toolbar-create"
-                        label={t('kitchen:plans.create')}
-                        iconStart={<Icon name="plus" size="sm" />}
-                        onPress={() => {
-                            router.push('/kitchen/plans/new' as never);
-                        }}
-                    />
-                ) : null}
-            </CatalogueToolbar>
+                tokens={statusLensTokens(lens, t)}
+                result={
+                    total === null || failure !== null
+                        ? null
+                        : t('kitchen:lens.result', { shown: shownSoFar, total })
+                }
+                clearLabel={t('kitchen:lens.clear')}
+                {...(unfiltered
+                    ? {}
+                    : {
+                          onClear: () => {
+                              setQuery('');
+                              setStatus('all');
+                          },
+                      })}
+                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                actions={
+                    canManage ? (
+                        <Button
+                            testID="kitchen-plans-toolbar-create"
+                            label={t('kitchen:plans.create')}
+                            iconStart={<Icon name="plus" size="sm" />}
+                            onPress={() => {
+                                router.push('/kitchen/plans/new' as never);
+                            }}
+                        />
+                    ) : undefined
+                }
+            />
 
             {plans.isPending ? (
                 <TableSkeleton testID="kitchen-plans-loading" partTestID="kitchen-plans" />

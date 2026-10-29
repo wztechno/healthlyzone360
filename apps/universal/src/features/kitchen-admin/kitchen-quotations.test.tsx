@@ -272,13 +272,16 @@ describe('kitchen quotations', () => {
 
         // Four authored: two submitted, one quoted, one accepted.
         expect(
-            screen.getByTestId('kitchen-quotations-panel-metric-loaded-value'),
+            screen.getByTestId('kitchen-quotations-toolbar-figure-all-value'),
         ).toHaveTextContent('4');
         expect(
-            screen.getByTestId('kitchen-quotations-panel-metric-awaiting-value'),
+            screen.getByTestId('kitchen-quotations-toolbar-figure-awaiting-value'),
         ).toHaveTextContent('2');
         expect(
-            screen.getByTestId('kitchen-quotations-panel-metric-quoted-value'),
+            screen.getByTestId('kitchen-quotations-toolbar-figure-quoted-value'),
+        ).toHaveTextContent('1');
+        expect(
+            screen.getByTestId('kitchen-quotations-toolbar-figure-closed-value'),
         ).toHaveTextContent('1');
 
         expect(
@@ -295,7 +298,7 @@ describe('kitchen quotations', () => {
 
         await waitForTable();
 
-        fireEvent.press(screen.getByTestId('kitchen-quotations-toolbar-status-quoted'));
+        fireEvent.press(screen.getByTestId('kitchen-quotations-toolbar-figure-quoted'));
 
         await waitFor(() => {
             expect(
@@ -309,9 +312,9 @@ describe('kitchen quotations', () => {
         // The list endpoint takes no filters, so filtering must not have caused a second read.
         expect(repositories.kitchenQuotations.listQuotations).toHaveBeenCalledTimes(1);
 
-        // Metrics count the whole queue, not the filtered view — they answer "what is on my plate?"
+        // Figures count the whole queue, not the filtered view — they answer "what is on my plate?"
         expect(
-            screen.getByTestId('kitchen-quotations-panel-metric-loaded-value'),
+            screen.getByTestId('kitchen-quotations-toolbar-figure-all-value'),
         ).toHaveTextContent('4');
     });
 

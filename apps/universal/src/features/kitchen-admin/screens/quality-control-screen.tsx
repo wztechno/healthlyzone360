@@ -33,10 +33,8 @@ import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure, LensMixPart, LensTone, LensToken } from '../catalogue/lens-bar.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
@@ -67,8 +65,8 @@ function subjectName(row: QualityCheck): string {
  * `/kitchen/qc` — quality checks on receipts and production batches (Operations handoff, `qc`).
  *
  * ```
- * ┌ PENDING ┐ ┌ ON HOLD ┐ ┌ RELEASED ┐
- * [ ⌕ subject id ]  [ All | Pending | On hold | Released ]  [ + New check ]
+ * (All checks 12) │ ● Pending 4  ● On hold 1  ● Released 6                  [ + New check ]
+ * [ ⌕ subject id                                     ]  [Status: On hold ×]   1 of 12  Clear
  * SUBJECT           KIND                STATUS   ◉ ⏸ ▶
  * ```
  *
@@ -95,7 +93,8 @@ export function QualityControlScreen({ view }: { readonly view?: string | undefi
 
 const PAGE_SIZE = 18;
 const NO_CHECKS: readonly QualityCheck[] = [];
-const SEGMENT_STATUSES: readonly QualityCheckStatus[] = ['pending', 'hold', 'released'];
+/** The statuses drawn as figures. Passed is the header's alone, and a part of the mix. */
+const FIGURE_STATUSES: readonly QualityCheckStatus[] = ['pending', 'hold', 'released'];
 type StatusSegmentValue = QualityCheckStatus | 'all';
 
 function shortId(id: string): string {
@@ -168,16 +167,21 @@ function QualityCheckList({
     };
 
     const trimmed = query.trim().toLowerCase();
-    const filtered = useMemo(
+    // The checks the search leaves, the status aside: what the status figures count.
+    const scopeRows = useMemo(
         () =>
-            (checks.data ?? []).filter((row) => {
-                if (status !== 'all' && row.status !== status) return false;
-                if (trimmed === '') return true;
-                return `${String(row.id)} ${row.subjectId} ${row.subjectLabel ?? ''} ${row.subjectDetail ?? ''}`
-                    .toLowerCase()
-                    .includes(trimmed);
-            }),
-        [checks.data, status, trimmed],
+            trimmed === ''
+                ? (checks.data ?? NO_CHECKS)
+                : (checks.data ?? NO_CHECKS).filter((row) =>
+                      `${String(row.id)} ${row.subjectId} ${row.subjectLabel ?? ''} ${row.subjectDetail ?? ''}`
+                          .toLowerCase()
+                          .includes(trimmed),
+                  ),
+        [checks.data, trimmed],
+    );
+    const filtered = useMemo(
+        () => (status === 'all' ? scopeRows : scopeRows.filter((row) => row.status === status)),
+        [scopeRows, status],
     );
 
     // Back to page one whenever the search or the status changes — `useListPage`'s reset, keyed
@@ -331,10 +335,35 @@ function QualityCheckList({
     const failure = toFailure(checks.error);
     const unfiltered = trimmed === '' && status === 'all' && !controls.filtered;
 
-    const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
-        { value: 'all', label: t('kitchen:toolbar.statusAll') },
-        ...SEGMENT_STATUSES.map((value) => ({ value, label: t(qualityCheckStatusKey(value)) })),
-    ];
+    const pickStatus = (next: StatusSegmentValue) => {
+        setStatus(next);
+        setViewing(null);
+    };
+    const clearFilters = () => {
+        setQuery('');
+        controls.clearFilters();
+        pickStatus('all');
+    };
+    const statusLabel =
+        status === 'all'
+            ? null
+            : t('kitchen:lens.token', {
+                  label: t('kitchen:toolbar.statusLabel'),
+                  value: t(qualityCheckStatusKey(status)),
+              });
+    const tokens: readonly LensToken[] =
+        statusLabel === null
+            ? []
+            : [
+                  {
+                      key: 'status',
+                      label: statusLabel,
+                      removeLabel: t('kitchen:toolbar.removeFilter', { filter: statusLabel }),
+                      onRemove: () => {
+                          pickStatus('all');
+                      },
+                  },
+              ];
 
     const viewingAction = viewing === null ? null : lifecycleAction(viewing);
 
@@ -394,16 +423,13 @@ function QualityCheckList({
 
     return (
         <Cascade space="md" testID="kitchen-qc-screen">
-            {failure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-qc-stats"
-                    cards={qcCards(controls.rows, t)}
-                    pending={checks.isPending}
-                />
-            )}
-
-            <CatalogueToolbar<StatusSegmentValue>
+            {/* The Lens bar — figures, mix and query row as one object (`lens-bar.tsx`). */}
+            <LensBar
                 testID="kitchen-qc-toolbar"
+                label={t('kitchen:lens.label')}
+                {...(failure !== null
+                    ? { figures: [] }
+                    : qcLens(checks.isPending ? null : scopeRows, status, pickStatus, t))}
                 search={query}
                 onSearchChange={(next) => {
                     setQuery(next);
@@ -411,24 +437,29 @@ function QualityCheckList({
                 }}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t('kitchen:ops.qc.searchPlaceholder')}
-                statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={statusSegments}
-                status={status}
-                onStatusChange={(next) => {
-                    setStatus(next);
-                    setViewing(null);
-                }}
-            >
-                <ColumnPicker {...controls.picker} />
-                {canManage ? (
-                    <Button
-                        testID="kitchen-qc-create"
-                        label={t('kitchen:ops.qc.create')}
-                        iconStart={<Icon name="plus" size="sm" />}
-                        onPress={onCreate}
-                    />
-                ) : null}
-            </CatalogueToolbar>
+                tokens={tokens}
+                result={
+                    checks.isPending
+                        ? null
+                        : t('kitchen:lens.result', {
+                              shown: controls.rows.length,
+                              total: checks.data?.length ?? 0,
+                          })
+                }
+                clearLabel={t('kitchen:lens.clear')}
+                {...(unfiltered ? {} : { onClear: clearFilters })}
+                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                actions={
+                    canManage ? (
+                        <Button
+                            testID="kitchen-qc-create"
+                            label={t('kitchen:ops.qc.create')}
+                            iconStart={<Icon name="plus" size="sm" />}
+                            onPress={onCreate}
+                        />
+                    ) : undefined
+                }
+            />
 
             {checks.isPending ? (
                 <TableSkeleton testID="kitchen-qc-loading" />
@@ -513,36 +544,74 @@ function QualityCheckList({
     );
 }
 
-/** Counted over the rows in hand, like the design's CARDS. */
-function qcCards(rows: readonly QualityCheck[], t: TFunction): readonly CatalogueStatCard[] {
-    const count = (status: QualityCheckStatus) =>
-        rows.filter((row) => row.status === status).length;
-    const held = count('hold');
-    return [
-        {
-            key: 'pending',
-            label: t('kitchen:ops.qc.metrics.openChecks'),
-            value: String(count('pending')),
-            unit: t('kitchen:ops.qc.statUnit'),
-            caption: t('kitchen:ops.qc.statPendingCaption'),
-            mark: 'clock',
-        },
-        {
-            key: 'hold',
-            label: t('kitchen:ops.qc.metrics.holds'),
-            value: String(held),
-            unit: t('kitchen:ops.qc.statUnit'),
-            caption: t('kitchen:ops.qc.statHoldCaption'),
-            mark: 'alert',
-            tone: held === 0 ? 'default' : 'danger',
-        },
-        {
-            key: 'released',
-            label: t('kitchen:ops.qc.metrics.releases'),
-            value: String(count('released')),
-            unit: t('kitchen:ops.qc.statUnit'),
-            caption: t('kitchen:ops.qc.statReleasedCaption'),
-            mark: 'circleCheck',
-        },
-    ];
+/**
+ * The Lens bar's figures: All checks, then Pending · On hold · Released, each a filter, counted over
+ * the checks the search leaves. On hold blocks the stock it covers, so it alone takes the alarm.
+ * Passed has no figure — the Status header offers it — but it is a part of the mix. `null`: in flight.
+ */
+function qcLens(
+    scope: readonly QualityCheck[] | null,
+    status: StatusSegmentValue,
+    pick: (next: StatusSegmentValue) => void,
+    t: TFunction,
+): {
+    readonly figures: readonly LensFigure[];
+    readonly mix: readonly LensMixPart[];
+    readonly mixLabel: string;
+} {
+    const count = (value: QualityCheckStatus): number =>
+        scope === null ? 0 : scope.filter((row) => row.status === value).length;
+    return {
+        figures: [
+            {
+                key: 'all',
+                label: t('kitchen:lens.allChecks'),
+                value: scope === null ? null : scope.length,
+                active: status === 'all',
+                onPress: () => {
+                    pick('all');
+                },
+                accessibilityLabel: t('kitchen:lens.allAction'),
+            },
+            ...FIGURE_STATUSES.map((value, index): LensFigure => ({
+                key: value,
+                label: t(qualityCheckStatusKey(value)),
+                value: scope === null ? null : count(value),
+                tone: QC_TONES[value],
+                alarm: value === 'hold',
+                separated: index === 0,
+                active: status === value,
+                onPress: () => {
+                    pick(value);
+                },
+                accessibilityLabel: t(QC_ACTIONS[value]),
+            })),
+        ],
+        mix: QUALITY_CHECK_STATUSES.map((value) => ({
+            key: value,
+            value: count(value),
+            tone: QC_TONES[value],
+            dimmed: status !== 'all' && status !== value,
+        })),
+        mixLabel: t('kitchen:lens.qcMix', {
+            pending: count('pending'),
+            hold: count('hold'),
+            released: count('released'),
+            passed: count('passed'),
+        }),
+    };
 }
+
+const QC_TONES: Readonly<Record<QualityCheckStatus, LensTone>> = {
+    pending: 'info',
+    passed: 'neutral',
+    hold: 'danger',
+    released: 'success',
+};
+
+const QC_ACTIONS: Readonly<Record<QualityCheckStatus, string>> = {
+    pending: 'kitchen:lens.pendingChecksAction',
+    passed: 'kitchen:lens.allAction',
+    hold: 'kitchen:lens.holdChecksAction',
+    released: 'kitchen:lens.releasedChecksAction',
+};

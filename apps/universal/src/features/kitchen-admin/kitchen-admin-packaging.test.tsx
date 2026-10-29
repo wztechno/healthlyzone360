@@ -369,17 +369,28 @@ describe('the packaging list', () => {
 
         // Unpriced is the figure this page exists to chase: a recipe's technical sheet withholds
         // its total while any one packaging line has no price.
-        expect(screen.getByTestId('kitchen-packaging-stats-shown-value')).toHaveTextContent('3');
-        expect(screen.getByTestId('kitchen-packaging-stats-unpriced-value')).toHaveTextContent('1');
-        expect(screen.getByTestId('kitchen-packaging-stats-inactive-value')).toHaveTextContent('1');
+        await untilVisible('kitchen-packaging-toolbar-figure-draft-value');
+        expect(screen.getByTestId('kitchen-packaging-toolbar-figure-all-value')).toHaveTextContent(
+            '3',
+        );
+        expect(
+            screen.getByTestId('kitchen-packaging-toolbar-figure-unpriced-value'),
+        ).toHaveTextContent('1');
+        // Draft, in this page's words: Inactive.
+        expect(screen.getByTestId('kitchen-packaging-toolbar-figure-draft')).toHaveTextContent(
+            /Inactive/,
+        );
+        expect(
+            screen.getByTestId('kitchen-packaging-toolbar-figure-draft-value'),
+        ).toHaveTextContent('1');
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-packaging-stats-inactive'));
+            fireEvent.press(screen.getByTestId('kitchen-packaging-toolbar-figure-draft'));
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-packaging-stats-shown-value')).toHaveTextContent(
-                '1',
+            expect(screen.getByTestId('kitchen-packaging-toolbar-result')).toHaveTextContent(
+                '1 of 1',
             );
         });
     });
@@ -525,8 +536,8 @@ describe('the packaging list', () => {
         await untilVisible('kitchen-packaging-table');
 
         /*
-         * Packaging shares the ingredient status vocabulary, and the segments now name three of its
-         * four states; Archived stays out and is reachable from the Status column's own filter,
+         * Packaging shares the ingredient status vocabulary, and the Lens figures name three of its
+         * four states, in this page's words; Archived stays out and is reachable from the Status column's own filter,
          * which is the call the ingredient list makes about `retired` too.
          *
          * Review used to be out as well, on the argument that the state is the *allergen
@@ -536,11 +547,11 @@ describe('the packaging list', () => {
          * ingredient table, and an import or a hand edit can set it. Offered by request. It costs
          * nothing when no row is in it, because the value simply matches none.
          */
-        const segments = screen.getByTestId('kitchen-packaging-toolbar-status-segments');
-        expect(segments).toHaveTextContent(/Published/);
-        expect(segments).toHaveTextContent(/Draft/);
-        expect(segments).toHaveTextContent(/Review/);
-        expect(segments).not.toHaveTextContent(/Archived/);
+        const figures = screen.getByTestId('kitchen-packaging-toolbar-figures');
+        expect(figures).toHaveTextContent(/Active/);
+        expect(figures).toHaveTextContent(/Inactive/);
+        expect(figures).toHaveTextContent(/Review/);
+        expect(figures).not.toHaveTextContent(/Archived/);
     });
 
     it('archives a row at the version the list was showing, and says so', async () => {

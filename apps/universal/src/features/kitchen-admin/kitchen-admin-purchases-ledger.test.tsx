@@ -425,7 +425,11 @@ describe('purchases ledger summary modes', () => {
         await untilVisible('kitchen-purchases-ledger-table');
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ledger-toolbar-status-weekly'));
+            fireEvent.press(screen.getByTestId('kitchen-ledger-mode-trigger'));
+        });
+        await untilVisible('kitchen-ledger-mode-weekly');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ledger-mode-weekly'));
         });
 
         await untilVisible('kitchen-ledger-period-2026-W31');
@@ -459,8 +463,15 @@ describe('purchases ledger summary modes', () => {
         });
         await untilVisible('kitchen-ledger-period-2026-W31-USD-charges');
 
+        // The menu may still be open after the last pick.
+        if (screen.queryByTestId('kitchen-ledger-mode-monthly') === null) {
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-ledger-mode-trigger'));
+            });
+        }
+        await untilVisible('kitchen-ledger-mode-monthly');
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ledger-toolbar-status-monthly'));
+            fireEvent.press(screen.getByTestId('kitchen-ledger-mode-monthly'));
         });
 
         await waitFor(() => {

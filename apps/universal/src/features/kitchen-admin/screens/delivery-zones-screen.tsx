@@ -38,10 +38,11 @@ import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
+import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
+import type { StatusLensSource } from '../catalogue/lens-status.ts';
+import { inStatuses, statusTally, withoutStatuses } from '../catalogue/use-catalogue-filters.ts';
 import {
     compareNumber,
     compareText,
@@ -54,6 +55,7 @@ import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entit
 import {
     ZONE_STATUS_FILTERS,
     displayName,
+    statusKey,
     statusShortKey,
     statusTone,
     zoneRowTestId,
@@ -83,8 +85,8 @@ function useZoneById(id: string | null) {
  *
  * ```
  *                                                                [ + New delivery zone ]
- * ┌ SHOWN ┐ ┌ NO AREAS ┐ ┌ NO WINDOWS ┐
- * [ ⌕ search ]  [ All | Live | Draft | Archived ]
+ * (All zones 40) │ ● Published ● Draft ● Archived │ ● No areas ● No active windows   [+ New]
+ * [ ⌕ search ] [Status: Draft ×]                                    18 of 40  Clear │ ▤
  * ZONE    AREAS COVERED   FEE AND MINIMUM            DELIVERY WINDOWS          ESTIMATED   ◉ ✎
  * ```
  *
@@ -114,8 +116,7 @@ export function DeliveryZonesScreen({ view }: { readonly view?: string | undefin
 }
 
 const NO_WINDOWS: readonly DeliveryWindow[] = [];
-
-const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'retired'];
+const NO_ZONES: readonly DeliveryZoneAdmin[] = [];
 type StatusSegmentValue = PublishableStatus | 'all';
 
 function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
@@ -144,7 +145,15 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
     useRestoredPageFallback(memory, page, zones.isError, () => {
         setPage(1);
     });
-    const wholeSet = useDeliveryZoneWholeSetQuery(filter);
+    // Without the status, so the figures count every state in scope; `everyZone` re-applies it.
+    const wholeSet = useDeliveryZoneWholeSetQuery(withoutStatuses(filter));
+    const scopeZones = wholeSet.data ?? NO_ZONES;
+    const statuses = useMemo(
+        (): readonly PublishableStatus[] => (status === 'all' ? [] : [status]),
+        [status],
+    );
+    const everyZone = useMemo(() => inStatuses(scopeZones, statuses), [scopeZones, statuses]);
+    const statusCounts = useMemo(() => statusTally(scopeZones), [scopeZones]);
     // A zone carries window identifiers; the windows themselves are the kitchen's list.
     const kitchenWindows = useDeliveryWindowsQuery();
     const allWindows = kitchenWindows.data ?? NO_WINDOWS;
@@ -364,53 +373,25 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
     const failure = toFailure(zones.error);
     const unfiltered = trimmed === '' && status === 'all';
 
-    const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
-        { value: 'all', label: t('kitchen:toolbar.statusAll') },
-        ...SEGMENT_STATUSES.map((value) => ({ value, label: t(statusShortKey(value)) })),
-    ];
-
     // Counted over every page the filters match, not the eighteen rows on this one.
-    const everyZone = wholeSet.data ?? [];
     const noAreas = everyZone.filter((row) => row.areas.length === 0).length;
     const noWindows = everyZone.filter((row) => coverageOf(row).weekdays.length === 0).length;
-    // Rows up to the end of this page: 18 of 40 on the first, 36 on the second.
-    const shownSoFar = Math.min(page * KITCHEN_PAGE_SIZE, total ?? controls.rows.length);
-    const cards: readonly CatalogueStatCard[] = [
-        {
-            key: 'shown',
-            label: t('kitchen:list.statShown'),
-            value: String(shownSoFar),
-            unit: t('kitchen:list.statShownUnit', { total: total ?? shownSoFar }),
-            caption: unfiltered
-                ? t('kitchen:list.statShownUnfiltered')
-                : t('kitchen:list.statShownFiltered'),
-            mark: 'list',
-            tone: 'brand',
-            onPress: () => {
-                setQuery('');
-                setStatus('all');
-            },
-            accessibilityLabel: t('kitchen:list.statShownAction'),
+    const lens: StatusLensSource = {
+        total,
+        scopeCount: scopeZones.length,
+        statusCounts,
+        countsPending: wholeSet.isPending,
+        statuses,
+        setStatuses: (next) => {
+            setStatus(next[0] ?? 'all');
+            setViewing(null);
         },
-        {
-            key: 'noAreas',
-            label: t('kitchen:zones.noAreas'),
-            value: String(noAreas),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:zones.statNoAreasCaption'),
-            mark: 'alert',
-            tone: noAreas === 0 ? 'default' : 'warning',
-        },
-        {
-            key: 'noWindows',
-            label: t('kitchen:zones.noActiveWindows'),
-            value: String(noWindows),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:zones.statNoWindowsCaption'),
-            mark: 'clock',
-            tone: noWindows === 0 ? 'default' : 'warning',
-        },
-    ];
+    };
+    const figures = lensFigures(lens, t, {
+        noAreas,
+        noWindows,
+        pending: wholeSet.isPending || kitchenWindows.isPending,
+    });
 
     if (viewing !== null) {
         return (
@@ -486,43 +467,59 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
 
     return (
         <Cascade space="md" testID="kitchen-zones-screen">
-            {failure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-zones-stats"
-                    cards={cards}
-                    pending={zones.isPending}
-                    countsPending={wholeSet.isPending || kitchenWindows.isPending}
-                />
-            )}
-
-            <CatalogueToolbar<StatusSegmentValue>
+            {/*
+             * The Lens bar — figures, mix, query row and actions as one object directly over the
+             * list it narrows (`lens-bar.tsx`), as on the product list.
+             */}
+            <LensBar
                 testID="kitchen-zones-toolbar"
+                label={t('kitchen:lens.label')}
+                figures={figures}
+                mix={statusLensMix(lens, t).mix}
+                mixLabel={t('kitchen:lens.zoneMix', {
+                    published: statusCounts.published,
+                    draft: statusCounts.draft,
+                    archived: statusCounts.retired,
+                })}
                 search={query}
                 onSearchChange={(next) => {
                     setQuery(next);
                     setViewing(null);
                 }}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
-                statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={statusSegments}
-                status={status}
-                onStatusChange={(next) => {
-                    setStatus(next);
-                    setViewing(null);
-                }}
-            >
-                <ColumnPicker {...controls.picker} />
-                {canManage ? (
-                    <Button
-                        testID="kitchen-zones-toolbar-create"
-                        label={t('kitchen:zones.create')}
-                        iconStart={<Icon name="plus" size="sm" />}
-                        onPress={() => {
-                            router.push('/kitchen/delivery-zones/new' as never);
-                        }}
-                    />
-                ) : null}
-            </CatalogueToolbar>
+                tokens={statusLensTokens(lens, t)}
+                result={
+                    total === null
+                        ? null
+                        : t('kitchen:lens.result', {
+                              shown: Math.min(page * KITCHEN_PAGE_SIZE, total),
+                              total,
+                          })
+                }
+                clearLabel={t('kitchen:lens.clear')}
+                {...(unfiltered
+                    ? {}
+                    : {
+                          onClear: () => {
+                              setQuery('');
+                              setStatus('all');
+                              setViewing(null);
+                          },
+                      })}
+                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                actions={
+                    canManage ? (
+                        <Button
+                            testID="kitchen-zones-toolbar-create"
+                            label={t('kitchen:zones.create')}
+                            iconStart={<Icon name="plus" size="sm" />}
+                            onPress={() => {
+                                router.push('/kitchen/delivery-zones/new' as never);
+                            }}
+                        />
+                    ) : undefined
+                }
+            />
 
             {zones.isPending ? (
                 <TableSkeleton testID="kitchen-zones-loading" partTestID="kitchen-zones" />
@@ -668,4 +665,44 @@ function estimatedText(row: DeliveryZoneAdmin, t: TFunction, formatter: Formatte
         : t('kitchen:zones.estimatedMinutes', {
               minutes: formatter.formatNumber(row.estimatedMinutes),
           });
+}
+
+/**
+ * The Lens bar's figures: All · Published · Draft · Archived — the zone lifecycle has no review —
+ * then the two gaps that keep a zone from taking an order, counted over every page the filters
+ * match, the status included.
+ */
+function lensFigures(
+    lens: StatusLensSource,
+    t: TFunction,
+    gaps: { readonly noAreas: number; readonly noWindows: number; readonly pending: boolean },
+): readonly LensFigure[] {
+    const counted = (count: number) => (gaps.pending ? null : count);
+    return [
+        ...statusLensFigures(lens, t, { allLabel: t('kitchen:lens.allZones'), review: false }),
+        {
+            key: 'retired',
+            label: t(statusKey('retired')),
+            value: lens.countsPending ? null : lens.statusCounts.retired,
+            tone: 'neutral',
+            active: lens.statuses.length === 1 && lens.statuses[0] === 'retired',
+            onPress: () => {
+                lens.setStatuses(['retired']);
+            },
+            accessibilityLabel: t('kitchen:lens.archivedAction'),
+        },
+        {
+            key: 'noAreas',
+            label: t('kitchen:zones.noAreas'),
+            value: counted(gaps.noAreas),
+            tone: 'warning',
+            separated: true,
+        },
+        {
+            key: 'noWindows',
+            label: t('kitchen:zones.noActiveWindows'),
+            value: counted(gaps.noWindows),
+            tone: 'warning',
+        },
+    ];
 }

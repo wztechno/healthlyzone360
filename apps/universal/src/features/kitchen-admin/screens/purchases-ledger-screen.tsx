@@ -37,10 +37,8 @@ import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CATALOGUE_PAGE_SIZE, CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
+import type { LensFigure, LensMixPart, LensToken } from '../catalogue/lens-bar.tsx';
 import {
     compareAmount,
     compareNumber,
@@ -104,8 +102,8 @@ import { useViewedRecord } from '../use-viewed-record.ts';
  *
  * ## On the Catalogue list (Operations handoff)
  *
- * The cost note sits first, then stat cards counted over the lines in hand, then one toolbar row:
- * the search, the three read-as modes, and at its end the received-between window. Supplier, item
+ * One Lens bar over the list: figures counted over the page in hand, then the read-as mode, the
+ * received-between window and the search on its query row. Supplier, item
  * and price state are filtered from their column headers, which send them with the request, so the
  * row carries no picker that repeats a header. The search box narrows only the page in hand,
  * because the endpoint has no text search. Read-only: View is the one row action, and it opens the
@@ -518,11 +516,58 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
         );
     }
 
-    const modeSegments: readonly CatalogueStatusSegment<LedgerMode>[] = [
+    const modeOptions: readonly { readonly value: LedgerMode; readonly label: string }[] = [
         { value: 'detail', label: t('kitchen:ops.ledger.modeDetail') },
         { value: 'weekly', label: t('kitchen:ops.ledger.modeWeekly') },
         { value: 'monthly', label: t('kitchen:ops.ledger.modeMonthly') },
     ];
+
+    // The mode is a scope, not a filter: Clear leaves it.
+    const filtered =
+        query.trim() !== '' ||
+        costStatus !== null ||
+        supplierId !== null ||
+        stockItemId !== null ||
+        from !== '' ||
+        to !== '';
+
+    function clearFilters() {
+        setQuery('');
+        setCostStatus(null);
+        setSupplierId(null);
+        setStockItemId(null);
+        setFrom('');
+        setTo('');
+        resetCursor();
+    }
+
+    function clearCostStatus() {
+        setCostStatus(null);
+        resetCursor();
+    }
+
+    const costStatusLabel =
+        costStatus === null
+            ? null
+            : t('kitchen:lens.token', {
+                  label: t('kitchen:ops.ledger.columnState'),
+                  value: t(receiptCostStatusKey(costStatus)),
+              });
+    const tokens: readonly LensToken[] =
+        costStatusLabel === null
+            ? []
+            : [
+                  {
+                      key: 'costStatus',
+                      label: costStatusLabel,
+                      removeLabel: t('kitchen:toolbar.removeFilter', { filter: costStatusLabel }),
+                      onRemove: clearCostStatus,
+                  },
+              ];
+    const lens =
+        isDetail && failure === null
+            ? ledgerLens(pending ? null : pageRows, costStatus === null, clearCostStatus, t)
+            : { figures: [] };
 
     const viewingState = viewing === null ? null : ledgerLineState(viewing);
 
@@ -620,16 +665,14 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
 
     return (
         <Cascade space="md" testID="kitchen-purchases-ledger-screen">
-            {isDetail && failure === null ? (
-                <CatalogueStatCards
-                    testID="kitchen-purchases-ledger-stats"
-                    cards={ledgerStatCards(controls.rows, t)}
-                    pending={pending}
-                />
-            ) : null}
-
-            <CatalogueToolbar<LedgerMode>
+            {/*
+             * The Lens bar — figures, mix and query row as one object over the list
+             * (`lens-bar.tsx`). The figures count the detail page in hand; a summary has none.
+             */}
+            <LensBar
                 testID="kitchen-ledger-toolbar"
+                label={t('kitchen:lens.label')}
+                {...lens}
                 search={query}
                 onSearchChange={(next) => {
                     setQuery(next);
@@ -637,58 +680,76 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                 }}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t('kitchen:ops.ledger.searchPlaceholder')}
-                statusLabel={t('kitchen:ops.ledger.modeLabel')}
-                statusSegments={modeSegments}
-                status={activeMode}
-                onStatusChange={(next) => {
-                    setActiveMode(next);
-                    setViewing(null);
-                }}
-                /*
-                 * The received-between window, among the filters: the one filter with no column to
-                 * live on. Two days with "to" between, either bound open, and each picker keeps the
-                 * other honest — From cannot pass To, nor To precede From.
-                 */
-                filters={
-                    <View className="flex-row items-center gap-tight">
-                        <DatePickerButton
-                            testID="kitchen-ledger-filter-from"
-                            label={t('kitchen:ops.ledger.filterFrom')}
-                            value={from}
-                            max={to === '' ? undefined : to}
-                            placeholder={t('kitchen:ops.ledger.fromPlaceholder')}
-                            onChange={(value) => {
-                                setFrom(value);
-                                resetCursor();
-                            }}
-                            onClear={() => {
-                                setFrom('');
-                                resetCursor();
-                            }}
-                        />
-                        <Text variant="caption" tone="secondary" aria-hidden>
-                            {t('kitchen:ops.requirements.windowTo')}
-                        </Text>
-                        <DatePickerButton
-                            testID="kitchen-ledger-filter-to"
-                            label={t('kitchen:ops.ledger.filterTo')}
-                            value={to}
-                            min={from === '' ? undefined : from}
-                            placeholder={t('kitchen:ops.ledger.toPlaceholder')}
-                            onChange={(value) => {
-                                setTo(value);
-                                resetCursor();
-                            }}
-                            onClear={() => {
-                                setTo('');
-                                resetCursor();
-                            }}
-                        />
-                    </View>
+                tokens={tokens}
+                result={
+                    pending
+                        ? null
+                        : t('kitchen:lens.result', {
+                              shown: isDetail ? controls.rows.length : periods.length,
+                              total: isDetail ? pageRows.length : periods.length,
+                          })
                 }
-            >
-                <ColumnPicker {...controls.picker} />
-            </CatalogueToolbar>
+                clearLabel={t('kitchen:lens.clear')}
+                {...(filtered ? { onClear: clearFilters } : {})}
+                /*
+                 * The read-as mode, then the received-between window: the one filter with no column
+                 * to live on. Two days with "to" between, either bound open, and each picker keeps
+                 * the other honest — From cannot pass To, nor To precede From.
+                 */
+                scope={
+                    <>
+                        <LensScope<LedgerMode>
+                            testID="kitchen-ledger-mode"
+                            label={t('kitchen:ops.ledger.modeLabel')}
+                            value={activeMode}
+                            onChange={(next) => {
+                                setActiveMode(next);
+                                setViewing(null);
+                            }}
+                            options={modeOptions.map((option) => ({
+                                ...option,
+                                testID: `kitchen-ledger-mode-${option.value}`,
+                            }))}
+                        />
+                        <View className="flex-row items-center gap-tight">
+                            <DatePickerButton
+                                testID="kitchen-ledger-filter-from"
+                                label={t('kitchen:ops.ledger.filterFrom')}
+                                value={from}
+                                max={to === '' ? undefined : to}
+                                placeholder={t('kitchen:ops.ledger.fromPlaceholder')}
+                                onChange={(value) => {
+                                    setFrom(value);
+                                    resetCursor();
+                                }}
+                                onClear={() => {
+                                    setFrom('');
+                                    resetCursor();
+                                }}
+                            />
+                            <Text variant="caption" tone="secondary" aria-hidden>
+                                {t('kitchen:ops.requirements.windowTo')}
+                            </Text>
+                            <DatePickerButton
+                                testID="kitchen-ledger-filter-to"
+                                label={t('kitchen:ops.ledger.filterTo')}
+                                value={to}
+                                min={from === '' ? undefined : from}
+                                placeholder={t('kitchen:ops.ledger.toPlaceholder')}
+                                onChange={(value) => {
+                                    setTo(value);
+                                    resetCursor();
+                                }}
+                                onClear={() => {
+                                    setTo('');
+                                    resetCursor();
+                                }}
+                            />
+                        </View>
+                    </>
+                }
+                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+            />
 
             {pending ? (
                 <TableSkeleton
@@ -808,42 +869,66 @@ const LINE_STATE_TONES: Readonly<Record<LedgerLineState, BadgeTone>> = {
     priced: 'success',
 };
 
-/** Counted over the lines in hand, like the design's CARDS. */
-function ledgerStatCards(
-    rows: readonly PurchaseLedgerLine[],
+/**
+ * The Lens bar's figures: All lines, then the three money states, counted over the page in hand —
+ * the endpoint gives no total. The states are the lines', not the receipt cost status the State
+ * header filters by, so they are read-only; All clears that filter. `null` rows: in flight.
+ */
+function ledgerLens(
+    rows: readonly PurchaseLedgerLine[] | null,
+    allActive: boolean,
+    onAll: () => void,
     t: TFunction,
-): readonly CatalogueStatCard[] {
-    const count = (state: LedgerLineState) =>
-        rows.filter((row) => ledgerLineState(row) === state).length;
-    const unpriced = count('unpriced');
-    const pendingFx = count('pendingFx');
-    return [
-        {
-            key: 'unpriced',
-            label: t('kitchen:ops.ledger.stateUnpriced'),
-            value: String(unpriced),
-            unit: t('kitchen:ops.ledger.statLinesUnit'),
-            caption: t('kitchen:ops.ledger.statUnpricedCaption'),
-            mark: 'coins',
-            tone: unpriced === 0 ? 'default' : 'warning',
-        },
-        {
-            key: 'pendingFx',
-            label: t('kitchen:ops.ledger.statePendingFx'),
-            value: String(pendingFx),
-            unit: t('kitchen:ops.ledger.statLinesUnit'),
-            caption: t('kitchen:ops.ledger.statPendingFxCaption'),
-            mark: 'clock',
-        },
-        {
-            key: 'priced',
-            label: t('kitchen:ops.ledger.statePriced'),
-            value: String(count('priced')),
-            unit: t('kitchen:ops.ledger.statLinesUnit'),
-            caption: t('kitchen:ops.ledger.statPricedCaption'),
-            mark: 'circleCheck',
-        },
-    ];
+): {
+    readonly figures: readonly LensFigure[];
+    readonly mix: readonly LensMixPart[];
+    readonly mixLabel: string;
+} {
+    const count = (state: LedgerLineState): number =>
+        rows === null ? 0 : rows.filter((row) => ledgerLineState(row) === state).length;
+    const counted = (state: LedgerLineState): number | null =>
+        rows === null ? null : count(state);
+    return {
+        figures: [
+            {
+                key: 'all',
+                label: t('kitchen:lens.allLines'),
+                value: rows === null ? null : rows.length,
+                active: allActive,
+                onPress: onAll,
+                accessibilityLabel: t('kitchen:lens.allAction'),
+            },
+            {
+                key: 'unpriced',
+                label: t('kitchen:ops.ledger.stateUnpriced'),
+                value: counted('unpriced'),
+                tone: 'warning',
+                separated: true,
+            },
+            {
+                key: 'pendingFx',
+                label: t('kitchen:ops.ledger.statePendingFx'),
+                value: counted('pendingFx'),
+                tone: 'info',
+            },
+            {
+                key: 'priced',
+                label: t('kitchen:ops.ledger.statePriced'),
+                value: counted('priced'),
+                tone: 'success',
+            },
+        ],
+        mix: [
+            { key: 'unpriced', value: count('unpriced'), tone: 'warning' },
+            { key: 'pendingFx', value: count('pendingFx'), tone: 'info' },
+            { key: 'priced', value: count('priced'), tone: 'success' },
+        ],
+        mixLabel: t('kitchen:lens.ledgerMix', {
+            unpriced: count('unpriced'),
+            pendingFx: count('pendingFx'),
+            priced: count('priced'),
+        }),
+    };
 }
 
 /**

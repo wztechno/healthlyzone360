@@ -190,6 +190,14 @@ export function LensBarShowcaseScreen() {
                             { key: 'sent', label: 'Sent', value: 14, tone: 'info' },
                             { key: 'accepted', label: 'Accepted', value: 12, tone: 'success' },
                             { key: 'expired', label: 'Expired', value: 0, tone: 'neutral' },
+                            {
+                                key: 'value',
+                                label: 'Accepted value',
+                                value: 48200,
+                                display: 'AED 48,200',
+                                tone: 'brand',
+                                separated: true,
+                            },
                         ]}
                         mix={[
                             { key: 'draft', value: 6, tone: 'warning' },

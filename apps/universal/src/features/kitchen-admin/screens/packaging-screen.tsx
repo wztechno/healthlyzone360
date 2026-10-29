@@ -1,14 +1,5 @@
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import {
-    Button,
-    Cascade,
-    Dialog,
-    Icon,
-    Inline,
-    Stack,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -23,12 +14,10 @@ import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
-import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
-import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
+import { statusLensFigures, statusLensMix } from '../catalogue/lens-status.ts';
 import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
@@ -51,8 +40,8 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  *
  * ```
  * Kitchen workspace › Packaging                   <- drawn by the shell, not here
- * ┌ SHOWN ┐ ┌ UNPRICED ┐ ┌ INACTIVE ┐ ┌ MISSING ARABIC ┐
- *         [ ⌕ 240px ]  [ All | Published | Draft | Review ]
+ * (All packaging 33) │ ● Active ● Inactive ● Review │ ● Unpriced ● Missing Arabic   [+ New]
+ * [ ⌕ Search ] [Status: Inactive ×]                              18 of 33  Clear │ ▤
  * ID  ITEM  CATEGORY  PACK  PER PACK  PACK PRICE  HOLDS  WASTE  STATUS  ⋯
  * Showing 1–25 of 33                                            [ ‹ 1 2 › ]
  * ```
@@ -79,7 +68,7 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  *
  * One question: what does this cost, and how many does a batch need. That is why the pack price and
  * the capacity are tracks on the row rather than fields in a panel, and why **Unpriced** is the
- * second stat card. A recipe's technical sheet withholds its total entirely while any one packaging
+ * first figure after the statuses. A recipe's technical sheet withholds its total entirely while any one packaging
  * line is unpriced, so an unpriced box silently takes the bottom line off every recipe that ships
  * in it — which makes that figure the one number on this page somebody is expected to clear.
  *
@@ -94,7 +83,7 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  * the *allergen quarantine* — a record whose determination contradicts a published recipe — and a
  * box declares no allergens, so nothing could put one there. That describes how a row *enters* the
  * state, not whether the field can hold it: it is a column on the same ingredient table, and an
- * import or a hand edit can set it. The segments are All · Published · Draft · Review; Archived is
+ * import or a hand edit can set it. The figures are All · Active · Inactive · Review; Archived is
  * on the Status column's own filter.
  *
  * ## The row controls are View, Edit and Archive
@@ -162,8 +151,6 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
         },
     );
 
-    const segments = statusSegments(list.statuses, list.setStatuses, t, packagingStatusKey);
-
     /*
      * View takes the whole page (`IngredientView.dc.html`), in place of the list rather than on a
      * route of its own — Back is a state change, so the list's page, sort and filters survive it.
@@ -207,48 +194,51 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
 
     return (
         <Cascade space="md" testID="kitchen-packaging-screen">
-            <Stack space="xs">
-                <CatalogueStatCards
-                    testID="kitchen-packaging-stats"
-                    cards={statCards(list, t)}
-                    pending={list.isPending}
-                    countsPending={list.countsPending}
-                />
-            </Stack>
-
-            <CatalogueToolbar<StatusSegmentValue>
+            {/*
+             * The Lens bar — figures, mix, query row and actions as one object directly over the
+             * list it narrows (`lens-bar.tsx`), as on the product list.
+             */}
+            <LensBar
                 testID="kitchen-packaging-toolbar"
+                label={t('kitchen:lens.label')}
+                figures={lensFigures(list, t)}
+                {...lensMix(list, t)}
                 search={list.query}
                 onSearchChange={list.setQuery}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t('kitchen:packaging.searchPlaceholder')}
-                statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={segments.segments}
-                status={segments.value}
-                onStatusChange={segments.onChange}
-            >
-                <ColumnPicker {...controls.picker} />
-                {canManage ? (
-                    <Inline space="xs" align="center">
-                        <CatalogueTransferActions testID="kitchen-packaging-toolbar" />
-                        {/*
-                         * `/kitchen/packaging/new` — the same form a row's Edit opens,
-                         * handed the packaging series and the packaging category. A new
-                         * record therefore arrives already filed where this list looks,
-                         * which is what stops a successful save from producing a row the
-                         * page that created it cannot show.
-                         */}
-                        <Button
-                            testID="kitchen-packaging-toolbar-create"
-                            label={t('kitchen:packaging.create')}
-                            iconStart={<Icon name="plus" size="sm" />}
-                            onPress={() => {
-                                list.openEditor('new');
-                            }}
-                        />
-                    </Inline>
-                ) : undefined}
-            </CatalogueToolbar>
+                tokens={statusTokens(list, t)}
+                result={
+                    list.total === null
+                        ? null
+                        : t('kitchen:lens.result', { shown: list.shown, total: list.total })
+                }
+                clearLabel={t('kitchen:lens.clear')}
+                {...(list.isUnfiltered ? {} : { onClear: list.clearFilters })}
+                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                actions={
+                    canManage ? (
+                        <Inline space="xs" align="center">
+                            <CatalogueTransferActions testID="kitchen-packaging-toolbar" />
+                            {/*
+                             * `/kitchen/packaging/new` — the same form a row's Edit opens,
+                             * handed the packaging series and the packaging category. A new
+                             * record therefore arrives already filed where this list looks,
+                             * which is what stops a successful save from producing a row the
+                             * page that created it cannot show.
+                             */}
+                            <Button
+                                testID="kitchen-packaging-toolbar-create"
+                                label={t('kitchen:packaging.create')}
+                                iconStart={<Icon name="plus" size="sm" />}
+                                onPress={() => {
+                                    list.openEditor('new');
+                                }}
+                            />
+                        </Inline>
+                    ) : undefined
+                }
+            />
 
             <CatalogueListBody
                 testID="kitchen-packaging"
@@ -382,60 +372,93 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
 }
 
 /**
- * The four figures, as cards.
- *
- * Unpriced is second because it is what this page exists to chase: a recipe's technical sheet
- * withholds its total while any packaging line has no price, so an unpriced box takes the bottom
- * line off every recipe that ships in it. `total` is the server's count for the filtered set; the
- * three beside it are counted over the loaded page, which is the only set this screen has.
+ * The status as this page says it: a box is Active or Inactive, not Published or Draft — the words
+ * the packaging table used before it joined the ingredient one.
  */
-function statCards(list: PackagingListState, t: TFunction): readonly CatalogueStatCard[] {
+function packagingStatusLabel(status: PublishableStatus, t: TFunction): string {
+    if (status === 'published') return t('kitchen:status.operational.active');
+    if (status === 'draft') return t('kitchen:packaging.statInactive');
+    return t(packagingStatusKey(status));
+}
+
+/** The figure key `statusLensFigures` gives each status. */
+const FIGURE_STATUS: Readonly<Record<string, PublishableStatus>> = {
+    published: 'published',
+    draft: 'draft',
+    review: 'review_required',
+};
+
+/**
+ * The Lens bar's figures: All · Active · Inactive · Review, then Unpriced — what this page exists to
+ * chase, since a recipe's technical sheet withholds its total while any packaging line has no price
+ * — and Missing Arabic. Those two count the rows the list shows, the status included.
+ */
+function lensFigures(list: PackagingListState, t: TFunction): readonly LensFigure[] {
+    const counted = (count: number) => (list.countsPending ? null : count);
+    const statusFigures = statusLensFigures(list, t, {
+        allLabel: t('kitchen:lens.allPackaging'),
+        review: true,
+        reviewAction: t('kitchen:lens.reviewAction'),
+    }).map((figure) => {
+        const status = FIGURE_STATUS[figure.key];
+        if (status === undefined) return figure;
+        return {
+            ...figure,
+            label: packagingStatusLabel(status, t),
+            ...(status === 'published'
+                ? { accessibilityLabel: t('kitchen:lens.activeAction') }
+                : status === 'draft'
+                  ? { accessibilityLabel: t('kitchen:packaging.statInactiveAction') }
+                  : {}),
+        };
+    });
     return [
-        {
-            key: 'shown',
-            label: t('kitchen:list.statShown'),
-            value: String(list.shown),
-            unit: t('kitchen:list.statShownUnit', { total: list.total ?? list.shown }),
-            caption: list.isUnfiltered
-                ? t('kitchen:list.statShownUnfiltered')
-                : t('kitchen:list.statShownFiltered'),
-            mark: 'list',
-            tone: 'brand',
-            onPress: list.clearFilters,
-            accessibilityLabel: t('kitchen:list.statShownAction'),
-        },
+        ...statusFigures,
         {
             key: 'unpriced',
             label: t('kitchen:packaging.statUnpriced'),
-            value: String(list.unpricedCount),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:packaging.statUnpricedCaption'),
-            mark: 'coins',
-            // Amber only while there is something to act on — see the note in the component.
-            tone: list.unpricedCount === 0 ? 'default' : 'warning',
-        },
-        {
-            key: 'inactive',
-            label: t('kitchen:packaging.statInactive'),
-            value: String(list.inactiveCount),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:packaging.statInactiveCaption'),
-            mark: 'hidden',
-            onPress: () => {
-                list.setStatuses(['draft']);
-            },
-            accessibilityLabel: t('kitchen:packaging.statInactiveAction'),
+            value: counted(list.unpricedCount),
+            tone: 'warning',
+            separated: true,
         },
         {
             key: 'missingArabic',
             label: t('kitchen:list.statMissingArabic'),
-            value: String(list.missingArabicCount),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:packaging.statMissingArabicCaption'),
-            mark: 'languages',
-            tone: list.missingArabicCount === 0 ? 'default' : 'danger',
+            value: counted(list.missingArabicCount),
+            tone: 'danger',
+            alarm: true,
         },
     ];
+}
+
+/** The shared mix, said in this page's words. */
+function lensMix(list: PackagingListState, t: TFunction) {
+    return {
+        mix: statusLensMix(list, t).mix,
+        mixLabel: t('kitchen:lens.packagingMix', {
+            active: list.statusCounts.published,
+            inactive: list.statusCounts.draft,
+            review: list.statusCounts.review_required,
+        }),
+    };
+}
+
+/** The status in force as a token — "Status: Inactive ×". */
+function statusTokens(list: PackagingListState, t: TFunction): readonly LensToken[] {
+    return list.statuses.map((status) => {
+        const label = t('kitchen:lens.token', {
+            label: t('kitchen:toolbar.statusLabel'),
+            value: packagingStatusLabel(status, t),
+        });
+        return {
+            key: `status-${status}`,
+            label,
+            removeLabel: t('kitchen:toolbar.removeFilter', { filter: label }),
+            onRemove: () => {
+                list.setStatuses(list.statuses.filter((other) => other !== status));
+            },
+        };
+    });
 }
 
 /**

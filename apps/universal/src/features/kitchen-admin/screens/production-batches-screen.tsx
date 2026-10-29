@@ -10,6 +10,7 @@ import {
 } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
+import type { TFunction } from 'i18next';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -23,20 +24,15 @@ import {
 import { useAccessState } from '../../../session/session-provider.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
 import { localDay } from '../format.ts';
 import { productionBatchTestId, productionStatusKey, productionStatusTone } from '../ops-format.ts';
-import {
-    countByStatus,
-    countExpired,
-    formatLot,
-    yieldSummary,
-} from '../production-desk/batch-figures.ts';
+import { countExpired, formatLot, yieldSummary } from '../production-desk/batch-figures.ts';
 import {
     useListMemory,
     useRememberedFilter,
@@ -49,8 +45,8 @@ import {
  * `/kitchen/production-desk/batches` — the batches nobody has to move any more (PROD1).
  *
  * ```
- * ┌ COMPLETED ┐ ┌ EXPIRED ┐
- * SHOWING [ Completed | Cancelled | Abandoned ]
+ * (All batches 40) │ ● Expired 2
+ * [Showing Completed ▾] [⌕ Scan or type a batch or lot       ]               40 of 40 │ ▤
  * BATCH        MAKES             MADE ON      USE BY       STORED IN   YIELD       STATUS
  * PB-7K3MQ9ZV  Caesar dressing   2026-09-14   2026-09-21   Chill 2     19.5 l      [COMPLETED]
  * ```
@@ -65,7 +61,7 @@ import {
  *
  * That is "nobody recorded one", which is not the same as "it is fine" and not the same as "it has
  * gone off". The column says so in words rather than showing a blank that reads as safe, and
- * {@link countExpired} leaves it out of the tile. A register that quietly treated the unknown as
+ * {@link countExpired} leaves it out of the figure. A register that quietly treated the unknown as
  * good is the one that poisons somebody.
  *
  * Read-only: the family carries no manage permission and nothing here writes. Every edge a batch
@@ -150,9 +146,6 @@ function ProductionBatches() {
     const hasMore = batches.data?.hasMore ?? false;
     const failure = toFailure(batches.error);
     const noValue = t('kitchen:list.noValue');
-
-    const tile = (value: number | null): string =>
-        value === null ? noValue : formatter.formatNumber(value);
 
     const referenceLabel = (row: ProductionOrder) =>
         row.reference ?? t('kitchen:ops.production.unreferenced');
@@ -292,41 +285,35 @@ function ProductionBatches() {
 
     return (
         <Cascade space="md" testID="kitchen-production-batches-screen">
-            {failure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-production-batches-summary"
-                    pending={batches.isPending}
-                    cards={[
-                        {
-                            key: 'settled',
-                            label: t(productionStatusKey(status)),
-                            value: tile(countByStatus(rows, status, hasMore)),
-                            unit: t('kitchen:ops.production.statUnit'),
-                            caption: t('kitchen:ops.production.statCompletedCaption'),
-                            mark: 'circleCheck',
-                            tone: 'default',
-                        },
-                        {
-                            key: 'expired',
-                            label: t('kitchen:ops.production.statExpired'),
-                            value: tile(countExpired(rows, hasMore)),
-                            unit: t('kitchen:ops.production.statUnit'),
-                            caption: t('kitchen:ops.production.statExpiredCaption'),
-                            mark: 'alert',
-                            tone: (countExpired(rows, hasMore) ?? 0) > 0 ? 'danger' : 'default',
-                        },
-                    ]}
-                />
-            )}
-
             {/*
-             * The catalogue's toolbar, as every other admin list draws it: the field first and
-             * stretching, the statuses after it, the column picker at the end. The field is the
-             * scan box — Enter looks the code up and opens its batch — so it does not narrow the
-             * rows as it is typed into; a scanner's half-typed label would empty the table.
+             * The search is the scan box — Enter looks the code up and opens its batch — so it does
+             * not narrow the rows as it is typed into; a scanner's half-typed label would empty the
+             * table. The statuses are the scope beside it.
              */}
-            <CatalogueToolbar<SettledStatus>
+            <LensBar
                 testID="kitchen-production-batches-toolbar"
+                label={t('kitchen:lens.label')}
+                // A failed read counts nothing: its figures are dashes, as past the first page.
+                figures={lensFigures(
+                    { rows, hasMore: hasMore || failure !== null, pending: batches.isPending },
+                    t,
+                )}
+                scope={
+                    <LensScope<SettledStatus>
+                        testID="kitchen-production-batches-toolbar-status"
+                        label={t('kitchen:ops.production.filterStatus')}
+                        value={status}
+                        onChange={(next) => {
+                            setStatus(next);
+                            setPage(1);
+                        }}
+                        options={SETTLED_STATUSES.map((value) => ({
+                            value,
+                            label: t(productionStatusKey(value)),
+                            testID: `kitchen-production-batches-toolbar-status-${value}`,
+                        }))}
+                    />
+                }
                 search={scan}
                 onSearchChange={(value) => {
                     setScan(value);
@@ -335,21 +322,18 @@ function ProductionBatches() {
                 onSearchSubmit={submitScan}
                 searchLabel={t('kitchen:ops.production.scanLabel')}
                 searchPlaceholder={t('kitchen:ops.production.scanLabel')}
-                statusLabel={t('kitchen:ops.production.filterStatus')}
-                statusSegments={SETTLED_STATUSES.map((value) => ({
-                    value,
-                    label: t(productionStatusKey(value)),
-                }))}
-                status={status}
-                onStatusChange={(next) => {
-                    setStatus(next);
-                    setPage(1);
-                }}
-            >
-                <ColumnPicker {...controls.picker} />
-            </CatalogueToolbar>
+                result={
+                    batches.isPending
+                        ? null
+                        : failure !== null
+                          ? t('kitchen:list.noValue')
+                          : t('kitchen:lens.result', { shown: rows.length, total: rows.length })
+                }
+                clearLabel={t('kitchen:lens.clear')}
+                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+            />
 
-            {/* Under the row rather than under the field: the toolbar is one line and keeps it. */}
+            {/* Under the bar rather than under the field: the query row is one line and keeps it. */}
             {scanMessage === null ? null : (
                 <Text
                     testID="kitchen-production-batches-scan-message"
@@ -421,6 +405,43 @@ function ProductionBatches() {
             )}
         </Cascade>
     );
+}
+
+/**
+ * The Lens bar's figures: the batches in the status picked, then the expired among them. Past the
+ * first page neither is a fact about the register, so both draw the em dash on a zero.
+ */
+function lensFigures(
+    source: {
+        readonly rows: readonly ProductionOrder[];
+        readonly hasMore: boolean;
+        readonly pending: boolean;
+    },
+    t: TFunction,
+): readonly LensFigure[] {
+    const { rows, hasMore, pending } = source;
+    const figure = (count: number | null) =>
+        pending
+            ? { value: null }
+            : count === null
+              ? { value: 0, display: t('kitchen:list.noValue') }
+              : { value: count };
+
+    return [
+        {
+            key: 'all',
+            label: t('kitchen:lens.allBatches'),
+            ...figure(hasMore ? null : rows.length),
+        },
+        {
+            key: 'expired',
+            label: t('kitchen:ops.production.statExpired'),
+            ...figure(countExpired(rows, hasMore)),
+            tone: 'danger',
+            alarm: true,
+            separated: true,
+        },
+    ];
 }
 
 /** The lot under the batch number, or what a cook typed on the tray before lots were minted. */

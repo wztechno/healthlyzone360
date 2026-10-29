@@ -38,10 +38,8 @@ import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CATALOGUE_PAGE_SIZE, CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
+import type { LensFigure, LensScopeOption } from '../catalogue/lens-bar.tsx';
 import {
     compareNumber,
     compareText,
@@ -81,8 +79,8 @@ function useOrderById(id: string | null) {
  * Catalogue list (Operations design, `supply`).
  *
  * ```
- * ┌ OUT OF STOCK ┐ ┌ RUNNING LOW ┐ ┌ DRAFT ┐ ┌ ISSUED ┐
- * [ ⌕ search ]  [ All | Draft | Issued | Partly received | Received | Cancelled ]  [ Prepare order ]
+ * ● Out of stock 2  ● Running low 1 │ ● Draft on this page 3  ● Issued on this page 4  [ Prepare order ]
+ * [Status  All ▾]  [ ⌕ search ]                                                     7 of 18  Clear
  * ORDER         SUPPLIER            MADE ON     ITEMS   STATUS                 ◉ ✎
  *                              [ ‹ 1 2 › ]
  * What's low right now · 55 items need ordering                         [ ▦ Show columns ]
@@ -90,19 +88,21 @@ function useOrderById(id: string | null) {
  *                              [ ‹ 1 2 3 4 › ]
  * ```
  *
- * ## The two shortage cards are exact; the two order cards are the page in hand
+ * ## The two shortage figures are exact; the two order figures are the page in hand
  *
  * Out of stock and running low come from the count endpoint and partition the queue, so the page
- * never adds a card claiming their total. Draft and Issued are counted over the orders on screen,
- * as every Catalogue list counts, and their captions say so: the book is a keyset page whose
- * `totalCount` is null by contract, so they are "on this page", never "in the kitchen".
+ * never adds a figure claiming their total. Draft and Issued are counted over the orders on screen,
+ * as every Catalogue list counts, and their labels say so: the book is a keyset page whose
+ * `totalCount` is null by contract, so they are "on this page", never "in the kitchen". For the same
+ * reason the Lens bar has no "All orders" figure and its result counts the page in hand.
  *
  * ## Status is a server filter; search is the page in hand
  *
- * `PurchaseOrderFilter` takes one status and no query, so the segments refetch and the search
+ * `PurchaseOrderFilter` takes one status and no query, so the Status scope refetches and the search
  * narrows the rows already loaded (order number or the live supplier's name). The design's four
  * segments fold *partly received* into Issued; the filter takes one status, so each of the five is
- * its own segment rather than an "Issued" that quietly hides the half-delivered orders.
+ * its own option rather than an "Issued" that quietly hides the half-delivered orders. It is a scope
+ * rather than figures because the book counts no status: there is no number to put beside one.
  *
  * The Status and Supplier headers filter through the same request — `PurchaseOrderFilter` carries a
  * status and a `supplierId` — so either narrows the whole book, not the page in hand. Order, Made on
@@ -578,9 +578,17 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
         queuePage * CATALOGUE_PAGE_SIZE,
     );
 
-    const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
-        { value: 'all', label: t('kitchen:toolbar.statusAll') },
-        ...SEGMENT_STATUSES.map((value) => ({ value, label: t(purchaseOrderStatusKey(value)) })),
+    const statusOptions: readonly LensScopeOption<StatusSegmentValue>[] = [
+        {
+            value: 'all',
+            label: t('kitchen:toolbar.statusAll'),
+            testID: 'kitchen-supply-orders-toolbar-status-all',
+        },
+        ...SEGMENT_STATUSES.map((value) => ({
+            value,
+            label: t(purchaseOrderStatusKey(value)),
+            testID: `kitchen-supply-orders-toolbar-status-${value}`,
+        })),
     ];
 
     if (branchId === null) {
@@ -654,22 +662,36 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                 />
             )}
 
-            <CatalogueStatCards
-                testID="kitchen-supply-orders-stats"
-                cards={statCards({
+            {/*
+             * The Lens bar — the shortage and the page's orders as figures, the status scope and the
+             * search on the query row, Prepare order at the end (`lens-bar.tsx`).
+             */}
+            <LensBar
+                testID="kitchen-supply-orders-toolbar"
+                label={t('kitchen:lens.label')}
+                figures={lensFigures({
                     outOfStock: needs.data?.outOfStockCount ?? null,
                     low: needs.data?.lowStockCount ?? null,
                     orders: orders.isPending || ordersFailure !== null ? null : controls.rows,
+                    status,
                     t,
                     showDrafts: () => {
                         setStatus('draft');
                         resetBook();
                     },
                 })}
-            />
-
-            <CatalogueToolbar<StatusSegmentValue>
-                testID="kitchen-supply-orders-toolbar"
+                scope={
+                    <LensScope<StatusSegmentValue>
+                        testID="kitchen-supply-orders-toolbar-status"
+                        label={t('kitchen:toolbar.statusLabel')}
+                        value={status}
+                        options={statusOptions}
+                        onChange={(next) => {
+                            setStatus(next);
+                            resetBook();
+                        }}
+                    />
+                }
                 search={query}
                 onSearchChange={(next) => {
                     setQuery(next);
@@ -677,21 +699,35 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                 }}
                 searchLabel={t('kitchen:ops.supplyOrders.searchLabel')}
                 searchPlaceholder={t('kitchen:ops.supplyOrders.searchPlaceholder')}
-                statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={statusSegments}
-                status={status}
-                onStatusChange={(next) => {
-                    setStatus(next);
-                    resetBook();
-                }}
-            >
-                <ColumnPicker {...controls.picker} />
-                <Button
-                    testID="kitchen-supply-orders-prepare"
-                    label={t('kitchen:ops.supplyOrders.prepare')}
-                    onPress={prepare}
-                />
-            </CatalogueToolbar>
+                result={
+                    orders.data === undefined || ordersFailure !== null
+                        ? null
+                        : t('kitchen:lens.result', {
+                              shown: controls.rows.length,
+                              total: orders.data.items.length,
+                          })
+                }
+                clearLabel={t('kitchen:lens.clear')}
+                {...(trimmed === '' && supplier === null
+                    ? {}
+                    : {
+                          onClear: () => {
+                              setQuery('');
+                              if (supplier !== null) {
+                                  setSupplier(null);
+                                  resetBook();
+                              }
+                          },
+                      })}
+                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                actions={
+                    <Button
+                        testID="kitchen-supply-orders-prepare"
+                        label={t('kitchen:ops.supplyOrders.prepare')}
+                        onPress={prepare}
+                    />
+                }
+            />
 
             {orders.isPending ? (
                 <TableSkeleton
@@ -899,64 +935,61 @@ function viewFields(
     ];
 }
 
-interface StatInputs {
+interface LensInputs {
     readonly outOfStock: number | null;
     readonly low: number | null;
-    /** `null` while the book is loading or failed — the cards then say nothing rather than zero. */
+    /** `null` while the book is loading or failed — the figures then hold their line, not a zero. */
     readonly orders: readonly PurchaseOrder[] | null;
+    readonly status: StatusSegmentValue;
     readonly t: TFunction;
     readonly showDrafts: () => void;
 }
 
-function statCards({
+/**
+ * The Lens bar's figures: the shortage — exact, from the count endpoint, and a pair that partitions
+ * it — then Draft and Issued over the orders on this page. Draft is a filter; Issued is read-only,
+ * because it counts two statuses and the filter takes one.
+ */
+function lensFigures({
     outOfStock,
     low,
     orders,
+    status,
     t,
     showDrafts,
-}: StatInputs): readonly CatalogueStatCard[] {
+}: LensInputs): readonly LensFigure[] {
     const count = (statuses: readonly PurchaseOrderStatus[]) =>
-        orders === null
-            ? EM_DASH
-            : String(orders.filter((row) => statuses.includes(row.status)).length);
+        orders === null ? null : orders.filter((row) => statuses.includes(row.status)).length;
     return [
         {
-            // Exact, from the count endpoint. `—` while pending: a zero would claim the shelves are
-            // fine before anybody has looked.
+            // `null` while pending: a zero would claim the shelves are fine before anybody looked.
             key: 'outOfStock',
             label: t('kitchen:ops.supplyOrders.metrics.outOfStock'),
-            value: outOfStock === null ? EM_DASH : String(outOfStock),
-            unit: t('kitchen:ops.supplyOrders.statItemsUnit'),
-            caption: t('kitchen:ops.supplyOrders.statOutCaption'),
-            mark: 'circleX',
-            tone: outOfStock !== null && outOfStock > 0 ? 'danger' : 'default',
+            value: outOfStock,
+            tone: 'danger',
+            alarm: true,
         },
         {
             key: 'low',
             label: t('kitchen:ops.supplyOrders.metrics.low'),
-            value: low === null ? EM_DASH : String(low),
-            unit: t('kitchen:ops.supplyOrders.statItemsUnit'),
-            caption: t('kitchen:ops.supplyOrders.statLowCaption'),
-            mark: 'alert',
-            tone: low !== null && low > 0 ? 'warning' : 'default',
+            value: low,
+            tone: 'warning',
         },
         {
             key: 'draft',
-            label: t(purchaseOrderStatusKey('draft')),
+            label: t('kitchen:lens.draftOnPage'),
             value: count(['draft']),
-            unit: t('kitchen:ops.supplyOrders.statOrdersUnit'),
-            caption: t('kitchen:ops.supplyOrders.statDraftCaption'),
-            mark: 'fileDraft',
+            tone: 'warning',
+            separated: true,
+            active: status === 'draft',
             onPress: showDrafts,
             accessibilityLabel: t('kitchen:ops.supplyOrders.statDraftAction'),
         },
         {
             key: 'issued',
-            label: t(purchaseOrderStatusKey('issued')),
+            label: t('kitchen:lens.issuedOnPage'),
             value: count(['issued', 'partially_received']),
-            unit: t('kitchen:ops.supplyOrders.statOrdersUnit'),
-            caption: t('kitchen:ops.supplyOrders.statIssuedCaption'),
-            mark: 'send',
+            tone: 'info',
         },
     ];
 }
