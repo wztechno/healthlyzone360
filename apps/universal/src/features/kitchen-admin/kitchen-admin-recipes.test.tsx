@@ -4843,19 +4843,31 @@ describe('adding an ingredient from the line picker', () => {
         });
         const record = stored(6, [line(owed)]);
 
-        await renderStubScreen(<RecipeEditScreen recipe={String(record.id)} />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenAdmin: {
-                    ...editorReads(() => record),
-                    getIngredient: ingredientShow([...LIBRARY, owed]),
+        const { repositories, queryClient } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(record.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => record),
+                        getIngredient: ingredientShow([...LIBRARY, owed]),
+                    },
                 },
             },
-        });
+        );
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('sheet');
         await untilVisible('kitchen-recipe-publish');
+        // What the line owes is read off its ingredient, which loads after the version: until
+        // Sumac's read has landed there is nothing to name, so the press waits for it.
+        await waitFor(
+            () => {
+                expect(repositories.kitchenAdmin.getIngredient).toHaveBeenCalledWith(owed.id);
+                expect(queryClient.isFetching()).toBe(0);
+            },
+            { timeout: 10000 },
+        );
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-publish'));
         });
