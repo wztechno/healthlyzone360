@@ -6,8 +6,10 @@ namespace App\Actions\Fortify;
 
 use App\Concerns\PasswordValidationRules;
 use App\Models\User;
+use Healthy360\Identity\Services\DeviceRegistrar;
 use Illuminate\Support\Facades\Validator;
 use Laravel\Fortify\Contracts\UpdatesUserPasswords;
+use Laravel\Sanctum\PersonalAccessToken;
 
 /**
  * Replacing a password you already know.
@@ -64,5 +66,14 @@ class UpdateUserPassword implements UpdatesUserPasswords
             'password' => $input['password'],
             'must_change_password' => false,
         ])->save();
+
+        // Every other device signs in again; the caller's own token, if the
+        // change arrived on one, is spared so the client is not logged out.
+        $current = $user->currentAccessToken();
+
+        app(DeviceRegistrar::class)->revokeAll(
+            $user,
+            $current instanceof PersonalAccessToken ? (string) $current->getKey() : null,
+        );
     }
 }

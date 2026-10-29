@@ -165,8 +165,10 @@ final readonly class OrderIdempotency
             return;
         }
 
+        // Through the model, not a builder update: the snapshot cast encrypts.
         $this->subjectScope($key, $userId, $customerAccountId)
-            ->update([
+            ->first()
+            ?->update([
                 'response_status' => '201',
                 'response_snapshot' => [
                     'order_id' => (string) $order->getKey(),
