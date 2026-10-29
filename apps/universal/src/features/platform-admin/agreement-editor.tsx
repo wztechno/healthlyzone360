@@ -19,6 +19,8 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { toFailure } from '../../data/hooks.ts';
+import { useUnsavedGuardFor } from '../../navigation/use-unsaved-guard.ts';
+import { UnsavedChangesDialog } from '../../ui/unsaved-changes-dialog.tsx';
 import {
     useDraftAgreementMutation,
     useSellerPriceListsQuery,
@@ -111,9 +113,18 @@ export function AgreementEditor({
     const updateMutation = useUpdateAgreementMutation();
 
     const company = application.legalName ?? application.tradingName ?? application.reference;
-    const [form, setForm] = useState<Draft>(() =>
+    const [initial] = useState<Draft>(() =>
         fromAgreement(agreement, t('platformAdmin:b2b.editor.defaultTitle', { company })),
     );
+    const [form, setForm] = useState<Draft>(initial);
+    // Changed and not saved: closing the drawer — Cancel, Escape, the backdrop — asks first.
+    const guard = useUnsavedGuardFor(JSON.stringify(form) !== JSON.stringify(initial), {
+        message: t('common:unsaved.browserPrompt'),
+        enabled: open,
+    });
+    const close = () => {
+        guard.intercept(onClose);
+    };
 
     const set = <K extends keyof Draft>(key: K, value: Draft[K]) => {
         setForm((current) => ({ ...current, [key]: value }));
@@ -186,190 +197,193 @@ export function AgreementEditor({
     };
 
     return (
-        <Drawer
-            testID="platform-b2b-agreement-editor"
-            open={open}
-            onClose={onClose}
-            title={
-                agreement === null
-                    ? t('platformAdmin:b2b.editor.newTitle')
-                    : t('platformAdmin:b2b.editor.editTitle', { version: agreement.version })
-            }
-            footer={
-                <Stack space="sm">
-                    <Button
-                        testID="platform-b2b-agreement-save"
-                        label={t('platformAdmin:b2b.editor.save')}
-                        disabled={form.title.trim() === '' || invalid}
-                        loading={saving}
-                        onPress={save}
+        <>
+            <Drawer
+                testID="platform-b2b-agreement-editor"
+                open={open}
+                onClose={close}
+                title={
+                    agreement === null
+                        ? t('platformAdmin:b2b.editor.newTitle')
+                        : t('platformAdmin:b2b.editor.editTitle', { version: agreement.version })
+                }
+                footer={
+                    <Stack space="sm">
+                        <Button
+                            testID="platform-b2b-agreement-save"
+                            label={t('platformAdmin:b2b.editor.save')}
+                            disabled={form.title.trim() === '' || invalid}
+                            loading={saving}
+                            onPress={save}
+                        />
+                        <Button
+                            testID="platform-b2b-agreement-cancel"
+                            variant="quiet"
+                            label={t('platformAdmin:b2b.cancel')}
+                            onPress={close}
+                        />
+                    </Stack>
+                }
+            >
+                <Stack space="md">
+                    <Text tone="secondary">{t('platformAdmin:b2b.editor.intro')}</Text>
+
+                    {failure === null || failure.code === 'validation.failed' ? null : (
+                        <Callout
+                            testID="platform-b2b-agreement-error"
+                            role="alert"
+                            tone="danger"
+                            title={failure.message}
+                        />
+                    )}
+
+                    <TextInputField
+                        testID="platform-b2b-agreement-title"
+                        label={t('platformAdmin:b2b.editor.title')}
+                        value={form.title}
+                        onChangeText={(value) => {
+                            set('title', value);
+                        }}
+                        error={fieldError('title')}
+                        required
                     />
-                    <Button
-                        testID="platform-b2b-agreement-cancel"
-                        variant="quiet"
-                        label={t('platformAdmin:b2b.cancel')}
-                        onPress={onClose}
+
+                    <Select<string>
+                        testID="platform-b2b-agreement-price-list"
+                        label={t('platformAdmin:b2b.editor.priceList')}
+                        hint={t('platformAdmin:b2b.editor.priceListHint')}
+                        placeholder={t('platformAdmin:b2b.editor.priceListPlaceholder')}
+                        value={form.priceListId}
+                        options={options}
+                        loading={lists.isPending}
+                        searchable
+                        onChange={(value) => {
+                            set('priceListId', value);
+                        }}
+                        error={fieldError('price_list_id') ?? fieldError('currency_code')}
+                    />
+
+                    {lists.isSuccess && options.length === 0 ? (
+                        <Callout
+                            testID="platform-b2b-agreement-no-lists"
+                            tone="info"
+                            title={t('platformAdmin:b2b.editor.noListsTitle')}
+                            body={t('platformAdmin:b2b.editor.noListsBody')}
+                        />
+                    ) : null}
+
+                    <Select<B2BPaymentTerms>
+                        testID="platform-b2b-agreement-payment-terms"
+                        label={t('platformAdmin:b2b.agreement.paymentTerms')}
+                        value={form.paymentTerms}
+                        options={B2B_PAYMENT_TERMS.map((value) => ({
+                            value,
+                            label: t(`b2bApplication:paymentTerms.${value}`),
+                        }))}
+                        onChange={(value) => {
+                            set('paymentTerms', value);
+                        }}
+                        error={fieldError('payment_terms')}
+                        {...(application.sections.trade_terms.requestedPaymentTerms === null
+                            ? {}
+                            : {
+                                  hint: t('platformAdmin:b2b.editor.requested', {
+                                      value: t(
+                                          `b2bApplication:paymentTerms.${application.sections.trade_terms.requestedPaymentTerms}`,
+                                      ),
+                                  }),
+                              })}
+                    />
+
+                    <TextInputField
+                        testID="platform-b2b-agreement-credit-limit"
+                        label={t('platformAdmin:b2b.agreement.creditLimit')}
+                        hint={
+                            chosen === null
+                                ? undefined
+                                : t('platformAdmin:b2b.editor.inCurrency', {
+                                      currency: chosen.currencyCode,
+                                  })
+                        }
+                        value={form.creditLimit}
+                        onChangeText={(value) => {
+                            set('creditLimit', value);
+                        }}
+                        keyboardType="decimal-pad"
+                        error={numberError('creditLimit', 'credit_limit_minor')}
+                    />
+                    <TextInputField
+                        testID="platform-b2b-agreement-minimum-order"
+                        label={t('platformAdmin:b2b.agreement.minimumOrder')}
+                        value={form.minimumOrder}
+                        onChangeText={(value) => {
+                            set('minimumOrder', value);
+                        }}
+                        keyboardType="decimal-pad"
+                        error={numberError('minimumOrder', 'minimum_order_minor')}
+                    />
+                    <TextInputField
+                        testID="platform-b2b-agreement-lead-time"
+                        label={t('platformAdmin:b2b.editor.leadTime')}
+                        value={form.leadTimeDays}
+                        onChangeText={(value) => {
+                            set('leadTimeDays', value);
+                        }}
+                        keyboardType="number-pad"
+                        error={numberError('leadTimeDays', 'delivery_lead_time_days')}
+                    />
+                    <TextInputField
+                        testID="platform-b2b-agreement-notice"
+                        label={t('platformAdmin:b2b.editor.noticePeriod')}
+                        value={form.noticePeriodDays}
+                        onChangeText={(value) => {
+                            set('noticePeriodDays', value);
+                        }}
+                        keyboardType="number-pad"
+                        error={numberError('noticePeriodDays', 'notice_period_days')}
+                    />
+                    <TextInputField
+                        testID="platform-b2b-agreement-starts-on"
+                        label={t('platformAdmin:b2b.editor.startsOn')}
+                        placeholder={t('platformAdmin:b2b.editor.datePlaceholder')}
+                        value={form.startsOn}
+                        onChangeText={(value) => {
+                            set('startsOn', value);
+                        }}
+                        error={fieldError('starts_on')}
+                    />
+                    <TextInputField
+                        testID="platform-b2b-agreement-ends-on"
+                        label={t('platformAdmin:b2b.editor.endsOn')}
+                        placeholder={t('platformAdmin:b2b.editor.datePlaceholder')}
+                        value={form.endsOn}
+                        onChangeText={(value) => {
+                            set('endsOn', value);
+                        }}
+                        error={fieldError('ends_on')}
+                    />
+                    <Checkbox
+                        testID="platform-b2b-agreement-auto-renews"
+                        label={t('platformAdmin:b2b.editor.autoRenews')}
+                        checked={form.autoRenews}
+                        onChange={(checked) => {
+                            set('autoRenews', checked);
+                        }}
+                    />
+                    <TextInputField
+                        testID="platform-b2b-agreement-summary"
+                        label={t('platformAdmin:b2b.editor.summary')}
+                        hint={t('platformAdmin:b2b.editor.summaryHint')}
+                        value={form.termsSummary}
+                        onChangeText={(value) => {
+                            set('termsSummary', value);
+                        }}
+                        multiline
+                        error={fieldError('terms_summary')}
                     />
                 </Stack>
-            }
-        >
-            <Stack space="md">
-                <Text tone="secondary">{t('platformAdmin:b2b.editor.intro')}</Text>
-
-                {failure === null || failure.code === 'validation.failed' ? null : (
-                    <Callout
-                        testID="platform-b2b-agreement-error"
-                        role="alert"
-                        tone="danger"
-                        title={failure.message}
-                    />
-                )}
-
-                <TextInputField
-                    testID="platform-b2b-agreement-title"
-                    label={t('platformAdmin:b2b.editor.title')}
-                    value={form.title}
-                    onChangeText={(value) => {
-                        set('title', value);
-                    }}
-                    error={fieldError('title')}
-                    required
-                />
-
-                <Select<string>
-                    testID="platform-b2b-agreement-price-list"
-                    label={t('platformAdmin:b2b.editor.priceList')}
-                    hint={t('platformAdmin:b2b.editor.priceListHint')}
-                    placeholder={t('platformAdmin:b2b.editor.priceListPlaceholder')}
-                    value={form.priceListId}
-                    options={options}
-                    loading={lists.isPending}
-                    searchable
-                    onChange={(value) => {
-                        set('priceListId', value);
-                    }}
-                    error={fieldError('price_list_id') ?? fieldError('currency_code')}
-                />
-
-                {lists.isSuccess && options.length === 0 ? (
-                    <Callout
-                        testID="platform-b2b-agreement-no-lists"
-                        tone="info"
-                        title={t('platformAdmin:b2b.editor.noListsTitle')}
-                        body={t('platformAdmin:b2b.editor.noListsBody')}
-                    />
-                ) : null}
-
-                <Select<B2BPaymentTerms>
-                    testID="platform-b2b-agreement-payment-terms"
-                    label={t('platformAdmin:b2b.agreement.paymentTerms')}
-                    value={form.paymentTerms}
-                    options={B2B_PAYMENT_TERMS.map((value) => ({
-                        value,
-                        label: t(`b2bApplication:paymentTerms.${value}`),
-                    }))}
-                    onChange={(value) => {
-                        set('paymentTerms', value);
-                    }}
-                    error={fieldError('payment_terms')}
-                    {...(application.sections.trade_terms.requestedPaymentTerms === null
-                        ? {}
-                        : {
-                              hint: t('platformAdmin:b2b.editor.requested', {
-                                  value: t(
-                                      `b2bApplication:paymentTerms.${application.sections.trade_terms.requestedPaymentTerms}`,
-                                  ),
-                              }),
-                          })}
-                />
-
-                <TextInputField
-                    testID="platform-b2b-agreement-credit-limit"
-                    label={t('platformAdmin:b2b.agreement.creditLimit')}
-                    hint={
-                        chosen === null
-                            ? undefined
-                            : t('platformAdmin:b2b.editor.inCurrency', {
-                                  currency: chosen.currencyCode,
-                              })
-                    }
-                    value={form.creditLimit}
-                    onChangeText={(value) => {
-                        set('creditLimit', value);
-                    }}
-                    keyboardType="decimal-pad"
-                    error={numberError('creditLimit', 'credit_limit_minor')}
-                />
-                <TextInputField
-                    testID="platform-b2b-agreement-minimum-order"
-                    label={t('platformAdmin:b2b.agreement.minimumOrder')}
-                    value={form.minimumOrder}
-                    onChangeText={(value) => {
-                        set('minimumOrder', value);
-                    }}
-                    keyboardType="decimal-pad"
-                    error={numberError('minimumOrder', 'minimum_order_minor')}
-                />
-                <TextInputField
-                    testID="platform-b2b-agreement-lead-time"
-                    label={t('platformAdmin:b2b.editor.leadTime')}
-                    value={form.leadTimeDays}
-                    onChangeText={(value) => {
-                        set('leadTimeDays', value);
-                    }}
-                    keyboardType="number-pad"
-                    error={numberError('leadTimeDays', 'delivery_lead_time_days')}
-                />
-                <TextInputField
-                    testID="platform-b2b-agreement-notice"
-                    label={t('platformAdmin:b2b.editor.noticePeriod')}
-                    value={form.noticePeriodDays}
-                    onChangeText={(value) => {
-                        set('noticePeriodDays', value);
-                    }}
-                    keyboardType="number-pad"
-                    error={numberError('noticePeriodDays', 'notice_period_days')}
-                />
-                <TextInputField
-                    testID="platform-b2b-agreement-starts-on"
-                    label={t('platformAdmin:b2b.editor.startsOn')}
-                    placeholder={t('platformAdmin:b2b.editor.datePlaceholder')}
-                    value={form.startsOn}
-                    onChangeText={(value) => {
-                        set('startsOn', value);
-                    }}
-                    error={fieldError('starts_on')}
-                />
-                <TextInputField
-                    testID="platform-b2b-agreement-ends-on"
-                    label={t('platformAdmin:b2b.editor.endsOn')}
-                    placeholder={t('platformAdmin:b2b.editor.datePlaceholder')}
-                    value={form.endsOn}
-                    onChangeText={(value) => {
-                        set('endsOn', value);
-                    }}
-                    error={fieldError('ends_on')}
-                />
-                <Checkbox
-                    testID="platform-b2b-agreement-auto-renews"
-                    label={t('platformAdmin:b2b.editor.autoRenews')}
-                    checked={form.autoRenews}
-                    onChange={(checked) => {
-                        set('autoRenews', checked);
-                    }}
-                />
-                <TextInputField
-                    testID="platform-b2b-agreement-summary"
-                    label={t('platformAdmin:b2b.editor.summary')}
-                    hint={t('platformAdmin:b2b.editor.summaryHint')}
-                    value={form.termsSummary}
-                    onChangeText={(value) => {
-                        set('termsSummary', value);
-                    }}
-                    multiline
-                    error={fieldError('terms_summary')}
-                />
-            </Stack>
-        </Drawer>
+            </Drawer>
+            <UnsavedChangesDialog guard={guard} testID="platform-b2b-agreement-unsaved" />
+        </>
     );
 }

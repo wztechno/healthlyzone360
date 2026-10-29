@@ -2842,7 +2842,11 @@
         "body": "This record has changes that have not been saved. Leaving now discards them.",
         "discard": "Discard my changes",
         "keepEditing": "Keep editing",
-        "browserPrompt": "This record has unsaved changes."
+        "browserPrompt": "This record has unsaved changes.",
+        "keepableTitle": "Leave this page?",
+        "keepableBody": "Your changes aren't saved yet.",
+        "stay": "Stay",
+        "keepForLater": "Keep for later"
     },
     "classes": {
         "title": "Allergen classes",
@@ -3160,7 +3164,6 @@
         "kitchenOnly": "Kitchen only",
         "kitchenOnlyHint": "Never shared outside the kitchen.",
         "readOnly": "Read only",
-        "newDraft": "New draft",
         "referenceSource": "Imported from {{source}}",
         "checkLanguages": "Both languages present",
         "checkLanguagesOk": "The item name is filled in English and Arabic",

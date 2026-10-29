@@ -27,6 +27,9 @@ import {
 import type { NutritionFacts } from '@healthy360/nutrition';
 import type { AccessState } from '@healthy360/permissions';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { readKeptWork } from '../../navigation/kept-work.ts';
+import { clearAllSessionDrafts } from '../../navigation/session-draft.ts';
+import { guardNavigation } from '../../navigation/use-unsaved-guard.ts';
 import type { ReactNode } from 'react';
 import { Dimensions } from 'react-native';
 
@@ -3420,6 +3423,48 @@ describe('a row added from the recipe editor', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('leaving the ingredient form with unsaved work', () => {
+    it('offers to keep a new ingredient for later, lists it, and puts it back on return', async () => {
+        const first = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => []) },
+        });
+        await untilVisible('kitchen-ingredient-name-en-input');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-ingredient-name-en-input'), 'Sumac');
+        });
+
+        // The sidebar asks now, rather than leaving the work behind without a word.
+        const navigate = jest.fn();
+        await act(async () => {
+            guardNavigation(navigate);
+        });
+        await untilVisible('kitchen-ingredient-editor-screen-unsaved-dialog');
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-ingredient-editor-screen-unsaved-keep-for-later'),
+            );
+        });
+        expect(navigate).toHaveBeenCalledTimes(1);
+        expect(readKeptWork()).toEqual([
+            expect.objectContaining({
+                kind: 'ingredient',
+                subject: 'Sumac',
+                href: '/kitchen/ingredients/new',
+            }),
+        ]);
+        await act(async () => {
+            first.view.unmount();
+        });
+
+        await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => []) },
+        });
+        await untilVisible('kitchen-ingredient-draft-restored-toast');
+        expect(screen.getByTestId('kitchen-ingredient-name-en-input').props.value).toBe('Sumac');
+        clearAllSessionDrafts();
+    });
+
     it('keeps it when the reader leaves another way than Cancel, and puts it back on return', async () => {
         const record = ingredient(41, { name: { en: 'Sumac', ar: 'سماق' } });
         const reads = {

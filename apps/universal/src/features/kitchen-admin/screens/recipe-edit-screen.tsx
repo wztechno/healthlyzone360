@@ -67,11 +67,13 @@ import { toFailure } from '../../../data/hooks.ts';
 import {
     endProcess,
     endProcessSavedOn,
+    isStepOfActiveProcess,
     readActiveProcess,
     startProcess,
     useProcessStep,
 } from '../../../navigation/active-process.ts';
 import { pathnameOf, withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+import { forgetKeptWork, keepWork } from '../../../navigation/kept-work.ts';
 import { createSessionDraftStore } from '../../../navigation/session-draft.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
@@ -132,6 +134,7 @@ import type { StockGapFix } from '../recipe-stock-gap-fix.ts';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import { TechnicalSheetPanel } from '../technical-sheet-panel.tsx';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
+import { UnsavedDialog } from '../record-form-opening.tsx';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
@@ -758,14 +761,18 @@ function RecipeEditor({
     const photoSave = useSaveRecordPhotoMutation();
 
     /*
-     * Leaving through the sidebar keeps this recipe's unsaved work as a draft (see `recipeDrafts`
-     * below), so the guard lets the reader go — except while the listing or the photo is unsaved,
-     * which no draft carries. Read when the reader navigates, from the line that knows both.
+     * This recipe's unsaved work is kept as a draft (see `recipeDrafts` below), so leaving offers
+     * "Keep for later" — except while the listing or the photo is unsaved, which no draft carries.
+     * Read when the reader leaves, from the line that knows both. Kept, the recipe is listed in the
+     * kept work (`kept-work.ts`); discarded, its draft goes. Both through `keptRef`, filled below.
      */
     const draftKeepable = useRef(true);
+    const keptRef = useRef<{ keep: () => void; discard: () => void } | null>(null);
     const guard = useUnsavedGuard({
         message: t('kitchen:unsaved.browserPrompt'),
         keepsDraft: () => draftKeepable.current,
+        onKeep: () => keptRef.current?.keep(),
+        onDiscard: () => keptRef.current?.discard(),
     });
     // Cancel and the not-found notice step back the way the reader came; see `useReturnTo`.
     const back = useReturnTo(returnTo, backTo);
@@ -964,8 +971,9 @@ function RecipeEditor({
                 rowOrdinal,
                 dirty: { details: detailsDirty, lines: linesDirty, packaging: packagingDirty },
             });
-        } else if (recipeDrafts.read(detourKey) !== null) {
-            recipeDrafts.clear(detourKey);
+        } else {
+            if (recipeDrafts.read(detourKey) !== null) recipeDrafts.clear(detourKey);
+            forgetKeptWork('recipe', detourKey);
         }
     }, [
         detourChecked,
@@ -1124,6 +1132,25 @@ function RecipeEditor({
      * detour left, that detour is over.
      */
     useProcessStep(hrefOnTab(tab), back.returnTo);
+    const keptName = displayName(details.name, locale).value;
+    const keptHref = hrefOnTab(tab);
+    useEffect(() => {
+        keptRef.current = {
+            keep: () => {
+                if (isStepOfActiveProcess(pathnameOf(keptHref))) return;
+                keepWork({
+                    kind: 'recipe',
+                    subject: keptName === '' ? null : keptName,
+                    href: keptHref,
+                    draft: { namespace: 'recipeEditor', key: detourKey },
+                });
+            },
+            discard: () => {
+                recipeDrafts.clear(detourKey);
+                forgetKeptWork('recipe', detourKey);
+            },
+        };
+    });
     const ownPath = pathnameOf(hrefOnTab(tab));
     useEffect(() => {
         const process = readActiveProcess();
@@ -2073,6 +2100,8 @@ function RecipeEditor({
                     const photoError = await writePhoto(created.id, null);
                     settle();
                     endProcessSavedOn(ownPath);
+                    // Created: the create form's draft and its kept entry are done.
+                    keptRef.current?.discard();
                     toast.show({
                         testID: 'kitchen-recipe-created-toast',
                         tone: 'success',
@@ -4282,29 +4311,7 @@ function RecipeEditor({
                 </Dialog>
 
                 {/* ── the two safety dialogs ───────────────────────────────────────────────────── */}
-                <Dialog
-                    testID="kitchen-recipe-editor-screen-unsaved-dialog"
-                    open={guard.isPrompting}
-                    onClose={guard.cancelDiscard}
-                    title={t('kitchen:unsaved.title')}
-                    description={t('kitchen:unsaved.body')}
-                    actions={
-                        <>
-                            <Button
-                                testID="kitchen-recipe-editor-screen-unsaved-keep"
-                                variant="quiet"
-                                label={t('kitchen:unsaved.keepEditing')}
-                                onPress={guard.cancelDiscard}
-                            />
-                            <Button
-                                testID="kitchen-recipe-editor-screen-unsaved-discard"
-                                variant="danger"
-                                label={t('kitchen:unsaved.discard')}
-                                onPress={guard.confirmDiscard}
-                            />
-                        </>
-                    }
-                />
+                <UnsavedDialog guard={guard} testID="kitchen-recipe-editor-screen" />
 
                 <Dialog
                     testID="kitchen-recipe-editor-screen-conflict-dialog"

@@ -201,6 +201,59 @@ export function RecordFormOpening<Step extends string>({
 }
 
 /**
+ * "Leave this page?" — what every editor asks before unsaved work is left behind.
+ *
+ * An editor that keeps a draft (`guard.canKeep`) offers three ways out: Keep for later, which lists
+ * the work in the kept work (`navigation/kept-work.ts`) and its card; Discard; and Stay. Any other
+ * asks the two it always did. "Stay" rather than "Keep editing" beside a Keep button, so the two
+ * Keeps are never confused.
+ */
+export function UnsavedDialog({
+    guard,
+    testID,
+}: {
+    readonly guard: UnsavedGuard;
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    const keepable = guard.canKeep;
+
+    return (
+        <Dialog
+            testID={`${testID}-unsaved-dialog`}
+            open={guard.isPrompting}
+            onClose={guard.cancelDiscard}
+            title={t(keepable ? 'kitchen:unsaved.keepableTitle' : 'kitchen:unsaved.title')}
+            description={t(keepable ? 'kitchen:unsaved.keepableBody' : 'kitchen:unsaved.body')}
+            actions={
+                <>
+                    <Button
+                        testID={`${testID}-unsaved-keep`}
+                        variant="quiet"
+                        label={t(keepable ? 'kitchen:unsaved.stay' : 'kitchen:unsaved.keepEditing')}
+                        onPress={guard.cancelDiscard}
+                    />
+                    <Button
+                        testID={`${testID}-unsaved-discard`}
+                        variant="danger"
+                        label={t('kitchen:unsaved.discard')}
+                        onPress={guard.confirmDiscard}
+                    />
+                    {keepable ? (
+                        <Button
+                            testID={`${testID}-unsaved-keep-for-later`}
+                            variant="primary"
+                            label={t('kitchen:unsaved.keepForLater')}
+                            onPress={guard.confirmKeep}
+                        />
+                    ) : null}
+                </>
+            }
+        />
+    );
+}
+
+/**
  * The two dialogs every record page guards itself with — leaving with unsaved edits, and saving
  * over somebody else's — drawn under the ids the frames always gave them (`-unsaved-dialog`,
  * `-conflict-dialog` and their buttons), so a page that leaves a frame keeps its suite.
@@ -218,29 +271,7 @@ export function EditorGuardDialogs({
 
     return (
         <>
-            <Dialog
-                testID={`${testID}-unsaved-dialog`}
-                open={guard.isPrompting}
-                onClose={guard.cancelDiscard}
-                title={t('kitchen:unsaved.title')}
-                description={t('kitchen:unsaved.body')}
-                actions={
-                    <>
-                        <Button
-                            testID={`${testID}-unsaved-keep`}
-                            variant="quiet"
-                            label={t('kitchen:unsaved.keepEditing')}
-                            onPress={guard.cancelDiscard}
-                        />
-                        <Button
-                            testID={`${testID}-unsaved-discard`}
-                            variant="danger"
-                            label={t('kitchen:unsaved.discard')}
-                            onPress={guard.confirmDiscard}
-                        />
-                    </>
-                }
-            />
+            <UnsavedDialog guard={guard} testID={testID} />
 
             {concurrency === undefined ? null : (
                 <Dialog

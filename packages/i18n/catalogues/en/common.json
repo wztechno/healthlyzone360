@@ -124,5 +124,27 @@
             "stockGapFix": "Fix stock gap · {{subject}}",
             "recipeDetour": "Editing {{subject}}"
         }
+    },
+    "keptWork": {
+        "title": "Unfinished work · {{n}}",
+        "inProgress": "In progress",
+        "detail": "{{kind}} · not saved",
+        "kind": {
+            "recipe": "Recipe",
+            "ingredient": "Ingredient",
+            "packaging": "Packaging"
+        },
+        "new": {
+            "recipe": "New recipe",
+            "ingredient": "New ingredient",
+            "packaging": "New packaging"
+        },
+        "minimise": "Minimise",
+        "close": "Close",
+        "discardLabel": "Discard {{title}}",
+        "discardTitle": "Discard this work?",
+        "discardBody": "{{title}} will be gone for good.",
+        "discardCancel": "Keep it",
+        "discardConfirm": "Discard"
     }
 }

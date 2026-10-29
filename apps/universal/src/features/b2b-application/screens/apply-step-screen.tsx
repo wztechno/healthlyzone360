@@ -31,6 +31,8 @@ import {
     useSubmitB2BApplicationMutation,
     useUploadDocumentMutation,
 } from '../../../data/b2b-application-hooks.ts';
+import { guardNavigation, useUnsavedGuardFor } from '../../../navigation/use-unsaved-guard.ts';
+import { UnsavedChangesDialog } from '../../../ui/unsaved-changes-dialog.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { DocumentSlotList, buildSlots } from '../document-slot-list.tsx';
 import { ContactsStep, LocationsStep } from '../list-steps.tsx';
@@ -274,7 +276,10 @@ function StepBody({
                         variant="ghost"
                         label={t('b2bApplication:wizard.back')}
                         onPress={() => {
-                            goTo(stepBefore(step));
+                            // Through the step's guard: typed and not saved, it asks first.
+                            guardNavigation(() => {
+                                goTo(stepBefore(step));
+                            });
                         }}
                     />
                 )}
@@ -313,12 +318,17 @@ function SectionStep({
      * Keyed by section so moving between steps does not carry one step's edits into another, and
      * seeded lazily so a refetch that lands mid-typing does not wipe the field under the caret.
      */
-    const [draft, setDraft] = useState<Record<string, unknown>>(() => ({
+    const [seed] = useState<Record<string, unknown>>(() => ({
         // Through `unknown`: the section interfaces have no index signature — which is the point of
         // typing them — and this form reads and writes only the keys the field table names.
         ...(application.sections[section] as unknown as Record<string, unknown>),
     }));
+    const [draft, setDraft] = useState<Record<string, unknown>>(seed);
     const [errors, setErrors] = useState<SectionErrors>({});
+    // Typed and not saved: Back, the browser's Back and closing the tab ask first.
+    const guard = useUnsavedGuardFor(JSON.stringify(draft) !== JSON.stringify(seed), {
+        message: t('common:unsaved.browserPrompt'),
+    });
 
     const state = sectionState(application, section);
     const set = (field: string, value: unknown) => {
@@ -481,6 +491,7 @@ function SectionStep({
                     onSave(result.value as B2BSectionPayload, true);
                 }}
             />
+            <UnsavedChangesDialog guard={guard} testID={`${TEST_ID}-unsaved`} />
         </Stack>
     );
 }

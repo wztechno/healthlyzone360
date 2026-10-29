@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9090 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9110 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2401,6 +2401,22 @@ export interface NamespaceKeys {
     | 'destination.subscription'
     | 'direction.ltr'
     | 'direction.rtl'
+    | 'keptWork.close'
+    | 'keptWork.detail'
+    | 'keptWork.discardBody'
+    | 'keptWork.discardCancel'
+    | 'keptWork.discardConfirm'
+    | 'keptWork.discardLabel'
+    | 'keptWork.discardTitle'
+    | 'keptWork.inProgress'
+    | 'keptWork.kind.ingredient'
+    | 'keptWork.kind.packaging'
+    | 'keptWork.kind.recipe'
+    | 'keptWork.minimise'
+    | 'keptWork.new.ingredient'
+    | 'keptWork.new.packaging'
+    | 'keptWork.new.recipe'
+    | 'keptWork.title'
     | 'locale.arabic'
     | 'locale.changed'
     | 'locale.english'
@@ -6874,6 +6890,10 @@ export interface NamespaceKeys {
     | 'unsaved.browserPrompt'
     | 'unsaved.discard'
     | 'unsaved.keepEditing'
+    | 'unsaved.keepForLater'
+    | 'unsaved.keepableBody'
+    | 'unsaved.keepableTitle'
+    | 'unsaved.stay'
     | 'unsaved.title'
     | 'verification.laboratoryTested'
     | 'verification.operatorConfirmed'
@@ -11514,6 +11534,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:destination.subscription',
   'common:direction.ltr',
   'common:direction.rtl',
+  'common:keptWork.close',
+  'common:keptWork.detail',
+  'common:keptWork.discardBody',
+  'common:keptWork.discardCancel',
+  'common:keptWork.discardConfirm',
+  'common:keptWork.discardLabel',
+  'common:keptWork.discardTitle',
+  'common:keptWork.inProgress',
+  'common:keptWork.kind.ingredient',
+  'common:keptWork.kind.packaging',
+  'common:keptWork.kind.recipe',
+  'common:keptWork.minimise',
+  'common:keptWork.new.ingredient',
+  'common:keptWork.new.packaging',
+  'common:keptWork.new.recipe',
+  'common:keptWork.title',
   'common:locale.arabic',
   'common:locale.changed',
   'common:locale.english',
@@ -15982,6 +16018,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:unsaved.browserPrompt',
   'kitchen:unsaved.discard',
   'kitchen:unsaved.keepEditing',
+  'kitchen:unsaved.keepForLater',
+  'kitchen:unsaved.keepableBody',
+  'kitchen:unsaved.keepableTitle',
+  'kitchen:unsaved.stay',
   'kitchen:unsaved.title',
   'kitchen:verification.laboratoryTested',
   'kitchen:verification.operatorConfirmed',

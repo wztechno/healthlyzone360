@@ -128,5 +128,27 @@
             "stockGapFix": "إصلاح نقص المخزون · {{subject}}",
             "recipeDetour": "تعديل {{subject}}"
         }
+    },
+    "keptWork": {
+        "title": "عمل غير مكتمل · {{n}}",
+        "inProgress": "قيد التنفيذ",
+        "detail": "{{kind}} · غير محفوظ",
+        "kind": {
+            "recipe": "وصفة",
+            "ingredient": "مكوّن",
+            "packaging": "تغليف"
+        },
+        "new": {
+            "recipe": "وصفة جديدة",
+            "ingredient": "مكوّن جديد",
+            "packaging": "تغليف جديد"
+        },
+        "minimise": "تصغير",
+        "close": "إغلاق",
+        "discardLabel": "تجاهل {{title}}",
+        "discardTitle": "تجاهل هذا العمل؟",
+        "discardBody": "سيُحذف {{title}} نهائيًا.",
+        "discardCancel": "الإبقاء عليه",
+        "discardConfirm": "تجاهل"
     }
 }

@@ -104,6 +104,15 @@ export function endProcessSavedOn(pathname: string): void {
     }
 }
 
+/**
+ * Whether the page is a step of the running process — its work is already one Continue away, so
+ * an editor kept on the way out is not listed a second time (`kept-work.ts`).
+ */
+export function isStepOfActiveProcess(pathname: string): boolean {
+    const current = store.read(KEY);
+    return current !== null && !isOutsideProcess(current, pathname);
+}
+
 export function readActiveProcess(): ActiveProcess | null {
     return store.read(KEY);
 }

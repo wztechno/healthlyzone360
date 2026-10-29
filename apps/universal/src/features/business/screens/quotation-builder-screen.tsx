@@ -32,8 +32,10 @@ import {
     useRequestQuotationMutation,
 } from '../../../data/business-hooks.ts';
 import { EntityImage } from '../../../media/entity-image.tsx';
+import { useUnsavedGuardFor } from '../../../navigation/use-unsaved-guard.ts';
 import { useValidationTranslate } from '../../../screens/form-helpers.ts';
 import { useSession } from '../../../session/session-provider.tsx';
+import { UnsavedChangesDialog } from '../../../ui/unsaved-changes-dialog.tsx';
 import { earliestStartDate } from '../../commerce/dates.ts';
 import { useCataloguePort } from '../../kitchen-admin/catalogue/catalogue-nav.tsx';
 import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
@@ -130,6 +132,19 @@ export function QuotationBuilderScreen({
     // The items the last submit sent, in order: the server names a refused line by its position.
     const [sentItemIds, setSentItemIds] = useState<readonly string[]>([]);
     const [kind, setKind] = useState<KindFilter>('all');
+    /*
+     * A request with something in it — a quantity, a note, a date, a changed name — is work to
+     * lose: Cancel, the trail and the browser's Back ask first. Sent, there is nothing left to lose.
+     */
+    const guard = useUnsavedGuardFor(
+        submitted === null &&
+            (Object.values(edits).some((quantity) => quantity !== null && quantity > 0) ||
+                nameEdited ||
+                emailEdited ||
+                contactEdits.note.trim() !== '' ||
+                contactEdits.requestedDeliveryDate !== null),
+        { message: t('common:unsaved.browserPrompt') },
+    );
 
     const request = useRequestQuotationMutation();
     const failure = toFailure(request.error);
@@ -695,7 +710,9 @@ export function QuotationBuilderScreen({
                         testID="quotation-builder-cancel"
                         variant="secondary"
                         label={t('business:builder.cancel')}
-                        onPress={toCatalogue}
+                        onPress={() => {
+                            guard.intercept(toCatalogue);
+                        }}
                     />
                 }
             />
@@ -711,6 +728,7 @@ export function QuotationBuilderScreen({
                 {menu}
                 {panel}
             </View>
+            <UnsavedChangesDialog guard={guard} testID="quotation-builder-unsaved" />
         </Cascade>
     );
 }

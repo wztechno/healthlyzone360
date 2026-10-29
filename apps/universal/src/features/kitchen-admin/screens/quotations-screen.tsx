@@ -61,7 +61,8 @@ import {
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { focusField } from '../field-focus.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { RecordFormOpening } from '../record-form-opening.tsx';
+import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
+import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
@@ -524,6 +525,9 @@ function QuotationPricing({
     const lines: readonly KitchenQuotationLine[] = quotation?.lines ?? NO_LINES;
     const currency: CurrencyCode = quotation?.currencyCode ?? 'USD';
     const editable = quotation !== null && canQuote && canQuoteKitchenQuotation(quotation.status);
+    // Prices typed and not sent: Back to quotations, the trail and the browser's Back ask first.
+    const dirty = editable && Object.values(prices).some((value) => value.trim() !== '');
+    const guard = useUnsavedGuardFor(dirty, { message: t('kitchen:unsaved.browserPrompt') });
 
     const parsedPrices = useMemo(() => {
         if (lines.length === 0) return null;
@@ -612,7 +616,9 @@ function QuotationPricing({
             testID="kitchen-quotations-back"
             variant="secondary"
             label={t('kitchen:ops.quotations.backToQuotations')}
-            onPress={onBack}
+            onPress={() => {
+                guard.intercept(onBack);
+            }}
         />
     );
 
@@ -744,7 +750,7 @@ function QuotationPricing({
                     title={t('kitchen:ops.quotations.detailTitle', {
                         reference: quotation.reference,
                     })}
-                    dirty={false}
+                    dirty={dirty}
                     badges={
                         <Badge
                             variant="label"
@@ -928,6 +934,7 @@ function QuotationPricing({
                         }}
                     />
                 </View>
+                <EditorGuardDialogs guard={guard} testID="kitchen-quotations-detail" />
             </Cascade>
         </IssueTrayFrame>
     );

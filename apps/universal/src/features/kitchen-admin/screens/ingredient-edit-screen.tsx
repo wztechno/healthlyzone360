@@ -89,8 +89,9 @@ import {
     useUpdateIngredientMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { resolveEntityImage } from '../../../media/entity-image.tsx';
-import { useProcessStep } from '../../../navigation/active-process.ts';
-import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+import { isStepOfActiveProcess, useProcessStep } from '../../../navigation/active-process.ts';
+import { forgetKeptWork, keepWork } from '../../../navigation/kept-work.ts';
+import { pathnameOf, withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { createSessionDraftStore } from '../../../navigation/session-draft.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { BilingualField } from '../bilingual-field.tsx';
@@ -134,7 +135,7 @@ import { AllergenReferencePicker } from '../allergen-reference-picker.tsx';
 import { IngredientAllergenEditor } from '../ingredient-allergen-editor.tsx';
 import { IngredientBarcodesSection } from '../ingredient-barcodes-section.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
-import { focusFirstRefusal } from '../record-form-opening.tsx';
+import { focusFirstRefusal, UnsavedDialog } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
@@ -676,12 +677,19 @@ function IngredientEditor({
      */
     const [noAllergens, setNoAllergens] = useState(false);
 
-    // Leaving keeps the form's work as a draft — see `ingredientDrafts` — so the guard lets the
-    // reader go unless the photo or the allergen grid is unsaved, which no draft carries.
+    /*
+     * Leaving keeps the form's work as a draft — see `ingredientDrafts` — so the guard offers
+     * "Keep for later" unless the photo or the allergen grid is unsaved, which no draft carries.
+     * Kept, the record is listed in the kept work (`kept-work.ts`); discarded, its draft goes.
+     * Both read what they need when chosen, through `keptRef`, filled further down.
+     */
     const draftKeepable = useRef(true);
+    const keptRef = useRef<{ keep: () => void; discard: () => void } | null>(null);
     const guard = useUnsavedGuard({
         message: t('kitchen:unsaved.browserPrompt'),
         keepsDraft: () => draftKeepable.current,
+        onKeep: () => keptRef.current?.keep(),
+        onDiscard: () => keptRef.current?.discard(),
     });
     /*
      * Cancel and the not-found page's way out go back a step, the way the browser's arrow does —
@@ -898,9 +906,26 @@ function IngredientEditor({
      * effect would render one frame with the previous record's values still in the form. On the
      * first arrival, a draft kept from an earlier visit to this same version is put back instead.
      */
-    const draftKey = parsed === null ? null : String(parsed);
+    const draftKey = isCreating
+        ? `new:${family.listRoute}`
+        : parsed === null
+          ? null
+          : String(parsed);
+    // A record not created yet has no version to match; its draft is the create form's.
+    const draftServerKey = isCreating ? 'new' : serverKey;
+    const keptKind = family.food ? 'ingredient' : 'packaging';
     const [draftChecked, setDraftChecked] = useState(false);
     const [draftRestored, setDraftRestored] = useState(false);
+    if (isCreating && !draftChecked && draftKey !== null) {
+        setDraftChecked(true);
+        const kept = ingredientDrafts.read(draftKey);
+        if (kept !== null && kept.serverKey === 'new') {
+            setDetails(kept.details);
+            setPackaging(kept.packaging);
+            setDetailsDirty(true);
+            setDraftRestored(true);
+        }
+    }
     if (data !== undefined && serverKey !== detailsKey && !detailsDirty) {
         setDetailsKey(serverKey);
         const kept = draftChecked || draftKey === null ? null : ingredientDrafts.read(draftKey);
@@ -994,13 +1019,44 @@ function IngredientEditor({
 
     // Kept while anything in the form is unsaved; gone once it is saved or deliberately discarded.
     useEffect(() => {
-        if (draftKey === null || serverKey === null || !draftAnnounced.current) return;
+        if (draftKey === null || draftServerKey === null || !draftAnnounced.current) return;
         if (detailsDirty) {
-            ingredientDrafts.write(draftKey, { serverKey, details, packaging });
-        } else if (ingredientDrafts.read(draftKey) !== null) {
-            ingredientDrafts.clear(draftKey);
+            ingredientDrafts.write(draftKey, { serverKey: draftServerKey, details, packaging });
+        } else {
+            if (ingredientDrafts.read(draftKey) !== null) ingredientDrafts.clear(draftKey);
+            forgetKeptWork(keptKind, draftKey);
         }
-    }, [draftKey, serverKey, details, packaging, detailsDirty, draftChecked]);
+    }, [draftKey, draftServerKey, keptKind, details, packaging, detailsDirty, draftChecked]);
+
+    /*
+     * Where Continue brings the reader back to, and what the kept work calls it: the create form
+     * by its title until it has a name.
+     */
+    const selfHref = withReturnTo(
+        withQuery(`${family.listRoute}/${isCreating ? 'new' : String(parsed)}`, {
+            needs: neededRaw === undefined || neededRaw === '' ? null : neededRaw,
+        }),
+        back.returnTo,
+    );
+    const keptName = displayName(details.name, locale).value;
+    useEffect(() => {
+        keptRef.current = {
+            keep: () => {
+                if (draftKey === null || isStepOfActiveProcess(pathnameOf(selfHref))) return;
+                keepWork({
+                    kind: keptKind,
+                    subject: keptName === '' ? null : keptName,
+                    href: selfHref,
+                    draft: { namespace: 'ingredientEditor', key: draftKey },
+                });
+            },
+            discard: () => {
+                if (draftKey === null) return;
+                ingredientDrafts.clear(draftKey);
+                forgetKeptWork(keptKind, draftKey);
+            },
+        };
+    });
 
     /*
      * The allergen set has its own Save, and the record's save remounts its editor — so unsaved
@@ -1793,6 +1849,8 @@ function IngredientEditor({
                                         t('kitchen:allergens.saveError'),
                                 });
                             }
+                            // Created: the create form's draft and its kept entry are done.
+                            keptRef.current?.discard();
                             router.replace(`${family.listRoute}/${String(created.id)}` as never);
                         })();
                     },
@@ -3450,29 +3508,7 @@ function IngredientEditor({
                     )}
                 </View>
 
-                <Dialog
-                    testID="kitchen-ingredient-editor-screen-unsaved-dialog"
-                    open={guard.isPrompting}
-                    onClose={guard.cancelDiscard}
-                    title={t('kitchen:unsaved.title')}
-                    description={t('kitchen:unsaved.body')}
-                    actions={
-                        <>
-                            <Button
-                                testID="kitchen-ingredient-editor-screen-unsaved-keep"
-                                variant="quiet"
-                                label={t('kitchen:unsaved.keepEditing')}
-                                onPress={guard.cancelDiscard}
-                            />
-                            <Button
-                                testID="kitchen-ingredient-editor-screen-unsaved-discard"
-                                variant="danger"
-                                label={t('kitchen:unsaved.discard')}
-                                onPress={guard.confirmDiscard}
-                            />
-                        </>
-                    }
-                />
+                <UnsavedDialog guard={guard} testID="kitchen-ingredient-editor-screen" />
 
                 <Dialog
                     testID="kitchen-ingredient-editor-screen-conflict-dialog"
