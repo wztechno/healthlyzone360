@@ -131,8 +131,14 @@ it('returns the password exactly once, and never writes it anywhere readable', f
     $tenant = AccessWorld::kitchen('admin@verdant.test');
     steppedUp();
 
+    // With an Idempotency-Key, as the client always sends one: the replay
+    // snapshot is the one other place the envelope is kept.
     $response = $this->actingAs($tenant->user)
-        ->postJson("/api/v1/organisations/{$tenant->organisation->getKey()}/staff", staffBody(), AccessWorld::headers($tenant))
+        ->postJson(
+            "/api/v1/organisations/{$tenant->organisation->getKey()}/staff",
+            staffBody(),
+            [...AccessWorld::headers($tenant), 'Idempotency-Key' => 'staff-create-once'],
+        )
         ->assertCreated()
         ->assertJsonPath('data.initial_password', 'correct horse battery staple');
 
@@ -157,6 +163,27 @@ it('returns the password exactly once, and never writes it anywhere readable', f
         ->implode(' ');
 
     expect($audit)->not->toContain('correct horse battery staple');
+
+    // Nor in the replay snapshot, which is kept, but only as ciphertext. Read
+    // raw on the test's own connection (the table has no RLS), so the
+    // uncommitted row is visible and no model cast can decrypt it first.
+    $snapshots = collect(DB::table('idempotency_keys')->get())
+        ->map(static fn (object $row): string => json_encode($row) ?: '')
+        ->implode(' ');
+
+    expect($snapshots)->toContain('staff-create-once')
+        ->and($snapshots)->not->toContain('correct horse battery staple');
+
+    // And the ciphertext still replays the original envelope, password included.
+    $this->actingAs($tenant->user)
+        ->postJson(
+            "/api/v1/organisations/{$tenant->organisation->getKey()}/staff",
+            staffBody(),
+            [...AccessWorld::headers($tenant), 'Idempotency-Key' => 'staff-create-once'],
+        )
+        ->assertCreated()
+        ->assertHeader('Idempotency-Replayed', 'true')
+        ->assertJsonPath('data.initial_password', 'correct horse battery staple');
 });
 
 it('composes the address from a sign-in name and the kitchen’s own domain', function (): void {

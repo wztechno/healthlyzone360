@@ -700,7 +700,9 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         */
         Route::post('/payments/intents', PaymentIntentStoreController::class)->name('payments.intents.store');
 
-        Route::middleware('org.context')->group(function (): void {
+        // Any membership reached these until the permission was added: taking
+        // and returning money is the same decision as confirming the order.
+        Route::middleware(['org.context', 'permission:order.manage_organisation'])->group(function (): void {
             Route::post('/payments/intents/{paymentIntent}/capture', PaymentIntentCaptureController::class)->name('payments.intents.capture');
             Route::post('/payments/intents/{paymentIntent}/refunds', PaymentRefundStoreController::class)->name('payments.intents.refunds.store');
         });
@@ -3375,8 +3377,9 @@ Route::get('/media/photos/{photo}', RecordPhotoShowController::class)
 | better answer than a replayed envelope claiming an account was made twice.
 |
 | Rate limiting is the `api` group's throttle (60/min per IP for an anonymous
-| caller). The two anonymous routes here are the ones that most want a tighter
-| bucket of their own; noted for the integrator rather than assumed.
+| caller), tightened where a request costs something real: `guest-session` on
+| opening a session, and `guest-passcode` (per IP and per destination) on the
+| two routes that send a passcode (AppServiceProvider).
 |
 */
 
@@ -3386,6 +3389,7 @@ Route::get('/media/photos/{photo}', RecordPhotoShowController::class)
 // carried; neither is accepted in the body, because a caller who can choose
 // their own fingerprint does not have one.
 Route::post('/guest/sessions', GuestSessionStoreController::class)
+    ->middleware('throttle:guest-session')
     ->name('guest.sessions.store');
 
 // `guest.session`. The session's own state, never the token. A dead token is
@@ -3400,7 +3404,7 @@ Route::get('/guest/session', GuestSessionShowController::class)
 // guest supplied. 202: a challenge is a message in flight, not a resource the
 // caller may then read.
 Route::post('/guest/contacts', GuestContactStoreController::class)
-    ->middleware('guest.session')
+    ->middleware(['guest.session', 'throttle:guest-passcode'])
     ->name('guest.contacts.store');
 
 // `guest.session`. The passcode comes back and the session is promoted to
@@ -3443,6 +3447,7 @@ Route::post('/guest/convert', GuestConvertController::class)
 // submitted value and from configuration, and `GuestDeletionEnumerationTest`
 // asserts that on the whole serialised result.
 Route::post('/guest/deletion-requests', GuestDeletionRequestStoreController::class)
+    ->middleware('throttle:guest-passcode')
     ->name('guest.deletion-requests.store');
 
 // ANONYMOUS. Also always 202, with one indistinguishable refusal shape covering

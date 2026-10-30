@@ -9,6 +9,7 @@ use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Illuminate\Support\Facades\Cache;
+use Laravel\Fortify\Actions\EnableTwoFactorAuthentication;
 use PragmaRX\Google2FA\Google2FA;
 use Tests\SeedDatabaseOnce;
 
@@ -178,6 +179,8 @@ it('denies an active member whose roles do not grant the permission', function (
 it('enrols two factor authentication and then requires it at the next login', function (): void {
     signIn('owner@cedar.test');
 
+    $this->postJson('/api/v1/auth/confirm-password', ['password' => 'password'])->assertOk();
+
     $this->postJson('/api/v1/auth/two-factor-authentication')
         ->assertCreated()
         ->assertJsonPath('data.enabled', true)
@@ -237,7 +240,11 @@ it('enrols two factor authentication and then requires it at the next login', fu
 it('requires a recent password confirmation before two factor authentication is switched off', function (): void {
     signIn('owner@cedar.test');
 
-    $this->postJson('/api/v1/auth/two-factor-authentication')->assertCreated();
+    // Armed directly: enabling through the API now needs the step-up this
+    // test is about. The next request must re-read the user, not the one
+    // the guard cached at sign-in.
+    app(EnableTwoFactorAuthentication::class)($this->owner);
+    forgetResolvedGuards();
 
     $this->deleteJson('/api/v1/auth/two-factor-authentication')
         ->assertForbidden()
@@ -259,6 +266,25 @@ it('requires a recent password confirmation before two factor authentication is 
     $this->deleteJson('/api/v1/auth/two-factor-authentication')
         ->assertOk()
         ->assertJsonPath('data.enabled', false);
+});
+
+it('requires a recent password confirmation before the second factor can be read or replaced', function (): void {
+    signIn('owner@cedar.test');
+
+    app(EnableTwoFactorAuthentication::class)($this->owner);
+    forgetResolvedGuards();
+
+    foreach ([
+        ['POST', '/api/v1/auth/two-factor-authentication'],
+        ['GET', '/api/v1/auth/two-factor-qr-code'],
+        ['GET', '/api/v1/auth/two-factor-secret-key'],
+        ['GET', '/api/v1/auth/two-factor-recovery-codes'],
+        ['POST', '/api/v1/auth/two-factor-recovery-codes'],
+    ] as [$method, $uri]) {
+        $this->json($method, $uri)
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'auth.step_up_required');
+    }
 });
 
 it('sends a password reset link that points at the client application', function (): void {

@@ -53,7 +53,9 @@ $forgotPasswordLimiter = config('fortify.limiters.forgot-password');
 | of quietly "succeeding" without issuing a cookie; native clients use
 | POST /token below.
 */
-Route::post('/register', [RegisteredUserController::class, 'store'])->name('register.store');
+Route::post('/register', [RegisteredUserController::class, 'store'])
+    ->middleware('throttle:register')
+    ->name('register.store');
 
 Route::post('/login', [AuthenticatedSessionController::class, 'store'])
     ->middleware('stateful')
@@ -108,7 +110,7 @@ Route::post('/reset-password', [NewPasswordController::class, 'store'])->name('p
 | stay distinct from `password.update`, which is the reset above.
 */
 Route::put('/user/password', [PasswordController::class, 'update'])
-    ->middleware($auth)
+    ->middleware([$auth, 'throttle:password-confirmation'])
     ->name('user-password.update');
 
 /*
@@ -147,7 +149,7 @@ Route::get('/verify-email/{id}/{hash}', SignedEmailVerificationController::class
 | Step-up: recent password confirmation for sensitive actions.
 */
 Route::post('/confirm-password', [ConfirmPasswordController::class, 'store'])
-    ->middleware($auth)
+    ->middleware([$auth, 'throttle:password-confirmation'])
     ->name('password.confirm.store');
 
 Route::get('/confirmed-password-status', [ConfirmPasswordController::class, 'show'])
@@ -156,27 +158,34 @@ Route::get('/confirmed-password-status', [ConfirmPasswordController::class, 'sho
 
 /*
 | TOTP two-factor authentication.
+|
+| Every route that reveals or replaces the second factor carries `step-up`,
+| not only DELETE: the QR code's otpauth URL and the secret key are the
+| factor itself, and enabling with `force` rotates it while 2FA stays armed.
+| A stolen session must not be able to read or swap it. Confirming takes
+| only a code, so it needs nothing more than the session.
 */
 Route::middleware($auth)->group(function (): void {
-    Route::post('/two-factor-authentication', [TwoFactorController::class, 'store'])
-        ->name('two-factor.enable');
-
     Route::post('/confirmed-two-factor-authentication', [TwoFactorController::class, 'confirm'])
         ->name('two-factor.confirm');
 
-    Route::delete('/two-factor-authentication', [TwoFactorController::class, 'destroy'])
-        ->middleware('step-up')
-        ->name('two-factor.disable');
+    Route::middleware('step-up')->group(function (): void {
+        Route::post('/two-factor-authentication', [TwoFactorController::class, 'store'])
+            ->name('two-factor.enable');
 
-    Route::get('/two-factor-qr-code', [TwoFactorController::class, 'qrCode'])
-        ->name('two-factor.qr-code');
+        Route::delete('/two-factor-authentication', [TwoFactorController::class, 'destroy'])
+            ->name('two-factor.disable');
 
-    Route::get('/two-factor-secret-key', [TwoFactorController::class, 'secretKey'])
-        ->name('two-factor.secret-key');
+        Route::get('/two-factor-qr-code', [TwoFactorController::class, 'qrCode'])
+            ->name('two-factor.qr-code');
 
-    Route::get('/two-factor-recovery-codes', [TwoFactorController::class, 'recoveryCodes'])
-        ->name('two-factor.recovery-codes');
+        Route::get('/two-factor-secret-key', [TwoFactorController::class, 'secretKey'])
+            ->name('two-factor.secret-key');
 
-    Route::post('/two-factor-recovery-codes', [TwoFactorController::class, 'regenerateRecoveryCodes'])
-        ->name('two-factor.regenerate-recovery-codes');
+        Route::get('/two-factor-recovery-codes', [TwoFactorController::class, 'recoveryCodes'])
+            ->name('two-factor.recovery-codes');
+
+        Route::post('/two-factor-recovery-codes', [TwoFactorController::class, 'regenerateRecoveryCodes'])
+            ->name('two-factor.regenerate-recovery-codes');
+    });
 });
