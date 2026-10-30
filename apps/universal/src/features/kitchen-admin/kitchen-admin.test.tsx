@@ -3481,6 +3481,38 @@ describe('leaving the ingredient form with unsaved work', () => {
         clearAllSessionDrafts();
     });
 
+    it('keeps the work when Cancel is answered with Keep for later', async () => {
+        const first = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => []) },
+        });
+        await untilVisible('kitchen-ingredient-name-en-input');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-ingredient-name-en-input'), 'Sumac');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-back'));
+        });
+        await untilVisible('kitchen-ingredient-editor-screen-unsaved-dialog');
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-ingredient-editor-screen-unsaved-keep-for-later'),
+            );
+        });
+        await act(async () => {
+            first.view.unmount();
+        });
+
+        // Cancel's own leave used to clear the draft after it was kept: the card opened empty.
+        await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => []) },
+        });
+        await untilVisible('kitchen-ingredient-draft-restored-toast');
+        expect(screen.getByTestId('kitchen-ingredient-name-en-input').props.value).toBe('Sumac');
+        clearAllSessionDrafts();
+    });
+
     it('keeps it when the reader leaves another way than Cancel, and puts it back on return', async () => {
         const record = ingredient(41, { name: { en: 'Sumac', ar: 'سماق' } });
         const reads = {
