@@ -658,6 +658,36 @@ function Sale() {
                     {t('kitchen:desk.edit.title', { number: editOrder.orderNumber })}
                 </Text>
             )}
+            {/*
+             * Each stage's way out — checkout back to the menu, the menu back to the desk — sits
+             * above both columns rather than in its own, so the menu and the ticket beside it start
+             * on one line. A ticket with something on it still asks first, through the unsaved guard.
+             */}
+            <View className="flex-row">
+                {stage === 'checkout' ? (
+                    <Button
+                        testID="kitchen-order-desk-sale-back"
+                        size="sm"
+                        variant="secondary"
+                        label={t('kitchen:desk.sale.backToMenu')}
+                        iconStart={<Icon name="chevronBackward" size="sm" />}
+                        onPress={() => {
+                            setStage('menu');
+                        }}
+                    />
+                ) : (
+                    <Button
+                        testID="kitchen-order-desk-sale-back-to-desk"
+                        size="sm"
+                        variant="secondary"
+                        label={t('kitchen:desk.sale.backToDesk')}
+                        iconStart={<Icon name="chevronBackward" size="sm" />}
+                        onPress={() => {
+                            router.push('/kitchen/order-desk');
+                        }}
+                    />
+                )}
+            </View>
             <View
                 // Both measurement paths, each inert on the other's platform — as `CatalogueList`.
                 ref={Platform.OS === 'web' ? port.ref : undefined}
@@ -675,19 +705,6 @@ function Sale() {
                     className="z-auto min-w-0 flex-col gap-base"
                     style={[column, stage === 'checkout' ? null : HIDDEN]}
                 >
-                    <View className="flex-row">
-                        <Button
-                            testID="kitchen-order-desk-sale-back"
-                            size="sm"
-                            variant="secondary"
-                            label={t('kitchen:desk.sale.backToMenu')}
-                            iconStart={<Icon name="chevronBackward" size="sm" />}
-                            onPress={() => {
-                                setStage('menu');
-                            }}
-                        />
-                    </View>
-
                     {/* How it leaves and who it is for are fixed for the life of an order. */}
                     {isEditing ? null : (
                         <KindPicker
@@ -801,20 +818,6 @@ function Sale() {
                     className="z-auto min-w-0 flex-col gap-snug"
                     style={[column, stage === 'menu' ? null : HIDDEN]}
                 >
-                    {/* The menu's own way out, as checkout has its way back to the menu. A ticket
-                        with something on it still asks first, through the unsaved guard. */}
-                    <View className="flex-row">
-                        <Button
-                            testID="kitchen-order-desk-sale-back-to-desk"
-                            size="sm"
-                            variant="secondary"
-                            label={t('kitchen:desk.sale.backToDesk')}
-                            iconStart={<Icon name="chevronBackward" size="sm" />}
-                            onPress={() => {
-                                router.push('/kitchen/order-desk');
-                            }}
-                        />
-                    </View>
                     <CatalogueToolbar<MenuSection>
                         testID="kitchen-order-desk-sale-menu-toolbar"
                         search={query}
