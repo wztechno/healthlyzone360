@@ -176,14 +176,14 @@ describe('consumption exceptions at desk width', () => {
         expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, perPage: 18 }));
         await waitFor(() => {
             expect(
-                screen.getByTestId('kitchen-consumption-exceptions-summary-unresolved'),
+                screen.getByTestId('kitchen-consumption-exceptions-toolbar-figure-unresolved'),
             ).toHaveTextContent(/84/);
         });
         expect(
-            screen.getByTestId('kitchen-consumption-exceptions-summary-resolved'),
+            screen.getByTestId('kitchen-consumption-exceptions-toolbar-figure-resolved'),
         ).toHaveTextContent(/3/);
         expect(
-            screen.getByTestId('kitchen-consumption-exceptions-summary-shown'),
+            screen.getByTestId('kitchen-consumption-exceptions-toolbar-result'),
         ).toHaveTextContent(/18.*84/);
         // One pager: the old cursor buttons are gone.
         expect(screen.queryByTestId('kitchen-consumption-exceptions-next')).toBeNull();
@@ -668,7 +668,7 @@ describe('consumption exceptions at desk width', () => {
 
             await act(async () => {
                 fireEvent.press(
-                    screen.getByTestId('kitchen-consumption-exceptions-toolbar-status-unresolved'),
+                    screen.getByTestId('kitchen-consumption-exceptions-toolbar-figure-unresolved'),
                 );
             });
             // Back to the default status, and to page 1 with it: both leave the address.

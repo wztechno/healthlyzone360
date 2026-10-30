@@ -15,6 +15,7 @@ import {
 import { useFormatter } from '@healthy360/i18n';
 import { can } from '@healthy360/permissions';
 import { useRouter } from 'expo-router';
+import type { TFunction } from 'i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -58,14 +59,13 @@ import {
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { useListPage } from '../use-list-page.ts';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure, LensMixPart } from '../catalogue/lens-bar.tsx';
 import { useListMemory, useRememberedQuery } from '../list-memory.ts';
 
 /**
@@ -74,8 +74,8 @@ import { useListMemory, useRememberedQuery } from '../list-memory.ts';
  *
  * ```
  * Consumption exceptions
- * ┌ SHOWN ┐ ┌ UNRESOLVED ┐ ┌ RESOLVED ┐
- * STATUS [ Unresolved | Resolved | All ]   RAISED FROM [ 2026-08-01 ▦ ]
+ * (All gaps 87) │ ● Unresolved 84  ● Resolved 3
+ * [2026-08-01 ▦] to [ ▦ ]  [⌕ Search          ]                     18 of 84
  * ORDER              BRANCH         REASON                   RAISED       STATUS
  * 0148               Beirut Central Not enough stock         2026-08-28   [OPEN] Add stock Accept gap
  * Grilled chicken …
@@ -119,11 +119,11 @@ import { useListMemory, useRememberedQuery } from '../list-memory.ts';
  * written back with `router.setParams` on every change, so Back from a recipe — or a refresh —
  * lands on the same list with the same gap open.
  *
- * ## The cards are whole totals
+ * ## The figures are whole totals
  *
- * Numbered pages, the admin's one pager: Shown is "18 of 84" from the page's own total, and
- * Unresolved and Resolved come from the count endpoint — they used to count the 25 rows in hand.
- * Unresolved takes the danger ink only while it is non-zero.
+ * Numbered pages, the admin's one pager: the Lens bar's result is "18 of 84" from the page's own
+ * total, and Unresolved and Resolved come from the count endpoint — they used to count the 25 rows
+ * in hand. Unresolved takes the danger ink only while it is non-zero.
  */
 export type ConsumptionExceptionsScreenProps = StockGapsRouteParams;
 
@@ -138,8 +138,6 @@ export function ConsumptionExceptionsScreen(props: ConsumptionExceptionsScreenPr
         </Gate>
     );
 }
-
-const EM_DASH = '—';
 
 /**
  * How often the open page re-reads its gaps. Thirty seconds: a gap closes within seconds of stock
@@ -582,14 +580,20 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                   ].some((field) => field.toLocaleLowerCase().includes(needle)),
               );
     const controls = useColumnControls(searched, columns, 'kitchen-consumption-exceptions-table');
-    const statusSegments: readonly CatalogueStatusSegment<StockGapStatus>[] = (
-        [
-            ['all', 'kitchen:ops.exceptions.filterAll'],
-            ['unresolved', 'kitchen:ops.exceptions.filterUnresolved'],
-            ['resolved', 'kitchen:ops.exceptions.filterResolved'],
-        ] as const
-    ).map(([value, labelKey]) => ({ value, label: t(labelKey) }));
     const failure = toFailure(exceptions.error);
+
+    const pickStatus = (next: StockGapStatus) => {
+        setStatus(next);
+        refilter();
+    };
+    // Status is a figure, and the default view is one of them: Clear leaves it.
+    const filtered = needle !== '' || from !== '' || to !== '';
+    const clearFilters = () => {
+        setQuery('');
+        setFrom('');
+        setTo('');
+        refilter();
+    };
 
     /*
      * Back from the fix with `fixed=1` — the recipe published, the stock posted: the retry runs
@@ -701,62 +705,22 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
 
     return (
         <Cascade space="md" testID="kitchen-consumption-exceptions-screen">
-            {failure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-consumption-exceptions-summary"
-                    pending={exceptions.isPending || totals.isPending}
-                    cards={[
-                        {
-                            key: 'shown',
-                            label: t('kitchen:list.statShown'),
-                            value: formatter.formatNumber(shownSoFar),
-                            unit: t('kitchen:list.statShownUnit', { total: total ?? shownSoFar }),
-                            caption:
-                                status === 'all' && from === '' && to === ''
-                                    ? t('kitchen:list.statShownUnfiltered')
-                                    : t('kitchen:list.statShownFiltered'),
-                            mark: 'list',
-                            tone: 'brand',
-                            onPress: () => {
-                                setStatus('all');
-                                refilter();
-                            },
-                            accessibilityLabel: t('kitchen:ops.exceptions.filterAll'),
-                        },
-                        {
-                            key: 'unresolved',
-                            label: t('kitchen:ops.exceptions.filterUnresolved'),
-                            value:
-                                unresolved === null ? EM_DASH : formatter.formatNumber(unresolved),
-                            unit: t('kitchen:ops.exceptions.statUnit'),
-                            caption: t('kitchen:ops.exceptions.statUnresolvedCaption'),
-                            mark: 'alert',
-                            tone: unresolved === null || unresolved === 0 ? 'default' : 'danger',
-                            onPress: () => {
-                                setStatus('unresolved');
-                                refilter();
-                            },
-                            accessibilityLabel: t('kitchen:ops.exceptions.filterUnresolved'),
-                        },
-                        {
-                            key: 'resolved',
-                            label: t('kitchen:ops.exceptions.filterResolved'),
-                            value: resolved === null ? EM_DASH : formatter.formatNumber(resolved),
-                            unit: t('kitchen:ops.exceptions.statUnit'),
-                            caption: t('kitchen:ops.exceptions.statResolvedCaption'),
-                            mark: 'circleCheck',
-                            tone: 'default',
-                            onPress: () => {
-                                setStatus('resolved');
-                                refilter();
-                            },
-                            accessibilityLabel: t('kitchen:ops.exceptions.filterResolved'),
-                        },
-                    ]}
-                />
-            )}
-            <CatalogueToolbar<StockGapStatus>
+            {/* The Lens bar — figures, mix and query row as one object (`lens-bar.tsx`). */}
+            <LensBar
                 testID="kitchen-consumption-exceptions-toolbar"
+                label={t('kitchen:lens.label')}
+                {...(failure !== null
+                    ? { figures: [] }
+                    : gapsLens(
+                          {
+                              status,
+                              total: exceptions.isPending ? null : total,
+                              unresolved,
+                              resolved,
+                          },
+                          pickStatus,
+                          t,
+                      ))}
                 search={query}
                 onSearchChange={(next) => {
                     setQuery(next);
@@ -764,19 +728,22 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                 }}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t('kitchen:ops.exceptions.searchPlaceholder')}
-                statusLabel={t('kitchen:ops.exceptions.filterStatus')}
-                statusSegments={statusSegments}
-                status={status}
-                onStatusChange={(next) => {
-                    setStatus(next);
-                    refilter();
-                }}
+                result={
+                    exceptions.isPending
+                        ? null
+                        : t('kitchen:lens.result', {
+                              shown: shownSoFar,
+                              total: total ?? shownSoFar,
+                          })
+                }
+                clearLabel={t('kitchen:lens.clear')}
+                {...(filtered ? { onClear: clearFilters } : {})}
                 /*
                  * The raised-between window, as the purchases ledger draws its own: two days with
                  * "to" between, either bound open, and each picker keeps the other honest — From
                  * cannot pass To, nor To precede From.
                  */
-                filters={
+                scope={
                     <View className="z-auto flex-row items-center gap-tight">
                         <DatePickerButton
                             testID="kitchen-exceptions-filter-from"
@@ -813,9 +780,8 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                         />
                     </View>
                 }
-            >
-                <ColumnPicker {...controls.picker} />
-            </CatalogueToolbar>
+                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+            />
 
             {exceptions.isPending ? (
                 <TableSkeleton testID="kitchen-consumption-exceptions-loading" rows={8} />
@@ -894,4 +860,88 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
             />
         </Cascade>
     );
+}
+
+/**
+ * The Lens bar's figures: All gaps, then Unresolved and Resolved from the count endpoint, each a
+ * filter. All is the page read's total while it is in force, the two counts' sum otherwise.
+ * Unresolved is the one that blocks work.
+ */
+function gapsLens(
+    source: {
+        readonly status: StockGapStatus;
+        readonly total: number | null;
+        readonly unresolved: number | null;
+        readonly resolved: number | null;
+    },
+    pick: (status: StockGapStatus) => void,
+    t: TFunction,
+): {
+    readonly figures: readonly LensFigure[];
+    readonly mix: readonly LensMixPart[];
+    readonly mixLabel: string;
+} {
+    const { status, unresolved, resolved } = source;
+    const all =
+        status === 'all'
+            ? source.total
+            : unresolved === null || resolved === null
+              ? null
+              : unresolved + resolved;
+    return {
+        figures: [
+            {
+                key: 'all',
+                label: t('kitchen:lens.allGaps'),
+                value: all,
+                active: status === 'all',
+                onPress: () => {
+                    pick('all');
+                },
+                accessibilityLabel: t('kitchen:lens.allAction'),
+            },
+            {
+                key: 'unresolved',
+                label: t('kitchen:ops.exceptions.filterUnresolved'),
+                value: unresolved,
+                tone: 'danger',
+                alarm: true,
+                separated: true,
+                active: status === 'unresolved',
+                onPress: () => {
+                    pick('unresolved');
+                },
+                accessibilityLabel: t('kitchen:lens.unresolvedAction'),
+            },
+            {
+                key: 'resolved',
+                label: t('kitchen:ops.exceptions.filterResolved'),
+                value: resolved,
+                tone: 'success',
+                active: status === 'resolved',
+                onPress: () => {
+                    pick('resolved');
+                },
+                accessibilityLabel: t('kitchen:lens.resolvedAction'),
+            },
+        ],
+        mix: [
+            {
+                key: 'unresolved',
+                value: unresolved ?? 0,
+                tone: 'danger',
+                dimmed: status === 'resolved',
+            },
+            {
+                key: 'resolved',
+                value: resolved ?? 0,
+                tone: 'success',
+                dimmed: status === 'unresolved',
+            },
+        ],
+        mixLabel: t('kitchen:lens.gapsMix', {
+            unresolved: unresolved ?? 0,
+            resolved: resolved ?? 0,
+        }),
+    };
 }

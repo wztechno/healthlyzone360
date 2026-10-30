@@ -21,7 +21,6 @@ import { useOrderDeskRequirementsQuery } from '../../../data/order-desk-hooks.ts
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { addDays, todayIso } from '../../commerce/dates.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CatalogueStatCards } from '../catalogue/index.ts';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import {
@@ -32,7 +31,8 @@ import {
 import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import { WeeklyStockCheckBanner } from '../weekly-stock-check.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
 
 /**
  * `/kitchen/order-desk/requirements` — what this branch must buy to cook the days ahead.
@@ -323,80 +323,99 @@ function OrderDeskRequirements() {
         <IssueTrayFrame tray={trayContent}>
             <Cascade space="md" testID="kitchen-order-desk-requirements-screen">
                 {/*
-                 * The figures as cards, from the first frame. While the window is in flight each card
-                 * holds a placeholder where its figure goes — a zero there would claim an answer the
-                 * screen does not have yet.
+                 * The Lens bar: the window's figures over the window that produces them, as on every
+                 * list page. While the window is in flight each figure holds a placeholder — a zero
+                 * there would claim an answer the screen does not have yet. The branch is the
+                 * workspace's — see the file header.
                  */}
-                {branchId === null || filters === null || failure !== null ? null : (
-                    <CatalogueStatCards
-                        testID="kitchen-order-desk-requirements-figures"
-                        cards={[
+                <LensBar
+                    testID="kitchen-order-desk-requirements-toolbar"
+                    label={t('kitchen:lens.label')}
+                    figures={(() => {
+                        const unknown = branchId === null || filters === null || failure !== null;
+                        const figure = (count: number): Pick<LensFigure, 'value' | 'display'> =>
+                            unknown
+                                ? { value: 0, display: t('kitchen:list.noValue') }
+                                : requirements.isPending
+                                  ? { value: null }
+                                  : { value: count, display: formatter.formatNumber(count) };
+                        const holes = notComputable?.days ?? 0;
+                        return [
                             {
                                 key: 'ingredients',
                                 label: t('kitchen:ops.requirements.kpiIngredients'),
-                                value: formatter.formatNumber(rows.length),
-                                caption: t('kitchen:ops.requirements.kpiIngredientsCaption'),
-                                mark: 'wheat',
-                                tone: 'brand',
+                                ...figure(rows.length),
                             },
                             {
                                 key: 'short',
                                 label: t('kitchen:ops.requirements.kpiShort'),
-                                value: formatter.formatNumber(shortCount),
-                                caption: t('kitchen:ops.requirements.kpiShortCaption'),
-                                mark: 'alert',
-                                tone: shortCount > 0 ? 'danger' : 'default',
+                                ...figure(shortCount),
+                                tone: 'danger',
+                                alarm: true,
+                                separated: true,
                             },
                             {
                                 key: 'notComputable',
                                 label: t('kitchen:ops.requirements.kpiNotComputable'),
-                                value: formatter.formatNumber(notComputable?.days ?? 0),
-                                // The one caption that is an answer rather than a description, so
-                                // while the window is in flight it says so instead of "every day was
-                                // worked out".
-                                caption: requirements.isPending
-                                    ? t('common:state.loading')
-                                    : notComputable !== null && notComputable.days > 0
-                                      ? reasonSummary(notComputable.reasons)
-                                      : t('kitchen:ops.requirements.kpiNotComputableNone'),
-                                mark: 'circleHelp',
-                                tone:
-                                    notComputable !== null && notComputable.days > 0
-                                        ? 'warning'
-                                        : 'default',
+                                ...figure(holes),
+                                tone: 'warning',
+                                // Why those days could not be worked out — the one figure whose
+                                // answer needs a sentence.
+                                ...(notComputable !== null && holes > 0
+                                    ? { info: reasonSummary(notComputable.reasons) }
+                                    : {}),
                             },
-                        ]}
-                        pending={requirements.isPending}
-                    />
-                )}
-
-                {/*
-                 * The window, below the figures it produces, on the raised toolbar panel — with the
-                 * column picker at its inline end rather than floating above the table. The branch is
-                 * the workspace's — see the file header.
-                 */}
-                <ToolbarPanel
-                    testID="kitchen-order-desk-requirements-content"
-                    end={<ColumnPicker {...controls.picker} />}
-                >
-                    <DatePickerButton
-                        testID="kitchen-order-desk-requirements-from"
-                        label={t('kitchen:ops.requirements.filterFrom')}
-                        value={from}
-                        onChange={setFrom}
-                        max={to}
-                    />
-                    <Text variant="caption" tone="secondary" aria-hidden>
-                        {t('kitchen:ops.requirements.windowTo')}
-                    </Text>
-                    <DatePickerButton
-                        testID="kitchen-order-desk-requirements-to"
-                        label={t('kitchen:ops.requirements.filterTo')}
-                        value={to}
-                        onChange={setTo}
-                        min={from}
-                    />
-                </ToolbarPanel>
+                        ];
+                    })()}
+                    {...(requirements.isPending || rows.length === 0
+                        ? {}
+                        : {
+                              mix: [
+                                  { key: 'short', value: shortCount, tone: 'danger' as const },
+                                  {
+                                      key: 'covered',
+                                      value: rows.length - shortCount,
+                                      tone: 'success' as const,
+                                  },
+                              ],
+                              mixLabel: t('kitchen:lens.requirementsMix', {
+                                  short: shortCount,
+                                  covered: rows.length - shortCount,
+                              }),
+                          })}
+                    scope={
+                        <>
+                            <DatePickerButton
+                                testID="kitchen-order-desk-requirements-from"
+                                label={t('kitchen:ops.requirements.filterFrom')}
+                                value={from}
+                                onChange={setFrom}
+                                max={to}
+                            />
+                            <Text variant="caption" tone="secondary" aria-hidden>
+                                {t('kitchen:ops.requirements.windowTo')}
+                            </Text>
+                            <DatePickerButton
+                                testID="kitchen-order-desk-requirements-to"
+                                label={t('kitchen:ops.requirements.filterTo')}
+                                value={to}
+                                onChange={setTo}
+                                min={from}
+                            />
+                        </>
+                    }
+                    result={
+                        requirements.isPending && branchId !== null && filters !== null
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: controls.rows.length,
+                                  total: rows.length,
+                              })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(controls.filtered ? { onClear: controls.clearFilters } : {})}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                />
 
                 {/*
                  * What Monday's check found — the snapshot beside "where we stand" — as a card in the

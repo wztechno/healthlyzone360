@@ -25,7 +25,7 @@ import { guardNavigation } from '../navigation/use-unsaved-guard.ts';
 import { useOnlineStatus } from '../online/online-status.tsx';
 import { useAccessState } from '../session/session-provider.tsx';
 import { LocaleToggle } from './locale-toggle.tsx';
-import { ProcessResumeButton } from './process-resume-button.tsx';
+import { KeptWorkButton, KeptWorkDock } from './kept-work-dock.tsx';
 import { ThemeToggle } from './theme-toggle.tsx';
 
 /**
@@ -190,8 +190,11 @@ function GuardedAreaShell({
                  * The page's issue tray, ahead of everything else in the bar: what is left to fix
                  * here, from anywhere on the page. Drawn only on a page that has a tray.
                  */}
-                {/* The way back into a process the reader stepped out of — `active-process.ts`. */}
-                <ProcessResumeButton />
+                {/*
+                 * The way back into unfinished work — a process stepped out of, editors kept for
+                 * later — when its card at the bottom of the page is minimised (`kept-work-dock.tsx`).
+                 */}
+                <KeptWorkButton />
                 <IssueTrayButton />
                 {topbarSearch}
                 <LocaleToggle />
@@ -302,7 +305,21 @@ function GuardedAreaShell({
         </AppShell>
     );
 
-    if (unguarded) return shell;
+    /*
+     * The kept work's card floats over the page, so it sits beside the shell rather than in its
+     * scroll port. Not on a sign-in page or a kiosk, which have no top bar to minimise it into.
+     */
+    const framed =
+        resolvedVariant === 'auth' || resolvedVariant === 'kiosk' ? (
+            shell
+        ) : (
+            <View className="flex-1">
+                {shell}
+                <KeptWorkDock />
+            </View>
+        );
 
-    return <Gate area={area}>{shell}</Gate>;
+    if (unguarded) return framed;
+
+    return <Gate area={area}>{framed}</Gate>;
 }

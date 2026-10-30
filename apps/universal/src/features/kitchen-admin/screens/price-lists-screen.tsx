@@ -33,10 +33,11 @@ import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
+import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
+import type { StatusLensSource } from '../catalogue/lens-status.ts';
+import { inStatuses, statusTally, withoutStatuses } from '../catalogue/use-catalogue-filters.ts';
 import {
     compareNumber,
     compareText,
@@ -68,6 +69,9 @@ import {
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
+/** Frozen empty, so "no rows yet" keeps one identity across renders. */
+const NO_ROWS: readonly PriceListAdmin[] = [];
+
 /** The price list `?view=` names, read on its own when the loaded page does not hold it. */
 function usePriceListById(id: string | null) {
     const parsed = PriceListId.safeParse(id);
@@ -80,15 +84,15 @@ function usePriceListById(id: string | null) {
  * (Commercial handoff §3.1).
  *
  * ```
- * ┌ SHOWN ┐ ┌ NOTHING PRICED ┐ ┌ AGREEMENT ┐
- * [ ⌕ search ]  [ All | Live | Draft | Review ]
+ * (All price lists 40) │ ● Published ● Draft ● Review │ ● Nothing priced ● Agreement   [+ New]
+ * [ ⌕ search ] [Status: Draft ×]                                    18 of 40  Clear │ ▤
  * ◉ Negotiated prices are on this screen …
  * PRICE LIST          CURRENCY  CHANNELS      ENTRIES                     STATUS  UPDATED   ◉ ✎
  * Showing 1–25 of 40                                                          [ ‹ 1 2 › ]
  * ```
  *
- * The Catalogue list's five parts, with nothing rebuilt: `CatalogueStatCards`, `CatalogueToolbar`,
- * `CatalogueList` with a column spec, `CataloguePager`, and the `RecordWindow` behind View.
+ * The Catalogue list's parts, with nothing rebuilt: `LensBar`, `CatalogueList` with a column spec,
+ * `CataloguePager`, and the `RecordWindow` behind View.
  *
  * ## Create, but no archive
  *
@@ -119,7 +123,6 @@ export function PriceListsScreen({ view }: { readonly view?: string | undefined 
     );
 }
 
-const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'review_required'];
 type StatusSegmentValue = PublishableStatus | 'all';
 
 function PriceListsList({ view }: { readonly view?: string | undefined }) {
@@ -151,7 +154,15 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
     useRestoredPageFallback(memory, page, priceLists.isError, () => {
         setPage(1);
     });
-    const wholeSet = usePriceListWholeSetQuery(filter);
+    // Without the status, so the figures count every state in scope; `everyRow` re-applies it.
+    const wholeSet = usePriceListWholeSetQuery(withoutStatuses(filter));
+    const scopeRows = wholeSet.data ?? NO_ROWS;
+    const statuses = useMemo(
+        (): readonly PublishableStatus[] => (status === 'all' ? [] : [status]),
+        [status],
+    );
+    const everyRow = useMemo(() => inStatuses(scopeRows, statuses), [scopeRows, statuses]);
+    const statusCounts = useMemo(() => statusTally(scopeRows), [scopeRows]);
     const rows = useMemo(() => priceLists.data?.items ?? [], [priceLists.data]);
     // The open record is an address, `?view=`, so its editor can come back to it.
     const { viewing, viewingId, setViewing } = useViewedRecord(
@@ -347,10 +358,17 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
     const failure = toFailure(priceLists.error);
     const unfiltered = trimmed === '' && status === 'all' && channel === null;
 
-    const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
-        { value: 'all', label: t('kitchen:toolbar.statusAll') },
-        ...SEGMENT_STATUSES.map((value) => ({ value, label: t(statusShortKey(value)) })),
-    ];
+    const lens: StatusLensSource = {
+        total,
+        scopeCount: scopeRows.length,
+        statusCounts,
+        countsPending: wholeSet.isPending,
+        statuses,
+        setStatuses: (next) => {
+            setStatus(next[0] ?? 'all');
+            setViewing(null);
+        },
+    };
 
     if (viewing !== null) {
         return (
@@ -381,49 +399,55 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
 
     return (
         <Cascade space="md" testID="kitchen-price-lists-screen">
-            {failure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-price-lists-stats"
-                    cards={statCards(wholeSet.data ?? [], page, total, unfiltered, t, () => {
-                        setQuery('');
-                        setStatus('all');
-                        setChannel(null);
-                    })}
-                    pending={priceLists.isPending}
-                    countsPending={wholeSet.isPending}
-                />
-            )}
-
-            <CatalogueToolbar<StatusSegmentValue>
+            {/*
+             * The Lens bar — figures, mix, query row and actions as one object directly over the
+             * list it narrows (`lens-bar.tsx`), as on the product list.
+             */}
+            <LensBar
                 testID="kitchen-price-lists-toolbar"
+                label={t('kitchen:lens.label')}
+                figures={lensFigures(lens, everyRow, t)}
+                {...statusLensMix(lens, t)}
                 search={query}
                 onSearchChange={(next) => {
                     setQuery(next);
                     setViewing(null);
                 }}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
-                statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={statusSegments}
-                // Archived, reached from the Status column's own filter, has no segment — the set
-                // reads "all" rather than lighting nothing.
-                status={status === 'all' || SEGMENT_STATUSES.includes(status) ? status : 'all'}
-                onStatusChange={(next) => {
-                    setStatus(next);
-                    setViewing(null);
-                }}
-            >
-                <ColumnPicker {...controls.picker} />
-                {canManage ? (
-                    <Button
-                        testID="kitchen-price-lists-toolbar-create"
-                        label={t('kitchen:priceLists.create')}
-                        iconStart={<Icon name="plus" size="sm" />}
-                        onPress={() => {
-                            setCreating(true);
-                        }}
-                    />
-                ) : null}
-            </CatalogueToolbar>
+                tokens={statusLensTokens(lens, t)}
+                result={
+                    total === null
+                        ? null
+                        : t('kitchen:lens.result', {
+                              shown: Math.min(page * KITCHEN_PAGE_SIZE, total),
+                              total,
+                          })
+                }
+                clearLabel={t('kitchen:lens.clear')}
+                {...(unfiltered
+                    ? {}
+                    : {
+                          onClear: () => {
+                              setQuery('');
+                              setStatus('all');
+                              setChannel(null);
+                              setViewing(null);
+                          },
+                      })}
+                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                actions={
+                    canManage ? (
+                        <Button
+                            testID="kitchen-price-lists-toolbar-create"
+                            label={t('kitchen:priceLists.create')}
+                            iconStart={<Icon name="plus" size="sm" />}
+                            onPress={() => {
+                                setCreating(true);
+                            }}
+                        />
+                    ) : undefined
+                }
+            />
 
             {creating ? (
                 <NewPriceListDialog
@@ -569,50 +593,39 @@ function viewFields(row: PriceListAdmin, t: TFunction, formatter: ReturnType<typ
     ];
 }
 
-/** Counted over every page the filters match: shown so far, lists that price nothing, under an agreement. */
-function statCards(
+/**
+ * The Lens bar's figures: All · Published · Draft · Awaiting review, then Nothing priced and
+ * Agreement, counted over every page the filters match, the status included.
+ */
+function lensFigures(
+    lens: StatusLensSource,
     /** Every price list the filters match, across all pages. */
     rows: readonly PriceListAdmin[],
-    page: number,
-    total: number | null,
-    unfiltered: boolean,
     t: TFunction,
-    clear: () => void,
-): readonly CatalogueStatCard[] {
+): readonly LensFigure[] {
+    const counted = (count: number) => (lens.countsPending ? null : count);
     const nothingPriced = rows.filter(
         (row) => summarisePriceEntries(row.entries).confirmed === 0,
     ).length;
     const agreement = rows.filter((row) => isAgreementPriced(row.channels)).length;
     return [
-        {
-            key: 'shown',
-            label: t('kitchen:list.statShown'),
-            value: String(Math.min(page * KITCHEN_PAGE_SIZE, total ?? rows.length)),
-            unit: t('kitchen:list.statShownUnit', { total: total ?? rows.length }),
-            caption: unfiltered
-                ? t('kitchen:list.statShownUnfiltered')
-                : t('kitchen:list.statShownFiltered'),
-            mark: 'list',
-            tone: 'brand',
-            onPress: clear,
-            accessibilityLabel: t('kitchen:list.statShownAction'),
-        },
+        ...statusLensFigures(lens, t, {
+            allLabel: t('kitchen:lens.allPriceLists'),
+            review: true,
+            reviewAction: t('kitchen:lens.reviewAction'),
+        }),
         {
             key: 'nothingPriced',
             label: t('kitchen:priceLists.statNothingPriced'),
-            value: String(nothingPriced),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:priceLists.statNothingPricedCaption'),
-            mark: 'coins',
-            tone: nothingPriced === 0 ? 'default' : 'warning',
+            value: counted(nothingPriced),
+            tone: 'warning',
+            separated: true,
         },
         {
             key: 'agreement',
             label: t('kitchen:priceLists.agreementBadge'),
-            value: String(agreement),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:priceLists.statAgreementCaption'),
-            mark: 'handshake',
+            value: counted(agreement),
+            tone: 'info',
         },
     ];
 }

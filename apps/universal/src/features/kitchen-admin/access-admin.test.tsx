@@ -295,7 +295,10 @@ describe('the team list', () => {
         expect(listTeam.mock.calls[0]?.[1]).toMatchObject({ status: 'active' });
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-team-toolbar-status-everyone'));
+            fireEvent.press(screen.getByTestId('kitchen-team-toolbar-status-trigger'));
+        });
+        await act(async () => {
+            fireEvent.press(await screen.findByTestId('kitchen-team-toolbar-status-everyone'));
         });
 
         await waitFor(() => {

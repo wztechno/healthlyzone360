@@ -16,6 +16,8 @@ import { useTranslation } from 'react-i18next';
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useCreateKitchenMutation } from '../../../data/platform-admin-hooks.ts';
+import { useUnsavedGuardFor } from '../../../navigation/use-unsaved-guard.ts';
+import { UnsavedChangesDialog } from '../../../ui/unsaved-changes-dialog.tsx';
 import { BilingualField } from '../../kitchen-admin/bilingual-field.tsx';
 
 /**
@@ -66,6 +68,17 @@ function CreateKitchenForm() {
     const [branchName, setBranchName] = useState('');
     const [city, setCity] = useState('');
 
+    // Anything typed is work to lose; the defaults (country, currency, language, zone) are not.
+    const guard = useUnsavedGuardFor(
+        !create.isSuccess &&
+            (name.en.trim() !== '' ||
+                name.ar.trim() !== '' ||
+                slug.trim() !== '' ||
+                branchName.trim() !== '' ||
+                city.trim() !== ''),
+        { message: t('common:unsaved.browserPrompt') },
+    );
+
     const failure = toFailure(create.error);
     const fieldError = (field: string): string | undefined =>
         failure?.code === 'validation.failed' ? failure.fields[field]?.[0] : undefined;
@@ -87,7 +100,9 @@ function CreateKitchenForm() {
                 variant="ghost"
                 label={t('platformAdmin:detail.backToList')}
                 onPress={() => {
-                    router.push('/platform-admin' as never);
+                    guard.intercept(() => {
+                        router.push('/platform-admin' as never);
+                    });
                 }}
             />
 
@@ -252,6 +267,7 @@ function CreateKitchenForm() {
                     </Inline>
                 </Stack>
             </Card>
+            <UnsavedChangesDialog guard={guard} testID="platform-admin-create-unsaved" />
         </Stack>
     );
 }

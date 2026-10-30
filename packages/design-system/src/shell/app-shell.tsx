@@ -533,7 +533,12 @@ function AppShellLayout({
         <View
             testID={testID === undefined ? undefined : `${testID}-topbar`}
             role="banner"
-            className="flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-raised px-4 py-2 shadow-elevation-1"
+            /*
+             * Raised above the page it heads: on the web every View is its own stacking context, so
+             * a panel dropped from the bar — the top bar's Continue list — was painted under the
+             * page that follows it.
+             */
+            className="z-raised flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-raised px-4 py-2 shadow-elevation-1"
         >
             {twoPane ? (
                 <IconButton
@@ -914,7 +919,7 @@ function AppShellLayout({
                      * They were fixed at `px-4`, which left the bar inset by 16px against content
                      * inset by 44px, and the misalignment is visible on every wide viewport.
                      */
-                    className="border-b border-stroke-subtle bg-surface-base px-4 py-3.5 md:px-10 lg:px-11"
+                    className="z-raised border-b border-stroke-subtle bg-surface-base px-4 py-3.5 md:px-10 lg:px-11"
                 >
                     {/*
                      * The bar's contents span the window, not the page's measure. HealthZone centres

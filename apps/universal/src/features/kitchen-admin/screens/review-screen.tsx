@@ -18,14 +18,13 @@ import { View } from 'react-native';
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useReviewQueueQuery } from '../../../data/kitchen-admin-hooks.ts';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, statusKey } from '../format.ts';
 import { ReviewTable } from '../review/review-table.tsx';
 import { buildReviewQueue, isBlocked, reviewFamilyKey, reviewReasonKey } from '../review-queue.ts';
 import type { ReviewItem, ReviewQueue, ReviewSection } from '../review-queue.ts';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure, LensMixPart } from '../catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { useListMemory, useRememberedFilter, useRememberedQuery } from '../list-memory.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
@@ -34,9 +33,8 @@ import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
  * `/kitchen/review` — the publication review queue (K1.8), as `Workbench.dc.html` draws it.
  *
  * ```
- * Needs review  [ READ ONLY ]
- * ┌ SHOWN ┐ ┌ BLOCKED ┐ ┌ TO FINISH ┐
- * [ ⌕ Item ]             [ All | Blocked | To finish ]
+ * (All 6) │ ● Blocked 1  ● To finish 5
+ * [ ⌕ Item ]                                   6 of 6
  * ID        ITEM                WHY IT IS HERE          LAST CHANGED          ◉ ✎
  * ING-0142  …
  * RC-0007   …
@@ -62,11 +60,11 @@ import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
  * both its primary and the row's pen go to the family's own editor, where the lock version, the unsaved
  * guard and the publish confirmation already live.
  *
- * ## The cards count the filtered queue
+ * ## The figures count the searched queue
  *
- * Shown, Blocked and To finish are counted over the rows the search and scope leave on screen, so
- * narrowing the queue moves the cards with it (§3z rule 1). Shown's unit states the whole queue — "of
- * 6" — which is the one figure a filter should not move.
+ * All, Blocked and To finish are counted over the rows the search leaves, the scope aside, so the
+ * search moves them (§3z rule 1) and Blocked and To finish always add up to All. The result states
+ * the whole queue — "of 6" — which is the one figure a filter should not move.
  */
 export function ReviewScreen({ view }: { readonly view?: string | undefined }) {
     return (
@@ -166,6 +164,20 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
                   .flatMap((section) => section.items)
                   .find((item) => item.id === viewingId) ?? null);
 
+    /** The queue the search leaves, the scope aside — what the figures count. */
+    const searched =
+        queue === null
+            ? null
+            : narrow(queue, search, 'all', locale).flatMap((section) => section.items);
+    const pickScope = (next: ReviewScope) => {
+        setScope(next);
+        setViewing(null);
+    };
+    const scopeToken = t('kitchen:lens.token', {
+        label: t('kitchen:review.scopeLabel'),
+        value: t(SCOPE_LABELS[scope]),
+    });
+
     if (viewingItem !== null) {
         return (
             <ReviewWindow
@@ -180,25 +192,16 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
 
     return (
         <Cascade space="md" testID="kitchen-review-screen">
-            {(queue !== null && queue.total === 0) || failure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-review-summary"
-                    cards={statCards(queue, sections, t, (next) => {
-                        setScope(next);
-                        setViewing(null);
-                    })}
-                    pending={sources.isPending}
-                />
-            )}
-
             {/*
-             * Drawn while the queue loads, on the cards' own terms: a toolbar that waited for the
-             * data would push the list down a row the moment it landed. It goes only with the
-             * cards — an empty queue has nothing to search.
+             * Drawn while the queue loads, its figures held: a bar that waited for the data would
+             * push the list down a row the moment it landed. An empty queue has nothing to search.
              */}
             {(queue !== null && queue.total === 0) || failure !== null ? null : (
-                <CatalogueToolbar<ReviewScope>
+                <LensBar
                     testID="kitchen-review-toolbar"
+                    label={t('kitchen:lens.label')}
+                    figures={lensFigures(searched, scope, t, pickScope)}
+                    {...(searched === null ? {} : lensMix(searched, scope, t))}
                     search={search}
                     onSearchChange={(next) => {
                         setSearch(next);
@@ -206,17 +209,36 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
                     }}
                     searchLabel={t('kitchen:review.searchLabel')}
                     searchPlaceholder={t('kitchen:review.searchPlaceholder')}
-                    statusLabel={t('kitchen:review.scopeLabel')}
-                    statusSegments={[
-                        { value: 'all', label: t('kitchen:review.scopeAll') },
-                        { value: 'blocked', label: t('kitchen:review.scopeBlocked') },
-                        { value: 'unblocked', label: t('kitchen:review.scopeUnblocked') },
-                    ]}
-                    status={scope}
-                    onStatusChange={(next) => {
-                        setScope(next);
-                        setViewing(null);
-                    }}
+                    tokens={
+                        scope === 'all'
+                            ? []
+                            : [
+                                  {
+                                      key: 'scope',
+                                      label: scopeToken,
+                                      removeLabel: t('kitchen:toolbar.removeFilter', {
+                                          filter: scopeToken,
+                                      }),
+                                      onRemove: () => {
+                                          pickScope('all');
+                                      },
+                                  },
+                              ]
+                    }
+                    result={
+                        queue === null
+                            ? null
+                            : t('kitchen:lens.result', { shown: items.length, total: queue.total })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(search.trim() === '' && scope === 'all'
+                        ? {}
+                        : {
+                              onClear: () => {
+                                  setSearch('');
+                                  pickScope('all');
+                              },
+                          })}
                 />
             )}
 
@@ -384,66 +406,78 @@ function narrow(
         .filter((section) => section.items.length > 0);
 }
 
+const SCOPE_LABELS: Readonly<Record<ReviewScope, string>> = {
+    all: 'kitchen:review.scopeAll',
+    blocked: 'kitchen:review.scopeBlocked',
+    unblocked: 'kitchen:review.scopeUnblocked',
+};
+
 /**
- * The admin's standard figure cards — each one also narrows the queue to what it counts.
- *
- * `queue` is null while the sources are in flight. The cards are drawn then with their figures
- * held, and the Shown caption is the only other line that counts anything, so it says "—" rather
- * than "0 families" about a queue nobody has read yet.
+ * The Lens bar's figures: All, then Blocked and To finish, which partition it — each one also
+ * narrows the queue to what it counts. `searched` is null while the sources are in flight.
  */
-function statCards(
-    queue: ReviewQueue | null,
-    sections: readonly ReviewSection[],
+function lensFigures(
+    searched: readonly ReviewItem[] | null,
+    scope: ReviewScope,
     t: TFunction,
     setScope: (scope: ReviewScope) => void,
-): readonly CatalogueStatCard[] {
-    const shown = sections.reduce((sum, section) => sum + section.items.length, 0);
-    const blocked = sections.reduce(
-        (sum, section) => sum + section.items.filter(isBlocked).length,
-        0,
-    );
+): readonly LensFigure[] {
+    const blocked = searched === null ? null : searched.filter(isBlocked).length;
     return [
         {
-            key: 'shown',
-            label: t('kitchen:review.statShown'),
-            value: String(shown),
-            unit: t('kitchen:list.statShownUnit', { total: queue?.total ?? 0 }),
-            caption:
-                queue === null
-                    ? t('kitchen:list.noValue')
-                    : t('kitchen:review.statShownCaption', { count: sections.length }),
-            mark: 'list',
-            tone: 'brand',
+            key: 'all',
+            label: t('kitchen:lens.allReview'),
+            value: searched === null ? null : searched.length,
+            active: scope === 'all',
             onPress: () => {
                 setScope('all');
             },
-            accessibilityLabel: t('kitchen:review.scopeAll'),
+            accessibilityLabel: t('kitchen:lens.allAction'),
         },
         {
             key: 'blocked',
             label: t('kitchen:review.scopeBlocked'),
-            value: String(blocked),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:review.statBlockedCaption'),
-            mark: 'alert',
-            tone: blocked === 0 ? 'default' : 'danger',
+            value: blocked,
+            tone: 'danger',
+            alarm: true,
+            separated: true,
+            active: scope === 'blocked',
             onPress: () => {
                 setScope('blocked');
             },
-            accessibilityLabel: t('kitchen:review.scopeBlocked'),
+            accessibilityLabel: t('kitchen:lens.showOnlyStatus', {
+                status: t('kitchen:review.scopeBlocked'),
+            }),
         },
         {
             key: 'unblocked',
             label: t('kitchen:review.scopeUnblocked'),
-            value: String(shown - blocked),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:review.statToFinishCaption'),
-            mark: 'lockOpen',
-            tone: shown - blocked === 0 ? 'default' : 'warning',
+            value: searched === null || blocked === null ? null : searched.length - blocked,
+            tone: 'warning',
+            active: scope === 'unblocked',
             onPress: () => {
                 setScope('unblocked');
             },
-            accessibilityLabel: t('kitchen:review.scopeUnblocked'),
+            accessibilityLabel: t('kitchen:lens.showOnlyStatus', {
+                status: t('kitchen:review.scopeUnblocked'),
+            }),
         },
     ];
+}
+
+/** How the searched queue divides between blocked and to finish, and the same in words. */
+function lensMix(
+    searched: readonly ReviewItem[],
+    scope: ReviewScope,
+    t: TFunction,
+): { readonly mix: readonly LensMixPart[]; readonly mixLabel: string } {
+    const blocked = searched.filter(isBlocked).length;
+    const unblocked = searched.length - blocked;
+    return {
+        mix: [
+            { key: 'blocked', value: blocked, tone: 'danger', dimmed: scope === 'unblocked' },
+            { key: 'unblocked', value: unblocked, tone: 'warning', dimmed: scope === 'blocked' },
+        ],
+        mixLabel: t('kitchen:lens.reviewMix', { blocked, unblocked }),
+    };
 }

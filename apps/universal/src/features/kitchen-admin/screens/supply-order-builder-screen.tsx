@@ -49,7 +49,8 @@ import { displayName } from '../format.ts';
 import { focusField } from '../field-focus.ts';
 import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
-import { RecordFormOpening } from '../record-form-opening.tsx';
+import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
+import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { supplyOrderGroupTestId, supplyOrderRowTestId } from '../ops-format.ts';
 import {
@@ -211,6 +212,8 @@ function SupplyOrderBuilder() {
     /** Only the rows the person has touched. Untouched rows are answered by the server's defaults. */
     const [edits, setEdits] = useState<SupplyOrderChoices>({});
     const [touched, setTouched] = useState(false);
+    // Leaving with rows changed asks first — Cancel, the trail, the sidebar, the browser's Back.
+    const guard = useUnsavedGuardFor(touched, { message: t('kitchen:unsaved.browserPrompt') });
     const [remember, setRemember] = useState<Readonly<Record<string, boolean>>>({});
     const [confirmingRefresh, setConfirmingRefresh] = useState(false);
     const [confirmingCreate, setConfirmingCreate] = useState(false);
@@ -751,7 +754,9 @@ function SupplyOrderBuilder() {
                                 testID="kitchen-supply-order-builder-cancel"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
-                                onPress={back.leave}
+                                onPress={() => {
+                                    guard.intercept(back.leave);
+                                }}
                             />
                             {loaded ? (
                                 <Button
@@ -938,9 +943,11 @@ function SupplyOrderBuilder() {
                                                     )}
                                                     iconStart={<Icon name="plus" size="sm" />}
                                                     onPress={() => {
-                                                        router.push(
-                                                            '/kitchen/suppliers/new' as never,
-                                                        );
+                                                        guard.intercept(() => {
+                                                            router.push(
+                                                                '/kitchen/suppliers/new' as never,
+                                                            );
+                                                        });
                                                     }}
                                                 />
                                             }
@@ -1140,6 +1147,8 @@ function SupplyOrderBuilder() {
                         </>
                     }
                 />
+
+                <EditorGuardDialogs guard={guard} testID="kitchen-supply-order-builder-screen" />
             </Cascade>
         </IssueTrayFrame>
     );

@@ -896,9 +896,17 @@ describe('MealsScreen', () => {
         });
 
         await waitFor(() => screen.getByTestId('meals-grid'));
-        await fireEvent.press(screen.getByTestId(`meal-card-${MILK_MEAL_SLUG}-add`));
+        // An Add pressed while the session is still restoring is dropped by design
+        // (`use-basket-add.tsx`), and the card does not show that phase, so the press is
+        // repeated until it lands.
+        await waitFor(() => {
+            if (screen.queryAllByTestId('basket-add-failed').length === 0) {
+                fireEvent.press(screen.getByTestId(`meal-card-${MILK_MEAL_SLUG}-add`));
+            }
+            expect(screen.getAllByTestId('basket-add-failed').length).toBeGreaterThan(0);
+        });
 
-        expect(await screen.findByTestId('basket-add-failed')).toHaveTextContent(
+        expect(screen.getAllByTestId('basket-add-failed')[0]).toHaveTextContent(
             /Not added to your basket\. This account can't place orders\./,
         );
     });

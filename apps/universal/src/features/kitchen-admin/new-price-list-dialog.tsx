@@ -117,11 +117,15 @@ export function NewPriceListDialog({
         );
     };
 
+    // Once something is typed, a stray press outside does not throw it away: Cancel does that.
+    const typed = name.en.trim() !== '' || name.ar.trim() !== '' || code.trim() !== '';
+
     return (
         <Dialog
             testID={testID}
             open
             onClose={onClose}
+            dismissOnBackdrop={!typed}
             title={
                 fixedScope === 'agreement'
                     ? t('kitchen:priceLists.createAgreementTitle')

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9090 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9167 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2401,6 +2401,22 @@ export interface NamespaceKeys {
     | 'destination.subscription'
     | 'direction.ltr'
     | 'direction.rtl'
+    | 'keptWork.close'
+    | 'keptWork.detail'
+    | 'keptWork.discardBody'
+    | 'keptWork.discardCancel'
+    | 'keptWork.discardConfirm'
+    | 'keptWork.discardLabel'
+    | 'keptWork.discardTitle'
+    | 'keptWork.inProgress'
+    | 'keptWork.kind.ingredient'
+    | 'keptWork.kind.packaging'
+    | 'keptWork.kind.recipe'
+    | 'keptWork.minimise'
+    | 'keptWork.new.ingredient'
+    | 'keptWork.new.packaging'
+    | 'keptWork.new.recipe'
+    | 'keptWork.title'
     | 'locale.arabic'
     | 'locale.changed'
     | 'locale.english'
@@ -3564,6 +3580,7 @@ export interface NamespaceKeys {
     | 'desk.sale.areaLabel'
     | 'desk.sale.areaPlaceholder'
     | 'desk.sale.areaPlaceholderNone'
+    | 'desk.sale.backToDesk'
     | 'desk.sale.backToMenu'
     | 'desk.sale.buildingLabel'
     | 'desk.sale.buildingPlaceholder'
@@ -4032,15 +4049,71 @@ export interface NamespaceKeys {
     | 'kds.upcoming'
     | 'kds.waitingForDriver'
     | 'kds.withDriver'
+    | 'lens.activeAction'
     | 'lens.allAction'
+    | 'lens.allAllergenClasses'
+    | 'lens.allBatches'
+    | 'lens.allChecks'
+    | 'lens.allGaps'
     | 'lens.allIngredients'
+    | 'lens.allLines'
+    | 'lens.allOrders'
+    | 'lens.allPackaging'
+    | 'lens.allPeople'
+    | 'lens.allPlans'
+    | 'lens.allPriceLists'
+    | 'lens.allProducts'
+    | 'lens.allQuotations'
+    | 'lens.allReceipts'
     | 'lens.allRecipes'
+    | 'lens.allReview'
+    | 'lens.allRoles'
+    | 'lens.allStock'
+    | 'lens.allSuppliers'
+    | 'lens.allZones'
+    | 'lens.allergenMix'
+    | 'lens.archivedAction'
+    | 'lens.batchMix'
     | 'lens.clear'
+    | 'lens.confirmedBatchesAction'
+    | 'lens.deskMix'
+    | 'lens.draftBatchesAction'
+    | 'lens.draftOnPage'
+    | 'lens.gapsMix'
+    | 'lens.holdChecksAction'
+    | 'lens.inProductionBatchesAction'
+    | 'lens.issuedOnPage'
     | 'lens.label'
+    | 'lens.ledgerMix'
     | 'lens.mix'
+    | 'lens.ordersMix'
+    | 'lens.packagingMix'
+    | 'lens.partialAction'
+    | 'lens.pendingChecksAction'
     | 'lens.publishedAction'
+    | 'lens.qcMix'
+    | 'lens.quotationsMix'
+    | 'lens.receiptsCompleteAction'
+    | 'lens.receiptsMix'
+    | 'lens.receiptsPartialAction'
+    | 'lens.receiptsUnpricedAction'
+    | 'lens.releasedChecksAction'
+    | 'lens.requirementsMix'
+    | 'lens.resolvedAction'
     | 'lens.result'
+    | 'lens.reviewAction'
+    | 'lens.reviewMix'
+    | 'lens.showOnlyStatus'
+    | 'lens.stockLowAction'
+    | 'lens.stockMix'
+    | 'lens.stockNoneAction'
+    | 'lens.stockOkAction'
+    | 'lens.stockOutAction'
     | 'lens.token'
+    | 'lens.unpricedAction'
+    | 'lens.unpricedReceiptsMix'
+    | 'lens.unresolvedAction'
+    | 'lens.zoneMix'
     | 'list.actionHeader'
     | 'list.allLoaded'
     | 'list.archive'
@@ -6874,6 +6947,10 @@ export interface NamespaceKeys {
     | 'unsaved.browserPrompt'
     | 'unsaved.discard'
     | 'unsaved.keepEditing'
+    | 'unsaved.keepForLater'
+    | 'unsaved.keepableBody'
+    | 'unsaved.keepableTitle'
+    | 'unsaved.stay'
     | 'unsaved.title'
     | 'verification.laboratoryTested'
     | 'verification.operatorConfirmed'
@@ -11514,6 +11591,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:destination.subscription',
   'common:direction.ltr',
   'common:direction.rtl',
+  'common:keptWork.close',
+  'common:keptWork.detail',
+  'common:keptWork.discardBody',
+  'common:keptWork.discardCancel',
+  'common:keptWork.discardConfirm',
+  'common:keptWork.discardLabel',
+  'common:keptWork.discardTitle',
+  'common:keptWork.inProgress',
+  'common:keptWork.kind.ingredient',
+  'common:keptWork.kind.packaging',
+  'common:keptWork.kind.recipe',
+  'common:keptWork.minimise',
+  'common:keptWork.new.ingredient',
+  'common:keptWork.new.packaging',
+  'common:keptWork.new.recipe',
+  'common:keptWork.title',
   'common:locale.arabic',
   'common:locale.changed',
   'common:locale.english',
@@ -12672,6 +12765,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.areaLabel',
   'kitchen:desk.sale.areaPlaceholder',
   'kitchen:desk.sale.areaPlaceholderNone',
+  'kitchen:desk.sale.backToDesk',
   'kitchen:desk.sale.backToMenu',
   'kitchen:desk.sale.buildingLabel',
   'kitchen:desk.sale.buildingPlaceholder',
@@ -13140,15 +13234,71 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:kds.upcoming',
   'kitchen:kds.waitingForDriver',
   'kitchen:kds.withDriver',
+  'kitchen:lens.activeAction',
   'kitchen:lens.allAction',
+  'kitchen:lens.allAllergenClasses',
+  'kitchen:lens.allBatches',
+  'kitchen:lens.allChecks',
+  'kitchen:lens.allGaps',
   'kitchen:lens.allIngredients',
+  'kitchen:lens.allLines',
+  'kitchen:lens.allOrders',
+  'kitchen:lens.allPackaging',
+  'kitchen:lens.allPeople',
+  'kitchen:lens.allPlans',
+  'kitchen:lens.allPriceLists',
+  'kitchen:lens.allProducts',
+  'kitchen:lens.allQuotations',
+  'kitchen:lens.allReceipts',
   'kitchen:lens.allRecipes',
+  'kitchen:lens.allReview',
+  'kitchen:lens.allRoles',
+  'kitchen:lens.allStock',
+  'kitchen:lens.allSuppliers',
+  'kitchen:lens.allZones',
+  'kitchen:lens.allergenMix',
+  'kitchen:lens.archivedAction',
+  'kitchen:lens.batchMix',
   'kitchen:lens.clear',
+  'kitchen:lens.confirmedBatchesAction',
+  'kitchen:lens.deskMix',
+  'kitchen:lens.draftBatchesAction',
+  'kitchen:lens.draftOnPage',
+  'kitchen:lens.gapsMix',
+  'kitchen:lens.holdChecksAction',
+  'kitchen:lens.inProductionBatchesAction',
+  'kitchen:lens.issuedOnPage',
   'kitchen:lens.label',
+  'kitchen:lens.ledgerMix',
   'kitchen:lens.mix',
+  'kitchen:lens.ordersMix',
+  'kitchen:lens.packagingMix',
+  'kitchen:lens.partialAction',
+  'kitchen:lens.pendingChecksAction',
   'kitchen:lens.publishedAction',
+  'kitchen:lens.qcMix',
+  'kitchen:lens.quotationsMix',
+  'kitchen:lens.receiptsCompleteAction',
+  'kitchen:lens.receiptsMix',
+  'kitchen:lens.receiptsPartialAction',
+  'kitchen:lens.receiptsUnpricedAction',
+  'kitchen:lens.releasedChecksAction',
+  'kitchen:lens.requirementsMix',
+  'kitchen:lens.resolvedAction',
   'kitchen:lens.result',
+  'kitchen:lens.reviewAction',
+  'kitchen:lens.reviewMix',
+  'kitchen:lens.showOnlyStatus',
+  'kitchen:lens.stockLowAction',
+  'kitchen:lens.stockMix',
+  'kitchen:lens.stockNoneAction',
+  'kitchen:lens.stockOkAction',
+  'kitchen:lens.stockOutAction',
   'kitchen:lens.token',
+  'kitchen:lens.unpricedAction',
+  'kitchen:lens.unpricedReceiptsMix',
+  'kitchen:lens.unresolvedAction',
+  'kitchen:lens.zoneMix',
   'kitchen:list.actionHeader',
   'kitchen:list.allLoaded',
   'kitchen:list.archive',
@@ -15982,6 +16132,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:unsaved.browserPrompt',
   'kitchen:unsaved.discard',
   'kitchen:unsaved.keepEditing',
+  'kitchen:unsaved.keepForLater',
+  'kitchen:unsaved.keepableBody',
+  'kitchen:unsaved.keepableTitle',
+  'kitchen:unsaved.stay',
   'kitchen:unsaved.title',
   'kitchen:verification.laboratoryTested',
   'kitchen:verification.operatorConfirmed',

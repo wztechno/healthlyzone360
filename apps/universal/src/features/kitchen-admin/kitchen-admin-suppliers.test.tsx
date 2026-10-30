@@ -401,6 +401,11 @@ describe('suppliers list', () => {
         await untilVisible('kitchen-suppliers-table');
         expect(repositories.kitchenOps.listSuppliers).toHaveBeenCalledWith({});
 
+        // The archive switch is the Lens bar's scope menu.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-suppliers-toolbar-status-trigger'));
+        });
+        await untilVisible('kitchen-suppliers-toolbar-status-withArchived');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-suppliers-toolbar-status-withArchived'));
         });

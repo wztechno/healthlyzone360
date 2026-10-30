@@ -190,6 +190,14 @@ export function LensBarShowcaseScreen() {
                             { key: 'sent', label: 'Sent', value: 14, tone: 'info' },
                             { key: 'accepted', label: 'Accepted', value: 12, tone: 'success' },
                             { key: 'expired', label: 'Expired', value: 0, tone: 'neutral' },
+                            {
+                                key: 'value',
+                                label: 'Accepted value',
+                                value: 48200,
+                                display: 'AED 48,200',
+                                tone: 'brand',
+                                separated: true,
+                            },
                         ]}
                         mix={[
                             { key: 'draft', value: 6, tone: 'warning' },
@@ -202,6 +210,37 @@ export function LensBarShowcaseScreen() {
                         searchLabel="Search"
                         searchPlaceholder="Search quotes or clients"
                         result="18 of 32"
+                        clearLabel="Clear"
+                    />
+
+                    <Text variant="title">No search, a figure with a reason</Text>
+                    <LensBar
+                        testID="showcase-lens-report"
+                        label="Requirements summary"
+                        figures={[
+                            { key: 'ingredients', label: 'Ingredients needed', value: 24 },
+                            {
+                                key: 'short',
+                                label: 'Short',
+                                value: 3,
+                                tone: 'danger',
+                                alarm: true,
+                                separated: true,
+                            },
+                            {
+                                key: 'notComputable',
+                                label: 'Days not worked out',
+                                value: 2,
+                                tone: 'warning',
+                                info: 'Meals not chosen yet (2)',
+                            },
+                        ]}
+                        mix={[
+                            { key: 'short', value: 3, tone: 'danger' },
+                            { key: 'covered', value: 21, tone: 'success' },
+                        ]}
+                        mixLabel="3 short, 21 covered"
+                        result="24 of 24"
                         clearLabel="Clear"
                     />
                 </Cascade>

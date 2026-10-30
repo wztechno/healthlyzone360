@@ -363,10 +363,18 @@ describe('kitchen orders', () => {
         );
 
         // Five orders authored above, across all four statuses: two placed, one confirmed.
-        expect(screen.getByTestId('kitchen-orders-stats-loaded-value')).toHaveTextContent('5');
-        expect(screen.getByTestId('kitchen-orders-stats-awaiting-value')).toHaveTextContent('2');
-        expect(screen.getByTestId('kitchen-orders-stats-confirmed-value')).toHaveTextContent('1');
-        expect(screen.getByTestId('kitchen-orders-stats-fulfilled-value')).toHaveTextContent('1');
+        expect(screen.getByTestId('kitchen-orders-toolbar-figure-all-value')).toHaveTextContent(
+            '5',
+        );
+        expect(screen.getByTestId('kitchen-orders-toolbar-figure-placed-value')).toHaveTextContent(
+            '2',
+        );
+        expect(
+            screen.getByTestId('kitchen-orders-toolbar-figure-confirmed-value'),
+        ).toHaveTextContent('1');
+        expect(
+            screen.getByTestId('kitchen-orders-toolbar-figure-fulfilled-value'),
+        ).toHaveTextContent('1');
 
         const newest = book.orders()[0];
         if (newest === undefined) throw new Error('this test authored no orders');
@@ -384,11 +392,13 @@ describe('kitchen orders', () => {
             expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
         });
 
-        fireEvent.press(screen.getByTestId('kitchen-orders-toolbar-status-fulfilled'));
+        fireEvent.press(screen.getByTestId('kitchen-orders-toolbar-figure-fulfilled'));
 
         // One fulfilled order in the authored book, so the loaded count is the filter's own answer.
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-stats-loaded-value')).toHaveTextContent('1');
+            expect(screen.getByTestId('kitchen-orders-toolbar-figure-all-value')).toHaveTextContent(
+                '1',
+            );
         });
         // The narrowing is the endpoint's, not a client-side sieve over the whole page.
         expect(repositories.kitchenOrders.listOrders).toHaveBeenCalledWith({
@@ -402,7 +412,9 @@ describe('kitchen orders', () => {
         expect(
             screen.getByTestId(`kitchen-orders-table-row-${String(only.id)}-title`),
         ).toBeTruthy();
-        expect(screen.getByTestId('kitchen-orders-stats-awaiting-value')).toHaveTextContent('0');
+        expect(screen.getByTestId('kitchen-orders-toolbar-figure-placed-value')).toHaveTextContent(
+            '0',
+        );
     });
 
     /**
@@ -443,9 +455,9 @@ describe('kitchen orders', () => {
             });
 
             await waitFor(() => {
-                expect(screen.getByTestId('kitchen-orders-stats-loaded-value')).toHaveTextContent(
-                    '1',
-                );
+                expect(
+                    screen.getByTestId('kitchen-orders-toolbar-figure-all-value'),
+                ).toHaveTextContent('1');
             });
             // The header sends the same status the toolbar does — the book narrows, not the page.
             expect(repositories.kitchenOrders.listOrders).toHaveBeenCalledWith({
@@ -475,9 +487,9 @@ describe('kitchen orders', () => {
             });
 
             await waitFor(() => {
-                expect(screen.getByTestId('kitchen-orders-stats-loaded-value')).toHaveTextContent(
-                    '1',
-                );
+                expect(
+                    screen.getByTestId('kitchen-orders-toolbar-figure-all-value'),
+                ).toHaveTextContent('1');
             });
             expect(repositories.kitchenOrders.listOrders).toHaveBeenCalledWith({
                 requestedDeliveryDate: '2026-08-09',

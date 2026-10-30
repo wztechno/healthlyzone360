@@ -117,7 +117,12 @@ describe('ops panels', () => {
         });
 
         // Live counts over the rows in hand, not fabricated KPIs.
-        expect(screen.getByTestId('kitchen-stock-stats')).toHaveTextContent(/Shown/);
+        expect(screen.getByTestId('kitchen-stock-toolbar-figure-all-value')).toHaveTextContent('3');
+        expect(screen.getByTestId('kitchen-stock-toolbar-figure-ok-value')).toHaveTextContent('1');
+        expect(screen.getByTestId('kitchen-stock-toolbar-figure-low-value')).toHaveTextContent('1');
+        expect(screen.getByTestId('kitchen-stock-toolbar-figure-none-value')).toHaveTextContent(
+            '1',
+        );
         const rowFor = (ordinal: number) => stockItemRowTestId(String(stockItem(ordinal).id));
         expect(screen.getByTestId(`${rowFor(1)}-status`)).toHaveTextContent(/In stock/);
         expect(screen.getByTestId(`${rowFor(2)}-status`)).toHaveTextContent(/Low/);
@@ -136,12 +141,12 @@ describe('ops panels', () => {
         expect(screen.getByTestId(`${rowFor(4)}-name`)).toBeTruthy();
         expect(screen.queryByTestId(`${rowFor(1)}-name`)).toBeNull();
 
-        // The level segments narrow within the book.
+        // The level figures narrow within the book.
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-stock-kind-ingredients'));
         });
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-stock-toolbar-status-low'));
+            fireEvent.press(screen.getByTestId('kitchen-stock-toolbar-figure-low'));
         });
         expect(screen.getByTestId(`${rowFor(2)}-name`)).toBeTruthy();
         expect(screen.queryByTestId(`${rowFor(1)}-name`)).toBeNull();

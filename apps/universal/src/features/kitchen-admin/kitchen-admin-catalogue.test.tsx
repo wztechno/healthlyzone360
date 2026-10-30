@@ -517,7 +517,7 @@ describe('the product list', () => {
         expect(screen.queryByTestId(`${base}-publish`)).toBeNull();
     });
 
-    it('opens the four figures with two of them wired to a filter', async () => {
+    it('opens the Lens bar with its status figures wired to a filter', async () => {
         await renderStubScreen(<ProductsScreen />, {
             session: kitchenManagerSession(),
             repositories: {
@@ -538,17 +538,26 @@ describe('the product list', () => {
 
         // Three rows, one of them still draft — and one with no pack at all, which is the figure
         // this family gets in the slot the ingredient list spends on Uncosted.
-        expect(screen.getByTestId('kitchen-products-stats-shown-value')).toHaveTextContent('3');
-        expect(screen.getByTestId('kitchen-products-stats-draft-value')).toHaveTextContent('2');
-        expect(screen.getByTestId('kitchen-products-stats-noPack-value')).toHaveTextContent('1');
+        await untilVisible('kitchen-products-toolbar-figure-draft-value');
+        expect(screen.getByTestId('kitchen-products-toolbar-figure-all-value')).toHaveTextContent(
+            '3',
+        );
+        expect(screen.getByTestId('kitchen-products-toolbar-figure-draft-value')).toHaveTextContent(
+            '2',
+        );
+        expect(
+            screen.getByTestId('kitchen-products-toolbar-figure-noPack-value'),
+        ).toHaveTextContent('1');
 
-        // Draft is a filter, not a read-out: pressing it narrows the list the card counts.
+        // Draft is a filter, not a read-out: pressing it narrows the list the figure counts.
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-products-stats-draft'));
+            fireEvent.press(screen.getByTestId('kitchen-products-toolbar-figure-draft'));
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-products-stats-shown-value')).toHaveTextContent('2');
+            expect(screen.getByTestId('kitchen-products-toolbar-result')).toHaveTextContent(
+                '2 of 2',
+            );
         });
     });
 

@@ -725,12 +725,18 @@ describe('the review queue screen', () => {
             repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
         });
 
-        // The figures, not the cards: the cards are drawn while the queue is still in flight.
-        await untilVisible('kitchen-review-summary-shown-value');
-        // Counted cards, not a sentence: one record shown, and that one is refused publication.
-        expect(screen.getByTestId('kitchen-review-summary-shown-value')).toHaveTextContent('1');
-        expect(screen.getByTestId('kitchen-review-summary-blocked-value')).toHaveTextContent('1');
-        expect(screen.getByTestId('kitchen-review-summary-unblocked-value')).toHaveTextContent('0');
+        // The figures, not the bar: the bar is drawn while the queue is still in flight.
+        await untilVisible('kitchen-review-toolbar-figure-all-value');
+        // Counted figures, not a sentence: one record shown, and that one is refused publication.
+        expect(screen.getByTestId('kitchen-review-toolbar-figure-all-value')).toHaveTextContent(
+            '1',
+        );
+        expect(screen.getByTestId('kitchen-review-toolbar-figure-blocked-value')).toHaveTextContent(
+            '1',
+        );
+        expect(
+            screen.getByTestId('kitchen-review-toolbar-figure-unblocked-value'),
+        ).toHaveTextContent('0');
     });
 
     it('opens a read-only window from the row, whose one action is the record’s own editor', async () => {
@@ -777,14 +783,14 @@ describe('the review queue screen', () => {
             repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
         });
 
-        await untilVisible('kitchen-review-toolbar-status-unblocked');
+        await untilVisible('kitchen-review-toolbar-figure-unblocked');
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-review-toolbar-status-unblocked'));
+            fireEvent.press(screen.getByTestId('kitchen-review-toolbar-figure-unblocked'));
         });
 
         await untilVisible('kitchen-review-filtered-empty');
         expect(screen.queryByTestId('kitchen-review-clear')).toBeNull();
-        expect(screen.getByTestId('kitchen-review-summary-shown-value')).toHaveTextContent('0');
+        expect(screen.getByTestId('kitchen-review-toolbar-result')).toHaveTextContent('0 of 1');
     });
 
     it('opens on the figures — no page title, scope footnotes or truncation banner', async () => {
@@ -793,7 +799,7 @@ describe('the review queue screen', () => {
             repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
         });
 
-        await untilVisible('kitchen-review-summary-shown-value');
+        await untilVisible('kitchen-review-toolbar-figure-all-value');
         expect(screen.queryByTestId('kitchen-review-title')).toBeNull();
         expect(screen.queryByTestId('kitchen-review-scope')).toBeNull();
         expect(screen.queryByTestId('kitchen-review-not-checked')).toBeNull();

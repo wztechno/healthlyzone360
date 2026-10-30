@@ -63,6 +63,8 @@ import {
     emptyCompletionDraft,
 } from '../production-desk/completion-model.ts';
 import { useNudgeOnRefusal } from '../tray-nudge.ts';
+import { EditorGuardDialogs } from '../record-form-opening.tsx';
+import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
 
 /**
  * `/kitchen/production-desk/{order}` — one batch, and every edge it has left (PROD1).
@@ -155,6 +157,16 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
     const [settlement, setSettlement] = useState<Settlement>(null);
     const [draft, setDraft] = useState<CompletionDraft>(() => emptyCompletionDraft(todayIso()));
     const [cancelling, setCancelling] = useState(false);
+    /*
+     * A completion or write-off half typed is work to lose: leaving by the trail, the sidebar or the
+     * browser's Back asks first. Measured against a blank form on the same day, so an opened and
+     * untouched one asks nothing.
+     */
+    const guard = useUnsavedGuardFor(
+        settlement !== null &&
+            JSON.stringify(draft) !== JSON.stringify(emptyCompletionDraft(draft.productionDate)),
+        { message: t('kitchen:unsaved.browserPrompt') },
+    );
 
     const detail = record.data;
     const failure = toFailure(record.error);
@@ -772,6 +784,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                         )}
                     </Stack>
                 </Dialog>
+                <EditorGuardDialogs guard={guard} testID="kitchen-production-batch-screen" />
             </Cascade>
         </IssueTrayFrame>
     );

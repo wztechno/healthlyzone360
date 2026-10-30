@@ -23,10 +23,8 @@ import { useSuppliersQuery, useUnpricedReceiptsQuery } from '../../../data/kitch
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure, LensMixPart, LensTone, LensToken } from '../catalogue/lens-bar.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
@@ -43,10 +41,10 @@ import {
 /**
  * `/kitchen/procurement/unpriced-receipts` — the work queue (SUP5, §3.6, §7).
  *
- * On the Catalogue list parts since the Operations handoff: stat cards counted over the queue in
- * hand, the toolbar (search over supplier and references, segments for the two unfinished states),
- * and `CatalogueList`, whose one row action — and whose row press — opens the receipt's own page,
- * `unpriced-receipt-screen.tsx`, where the prices are typed.
+ * On the Catalogue list parts since the Operations handoff: the Lens bar (figures counted over the
+ * queue in hand, the two unfinished states among them as filters, the search over supplier and
+ * references) and `CatalogueList`, whose one row action — and whose row press — opens the
+ * receipt's own page, `unpriced-receipt-screen.tsx`, where the prices are typed.
  *
  * A delivery may be posted with no prices at all: the goods are on the shelf and the paperwork is in
  * the post. This is the list of receipts still waiting on that paperwork, and it exists because the
@@ -80,8 +78,8 @@ export function UnpricedReceiptsScreen() {
     );
 }
 
-/** The queue holds only unfinished receipts, so its segments are the two unfinished states. */
-const STATE_SEGMENTS: readonly ReceiptCostStatus[] = ['unpriced', 'partial'];
+/** The queue holds only unfinished receipts, so its states are the two unfinished ones. */
+const QUEUE_STATES: readonly ReceiptCostStatus[] = ['unpriced', 'partial'];
 type StateSegmentValue = ReceiptCostStatus | 'all';
 
 /** The whole supplier book, archived included — a receipt outlives the supplier it came from. */
@@ -111,16 +109,21 @@ function UnpricedReceipts() {
     const rows = useMemo(() => queue.data?.items ?? [], [queue.data]);
 
     const trimmed = query.trim().toLocaleLowerCase();
-    const filtered = useMemo(
+    // The queue the search leaves, the state aside: what the state figures count.
+    const scopeRows = useMemo(
         () =>
-            rows.filter((row) => {
-                if (state !== 'all' && row.costStatus !== state) return false;
-                if (trimmed === '') return true;
-                return [row.supplier?.nameEn, row.documentRef, row.supplierInvoiceRef]
-                    .filter((value): value is string => value !== null && value !== undefined)
-                    .some((value) => value.toLocaleLowerCase().includes(trimmed));
-            }),
-        [rows, state, trimmed],
+            trimmed === ''
+                ? rows
+                : rows.filter((row) =>
+                      [row.supplier?.nameEn, row.documentRef, row.supplierInvoiceRef]
+                          .filter((value): value is string => value !== null && value !== undefined)
+                          .some((value) => value.toLocaleLowerCase().includes(trimmed)),
+                  ),
+        [rows, trimmed],
+    );
+    const filtered = useMemo(
+        () => (state === 'all' ? scopeRows : scopeRows.filter((row) => row.costStatus === state)),
+        [scopeRows, state],
     );
 
     const openReceipt = (row: UnpricedReceipt) => {
@@ -258,34 +261,61 @@ function UnpricedReceipts() {
     const failure = toFailure(queue.error);
     const unfiltered = trimmed === '' && state === 'all' && supplier === null;
 
-    const segments: readonly CatalogueStatusSegment<StateSegmentValue>[] = [
-        { value: 'all', label: t('kitchen:toolbar.statusAll') },
-        ...STATE_SEGMENTS.map((value) => ({ value, label: t(receiptCostStatusKey(value)) })),
-    ];
+    function clearFilters() {
+        setQuery('');
+        setState('all');
+        setSupplier(null);
+    }
+
+    const stateLabel =
+        state === 'all'
+            ? null
+            : t('kitchen:lens.token', {
+                  label: t('kitchen:ops.procurement.columnCostStatus'),
+                  value: t(receiptCostStatusKey(state)),
+              });
+    const tokens: readonly LensToken[] =
+        stateLabel === null
+            ? []
+            : [
+                  {
+                      key: 'state',
+                      label: stateLabel,
+                      removeLabel: t('kitchen:toolbar.removeFilter', { filter: stateLabel }),
+                      onRemove: () => {
+                          setState('all');
+                      },
+                  },
+              ];
+    const lens =
+        failure === null
+            ? queueLens(queue.isPending ? null : scopeRows, controls.rows, state, setState, t)
+            : { figures: [] };
 
     return (
         <Cascade space="md" testID="kitchen-unpriced-screen">
-            {failure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-unpriced-stats"
-                    cards={queueStatCards(controls.rows, t)}
-                    pending={queue.isPending}
-                />
-            )}
-
-            <CatalogueToolbar<StateSegmentValue>
+            {/* The Lens bar — figures, mix and query row as one object (`lens-bar.tsx`). */}
+            <LensBar
                 testID="kitchen-unpriced-toolbar"
+                label={t('kitchen:lens.label')}
+                {...lens}
                 search={query}
                 onSearchChange={setQuery}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t('kitchen:ops.procurement.searchPlaceholder')}
-                statusLabel={t('kitchen:ops.procurement.columnCostStatus')}
-                statusSegments={segments}
-                status={state}
-                onStatusChange={setState}
-            >
-                <ColumnPicker {...controls.picker} />
-            </CatalogueToolbar>
+                tokens={tokens}
+                result={
+                    queue.isPending
+                        ? null
+                        : t('kitchen:lens.result', {
+                              shown: controls.rows.length,
+                              total: rows.length,
+                          })
+                }
+                clearLabel={t('kitchen:lens.clear')}
+                {...(unfiltered ? {} : { onClear: clearFilters })}
+                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+            />
 
             {queue.isPending ? (
                 <TableSkeleton testID="kitchen-unpriced-loading" partTestID="kitchen-unpriced" />
@@ -320,11 +350,7 @@ function UnpricedReceipts() {
                                 variant="secondary"
                                 size="sm"
                                 label={t('kitchen:toolbar.clearFilters')}
-                                onPress={() => {
-                                    setQuery('');
-                                    setState('all');
-                                    setSupplier(null);
-                                }}
+                                onPress={clearFilters}
                             />
                         )
                     }
@@ -362,39 +388,86 @@ function UnpricedReceipts() {
     );
 }
 
-/** Counted over the queue in hand, like the design's CARDS. */
-function queueStatCards(
-    rows: readonly UnpricedReceipt[],
+/**
+ * The Lens bar's figures: All receipts and the two unfinished states, which filter, counted over the
+ * queue the search leaves; then the lines to price and the lines waiting on a rate in the receipts
+ * shown. `null` scope: in flight.
+ */
+function queueLens(
+    scope: readonly UnpricedReceipt[] | null,
+    shown: readonly UnpricedReceipt[],
+    state: StateSegmentValue,
+    setState: (next: StateSegmentValue) => void,
     t: TFunction,
-): readonly CatalogueStatCard[] {
-    const linesToPrice = rows.reduce((sum, row) => sum + row.unpricedLineCount, 0);
-    const pendingFx = rows.reduce((sum, row) => sum + row.valuationPendingCount, 0);
-    return [
-        {
-            key: 'receipts',
-            label: t('kitchen:ops.unpricedReceipts.metrics.receipts'),
-            value: String(rows.length),
-            unit: t('kitchen:ops.procurement.statReceiptsUnit'),
-            caption: t('kitchen:ops.unpricedReceipts.statReceiptsCaption'),
-            mark: 'receipt',
-            tone: 'brand',
-        },
-        {
-            key: 'linesToPrice',
-            label: t('kitchen:ops.unpricedReceipts.columnToPrice'),
-            value: String(linesToPrice),
-            unit: t('kitchen:ops.ledger.statLinesUnit'),
-            caption: t('kitchen:ops.unpricedReceipts.statToPriceCaption'),
-            mark: 'coins',
-            tone: linesToPrice === 0 ? 'default' : 'warning',
-        },
-        {
-            key: 'pendingFx',
-            label: t('kitchen:ops.ledger.statePendingFx'),
-            value: String(pendingFx),
-            unit: t('kitchen:ops.ledger.statLinesUnit'),
-            caption: t('kitchen:ops.unpricedReceipts.statPendingFxCaption'),
-            mark: 'clock',
-        },
-    ];
+): {
+    readonly figures: readonly LensFigure[];
+    readonly mix: readonly LensMixPart[];
+    readonly mixLabel: string;
+} {
+    const count = (status: ReceiptCostStatus): number =>
+        scope === null ? 0 : scope.filter((row) => row.costStatus === status).length;
+    const summed = (pick: (row: UnpricedReceipt) => number): number | null =>
+        scope === null ? null : shown.reduce((sum, row) => sum + pick(row), 0);
+    const linesToPrice = summed((row) => row.unpricedLineCount);
+    return {
+        figures: [
+            {
+                key: 'all',
+                label: t('kitchen:lens.allReceipts'),
+                value: scope === null ? null : scope.length,
+                active: state === 'all',
+                onPress: () => {
+                    setState('all');
+                },
+                accessibilityLabel: t('kitchen:lens.allAction'),
+            },
+            ...QUEUE_STATES.map((status, index): LensFigure => ({
+                key: status,
+                label: t(receiptCostStatusKey(status)),
+                value: scope === null ? null : count(status),
+                tone: QUEUE_STATE_TONES[status],
+                separated: index === 0,
+                active: state === status,
+                onPress: () => {
+                    setState(status);
+                },
+                accessibilityLabel: t(QUEUE_STATE_ACTIONS[status]),
+            })),
+            {
+                key: 'linesToPrice',
+                label: t('kitchen:ops.unpricedReceipts.columnToPrice'),
+                value: linesToPrice,
+                tone: 'warning',
+                separated: true,
+            },
+            {
+                key: 'pendingFx',
+                label: t('kitchen:ops.ledger.statePendingFx'),
+                value: summed((row) => row.valuationPendingCount),
+                tone: 'info',
+            },
+        ],
+        mix: QUEUE_STATES.map((status) => ({
+            key: status,
+            value: count(status),
+            tone: QUEUE_STATE_TONES[status],
+            dimmed: state !== 'all' && state !== status,
+        })),
+        mixLabel: t('kitchen:lens.unpricedReceiptsMix', {
+            unpriced: count('unpriced'),
+            partial: count('partial'),
+        }),
+    };
 }
+
+const QUEUE_STATE_TONES: Readonly<Record<ReceiptCostStatus, LensTone>> = {
+    unpriced: 'warning',
+    partial: 'info',
+    complete: 'success',
+};
+
+const QUEUE_STATE_ACTIONS: Readonly<Record<ReceiptCostStatus, string>> = {
+    unpriced: 'kitchen:lens.unpricedAction',
+    partial: 'kitchen:lens.partialAction',
+    complete: 'kitchen:lens.allAction',
+};

@@ -60,6 +60,8 @@ import { ORDER_CREATE_ON_BEHALF_PERMISSION, ORDER_MANAGE_PERMISSION } from '../e
 import { displayName } from '../format.ts';
 import { ChoiceTiles } from '../choice-tiles.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { EditorGuardDialogs } from '../record-form-opening.tsx';
+import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import type { BasketLine } from '../order-desk/basket.ts';
 import {
@@ -359,6 +361,15 @@ function Sale() {
         editOrder === null
             ? t('kitchen:desk.sale.title')
             : t('kitchen:desk.edit.title', { number: editOrder.orderNumber }),
+    );
+
+    /*
+     * A ticket with something on it, or an order with changes, is work to lose: leaving by the
+     * trail, the sidebar or the browser's Back asks first. Placed, there is nothing left to lose.
+     */
+    const guard = useUnsavedGuardFor(
+        sold === null && (isEditing ? editDirty : state.lines.length > 0),
+        { message: t('kitchen:unsaved.browserPrompt') },
     );
 
     function update(next: SaleState) {
@@ -790,6 +801,20 @@ function Sale() {
                     className="z-auto min-w-0 flex-col gap-snug"
                     style={[column, stage === 'menu' ? null : HIDDEN]}
                 >
+                    {/* The menu's own way out, as checkout has its way back to the menu. A ticket
+                        with something on it still asks first, through the unsaved guard. */}
+                    <View className="flex-row">
+                        <Button
+                            testID="kitchen-order-desk-sale-back-to-desk"
+                            size="sm"
+                            variant="secondary"
+                            label={t('kitchen:desk.sale.backToDesk')}
+                            iconStart={<Icon name="chevronBackward" size="sm" />}
+                            onPress={() => {
+                                router.push('/kitchen/order-desk');
+                            }}
+                        />
+                    </View>
                     <CatalogueToolbar<MenuSection>
                         testID="kitchen-order-desk-sale-menu-toolbar"
                         search={query}
@@ -846,6 +871,7 @@ function Sale() {
                     onPlace={isEditing ? onSave : onPlace}
                 />
             </View>
+            <EditorGuardDialogs guard={guard} testID="kitchen-order-desk-sale-screen" />
         </View>
     );
 }

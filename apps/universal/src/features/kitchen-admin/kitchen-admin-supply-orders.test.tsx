@@ -399,9 +399,11 @@ describe('supply orders landing', () => {
 
         // Two of the three numbers, never a third claiming a total: they partition the count.
         expect(
-            screen.getByTestId('kitchen-supply-orders-stats-outOfStock-value'),
+            screen.getByTestId('kitchen-supply-orders-toolbar-figure-outOfStock-value'),
         ).toHaveTextContent(/2/);
-        expect(screen.getByTestId('kitchen-supply-orders-stats-low-value')).toHaveTextContent(/1/);
+        expect(
+            screen.getByTestId('kitchen-supply-orders-toolbar-figure-low-value'),
+        ).toHaveTextContent(/1/);
 
         const both = supplyOrderRowTestId(String(OUT_AND_LOW.stockItemId));
         // Both rules at once is one row wearing the Out badge — the label the server chose.
@@ -965,12 +967,12 @@ describe('supply orders book', () => {
 
         await untilVisible('kitchen-supply-orders-book-empty');
 
-        // The draft card counts the rows in hand and says so — "on this page", never a kitchen-wide
-        // total, because the list is a keyset walk with a null total.
-        expect(screen.getByTestId('kitchen-supply-orders-stats-draft-value')).toHaveTextContent(
-            '0',
-        );
-        expect(screen.getByTestId('kitchen-supply-orders-stats-draft')).toHaveTextContent(
+        // The draft figure counts the rows in hand and says so — "on this page", never a
+        // kitchen-wide total, because the list is a keyset walk with a null total.
+        expect(
+            screen.getByTestId('kitchen-supply-orders-toolbar-figure-draft-value'),
+        ).toHaveTextContent('0');
+        expect(screen.getByTestId('kitchen-supply-orders-toolbar-figure-draft')).toHaveTextContent(
             /on this page/,
         );
     });

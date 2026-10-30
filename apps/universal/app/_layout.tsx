@@ -5,6 +5,8 @@ import { StatusBar } from 'expo-status-bar';
 import '../global.css';
 import { useBrandFonts } from '../src/brand-fonts.ts';
 import { AppProviders } from '../src/providers.tsx';
+// Before the router mounts: the unsaved guard hears the browser's Back ahead of it.
+import '../src/navigation/use-unsaved-guard.ts';
 
 /**
  * Root layout: providers, then one flat `Stack`.

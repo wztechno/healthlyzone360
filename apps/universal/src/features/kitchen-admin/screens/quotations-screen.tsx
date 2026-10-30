@@ -41,8 +41,8 @@ import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure, LensMixPart, LensTone } from '../catalogue/lens-bar.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { quotationLineColumns } from '../commercial/quotation-line-columns.tsx';
@@ -61,7 +61,8 @@ import {
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { focusField } from '../field-focus.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { RecordFormOpening } from '../record-form-opening.tsx';
+import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
+import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
@@ -266,7 +267,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
             width: 120,
             priority: 85,
             value: (row) => t(kitchenQuotationStatusKey(row.status)),
-            // One status at a time, all five — the segments fold three of them into Closed, and
+            // One status at a time, all five — the figures fold three of them into Closed, and
             // this is where "only the declined ones" is asked.
             filter: {
                 values: () =>
@@ -288,7 +289,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
 
     const controls = useColumnControls(rows, columns, 'kitchen-quotations');
     const listFailure = toFailure(quotations.error);
-    // The segment, the search and the header filters all narrow the same held rows, so "unfiltered"
+    // The status figure, the search and the header filters all narrow the same held rows, so "unfiltered"
     // and Clear have to answer for all three.
     const unfiltered = filter === 'all' && search === '' && !controls.filtered;
     const clearFilters = () => {
@@ -310,10 +311,6 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
             />
         );
     }
-
-    const loaded = all.length;
-    const awaiting = all.filter((row) => row.status === 'submitted').length;
-    const quoted = all.filter((row) => row.status === 'quoted').length;
 
     if (viewing !== null) {
         return (
@@ -341,51 +338,23 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
         );
     }
 
+    // A failed read has no figures to state; the bar holds its placeholders over the error.
+    const pending = quotations.isPending || listFailure !== null;
+    const filterToken = t('kitchen:lens.token', {
+        label: t('kitchen:toolbar.statusLabel'),
+        value: t(`kitchen:ops.quotations.filter.${filter}`),
+    });
+
     return (
         <Cascade space="md" testID="kitchen-quotations-screen">
-            {listFailure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-quotations-panel-metric"
-                    pending={quotations.isPending}
-                    cards={[
-                        {
-                            key: 'loaded',
-                            label: t('kitchen:ops.quotations.metrics.loaded'),
-                            value: String(loaded),
-                            unit: t('kitchen:list.statRecords'),
-                            caption: t('kitchen:ops.quotations.statLoadedCaption'),
-                            mark: 'list',
-                            tone: 'brand',
-                            onPress: clearFilters,
-                            accessibilityLabel: t('kitchen:ops.quotations.clearFilter'),
-                        },
-                        {
-                            key: 'awaiting',
-                            label: t('kitchen:ops.quotations.metrics.awaiting'),
-                            value: String(awaiting),
-                            unit: t('kitchen:list.statRecords'),
-                            caption: t('kitchen:ops.quotations.statAwaitingCaption'),
-                            mark: 'clock',
-                            tone: awaiting === 0 ? 'default' : 'warning',
-                            onPress: () => {
-                                setFilter('awaiting');
-                            },
-                            accessibilityLabel: t('kitchen:ops.quotations.filter.awaiting'),
-                        },
-                        {
-                            key: 'quoted',
-                            label: t('kitchen:ops.quotations.metrics.quoted'),
-                            value: String(quoted),
-                            unit: t('kitchen:list.statRecords'),
-                            caption: t('kitchen:ops.quotations.statQuotedCaption'),
-                            mark: 'circleCheck',
-                        },
-                    ]}
-                />
-            )}
-
-            <CatalogueToolbar<StatusFilter>
+            <LensBar
                 testID="kitchen-quotations-toolbar"
+                label={t('kitchen:lens.label')}
+                figures={lensFigures(all, pending, filter, t, (next) => {
+                    setFilter(next);
+                    setViewing(null);
+                })}
+                {...(pending ? {} : lensMix(all, filter, t))}
                 search={search}
                 onSearchChange={(next) => {
                     setSearch(next);
@@ -393,19 +362,34 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                 }}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t('kitchen:ops.quotations.columnReference')}
-                statusLabel={t('kitchen:ops.quotations.filterLabel')}
-                statusSegments={FILTERS.map((value) => ({
-                    value,
-                    label: t(`kitchen:ops.quotations.filter.${value}`),
-                }))}
-                status={filter}
-                onStatusChange={(next) => {
-                    setFilter(next);
-                    setViewing(null);
-                }}
-            >
-                <ColumnPicker {...controls.picker} />
-            </CatalogueToolbar>
+                tokens={
+                    filter === 'all'
+                        ? []
+                        : [
+                              {
+                                  key: 'status',
+                                  label: filterToken,
+                                  removeLabel: t('kitchen:toolbar.removeFilter', {
+                                      filter: filterToken,
+                                  }),
+                                  onRemove: () => {
+                                      setFilter('all');
+                                  },
+                              },
+                          ]
+                }
+                result={
+                    pending
+                        ? null
+                        : t('kitchen:lens.result', {
+                              shown: controls.rows.length,
+                              total: all.length,
+                          })
+                }
+                clearLabel={t('kitchen:lens.clear')}
+                {...(unfiltered ? {} : { onClear: clearFilters })}
+                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+            />
 
             {quotations.isPending ? (
                 <TableSkeleton testID="kitchen-quotations-loading" />
@@ -524,6 +508,9 @@ function QuotationPricing({
     const lines: readonly KitchenQuotationLine[] = quotation?.lines ?? NO_LINES;
     const currency: CurrencyCode = quotation?.currencyCode ?? 'USD';
     const editable = quotation !== null && canQuote && canQuoteKitchenQuotation(quotation.status);
+    // Prices typed and not sent: Back to quotations, the trail and the browser's Back ask first.
+    const dirty = editable && Object.values(prices).some((value) => value.trim() !== '');
+    const guard = useUnsavedGuardFor(dirty, { message: t('kitchen:unsaved.browserPrompt') });
 
     const parsedPrices = useMemo(() => {
         if (lines.length === 0) return null;
@@ -612,7 +599,9 @@ function QuotationPricing({
             testID="kitchen-quotations-back"
             variant="secondary"
             label={t('kitchen:ops.quotations.backToQuotations')}
-            onPress={onBack}
+            onPress={() => {
+                guard.intercept(onBack);
+            }}
         />
     );
 
@@ -744,7 +733,7 @@ function QuotationPricing({
                     title={t('kitchen:ops.quotations.detailTitle', {
                         reference: quotation.reference,
                     })}
-                    dirty={false}
+                    dirty={dirty}
                     badges={
                         <Badge
                             variant="label"
@@ -928,9 +917,76 @@ function QuotationPricing({
                         }}
                     />
                 </View>
+                <EditorGuardDialogs guard={guard} testID="kitchen-quotations-detail" />
             </Cascade>
         </IssueTrayFrame>
     );
+}
+
+const FILTER_TONES: Readonly<Record<Exclude<StatusFilter, 'all'>, LensTone>> = {
+    awaiting: 'warning',
+    quoted: 'info',
+    closed: 'neutral',
+};
+
+/** How many held quotations each segment of the queue holds. The three partition it. */
+function filterCount(all: readonly KitchenQuotation[], filter: StatusFilter): number {
+    const allowed = FILTER_STATUSES[filter];
+    return allowed.length === 0
+        ? all.length
+        : all.filter((row) => allowed.includes(row.status)).length;
+}
+
+/**
+ * The Lens bar's figures: All, then Awaiting a price · Priced · Closed. The whole queue is held, so
+ * every figure counts all of it, whatever is in force.
+ */
+function lensFigures(
+    all: readonly KitchenQuotation[],
+    pending: boolean,
+    filter: StatusFilter,
+    t: TFunction,
+    setFilter: (next: StatusFilter) => void,
+): readonly LensFigure[] {
+    return FILTERS.map((value, index): LensFigure => {
+        const label = t(`kitchen:ops.quotations.filter.${value}`);
+        return {
+            key: value,
+            label: value === 'all' ? t('kitchen:lens.allQuotations') : label,
+            value: pending ? null : filterCount(all, value),
+            ...(value === 'all' ? {} : { tone: FILTER_TONES[value] }),
+            separated: index === 1,
+            active: filter === value,
+            onPress: () => {
+                setFilter(value);
+            },
+            accessibilityLabel:
+                value === 'all'
+                    ? t('kitchen:lens.allAction')
+                    : t('kitchen:lens.showOnlyStatus', { status: label }),
+        };
+    });
+}
+
+/** How the queue divides between the three, and the same in words. */
+function lensMix(
+    all: readonly KitchenQuotation[],
+    filter: StatusFilter,
+    t: TFunction,
+): { readonly mix: readonly LensMixPart[]; readonly mixLabel: string } {
+    return {
+        mix: (['awaiting', 'quoted', 'closed'] as const).map((value) => ({
+            key: value,
+            value: filterCount(all, value),
+            tone: FILTER_TONES[value],
+            dimmed: filter !== 'all' && filter !== value,
+        })),
+        mixLabel: t('kitchen:lens.quotationsMix', {
+            awaiting: filterCount(all, 'awaiting'),
+            quoted: filterCount(all, 'quoted'),
+            closed: filterCount(all, 'closed'),
+        }),
+    };
 }
 
 function submittedText(row: KitchenQuotation, t: TFunction, formatter: Formatter): string {

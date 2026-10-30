@@ -56,10 +56,8 @@ import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { PlanDayMeals, isPlanDayLine, visibleOrderLines } from '../plan-day-meals.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure, LensMixPart, LensToken, LensTone } from '../catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { RecordViewSection } from '../catalogue/record-view-page.tsx';
 import {
@@ -388,30 +386,29 @@ function Orders({ view }: { readonly view?: string | undefined }) {
     const listFailure = toFailure(orders.error);
     const unfiltered = status === 'all' && deliveryDate === null && trimmed === '';
 
-    const statusSegments: readonly CatalogueStatusSegment<StatusFilter>[] = [
-        { value: 'all', label: t('kitchen:ops.orders.filterAll') },
-        ...KITCHEN_ORDER_STATUSES.map((value) => ({
-            value,
-            label: t(kitchenOrderStatusKey(value)),
-        })),
-    ];
+    function clearAll() {
+        setQuery('');
+        setDeliveryDate(null);
+        changeStatus('all');
+        controls.clearFilters();
+    }
+
+    const pending = orders.isPending && rows.length === 0;
 
     return (
         <Cascade space="md" testID="kitchen-orders-screen">
-            {listFailure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-orders-stats"
-                    cards={statCards(rows, unfiltered, t, changeStatus, () => {
-                        setQuery('');
-                        setDeliveryDate(null);
-                        changeStatus('all');
-                    })}
-                    pending={orders.isPending && rows.length === 0}
-                />
-            )}
-
-            <CatalogueToolbar<StatusFilter>
+            <LensBar
                 testID="kitchen-orders-toolbar"
+                label={t('kitchen:lens.label')}
+                // A failed read has no figures to state; they hold their placeholders over the error.
+                figures={lensFigures(
+                    rows,
+                    pending || listFailure !== null,
+                    status,
+                    t,
+                    changeStatus,
+                )}
+                {...(pending || listFailure !== null ? {} : lensMix(rows, status, t))}
                 search={query}
                 onSearchChange={(next) => {
                     setQuery(next);
@@ -420,13 +417,26 @@ function Orders({ view }: { readonly view?: string | undefined }) {
                 }}
                 searchLabel={t('kitchen:ops.orders.searchLabel')}
                 searchPlaceholder={t('kitchen:ops.orders.searchHint')}
-                statusLabel={t('kitchen:ops.orders.statusFilterLabel')}
-                statusSegments={statusSegments}
-                status={status}
-                onStatusChange={changeStatus}
-            >
-                <ColumnPicker {...controls.picker} />
-            </CatalogueToolbar>
+                tokens={lensTokens(
+                    status,
+                    deliveryDate,
+                    t,
+                    formatter,
+                    changeStatus,
+                    changeDeliveryDate,
+                )}
+                result={
+                    pending || listFailure !== null
+                        ? null
+                        : t('kitchen:lens.result', {
+                              shown: controls.rows.length,
+                              total: rows.length,
+                          })
+                }
+                clearLabel={t('kitchen:lens.clear')}
+                {...(unfiltered && !controls.filtered ? {} : { onClear: clearAll })}
+                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+            />
 
             {orders.isPending && rows.length === 0 ? (
                 <TableSkeleton testID="kitchen-orders-loading" partTestID="kitchen-orders" />
@@ -460,12 +470,7 @@ function Orders({ view }: { readonly view?: string | undefined }) {
                                 variant="secondary"
                                 size="sm"
                                 label={t('kitchen:ops.orders.clearFilters')}
-                                onPress={() => {
-                                    setQuery('');
-                                    setDeliveryDate(null);
-                                    changeStatus('all');
-                                    controls.clearFilters();
-                                }}
+                                onPress={clearAll}
                             />
                         )
                     }
@@ -1269,68 +1274,120 @@ function addressText(order: KitchenOrder, t: TFunction): string {
         : parts.join(t('kitchen:common.listSeparator'));
 }
 
-/** Counted over the rows in hand, as the design's `CARDS` are. */
-function statCards(
+const STATUS_LENS_TONES: Readonly<Record<KitchenOrderStatus, LensTone>> = {
+    placed: 'warning',
+    confirmed: 'info',
+    fulfilled: 'success',
+    cancelled: 'neutral',
+};
+
+/**
+ * The Lens bar's figures: All, then one per status. Counted over the rows in hand, as the design's
+ * `CARDS` are — this endpoint answers no total.
+ */
+function lensFigures(
     rows: readonly KitchenOrder[],
-    unfiltered: boolean,
+    pending: boolean,
+    status: StatusFilter,
     t: TFunction,
     narrow: (status: StatusFilter) => void,
-    clear: () => void,
-): readonly CatalogueStatCard[] {
-    const count = (status: KitchenOrderStatus) =>
-        rows.filter((row) => row.status === status).length;
-    const awaiting = count('placed');
-    const unit = t('kitchen:ops.orders.statUnit');
+): readonly LensFigure[] {
+    const count = (value: KitchenOrderStatus) =>
+        pending ? null : rows.filter((row) => row.status === value).length;
     return [
         {
-            key: 'loaded',
-            label: t('kitchen:ops.orders.metrics.loaded'),
-            value: String(rows.length),
-            unit,
-            caption: unfiltered
-                ? t('kitchen:ops.orders.statLoadedCaption')
-                : t('kitchen:list.statShownFiltered'),
-            mark: 'list',
-            tone: 'brand',
-            onPress: clear,
-            accessibilityLabel: t('kitchen:list.statShownAction'),
-        },
-        {
-            key: 'awaiting',
-            label: t('kitchen:ops.orders.metrics.awaiting'),
-            value: String(awaiting),
-            unit,
-            caption: t('kitchen:ops.orders.statAwaitingCaption'),
-            mark: 'clock',
-            tone: awaiting === 0 ? 'default' : 'warning',
+            key: 'all',
+            label: t('kitchen:lens.allOrders'),
+            value: pending ? null : rows.length,
+            active: status === 'all',
             onPress: () => {
-                narrow('placed');
+                narrow('all');
             },
-            accessibilityLabel: t('kitchen:ops.orders.metrics.awaiting'),
+            accessibilityLabel: t('kitchen:lens.allAction'),
         },
-        {
-            key: 'confirmed',
-            label: t('kitchen:ops.orders.metrics.confirmed'),
-            value: String(count('confirmed')),
-            unit,
-            caption: t('kitchen:ops.orders.statConfirmedCaption'),
-            mark: 'circleCheck',
+        ...KITCHEN_ORDER_STATUSES.map((value, index): LensFigure => ({
+            key: value,
+            label: t(kitchenOrderStatusKey(value)),
+            value: count(value),
+            tone: STATUS_LENS_TONES[value],
+            separated: index === 0,
+            active: status === value,
             onPress: () => {
-                narrow('confirmed');
+                narrow(value);
             },
-            accessibilityLabel: t('kitchen:ops.orders.metrics.confirmed'),
-        },
-        {
-            key: 'fulfilled',
-            label: t('kitchen:ops.orders.metricFulfilled'),
-            value: String(count('fulfilled')),
-            unit,
-            caption: t('kitchen:ops.orders.statFulfilledCaption'),
-            mark: 'packageCheck',
-            onPress: () => {
-                narrow('fulfilled');
-            },
-            accessibilityLabel: t('kitchen:ops.orders.metricFulfilled'),
-        },
+            accessibilityLabel: t('kitchen:lens.showOnlyStatus', {
+                status: t(kitchenOrderStatusKey(value)),
+            }),
+        })),
+    ];
+}
+
+/** How the rows in hand divide between the statuses, and the same in words. */
+function lensMix(
+    rows: readonly KitchenOrder[],
+    status: StatusFilter,
+    t: TFunction,
+): { readonly mix: readonly LensMixPart[]; readonly mixLabel: string } {
+    const count = (value: KitchenOrderStatus) => rows.filter((row) => row.status === value).length;
+    return {
+        mix: KITCHEN_ORDER_STATUSES.map((value) => ({
+            key: value,
+            value: count(value),
+            tone: STATUS_LENS_TONES[value],
+            dimmed: status !== 'all' && status !== value,
+        })),
+        mixLabel: t('kitchen:lens.ordersMix', {
+            placed: count('placed'),
+            confirmed: count('confirmed'),
+            fulfilled: count('fulfilled'),
+            cancelled: count('cancelled'),
+        }),
+    };
+}
+
+/** The status and the delivery day in force, each removable on its own. */
+function lensTokens(
+    status: StatusFilter,
+    deliveryDate: string | null,
+    t: TFunction,
+    formatter: Formatter,
+    changeStatus: (next: StatusFilter) => void,
+    changeDeliveryDate: (next: string | null) => void,
+): readonly LensToken[] {
+    const token = (key: string, label: string, onRemove: () => void): LensToken => ({
+        key,
+        label,
+        removeLabel: t('kitchen:toolbar.removeFilter', { filter: label }),
+        onRemove,
+    });
+    return [
+        ...(status === 'all'
+            ? []
+            : [
+                  token(
+                      'status',
+                      t('kitchen:lens.token', {
+                          label: t('kitchen:ops.orders.statusFilterLabel'),
+                          value: t(kitchenOrderStatusKey(status)),
+                      }),
+                      () => {
+                          changeStatus('all');
+                      },
+                  ),
+              ]),
+        ...(deliveryDate === null
+            ? []
+            : [
+                  token(
+                      'delivery',
+                      t('kitchen:lens.token', {
+                          label: t('kitchen:ops.orders.columnDelivery'),
+                          value: formatter.formatDate(deliveryDate, MEDIUM_DATE),
+                      }),
+                      () => {
+                          changeDeliveryDate(null);
+                      },
+                  ),
+              ]),
     ];
 }

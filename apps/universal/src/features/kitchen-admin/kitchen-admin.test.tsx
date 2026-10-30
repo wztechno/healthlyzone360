@@ -27,6 +27,9 @@ import {
 import type { NutritionFacts } from '@healthy360/nutrition';
 import type { AccessState } from '@healthy360/permissions';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { readKeptWork } from '../../navigation/kept-work.ts';
+import { clearAllSessionDrafts } from '../../navigation/session-draft.ts';
+import { guardNavigation } from '../../navigation/use-unsaved-guard.ts';
 import type { ReactNode } from 'react';
 import { Dimensions } from 'react-native';
 
@@ -2601,11 +2604,11 @@ describe('the allergen class reference', () => {
         await untilVisible('kitchen-allergen-classes-table');
 
         expect(ALLERGEN_CLASSES).toHaveLength(14);
-        // The count moved from a caption line under the list to the Shown stat card every other
-        // Catalogue page opens with — the same figure, where a reader now looks for it.
-        expect(screen.getByTestId('kitchen-allergen-classes-stats-shown-value')).toHaveTextContent(
-            /14/,
-        );
+        // The count is the Lens bar's All figure every other Catalogue page opens with — the same
+        // number, where a reader now looks for it.
+        expect(
+            screen.getByTestId('kitchen-allergen-classes-toolbar-figure-all-value'),
+        ).toHaveTextContent(/14/);
         // No governance banner: the team's no-helper-copy rule.
         expect(screen.queryByTestId('kitchen-allergen-classes-governance')).toBeNull();
 
@@ -2670,14 +2673,14 @@ describe('the allergen class reference', () => {
             fireEvent.press(screen.getByTestId('kitchen-allergen-classes-column-markets-GCC'));
         });
 
-        // Every class but the EU-only one and the unregulated one: twelve, and Shown says twelve.
+        // Every class but the EU-only one and the unregulated one: twelve, and the result says so.
         await waitFor(() => {
             expect(screen.queryByTestId('kitchen-allergen-class-lupin-name')).toBeNull();
         });
         expect(screen.queryByTestId('kitchen-allergen-class-molluscs-name')).toBeNull();
         expect(screen.getByTestId('kitchen-allergen-class-gluten-name')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-allergen-classes-stats-shown-value')).toHaveTextContent(
-            /^12$/,
+        expect(screen.getByTestId('kitchen-allergen-classes-toolbar-result')).toHaveTextContent(
+            '12 of 14',
         );
 
         // A filter value leaves the menu open, so the next market is one press away.
@@ -2690,8 +2693,8 @@ describe('the allergen class reference', () => {
             expect(screen.getByTestId('kitchen-allergen-class-molluscs-name')).toBeTruthy();
         });
         expect(screen.queryByTestId('kitchen-allergen-class-gluten-name')).toBeNull();
-        expect(screen.getByTestId('kitchen-allergen-classes-stats-shown-value')).toHaveTextContent(
-            /^1$/,
+        expect(screen.getByTestId('kitchen-allergen-classes-toolbar-result')).toHaveTextContent(
+            '1 of 14',
         );
     });
 });
@@ -3420,6 +3423,48 @@ describe('a row added from the recipe editor', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('leaving the ingredient form with unsaved work', () => {
+    it('offers to keep a new ingredient for later, lists it, and puts it back on return', async () => {
+        const first = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => []) },
+        });
+        await untilVisible('kitchen-ingredient-name-en-input');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-ingredient-name-en-input'), 'Sumac');
+        });
+
+        // The sidebar asks now, rather than leaving the work behind without a word.
+        const navigate = jest.fn();
+        await act(async () => {
+            guardNavigation(navigate);
+        });
+        await untilVisible('kitchen-ingredient-editor-screen-unsaved-dialog');
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-ingredient-editor-screen-unsaved-keep-for-later'),
+            );
+        });
+        expect(navigate).toHaveBeenCalledTimes(1);
+        expect(readKeptWork()).toEqual([
+            expect.objectContaining({
+                kind: 'ingredient',
+                subject: 'Sumac',
+                href: '/kitchen/ingredients/new',
+            }),
+        ]);
+        await act(async () => {
+            first.view.unmount();
+        });
+
+        await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => []) },
+        });
+        await untilVisible('kitchen-ingredient-draft-restored-toast');
+        expect(screen.getByTestId('kitchen-ingredient-name-en-input').props.value).toBe('Sumac');
+        clearAllSessionDrafts();
+    });
+
     it('keeps it when the reader leaves another way than Cancel, and puts it back on return', async () => {
         const record = ingredient(41, { name: { en: 'Sumac', ar: 'سماق' } });
         const reads = {

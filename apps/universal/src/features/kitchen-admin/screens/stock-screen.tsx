@@ -12,7 +12,6 @@ import {
     ErrorState,
     FormGrid,
     FormSection,
-    Inline,
     IssueTrayFrame,
     SegmentedControl,
     Select,
@@ -50,11 +49,9 @@ import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { barcodeFailureText, shelfForIngredient, unlinkedScanMessage } from '../barcode-scan.ts';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure, LensMixPart, LensToken } from '../catalogue/lens-bar.tsx';
 import {
     compareNumber,
     compareText,
@@ -110,8 +107,8 @@ function stockPhotoId(item: StockItem): string {
  * handoff's list and `edStock` editor).
  *
  * ```
- * ┌ SHOWN ┐ ┌ LOW STOCK ┐ ┌ OUT OF STOCK ┐ ┌ IN STOCK ┐
- * [ ⌕ search ]  [ Ingredients | Resale ]  [ All | Low | Out | In stock ]
+ * (All items 248) │ ● In stock 190  ● Low 12  ● Out 3  ● Not stocked 43         [Import] [Export]
+ * [ Ingredients | Resale ]  [ ⌕ search ]  [Level: Low ×]                     18 of 248  Clear
  * ITEM            QUANTITY  UNIT  REORDER AT / PAR  LAST PURCHASE           STATUS  ◉ ✎ ⟲
  * Showing 1–25 of 248                                                         [ ‹ 1 2 › ]
  * ```
@@ -327,19 +324,22 @@ function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
     }
 
     const trimmed = query.trim().toLowerCase();
+    // The book under the search, every level in it — what the Lens bar's figures count.
+    const searchedRows = useMemo(
+        () =>
+            trimmed === ''
+                ? bookRows
+                : bookRows.filter(
+                      (row) =>
+                          row.item.nameEn.toLowerCase().includes(trimmed) ||
+                          row.item.code.toLowerCase().includes(trimmed),
+                  ),
+        [bookRows, trimmed],
+    );
     const filteredRows = useMemo(
         () =>
-            bookRows.filter((row) => {
-                if (
-                    trimmed !== '' &&
-                    !row.item.nameEn.toLowerCase().includes(trimmed) &&
-                    !row.item.code.toLowerCase().includes(trimmed)
-                ) {
-                    return false;
-                }
-                return segment === 'all' || row.state === segment;
-            }),
-        [bookRows, trimmed, segment],
+            segment === 'all' ? searchedRows : searchedRows.filter((row) => row.state === segment),
+        [searchedRows, segment],
     );
 
     const resetPage = () => {
@@ -764,17 +764,14 @@ function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
         resetPage();
     };
 
-    const kindSegments: readonly CatalogueStatusSegment<Kind>[] = [
+    const kindSegments: readonly { readonly value: Kind; readonly label: string }[] = [
         { value: 'ingredients', label: t('kitchen:ops.stock.kindIngredients') },
         { value: 'products', label: t('kitchen:ops.stock.kindProducts') },
     ];
-    const levelSegments: readonly CatalogueStatusSegment<LevelSegment>[] = [
-        { value: 'all', label: t('kitchen:toolbar.statusAll') },
-        { value: 'low', label: t('kitchen:ops.stock.lowBadge') },
-        { value: 'out', label: t('kitchen:ops.stock.levelOut') },
-        { value: 'ok', label: t('kitchen:ops.stock.inStockBadge') },
-        { value: 'none', label: t('kitchen:ops.stock.notStocked') },
-    ];
+    const lens = stockLens(searchedRows, segment, pending || failure !== null, t, (next) => {
+        setSegment(next);
+        resetPage();
+    });
 
     if (viewing !== null) {
         return (
@@ -880,37 +877,17 @@ function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
     return (
         <IssueTrayFrame tray={trayContent} controller={issueTray}>
             <Cascade space="md" testID="kitchen-stock-screen">
-                {failure !== null ? null : (
-                    <CatalogueStatCards
-                        testID="kitchen-stock-stats"
-                        cards={statCards(controls.rows, currentPage, unfiltered, t, clearFilters)}
-                        pending={pending}
-                    />
-                )}
-
-                <CatalogueToolbar<LevelSegment>
+                {/*
+                 * The Lens bar — the levels as figures over the mix, the book and the search on the
+                 * query row, Import and Export at the end (`lens-bar.tsx`).
+                 */}
+                <LensBar
                     testID="kitchen-stock-toolbar"
-                    search={query}
-                    onSearchChange={(next) => {
-                        setQuery(next);
-                        resetPage();
-                    }}
-                    onSearchSubmit={() => {
-                        openScan({ data: query, symbology: null }, true);
-                    }}
-                    onScan={(scan) => {
-                        openScan(scan, false);
-                    }}
-                    searchLabel={t('kitchen:toolbar.searchLabel')}
-                    searchPlaceholder={t('kitchen:ops.stock.searchPlaceholder')}
-                    statusLabel={t('kitchen:ops.stock.levelLabel')}
-                    statusSegments={levelSegments}
-                    status={segment}
-                    onStatusChange={(next) => {
-                        setSegment(next);
-                        resetPage();
-                    }}
-                    filters={
+                    label={t('kitchen:lens.label')}
+                    figures={lens.figures}
+                    mix={lens.mix}
+                    mixLabel={lens.mixLabel}
+                    scope={
                         <SegmentedControl
                             testID="kitchen-stock-kind"
                             label={t('kitchen:ops.stock.kindLabel')}
@@ -926,10 +903,34 @@ function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
                             }}
                         />
                     }
-                >
-                    <Inline space="xs" align="center">
-                        <ColumnPicker {...controls.picker} />
-                        {canManage ? (
+                    search={query}
+                    onSearchChange={(next) => {
+                        setQuery(next);
+                        resetPage();
+                    }}
+                    onSearchSubmit={() => {
+                        openScan({ data: query, symbology: null }, true);
+                    }}
+                    onScan={(scan) => {
+                        openScan(scan, false);
+                    }}
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:ops.stock.searchPlaceholder')}
+                    tokens={lens.tokens}
+                    result={
+                        pending || failure !== null
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  // Rows up to the end of this page: 18 of 447 on the first.
+                                  shown: Math.min(currentPage * PAGE_SIZE, controls.rows.length),
+                                  total: controls.rows.length,
+                              })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(unfiltered ? {} : { onClear: clearFilters })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                    actions={
+                        canManage ? (
                             <CatalogueTransferActions
                                 testID="kitchen-stock-toolbar"
                                 importGuide={STOCK_COUNT_IMPORT_GUIDE}
@@ -968,9 +969,9 @@ function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
                                     ],
                                 }}
                             />
-                        ) : null}
-                    </Inline>
-                </CatalogueToolbar>
+                        ) : undefined
+                    }
+                />
 
                 {pending ? (
                     <TableSkeleton testID="kitchen-stock-loading" partTestID="kitchen-stock" />
@@ -1046,59 +1047,120 @@ function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
     );
 }
 
-/** Counted over the rows in hand, so the strip never contradicts the pager beneath it. */
-function statCards(
+/** The Level figures, in the order the badge escalates, and the dot each one carries. */
+const LEVEL_FIGURES: readonly {
+    readonly state: LevelState;
+    readonly tone: LensMixPart['tone'];
+    readonly label: string;
+    readonly action: string;
+}[] = [
+    {
+        state: 'ok',
+        tone: 'success',
+        label: 'kitchen:ops.stock.inStockBadge',
+        action: 'kitchen:lens.stockOkAction',
+    },
+    {
+        state: 'low',
+        tone: 'warning',
+        label: 'kitchen:ops.stock.lowBadge',
+        action: 'kitchen:lens.stockLowAction',
+    },
+    {
+        state: 'out',
+        tone: 'danger',
+        label: 'kitchen:ops.stock.levelOut',
+        action: 'kitchen:lens.stockOutAction',
+    },
+    {
+        state: 'none',
+        tone: 'neutral',
+        label: 'kitchen:ops.stock.notStocked',
+        action: 'kitchen:lens.stockNoneAction',
+    },
+];
+
+/**
+ * The Lens bar's figures, mix and token: All, then one figure per level, each a filter. Counted over
+ * the book under the search with every level in it, so the levels add up to All and the mix is exact.
+ */
+function stockLens(
     rows: readonly StockRow[],
-    page: number,
-    unfiltered: boolean,
+    segment: LevelSegment,
+    pending: boolean,
     t: TFunction,
-    clear: () => void,
-): readonly CatalogueStatCard[] {
-    const low = rows.filter((row) => row.state === 'low').length;
-    const out = rows.filter((row) => row.state === 'out').length;
-    const ok = rows.filter((row) => row.state === 'ok').length;
-    return [
-        {
-            key: 'shown',
-            label: t('kitchen:list.statShown'),
-            // Rows up to the end of this page: 18 of 447 on the first, 36 on the second.
-            value: String(Math.min(page * PAGE_SIZE, rows.length)),
-            unit: t('kitchen:list.statShownUnit', { total: rows.length }),
-            caption: unfiltered
-                ? t('kitchen:list.statShownUnfiltered')
-                : t('kitchen:list.statShownFiltered'),
-            mark: 'list',
-            tone: 'brand',
-            onPress: clear,
-            accessibilityLabel: t('kitchen:list.statShownAction'),
-        },
-        {
-            key: 'low',
-            label: t('kitchen:ops.stock.metrics.lowStock'),
-            value: String(low),
-            unit: t('kitchen:ops.stock.statUnit'),
-            caption: t('kitchen:ops.stock.statLowCaption'),
-            mark: 'alert',
-            tone: low === 0 ? 'default' : 'warning',
-        },
-        {
-            key: 'out',
-            label: t('kitchen:ops.stock.metrics.outOfStock'),
-            value: String(out),
-            unit: t('kitchen:ops.stock.statUnit'),
-            caption: t('kitchen:ops.stock.statOutCaption'),
-            mark: 'circleX',
-            tone: out === 0 ? 'default' : 'danger',
-        },
-        {
-            key: 'ok',
-            label: t('kitchen:ops.stock.inStockBadge'),
-            value: String(ok),
-            unit: t('kitchen:ops.stock.statUnit'),
-            caption: t('kitchen:ops.stock.statOkCaption'),
-            mark: 'circleCheck',
-        },
-    ];
+    pick: (next: LevelSegment) => void,
+): {
+    readonly figures: readonly LensFigure[];
+    readonly mix: readonly LensMixPart[];
+    readonly mixLabel: string;
+    readonly tokens: readonly LensToken[];
+} {
+    const counts: Record<LevelState, number> = { ok: 0, low: 0, out: 0, none: 0 };
+    for (const row of rows) counts[row.state] += 1;
+    const counted = (count: number) => (pending ? null : count);
+    const chosen = LEVEL_FIGURES.find((level) => level.state === segment);
+    const tokenLabel =
+        chosen === undefined
+            ? null
+            : t('kitchen:lens.token', {
+                  label: t('kitchen:ops.stock.levelLabel'),
+                  value: t(chosen.label),
+              });
+
+    return {
+        figures: [
+            {
+                key: 'all',
+                label: t('kitchen:lens.allStock'),
+                value: counted(rows.length),
+                active: segment === 'all',
+                onPress: () => {
+                    pick('all');
+                },
+                accessibilityLabel: t('kitchen:lens.allAction'),
+            },
+            ...LEVEL_FIGURES.map((level, index): LensFigure => ({
+                key: level.state,
+                label: t(level.label),
+                value: counted(counts[level.state]),
+                tone: level.tone,
+                // An empty shelf blocks every sale that consumes it.
+                alarm: level.state === 'out',
+                separated: index === 0,
+                active: segment === level.state,
+                onPress: () => {
+                    pick(level.state);
+                },
+                accessibilityLabel: t(level.action),
+            })),
+        ],
+        mix: LEVEL_FIGURES.map((level) => ({
+            key: level.state,
+            value: pending ? 0 : counts[level.state],
+            tone: level.tone,
+            dimmed: segment !== 'all' && segment !== level.state,
+        })),
+        mixLabel: t('kitchen:lens.stockMix', {
+            ok: counts.ok,
+            low: counts.low,
+            out: counts.out,
+            none: counts.none,
+        }),
+        tokens:
+            tokenLabel === null
+                ? []
+                : [
+                      {
+                          key: 'level',
+                          label: tokenLabel,
+                          removeLabel: t('kitchen:toolbar.removeFilter', { filter: tokenLabel }),
+                          onRemove: () => {
+                              pick('all');
+                          },
+                      },
+                  ],
+    };
 }
 
 type MovementDirection = 'increase' | 'decrease' | 'waste' | 'count';

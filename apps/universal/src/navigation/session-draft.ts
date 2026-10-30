@@ -158,6 +158,15 @@ export function createSessionDraftStore<T>({
     return { read, write, clear, useDraft };
 }
 
+/**
+ * Forgets one draft by its namespace and key, from outside the screen that owns its store — the
+ * top bar's kept work throwing away a recipe the reader is no longer on (`kept-work.ts`).
+ */
+export function clearSessionDraft(namespace: string, key: string): void {
+    removeKey(`${PREFIX}${namespace}.${key}`);
+    emit();
+}
+
 /** Forgets every draft — called on sign-out. */
 export function clearAllSessionDrafts(): void {
     for (const key of [...memory.keys()]) {
