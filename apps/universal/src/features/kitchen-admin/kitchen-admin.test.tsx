@@ -2775,6 +2775,22 @@ describe('Open Food Facts allergen lookup', () => {
         expect(screen.getByTestId('allergen-reference-select-off:3017620422003')).toBeDisabled();
     });
 
+    it('drops the product lookup once allergens are recorded, and lists them instead', async () => {
+        const record = ingredient(92, { allergens: [mapping('milk')] });
+        await renderStubScreen(<IngredientAllergenEditor ingredient={record} classes={[]} />);
+        await untilVisible('ingredient-allergen-recorded-milk');
+        expect(screen.queryByTestId('allergen-reference-picker')).toBeNull();
+    });
+
+    it('offers the product lookup again when a changed reference asks for a review', async () => {
+        const record = ingredient(93, {
+            allergens: [mapping('milk')],
+            allergenReviewRequired: true,
+        });
+        await renderStubScreen(<IngredientAllergenEditor ingredient={record} classes={[]} />);
+        await untilVisible('allergen-reference-picker');
+    });
+
     it('requires purchased-product acknowledgement before importing suggestions with the current review token', async () => {
         const record = ingredient(90, { allergenReviewToken: 'b'.repeat(64), allergens: [] });
         const { repositories } = await renderStubScreen(

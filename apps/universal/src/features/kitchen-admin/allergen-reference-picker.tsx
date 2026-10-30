@@ -118,16 +118,20 @@ export function AllergenReferencePicker({
             >
                 {candidate.attribution}
             </Text>
-            <Text
-                variant="caption"
-                tone="secondary"
-                accessibilityRole="link"
-                onPress={() => {
-                    void Linking.openURL(ODBL_URL);
-                }}
-            >
-                ODbL
-            </Text>
+            {/* The attribution usually names the licence already; a second "ODbL" beside it
+                read as a stutter. */}
+            {candidate.attribution.includes('ODbL') ? null : (
+                <Text
+                    variant="caption"
+                    tone="secondary"
+                    accessibilityRole="link"
+                    onPress={() => {
+                        void Linking.openURL(ODBL_URL);
+                    }}
+                >
+                    ODbL
+                </Text>
+            )}
         </Inline>
     );
 
@@ -206,11 +210,14 @@ export function AllergenReferencePicker({
                             <View
                                 key={candidate.ref}
                                 testID={`allergen-reference-${candidate.ref}`}
-                                className={
+                                // The whole row is the choice, so the selected tint runs under
+                                // its declarations too, not only its title line.
+                                className={[
                                     index < candidates.length - 1
                                         ? 'border-b border-stroke-subtle'
-                                        : ''
-                                }
+                                        : '',
+                                    selected ? 'bg-surface-brand-subtle' : '',
+                                ].join(' ')}
                             >
                                 <ListItem
                                     title={candidate.label}

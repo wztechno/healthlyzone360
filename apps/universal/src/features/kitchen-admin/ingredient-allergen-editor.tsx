@@ -19,6 +19,7 @@ import {
 import { useLocale } from '@healthy360/i18n';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { toFailure } from '../../data/hooks.ts';
 import {
@@ -26,9 +27,10 @@ import {
     useImportIngredientAllergenReference,
     useConfirmIngredientAllergensMutation,
 } from '../../data/kitchen-admin-hooks.ts';
+import { AllergenMappingList } from './allergen-mapping-list.tsx';
 import { AllergenReferencePicker } from './allergen-reference-picker.tsx';
 import { AllergenReferenceSource } from './allergen-reference-source.tsx';
-import { displayName, containmentKey, verificationKey } from './format.ts';
+import { displayName } from './format.ts';
 import { serverFieldErrors } from './server-field-errors.ts';
 
 type Choice = AllergenContainment | 'none';
@@ -175,7 +177,10 @@ export function IngredientAllergenEditor({
             {ingredient.allergenReviewRequired ? (
                 <Callout tone="warning" title={t('kitchen:nutritionLookup.reviewChanged')} />
             ) : null}
-            {ingredient.nutritionDerivedFromVersionId === null ? (
+            {/* Once the set is recorded the lookup has done its job; it comes back only when a
+                changed nutrition reference asks for the allergens to be looked at again. */}
+            {ingredient.nutritionDerivedFromVersionId === null &&
+            (!assessed || ingredient.allergenReviewRequired) ? (
                 <AllergenReferencePicker
                     name={ingredient.name.en}
                     classes={classes}
@@ -249,6 +254,89 @@ export function IngredientAllergenEditor({
             ].map(([hash, source]) =>
                 source == null ? null : <AllergenReferenceSource key={hash} source={source} />,
             )}
+            {ingredient.allergens.length === 0 ? null : (
+                <AllergenMappingList
+                    testID="ingredient-allergen-recorded"
+                    mappings={ingredient.allergens}
+                    classes={classes}
+                    footer={
+                        /*
+                         * The review with evidence is for mappings someone has to stand behind. An
+                         * empty set has none: "Confirm no allergens" is its whole confirmation, and a
+                         * second checkbox saying the same thing was a second way to answer one
+                         * question.
+                         */
+                        ingredient.allergenReviewToken == null ? undefined : (
+                            <Stack space="sm" testID="ingredient-allergen-confirmation">
+                                {needsSupplier ? (
+                                    <TextInputField
+                                        testID="allergen-supplier-evidence"
+                                        id="allergen-supplier-evidence"
+                                        label={t('kitchen:nutritionLookup.supplierEvidence')}
+                                        value={supplierEvidence}
+                                        onChangeText={setSupplierEvidence}
+                                        maxLength={2000}
+                                        {...server.flag('supplier_evidence')}
+                                    />
+                                ) : null}
+                                <Inline space="xs" align="end">
+                                    <View className="min-w-0 flex-1">
+                                        <TextInputField
+                                            testID="allergen-review-evidence"
+                                            id="allergen-review-evidence"
+                                            label={t('kitchen:nutritionLookup.reviewEvidence')}
+                                            value={evidence}
+                                            onChangeText={setEvidence}
+                                            maxLength={2000}
+                                            {...server.flag('evidence')}
+                                        />
+                                    </View>
+                                    {/* `Button` holds itself to the top; the wrapper lines it up
+                                        with the input box. */}
+                                    <View>
+                                        <Button
+                                            testID="allergen-review-confirm"
+                                            variant="primary"
+                                            label={t('kitchen:nutritionLookup.confirmReview')}
+                                            loading={confirm.isPending}
+                                            disabled={
+                                                dirty ||
+                                                save.isPending ||
+                                                importReference.isPending ||
+                                                confirm.isPending ||
+                                                evidence.trim() === '' ||
+                                                (needsSupplier && supplierEvidence.trim() === '')
+                                            }
+                                            onPress={() =>
+                                                confirm.mutate({
+                                                    ingredientId: ingredient.id,
+                                                    request: {
+                                                        reviewToken:
+                                                            ingredient.allergenReviewToken!,
+                                                        evidence: evidence.trim(),
+                                                        ...(needsSupplier
+                                                            ? {
+                                                                  supplierEvidence:
+                                                                      supplierEvidence.trim(),
+                                                              }
+                                                            : {}),
+                                                        confirmNoAllergens: false,
+                                                    },
+                                                })
+                                            }
+                                        />
+                                    </View>
+                                </Inline>
+                                {dirty ? (
+                                    <Text tone="secondary">
+                                        {t('kitchen:nutritionLookup.saveMappingsFirst')}
+                                    </Text>
+                                ) : null}
+                            </Stack>
+                        )
+                    }
+                />
+            )}
             <FormGrid testID="kitchen-ingredient-mapping-grid">
                 {active.map((entry) => {
                     const code = String(entry.code);
@@ -299,94 +387,6 @@ export function IngredientAllergenEditor({
                     onPress={onSave}
                 />
             </Inline>
-            {/*
-             * The review with evidence is for mappings someone has to stand behind. An empty set
-             * has none: "Confirm no allergens" above is its whole confirmation, and a second
-             * checkbox saying the same thing was a second way to answer one question.
-             */}
-            {ingredient.allergenReviewToken == null || ingredient.allergens.length === 0 ? null : (
-                <Stack space="sm" testID="ingredient-allergen-confirmation">
-                    {ingredient.allergens.map((mapping) => (
-                        <Text
-                            key={`${String(mapping.allergenCode)}:${mapping.marketScope.join(',')}:${mapping.layer ?? 'unknown'}`}
-                            variant="caption"
-                        >
-                            {
-                                displayName(
-                                    classes.find((entry) => entry.code === mapping.allergenCode)
-                                        ?.name ?? {
-                                        en: String(mapping.allergenCode),
-                                        ar: String(mapping.allergenCode),
-                                    },
-                                    locale,
-                                ).value
-                            }
-                            {' · '}
-                            {t(containmentKey(mapping.containment))}
-                            {' · '}
-                            {mapping.marketScope.join(', ') ||
-                                t('kitchen:allergens.marketScopeAll')}
-                            {' · '}
-                            {t(verificationKey(mapping.verification))}
-                            {mapping.sourceNote == null ? '' : ` · ${mapping.sourceNote}`}
-                            {mapping.lookupSource == null
-                                ? ''
-                                : ` · ${String(mapping.lookupSource['attribution'] ?? '')} · ${String(mapping.lookupSource['label'] ?? '')}`}
-                        </Text>
-                    ))}
-                    <TextInputField
-                        testID="allergen-review-evidence"
-                        id="allergen-review-evidence"
-                        label={t('kitchen:nutritionLookup.reviewEvidence')}
-                        value={evidence}
-                        onChangeText={setEvidence}
-                        maxLength={2000}
-                        {...server.flag('evidence')}
-                    />
-                    {needsSupplier ? (
-                        <TextInputField
-                            testID="allergen-supplier-evidence"
-                            id="allergen-supplier-evidence"
-                            label={t('kitchen:nutritionLookup.supplierEvidence')}
-                            value={supplierEvidence}
-                            onChangeText={setSupplierEvidence}
-                            maxLength={2000}
-                            {...server.flag('supplier_evidence')}
-                        />
-                    ) : null}
-                    {dirty ? (
-                        <Text tone="secondary">
-                            {t('kitchen:nutritionLookup.saveMappingsFirst')}
-                        </Text>
-                    ) : null}
-                    <Button
-                        testID="allergen-review-confirm"
-                        label={t('kitchen:nutritionLookup.confirmReview')}
-                        loading={confirm.isPending}
-                        disabled={
-                            dirty ||
-                            save.isPending ||
-                            importReference.isPending ||
-                            confirm.isPending ||
-                            evidence.trim() === '' ||
-                            (needsSupplier && supplierEvidence.trim() === '')
-                        }
-                        onPress={() =>
-                            confirm.mutate({
-                                ingredientId: ingredient.id,
-                                request: {
-                                    reviewToken: ingredient.allergenReviewToken!,
-                                    evidence: evidence.trim(),
-                                    ...(needsSupplier
-                                        ? { supplierEvidence: supplierEvidence.trim() }
-                                        : {}),
-                                    confirmNoAllergens: false,
-                                },
-                            })
-                        }
-                    />
-                </Stack>
-            )}
         </Stack>
     );
 }
