@@ -731,9 +731,9 @@ describe('the review queue screen', () => {
         expect(screen.getByTestId('kitchen-review-toolbar-figure-all-value')).toHaveTextContent(
             '1',
         );
-        expect(
-            screen.getByTestId('kitchen-review-toolbar-figure-blocked-value'),
-        ).toHaveTextContent('1');
+        expect(screen.getByTestId('kitchen-review-toolbar-figure-blocked-value')).toHaveTextContent(
+            '1',
+        );
         expect(
             screen.getByTestId('kitchen-review-toolbar-figure-unblocked-value'),
         ).toHaveTextContent('0');

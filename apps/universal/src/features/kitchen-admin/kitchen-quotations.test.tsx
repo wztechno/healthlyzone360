@@ -271,9 +271,9 @@ describe('kitchen quotations', () => {
         await waitForTable();
 
         // Four authored: two submitted, one quoted, one accepted.
-        expect(
-            screen.getByTestId('kitchen-quotations-toolbar-figure-all-value'),
-        ).toHaveTextContent('4');
+        expect(screen.getByTestId('kitchen-quotations-toolbar-figure-all-value')).toHaveTextContent(
+            '4',
+        );
         expect(
             screen.getByTestId('kitchen-quotations-toolbar-figure-awaiting-value'),
         ).toHaveTextContent('2');
@@ -313,9 +313,9 @@ describe('kitchen quotations', () => {
         expect(repositories.kitchenQuotations.listQuotations).toHaveBeenCalledTimes(1);
 
         // Figures count the whole queue, not the filtered view — they answer "what is on my plate?"
-        expect(
-            screen.getByTestId('kitchen-quotations-toolbar-figure-all-value'),
-        ).toHaveTextContent('4');
+        expect(screen.getByTestId('kitchen-quotations-toolbar-figure-all-value')).toHaveTextContent(
+            '4',
+        );
     });
 
     it('reads the quotation on its own, because the list carries no lines', async () => {

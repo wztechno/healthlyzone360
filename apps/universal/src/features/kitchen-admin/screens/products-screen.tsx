@@ -407,7 +407,11 @@ function ProductsList({
  * The Lens bar's figures: All · Published · Draft · Awaiting review, then the two that block
  * publishing. Missing Arabic and No pack count the rows the list shows, the status included.
  */
-function lensFigures(list: ProductListState, t: TFunction, allLabel: string): readonly LensFigure[] {
+function lensFigures(
+    list: ProductListState,
+    t: TFunction,
+    allLabel: string,
+): readonly LensFigure[] {
     const counted = (count: number) => (list.countsPending ? null : count);
     return [
         ...statusLensFigures(list, t, {

@@ -15,7 +15,10 @@ const drafts = createSessionDraftStore<{ readonly name: string }>({
     parse: (raw) => raw as { readonly name: string },
 });
 
-function recipe(key: string, subject: string | null = 'Bbq Sauce Dip'): Omit<KeptWork, 'id' | 'keptAt'> {
+function recipe(
+    key: string,
+    subject: string | null = 'Bbq Sauce Dip',
+): Omit<KeptWork, 'id' | 'keptAt'> {
     return {
         kind: 'recipe',
         subject,

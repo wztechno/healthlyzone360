@@ -219,9 +219,7 @@ describe('the production desk queue', () => {
         });
         // All batches, the three open states and Unvalued.
         expect(
-            within(screen.getByTestId('kitchen-production-desk-toolbar-figures')).getAllByText(
-                '—',
-            ),
+            within(screen.getByTestId('kitchen-production-desk-toolbar-figures')).getAllByText('—'),
         ).toHaveLength(5);
     });
 
