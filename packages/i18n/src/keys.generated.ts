@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9167 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9177 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4388,12 +4388,14 @@ export interface NamespaceKeys {
     | 'ops.cashReport.columnAmount'
     | 'ops.cashReport.columnCount'
     | 'ops.cashReport.columnCurrency'
+    | 'ops.cashReport.columnDay'
     | 'ops.cashReport.columnMethod'
     | 'ops.cashReport.dateInvalidBody'
     | 'ops.cashReport.dateInvalidTitle'
     | 'ops.cashReport.dateLabel'
     | 'ops.cashReport.emptyBody'
     | 'ops.cashReport.emptyTitle'
+    | 'ops.cashReport.fromLabel'
     | 'ops.cashReport.kpiCurrencies'
     | 'ops.cashReport.kpiCurrenciesCaption'
     | 'ops.cashReport.kpiReceipts'
@@ -4402,13 +4404,21 @@ export interface NamespaceKeys {
     | 'ops.cashReport.kpiRowsCaption'
     | 'ops.cashReport.loadErrorTitle'
     | 'ops.cashReport.measuredOn'
+    | 'ops.cashReport.period.custom'
+    | 'ops.cashReport.period.month'
+    | 'ops.cashReport.period.today'
+    | 'ops.cashReport.period.week'
+    | 'ops.cashReport.period.yesterday'
+    | 'ops.cashReport.periodLabel'
     | 'ops.cashReport.scopeBody'
     | 'ops.cashReport.scopeTitle'
     | 'ops.cashReport.subtitle'
     | 'ops.cashReport.summaryCurrencies'
     | 'ops.cashReport.summaryRows'
     | 'ops.cashReport.title'
+    | 'ops.cashReport.toLabel'
     | 'ops.cashReport.totalsHeading'
+    | 'ops.cashReport.windowTooLongTitle'
     | 'ops.costReport.caption'
     | 'ops.costReport.chartCogs'
     | 'ops.costReport.chartCogsMix'
@@ -13573,12 +13583,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.cashReport.columnAmount',
   'kitchen:ops.cashReport.columnCount',
   'kitchen:ops.cashReport.columnCurrency',
+  'kitchen:ops.cashReport.columnDay',
   'kitchen:ops.cashReport.columnMethod',
   'kitchen:ops.cashReport.dateInvalidBody',
   'kitchen:ops.cashReport.dateInvalidTitle',
   'kitchen:ops.cashReport.dateLabel',
   'kitchen:ops.cashReport.emptyBody',
   'kitchen:ops.cashReport.emptyTitle',
+  'kitchen:ops.cashReport.fromLabel',
   'kitchen:ops.cashReport.kpiCurrencies',
   'kitchen:ops.cashReport.kpiCurrenciesCaption',
   'kitchen:ops.cashReport.kpiReceipts',
@@ -13587,13 +13599,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.cashReport.kpiRowsCaption',
   'kitchen:ops.cashReport.loadErrorTitle',
   'kitchen:ops.cashReport.measuredOn',
+  'kitchen:ops.cashReport.period.custom',
+  'kitchen:ops.cashReport.period.month',
+  'kitchen:ops.cashReport.period.today',
+  'kitchen:ops.cashReport.period.week',
+  'kitchen:ops.cashReport.period.yesterday',
+  'kitchen:ops.cashReport.periodLabel',
   'kitchen:ops.cashReport.scopeBody',
   'kitchen:ops.cashReport.scopeTitle',
   'kitchen:ops.cashReport.subtitle',
   'kitchen:ops.cashReport.summaryCurrencies',
   'kitchen:ops.cashReport.summaryRows',
   'kitchen:ops.cashReport.title',
+  'kitchen:ops.cashReport.toLabel',
   'kitchen:ops.cashReport.totalsHeading',
+  'kitchen:ops.cashReport.windowTooLongTitle',
   'kitchen:ops.costReport.caption',
   'kitchen:ops.costReport.chartCogs',
   'kitchen:ops.costReport.chartCogsMix',

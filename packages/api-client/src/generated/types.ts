@@ -9819,6 +9819,10 @@ export type AddOrderDeskCustomerAddressRequest = {
  *
  */
 export type OrderDeskCashReportRow = {
+    /**
+     * The UTC day the receipts were confirmed on. Part of the row's key.
+     */
+    day: string;
     confirmed_by: Uuid;
     /**
      * **Null for an agent whose profile was never completed.** They still
@@ -9867,8 +9871,8 @@ export type OrderDeskCashReportTotal = {
 export type OrderDeskCashReportEnvelope = {
     data: {
         /**
-         * Named agents first, nameless last, then a total order over the
-         * remaining key columns — so two identical requests cannot return
+         * Oldest day first, then named agents first, nameless last, then a
+         * total order over the remaining key columns — so two identical requests cannot return
          * the same figures in two orders. Empty on a day nobody took
          * anything, which is a real answer rather than a gap.
          *
@@ -9881,9 +9885,13 @@ export type OrderDeskCashReportEnvelope = {
     };
     meta: Meta & {
         /**
-         * The day reported, echoed because the boundary below is what it means.
+         * The first day reported, echoed because the boundary below is what it means.
          */
-        date: string;
+        from: string;
+        /**
+         * The last day reported, inclusive.
+         */
+        to: string;
         /**
          * The site the report was narrowed to, or null for the whole organisation.
          */
@@ -33283,13 +33291,15 @@ export type GetOrderDeskCashReportData = {
     path?: never;
     query: {
         /**
-         * The day to report, read on the UTC clock. Required, and one day
-         * rather than a range: reconciling a till is a daily act, and a report
-         * summing Monday and Tuesday is one nobody can stand a cash box next
-         * to.
+         * The first day of the window, read on the UTC clock.
+         */
+        from: string;
+        /**
+         * The last day of the window, inclusive, on or after `from`. A window
+         * longer than 31 days is a `422` naming `to`.
          *
          */
-        date: string;
+        to: string;
         /**
          * Narrow to the site that cooked it, through the order. Omitted, the
          * report is organisation-wide. Orders with no branch are excluded when
@@ -33328,7 +33338,7 @@ export type GetOrderDeskCashReportError = GetOrderDeskCashReportErrors[keyof Get
 
 export type GetOrderDeskCashReportResponses = {
     /**
-     * One day's takings by agent, method and currency, with the per-method totals.
+     * The window's takings by day, agent, method and currency, with the per-method totals.
      */
     200: OrderDeskCashReportEnvelope;
 };

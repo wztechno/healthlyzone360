@@ -1361,7 +1361,8 @@ describe('createApiOrderDeskRepository — the fulfilment-type filter', () => {
 describe('createApiOrderDeskRepository — getCashReport', () => {
     const CASH_META = {
         correlation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4903',
-        date: '2026-05-10',
+        from: '2026-05-10',
+        to: '2026-05-10',
         branch_id: null,
         timezone: 'UTC',
         count: 2,
@@ -1371,6 +1372,7 @@ describe('createApiOrderDeskRepository — getCashReport', () => {
         data: {
             rows: [
                 {
+                    day: '2026-05-10',
                     confirmed_by: DRIVER_UUID,
                     display_name: 'Sara Nasr',
                     method: 'cash_on_delivery',
@@ -1379,6 +1381,7 @@ describe('createApiOrderDeskRepository — getCashReport', () => {
                     amount_minor_sum: 4_000,
                 },
                 {
+                    day: '2026-05-10',
                     confirmed_by: DRIVER_UUID,
                     display_name: null,
                     method: 'cash_on_delivery',
@@ -1405,15 +1408,15 @@ describe('createApiOrderDeskRepository — getCashReport', () => {
         meta: CASH_META,
     };
 
-    it('sends the day and nothing else when no branch is named', async () => {
+    it('sends the window and nothing else when no branch is named', async () => {
         const { repository, calls } = harness([{ status: 200, body: CASH_BODY }]);
 
-        await repository.getCashReport({ date: '2026-05-10' });
+        await repository.getCashReport({ from: '2026-05-10', to: '2026-05-10' });
 
         expect(calls[0]?.method).toBe('GET');
         // No `branch_id=`: omitted is the organisation-wide read, and an empty value would be the
         // client naming a field it has no value for.
-        expect(calls[0]?.path).toBe('/catalogue/order-desk/cash-report?date=2026-05-10');
+        expect(calls[0]?.path).toBe('/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10');
     });
 
     it('sends the branch when one is named', async () => {
@@ -1421,20 +1424,21 @@ describe('createApiOrderDeskRepository — getCashReport', () => {
             { status: 200, body: { ...CASH_BODY, meta: { ...CASH_META, branch_id: BRANCH_UUID } } },
         ]);
 
-        await repository.getCashReport({ date: '2026-05-10', branchId: BRANCH_UUID as never });
+        await repository.getCashReport({ from: '2026-05-10', to: '2026-05-10', branchId: BRANCH_UUID as never });
 
         expect(calls[0]?.path).toBe(
-            `/catalogue/order-desk/cash-report?date=2026-05-10&branch_id=${BRANCH_UUID}`,
+            `/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10&branch_id=${BRANCH_UUID}`,
         );
     });
 
     it('keeps the currency on every row and total, and folds nothing', async () => {
         const { repository } = harness([{ status: 200, body: CASH_BODY }]);
 
-        const report = await repository.getCashReport({ date: '2026-05-10' });
+        const report = await repository.getCashReport({ from: '2026-05-10', to: '2026-05-10' });
 
         expect(report.rows).toEqual([
             {
+                day: '2026-05-10',
                 confirmedBy: DRIVER_UUID,
                 displayName: 'Sara Nasr',
                 method: 'cash_on_delivery',
@@ -1443,6 +1447,7 @@ describe('createApiOrderDeskRepository — getCashReport', () => {
                 amountMinorSum: 4_000,
             },
             {
+                day: '2026-05-10',
                 confirmedBy: DRIVER_UUID,
                 // Nameless, and still listed: dropping the row would be losing cash from a
                 // reconciliation to protect a null.
@@ -1463,10 +1468,11 @@ describe('createApiOrderDeskRepository — getCashReport', () => {
     it('carries the clock the day was cut on rather than assuming it', async () => {
         const { repository } = harness([{ status: 200, body: CASH_BODY }]);
 
-        const report = await repository.getCashReport({ date: '2026-05-10' });
+        const report = await repository.getCashReport({ from: '2026-05-10', to: '2026-05-10' });
 
         expect(report.meta).toEqual({
-            date: '2026-05-10',
+            from: '2026-05-10',
+            to: '2026-05-10',
             branchId: null,
             timezone: 'UTC',
             count: 2,

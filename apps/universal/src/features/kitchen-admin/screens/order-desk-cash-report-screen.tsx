@@ -19,7 +19,7 @@ import { View } from 'react-native';
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useOrderDeskCashReportQuery } from '../../../data/order-desk-hooks.ts';
-import { todayIso } from '../../commerce/dates.ts';
+import { addDays, daysBetween, isIsoDate, isoWeekday, todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
@@ -32,11 +32,18 @@ import {
 } from '../catalogue/use-column-controls.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
+import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 
 /**
- * `/kitchen/order-desk/cash-report` — who took what, on one day.
+ * `/kitchen/order-desk/cash-report` — who took what, day by day.
+ *
+ * ## A window of days, each still its own till-day
+ *
+ * The reader picks a From–To window (at most {@link MAX_WINDOW_DAYS} days) or one of the period
+ * shortcuts. The day is part of every row's key on the server, so a week is seven days of rows,
+ * never one row summing Monday and Tuesday — and the Day column is how each one is stood next to its
+ * own cash box. The totals panel sums the whole window, per method and currency.
  *
  * ## What this is, and what it is honestly not
  *
@@ -109,18 +116,24 @@ function OrderDeskCashReport() {
      * Opens on today, which is the day somebody reconciling a till almost always wants.
      *
      * `todayIso()` reads the device's clock while the report is cut on UTC, and the two can differ
-     * by a day either side of midnight. That is not papered over: the header states the day and the
-     * zone the *server* used, so a reader whose "today" and the report's disagree can see that they
-     * do rather than wonder why the figures look wrong.
+     * by a day either side of midnight. The Day column prints the day the *server* filed each row
+     * under, so a reader whose "today" and the report's disagree can see that they do.
      */
-    const [date, setDate] = useState(() => todayIso());
+    const [today] = useState(() => todayIso());
+    const [from, setFrom] = useState(today);
+    const [to, setTo] = useState(today);
+
+    const periods = periodWindows(today);
+    const period: Period =
+        PRESETS.find((key) => periods[key].from === from && periods[key].to === to) ?? 'custom';
 
     /**
-     * The question, or `null` while the box holds something that is not a date.
+     * The question, or `null` while the window is not one the server would answer — a half-typed
+     * date, To before From, or longer than {@link MAX_WINDOW_DAYS}. Asking for any of those would
+     * spend a `422`.
      *
      * Memoised because the hook keys on the whole object (query-key shape rule 3) — a fresh literal
-     * every render would be a fresh cache entry every render. `null` while `2026-0` is on screen,
-     * because asking for it would spend a `422` per keystroke.
+     * every render would be a fresh cache entry every render.
      *
      * **No `branchId`.** The endpoint accepts one and this screen sends none, on the queue's own
      * argument: narrowing goes through the order, and an order delivered through an
@@ -129,7 +142,12 @@ function OrderDeskCashReport() {
      * the one failure this screen cannot afford, and an in-screen branch picker belongs to the slice
      * where somebody chooses to narrow and can see that they have.
      */
-    const filters = useMemo(() => (isIsoDate(date) ? { date } : null), [date]);
+    const span = isIsoDate(from) && isIsoDate(to) ? daysBetween(from, to) : null;
+    const tooLong = span !== null && span >= MAX_WINDOW_DAYS;
+    const filters = useMemo(
+        () => (span !== null && span >= 0 && !tooLong ? { from, to } : null),
+        [from, to, span, tooLong],
+    );
 
     const report = useOrderDeskCashReportQuery(filters);
 
@@ -141,6 +159,25 @@ function OrderDeskCashReport() {
         OrderDeskCashReportRow,
         CatalogueColumn<OrderDeskCashReportRow>
     >[] = [
+        {
+            key: 'day',
+            label: t('kitchen:ops.cashReport.columnDay'),
+            width: 130,
+            priority: 98,
+            sort: (left, right, direction) => compareText(left.day, right.day, direction),
+            render: (row) => (
+                <Text tone="secondary" className="tabular-nums" testID={`${rowTestId(row)}-day`}>
+                    {formatter.formatDate(row.day, {
+                        weekday: 'short',
+                        day: 'numeric',
+                        month: 'short',
+                        // The day is a UTC calendar day; read in a local zone west of Greenwich
+                        // it would print as the day before.
+                        timeZone: 'UTC',
+                    })}
+                </Text>
+            ),
+        },
         {
             key: 'agent',
             role: 'title',
@@ -235,7 +272,10 @@ function OrderDeskCashReport() {
             ),
         },
     ];
-    const controls = useColumnControls(rows, columns, 'kitchen-order-desk-cash-report-table');
+    // `.v2` since the Day column: a column choice saved before it existed would otherwise hide it.
+    const controls = useColumnControls(rows, columns, 'kitchen-order-desk-cash-report-table', {
+        picker: { storageKey: 'kitchen-order-desk-cash-report.v2' },
+    });
 
     return (
         <Cascade space="md" testID="kitchen-order-desk-cash-report-screen">
@@ -276,13 +316,48 @@ function OrderDeskCashReport() {
                         },
                     ];
                 })()}
+                /*
+                 * The period shortcut, then the window it stands for. Picking a shortcut writes both
+                 * days; editing either day by hand reads back as Custom, because the shortcut is
+                 * derived from the window rather than stored beside it.
+                 */
                 scope={
-                    <DatePickerButton
-                        testID="kitchen-order-desk-cash-report-date"
-                        label={t('kitchen:ops.cashReport.dateLabel')}
-                        value={date}
-                        onChange={setDate}
-                    />
+                    <>
+                        <LensScope<Period>
+                            testID="kitchen-order-desk-cash-report-period"
+                            label={t('kitchen:ops.cashReport.periodLabel')}
+                            value={period}
+                            onChange={(next) => {
+                                if (next === 'custom') return;
+                                setFrom(periods[next].from);
+                                setTo(periods[next].to);
+                            }}
+                            options={PERIODS.map((key) => ({
+                                value: key,
+                                label: t(PERIOD_LABELS[key]),
+                                testID: `kitchen-order-desk-cash-report-period-${key}`,
+                            }))}
+                        />
+                        <View className="z-auto flex-row items-center gap-tight">
+                            <DatePickerButton
+                                testID="kitchen-order-desk-cash-report-from"
+                                label={t('kitchen:ops.cashReport.fromLabel')}
+                                value={from}
+                                max={to}
+                                onChange={setFrom}
+                            />
+                            <Text variant="caption" tone="secondary" aria-hidden>
+                                {t('kitchen:ops.requirements.windowTo')}
+                            </Text>
+                            <DatePickerButton
+                                testID="kitchen-order-desk-cash-report-to"
+                                label={t('kitchen:ops.cashReport.toLabel')}
+                                value={to}
+                                min={from}
+                                onChange={setTo}
+                            />
+                        </View>
+                    </>
                 }
                 result={
                     report.isPending && filters !== null
@@ -302,12 +377,22 @@ function OrderDeskCashReport() {
             />
 
             {filters === null ? (
-                <Callout
-                    testID="kitchen-order-desk-cash-report-date-invalid"
-                    tone="info"
-                    title={t('kitchen:ops.cashReport.dateInvalidTitle')}
-                    body={t('kitchen:ops.cashReport.dateInvalidBody')}
-                />
+                tooLong ? (
+                    <Callout
+                        testID="kitchen-order-desk-cash-report-window-too-long"
+                        tone="info"
+                        title={t('kitchen:ops.cashReport.windowTooLongTitle', {
+                            count: MAX_WINDOW_DAYS,
+                        })}
+                    />
+                ) : (
+                    <Callout
+                        testID="kitchen-order-desk-cash-report-date-invalid"
+                        tone="info"
+                        title={t('kitchen:ops.cashReport.dateInvalidTitle')}
+                        body={t('kitchen:ops.cashReport.dateInvalidBody')}
+                    />
+                )
             ) : report.isPending ? (
                 <TableSkeleton testID="kitchen-order-desk-cash-report-loading" rows={6} />
             ) : failure !== null ? (
@@ -394,8 +479,42 @@ function OrderDeskCashReport() {
 /** How wide the totals panel may grow. It is a short list of pairs, not a second table. */
 const TOTALS_MAX_WIDTH = 620;
 
+/** The longest window the server answers, both ends counted — any calendar month fits. */
+const MAX_WINDOW_DAYS = 31;
+
+/** The shortcuts. `custom` is not one: it is what any other window reads back as. */
+const PRESETS = ['today', 'yesterday', 'week', 'month'] as const;
+type Preset = (typeof PRESETS)[number];
+type Period = Preset | 'custom';
+
+/** The period menu, in order. */
+const PERIODS: readonly Period[] = [...PRESETS, 'custom'];
+
+const PERIOD_LABELS = {
+    today: 'kitchen:ops.cashReport.period.today',
+    yesterday: 'kitchen:ops.cashReport.period.yesterday',
+    week: 'kitchen:ops.cashReport.period.week',
+    month: 'kitchen:ops.cashReport.period.month',
+    custom: 'kitchen:ops.cashReport.period.custom',
+} as const satisfies Record<Period, string>;
+
 /**
- * A row's identity, which is all three of its key parts.
+ * The window each shortcut stands for, ending today. The week starts on Monday, as every weekday
+ * row in the workspace does; the month on the first.
+ */
+function periodWindows(today: string): Record<Preset, { from: string; to: string }> {
+    const yesterday = addDays(today, -1) ?? today;
+    const monday = addDays(today, 1 - (isoWeekday(today) ?? 1)) ?? today;
+    return {
+        today: { from: today, to: today },
+        yesterday: { from: yesterday, to: yesterday },
+        week: { from: monday, to: today },
+        month: { from: `${today.slice(0, 8)}01`, to: today },
+    };
+}
+
+/**
+ * A row's identity, which is all four of its key parts — the day first.
  *
  * One agent legitimately appears three times — cash, counter cash and a transfer — and twice more if
  * the kitchen takes two currencies. Keying on the person alone would collapse rows React must keep
@@ -403,17 +522,10 @@ const TOTALS_MAX_WIDTH = 620;
  * whole shape exists to preserve.
  */
 function rowTestId(row: OrderDeskCashReportRow): string {
-    return `kitchen-order-desk-cash-${row.confirmedBy}-${row.method}-${row.currencyCode}`;
+    return `kitchen-order-desk-cash-${row.day}-${row.confirmedBy}-${row.method}-${row.currencyCode}`;
 }
 
 /** The same rule one level up: a total is a method **and** a currency, never a method alone. */
 function totalKey(total: OrderDeskCashReportTotal): string {
     return `${total.method}-${total.currencyCode}`;
-}
-
-/** `YYYY-MM-DD`, and a date that exists. `2026-02-31` parses and is not a day. */
-function isIsoDate(value: string): boolean {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-    const parsed = new Date(`${value}T00:00:00Z`);
-    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }

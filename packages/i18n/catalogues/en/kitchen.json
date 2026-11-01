@@ -1641,8 +1641,8 @@
             "kpiReceiptsCaption": "Confirmed on this day",
             "kpiRowsCaption": "Agent, method and currency",
             "kpiCurrenciesCaption": "Totals are never mixed",
-            "subtitle": "What each agent took on one day, and how it arrived.",
-            "caption": "The day's takings by agent and method",
+            "subtitle": "What each agent took, day by day, and how it arrived.",
+            "caption": "Takings by day, agent and method",
             "measuredOn": "The day of {{date}}, cut on the {{timezone}} clock.",
             "scopeTitle": "This says who took what, not whether the drawer balances",
             "scopeBody": "Nobody has told this system what was in the till at the start or the end of a shift, so nothing here can be checked against a count. It is the record of what each person wrote down as they took it.",
@@ -1650,8 +1650,8 @@
             "dateInvalidTitle": "That is not a day yet",
             "dateInvalidBody": "Finish the date as YYYY-MM-DD and the takings will load.",
             "loadErrorTitle": "The takings could not be loaded",
-            "emptyTitle": "Nothing was taken that day",
-            "emptyBody": "No payment was written down against any order on this day. That is an answer rather than a gap.",
+            "emptyTitle": "Nothing was taken in this period",
+            "emptyBody": "No payment was written down against any order on these days. That is an answer rather than a gap.",
             "columnAgent": "Taken by",
             "columnMethod": "Type",
             "columnCount": "Receipts",
@@ -1664,7 +1664,20 @@
             "summaryRows_one": "{{count}} line",
             "summaryRows_other": "{{count}} lines",
             "summaryCurrencies_one": "{{count}} currency",
-            "summaryCurrencies_other": "{{count}} currencies"
+            "summaryCurrencies_other": "{{count}} currencies",
+            "periodLabel": "Period",
+            "fromLabel": "From",
+            "toLabel": "To",
+            "columnDay": "Day",
+            "windowTooLongTitle_one": "Pick at most {{count}} day",
+            "windowTooLongTitle_other": "Pick at most {{count}} days",
+            "period": {
+                "today": "Today",
+                "yesterday": "Yesterday",
+                "week": "This week",
+                "month": "This month",
+                "custom": "Custom"
+            }
         },
         "batch": {
             "recipeLabel": "Recipe",

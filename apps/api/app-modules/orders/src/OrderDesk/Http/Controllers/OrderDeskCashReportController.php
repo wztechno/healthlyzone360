@@ -12,9 +12,19 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
- * GET /api/v1/catalogue/order-desk/cash-report — who took what, on one day.
+ * GET /api/v1/catalogue/order-desk/cash-report — who took what, day by day.
+ *
+ * ## A range of days, still read one day at a time
+ *
+ * `from` and `to` name a window of whole UTC days, both inclusive, at most
+ * {@see self::MAX_DAYS} long. The day is part of every row's key, so a week is
+ * seven days of rows rather than one row summing Monday and Tuesday — each day
+ * can still be stood next to that day's cash box. `totals` sum the whole window
+ * per method and currency, which is legal for the same reason they always were:
+ * it never crosses a currency.
  *
  * ## This is the till-shift mitigation, and it says so
  *
@@ -100,33 +110,50 @@ final class OrderDeskCashReportController
      */
     private const string TIMEZONE = 'UTC';
 
+    /**
+     * The longest window one request may name, in days, both ends counted.
+     * Long enough for any calendar month, short enough that the answer stays a
+     * table somebody reads rather than an export.
+     */
+    private const int MAX_DAYS = 31;
+
     public function __construct(private readonly OrderLocator $locator) {}
 
     /**
      * @throws ApiException
+     * @throws ValidationException
      */
     public function __invoke(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            // Required, and one day rather than a range. A range would be a
-            // different document: reconciling a till is a daily act, and a
-            // report summing Monday and Tuesday would be one nobody could stand
-            // a cash box next to.
-            'date' => ['required', 'date_format:Y-m-d'],
+            'from' => ['required', 'date_format:Y-m-d'],
+            'to' => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
             'branch_id' => ['nullable', 'uuid'],
         ]);
 
-        $date = CarbonImmutable::createFromFormat('Y-m-d', (string) $validated['date'], self::TIMEZONE)
+        $from = CarbonImmutable::createFromFormat('Y-m-d', (string) $validated['from'], self::TIMEZONE)
             ->startOfDay();
+        $to = CarbonImmutable::createFromFormat('Y-m-d', (string) $validated['to'], self::TIMEZONE)
+            ->startOfDay();
+
+        // A `ValidationException`, as the calendar refuses its own oversized
+        // window, so a client reads `details.fields.to` for every kind of bad `to`.
+        if ($to->greaterThan($from->addDays(self::MAX_DAYS - 1))) {
+            throw ValidationException::withMessages([
+                'to' => 'The cash report window may not exceed '.self::MAX_DAYS.' days.',
+            ]);
+        }
+
         $branchId = isset($validated['branch_id']) ? (string) $validated['branch_id'] : null;
 
-        $rows = $this->takings($this->locator->sellerId(), $date, $branchId);
+        $rows = $this->takings($this->locator->sellerId(), $from, $to, $branchId);
 
         return ApiResponse::data([
             'rows' => $rows,
             'totals' => $this->totals($rows),
         ], [
-            'date' => $date->toDateString(),
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
             'branch_id' => $branchId,
             // Echoed because the client did not choose it and cannot derive it
             // — and because a screen that did not say which midnight it was
@@ -137,7 +164,7 @@ final class OrderDeskCashReportController
     }
 
     /**
-     * One day's receipts, grouped by who took them, how, and in what.
+     * The window's receipts, grouped by day, who took them, how, and in what.
      *
      * **One statement, grouped in SQL.** The alternative — read the day's
      * receipts and group them in PHP — would pull every row of a busy counter's
@@ -151,8 +178,8 @@ final class OrderDeskCashReportController
      * isolation: there is no second organisation column in the answer to catch a
      * mistake with.
      *
-     * The window is **half-open** — `>= midnight` and `< next midnight` — rather
-     * than a `whereBetween` on two instants. A closed upper bound at
+     * The window is **half-open** — `>= midnight of from` and `< midnight after
+     * to` — rather than a `whereBetween` on two instants. A closed upper bound at
      * `23:59:59.999999` is a boundary somebody eventually has to reason about
      * with microseconds, and a receipt confirmed in the last tick of the day
      * would sit in a report on neither side of it.
@@ -165,7 +192,11 @@ final class OrderDeskCashReportController
      * join cannot fan out (`user_profiles.user_id` is unique), which is what
      * makes it safe to group across it.
      *
+     * The day is read on the UTC clock in SQL, so it is the same day the
+     * window was cut on.
+     *
      * @return list<array{
+     *     day: string,
      *     confirmed_by: string,
      *     display_name: string|null,
      *     method: string,
@@ -174,16 +205,18 @@ final class OrderDeskCashReportController
      *     amount_minor_sum: int
      * }>
      */
-    private function takings(string $organisationId, CarbonImmutable $date, ?string $branchId): array
+    private function takings(string $organisationId, CarbonImmutable $from, CarbonImmutable $to, ?string $branchId): array
     {
         // Assembled in SQL so the value and the sort agree, exactly as
         // `OrderDeskDriverIndexController` assembles it. `NULLIF` turns both
         // "no profile at all" and the empty string a blank pair of names would
         // produce into one null the wire can carry honestly.
         $name = "nullif(trim(coalesce(user_profiles.given_name, '') || ' ' || coalesce(user_profiles.family_name, '')), '')";
+        $day = "(order_payment_receipts.confirmed_at at time zone '".self::TIMEZONE."')::date";
 
         $query = DB::table('order_payment_receipts')
-            ->select([
+            ->selectRaw($day.' as day')
+            ->addSelect([
                 'order_payment_receipts.confirmed_by',
                 'order_payment_receipts.method',
                 'order_payment_receipts.currency_code',
@@ -193,8 +226,9 @@ final class OrderDeskCashReportController
             ->selectRaw('sum(order_payment_receipts.amount_minor) as amount_minor_sum')
             ->leftJoin('user_profiles', 'user_profiles.user_id', '=', 'order_payment_receipts.confirmed_by')
             ->where('order_payment_receipts.organisation_id', $organisationId)
-            ->where('order_payment_receipts.confirmed_at', '>=', $date)
-            ->where('order_payment_receipts.confirmed_at', '<', $date->addDay())
+            ->where('order_payment_receipts.confirmed_at', '>=', $from)
+            ->where('order_payment_receipts.confirmed_at', '<', $to->addDay())
+            ->groupByRaw($day)
             ->groupBy([
                 'order_payment_receipts.confirmed_by',
                 'order_payment_receipts.method',
@@ -204,9 +238,10 @@ final class OrderDeskCashReportController
             // by too. It is functionally dependent on `confirmed_by` and adds no
             // rows; PostgreSQL cannot prove that across a join, so it is stated.
             ->groupByRaw($name)
-            // Named agents first, nameless last, then a total order over the two
-            // remaining key columns so that two identical requests cannot return
-            // the same figures in two orders.
+            // Day by day, then named agents first, nameless last, then a total
+            // order over the two remaining key columns so that two identical
+            // requests cannot return the same figures in two orders.
+            ->orderByRaw($day.' asc')
             ->orderByRaw('lower('.$name.') asc nulls last')
             ->orderBy('order_payment_receipts.confirmed_by')
             ->orderBy('order_payment_receipts.method')
@@ -220,6 +255,7 @@ final class OrderDeskCashReportController
             $displayName = $row->display_name;
 
             $rows[] = [
+                'day' => (string) $row->day,
                 'confirmed_by' => (string) $row->confirmed_by,
                 'display_name' => is_string($displayName) && $displayName !== '' ? $displayName : null,
                 'method' => (string) $row->method,
@@ -279,6 +315,7 @@ final class OrderDeskCashReportController
      * therefore as deterministic as they are.
      *
      * @param  list<array{
+     *     day: string,
      *     confirmed_by: string,
      *     display_name: string|null,
      *     method: string,

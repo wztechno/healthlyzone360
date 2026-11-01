@@ -190,7 +190,7 @@ it('groups the day by agent, method and currency, and never adds two currencies 
 
     cashReceipt($this, $order, $omar, PaymentMethod::CashAtCounter, 400, 'USD', '2026-05-10 11:00:00');
 
-    $response = $this->getJson('/api/v1/catalogue/order-desk/cash-report?date=2026-05-10', $this->headers)
+    $response = $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10', $this->headers)
         ->assertOk();
 
     $rows = $response->json('data.rows');
@@ -252,7 +252,7 @@ it('cuts the day on UTC, half-open, and says so', function (): void {
     cashReceipt($this, $order, $agent, PaymentMethod::CashAtCounter, 400, 'USD', '2026-05-10 23:59:59');
     cashReceipt($this, $order, $agent, PaymentMethod::CashAtCounter, 800, 'USD', '2026-05-11 00:00:00');
 
-    $response = $this->getJson('/api/v1/catalogue/order-desk/cash-report?date=2026-05-10', $this->headers)
+    $response = $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10', $this->headers)
         ->assertOk();
 
     expect($response->json('data.rows'))->toHaveCount(1)
@@ -261,18 +261,19 @@ it('cuts the day on UTC, half-open, and says so', function (): void {
         // Echoed rather than assumed: a table that did not say which midnight it
         // was cut on would be implying the reader's own.
         ->and($response->json('meta.timezone'))->toBe('UTC')
-        ->and($response->json('meta.date'))->toBe('2026-05-10');
+        ->and($response->json('meta.from'))->toBe('2026-05-10')
+        ->and($response->json('meta.to'))->toBe('2026-05-10');
 
     // The neighbours, so that "600" cannot be a coincidence of two receipts
     // landing anywhere at all.
     expect(
-        $this->getJson('/api/v1/catalogue/order-desk/cash-report?date=2026-05-09', $this->headers)
+        $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-09&to=2026-05-09', $this->headers)
             ->assertOk()
             ->json('data.rows.0.amount_minor_sum')
     )->toBe(100);
 
     expect(
-        $this->getJson('/api/v1/catalogue/order-desk/cash-report?date=2026-05-11', $this->headers)
+        $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-11&to=2026-05-11', $this->headers)
             ->assertOk()
             ->json('data.rows.0.amount_minor_sum')
     )->toBe(800);
@@ -301,13 +302,13 @@ it('narrows through the order to a branch, and drops branchless orders when it d
 
     // Unnarrowed: both, because both are this kitchen's money.
     expect(
-        $this->getJson('/api/v1/catalogue/order-desk/cash-report?date=2026-05-10', $this->headers)
+        $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10', $this->headers)
             ->assertOk()
             ->json('data.rows.0.amount_minor_sum')
     )->toBe(800);
 
     $narrowed = $this->getJson(
-        '/api/v1/catalogue/order-desk/cash-report?date=2026-05-10&branch_id='.$branch->getKey(),
+        '/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10&branch_id='.$branch->getKey(),
         $this->headers,
     )->assertOk();
 
@@ -327,7 +328,7 @@ it('lists an agent who never completed a profile rather than losing their taking
     cashReceipt($this, $order, $named, PaymentMethod::CashAtCounter, 100, 'USD', '2026-05-10 09:00:00');
     cashReceipt($this, $order, $nameless, PaymentMethod::CashAtCounter, 250, 'USD', '2026-05-10 09:30:00');
 
-    $rows = $this->getJson('/api/v1/catalogue/order-desk/cash-report?date=2026-05-10', $this->headers)
+    $rows = $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10', $this->headers)
         ->assertOk()
         ->json('data.rows');
 
@@ -342,7 +343,7 @@ it('lists an agent who never completed a profile rather than losing their taking
 });
 
 it('answers an empty day rather than a hole', function (): void {
-    $response = $this->getJson('/api/v1/catalogue/order-desk/cash-report?date=2026-05-10', $this->headers)
+    $response = $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10', $this->headers)
         ->assertOk();
 
     expect($response->json('data.rows'))->toBe([])
@@ -351,16 +352,53 @@ it('answers an empty day rather than a hole', function (): void {
         ->and($response->json('meta.branch_id'))->toBeNull();
 });
 
-it('refuses a request with no day, and a day that is not one', function (): void {
+it('refuses a request with no window, and a day that is not one', function (): void {
     $this->getJson('/api/v1/catalogue/order-desk/cash-report', $this->headers)
         ->assertStatus(422)
         ->assertJsonPath('error.code', 'validation.failed')
-        ->assertJsonStructure(['error' => ['details' => ['fields' => ['date']]]]);
+        ->assertJsonStructure(['error' => ['details' => ['fields' => ['from', 'to']]]]);
 
-    $this->getJson('/api/v1/catalogue/order-desk/cash-report?date=10-05-2026', $this->headers)
+    $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=10-05-2026&to=10-05-2026', $this->headers)
         ->assertStatus(422)
         ->assertJsonPath('error.code', 'validation.failed')
-        ->assertJsonStructure(['error' => ['details' => ['fields' => ['date']]]]);
+        ->assertJsonStructure(['error' => ['details' => ['fields' => ['from']]]]);
+});
+
+it('refuses a window that runs backwards or past a month', function (): void {
+    $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-09', $this->headers)
+        ->assertStatus(422)
+        ->assertJsonStructure(['error' => ['details' => ['fields' => ['to']]]]);
+
+    // 31 days, both ends counted, is the longest window — the 32nd is refused.
+    $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-01&to=2026-05-31', $this->headers)
+        ->assertOk();
+
+    $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-01&to=2026-06-01', $this->headers)
+        ->assertStatus(422)
+        ->assertJsonStructure(['error' => ['details' => ['fields' => ['to']]]]);
+});
+
+it('keeps each day of a window on its own rows, and totals the window per currency', function (): void {
+    $order = cashOrder($this);
+    $agent = cashAgent($this->orgId, 'week@kitchen.test', 'Week');
+
+    cashReceipt($this, $order, $agent, PaymentMethod::CashAtCounter, 100, 'USD', '2026-05-09 23:59:59');
+    cashReceipt($this, $order, $agent, PaymentMethod::CashAtCounter, 200, 'USD', '2026-05-10 09:00:00');
+    cashReceipt($this, $order, $agent, PaymentMethod::CashAtCounter, 400, 'USD', '2026-05-12 09:00:00');
+    cashReceipt($this, $order, $agent, PaymentMethod::CashAtCounter, 800, 'USD', '2026-05-13 00:00:00');
+
+    $response = $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-12', $this->headers)
+        ->assertOk();
+
+    // Two days with money in the window, oldest first — never one row summing
+    // them, because each day is stood next to its own cash box.
+    expect(array_column($response->json('data.rows'), 'day'))->toBe(['2026-05-10', '2026-05-12'])
+        ->and(array_column($response->json('data.rows'), 'amount_minor_sum'))->toBe([200, 400])
+        ->and($response->json('data.totals'))->toHaveCount(1)
+        ->and($response->json('data.totals.0.amount_minor_sum'))->toBe(600)
+        ->and($response->json('data.totals.0.receipt_count'))->toBe(2)
+        ->and($response->json('meta.from'))->toBe('2026-05-10')
+        ->and($response->json('meta.to'))->toBe('2026-05-12');
 });
 
 it('never counts another kitchen\'s takings', function (): void {
@@ -392,7 +430,7 @@ it('never counts another kitchen\'s takings', function (): void {
         'confirmed_at' => CarbonImmutable::parse('2026-05-10 09:00:00', 'UTC'),
     ]);
 
-    $rows = $this->getJson('/api/v1/catalogue/order-desk/cash-report?date=2026-05-10', $this->headers)
+    $rows = $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10', $this->headers)
         ->assertOk()
         ->json('data.rows');
 
@@ -409,6 +447,6 @@ it('refuses a reader who may see the order book but not manage it', function ():
     forgetResolvedGuards();
     $this->actingAs($viewer);
 
-    $this->getJson('/api/v1/catalogue/order-desk/cash-report?date=2026-05-10', $this->headers)
+    $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10', $this->headers)
         ->assertForbidden();
 });

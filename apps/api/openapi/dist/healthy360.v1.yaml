@@ -15240,7 +15240,7 @@ paths:
       operationId: getOrderDeskCashReport
       tags:
         - Order desk
-      summary: Who took what, on one day
+      summary: Who took what, day by day
       description: |
         **The till-shift mitigation, and it is named as one.** The desk takes
         cash. Every note that crossed the counter is a receipt naming who says it
@@ -15296,18 +15296,31 @@ paths:
         filter. Right for "what did the Marina site take?", wrong as a default,
         which is why the default is no narrowing at all.
 
+        ## A window of days, still read one day at a time
+
+        `from` and `to` name whole UTC days, both inclusive, at most 31 of them.
+        The day is part of every row's key, so a week is seven days of rows
+        rather than one row summing Monday and Tuesday — each day can still be
+        stood next to that day's cash box. `totals` sum the whole window per
+        method and currency.
+
         Requires `order.manage_organisation` — a manager's reconciliation of
         their agents' takings, not an agent's view of their own work.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
-        - name: date
+        - name: from
+          in: query
+          required: true
+          description: The first day of the window, read on the UTC clock.
+          schema:
+            type: string
+            format: date
+        - name: to
           in: query
           required: true
           description: |
-            The day to report, read on the UTC clock. Required, and one day
-            rather than a range: reconciling a till is a daily act, and a report
-            summing Monday and Tuesday is one nobody can stand a cash box next
-            to.
+            The last day of the window, inclusive, on or after `from`. A window
+            longer than 31 days is a `422` naming `to`.
           schema:
             type: string
             format: date
@@ -15323,7 +15336,7 @@ paths:
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
-          description: One day's takings by agent, method and currency, with the per-method totals.
+          description: The window's takings by day, agent, method and currency, with the per-method totals.
           headers:
             X-Correlation-Id:
               $ref: '#/components/headers/XCorrelationId'
@@ -42696,6 +42709,7 @@ components:
     OrderDeskCashReportRow:
       type: object
       required:
+        - day
         - confirmed_by
         - display_name
         - method
@@ -42713,6 +42727,10 @@ components:
         only meaningful within one, and a shape that let a group span two would
         be a shape in which a nonsense number could be written.
       properties:
+        day:
+          type: string
+          format: date
+          description: The UTC day the receipts were confirmed on. Part of the row's key.
         confirmed_by:
           $ref: '#/components/schemas/Uuid'
         display_name:
@@ -42786,8 +42804,8 @@ components:
             rows:
               type: array
               description: |
-                Named agents first, nameless last, then a total order over the
-                remaining key columns — so two identical requests cannot return
+                Oldest day first, then named agents first, nameless last, then a
+                total order over the remaining key columns — so two identical requests cannot return
                 the same figures in two orders. Empty on a day nobody took
                 anything, which is a real answer rather than a gap.
               items:
@@ -42802,15 +42820,20 @@ components:
             - $ref: '#/components/schemas/Meta'
             - type: object
               required:
-                - date
+                - from
+                - to
                 - branch_id
                 - timezone
                 - count
               properties:
-                date:
+                from:
                   type: string
                   format: date
-                  description: The day reported, echoed because the boundary below is what it means.
+                  description: The first day reported, echoed because the boundary below is what it means.
+                to:
+                  type: string
+                  format: date
+                  description: The last day reported, inclusive.
                 branch_id:
                   type:
                     - string
