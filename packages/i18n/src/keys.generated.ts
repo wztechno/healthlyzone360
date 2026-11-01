@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9176 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9170 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4083,7 +4083,6 @@ export interface NamespaceKeys {
     | 'lens.ledgerMix'
     | 'lens.mix'
     | 'lens.ordersMix'
-    | 'lens.packagingMix'
     | 'lens.partialAction'
     | 'lens.pendingChecksAction'
     | 'lens.period.all'
@@ -4178,8 +4177,8 @@ export interface NamespaceKeys {
     | 'list.statShownUnit'
     | 'list.statTotal'
     | 'list.statTotalCaption'
-    | 'list.statUncosted'
     | 'list.statUncostedCaption'
+    | 'list.statUnpriced'
     | 'list.subtitle'
     | 'list.summaryDraft'
     | 'list.summaryMissingArabic'
@@ -5852,11 +5851,7 @@ export interface NamespaceKeys {
     | 'packaging.emptyBody'
     | 'packaging.emptyTitle'
     | 'packaging.searchPlaceholder'
-    | 'packaging.statInactive'
-    | 'packaging.statInactiveAction'
-    | 'packaging.statInactiveCaption'
     | 'packaging.statMissingArabicCaption'
-    | 'packaging.statUnpriced'
     | 'packaging.statUnpricedCaption'
     | 'packaging.viewKind'
     | 'plans.addDuration'
@@ -6169,7 +6164,6 @@ export interface NamespaceKeys {
     | 'priceLists.setAtCounter'
     | 'priceLists.setOnMeal'
     | 'priceLists.statAgreementCaption'
-    | 'priceLists.statNothingPriced'
     | 'priceLists.statNothingPricedCaption'
     | 'priceLists.subtitle'
     | 'priceLists.title'
@@ -13277,7 +13271,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.ledgerMix',
   'kitchen:lens.mix',
   'kitchen:lens.ordersMix',
-  'kitchen:lens.packagingMix',
   'kitchen:lens.partialAction',
   'kitchen:lens.pendingChecksAction',
   'kitchen:lens.period.all',
@@ -13372,8 +13365,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:list.statShownUnit',
   'kitchen:list.statTotal',
   'kitchen:list.statTotalCaption',
-  'kitchen:list.statUncosted',
   'kitchen:list.statUncostedCaption',
+  'kitchen:list.statUnpriced',
   'kitchen:list.subtitle',
   'kitchen:list.summaryDraft',
   'kitchen:list.summaryMissingArabic',
@@ -15046,11 +15039,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:packaging.emptyBody',
   'kitchen:packaging.emptyTitle',
   'kitchen:packaging.searchPlaceholder',
-  'kitchen:packaging.statInactive',
-  'kitchen:packaging.statInactiveAction',
-  'kitchen:packaging.statInactiveCaption',
   'kitchen:packaging.statMissingArabicCaption',
-  'kitchen:packaging.statUnpriced',
   'kitchen:packaging.statUnpricedCaption',
   'kitchen:packaging.viewKind',
   'kitchen:plans.addDuration',
@@ -15363,7 +15352,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:priceLists.setAtCounter',
   'kitchen:priceLists.setOnMeal',
   'kitchen:priceLists.statAgreementCaption',
-  'kitchen:priceLists.statNothingPriced',
   'kitchen:priceLists.statNothingPricedCaption',
   'kitchen:priceLists.subtitle',
   'kitchen:priceLists.title',

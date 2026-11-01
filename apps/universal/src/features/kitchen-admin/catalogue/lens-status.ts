@@ -25,8 +25,6 @@ export function statusLensFigures(
     t: TFunction,
     options: {
         readonly allLabel: string;
-        /** Draw Awaiting review — a lifecycle in which the quarantine actually happens. */
-        readonly review: boolean;
         readonly reviewAction?: string | undefined;
     },
 ): readonly LensFigure[] {
@@ -71,21 +69,21 @@ export function statusLensFigures(
             onPress: pick('draft'),
             accessibilityLabel: t('kitchen:list.statDraftAction'),
         },
-        ...(options.review
-            ? [
-                  {
-                      key: 'review',
-                      label: t(statusKey('review_required')),
-                      value: counted('review_required'),
-                      tone: 'danger' as const,
-                      // The one figure that blocks publication outright.
-                      alarm: true,
-                      active: active === 'review_required',
-                      onPress: pick('review_required'),
-                      accessibilityLabel: options.reviewAction,
-                  },
-              ]
-            : []),
+        /*
+         * Drawn on every page, a zero included: the catalogue's and commercial pages carry the same
+         * three status chips, named and ordered alike, so a reader never has to relearn the bar.
+         */
+        {
+            key: 'review',
+            label: t(statusKey('review_required')),
+            value: counted('review_required'),
+            tone: 'danger',
+            // The one figure that blocks publication outright.
+            alarm: true,
+            active: active === 'review_required',
+            onPress: pick('review_required'),
+            accessibilityLabel: options.reviewAction ?? t('kitchen:lens.reviewAction'),
+        },
     ];
 }
 

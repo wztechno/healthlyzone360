@@ -611,12 +611,10 @@ function lensFigures(
     return [
         ...statusLensFigures(lens, t, {
             allLabel: t('kitchen:lens.allPriceLists'),
-            review: true,
-            reviewAction: t('kitchen:lens.reviewAction'),
         }),
         {
             key: 'nothingPriced',
-            label: t('kitchen:priceLists.statNothingPriced'),
+            label: t('kitchen:list.statUnpriced'),
             value: counted(nothingPriced),
             tone: 'warning',
             separated: true,

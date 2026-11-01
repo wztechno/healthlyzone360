@@ -679,7 +679,7 @@ function lensFigures(
 ): readonly LensFigure[] {
     const counted = (count: number) => (gaps.pending ? null : count);
     return [
-        ...statusLensFigures(lens, t, { allLabel: t('kitchen:lens.allZones'), review: false }),
+        ...statusLensFigures(lens, t, { allLabel: t('kitchen:lens.allZones') }),
         {
             key: 'retired',
             label: t(statusKey('retired')),

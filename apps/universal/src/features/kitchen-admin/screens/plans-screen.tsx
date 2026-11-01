@@ -437,8 +437,6 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
                 label={t('kitchen:lens.label')}
                 figures={statusLensFigures(lens, t, {
                     allLabel: t('kitchen:lens.allPlans'),
-                    review: true,
-                    reviewAction: t('kitchen:lens.reviewAction'),
                 })}
                 {...statusLensMix(lens, t)}
                 search={query}

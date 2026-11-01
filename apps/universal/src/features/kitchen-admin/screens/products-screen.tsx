@@ -416,8 +416,6 @@ function lensFigures(
     return [
         ...statusLensFigures(list, t, {
             allLabel,
-            review: true,
-            reviewAction: t('kitchen:lens.reviewAction'),
         }),
         {
             key: 'missingArabic',

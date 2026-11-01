@@ -1394,7 +1394,7 @@ describe('the recipe list', () => {
         expect(screen.queryByTestId('kitchen-recipes-toolbar-clear')).toBeNull();
     });
 
-    it('trades Awaiting review for No pack on a packaged tab', async () => {
+    it('adds No pack on a packaged tab, keeping Awaiting review like every catalogue page', async () => {
         routerState.params = { kind: 'sauce' };
         const listing = recordedListing(() => [
             recipe({
@@ -1431,7 +1431,7 @@ describe('the recipe list', () => {
         expect(screen.getByTestId('kitchen-recipes-toolbar-figure-noPack-value')).toHaveTextContent(
             '1',
         );
-        expect(screen.queryByTestId('kitchen-recipes-toolbar-figure-review')).toBeNull();
+        expect(screen.getByTestId('kitchen-recipes-toolbar-figure-review')).toBeTruthy();
     });
 
     it.each(RECIPE_KINDS)(
