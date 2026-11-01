@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9177 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9178 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4090,6 +4090,13 @@ export interface NamespaceKeys {
     | 'lens.packagingMix'
     | 'lens.partialAction'
     | 'lens.pendingChecksAction'
+    | 'lens.period.all'
+    | 'lens.period.custom'
+    | 'lens.period.month'
+    | 'lens.period.today'
+    | 'lens.period.week'
+    | 'lens.period.yesterday'
+    | 'lens.periodLabel'
     | 'lens.publishedAction'
     | 'lens.qcMix'
     | 'lens.quotationsMix'
@@ -4404,12 +4411,6 @@ export interface NamespaceKeys {
     | 'ops.cashReport.kpiRowsCaption'
     | 'ops.cashReport.loadErrorTitle'
     | 'ops.cashReport.measuredOn'
-    | 'ops.cashReport.period.custom'
-    | 'ops.cashReport.period.month'
-    | 'ops.cashReport.period.today'
-    | 'ops.cashReport.period.week'
-    | 'ops.cashReport.period.yesterday'
-    | 'ops.cashReport.periodLabel'
     | 'ops.cashReport.scopeBody'
     | 'ops.cashReport.scopeTitle'
     | 'ops.cashReport.subtitle'
@@ -13285,6 +13286,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.packagingMix',
   'kitchen:lens.partialAction',
   'kitchen:lens.pendingChecksAction',
+  'kitchen:lens.period.all',
+  'kitchen:lens.period.custom',
+  'kitchen:lens.period.month',
+  'kitchen:lens.period.today',
+  'kitchen:lens.period.week',
+  'kitchen:lens.period.yesterday',
+  'kitchen:lens.periodLabel',
   'kitchen:lens.publishedAction',
   'kitchen:lens.qcMix',
   'kitchen:lens.quotationsMix',
@@ -13599,12 +13607,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.cashReport.kpiRowsCaption',
   'kitchen:ops.cashReport.loadErrorTitle',
   'kitchen:ops.cashReport.measuredOn',
-  'kitchen:ops.cashReport.period.custom',
-  'kitchen:ops.cashReport.period.month',
-  'kitchen:ops.cashReport.period.today',
-  'kitchen:ops.cashReport.period.week',
-  'kitchen:ops.cashReport.period.yesterday',
-  'kitchen:ops.cashReport.periodLabel',
   'kitchen:ops.cashReport.scopeBody',
   'kitchen:ops.cashReport.scopeTitle',
   'kitchen:ops.cashReport.subtitle',

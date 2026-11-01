@@ -65,6 +65,8 @@ import { compareText, useColumnControls } from '../catalogue/use-column-controls
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
+import { PeriodScope } from '../catalogue/period-scope.tsx';
+import { todayIso } from '../../commerce/dates.ts';
 import type { LensFigure, LensMixPart } from '../catalogue/lens-bar.tsx';
 import { useListMemory, useRememberedQuery } from '../list-memory.ts';
 
@@ -169,6 +171,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
     const [status, setStatus] = useState<StockGapStatus>(initial.status);
     const [from, setFrom] = useState(initial.from);
     const [to, setTo] = useState(initial.to);
+    const [today] = useState(() => todayIso());
     const [viewingId, setViewingId] = useState<string | null>(initial.gap);
     // The open gap's fix has just been made: it is retried on arrival.
     const [fixed, setFixed] = useState(initial.fixed);
@@ -741,44 +744,58 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                 /*
                  * The raised-between window, as the purchases ledger draws its own: two days with
                  * "to" between, either bound open, and each picker keeps the other honest — From
-                 * cannot pass To, nor To precede From.
+                 * cannot pass To, nor To precede From. The Period shortcut before it writes both
+                 * days, and All clears them.
                  */
                 scope={
-                    <View className="z-auto flex-row items-center gap-tight">
-                        <DatePickerButton
-                            testID="kitchen-exceptions-filter-from"
-                            label={t('kitchen:ops.exceptions.filterFrom')}
-                            value={from}
-                            max={to === '' ? undefined : to}
-                            placeholder={t('kitchen:ops.exceptions.fromPlaceholder')}
+                    <>
+                        <PeriodScope
+                            testID="kitchen-exceptions-filter-period"
+                            today={today}
+                            value={{ from, to }}
+                            allowAll
                             onChange={(next) => {
-                                setFrom(next);
-                                refilter();
-                            }}
-                            onClear={() => {
-                                setFrom('');
+                                setFrom(next.from);
+                                setTo(next.to);
                                 refilter();
                             }}
                         />
-                        <Text variant="caption" tone="secondary" aria-hidden>
-                            {t('kitchen:ops.requirements.windowTo')}
-                        </Text>
-                        <DatePickerButton
-                            testID="kitchen-exceptions-filter-to"
-                            label={t('kitchen:ops.exceptions.filterTo')}
-                            value={to}
-                            min={from === '' ? undefined : from}
-                            placeholder={t('kitchen:ops.exceptions.toPlaceholder')}
-                            onChange={(next) => {
-                                setTo(next);
-                                refilter();
-                            }}
-                            onClear={() => {
-                                setTo('');
-                                refilter();
-                            }}
-                        />
-                    </View>
+                        <View className="z-auto flex-row items-center gap-tight">
+                            <DatePickerButton
+                                testID="kitchen-exceptions-filter-from"
+                                label={t('kitchen:ops.exceptions.filterFrom')}
+                                value={from}
+                                max={to === '' ? undefined : to}
+                                placeholder={t('kitchen:ops.exceptions.fromPlaceholder')}
+                                onChange={(next) => {
+                                    setFrom(next);
+                                    refilter();
+                                }}
+                                onClear={() => {
+                                    setFrom('');
+                                    refilter();
+                                }}
+                            />
+                            <Text variant="caption" tone="secondary" aria-hidden>
+                                {t('kitchen:ops.requirements.windowTo')}
+                            </Text>
+                            <DatePickerButton
+                                testID="kitchen-exceptions-filter-to"
+                                label={t('kitchen:ops.exceptions.filterTo')}
+                                value={to}
+                                min={from === '' ? undefined : from}
+                                placeholder={t('kitchen:ops.exceptions.toPlaceholder')}
+                                onChange={(next) => {
+                                    setTo(next);
+                                    refilter();
+                                }}
+                                onClear={() => {
+                                    setTo('');
+                                    refilter();
+                                }}
+                            />
+                        </View>
+                    </>
                 }
                 trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
             />

@@ -1665,19 +1665,11 @@
       "summaryRows_other": "[[{{count}} łíñéš āēīōūā]]",
       "summaryCurrencies_one": "[[{{count}} çúŕŕéñçý āēīōūāēī]]",
       "summaryCurrencies_other": "[[{{count}} çúŕŕéñçíéš āēīōūāēī]]",
-      "periodLabel": "[[Þéŕíóð āēī]]",
       "fromLabel": "[[Ƒŕóɱ āē]]",
       "toLabel": "[[Ţó ā]]",
       "columnDay": "[[Ðáý āē]]",
       "windowTooLongTitle_one": "[[Þíçķ áţ ɱóšţ {{count}} ðáý āēīōūāēīōūā]]",
-      "windowTooLongTitle_other": "[[Þíçķ áţ ɱóšţ {{count}} ðáýš āēīōūāēīōūā]]",
-      "period": {
-        "today": "[[Ţóðáý āē]]",
-        "yesterday": "[[Ýéšţéŕðáý āēīō]]",
-        "week": "[[Ţĥíš ŵééķ āēīō]]",
-        "month": "[[Ţĥíš ɱóñţĥ āēīō]]",
-        "custom": "[[Çúšţóɱ āēī]]"
-      }
+      "windowTooLongTitle_other": "[[Þíçķ áţ ɱóšţ {{count}} ðáýš āēīōūāēīōūā]]"
     },
     "batch": {
       "recipeLabel": "[[Ŕéçíþé āēī]]",
@@ -4719,7 +4711,16 @@
     "allProducts": "[[Áłł þŕóðúçţš āēīōū]]",
     "reviewAction": "[[Šĥóŵ óñłý ŕéçóŕðš áŵáíţíñĝ ŕéṽíéŵ āēīōūāēīōūāēīō]]",
     "requirementsMix": "[[{{short}} šĥóŕţ, {{covered}} çóṽéŕéð āēīōūāēīōūāēīōū]]",
-    "deskMix": "[[{{placed}} þłáçéð, {{confirmed}} çóñƒíŕɱéð āēīōūāēīōūāēīōūāē]]"
+    "deskMix": "[[{{placed}} þłáçéð, {{confirmed}} çóñƒíŕɱéð āēīōūāēīōūāēīōūāē]]",
+    "periodLabel": "[[Þéŕíóð āēī]]",
+    "period": {
+      "all": "[[Áłł āē]]",
+      "today": "[[Ţóðáý āē]]",
+      "yesterday": "[[Ýéšţéŕðáý āēīō]]",
+      "week": "[[Ţĥíš ŵééķ āēīō]]",
+      "month": "[[Ţĥíš ɱóñţĥ āēīō]]",
+      "custom": "[[Çúšţóɱ āēī]]"
+    }
   },
   "tray": {
     "noChannel": "[[Ñó šáłéš çĥáññéł āēīōūāē]]",

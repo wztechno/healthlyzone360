@@ -1896,7 +1896,6 @@
             "summaryCurrencies_few": "{{count}} عملات",
             "summaryCurrencies_many": "{{count}} عملة",
             "summaryCurrencies_other": "{{count}} عملة",
-            "periodLabel": "الفترة",
             "fromLabel": "من",
             "toLabel": "إلى",
             "columnDay": "اليوم",
@@ -1905,14 +1904,7 @@
             "windowTooLongTitle_two": "اختر يومين على الأكثر",
             "windowTooLongTitle_few": "اختر {{count}} أيام على الأكثر",
             "windowTooLongTitle_many": "اختر {{count}} يومًا على الأكثر",
-            "windowTooLongTitle_other": "اختر {{count}} يوم على الأكثر",
-            "period": {
-                "today": "اليوم",
-                "yesterday": "أمس",
-                "week": "هذا الأسبوع",
-                "month": "هذا الشهر",
-                "custom": "مخصص"
-            }
+            "windowTooLongTitle_other": "اختر {{count}} يوم على الأكثر"
         },
         "batch": {
             "recipeLabel": "الوصفة",
@@ -5386,7 +5378,16 @@
         "allProducts": "كل المنتجات",
         "reviewAction": "عرض السجلات بانتظار المراجعة فقط",
         "requirementsMix": "{{short}} ناقص، {{covered}} متوفر",
-        "deskMix": "{{placed}} مقدّم، {{confirmed}} مؤكد"
+        "deskMix": "{{placed}} مقدّم، {{confirmed}} مؤكد",
+        "periodLabel": "الفترة",
+        "period": {
+            "all": "الكل",
+            "today": "اليوم",
+            "yesterday": "أمس",
+            "week": "هذا الأسبوع",
+            "month": "هذا الشهر",
+            "custom": "مخصص"
+        }
     },
     "tray": {
         "noChannel": "لا توجد قناة بيع",

@@ -1665,19 +1665,11 @@
             "summaryRows_other": "{{count}} lines",
             "summaryCurrencies_one": "{{count}} currency",
             "summaryCurrencies_other": "{{count}} currencies",
-            "periodLabel": "Period",
             "fromLabel": "From",
             "toLabel": "To",
             "columnDay": "Day",
             "windowTooLongTitle_one": "Pick at most {{count}} day",
-            "windowTooLongTitle_other": "Pick at most {{count}} days",
-            "period": {
-                "today": "Today",
-                "yesterday": "Yesterday",
-                "week": "This week",
-                "month": "This month",
-                "custom": "Custom"
-            }
+            "windowTooLongTitle_other": "Pick at most {{count}} days"
         },
         "batch": {
             "recipeLabel": "Recipe",
@@ -4719,7 +4711,16 @@
         "allProducts": "All products",
         "reviewAction": "Show only records awaiting review",
         "requirementsMix": "{{short}} short, {{covered}} covered",
-        "deskMix": "{{placed}} placed, {{confirmed}} confirmed"
+        "deskMix": "{{placed}} placed, {{confirmed}} confirmed",
+        "periodLabel": "Period",
+        "period": {
+            "all": "All",
+            "today": "Today",
+            "yesterday": "Yesterday",
+            "week": "This week",
+            "month": "This month",
+            "custom": "Custom"
+        }
     },
     "tray": {
         "noChannel": "No sales channel",

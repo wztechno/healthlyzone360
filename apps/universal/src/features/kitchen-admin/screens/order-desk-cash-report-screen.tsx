@@ -19,7 +19,7 @@ import { View } from 'react-native';
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useOrderDeskCashReportQuery } from '../../../data/order-desk-hooks.ts';
-import { addDays, daysBetween, isIsoDate, isoWeekday, todayIso } from '../../commerce/dates.ts';
+import { daysBetween, isIsoDate, todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
@@ -32,8 +32,9 @@ import {
 } from '../catalogue/use-column-controls.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
+import { PeriodScope } from '../catalogue/period-scope.tsx';
 
 /**
  * `/kitchen/order-desk/cash-report` — who took what, day by day.
@@ -122,10 +123,6 @@ function OrderDeskCashReport() {
     const [today] = useState(() => todayIso());
     const [from, setFrom] = useState(today);
     const [to, setTo] = useState(today);
-
-    const periods = periodWindows(today);
-    const period: Period =
-        PRESETS.find((key) => periods[key].from === from && periods[key].to === to) ?? 'custom';
 
     /**
      * The question, or `null` while the window is not one the server would answer — a half-typed
@@ -323,20 +320,14 @@ function OrderDeskCashReport() {
                  */
                 scope={
                     <>
-                        <LensScope<Period>
+                        <PeriodScope
                             testID="kitchen-order-desk-cash-report-period"
-                            label={t('kitchen:ops.cashReport.periodLabel')}
-                            value={period}
+                            today={today}
+                            value={{ from, to }}
                             onChange={(next) => {
-                                if (next === 'custom') return;
-                                setFrom(periods[next].from);
-                                setTo(periods[next].to);
+                                setFrom(next.from);
+                                setTo(next.to);
                             }}
-                            options={PERIODS.map((key) => ({
-                                value: key,
-                                label: t(PERIOD_LABELS[key]),
-                                testID: `kitchen-order-desk-cash-report-period-${key}`,
-                            }))}
                         />
                         <View className="z-auto flex-row items-center gap-tight">
                             <DatePickerButton
@@ -481,37 +472,6 @@ const TOTALS_MAX_WIDTH = 620;
 
 /** The longest window the server answers, both ends counted — any calendar month fits. */
 const MAX_WINDOW_DAYS = 31;
-
-/** The shortcuts. `custom` is not one: it is what any other window reads back as. */
-const PRESETS = ['today', 'yesterday', 'week', 'month'] as const;
-type Preset = (typeof PRESETS)[number];
-type Period = Preset | 'custom';
-
-/** The period menu, in order. */
-const PERIODS: readonly Period[] = [...PRESETS, 'custom'];
-
-const PERIOD_LABELS = {
-    today: 'kitchen:ops.cashReport.period.today',
-    yesterday: 'kitchen:ops.cashReport.period.yesterday',
-    week: 'kitchen:ops.cashReport.period.week',
-    month: 'kitchen:ops.cashReport.period.month',
-    custom: 'kitchen:ops.cashReport.period.custom',
-} as const satisfies Record<Period, string>;
-
-/**
- * The window each shortcut stands for, ending today. The week starts on Monday, as every weekday
- * row in the workspace does; the month on the first.
- */
-function periodWindows(today: string): Record<Preset, { from: string; to: string }> {
-    const yesterday = addDays(today, -1) ?? today;
-    const monday = addDays(today, 1 - (isoWeekday(today) ?? 1)) ?? today;
-    return {
-        today: { from: today, to: today },
-        yesterday: { from: yesterday, to: yesterday },
-        week: { from: monday, to: today },
-        month: { from: `${today.slice(0, 8)}01`, to: today },
-    };
-}
 
 /**
  * A row's identity, which is all four of its key parts — the day first.
