@@ -1,4 +1,4 @@
-import { Badge, Cascade, SegmentedControl, Select, Text } from '@healthy360/design-system';
+import { Badge, Cascade, DatePickerButton, Select, Text } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -10,19 +10,13 @@ import { RatioBars } from '../analytics/ratio-bars.tsx';
 import { StatMix } from '../analytics/stat-mix.tsx';
 import type { StatMixTone } from '../analytics/stat-mix.tsx';
 import { TrendBars } from '../analytics/trend-bars.tsx';
-import {
-    ANALYTICS_DATE_RANGES,
-    ANALYTICS_SEGMENTS,
-    buildKitchenAnalytics,
-} from '../analytics-sample-data.ts';
+import { ANALYTICS_SEGMENTS, buildKitchenAnalytics } from '../analytics-sample-data.ts';
 import type {
-    AnalyticsDateRange,
     AnalyticsKpi,
     AnalyticsSegment,
     AnalyticsTableRow,
 } from '../analytics-sample-data.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import {
@@ -30,18 +24,21 @@ import {
     compareText,
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { WithColumnPicker } from '../catalogue/column-picker.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
+import { PeriodScope, periodWindows } from '../catalogue/period-scope.tsx';
+import { addDays, daysBetween, todayIso } from '../../commerce/dates.ts';
 /**
  * `/kitchen/analytics` — the sample-data dashboard, as `Workbench.dc.html` draws it (§3.3).
  *
  * ```
- * Kitchen analytics  [ SAMPLE DATA ]
- * RANGE [ 7 days | 30 days | 90 days | Year to date ]  [ All ▾ ]            [ Dark mode ]
- * ┌ UNITS PRODUCED ┐ ┌ ON-TIME RATE ┐ ┌ REVIEW BACKLOG ┐ ┌ AVG PREP TIME ┐
+ * [ SAMPLE DATA ]
+ * Units produced 1 240 units  ● On-time rate 92 %  Review backlog 31  Avg prep time 34 min
+ * [Period This month ▾] [2026-08-01 ▦] to [2026-08-29 ▦] [All ▾]             ▦ Columns 6 of 6
  * PRODUCTION TREND  units a day         VOLUME BY CHANNEL
  * ▁▂▃▅▆▇                               Subscription ▬▬▬▬▬▬▬▬  2 410
  * STATUS MIX  ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬   ■ On track 62%  ■ Watch 26%  ■ Blocked 12%
@@ -55,9 +52,16 @@ import { WithColumnPicker } from '../catalogue/column-picker.tsx';
  * revenue, and at that point it needs the cost permission Cost report already has (§6.5) — decided
  * before the data changes, not after.
  *
- * ## No summary strip
+ * ## The Lens bar is the summary
  *
- * The four KPI tiles *are* the summary; a count strip above them would say it twice (§3z).
+ * The four KPIs are the bar's figures, as every list page's are — no cards. The change against last
+ * period is behind each figure's (i); a KPI moving the wrong way carries a danger dot.
+ *
+ * ## The window is the other pages' window
+ *
+ * The Period shortcut and a From–To pair, as Stock gaps and Cash taken draw them. The sample builder
+ * reads the window's length in days, so a custom window draws as well as a shortcut. It opens on
+ * This month.
  *
  * ## The charts are boxes
  *
@@ -93,14 +97,23 @@ function statusKey(status: AnalyticsTableRow['status']): string {
 function AnalyticsDashboard() {
     const { t } = useTranslation();
     const formatter = useFormatter();
-    const [range, setRange] = useState<AnalyticsDateRange>('30d');
+    const [today] = useState(() => todayIso());
+    const [from, setFrom] = useState(() => periodWindows(today).month.from);
+    const [to, setTo] = useState(today);
     const [segment, setSegment] = useState<AnalyticsSegment>('all');
     const [viewing, setViewing] = useState<AnalyticsTableRow | null>(null);
-    const bundle = useMemo(() => buildKitchenAnalytics(range, segment), [range, segment]);
+    // Both ends counted: Today is one day.
+    const days = Math.max(1, (daysBetween(from, to) ?? 0) + 1);
+    const bundle = useMemo(() => buildKitchenAnalytics(days, segment), [days, segment]);
     const spans = useMemo(
-        () => bucketSpans(range, bundle.productionTrend.length, new Date()),
-        [range, bundle.productionTrend.length],
+        () => bucketSpans(from, days, bundle.productionTrend.length),
+        [from, days, bundle.productionTrend.length],
     );
+    const pickWindow = (next: { readonly from: string; readonly to: string }) => {
+        setFrom(next.from);
+        setTo(next.to);
+        setViewing(null);
+    };
     const channelMax = Math.max(1, ...bundle.channelVolume.map((point) => point.value));
     const columns: readonly ControlledColumn<
         AnalyticsTableRow,
@@ -265,48 +278,70 @@ function AnalyticsDashboard() {
                     label={t('kitchen:analytics.sampleBadge')}
                 />
             </View>
-            <CatalogueStatCards
-                testID="kitchen-analytics-kpis"
-                cards={bundle.kpis.map((kpi) => kpiCard(kpi, t, formatter))}
+            <LensBar
+                testID="kitchen-analytics-toolbar"
+                label={t('kitchen:lens.label')}
+                figures={bundle.kpis.map((kpi) => kpiFigure(kpi, t, formatter))}
+                scope={
+                    <>
+                        <PeriodScope
+                            testID="kitchen-analytics-period"
+                            today={today}
+                            value={{ from, to }}
+                            onChange={pickWindow}
+                        />
+                        <View className="z-auto flex-row items-center gap-tight">
+                            <DatePickerButton
+                                testID="kitchen-analytics-from"
+                                label={t('kitchen:analytics.filters.from')}
+                                value={from}
+                                max={to}
+                                onChange={(next) => {
+                                    pickWindow({ from: next, to });
+                                }}
+                            />
+                            <Text variant="caption" tone="secondary" aria-hidden>
+                                {t('kitchen:ops.requirements.windowTo')}
+                            </Text>
+                            <DatePickerButton
+                                testID="kitchen-analytics-to"
+                                label={t('kitchen:analytics.filters.to')}
+                                value={to}
+                                min={from}
+                                onChange={(next) => {
+                                    pickWindow({ from, to: next });
+                                }}
+                            />
+                        </View>
+                        {/* A fixed-width box, lifted so its menu is never covered by the charts. */}
+                        <View className="z-tooltip" style={{ width: SEGMENT_WIDTH }}>
+                            <Select<AnalyticsSegment>
+                                testID="kitchen-analytics-segment"
+                                id="kitchen-analytics-segment"
+                                label={t('kitchen:analytics.filters.segment')}
+                                labelHidden
+                                value={segment}
+                                onChange={(next) => {
+                                    setSegment(next);
+                                    setViewing(null);
+                                }}
+                                options={ANALYTICS_SEGMENTS.map((value) => ({
+                                    value,
+                                    label: t(`kitchen:analytics.segments.${value}`),
+                                }))}
+                            />
+                        </View>
+                    </>
+                }
+                result={t('kitchen:lens.result', {
+                    shown: controls.rows.length,
+                    total: bundle.rows.length,
+                })}
+                clearLabel={t('kitchen:lens.clear')}
+                {...(controls.filtered ? { onClear: controls.clearFilters } : {})}
+                // Always the labelled button, "Columns 6 of 6", as on the other lists.
+                trailing={<ColumnPicker {...controls.picker} />}
             />
-            <View
-                testID="kitchen-analytics-filters"
-                className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight"
-            >
-                <SegmentedControl
-                    testID="kitchen-analytics-range"
-                    label={t('kitchen:analytics.filters.dateRange')}
-                    value={range}
-                    onChange={(next) => {
-                        setRange(next);
-                        setViewing(null);
-                    }}
-                    items={ANALYTICS_DATE_RANGES.map((value) => ({
-                        value,
-                        label: t(`kitchen:analytics.ranges.${value}`),
-                        testID: `kitchen-analytics-range-${value}`,
-                    }))}
-                />
-                {/* The order desk's kind select, as it sits there: a fixed-width box, lifted above
-                    the cards below so its menu is never covered. */}
-                <View className="z-tooltip" style={{ width: SEGMENT_WIDTH }}>
-                    <Select<AnalyticsSegment>
-                        testID="kitchen-analytics-segment"
-                        id="kitchen-analytics-segment"
-                        label={t('kitchen:analytics.filters.segment')}
-                        labelHidden
-                        value={segment}
-                        onChange={(next) => {
-                            setSegment(next);
-                            setViewing(null);
-                        }}
-                        options={ANALYTICS_SEGMENTS.map((value) => ({
-                            value,
-                            label: t(`kitchen:analytics.segments.${value}`),
-                        }))}
-                    />
-                </View>
-            </View>
             {/* One chart per line: side by side, the trend's bars had no room between them. */}
             <View className="flex-col gap-loose">
                 <View className="flex-col gap-snug">
@@ -323,7 +358,7 @@ function AnalyticsDashboard() {
                             if (span === undefined) return '';
                             return formatter.formatDate(
                                 span.from,
-                                range === '7d'
+                                days <= 7
                                     ? { weekday: 'short', day: 'numeric' }
                                     : { day: 'numeric', month: 'short' },
                             );
@@ -384,66 +419,59 @@ function AnalyticsDashboard() {
                     title={t('kitchen:analytics.table.title')}
                     aside={t('kitchen:analytics.table.sampleNote')}
                 />
-                <WithColumnPicker picker={controls.picker}>
-                    <CatalogueList<AnalyticsTableRow>
-                        testID="kitchen-analytics-table"
-                        label={t('kitchen:analytics.table.caption')}
-                        columns={controls.columns}
-                        rows={controls.rows}
-                        rowKey={(row) => row.id}
-                        onRowPress={setViewing}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                    />
-                </WithColumnPicker>
+                <CatalogueList<AnalyticsTableRow>
+                    testID="kitchen-analytics-table"
+                    label={t('kitchen:analytics.table.caption')}
+                    columns={controls.columns}
+                    rows={controls.rows}
+                    rowKey={(row) => row.id}
+                    onRowPress={setViewing}
+                    rowActionsLabel={t('kitchen:list.rowActions')}
+                />
             </View>
         </Cascade>
     );
 }
-const DAY_MS = 86_400_000;
-
 /** The order desk's kind select width, so the two filters read as one control. */
 const SEGMENT_WIDTH = 140;
 
+/** A local day, `YYYY-MM-DD`, as a `Date` at its midnight. */
+function localDay(iso: string): Date {
+    return new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
+}
+
 /**
- * The real calendar days each trend bar stands for, ending today.
+ * The real calendar days each trend bar stands for, across the window.
  *
- * The range is split into `count` equal runs of whole days, oldest first; the last run absorbs the
- * remainder so the final bar always ends today. Year to date starts on 1 January.
+ * The window is split into `count` equal runs of whole days, oldest first; the last run absorbs the
+ * remainder so the final bar always ends on the window's last day.
  */
 function bucketSpans(
-    range: AnalyticsDateRange,
+    from: string,
+    days: number,
     count: number,
-    now: Date,
 ): readonly { readonly from: Date; readonly to: Date }[] {
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const days =
-        range === '7d'
-            ? 7
-            : range === '30d'
-              ? 30
-              : range === '90d'
-                ? 90
-                : Math.round(
-                      (today.getTime() - new Date(today.getFullYear(), 0, 1).getTime()) / DAY_MS,
-                  ) + 1;
-    const start = today.getTime() - (days - 1) * DAY_MS;
     const size = Math.max(1, Math.floor(days / Math.max(1, count)));
+    const last = localDay(addDays(from, days - 1) ?? from);
     return Array.from({ length: count }, (_, index) => {
-        const from = new Date(start + index * size * DAY_MS);
-        const to =
-            index === count - 1 ? today : new Date(start + ((index + 1) * size - 1) * DAY_MS);
-        return { from, to: to < from ? from : to };
+        const start = localDay(addDays(from, index * size) ?? from);
+        const end =
+            index === count - 1 ? last : localDay(addDays(from, (index + 1) * size - 1) ?? from);
+        return { from: start, to: end < start ? start : end };
     });
 }
 
-/** A KPI as the admin's standard figure card: the change against last period is its caption. */
-function kpiCard(
+/**
+ * A KPI as a Lens bar figure: the value in its unit, the change against last period behind its (i),
+ * and a danger dot when it moved the wrong way.
+ */
+function kpiFigure(
     kpi: AnalyticsKpi,
     t: TFunction,
     formatter: ReturnType<typeof useFormatter>,
-): CatalogueStatCard {
+): LensFigure {
     const good = kpi.higherIsBetter ? kpi.deltaPercent >= 0 : kpi.deltaPercent <= 0;
-    const caption =
+    const trend =
         kpi.deltaPercent > 0
             ? t('kitchen:analytics.trend.up', { value: Math.abs(kpi.deltaPercent) })
             : kpi.deltaPercent < 0
@@ -452,16 +480,9 @@ function kpiCard(
     return {
         key: kpi.key,
         label: t(kpi.labelKey),
-        value: formatter.formatNumber(kpi.value),
-        unit: t(`kitchen:analytics.units.${kpi.unit}`),
-        caption,
-        // The mark follows the direction; the tone says whether that direction is good.
-        mark:
-            kpi.deltaPercent > 0
-                ? 'trendingUp'
-                : kpi.deltaPercent < 0
-                  ? 'trendingDown'
-                  : 'trendFlat',
-        tone: kpi.deltaPercent === 0 || good ? 'default' : 'danger',
+        value: kpi.value,
+        display: `${formatter.formatNumber(kpi.value)} ${t(`kitchen:analytics.units.${kpi.unit}`)}`,
+        info: trend,
+        ...(kpi.deltaPercent === 0 || good ? {} : { tone: 'danger' as const }),
     };
 }

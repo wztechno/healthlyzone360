@@ -493,11 +493,9 @@ function CostReport() {
             }
             clearLabel={t('kitchen:lens.clear')}
             {...(controls.filtered ? { onClear: controls.clearFilters } : {})}
-            trailing={
-                showsReport
-                    ? (compact) => <ColumnPicker {...controls.picker} compact={compact} />
-                    : undefined
-            }
+            // Always the labelled button, "Columns 6 of 6", as on the other lists: the issue tray
+            // beside this page keeps the bar narrow, which would otherwise shrink it to an icon.
+            trailing={showsReport ? <ColumnPicker {...controls.picker} /> : undefined}
         />
     );
 

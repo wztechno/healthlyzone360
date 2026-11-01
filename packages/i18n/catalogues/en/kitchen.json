@@ -2338,14 +2338,9 @@
             "light": "Light mode"
         },
         "filters": {
-            "dateRange": "Date range",
+            "from": "From",
+            "to": "To",
             "segment": "Segment"
-        },
-        "ranges": {
-            "7d": "7 days",
-            "30d": "30 days",
-            "90d": "90 days",
-            "ytd": "Year to date"
         },
         "segments": {
             "all": "All",

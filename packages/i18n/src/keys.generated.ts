@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9183 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9180 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3049,16 +3049,13 @@ export interface NamespaceKeys {
     | 'analytics.charts.statusCenter'
     | 'analytics.charts.statusMix'
     | 'analytics.charts.trendBarTitle'
-    | 'analytics.filters.dateRange'
+    | 'analytics.filters.from'
     | 'analytics.filters.segment'
+    | 'analytics.filters.to'
     | 'analytics.kpi.onTime'
     | 'analytics.kpi.prep'
     | 'analytics.kpi.produced'
     | 'analytics.kpi.review'
-    | 'analytics.ranges.30d'
-    | 'analytics.ranges.7d'
-    | 'analytics.ranges.90d'
-    | 'analytics.ranges.ytd'
     | 'analytics.sampleBadge'
     | 'analytics.segments.all'
     | 'analytics.segments.delivery'
@@ -12250,16 +12247,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:analytics.charts.statusCenter',
   'kitchen:analytics.charts.statusMix',
   'kitchen:analytics.charts.trendBarTitle',
-  'kitchen:analytics.filters.dateRange',
+  'kitchen:analytics.filters.from',
   'kitchen:analytics.filters.segment',
+  'kitchen:analytics.filters.to',
   'kitchen:analytics.kpi.onTime',
   'kitchen:analytics.kpi.prep',
   'kitchen:analytics.kpi.produced',
   'kitchen:analytics.kpi.review',
-  'kitchen:analytics.ranges.30d',
-  'kitchen:analytics.ranges.7d',
-  'kitchen:analytics.ranges.90d',
-  'kitchen:analytics.ranges.ytd',
   'kitchen:analytics.sampleBadge',
   'kitchen:analytics.segments.all',
   'kitchen:analytics.segments.delivery',
