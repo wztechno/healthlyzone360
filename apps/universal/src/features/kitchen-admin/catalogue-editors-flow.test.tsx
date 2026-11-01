@@ -829,6 +829,29 @@ describe('the cost report', () => {
         });
     });
 
+    it('puts the month’s figures on the Lens bar, and its Period picks whole months', async () => {
+        routerMock.__set({ params: { from: '2026-03-01', to: '2026-08-31' } });
+        await renderStubScreen(<CostReportScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenOps: { listCostReport: async () => [costRow()] } },
+        });
+        await untilVisible('kitchen-cost-report-table');
+
+        // No cards: the four figures are the bar's, with Show columns at its end.
+        expect(screen.queryByTestId('kitchen-cost-report-tile')).toBeNull();
+        expect(screen.getByTestId('kitchen-cost-report-toolbar-figure-margin')).toHaveTextContent(
+            /1,200\.00 USD/,
+        );
+        expect(screen.getByTestId('kitchen-cost-report-table-columns-trigger')).toBeTruthy();
+
+        await press('kitchen-cost-report-filter-period-trigger');
+        expect(screen.queryByTestId('kitchen-cost-report-filter-period-today')).toBeNull();
+        await press('kitchen-cost-report-filter-period-quarter');
+        expect(routerMock.__router.setParams).toHaveBeenCalledWith(
+            expect.objectContaining({ month: '' }),
+        );
+    });
+
     it('opens a month by writing it to the address, and shows the month the address names', async () => {
         await renderStubScreen(<CostReportScreen />, {
             session: kitchenManagerSession(),

@@ -4721,6 +4721,9 @@
             "yesterday": "Yesterday",
             "week": "This week",
             "month": "This month",
+            "lastMonth": "Last month",
+            "quarter": "Last 3 months",
+            "year": "This year",
             "custom": "Custom"
         }
     },
