@@ -1427,7 +1427,6 @@
             "filterFrom": "From month",
             "filterTo": "To month",
             "currencyLabel": "Currency",
-            "dataQualityTitle": "This month's COGS may be understated",
             "dataQualityBody_one": "One month has unresolved consumption exceptions, so its cost of goods sold is understated.",
             "dataQualityBody_other": "{{count}} months have unresolved consumption exceptions, so their cost of goods sold is understated.",
             "flagged": "Understated",
@@ -1456,12 +1455,10 @@
             "columnMargin": "Margin",
             "columnMarginPercent": "Margin %",
             "spendIncomplete": "Spend incomplete",
-            "spendIncompleteTitle": "Some purchases are still waiting on their prices",
             "spendIncompleteBody_one": "One receipt line in {{months}} has no usable price yet, so that month's purchasing spend is understated. The purchases ledger's weekly and monthly view lists them.",
             "spendIncompleteBody_other": "{{count}} receipt lines in {{months}} have no usable price yet, so those months' purchasing spend is understated. The purchases ledger's weekly and monthly view lists them.",
             "chip": "Costs",
             "monthInvalid": "Use a month as YYYY-MM.",
-            "openExceptions": "Open stock gaps",
             "chartRevenueCogs": "Revenue and COGS by month",
             "chartRevenueMixTitle": "Revenue by line of business",
             "window": {
@@ -2332,7 +2329,6 @@
     "analytics": {
         "title": "Kitchen analytics",
         "subtitle": "Live views for kitchen staff — filter by date and segment and every chart, KPI, and row updates together.",
-        "sampleBadge": "Sample data",
         "theme": {
             "dark": "Dark mode",
             "light": "Light mode"

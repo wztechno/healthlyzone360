@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9180 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9176 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3056,7 +3056,6 @@ export interface NamespaceKeys {
     | 'analytics.kpi.prep'
     | 'analytics.kpi.produced'
     | 'analytics.kpi.review'
-    | 'analytics.sampleBadge'
     | 'analytics.segments.all'
     | 'analytics.segments.delivery'
     | 'analytics.segments.meals'
@@ -4441,7 +4440,6 @@ export interface NamespaceKeys {
     | 'ops.costReport.columnSpend'
     | 'ops.costReport.currencyLabel'
     | 'ops.costReport.dataQualityBody'
-    | 'ops.costReport.dataQualityTitle'
     | 'ops.costReport.emptyBody'
     | 'ops.costReport.emptyTitle'
     | 'ops.costReport.filterFrom'
@@ -4456,10 +4454,8 @@ export interface NamespaceKeys {
     | 'ops.costReport.mixOther'
     | 'ops.costReport.mixProduct'
     | 'ops.costReport.monthInvalid'
-    | 'ops.costReport.openExceptions'
     | 'ops.costReport.spendIncomplete'
     | 'ops.costReport.spendIncompleteBody'
-    | 'ops.costReport.spendIncompleteTitle'
     | 'ops.costReport.subtitle'
     | 'ops.costReport.tileCogs'
     | 'ops.costReport.tileMargin'
@@ -12254,7 +12250,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:analytics.kpi.prep',
   'kitchen:analytics.kpi.produced',
   'kitchen:analytics.kpi.review',
-  'kitchen:analytics.sampleBadge',
   'kitchen:analytics.segments.all',
   'kitchen:analytics.segments.delivery',
   'kitchen:analytics.segments.meals',
@@ -13639,7 +13634,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.columnSpend',
   'kitchen:ops.costReport.currencyLabel',
   'kitchen:ops.costReport.dataQualityBody',
-  'kitchen:ops.costReport.dataQualityTitle',
   'kitchen:ops.costReport.emptyBody',
   'kitchen:ops.costReport.emptyTitle',
   'kitchen:ops.costReport.filterFrom',
@@ -13654,10 +13648,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.mixOther',
   'kitchen:ops.costReport.mixProduct',
   'kitchen:ops.costReport.monthInvalid',
-  'kitchen:ops.costReport.openExceptions',
   'kitchen:ops.costReport.spendIncomplete',
   'kitchen:ops.costReport.spendIncompleteBody',
-  'kitchen:ops.costReport.spendIncompleteTitle',
   'kitchen:ops.costReport.subtitle',
   'kitchen:ops.costReport.tileCogs',
   'kitchen:ops.costReport.tileMargin',

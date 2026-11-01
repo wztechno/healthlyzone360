@@ -868,7 +868,7 @@ describe('the cost report', () => {
         await untilVisible('kitchen-cost-report-window');
     });
 
-    it('states both shortfalls as cards in the tray, the spend with its months', async () => {
+    it('has no issue tray; an understated month keeps its badge in the table', async () => {
         await renderStubScreen(<CostReportScreen />, {
             session: kitchenManagerSession(),
             repositories: {
@@ -885,18 +885,10 @@ describe('the cost report', () => {
             },
         });
         await withDeskWidth(async () => {
-            await untilVisible('kitchen-cost-report-notices');
+            await untilVisible('kitchen-cost-report-2026-08-flag');
 
-            expect(screen.getByTestId('kitchen-cost-report-data-quality')).not.toHaveTextContent(
-                /unresolved consumption exceptions/,
-            );
-            expect(screen.getByTestId('kitchen-cost-report-open-exceptions')).toBeTruthy();
-            expect(screen.getByTestId('kitchen-cost-report-spend-quality')).toHaveTextContent(
-                /2026-08/,
-            );
-            expect(screen.getByTestId('kitchen-cost-report-spend-quality')).not.toHaveTextContent(
-                /purchases ledger/,
-            );
+            expect(screen.queryByTestId('kitchen-cost-report-tray')).toBeNull();
+            expect(screen.queryByTestId('kitchen-cost-report-notices')).toBeNull();
         });
     });
 });

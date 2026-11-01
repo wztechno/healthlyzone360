@@ -36,7 +36,6 @@ import { addDays, daysBetween, todayIso } from '../../commerce/dates.ts';
  * `/kitchen/analytics` — the sample-data dashboard, as `Workbench.dc.html` draws it (§3.3).
  *
  * ```
- * [ SAMPLE DATA ]
  * Units produced 1 240 units  ● On-time rate 92 %  Review backlog 31  Avg prep time 34 min
  * [Period This month ▾] [2026-08-01 ▦] to [2026-08-29 ▦] [All ▾]             ▦ Columns 6 of 6
  * PRODUCTION TREND  units a day         VOLUME BY CHANNEL
@@ -45,12 +44,12 @@ import { addDays, daysBetween, todayIso } from '../../commerce/dates.ts';
  * LINE ITEMS  sample figures until live reporting lands
  * ```
  *
- * ## The `Sample data` chip is not optional
+ * ## Sample data, said where it is read closely
  *
- * Every figure here is `analytics-sample-data.ts`. The chip is in the page header, not in a tooltip,
- * and the view window says it again. When live reporting lands on this route it starts carrying real
- * revenue, and at that point it needs the cost permission Cost report already has (§6.5) — decided
- * before the data changes, not after.
+ * Every figure here is `analytics-sample-data.ts`. The page carries no badge over it (removed
+ * 2026-11-02, the user's call); the line items' heading and the view window still say so. When live
+ * reporting lands on this route it starts carrying real revenue, and at that point it needs the cost
+ * permission Cost report already has (§6.5) — decided before the data changes, not after.
  *
  * ## The Lens bar is the summary
  *
@@ -270,14 +269,6 @@ function AnalyticsDashboard() {
 
     return (
         <Cascade space="md" testID="kitchen-analytics-panel">
-            {/* Every figure on this screen is `analytics-sample-data.ts` — the label says so first. */}
-            <View className="flex-row">
-                <Badge
-                    testID="kitchen-analytics-sample"
-                    tone="info"
-                    label={t('kitchen:analytics.sampleBadge')}
-                />
-            </View>
             <LensBar
                 testID="kitchen-analytics-toolbar"
                 label={t('kitchen:lens.label')}
