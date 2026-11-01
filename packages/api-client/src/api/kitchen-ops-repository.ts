@@ -1574,10 +1574,14 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
         },
 
         async listGoodsReceipts(filter: GoodsReceiptFilter = {}): Promise<readonly GoodsReceipt[]> {
-            const query =
-                filter.supplierLot === undefined || filter.supplierLot === ''
-                    ? ''
-                    : `?${new URLSearchParams({ supplier_lot: filter.supplierLot }).toString()}`;
+            const params = new URLSearchParams();
+            if (filter.supplierLot !== undefined && filter.supplierLot !== '') {
+                params.set('supplier_lot', filter.supplierLot);
+            }
+            if (filter.from !== undefined && filter.from !== '') params.set('from', filter.from);
+            if (filter.to !== undefined && filter.to !== '') params.set('to', filter.to);
+            const encoded = params.toString();
+            const query = encoded === '' ? '' : `?${encoded}`;
             const envelope = await transport.requestEnvelope<{
                 readonly goods_receipts: readonly WireGoodsReceipt[];
             }>({ method: 'GET', path: `/catalogue/procurement/goods-receipts${query}` });

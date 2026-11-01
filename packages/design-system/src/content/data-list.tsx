@@ -576,7 +576,17 @@ export function DataList<Row>({
                                        * whatever variant each renderer reached for.
                                        */
                                       <TableCellTextContext.Provider value={CELL_TEXT}>
-                                          {column.render(row)}
+                                          {/*
+                                           * Held to the track: a renderer's own View keeps its
+                                           * content width (RN flex items do not shrink), so its
+                                           * one-line text would overrun the next column instead
+                                           * of clipping. Shrinking here and stretching the
+                                           * renderer's root to this width is what lets that text
+                                           * take its ellipsis and hover.
+                                           */}
+                                          <View className="min-w-0 shrink">
+                                              {column.render(row)}
+                                          </View>
                                       </TableCellTextContext.Provider>
                                   )}
                               </View>

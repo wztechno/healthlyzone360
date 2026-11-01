@@ -11137,7 +11137,8 @@ paths:
         to have created one.
 
         `supplier_lot` answers the recall question — which deliveries brought
-        lot X — as an exact match on any of a receipt's lines.
+        lot X — as an exact match on any of a receipt's lines. `from` and `to`
+        narrow to the days received, both ends inclusive.
 
         Requires `inventory.view_organisation`.
       parameters:
@@ -11148,6 +11149,20 @@ paths:
           schema:
             type: string
             maxLength: 20
+        - name: from
+          in: query
+          required: false
+          description: Only receipts received on or after this day.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          description: Only receipts received on or before this day.
+          schema:
+            type: string
+            format: date
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
       responses:

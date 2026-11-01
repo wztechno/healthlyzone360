@@ -753,3 +753,31 @@ it('answers which deliveries brought a supplier lot', function (): void {
 
     expect($ids)->toBe([$first]);
 });
+
+it('narrows the receipts to the days they were received, both ends inclusive', function (): void {
+    $world = receivingWorld('received-window@kitchen.test');
+    $line = [['stock_item_id' => $world->itemId, 'quantity' => '1', 'unit_id' => $world->kgId]];
+    $today = now()->toDateString();
+    $threeDaysAgo = now()->subDays(3)->toDateString();
+    $tenDaysAgo = now()->subDays(10)->toDateString();
+
+    $old = receive($world, null, $line, ['received_on' => $tenDaysAgo]);
+    $middle = receive($world, null, $line, ['received_on' => $threeDaysAgo]);
+    $recent = receive($world, null, $line, ['received_on' => $today]);
+
+    $this->actingAs($world->tenant->user);
+    $idsFor = fn (string $query): array => collect($this->getJson('/api/v1/catalogue/procurement/goods-receipts?'.$query, $world->headers)
+        ->assertOk()
+        ->json('data.goods_receipts'))
+        ->map(fn (array $receipt): string => (string) $receipt['id'])
+        ->sort()
+        ->values()
+        ->all();
+
+    expect($idsFor("from={$threeDaysAgo}&to={$threeDaysAgo}"))->toBe([(string) $middle->id])
+        ->and($idsFor("from={$threeDaysAgo}"))->toBe(collect([(string) $middle->id, (string) $recent->id])->sort()->values()->all())
+        ->and($idsFor("to={$threeDaysAgo}"))->toBe(collect([(string) $old->id, (string) $middle->id])->sort()->values()->all());
+
+    $this->getJson('/api/v1/catalogue/procurement/goods-receipts?from=last-week', $world->headers)
+        ->assertUnprocessable();
+});

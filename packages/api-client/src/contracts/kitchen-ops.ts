@@ -2205,7 +2205,8 @@ export interface KitchenOpsRepository {
     getProcurementReference(): Promise<ProcurementReference>;
     /**
      * The most recent fifty receipts, newest first. Costs redacted without the cost permission.
-     * `supplierLot` answers the recall question — which deliveries brought that lot.
+     * `supplierLot` answers the recall question — which deliveries brought that lot; `from` and
+     * `to` narrow to the days the deliveries were received, both ends inclusive.
      */
     listGoodsReceipts(filter?: GoodsReceiptFilter): Promise<readonly GoodsReceipt[]>;
     /**
@@ -2420,6 +2421,10 @@ export interface KitchenOpsRepository {
 export interface GoodsReceiptFilter {
     /** Only receipts with a line carrying exactly this supplier lot — the recall question. */
     readonly supplierLot?: string | undefined;
+    /** Received on or after this day (`YYYY-MM-DD`). */
+    readonly from?: string | undefined;
+    /** Received on or before this day (`YYYY-MM-DD`). */
+    readonly to?: string | undefined;
 }
 
 /** `supplier` — the producer's code on the pack. `system` — a kitchen code (GS1 RCN prefix 04). */
