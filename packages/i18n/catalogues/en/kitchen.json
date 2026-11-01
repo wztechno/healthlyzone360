@@ -82,7 +82,7 @@
         "customers": {
             "caption": "This kitchen's customers",
             "searchLabel": "Search customers",
-            "searchHint": "Name, or full phone number with country code",
+            "searchHint": "Search by name, or full phone number with country code",
             "segmentLabel": "Customer type",
             "segmentAll": "All",
             "typeB2c": "Consumer",
@@ -163,7 +163,7 @@
             "statusFilterLabel": "Status",
             "filterAll": "All",
             "searchLabel": "Order number",
-            "searchHint": "Part of an order number, for example 0148.",
+            "searchHint": "Search by order number, e.g. 0148",
             "columnNumber": "Order",
             "columnStatus": "Status",
             "columnPlaced": "Placed",
@@ -346,7 +346,8 @@
             "contact": "Reply to",
             "order": "Order placed",
             "declineReason": "Why the buyer declined",
-            "buyer": "Buyer"
+            "buyer": "Buyer",
+            "searchPlaceholder": "Search quotations by reference"
         },
         "stock": {
             "metrics": {
@@ -393,7 +394,7 @@
             "kindProducts": "Resale",
             "levelLabel": "Level",
             "levelOut": "Out",
-            "searchPlaceholder": "Item name or reference",
+            "searchPlaceholder": "Search by item name or reference",
             "columnReorderPar": "Reorder / Restock",
             "reorderPar": "{{threshold}} / {{par}}",
             "filteredEmptyBody": "Try a shorter search, or another level.",
@@ -635,7 +636,7 @@
                 "nativeUnavailableBody": "Open this order in a web browser to print it or save it as a PDF. The orders below are complete — you can read them from here."
             },
             "searchLabel": "Search orders",
-            "searchPlaceholder": "Order number or supplier",
+            "searchPlaceholder": "Search by order number or supplier",
             "ordersFilteredEmptyTitle": "No order matches",
             "ordersFilteredEmptyBody": "Try a shorter search, or another status.",
             "ordersFoot": "Issuing freezes the items, the quantities and the supplier’s details. Nothing is sent anywhere.",
@@ -662,7 +663,7 @@
             "caption": "Suppliers",
             "create": "New supplier",
             "searchLabel": "Search suppliers",
-            "searchHint": "Matches the name in either language, and the code.",
+            "searchHint": "Search suppliers by name or code",
             "columnName": "Supplier",
             "columnContact": "Main contact",
             "columnTerms": "Terms",
@@ -820,7 +821,7 @@
             "unpricedReceipts": "Prices to finish",
             "fieldInvoiceRef": "Invoice number",
             "fieldReceivedOn": "Date received",
-            "searchPlaceholder": "Supplier or document reference",
+            "searchPlaceholder": "Search by supplier or document reference",
             "columnRefs": "References",
             "filteredEmptyBody": "Try a shorter search, or choose another price state.",
             "listFoot": "Stock rises the moment a receipt is posted; prices can be added afterwards.",
@@ -1058,7 +1059,7 @@
             "chargeTax": "Tax",
             "chargeDelivery": "Delivery",
             "chargeOther": "Other charges",
-            "searchPlaceholder": "Item or supplier on this page",
+            "searchPlaceholder": "Search this page by item or supplier",
             "columnQuantity": "Quantity",
             "columnState": "Price",
             "stateUnpriced": "No price yet",
@@ -1249,7 +1250,7 @@
             "columnVersion": "Recipe version",
             "columnBranch": "Branch",
             "thisBranch": "This branch",
-            "searchPlaceholder": "Batch, lot or recipe",
+            "searchPlaceholder": "Search by batch, lot or recipe",
             "filteredEmptyTitle": "No batches match",
             "filteredEmptyBody": "Clear the search or the status to see every batch.",
             "viewKind": "Production batch",
@@ -1350,7 +1351,7 @@
                 "productionOrder": "Production order"
             },
             "columnKind": "Kind",
-            "searchPlaceholder": "Subject id or reference",
+            "searchPlaceholder": "Search by subject ID or reference",
             "filteredEmptyTitle": "No checks match",
             "filteredEmptyBody": "Clear the search or the status to see every check.",
             "viewKind": "Quality check",
@@ -1504,7 +1505,7 @@
                 "product": "Fix the product",
                 "production": "See production plan"
             },
-            "searchPlaceholder": "Order, item, ingredient or reason",
+            "searchPlaceholder": "Search by order, item, ingredient or reason",
             "filteredEmptyTitle": "No stock gaps match",
             "filteredEmptyBody": "Change the search or the filters.",
             "nextPage": "Next page",
@@ -1829,7 +1830,7 @@
         "caption": "Open orders, soonest due first",
         "measuredOn": "Measured against {{date}}, on the {{timezone}} clock.",
         "searchLabel": "Order number",
-        "searchPlaceholder": "For example 0148",
+        "searchPlaceholder": "Search by order number, e.g. 0148",
         "searchHint": "Order numbers only. A customer's name or telephone number is not searchable here.",
         "windowLabel": "Which orders",
         "window": {
@@ -1874,7 +1875,7 @@
             "title": "Who takes this run?",
             "description": "Order {{number}}. Only the person you choose is told about it.",
             "searchLabel": "Find a driver",
-            "searchPlaceholder": "Part of a name",
+            "searchPlaceholder": "Search by name",
             "searchHint": "Everybody with an active membership here is listed. Somebody who has not put a name on their profile can only be found with this box empty.",
             "choose": "Choose",
             "chosen": "Chosen",
@@ -1967,7 +1968,7 @@
                 "delivery": "We take it to them. We need the customer and somewhere to send it, and they pay at the door."
             },
             "customerSearchLabel": "Find the customer",
-            "customerSearchPlaceholder": "A name, or a telephone number",
+            "customerSearchPlaceholder": "Search by name or phone number",
             "customerSearchTooShort": "Keep going — {{count}} characters or more to search.",
             "customerSearchErrorTitle": "The search could not be run",
             "customerNoneTitle": "Nobody matches that",
@@ -2007,7 +2008,7 @@
             "addressUndeliverableTitle": "Nobody delivers to that area yet",
             "addressUndeliverableBody": "The address is saved, but no zone covers it at the moment, so this order cannot be sent there. Tell the customer, and offer collection instead.",
             "pickerSearchLabel": "Search the menu",
-            "pickerSearchPlaceholder": "For example coffee",
+            "pickerSearchPlaceholder": "Search the menu, e.g. coffee",
             "pickerErrorTitle": "The menu could not be loaded",
             "pickerEmptyTitle": "Nothing published matches",
             "pickerEmptyBody": "Only published meals and products can be sold. Try a different search, or publish the article first.",
@@ -2442,7 +2443,7 @@
         "columnWhy": "Why it is here",
         "columnUpdated": "Last changed",
         "searchLabel": "Search the queue",
-        "searchPlaceholder": "Item",
+        "searchPlaceholder": "Search by item name",
         "filterFrom": "Changed from",
         "filterTo": "Changed until",
         "scopeLabel": "Show",
@@ -2521,7 +2522,7 @@
         "filtersActive": "Filters ({{n}})",
         "removeFilter": "Remove filter: {{filter}}",
         "searchLabel": "Search",
-        "searchPlaceholder": "Name, alias or reference",
+        "searchPlaceholder": "Search by name, alias or reference",
         "statusLabel": "Status",
         "categoryLabel": "Category",
         "categoryAll": "Every category",
@@ -3737,7 +3738,8 @@
         "channelsSave": "Save channels",
         "channelsSavedToast": "Channels saved.",
         "channelsLoadError": "The list’s channels could not be read.",
-        "channelInactive": "Inactive"
+        "channelInactive": "Inactive",
+        "searchPlaceholder": "Search price lists by name or code"
     },
     "plans": {
         "title": "Plans",
@@ -3900,7 +3902,8 @@
         "createChip": "Subscriptions",
         "savePlan": "Save the plan",
         "addVariant": "Add a configuration",
-        "oneOffExplainer": "A one-off is a single delivery, so it has no day count at all — not zero, none."
+        "oneOffExplainer": "A one-off is a single delivery, so it has no day count at all — not zero, none.",
+        "searchPlaceholder": "Search plans by name"
     },
     "time": {
         "formatHint": "24-hour clock, HH:mm — for example 08:00 or 18:30.",
@@ -4003,14 +4006,15 @@
         "viewKind": "Delivery zone",
         "viewFee": "Delivery fee",
         "viewMinimum": "Minimum order",
-        "viewWeekdays": "Days covered"
+        "viewWeekdays": "Days covered",
+        "searchPlaceholder": "Search zones by name or code"
     },
     "areas": {
         "selectedLabel": "Chosen areas",
         "selectedNone": "None yet. This zone reaches nowhere until an area is chosen.",
         "searchLabel": "Find an area",
         "searchHint": "Matches either language and the governorate an area sits in.",
-        "searchPlaceholder": "Area or governorate",
+        "searchPlaceholder": "Search by area or governorate",
         "matchCount_one": "{{count}} of {{total}} areas match",
         "matchCount_other": "{{count}} of {{total}} areas match",
         "groupLabel": "Delivery areas, grouped by governorate",

@@ -22,7 +22,8 @@
         "searchLabel": "ابحث في البرامج",
         "loadErrorTitle": "تعذّر تحميل البرامج",
         "emptyFilteredBody": "لا يطابق أي برنامج هذا البحث.",
-        "programmesCaption": "برامج الشركات"
+        "programmesCaption": "برامج الشركات",
+        "searchPlaceholder": "ابحث في البرامج بالاسم"
     },
     "programme": {
         "active": "قائم",
@@ -76,7 +77,7 @@
         "privacyTitle": "هذه أسعارك المتفق عليها",
         "privacyBody": "أسعار العقد تخص هذا البرنامج ولا تظهر في أي موضع آخر من التطبيق. لا يستطيع أي متصفح للسوق العام رؤيتها.",
         "searchLabel": "ابحث في هذا الكتالوج",
-        "searchPlaceholder": "وجبة، خطة، باقة بالجملة",
+        "searchPlaceholder": "ابحث في الوجبات أو الخطط أو الباقات بالجملة",
         "kindLabel": "النوع",
         "kindAll": "الكل",
         "mixedCurrency": "هذا الكتالوج مُسعَّر بأكثر من عملة ({{currencies}})، لذلك لا يُعرض مجموع واحد. لا تُجمع المبالغ بعملات مختلفة أبداً.",
@@ -261,7 +262,8 @@
         "view": "عرض",
         "columnContact": "جهة الاتصال",
         "columnOrder": "الطلب",
-        "columnDeclineReason": "سبب الرفض"
+        "columnDeclineReason": "سبب الرفض",
+        "searchPlaceholder": "ابحث في عروض الأسعار بالمرجع"
     },
     "partner": {
         "title": "التزامات التوريد",

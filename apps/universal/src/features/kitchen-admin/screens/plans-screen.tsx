@@ -445,6 +445,7 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
                     setViewing(null);
                 }}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
+                searchPlaceholder={t('kitchen:plans.searchPlaceholder')}
                 tokens={statusLensTokens(lens, t)}
                 result={
                     total === null || failure !== null

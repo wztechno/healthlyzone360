@@ -35,7 +35,7 @@
             "columnExpires": "Expires"
         },
         "searchLabel": "Search the team",
-        "searchHint": "Name or email",
+        "searchHint": "Search people by name or email",
         "searchPageHint": "Search this page",
         "segmentLabel": "Who to show",
         "segmentWorking": "Working",
@@ -104,7 +104,7 @@
         "permissionCount_one": "One permission",
         "permissionCount_other": "{{count}} permissions",
         "searchLabel": "Search roles",
-        "searchHint": "Name or code",
+        "searchHint": "Search roles by name or code",
         "noDescription": "No description",
         "statUnheld": "Unassigned",
         "statUnheldCaption": "held by nobody",

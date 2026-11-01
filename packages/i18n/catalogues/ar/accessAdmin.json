@@ -35,7 +35,7 @@
             "columnExpires": "تنتهي"
         },
         "searchLabel": "ابحث في الفريق",
-        "searchHint": "الاسم أو البريد الإلكتروني",
+        "searchHint": "ابحث عن الأشخاص بالاسم أو البريد الإلكتروني",
         "searchPageHint": "ابحث في هذه الصفحة",
         "segmentLabel": "من يُعرض",
         "segmentWorking": "على رأس العمل",
@@ -116,7 +116,7 @@
         "permissionCount_many": "{{count}} صلاحية",
         "permissionCount_other": "{{count}} صلاحية",
         "searchLabel": "ابحث في الأدوار",
-        "searchHint": "الاسم أو الرمز",
+        "searchHint": "ابحث في الأدوار بالاسم أو الرمز",
         "noDescription": "بلا وصف",
         "statUnheld": "غير مُسندة",
         "statUnheldCaption": "لا يحملها أحد",

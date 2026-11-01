@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9170 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9176 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1331,6 +1331,7 @@ export interface NamespaceKeys {
     | 'dashboard.programmesCaption'
     | 'dashboard.quotationsTitle'
     | 'dashboard.searchLabel'
+    | 'dashboard.searchPlaceholder'
     | 'dashboard.sourceNote'
     | 'dashboard.statAwaiting'
     | 'dashboard.statOpen'
@@ -1452,6 +1453,7 @@ export interface NamespaceKeys {
     | 'quotations.oneOff'
     | 'quotations.recurring'
     | 'quotations.searchLabel'
+    | 'quotations.searchPlaceholder'
     | 'quotations.statAll'
     | 'quotations.statClosed'
     | 'quotations.statOpen'
@@ -5254,6 +5256,7 @@ export interface NamespaceKeys {
     | 'ops.quotations.requestHeading'
     | 'ops.quotations.requestedDelivery'
     | 'ops.quotations.schedule'
+    | 'ops.quotations.searchPlaceholder'
     | 'ops.quotations.send'
     | 'ops.quotations.staleBody'
     | 'ops.quotations.staleTitle'
@@ -5960,6 +5963,7 @@ export interface NamespaceKeys {
     | 'plans.saveDurations'
     | 'plans.savePlan'
     | 'plans.saveVariants'
+    | 'plans.searchPlaceholder'
     | 'plans.sectionDetails'
     | 'plans.sectionDurations'
     | 'plans.sectionPrices'
@@ -6158,6 +6162,7 @@ export interface NamespaceKeys {
     | 'priceLists.scopeAgreement'
     | 'priceLists.scopePublic'
     | 'priceLists.searchLabel'
+    | 'priceLists.searchPlaceholder'
     | 'priceLists.selectAll'
     | 'priceLists.selectEntry'
     | 'priceLists.selectedCount'
@@ -7114,6 +7119,7 @@ export interface NamespaceKeys {
     | 'zones.notFoundTitle'
     | 'zones.resultCount'
     | 'zones.saveZone'
+    | 'zones.searchPlaceholder'
     | 'zones.sectionAreas'
     | 'zones.sectionDetails'
     | 'zones.sectionWindows'
@@ -10527,6 +10533,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:dashboard.programmesCaption',
   'business:dashboard.quotationsTitle',
   'business:dashboard.searchLabel',
+  'business:dashboard.searchPlaceholder',
   'business:dashboard.sourceNote',
   'business:dashboard.statAwaiting',
   'business:dashboard.statOpen',
@@ -10648,6 +10655,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:quotations.oneOff',
   'business:quotations.recurring',
   'business:quotations.searchLabel',
+  'business:quotations.searchPlaceholder',
   'business:quotations.statAll',
   'business:quotations.statClosed',
   'business:quotations.statOpen',
@@ -14442,6 +14450,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.requestHeading',
   'kitchen:ops.quotations.requestedDelivery',
   'kitchen:ops.quotations.schedule',
+  'kitchen:ops.quotations.searchPlaceholder',
   'kitchen:ops.quotations.send',
   'kitchen:ops.quotations.staleBody',
   'kitchen:ops.quotations.staleTitle',
@@ -15148,6 +15157,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.saveDurations',
   'kitchen:plans.savePlan',
   'kitchen:plans.saveVariants',
+  'kitchen:plans.searchPlaceholder',
   'kitchen:plans.sectionDetails',
   'kitchen:plans.sectionDurations',
   'kitchen:plans.sectionPrices',
@@ -15346,6 +15356,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:priceLists.scopeAgreement',
   'kitchen:priceLists.scopePublic',
   'kitchen:priceLists.searchLabel',
+  'kitchen:priceLists.searchPlaceholder',
   'kitchen:priceLists.selectAll',
   'kitchen:priceLists.selectEntry',
   'kitchen:priceLists.selectedCount',
@@ -16302,6 +16313,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:zones.notFoundTitle',
   'kitchen:zones.resultCount',
   'kitchen:zones.saveZone',
+  'kitchen:zones.searchPlaceholder',
   'kitchen:zones.sectionAreas',
   'kitchen:zones.sectionDetails',
   'kitchen:zones.sectionWindows',

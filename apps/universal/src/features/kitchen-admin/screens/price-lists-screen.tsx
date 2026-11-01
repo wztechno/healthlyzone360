@@ -414,6 +414,7 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                     setViewing(null);
                 }}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
+                searchPlaceholder={t('kitchen:priceLists.searchPlaceholder')}
                 tokens={statusLensTokens(lens, t)}
                 result={
                     total === null

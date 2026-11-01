@@ -509,7 +509,7 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                 search={search}
                 onSearchChange={setSearch}
                 searchLabel={t('business:quotations.searchLabel')}
-                searchPlaceholder={t('business:quotations.columnReference')}
+                searchPlaceholder={t('business:quotations.searchPlaceholder')}
                 statusLabel={t('business:quotations.filterLabel')}
                 statusSegments={FILTERS.map((value) => ({
                     value,

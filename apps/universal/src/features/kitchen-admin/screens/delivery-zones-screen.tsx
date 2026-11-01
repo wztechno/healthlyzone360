@@ -487,6 +487,7 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                     setViewing(null);
                 }}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
+                searchPlaceholder={t('kitchen:zones.searchPlaceholder')}
                 tokens={statusLensTokens(lens, t)}
                 result={
                     total === null
