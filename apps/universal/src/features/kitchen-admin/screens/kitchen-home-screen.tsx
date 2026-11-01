@@ -62,10 +62,12 @@ import { buildReviewQueue } from '../review-queue.ts';
  * 1. **A greeting and the day's actions** — the person's name, the date and branch, and the three
  *    things a kitchen starts most often (a sale, a supply order, a recipe), each only for a role
  *    that may do it.
- * 2. **Five figures**, each its own small card of one size: a label with a status dot and the
- *    number. Amber when it is waiting on someone; a zero is good news and stays plain.
- * 3. **Three panels side by side** — what needs attention (one line per check, its count and the
- *    verb that clears it), how much of the catalogue is on sale, and stock and buying.
+ * 2. **Five figures**, each its own small card of one size: a status dot, the label and the number
+ *    on one line at one size. Amber when it is waiting on someone; a zero is good news and stays
+ *    plain.
+ * 3. **Three panels of one size** — what needs attention (one line per check, its count and the
+ *    verb that clears it), how much of the catalogue is on sale, and stock and buying — on the same
+ *    grid as Go to, so their edges line up with the cards under them.
  * 4. **Go to** — every module as a small pill, grouped by the rail's sections, in cards of one
  *    size. A pill carries a count only where the count is something to act on.
  *
@@ -132,10 +134,10 @@ function CountPill({
 }
 
 /**
- * One figure: a label with its status dot, and the number.
+ * One figure: a label with its status dot, and the number — one line, one size.
  *
  * Each its own card, every one the same width, so the five read as five things rather than one
- * strip — and slim, a label and a number, because the panels under them say what to do about it.
+ * strip — and slim, a single line, because the panels under them say what to do about it.
  */
 function StatTile({
     testID,
@@ -161,50 +163,52 @@ function StatTile({
                 interactive={onPress !== undefined}
                 accessibilityLabel={label}
                 {...(onPress === undefined ? {} : { onPress })}
-                className="gap-1 border-brand-100"
+                className="border-brand-100"
             >
                 <Inline space="xs" align="center" wrap={false}>
                     <View className={cx('h-2 w-2 rounded-full', DOT_CLASS[tone])} />
-                    <Text variant="caption" tone="secondary" numberOfLines={1}>
+                    <Text tone="secondary" numberOfLines={1} className="min-w-0 flex-1">
                         {label}
                     </Text>
+                    {pending ? (
+                        <Skeleton
+                            testID={`${testID}-loading`}
+                            heightClassName="h-5"
+                            widthClassName="w-8"
+                        />
+                    ) : (
+                        <Text
+                            testID={`${testID}-value`}
+                            variant="bodyStrong"
+                            tone={tone === 'warning' ? 'warning' : 'primary'}
+                            className="tabular-nums"
+                        >
+                            {value}
+                        </Text>
+                    )}
                 </Inline>
-                {pending ? (
-                    <Skeleton
-                        testID={`${testID}-loading`}
-                        heightClassName="h-6"
-                        widthClassName="w-1/3"
-                    />
-                ) : (
-                    <Text
-                        testID={`${testID}-value`}
-                        variant="display"
-                        tone={tone === 'warning' ? 'warning' : 'primary'}
-                    >
-                        {value}
-                    </Text>
-                )}
             </Card>
         </View>
     );
 }
 
-/** A panel: a title, an optional trailing note, then rows divided by hairlines. */
+/**
+ * A panel: a title, an optional trailing note, then rows divided by hairlines. One cell of the
+ * same grid as Go to, so the three line up with the cards under them.
+ */
 function Panel({
     testID,
     title,
     trailing,
-    grow,
     children,
 }: {
     readonly testID: string;
     readonly title: string;
     readonly trailing?: ReactNode;
-    readonly grow: number;
     readonly children: ReactNode;
 }) {
     return (
-        <View style={{ flexGrow: grow, flexBasis: 0, minWidth: 260 }}>
+        <View className="min-w-0">
             <Card
                 testID={testID}
                 padding="none"
@@ -635,7 +639,7 @@ export function KitchenHomeScreen() {
         if (key === 'order-requirements') return shortfallCount;
         return null;
     };
-    const wide = contentWidth >= 1000;
+    // The three panels and the Go to cards share one grid, so their columns line up.
     const groupGrid =
         contentWidth >= 1000 ? 'grid-cols-3' : contentWidth >= 640 ? 'grid-cols-2' : 'grid-cols-1';
 
@@ -697,12 +701,11 @@ export function KitchenHomeScreen() {
                             ))}
                         </View>
 
-                        <View className={cx('gap-3', wide ? 'flex-row items-stretch' : 'flex-col')}>
+                        <View testID="kitchen-home-panels" className={`grid gap-3 ${groupGrid}`}>
                             {checks.length === 0 ? null : (
                                 <Panel
                                     testID="kitchen-home-attention"
                                     title={t('kitchen:hub.attentionTitle')}
-                                    grow={1.3}
                                     trailing={
                                         <CountPill
                                             testID="kitchen-home-attention-count"
@@ -760,7 +763,6 @@ export function KitchenHomeScreen() {
                                 <Panel
                                     testID="kitchen-home-catalogue"
                                     title={t('kitchen:nav.groups.catalogue')}
-                                    grow={1}
                                     trailing={
                                         <Text variant="caption" tone="secondary">
                                             {t('kitchen:hub.onSaleOfTotal')}
@@ -827,7 +829,6 @@ export function KitchenHomeScreen() {
                                 <Panel
                                     testID="kitchen-home-buying"
                                     title={t('kitchen:hub.buyingTitle')}
-                                    grow={1}
                                 >
                                     {buyingRows.map((row) => (
                                         <PanelRow
