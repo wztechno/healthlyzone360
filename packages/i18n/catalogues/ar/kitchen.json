@@ -2755,6 +2755,8 @@
         "columnUpdated": "آخر تغيير",
         "searchLabel": "البحث في القائمة",
         "searchPlaceholder": "الصنف",
+        "filterFrom": "تغيّر من",
+        "filterTo": "تغيّر حتى",
         "scopeLabel": "إظهار",
         "scopeAll": "الكل",
         "scopeBlocked": "محظور",

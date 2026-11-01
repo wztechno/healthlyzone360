@@ -2452,6 +2452,8 @@
         "columnUpdated": "Last changed",
         "searchLabel": "Search the queue",
         "searchPlaceholder": "Item",
+        "filterFrom": "Changed from",
+        "filterTo": "Changed until",
         "scopeLabel": "Show",
         "scopeAll": "All",
         "scopeBlocked": "Blocked",

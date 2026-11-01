@@ -793,6 +793,35 @@ describe('the review queue screen', () => {
         expect(screen.getByTestId('kitchen-review-toolbar-result')).toHaveTextContent('0 of 1');
     });
 
+    it('narrows to a last-changed window by the Period shortcut, and All restores it', async () => {
+        await renderStubScreen(<ReviewScreen />, {
+            session: kitchenManagerSession(),
+            repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
+        });
+
+        await untilVisible('kitchen-review-filter-period-trigger');
+        // The table's Show columns rides at the bar's end, as on Stock gaps.
+        expect(screen.getByTestId('kitchen-review-table-list-columns-trigger')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-review-filter-from')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-review-filter-to')).toBeTruthy();
+
+        // The record last changed months ago: Today leaves nothing, and says so without the all-clear.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-review-filter-period-trigger'));
+            fireEvent.press(await screen.findByTestId('kitchen-review-filter-period-today'));
+        });
+        await untilVisible('kitchen-review-filtered-empty');
+        expect(screen.queryByTestId('kitchen-review-clear')).toBeNull();
+        expect(screen.getByTestId('kitchen-review-toolbar-figure-all-value')).toHaveTextContent('0');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-review-filter-period-trigger'));
+            fireEvent.press(await screen.findByTestId('kitchen-review-filter-period-all'));
+        });
+        await untilVisible('kitchen-review-table-list');
+        expect(screen.getByTestId('kitchen-review-toolbar-result')).toHaveTextContent('1 of 1');
+    });
+
     it('opens on the figures — no page title, scope footnotes or truncation banner', async () => {
         await renderStubScreen(<ReviewScreen />, {
             session: kitchenManagerSession(),
