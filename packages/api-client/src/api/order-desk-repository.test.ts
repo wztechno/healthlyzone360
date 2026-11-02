@@ -1416,7 +1416,9 @@ describe('createApiOrderDeskRepository — getCashReport', () => {
         expect(calls[0]?.method).toBe('GET');
         // No `branch_id=`: omitted is the organisation-wide read, and an empty value would be the
         // client naming a field it has no value for.
-        expect(calls[0]?.path).toBe('/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10');
+        expect(calls[0]?.path).toBe(
+            '/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10',
+        );
     });
 
     it('sends the branch when one is named', async () => {
@@ -1424,7 +1426,11 @@ describe('createApiOrderDeskRepository — getCashReport', () => {
             { status: 200, body: { ...CASH_BODY, meta: { ...CASH_META, branch_id: BRANCH_UUID } } },
         ]);
 
-        await repository.getCashReport({ from: '2026-05-10', to: '2026-05-10', branchId: BRANCH_UUID as never });
+        await repository.getCashReport({
+            from: '2026-05-10',
+            to: '2026-05-10',
+            branchId: BRANCH_UUID as never,
+        });
 
         expect(calls[0]?.path).toBe(
             `/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10&branch_id=${BRANCH_UUID}`,

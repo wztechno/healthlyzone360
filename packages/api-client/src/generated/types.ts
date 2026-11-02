@@ -28740,6 +28740,14 @@ export type ListGoodsReceiptsData = {
          * Only receipts with a line carrying exactly this supplier lot.
          */
         supplier_lot?: string;
+        /**
+         * Only receipts received on or after this day.
+         */
+        from?: string;
+        /**
+         * Only receipts received on or before this day.
+         */
+        to?: string;
     };
     url: '/catalogue/procurement/goods-receipts';
 };

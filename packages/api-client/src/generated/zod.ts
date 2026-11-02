@@ -13717,7 +13717,9 @@ export const zListGoodsReceiptsHeaders = z.object({
 });
 
 export const zListGoodsReceiptsQuery = z.object({
-    supplier_lot: z.string().max(20).optional()
+    supplier_lot: z.string().max(20).optional(),
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional()
 });
 
 /**

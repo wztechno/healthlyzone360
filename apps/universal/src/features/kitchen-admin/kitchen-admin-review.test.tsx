@@ -812,7 +812,9 @@ describe('the review queue screen', () => {
         });
         await untilVisible('kitchen-review-filtered-empty');
         expect(screen.queryByTestId('kitchen-review-clear')).toBeNull();
-        expect(screen.getByTestId('kitchen-review-toolbar-figure-all-value')).toHaveTextContent('0');
+        expect(screen.getByTestId('kitchen-review-toolbar-figure-all-value')).toHaveTextContent(
+            '0',
+        );
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-review-filter-period-trigger'));
