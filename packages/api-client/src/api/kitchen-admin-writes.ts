@@ -901,6 +901,9 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                         : { ingredient_subcategory_id: subcategoryId }),
                     default_unit_id: unitId,
                     ...(purchaseUnitId === null ? {} : { purchase_unit_id: purchaseUnitId }),
+                    ...(request.composition === undefined
+                        ? {}
+                        : { composition: request.composition }),
                     // `items_per_unit` was on the contract and never sent — a gap, not a decision:
                     // a create that stated the pack size silently dropped it and the first save
                     // after had to state it again.

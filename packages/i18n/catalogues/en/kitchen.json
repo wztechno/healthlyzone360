@@ -2669,7 +2669,7 @@
         "itemsPerUnit": "Items per pack",
         "itemsPerUnitHint": "Pieces in one purchase pack, where known.",
         "composition": "Composition (made from)",
-        "compositionHint": "The source sheet's own wording — a coarse ingredient list, not a formulation.",
+        "compositionHint": "A coarse ingredient list, not a formulation.",
         "subcategory": "Sub-category",
         "subcategoryPlaceholder": "Choose a sub-category",
         "subcategoryNone": "Filed at the top level",

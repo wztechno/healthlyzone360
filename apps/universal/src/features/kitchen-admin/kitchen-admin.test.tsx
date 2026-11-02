@@ -1099,6 +1099,13 @@ describe('the ingredient editor', () => {
         await selectUsdaReference();
 
         await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-ingredient-made-from-input'),
+                'Green wheat',
+            );
+        });
+
+        await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
         });
 
@@ -1115,6 +1122,7 @@ describe('the ingredient editor', () => {
         expect(repositories.kitchenAdmin.createIngredient).toHaveBeenCalledWith({
             name: { en: 'Toasted burghul', ar: '' },
             categoryCode: 'store-cupboard',
+            composition: 'Green wheat',
             measurementUnit: 'g',
             // Stated, and stated false. The Sale section's toggle is a field the form collects, so
             // omitting it would leave the server to pick — and "can this be sold on its own?"
@@ -1692,14 +1700,14 @@ describe('the ingredient editor', () => {
     });
 
     /**
-     * The four fields the form no longer collects, and the write that must not clear them.
+     * The three fields the form no longer collects, and the write that must not clear them.
      *
-     * Kitchen reference, Composition, Other names and Notes left the form when the editor was cut
-     * down to the design's four sections. They are still on the record and still writable through
-     * the contract — this screen simply stopped being where they are edited. That makes the *shape
-     * of the request* the thing worth pinning: `UpdateIngredientRequest` treats a field it does not
-     * receive as untouched and an explicit `null` as a clear, so a form that posted the four blanks
-     * it no longer collects would erase four columns on the first save of any record that had them.
+     * Kitchen reference, Other names and Notes left the form when the editor was cut down to the
+     * design's four sections. They are still on the record and still writable through the contract
+     * — this screen simply stopped being where they are edited. That makes the *shape of the
+     * request* the thing worth pinning: `UpdateIngredientRequest` treats a field it does not receive
+     * as untouched and an explicit `null` as a clear, so a form that posted the three blanks it no
+     * longer collects would erase three columns on the first save of any record that had them.
      *
      * This replaces the alias-editing test, which covered a control the form no longer has. What it
      * was really protecting is here instead: the aliases survive the save.
@@ -1750,11 +1758,51 @@ describe('the ingredient editor', () => {
         const [, request] = (repositories.kitchenAdmin.updateIngredient as jest.Mock).mock
             .calls[0] as [IngredientId, Record<string, unknown>];
         // Absent, not null. `null` is a clear on this contract and `undefined` is "untouched", and
-        // the difference is four columns of somebody else's data.
+        // the difference is three columns of somebody else's data.
         expect(request).not.toHaveProperty('aliases');
         expect(request).not.toHaveProperty('reference');
-        expect(request).not.toHaveProperty('composition');
         expect(request).not.toHaveProperty('notes');
+    });
+
+    it('edits the composition, and an emptied box clears it', async () => {
+        const record = ingredient(3, { composition: 'Garlic, oil' });
+
+        const { repositories } = await renderStubScreen(
+            <IngredientEditScreen ingredient={String(record.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [record]),
+                        getIngredient: async () => record,
+                        updateIngredient: async (_id, request) => ({
+                            ...record,
+                            meta: { ...record.meta, lockVersion: request.lockVersion + 1 },
+                        }),
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-ingredient-made-from-input');
+        expect(screen.getByTestId('kitchen-ingredient-made-from-input').props.value).toBe(
+            'Garlic, oil',
+        );
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-ingredient-made-from-input'), '');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateIngredient).toHaveBeenCalled();
+        });
+
+        const [, request] = (repositories.kitchenAdmin.updateIngredient as jest.Mock).mock
+            .calls[0] as [IngredientId, Record<string, unknown>];
+        expect(request).toHaveProperty('composition', null);
     });
 
     /*

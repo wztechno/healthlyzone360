@@ -191,13 +191,14 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *
  * ## Fields this screen used to have and the design does not
  *
- * Kitchen reference, Composition (made from), Other names and Notes are gone from the form, and so
- * is Archive. They are still on the record and still writable through the contract — this screen
- * simply stops being where they are edited.
+ * Kitchen reference, Other names and Notes are gone from the form, and so is Archive. They are still
+ * on the record and still writable through the contract — this screen simply stops being where they
+ * are edited. Composition (made from) left with them and came back: the owner asked for it on create
+ * and edit, under the filing fields.
  *
  * **They are therefore omitted from the write, never sent as empty.** `UpdateIngredientRequest`
  * treats a field it does not receive as untouched and an explicit `null` as a clear, so a form that
- * posted the four blanks it no longer collects would erase four columns on the first save of any
+ * posted the three blanks it no longer collects would erase three columns on the first save of any
  * record that had them. The reference is still *read* — it opens the meta line, as the design draws
  * it — which is exactly the distinction the request has to preserve.
  *
@@ -254,6 +255,8 @@ interface DetailsDraft {
     readonly categoryCode: string;
     /** `''` means "filed at the top level" — the contract's `null`. */
     readonly subcategoryCode: string;
+    /** `''` means "nothing recorded" — the contract's `null`. */
+    readonly composition: string;
     readonly measurementUnit: MeasureUnit;
     /** `''` means "no purchase pack recorded" — an honest absence, not a default. */
     readonly purchaseUnit: MeasureUnit | '';
@@ -342,6 +345,7 @@ const EMPTY_DETAILS: DetailsDraft = {
     reference: '',
     categoryCode: '',
     subcategoryCode: '',
+    composition: '',
     measurementUnit: 'g',
     purchaseUnit: '',
     itemsPerUnit: '',
@@ -360,6 +364,7 @@ function detailsFrom(ingredient: IngredientAdmin): DetailsDraft {
         reference: ingredient.reference ?? '',
         categoryCode: ingredient.categoryCode,
         subcategoryCode: ingredient.subcategoryCode ?? '',
+        composition: ingredient.composition ?? '',
         measurementUnit: ingredient.measurementUnit,
         purchaseUnit: ingredient.purchaseUnit ?? '',
         itemsPerUnit: ingredient.itemsPerUnit === null ? '' : String(ingredient.itemsPerUnit),
@@ -1738,6 +1743,10 @@ function IngredientEditor({
             label: t('kitchen:fields.subcategory'),
             fieldId: 'kitchen-ingredient-subcategory',
         },
+        composition: {
+            label: t('kitchen:fields.composition'),
+            fieldId: 'kitchen-ingredient-made-from',
+        },
         purchase_unit_id: {
             label: t('kitchen:fields.purchaseUnit'),
             fieldId: 'kitchen-ingredient-purchase-unit',
@@ -1799,6 +1808,7 @@ function IngredientEditor({
                     ...(details.subcategoryCode === ''
                         ? {}
                         : { subcategoryCode: details.subcategoryCode }),
+                    ...(details.composition === '' ? {} : { composition: details.composition }),
                     ...(details.purchaseUnit === '' ? {} : { purchaseUnit: details.purchaseUnit }),
                     ...(positiveNumberOf(details.itemsPerUnit) === null
                         ? {}
@@ -1880,9 +1890,9 @@ function IngredientEditor({
             return;
         }
         /*
-         * Reference, composition, notes and aliases are absent on purpose, not forgotten: the form
-         * no longer collects them, and `UpdateIngredientRequest` reads a missing field as untouched
-         * and an explicit `null` as a clear. Sending the blanks would erase four columns.
+         * Reference, notes and aliases are absent on purpose, not forgotten: the form no longer
+         * collects them, and `UpdateIngredientRequest` reads a missing field as untouched and an
+         * explicit `null` as a clear. Sending the blanks would erase three columns.
          */
         update.mutate(
             {
@@ -1893,6 +1903,7 @@ function IngredientEditor({
                     categoryCode: details.categoryCode,
                     subcategoryCode:
                         details.subcategoryCode === '' ? null : details.subcategoryCode,
+                    composition: details.composition === '' ? null : details.composition,
                     measurementUnit: details.measurementUnit,
                     purchaseUnit: details.purchaseUnit === '' ? null : details.purchaseUnit,
                     itemsPerUnit: positiveNumberOf(details.itemsPerUnit),
@@ -2903,6 +2914,23 @@ function IngredientEditor({
                                     }
                                     onChange={(next) => {
                                         edit({ subcategoryCode: next === 'none' ? '' : next });
+                                    }}
+                                />
+
+                                <TextInputField
+                                    span={4}
+                                    testID="kitchen-ingredient-made-from"
+                                    id="kitchen-ingredient-made-from"
+                                    label={t('kitchen:fields.composition')}
+                                    hint={t('kitchen:fields.compositionHint')}
+                                    size="sm"
+                                    multiline
+                                    maxLength={2000}
+                                    value={details.composition}
+                                    disabled={!editable}
+                                    {...server.flag('composition')}
+                                    onChangeText={(next) => {
+                                        edit({ composition: next });
                                     }}
                                 />
                             </FormGrid>
