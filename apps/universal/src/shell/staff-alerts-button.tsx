@@ -35,6 +35,7 @@ const ROW_ICONS: Readonly<Record<StaffAlertType, IconName>> = {
     delivery_failed: 'truck',
     no_cash_collected: 'banknote',
     refund_approval: 'banknote',
+    stock_expiring: 'clock',
 };
 
 const WHEN: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
@@ -181,7 +182,11 @@ function AlertsBell() {
         // Read only once the reader is really going: Stay must leave an unopened alert unread.
         guardNavigation(() => {
             if (alert.readAt === null) markRead.mutate(alert.id);
-            router.push(`/kitchen/orders?view=${encodeURIComponent(alert.orderId)}` as never);
+            router.push(
+                (alert.type === 'stock_expiring'
+                    ? '/kitchen/stock'
+                    : `/kitchen/orders?view=${encodeURIComponent(alert.orderId)}`) as never,
+            );
         });
     };
 

@@ -11,6 +11,7 @@ use Healthy360\Customers\Closure\Jobs\ProcessScheduledClosures;
 use Healthy360\Customers\Guest\Jobs\ExpireGuestData;
 use Healthy360\Customers\Guest\Jobs\PurgeExpiredGuestSessions;
 use Healthy360\Customers\Jobs\PurgeAbandonedProvisionalAccounts;
+use Healthy360\Inventory\Jobs\AlertExpiringStock;
 use Healthy360\Inventory\Jobs\RetryOpenConsumptionExceptions;
 use Healthy360\Orders\Jobs\EscalateUnacceptedOrders;
 use Healthy360\Procurement\Jobs\PublishWeeklyIngredientPrices;
@@ -373,5 +374,16 @@ Schedule::job(new RetryOpenConsumptionExceptions)
 Schedule::job(new EscalateUnacceptedOrders)
     ->everyMinute()
     ->name('orders:escalate-unaccepted')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+/*
+| Daily at 05:00 UTC, before the kitchens open: what passes its date in the next
+| two days with stock still on the shelf. Once per batch or delivery line.
+*/
+Schedule::job(new AlertExpiringStock)
+    ->dailyAt('05:00')
+    ->timezone('UTC')
+    ->name('inventory:alert-expiring-stock')
     ->withoutOverlapping()
     ->onOneServer();

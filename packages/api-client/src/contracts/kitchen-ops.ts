@@ -1702,6 +1702,7 @@ export const CONSUMPTION_EXCEPTION_REASON_CODES = [
     'insufficient_stock',
     'no_net_content',
     'reserved_for_production',
+    'quality_hold',
 ] as const;
 export type ConsumptionExceptionReasonCode = (typeof CONSUMPTION_EXCEPTION_REASON_CODES)[number];
 

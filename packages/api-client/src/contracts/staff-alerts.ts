@@ -17,6 +17,7 @@ export const STAFF_ALERT_TYPES = [
     'delivery_failed',
     'no_cash_collected',
     'refund_approval',
+    'stock_expiring',
 ] as const;
 export type StaffAlertType = (typeof STAFF_ALERT_TYPES)[number];
 

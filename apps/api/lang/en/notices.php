@@ -135,5 +135,9 @@ return [
             'heading' => 'A refund on order :number needs your approval',
             'line' => 'It is above your kitchen limit. Open the order to approve or reject it.',
         ],
+        'stock_expiring' => [
+            'heading' => 'Use by date coming up: :number',
+            'line' => 'Check the shelf. Use it first, or record it as waste once the date passes.',
+        ],
     ],
 ];

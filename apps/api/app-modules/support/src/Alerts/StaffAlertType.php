@@ -18,6 +18,7 @@ enum StaffAlertType: string
     case DeliveryFailed = 'delivery_failed';
     case NoCashCollected = 'no_cash_collected';
     case RefundApproval = 'refund_approval';
+    case StockExpiring = 'stock_expiring';
 
     /**
      * @return 'managers'|'owners'
@@ -26,7 +27,7 @@ enum StaffAlertType: string
     {
         return match ($this) {
             self::UnacceptedOwner, self::LateCancel, self::RefundApproval => 'owners',
-            self::UnacceptedManager, self::AllergyOrder, self::DeliveryFailed, self::NoCashCollected => 'managers',
+            self::UnacceptedManager, self::AllergyOrder, self::DeliveryFailed, self::NoCashCollected, self::StockExpiring => 'managers',
         };
     }
 
@@ -43,5 +44,27 @@ enum StaffAlertType: string
     public function repeats(): bool
     {
         return $this === self::DeliveryFailed || $this === self::RefundApproval;
+    }
+
+    /**
+     * What the alert is about: an order, unless it says otherwise.
+     */
+    public function subjectType(): string
+    {
+        return match ($this) {
+            self::StockExpiring => 'stock',
+            default => 'order',
+        };
+    }
+
+    /**
+     * The page the alert's link opens.
+     */
+    public function page(string $subjectId): string
+    {
+        return match ($this) {
+            self::StockExpiring => '/kitchen/stock',
+            default => '/kitchen/orders?view='.$subjectId,
+        };
     }
 }

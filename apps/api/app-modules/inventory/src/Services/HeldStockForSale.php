@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace Healthy360\Inventory\Services;
 
+use Healthy360\Cart\Contracts\QuarantinedStock;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Orders\Contracts\HeldStockLookup;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Inventory's answer to Orders' {@see HeldStockLookup}.
+ * Inventory's answer to Orders' {@see HeldStockLookup} and Cart's {@see QuarantinedStock}.
  *
  * What a sale draws is read exactly as consumption reads it: a thing sold from
  * finished stock draws its own ingredient, anything else is exploded by
@@ -21,11 +23,36 @@ use Illuminate\Support\Facades\DB;
  *
  * Ingredient grain, not lot grain: stock is not tracked per receipt, so "some of
  * this shelf arrived on a held delivery" is the most the data can say — which is
- * exactly a warning's job.
+ * exactly a warning's job. The refusal is a sharper question, answered by
+ * {@see StockQuarantine}: whether anything but held stock is left to sell.
  */
-final readonly class HeldStockForSale implements HeldStockLookup
+final readonly class HeldStockForSale implements HeldStockLookup, QuarantinedStock
 {
-    public function __construct(private MealExplosion $explosion) {}
+    public function __construct(private MealExplosion $explosion, private StockQuarantine $quarantine) {}
+
+    public function refuses(string $organisationId, CatalogueItem $item, string $quantity): bool
+    {
+        if (! $this->quarantine->anyHeld($organisationId)) {
+            return false;
+        }
+
+        if ($item->sellsFromFinishedStock()) {
+            $shelf = $item->ingredient_id === null ? null : $this->explosion->resolveStockItem($organisationId, (string) $item->ingredient_id, null);
+
+            // ponytail: how much of the shelf one sold unit takes is the consume
+            // path's arithmetic, so this asks only whether anything free is left.
+            // A sale of more than is free meets the hold at the deduction.
+            return $shelf instanceof StockItem && $this->quarantine->coversOnlyHeld($organisationId, (string) $shelf->getKey(), '0.0001');
+        }
+
+        foreach ($this->explosion->explode($organisationId, $item, $quantity, null)->rows as $row) {
+            if ($this->quarantine->coversOnlyHeld($organisationId, $row['stock_item_id'], $row['quantity'])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     public function heldFor(string $organisationId, ?string $branchId, CatalogueItem $item, string $quantity): array
     {

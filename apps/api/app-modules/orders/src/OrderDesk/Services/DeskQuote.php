@@ -454,9 +454,10 @@ final readonly class DeskQuote
                 // rest of the basket is denominated in.
                 'currency_code' => $price->currencyCode ?? $currencyCode,
                 'refusals' => $this->attributed($result->refusals, $line),
-                // A warning, never a refusal (owner decision, 13 Oct 2026): the
-                // ingredients this line would draw that have stock on quality hold.
-                'held_stock' => $refused || ! $item instanceof CatalogueItem
+                // The ingredients this line would draw that have stock on quality
+                // hold: a warning (owner decision, 13 Oct 2026), and the names
+                // behind a `quality_hold` refusal when nothing free is left.
+                'held_stock' => ! $item instanceof CatalogueItem
                     ? []
                     : $this->held->heldFor((string) $channel->organisation_id, $branchId, $item, $line->quantity),
             ];

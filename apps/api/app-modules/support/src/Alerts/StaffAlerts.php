@@ -57,10 +57,6 @@ final readonly class StaffAlerts
 {
     private const string MANAGER_PERMISSION = 'order.supervise_organisation';
 
-    private const string SUBJECT_TYPE = 'order';
-
-    private const string ORDER_PAGE = '/kitchen/orders';
-
     /** What `data` may carry. See the class docblock. */
     private const array ALLOWED_DATA = ['order_number', 'total_minor', 'currency_code', 'severe'];
 
@@ -119,7 +115,7 @@ final readonly class StaffAlerts
                 'organisation_id' => $organisationId,
                 'user_id' => $recipient['user_id'],
                 'type' => $type->value,
-                'subject_type' => self::SUBJECT_TYPE,
+                'subject_type' => $type->subjectType(),
                 'subject_id' => $subjectId,
                 'data' => $encoded,
                 'created_at' => now(),
@@ -179,7 +175,7 @@ final readonly class StaffAlerts
             (string) __("notices.staff_alert.{$type->value}.heading", ['number' => $data['order_number']], $locale),
             $lines,
             (string) __('notices.staff_alert.action', [], $locale),
-            rtrim((string) config('app.frontend_url'), '/').self::ORDER_PAGE.'?view='.$subjectId,
+            rtrim((string) config('app.frontend_url'), '/').$type->page($subjectId),
             $locale,
         );
     }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Cart\Services;
 
 use Carbon\CarbonImmutable;
+use Healthy360\Cart\Contracts\QuarantinedStock;
 use Healthy360\Catalogues\Enums\SalesChannelStatus;
 use Healthy360\Catalogues\Enums\VariantStatus;
 use Healthy360\Catalogues\Enums\VariantType;
@@ -50,6 +51,9 @@ use Healthy360\Tenancy\Database\DatabaseTenantContext;
  * 4. **Somebody has assessed it for allergens.** An unassessed dish would read
  *    as safe to a customer when nobody checked, so it is off sale.
  *    {@see CatalogueItem::scopeAllergensAssessed()} is the definition.
+ * 4a. **It can be made from something other than stock on quality hold.** A hold
+ *    leaves anything free on the shelf on sale; only a sale that could come out of
+ *    nothing but held stock is refused ({@see QuarantinedStock}).
  * 5. **The variant belongs to the article and is active.** A pack is not
  *    separately published, so `active` is its whole test. When the caller
  *    names no pack for a pack kind, the probe picks one the way the
@@ -85,6 +89,7 @@ final readonly class LineProbe
     public function __construct(
         private PriceResolver $prices,
         private DatabaseTenantContext $tenantContext,
+        private QuarantinedStock $quarantined,
     ) {}
 
     /**
@@ -92,7 +97,7 @@ final readonly class LineProbe
      * @param  CarbonImmutable|null  $on  the day the line is wanted; today when none is named
      * @param  string  $currencyCode  what the basket or order is denominated in
      * @param  bool  $enforceCalendar  false where the day is not being sold: subscription deliveries, accepted quotations, undated basket lines, and a line an edited order already holds
-     * @param  bool  $enforceAssessment  false where the sale was settled before this line: subscription deliveries and a line an edited order already holds
+     * @param  bool  $enforceAssessment  false where the sale was settled before this line: subscription deliveries and a line an edited order already holds; the quality hold is skipped there too, and meets the deduction instead
      */
     public function probe(
         SalesChannel $channel,
@@ -201,6 +206,10 @@ final readonly class LineProbe
 
         if ($enforceAssessment && ! CatalogueItem::withoutTenancy()->whereKey($item->getKey())->allergensAssessed()->exists()) {
             $refusals[] = ['reason' => 'item_not_assessed', 'catalogue_item_id' => (string) $item->getKey()];
+        }
+
+        if ($enforceAssessment && $this->quarantined->refuses((string) $channel->organisation_id, $item, $quantity)) {
+            $refusals[] = ['reason' => 'quality_hold', 'catalogue_item_id' => (string) $item->getKey()];
         }
 
         $variant = null;

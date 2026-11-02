@@ -40,6 +40,8 @@ export const CHECKOUT_TIMING_WARNINGS = [
 ] as const;
 /** `item_not_assessed` — nobody has assessed a dish in the basket for allergens, so it is off sale. */
 export const CHECKOUT_ITEM_NOT_ASSESSED = 'checkout.item_not_assessed';
+/** `quality_hold` — all that is left of something in the basket is on quality hold. */
+export const CHECKOUT_QUALITY_HOLD = 'checkout.quality_hold';
 /** A picked meal crosses the person's allergies; generation would swap it for a safe one. */
 export const SUBSCRIPTION_ALLERGEN_CONFLICT = 'subscription.allergen_conflict';
 export const SUBSCRIPTION_NO_DELIVERY_DAYS = 'subscription.no_delivery_days';
@@ -52,6 +54,7 @@ const KNOWN: ReadonlySet<string> = new Set([
     CHECKOUT_WINDOW_NOT_OFFERED,
     ...CHECKOUT_TIMING_WARNINGS,
     CHECKOUT_ITEM_NOT_ASSESSED,
+    CHECKOUT_QUALITY_HOLD,
     ALLERGEN_CONFLICT_WARNING,
     SUBSCRIPTION_ALLERGEN_CONFLICT,
     SUBSCRIPTION_NO_DELIVERY_DAYS,

@@ -1435,8 +1435,8 @@
             "filteredEmptyTitle": "No checks match",
             "filteredEmptyBody": "Clear the search or the status to see every check.",
             "viewKind": "Quality check",
-            "holdNote": "This subject is on hold. Nothing it produced may be sold or consumed until somebody releases it.",
-            "footNote": "A hold stops the stock being used; a release lets it through.",
+            "holdNote": "This stock is set aside. It cannot be sold or used until somebody releases it, and any free stock of the same item stays usable. If the food failed, record it as waste first, then release.",
+            "footNote": "A hold sets the quantity it brought in aside; a release gives it back. Move the food away from the good stock yourself: the shelf is one number.",
             "fieldReference": "Reference",
             "statUnit": "checks",
             "statPendingCaption": "not decided yet",
@@ -1493,7 +1493,7 @@
             "summaryFootHold": "Opens and holds at once. Everything under this subject stops until someone releases it.",
             "statesTitle": "What a check can do",
             "statePending": "Opened, not decided. The stock moves as usual.",
-            "stateHold": "The stock can’t be used or sold.",
+            "stateHold": "The quantity it brought in can’t be used or sold.",
             "stateReleased": "Inspected and let through.",
             "createSubmitHold": "Open and hold",
             "createdHeldToast": "Check opened and on hold — {{subject}}.",
@@ -1585,7 +1585,8 @@
                 "price": "Set unit price",
                 "unit": "Set the unit",
                 "product": "Fix the product",
-                "production": "See production plan"
+                "production": "See production plan",
+                "quality": "See quality control"
             },
             "searchPlaceholder": "Search by order, item, ingredient or reason",
             "filteredEmptyTitle": "No stock gaps match",
@@ -1606,7 +1607,8 @@
                 "no_ingredient_cost": "No cost to value COGS",
                 "insufficient_stock": "Not enough stock",
                 "no_net_content": "Sold unit size not set",
-                "reserved_for_production": "Reserved for production"
+                "reserved_for_production": "Reserved for production",
+                "quality_hold": "On quality hold"
             },
             "chip": "Retry writes stock",
             "statUnit": "exceptions",
@@ -2296,6 +2298,7 @@
             "item_unknown": "That article is no longer in the catalogue.",
             "item_not_published": "That article is not published, so it cannot be sold.",
             "item_not_assessed": "Nobody has assessed that article for allergens, so it cannot be sold. Assess it in the catalogue first.",
+            "quality_hold": "All that is left of this article is on quality hold. Release the check or choose something else.",
             "variant_unknown": "That pack no longer exists.",
             "variant_not_active": "That pack is not available.",
             "channel_unavailable": "That article is not offered at the counter. Publish it to the desk channel first.",
@@ -4233,7 +4236,7 @@
         "archiveWindowCount_one": "{{count}} delivery window goes with it.",
         "archiveWindowCount_other": "{{count}} delivery windows go with it.",
         "archivedToast": "{{name}} was archived.",
-        "noBranches": "No branch serves it yet",
+        "noBranches": "Every branch of this kitchen",
         "titleChip": "No publication state",
         "createSummary": "Nothing is saved until you save it. Leaving this screen discards what you have typed.",
         "saveZone": "Save the zone",
@@ -5076,7 +5079,8 @@
             "late_cancel": "Order {{number}} was cancelled after cooking started",
             "delivery_failed": "Delivery failed for order {{number}}",
             "no_cash_collected": "No cash was collected for order {{number}}",
-            "refund_approval": "A refund on order {{number}} needs your approval"
+            "refund_approval": "A refund on order {{number}} needs your approval",
+            "stock_expiring": "Use by date coming up: {{number}}"
         }
     },
     "serviceTimings": {

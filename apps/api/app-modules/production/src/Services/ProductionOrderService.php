@@ -16,6 +16,7 @@ use Healthy360\Inventory\Models\StockReservation;
 use Healthy360\Inventory\Services\InventoryService;
 use Healthy360\Inventory\Services\MealExplosion;
 use Healthy360\Inventory\Services\ReservationService;
+use Healthy360\Inventory\Services\StockQuarantine;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Procurement\Models\WeeklyPricePublication;
 use Healthy360\Procurement\Services\IngredientCostService;
@@ -104,6 +105,7 @@ final readonly class ProductionOrderService
         private UnitConversionService $conversion,
         private ProductionOrderNumbers $numbers,
         private AuditRecorder $audit,
+        private StockQuarantine $quarantine,
     ) {}
 
     /* ── planning ────────────────────────────────────────────────────────── */
@@ -446,6 +448,9 @@ final readonly class ProductionOrderService
             $unitCost = $this->unitCostFor($locked, $report, $settlement);
 
             $this->settleYield($locked, $report, $settlement, $unitCost);
+
+            // A batch put on hold while it cooked is held now that it is on a shelf.
+            $this->quarantine->settleYield((string) $locked->organisation_id, (string) $locked->getKey());
 
             $this->reservations->close(
                 StockReservation::HOLDER_PRODUCTION_ORDER,

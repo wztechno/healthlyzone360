@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9494 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9512 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -167,6 +167,7 @@ export interface NamespaceKeys {
     | 'member.assignmentFrom'
     | 'member.assignmentScheduled'
     | 'member.assignmentUntil'
+    | 'member.backToList'
     | 'member.cancel'
     | 'member.end'
     | 'member.endBody'
@@ -174,6 +175,8 @@ export interface NamespaceKeys {
     | 'member.endTitle'
     | 'member.ended'
     | 'member.lastAdministrator'
+    | 'member.notFoundBody'
+    | 'member.notFoundTitle'
     | 'member.permissionsHeading'
     | 'member.permissionsHint'
     | 'member.permissionsNone'
@@ -202,6 +205,7 @@ export interface NamespaceKeys {
     | 'pages.unmappedHeading'
     | 'pages.unmappedHint'
     | 'role.back'
+    | 'role.backToList'
     | 'role.cancel'
     | 'role.code'
     | 'role.codeInvalid'
@@ -221,6 +225,8 @@ export interface NamespaceKeys {
     | 'role.namePlaceholderAr'
     | 'role.namePlaceholderEn'
     | 'role.newTitle'
+    | 'role.notFoundBody'
+    | 'role.notFoundTitle'
     | 'role.save'
     | 'role.saved'
     | 'role.selfLockout'
@@ -642,8 +648,13 @@ export interface NamespaceKeys {
     | 'devices.revokeBody'
     | 'devices.revokeConfirm'
     | 'devices.revokeLabel'
+    | 'devices.revokeOthers'
+    | 'devices.revokeOthersBody'
+    | 'devices.revokeOthersConfirm'
+    | 'devices.revokeOthersTitle'
     | 'devices.revokeTitle'
     | 'devices.revoked'
+    | 'devices.revokedOthers'
     | 'devices.subtitle'
     | 'devices.thisSession'
     | 'devices.title'
@@ -759,7 +770,6 @@ export interface NamespaceKeys {
     | 'profile.roles'
     | 'profile.security'
     | 'profile.subtitle'
-    | 'profile.timeZone'
     | 'profile.title'
     | 'profile.twoFactor'
     | 'profile.twoFactorDisabled'
@@ -2362,6 +2372,7 @@ export interface NamespaceKeys {
     | 'warnings.checkout_kitchen_not_open'
     | 'warnings.checkout_kitchen_paused'
     | 'warnings.checkout_lead_time_not_met'
+    | 'warnings.checkout_quality_hold'
     | 'warnings.checkout_window_ended'
     | 'warnings.checkout_window_full'
     | 'warnings.checkout_window_not_offered'
@@ -2757,6 +2768,7 @@ export interface NamespaceKeys {
     | 'orderRefusal.lead_time_not_met'
     | 'orderRefusal.minimum_order_not_met'
     | 'orderRefusal.mixed_delivery_dates'
+    | 'orderRefusal.quality_hold'
     | 'orderRefusal.unpriced'
     | 'orderRefusal.variant_not_active'
     | 'orderRefusal.variant_unknown'
@@ -3010,6 +3022,7 @@ export interface NamespaceKeys {
     | 'alerts.type.no_cash_collected'
     | 'alerts.type.refund_approval'
     | 'alerts.type.severe_allergy'
+    | 'alerts.type.stock_expiring'
     | 'alerts.type.unaccepted_manager'
     | 'alerts.type.unaccepted_owner'
     | 'alerts.unreadDetail'
@@ -3640,6 +3653,7 @@ export interface NamespaceKeys {
     | 'desk.refusal.kitchen_not_open'
     | 'desk.refusal.kitchen_paused'
     | 'desk.refusal.lead_time_not_met'
+    | 'desk.refusal.quality_hold'
     | 'desk.refusal.unpriced'
     | 'desk.refusal.variant_not_active'
     | 'desk.refusal.variant_unknown'
@@ -4722,6 +4736,7 @@ export interface NamespaceKeys {
     | 'ops.exceptions.fixAction.price'
     | 'ops.exceptions.fixAction.product'
     | 'ops.exceptions.fixAction.production'
+    | 'ops.exceptions.fixAction.quality'
     | 'ops.exceptions.fixAction.stock'
     | 'ops.exceptions.fixAction.unit'
     | 'ops.exceptions.fixInRecipe'
@@ -4738,6 +4753,7 @@ export interface NamespaceKeys {
     | 'ops.exceptions.reasons.no_stock_item'
     | 'ops.exceptions.reasons.no_stock_unit'
     | 'ops.exceptions.reasons.no_yield_piece_count'
+    | 'ops.exceptions.reasons.quality_hold'
     | 'ops.exceptions.reasons.reserved_for_production'
     | 'ops.exceptions.reasons.unit_conversion_unsupported'
     | 'ops.exceptions.reasons.unquantified_recipe_line'
@@ -7579,8 +7595,10 @@ export interface NamespaceKeys {
     | 'discover.offerTitle'
     | 'discover.popularMeta'
     | 'discover.popularTitle'
+    | 'discover.popularTitleUnrated'
     | 'discover.railFigures'
     | 'discover.railTitle'
+    | 'discover.railTitleUnrated'
     | 'discover.tileCount'
     | 'filters.availability'
     | 'filters.category'
@@ -9691,6 +9709,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:member.assignmentFrom',
   'accessAdmin:member.assignmentScheduled',
   'accessAdmin:member.assignmentUntil',
+  'accessAdmin:member.backToList',
   'accessAdmin:member.cancel',
   'accessAdmin:member.end',
   'accessAdmin:member.endBody',
@@ -9698,6 +9717,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:member.endTitle',
   'accessAdmin:member.ended',
   'accessAdmin:member.lastAdministrator',
+  'accessAdmin:member.notFoundBody',
+  'accessAdmin:member.notFoundTitle',
   'accessAdmin:member.permissionsHeading',
   'accessAdmin:member.permissionsHint',
   'accessAdmin:member.permissionsNone',
@@ -9726,6 +9747,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:pages.unmappedHeading',
   'accessAdmin:pages.unmappedHint',
   'accessAdmin:role.back',
+  'accessAdmin:role.backToList',
   'accessAdmin:role.cancel',
   'accessAdmin:role.code',
   'accessAdmin:role.codeInvalid',
@@ -9745,6 +9767,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:role.namePlaceholderAr',
   'accessAdmin:role.namePlaceholderEn',
   'accessAdmin:role.newTitle',
+  'accessAdmin:role.notFoundBody',
+  'accessAdmin:role.notFoundTitle',
   'accessAdmin:role.save',
   'accessAdmin:role.saved',
   'accessAdmin:role.selfLockout',
@@ -10164,8 +10188,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:devices.revokeBody',
   'auth:devices.revokeConfirm',
   'auth:devices.revokeLabel',
+  'auth:devices.revokeOthers',
+  'auth:devices.revokeOthersBody',
+  'auth:devices.revokeOthersConfirm',
+  'auth:devices.revokeOthersTitle',
   'auth:devices.revokeTitle',
   'auth:devices.revoked',
+  'auth:devices.revokedOthers',
   'auth:devices.subtitle',
   'auth:devices.thisSession',
   'auth:devices.title',
@@ -10281,7 +10310,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:profile.roles',
   'auth:profile.security',
   'auth:profile.subtitle',
-  'auth:profile.timeZone',
   'auth:profile.title',
   'auth:profile.twoFactor',
   'auth:profile.twoFactorDisabled',
@@ -11880,6 +11908,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:warnings.checkout_kitchen_not_open',
   'commerce:warnings.checkout_kitchen_paused',
   'commerce:warnings.checkout_lead_time_not_met',
+  'commerce:warnings.checkout_quality_hold',
   'commerce:warnings.checkout_window_ended',
   'commerce:warnings.checkout_window_full',
   'commerce:warnings.checkout_window_not_offered',
@@ -12272,6 +12301,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:orderRefusal.lead_time_not_met',
   'errors:orderRefusal.minimum_order_not_met',
   'errors:orderRefusal.mixed_delivery_dates',
+  'errors:orderRefusal.quality_hold',
   'errors:orderRefusal.unpriced',
   'errors:orderRefusal.variant_not_active',
   'errors:orderRefusal.variant_unknown',
@@ -12522,6 +12552,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:alerts.type.no_cash_collected',
   'kitchen:alerts.type.refund_approval',
   'kitchen:alerts.type.severe_allergy',
+  'kitchen:alerts.type.stock_expiring',
   'kitchen:alerts.type.unaccepted_manager',
   'kitchen:alerts.type.unaccepted_owner',
   'kitchen:alerts.unreadDetail',
@@ -13152,6 +13183,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.refusal.kitchen_not_open',
   'kitchen:desk.refusal.kitchen_paused',
   'kitchen:desk.refusal.lead_time_not_met',
+  'kitchen:desk.refusal.quality_hold',
   'kitchen:desk.refusal.unpriced',
   'kitchen:desk.refusal.variant_not_active',
   'kitchen:desk.refusal.variant_unknown',
@@ -14234,6 +14266,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.fixAction.price',
   'kitchen:ops.exceptions.fixAction.product',
   'kitchen:ops.exceptions.fixAction.production',
+  'kitchen:ops.exceptions.fixAction.quality',
   'kitchen:ops.exceptions.fixAction.stock',
   'kitchen:ops.exceptions.fixAction.unit',
   'kitchen:ops.exceptions.fixInRecipe',
@@ -14250,6 +14283,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.exceptions.reasons.no_stock_item',
   'kitchen:ops.exceptions.reasons.no_stock_unit',
   'kitchen:ops.exceptions.reasons.no_yield_piece_count',
+  'kitchen:ops.exceptions.reasons.quality_hold',
   'kitchen:ops.exceptions.reasons.reserved_for_production',
   'kitchen:ops.exceptions.reasons.unit_conversion_unsupported',
   'kitchen:ops.exceptions.reasons.unquantified_recipe_line',
@@ -17090,8 +17124,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:discover.offerTitle',
   'marketplace:discover.popularMeta',
   'marketplace:discover.popularTitle',
+  'marketplace:discover.popularTitleUnrated',
   'marketplace:discover.railFigures',
   'marketplace:discover.railTitle',
+  'marketplace:discover.railTitleUnrated',
   'marketplace:discover.tileCount',
   'marketplace:filters.availability',
   'marketplace:filters.category',

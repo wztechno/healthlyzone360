@@ -77,7 +77,7 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  *  * `window_full` — that window has taken as many orders as the kitchen said it
  *    can on that day. Customers only.
  *  * the whole line vocabulary from `LineRefused` — `item_not_published`,
- *    `item_not_assessed`, `unpriced`, `channel_unavailable`, `item_unavailable_on_date` and the rest — folded in per line with
+ *    `item_not_assessed`, `quality_hold`, `unpriced`, `channel_unavailable`, `item_unavailable_on_date` and the rest — folded in per line with
  *    the offending `catalogue_item_id` attached, because at checkout they are
  *    reasons the *order* was refused.
  *
