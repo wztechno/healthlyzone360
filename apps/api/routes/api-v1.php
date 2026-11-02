@@ -244,6 +244,7 @@ use Healthy360\Orders\Http\Controllers\KitchenOrderStartController;
 use Healthy360\Orders\Http\Controllers\MyOrderIndexController;
 use Healthy360\Orders\Http\Controllers\MyOrderShowController;
 use Healthy360\Orders\Http\Controllers\OrderPaymentReceiptStoreController;
+use Healthy360\Orders\Http\Controllers\OrderRefundController;
 use Healthy360\Orders\Http\Controllers\OrderStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\KitchenCustomerIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\KitchenCustomerShowController;
@@ -2141,6 +2142,21 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/orders/{order}/delivery/close-failed', [KitchenOrderDeliveryController::class, 'closeFailed'])
                     ->middleware('precondition')
                     ->name('catalogue.orders.delivery.close-failed');
+
+                // Money going back. A manager's act, and above the kitchen's
+                // limit it waits for the owner.
+                Route::get('/orders/{order}/refunds', [OrderRefundController::class, 'index'])
+                    ->name('catalogue.orders.refunds.index');
+                Route::post('/orders/{order}/refunds', [OrderRefundController::class, 'store'])
+                    ->middleware('idempotency')
+                    ->name('catalogue.orders.refunds.store');
+            });
+
+            Route::middleware('permission:order.approve_refund_organisation')->group(function (): void {
+                Route::post('/orders/{order}/refunds/{refund}/approve', [OrderRefundController::class, 'approve'])
+                    ->whereUuid('refund')->name('catalogue.orders.refunds.approve');
+                Route::post('/orders/{order}/refunds/{refund}/reject', [OrderRefundController::class, 'reject'])
+                    ->whereUuid('refund')->name('catalogue.orders.refunds.reject');
             });
 
             /*

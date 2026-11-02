@@ -6,6 +6,7 @@ import type {
     MealAdmin,
     OrderDeskCustomer,
     OrderDeskCustomerAddress,
+    OrderDeskCustomerAllergies,
     OrderDeskCustomerCreated,
     OrderDeskQuote,
     OrderDeskQuoteLine,
@@ -276,6 +277,7 @@ interface SaleStubs {
     readonly quoteSale?: (request: OrderDeskSaleRequest) => Promise<OrderDeskQuote>;
     readonly placeSale?: (request: PlaceOrderDeskSaleRequest) => Promise<KitchenOrder>;
     readonly createCustomer?: () => Promise<OrderDeskCustomerCreated>;
+    readonly getCustomerAllergies?: () => Promise<OrderDeskCustomerAllergies>;
     readonly listMeals?: () => Promise<CursorPage<MealAdmin>>;
     readonly listProducts?: (filter?: ProductAdminFilter) => Promise<CursorPage<ProductAdmin>>;
     readonly listDeliveryAreas?: () => Promise<readonly ServiceArea[]>;
@@ -286,7 +288,22 @@ interface SaleStubs {
     readonly amendOrder?: (request: AmendOrderDeskOrderRequest) => Promise<KitchenOrder>;
 }
 
+/** Past the customer card, which holds the menu shut until it is answered. */
+async function chooseWalkIn() {
+    await untilVisible('kitchen-order-desk-sale-walk-in');
+    await act(async () => {
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-walk-in'));
+    });
+}
+
+/** A new sale past the customer card; an edit has no such card. */
 async function renderSale(stubs: SaleStubs = {}) {
+    const rendered = await renderSaleShut(stubs);
+    if (mockParams.order === undefined) await chooseWalkIn();
+    return rendered;
+}
+
+async function renderSaleShut(stubs: SaleStubs = {}) {
     return renderStubScreen(<OrderDeskSaleScreen />, {
         session: kitchenManagerSession(),
         repositories: {
@@ -303,6 +320,9 @@ async function renderSale(stubs: SaleStubs = {}) {
                 placeSale: stubs.placeSale ?? (async () => placedOrder()),
                 amendOrder: stubs.amendOrder ?? (async () => editableOrder()),
                 searchCustomers: async () => ({ rows: [customer()], limit: 20 }),
+                getCustomerAllergies:
+                    stubs.getCustomerAllergies ??
+                    (async () => ({ declared: false, declaresNoAllergens: false, allergens: [] })),
                 listDeliveryAreas: stubs.listDeliveryAreas ?? (async () => []),
                 listDeliveryWindows: async () => [
                     {
@@ -425,6 +445,56 @@ beforeEach(() => {
 
 afterEach(() => {
     jest.useRealTimers();
+});
+
+describe('sale — who it is for comes first', () => {
+    it('holds the menu shut until a customer or a walk-in is chosen', async () => {
+        await renderSaleShut();
+
+        await untilVisible('kitchen-order-desk-sale-party-pending');
+        expect(screen.queryByTestId(MEAL_TILE)).toBeNull();
+
+        await chooseWalkIn();
+
+        await untilVisible(MEAL_TILE);
+        await untilVisible('kitchen-order-desk-sale-walk-in-chosen');
+    });
+
+    it('says what the chosen customer declared and marks the dish that conflicts', async () => {
+        await renderSaleShut({
+            getCustomerAllergies: async () => ({
+                declared: true,
+                declaresNoAllergens: false,
+                allergens: [{ allergenCode: 'milk', severity: 'anaphylaxis' }],
+            }),
+            quoteSale: async (request) => ({
+                ...quoteFor(request),
+                allergenConflicts: request.lines.some(
+                    (line) => line.catalogueItemId === String(MEAL_ID),
+                )
+                    ? [{ mealId: MEAL_ID, reason: 'allergen_declared', allergenCodes: ['milk'] }]
+                    : [],
+            }),
+        });
+
+        await chooseLayla();
+
+        await untilVisible('kitchen-order-desk-sale-customer-allergies');
+        await untilVisible(`${MEAL_TILE}-conflict`);
+        // Warned, never stopped: the agent tells the customer at checkout.
+        expect(screen.getByTestId(MEAL_TILE)).toBeEnabled();
+    });
+
+    it('does not let "never asked" read as "no allergens"', async () => {
+        await renderSaleShut();
+
+        await chooseLayla();
+
+        await untilVisible('kitchen-order-desk-sale-customer-allergies-none');
+        expect(
+            screen.getByTestId('kitchen-order-desk-sale-customer-allergies-none'),
+        ).toHaveTextContent(/asked/i);
+    });
 });
 
 describe('sale — the menu', () => {
@@ -1052,7 +1122,7 @@ describe('sale — collections and deliveries', () => {
         });
     });
 
-    it('drops the customer and closes both cards when the sale goes back to the counter', async () => {
+    it('keeps the customer and closes the address when the sale goes back to the counter', async () => {
         await renderSale();
         await tapMeal();
         await chooseKind('delivery');
@@ -1061,7 +1131,7 @@ describe('sale — collections and deliveries', () => {
 
         await chooseKind('counter');
 
-        expect(screen.queryByTestId('kitchen-order-desk-sale-customer')).toBeNull();
+        await untilVisible('kitchen-order-desk-sale-customer-chosen');
         expect(screen.queryByTestId('kitchen-order-desk-sale-address')).toBeNull();
         // The same food is being sold either way, so the ticket stays.
         expect(screen.getByTestId(MEAL_LINE)).toBeTruthy();
@@ -1102,12 +1172,18 @@ describe('sale — collections and deliveries', () => {
                 orderDesk: {
                     quoteSale: async (request) => quoteFor(request),
                     searchCustomers: async () => ({ rows: [customer()], limit: 20 }),
+                    getCustomerAllergies: async () => ({
+                        declared: false,
+                        declaresNoAllergens: false,
+                        allergens: [],
+                    }),
                     listDeliveryWindows: async () => [],
                     updateCustomer,
                 },
             },
         });
 
+        await chooseWalkIn();
         await tapMeal();
         await chooseKind('pickup');
         await untilVisible('kitchen-order-desk-sale-customer');

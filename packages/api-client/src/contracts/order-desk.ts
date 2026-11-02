@@ -987,6 +987,16 @@ export interface OrderDeskCustomerSearch {
     readonly limit: number;
 }
 
+/** What a chosen customer has declared. `declared: false` is "never asked", not "no allergens". */
+export interface OrderDeskCustomerAllergies {
+    readonly declared: boolean;
+    readonly declaresNoAllergens: boolean;
+    readonly allergens: readonly {
+        readonly allergenCode: string;
+        readonly severity: 'avoidance' | 'intolerance' | 'allergy' | 'anaphylaxis';
+    }[];
+}
+
 export interface CreateOrderDeskCustomerRequest {
     /** One field rather than a given/family pair — the platform's customer may be a company. */
     readonly displayName: string;
@@ -1199,6 +1209,9 @@ export interface OrderDeskRepository {
      * error.
      */
     searchCustomers(query: string): Promise<OrderDeskCustomerSearch>;
+
+    /** What the chosen customer has declared. The server records the read. */
+    getCustomerAllergies(customerId: string): Promise<OrderDeskCustomerAllergies>;
 
     /** Write down a cold caller. Answers the new row **and** who else already has that number. */
     createCustomer(request: CreateOrderDeskCustomerRequest): Promise<OrderDeskCustomerCreated>;

@@ -85,3 +85,14 @@ export function normaliseDeskPhone(value: string): string {
     if (code === null) return value.trim().startsWith('+') ? `+${digits}` : value.trim();
     return `${code}${withoutTrunkPrefix(digits.slice(code.length - 1))}`;
 }
+
+/**
+ * What the customer search is asked. A number typed the way a caller reads it out (`70 123 456`)
+ * goes with the kitchen's code, because the server matches a number exactly and never guesses a
+ * country. Seven digits is the shortest national number; anything else is a name, sent as typed.
+ */
+export function deskSearchTerm(query: string, dial: string | null): string {
+    return dial !== null && /^[\d\s-]{7,}$/.test(query)
+        ? normaliseDeskPhone(`${dial}${query}`)
+        : query;
+}

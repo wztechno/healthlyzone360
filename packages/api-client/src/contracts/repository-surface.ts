@@ -377,6 +377,7 @@ export const REPOSITORY_SURFACE = {
         'listCalendar',
         'listDeliveryAreas',
         'listDeliveryWindows',
+        'getCustomerAllergies',
         'listDrivers',
         'listQueue',
         'listRequirements',

@@ -13333,6 +13333,171 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/orders/{order}/refunds:
+    get:
+      operationId: getOrderRefunds
+      tags: [Kitchen orders]
+      summary: An order's refund ledger and where it stands
+      description: |
+        Every entry, newest first, with what the receipts say arrived and how
+        much can still be taken back. Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The order's refund ledger.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderRefundLedgerEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: storeOrderRefund
+      tags: [Kitchen orders]
+      summary: Refund money, or correct a mistaken receipt
+      description: |
+        Writes an entry and never touches a receipt. A `refund` leaves the order
+        paid. A `receipt_correction` says the money never arrived, so the balance
+        comes back as outstanding. Both are capped together at the order's
+        receipts, refused as `409 payment.refund_exceeds_capture`.
+
+        Refused as `409 resource.conflict` once seven days have passed since the
+        order's latest receipt. An entry taking this order's refunds above the
+        kitchen's `refund_approval_above_minor` waits as `pending_approval` and
+        alerts the owner, unless the caller holds
+        `order.approve_refund_organisation`. Audited as `order.refund_requested`
+        or `order.refund_completed`. Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreOrderRefundRequest'
+      responses:
+        '201':
+          description: The order's refund ledger, with the new entry in it.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderRefundLedgerEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/orders/{order}/refunds/{refund}/approve:
+    post:
+      operationId: approveOrderRefund
+      tags: [Kitchen orders]
+      summary: Approve a refund that waited for the owner
+      description: |
+        Audited as `order.refund_completed`. `409` once decided. Requires
+        `order.approve_refund_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - name: refund
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The order's refund ledger.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderRefundLedgerEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/orders/{order}/refunds/{refund}/reject:
+    post:
+      operationId: rejectOrderRefund
+      tags: [Kitchen orders]
+      summary: Reject a refund that waited for the owner
+      description: |
+        The entry stays on the ledger as `rejected` and takes no money. Audited
+        as `order.refund_rejected`. `409` once decided. Requires
+        `order.approve_refund_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - name: refund
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The order's refund ledger.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderRefundLedgerEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/orders/{order}/delivery/redeliver:
     post:
       operationId: redeliverKitchenOrder
@@ -38576,6 +38741,96 @@ components:
         meta:
           $ref: '#/components/schemas/Meta'
 
+    OrderRefundKind:
+      type: string
+      enum: [refund, receipt_correction]
+
+    OrderRefundStatus:
+      type: string
+      enum: [pending_approval, completed, rejected]
+
+    StoreOrderRefundRequest:
+      type: object
+      required: [kind, method, amount_minor, reason]
+      properties:
+        kind:
+          $ref: '#/components/schemas/OrderRefundKind'
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        amount_minor:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
+      additionalProperties: false
+
+    OrderRefund:
+      type: object
+      required: [id, kind, status, method, amount_minor, currency_code, reason, requested_by_name, requested_at, decided_by_name, decided_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          $ref: '#/components/schemas/OrderRefundKind'
+        status:
+          $ref: '#/components/schemas/OrderRefundStatus'
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        amount_minor:
+          type: integer
+          minimum: 1
+        currency_code:
+          type: string
+        reason:
+          type: string
+        requested_by_name:
+          type: [string, 'null']
+        requested_at:
+          type: string
+          format: date-time
+        decided_by_name:
+          type: [string, 'null']
+        decided_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+
+    OrderRefundLedgerEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [received_minor, refunded_minor, corrected_minor, pending_minor, refundable_minor, window_closes_at, entries]
+          properties:
+            received_minor:
+              type: integer
+              description: The receipts as written.
+            refunded_minor:
+              type: integer
+            corrected_minor:
+              type: integer
+            pending_minor:
+              type: integer
+              description: Waiting for the owner, and already counted against the cap.
+            refundable_minor:
+              type: integer
+            window_closes_at:
+              type:
+                - string
+                - 'null'
+              format: date-time
+              description: Seven days after the latest receipt. Null with no receipts.
+            entries:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderRefund'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
     StorePaymentReceiptRequest:
       type: object
       required: [method, amount_minor]
@@ -39655,6 +39910,7 @@ components:
         - late_cancel
         - delivery_failed
         - no_cash_collected
+        - refund_approval
 
     StaffNotification:
       type: object
@@ -39706,6 +39962,7 @@ components:
         - alarm_after_minutes
         - manager_alert_after_minutes
         - owner_alert_after_minutes
+        - refund_approval_above_minor
       properties:
         order_lead_minutes:
           type: integer
@@ -39723,6 +39980,10 @@ components:
           type: integer
           minimum: 1
           maximum: 10080
+        refund_approval_above_minor:
+          type: integer
+          minimum: 0
+          description: Refunds on one order above this, in minor units, need the owner.
 
     KitchenDisplayEnvelope:
       type: object

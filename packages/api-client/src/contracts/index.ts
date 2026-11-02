@@ -660,6 +660,7 @@ export type {
     OrderDeskCustomerContact,
     OrderDeskCustomerCreated,
     OrderDeskCustomerOrigin,
+    OrderDeskCustomerAllergies,
     OrderDeskCustomerSearch,
     OrderDeskDeliveryJob,
     OrderDeskDeliveryWindow,

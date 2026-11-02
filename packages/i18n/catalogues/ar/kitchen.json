@@ -2293,7 +2293,7 @@
             "customerSearchTooShort": "تابع الكتابة — {{count}} أحرف أو أكثر للبحث.",
             "customerSearchErrorTitle": "تعذّر تنفيذ البحث",
             "customerNoneTitle": "لا أحد يطابق ذلك",
-            "customerNoneBody": "جرّب جزءًا من الاسم، أو رقم الهاتف مع رمز الدولة. إن كان متصلًا لأول مرة، سجّله أدناه.",
+            "customerNoneBody": "جرّب جزءًا من الاسم أو رقم الهاتف كاملًا: الزبون المسجَّل الذي لم يطلب من هنا يُعثر عليه بالرقم فقط. إن كان المتصل جديدًا، فسجّله أدناه.",
             "customerCapped": "تُعرض أول {{limit}} نتيجة. ضيّق البحث للوصول إلى الباقي.",
             "customerChoose": "اختيار",
             "customerRegular": "طلب من هنا سابقًا",
@@ -2406,7 +2406,17 @@
             "allergyNoteHint": "أي شيء ذكره الزبون عن الحساسية. سيظهر للمطبخ.",
             "allergyConflictTitle": "هذا الطعام يتعارض مع حساسية الزبون",
             "allergyConflictMeal": "{{meal}} ({{allergens}})",
-            "allergyAcknowledge": "أبلغت الزبون بذلك"
+            "allergyAcknowledge": "أبلغت الزبون بذلك",
+            "walkIn": "زبون حاضر، بلا اسم على الطلب",
+            "walkInChoose": "زبون حاضر",
+            "partyPending": "اختر الزبون، أو حدّد أنه زبون حاضر، لتظهر القائمة. تُعلَّم الحساسيات على الأطباق عندما يكون الزبون مسمّى.",
+            "customerRegistered": "زبون مسجَّل",
+            "customerAllergiesTitle": "حساسيات مسجّلة",
+            "customerAllergiesNone": "ذكر هذا الزبون أنه لا يعاني من أي حساسية.",
+            "customerAllergiesUnknown": "لم يُسأل هذا الزبون عن الحساسية بعد. اسأله قبل أخذ الطلب.",
+            "customerAllergiesError": "تعذّرت قراءة الحساسيات. اسأل الزبون قبل أخذ الطلب.",
+            "tileConflict": "يحتوي على {{allergens}}",
+            "tileConflictDiet": "يتعارض مع النظام الغذائي لهذا الزبون"
         },
         "refusal": {
             "customer_required": "هذا النوع من البيع يحتاج إلى عميل. ارجع واختر واحدًا أو أضفه.",

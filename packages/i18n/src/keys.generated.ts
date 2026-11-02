@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9309 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9319 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3642,6 +3642,10 @@ export interface NamespaceKeys {
     | 'desk.sale.chargeEmpty'
     | 'desk.sale.chargeTotal'
     | 'desk.sale.completedNumber'
+    | 'desk.sale.customerAllergiesError'
+    | 'desk.sale.customerAllergiesNone'
+    | 'desk.sale.customerAllergiesTitle'
+    | 'desk.sale.customerAllergiesUnknown'
     | 'desk.sale.customerCancelCreate'
     | 'desk.sale.customerCapped'
     | 'desk.sale.customerChoose'
@@ -3659,6 +3663,7 @@ export interface NamespaceKeys {
     | 'desk.sale.customerNoneTitle'
     | 'desk.sale.customerPhoneHint'
     | 'desk.sale.customerPhoneLabel'
+    | 'desk.sale.customerRegistered'
     | 'desk.sale.customerRegular'
     | 'desk.sale.customerSearchErrorTitle'
     | 'desk.sale.customerSearchLabel'
@@ -3689,6 +3694,7 @@ export interface NamespaceKeys {
     | 'desk.sale.notSold'
     | 'desk.sale.notesLabel'
     | 'desk.sale.onTicket'
+    | 'desk.sale.partyPending'
     | 'desk.sale.phoneCountryCode'
     | 'desk.sale.phoneInvalid'
     | 'desk.sale.phoneLength'
@@ -3726,6 +3732,8 @@ export interface NamespaceKeys {
     | 'desk.sale.subtotal'
     | 'desk.sale.ticketEmpty'
     | 'desk.sale.ticketTitle'
+    | 'desk.sale.tileConflict'
+    | 'desk.sale.tileConflictDiet'
     | 'desk.sale.title'
     | 'desk.sale.total'
     | 'desk.sale.type.counter'
@@ -3735,6 +3743,8 @@ export interface NamespaceKeys {
     | 'desk.sale.typeHint.delivery'
     | 'desk.sale.typeHint.pickup'
     | 'desk.sale.typeLabel'
+    | 'desk.sale.walkIn'
+    | 'desk.sale.walkInChoose'
     | 'desk.sale.whenLabel'
     | 'desk.sale.wishNoteBody'
     | 'desk.sale.wishNoteTitle'
@@ -12969,6 +12979,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.chargeEmpty',
   'kitchen:desk.sale.chargeTotal',
   'kitchen:desk.sale.completedNumber',
+  'kitchen:desk.sale.customerAllergiesError',
+  'kitchen:desk.sale.customerAllergiesNone',
+  'kitchen:desk.sale.customerAllergiesTitle',
+  'kitchen:desk.sale.customerAllergiesUnknown',
   'kitchen:desk.sale.customerCancelCreate',
   'kitchen:desk.sale.customerCapped',
   'kitchen:desk.sale.customerChoose',
@@ -12986,6 +13000,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.customerNoneTitle',
   'kitchen:desk.sale.customerPhoneHint',
   'kitchen:desk.sale.customerPhoneLabel',
+  'kitchen:desk.sale.customerRegistered',
   'kitchen:desk.sale.customerRegular',
   'kitchen:desk.sale.customerSearchErrorTitle',
   'kitchen:desk.sale.customerSearchLabel',
@@ -13016,6 +13031,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.notSold',
   'kitchen:desk.sale.notesLabel',
   'kitchen:desk.sale.onTicket',
+  'kitchen:desk.sale.partyPending',
   'kitchen:desk.sale.phoneCountryCode',
   'kitchen:desk.sale.phoneInvalid',
   'kitchen:desk.sale.phoneLength',
@@ -13053,6 +13069,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.subtotal',
   'kitchen:desk.sale.ticketEmpty',
   'kitchen:desk.sale.ticketTitle',
+  'kitchen:desk.sale.tileConflict',
+  'kitchen:desk.sale.tileConflictDiet',
   'kitchen:desk.sale.title',
   'kitchen:desk.sale.total',
   'kitchen:desk.sale.type.counter',
@@ -13062,6 +13080,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.typeHint.delivery',
   'kitchen:desk.sale.typeHint.pickup',
   'kitchen:desk.sale.typeLabel',
+  'kitchen:desk.sale.walkIn',
+  'kitchen:desk.sale.walkInChoose',
   'kitchen:desk.sale.whenLabel',
   'kitchen:desk.sale.wishNoteBody',
   'kitchen:desk.sale.wishNoteTitle',

@@ -15,6 +15,7 @@ import type {
     OrderDeskCashReportFilters,
     OrderDeskCustomerAddress,
     OrderDeskCustomerCreated,
+    OrderDeskCustomerAllergies,
     OrderDeskCustomerSearch,
     OrderDeskDeliveryWindow,
     OrderDeskDrivers,
@@ -522,6 +523,28 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
             return {
                 rows: envelope.data.map(mapOrderDeskCustomer),
                 limit: meta.limit,
+            };
+        },
+
+        async getCustomerAllergies(customerId: string): Promise<OrderDeskCustomerAllergies> {
+            const payload = await transport.request<{
+                readonly declared: boolean;
+                readonly declares_no_allergens: boolean;
+                readonly allergens: readonly {
+                    readonly allergen_code: string;
+                    readonly severity: OrderDeskCustomerAllergies['allergens'][number]['severity'];
+                }[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/order-desk/customers/${encodeURIComponent(customerId)}/allergies`,
+            });
+            return {
+                declared: payload.declared,
+                declaresNoAllergens: payload.declares_no_allergens,
+                allergens: payload.allergens.map((allergen) => ({
+                    allergenCode: allergen.allergen_code,
+                    severity: allergen.severity,
+                })),
             };
         },
 

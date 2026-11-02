@@ -11,6 +11,7 @@ import type {
     OrderDeskCashReportFilters,
     OrderDeskCustomerAddress,
     OrderDeskCustomerCreated,
+    OrderDeskCustomerAllergies,
     OrderDeskCustomerSearch,
     OrderDeskDeliveryWindow,
     OrderDeskDrivers,
@@ -417,6 +418,24 @@ export function useOrderDeskCustomerSearchQuery(
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.orderDesk.searchCustomers(trimmed);
+        },
+    });
+}
+
+/** What the chosen customer has declared. Asked once per customer: the server records the read. */
+export function useOrderDeskCustomerAllergiesQuery(
+    customerId: string | null,
+): UseQueryResult<OrderDeskCustomerAllergies> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.orderDesk.customerAllergies(customerId ?? ''),
+        enabled: repositories !== null && customerId !== null,
+        queryFn: () => {
+            if (repositories === null || customerId === null) {
+                throw new Error('Repositories are not ready.');
+            }
+            return repositories.orderDesk.getCustomerAllergies(customerId);
         },
     });
 }

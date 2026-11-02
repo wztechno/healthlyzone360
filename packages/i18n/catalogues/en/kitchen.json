@@ -2042,7 +2042,7 @@
             "customerSearchTooShort": "Keep going — {{count}} characters or more to search.",
             "customerSearchErrorTitle": "The search could not be run",
             "customerNoneTitle": "Nobody matches that",
-            "customerNoneBody": "Try part of the name, or the telephone number with its country code. If this is a first-time caller, write them down below.",
+            "customerNoneBody": "Try part of the name, or the full telephone number: a registered customer who has not ordered here is found by number only. If this is a first-time caller, write them down below.",
             "customerCapped": "Showing the first {{limit}}. Narrow the search to reach the rest.",
             "customerChoose": "Choose",
             "customerRegular": "Ordered here before",
@@ -2147,7 +2147,17 @@
             "allergyNoteHint": "Anything the customer said about allergies. The kitchen will see it.",
             "allergyConflictTitle": "This food conflicts with the customer’s allergies",
             "allergyConflictMeal": "{{meal}} ({{allergens}})",
-            "allergyAcknowledge": "I told the customer about this"
+            "allergyAcknowledge": "I told the customer about this",
+            "walkIn": "Walk-in, no name on the order",
+            "walkInChoose": "Walk-in customer",
+            "partyPending": "Choose the customer, or say this is a walk-in, and the menu opens. Allergies are marked on the dishes for a named customer.",
+            "customerRegistered": "Registered customer",
+            "customerAllergiesTitle": "Allergies on file",
+            "customerAllergiesNone": "This customer has said they have no allergies.",
+            "customerAllergiesUnknown": "Nobody has asked this customer about allergies yet. Ask before you take the order.",
+            "customerAllergiesError": "The allergies could not be read. Ask the customer before you take the order.",
+            "tileConflict": "Contains {{allergens}}",
+            "tileConflictDiet": "Conflicts with this customer's diet"
         },
         "refusal": {
             "customer_required": "This kind of sale needs a customer. Go back and choose or add one.",

@@ -31,7 +31,9 @@ import {
     saleStateFromOrder,
     scheduleFor,
     windowsOverAt,
+    partyChosen,
     withCustomer,
+    withWalkIn,
     withFulfilmentType,
     withPaymentMethod,
 } from './order-desk/sale-state.ts';
@@ -90,7 +92,7 @@ describe('desk sale — what each kind of sale asks for', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('desk sale — what changing the kind clears', () => {
-    it('drops the customer and the address when a delivery becomes a counter sale', () => {
+    it('drops the address and keeps the customer when a delivery becomes a counter sale', () => {
         const delivery = withFulfilmentType(counterState(), 'delivery');
         const named = {
             ...withCustomer(delivery, 'account-1'),
@@ -99,10 +101,20 @@ describe('desk sale — what changing the kind clears', () => {
 
         const counter = withFulfilmentType(named, 'counter');
 
-        // A counter body carrying an address is refused `address_not_applicable`, and the page has
-        // no card on which the agent could see the customer it was still sending.
+        // A counter body carrying an address is refused `address_not_applicable`. The customer was
+        // chosen before the food, and the menu's allergy marks are theirs.
         expect(counter.customerAddressId).toBeNull();
-        expect(counter.customerAccountId).toBeNull();
+        expect(counter.customerAccountId).toBe('account-1');
+    });
+
+    it('ends a walk-in when the sale must name somebody, and keeps it on a counter sale', () => {
+        const walkIn = withWalkIn(withCustomer(counterState(), 'account-1'));
+
+        expect(walkIn.customerAccountId).toBeNull();
+        expect(partyChosen(walkIn)).toBe(true);
+        expect(withFulfilmentType(walkIn, 'pickup').walkIn).toBe(false);
+        expect(partyChosen(withFulfilmentType(walkIn, 'delivery'))).toBe(false);
+        expect(withCustomer(walkIn, 'account-2').walkIn).toBe(false);
     });
 
     it('drops only the address when a delivery becomes a pickup', () => {

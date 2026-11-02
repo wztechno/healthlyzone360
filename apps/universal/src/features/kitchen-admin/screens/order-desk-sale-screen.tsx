@@ -82,6 +82,7 @@ import {
     initialSaleState,
     needsAddress,
     needsCustomer,
+    partyChosen,
     paymentMethodsFor,
     saleShortfall,
     saleStateFromOrder,
@@ -92,6 +93,7 @@ import {
     withCustomer,
     withFulfilmentType,
     withPaymentMethod,
+    withWalkIn,
 } from '../order-desk/sale-state.ts';
 import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
 
@@ -104,12 +106,16 @@ import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
  * is one page now, laid out the way `4f` draws the till: the menu as a grid of products, tapped onto
  * a ticket that runs beside it.
  *
+ * The Customer card opens the page, above both columns, and the menu stays shut until it is
+ * answered: somebody named, or an explicit Walk-in. The menu has to know who it is for, because
+ * each tile marks what that customer is allergic to (the shelf quote's `allergenConflicts`).
+ *
  * The page has two stages, and the ticket stays beside both. In the **menu** stage the agent picks
  * the food and the ticket's one button is Charge. Charge opens the **checkout** stage in the
  * menu's column: a Back button, then how the order leaves — counter, collection or delivery, three
- * cards with none chosen yet. A counter sale needs nothing else; a **collection** opens a Customer
- * card and a **delivery** a Customer card and an Address card, each folding to one line once it is
- * answered. Only once the kind is chosen does the ticket offer the payment methods and the button
+ * cards with none chosen yet. A counter sale needs nothing else; a **collection** must name a
+ * customer, so a walk-in reopens that card, and a **delivery** also opens an Address card, each
+ * folding to one line once it is answered. Only once the kind is chosen does the ticket offer the payment methods and the button
  * that places the sale, and it says what is still missing — `saleShortfall` in
  * `order-desk/sale-state.ts`, which also owns what choosing the kind clears. The stage is this
  * screen's own state, not the sale's: emptying the ticket goes back to the menu.
@@ -146,9 +152,10 @@ import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
  *
  * ## Allergies at the desk
  *
- * Any sale can take a note. A named customer's allergen conflicts come back on the quote, beside the
- * refusals rather than among them: the sale can go ahead, once the agent ticks that the customer was
- * told. The tick is about the basket it was given for, so changing the food or the customer clears
+ * Any sale can take a note. What a named customer declared is said on their card as soon as they
+ * are chosen. Their allergen conflicts come back on both quotes, beside the refusals rather than
+ * among them: a tile says so and can still be tapped, and the sale can go ahead once the agent ticks
+ * that the customer was told. The tick is about the basket it was given for, so changing the food or the customer clears
  * it, and an edit asks again because the server re-checks every edit.
  *
  * ## What the design draws that this does not
@@ -156,7 +163,6 @@ import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
  * - **VAT.** The quote carries a subtotal, an optional fee and a total — no tax line. A tax figure
  *   worked out here would be the one number on the ticket the server never agreed to.
  * - **A ticket number.** The order number exists once the order does.
- * - **+ Customer on a counter sale.** Counter sales are anonymous in v1; `sale-state.ts` says why.
  * - **Packs.** The wire addresses a pack by `catalogue_item_variant_id`, and the catalogue listing
  *   exposes pack variants by `code` with no identifier — so the menu sells the plain article, and the
  *   basket keys on `(article, pack)` anyway so that packs land as a menu change rather than a rewrite.
@@ -309,6 +315,8 @@ function Sale() {
     const [query, setQuery] = useState('');
     /** The counter sale just rung up, said on the ticket until the next tap starts another. */
     const [sold, setSold] = useState<KitchenOrder | null>(null);
+    /** Bumped by each counter sale, so the next customer starts on an empty search. */
+    const [saleNumber, setSaleNumber] = useState(0);
     /*
      * The body row's width, read from the node rather than from `onLayout`: on the web `onLayout`
      * is a `ResizeObserver` that delivered one early width and nothing after it, so the tiles were
@@ -590,6 +598,7 @@ function Sale() {
                         setStage('menu');
                         setKindChosen(false);
                         setSold(order);
+                        setSaleNumber((number) => number + 1);
                         toast.show({
                             testID: 'kitchen-order-desk-sale-sold-toast',
                             tone: 'success',
@@ -722,6 +731,24 @@ function Sale() {
                     />
                 )}
             </View>
+            {/* How it leaves and who it is for are fixed for the life of an order. */}
+            {isEditing ? null : (
+                <CustomerSection
+                    key={saleNumber}
+                    customerAccountId={state.customerAccountId}
+                    walkIn={state.walkIn}
+                    walkInOffered={!kindChosen || !needsCustomer(state.fulfilmentType)}
+                    onChoose={(customer) => {
+                        update(withCustomer(state, customer.id));
+                    }}
+                    onWalkIn={() => {
+                        update(withWalkIn(state));
+                    }}
+                    onUndoWalkIn={() => {
+                        update({ ...state, walkIn: false });
+                    }}
+                />
+            )}
             <View
                 // Both measurement paths, each inert on the other's platform — as `CatalogueList`.
                 ref={Platform.OS === 'web' ? port.ref : undefined}
@@ -739,7 +766,6 @@ function Sale() {
                     className="z-auto min-w-0 flex-col gap-base"
                     style={[column, stage === 'checkout' ? null : HIDDEN]}
                 >
-                    {/* How it leaves and who it is for are fixed for the life of an order. */}
                     {isEditing ? null : (
                         <KindPicker
                             value={kindChosen ? state.fulfilmentType : null}
@@ -751,15 +777,6 @@ function Sale() {
                     )}
 
                     <>
-                        {!isEditing && kindChosen && needsCustomer(state.fulfilmentType) ? (
-                            <CustomerSection
-                                customerAccountId={state.customerAccountId}
-                                onChoose={(customer) => {
-                                    update(withCustomer(state, customer.id));
-                                }}
-                            />
-                        ) : null}
-
                         {editOrder !== null && needsAddress(state.fulfilmentType) ? (
                             <FormSection
                                 variant="card"
@@ -852,41 +869,53 @@ function Sale() {
                     className="z-auto min-w-0 flex-col gap-snug"
                     style={[column, stage === 'menu' ? null : HIDDEN]}
                 >
-                    <CatalogueToolbar<MenuSection>
-                        testID="kitchen-order-desk-sale-menu-toolbar"
-                        search={query}
-                        onSearchChange={setQuery}
-                        searchLabel={t('kitchen:desk.sale.pickerSearchLabel')}
-                        searchPlaceholder={t('kitchen:desk.sale.pickerSearchPlaceholder')}
-                        statusLabel={t('kitchen:desk.sale.sectionsLabel')}
-                        statusSegments={MENU_SECTIONS.map((candidate) => ({
-                            value: candidate,
-                            label: t(SECTION_LABEL_KEYS[candidate]),
-                        }))}
-                        status={section}
-                        onStatusChange={setSection}
-                    />
-                    <MenuGrid
-                        tileWidth={grid.tileWidth}
-                        columns={grid.columns}
-                        section={section}
-                        query={query}
-                        customerAccountId={state.customerAccountId}
-                        amendingOrderId={editOrderId === null ? null : String(editOrderId)}
-                        saleDay={saleDay}
-                        lines={state.lines}
-                        onAdd={(tile) => {
-                            update({
-                                ...state,
-                                lines: addItem(state.lines, {
-                                    catalogueItemId: tile.id,
-                                    catalogueItemVariantId: null,
-                                    name: tile.name,
-                                    variantLabel: null,
-                                }),
-                            });
-                        }}
-                    />
+                    {!isEditing && !partyChosen(state) ? (
+                        <Text
+                            variant="caption"
+                            tone="secondary"
+                            testID="kitchen-order-desk-sale-party-pending"
+                        >
+                            {t('kitchen:desk.sale.partyPending')}
+                        </Text>
+                    ) : (
+                        <>
+                            <CatalogueToolbar<MenuSection>
+                                testID="kitchen-order-desk-sale-menu-toolbar"
+                                search={query}
+                                onSearchChange={setQuery}
+                                searchLabel={t('kitchen:desk.sale.pickerSearchLabel')}
+                                searchPlaceholder={t('kitchen:desk.sale.pickerSearchPlaceholder')}
+                                statusLabel={t('kitchen:desk.sale.sectionsLabel')}
+                                statusSegments={MENU_SECTIONS.map((candidate) => ({
+                                    value: candidate,
+                                    label: t(SECTION_LABEL_KEYS[candidate]),
+                                }))}
+                                status={section}
+                                onStatusChange={setSection}
+                            />
+                            <MenuGrid
+                                tileWidth={grid.tileWidth}
+                                columns={grid.columns}
+                                section={section}
+                                query={query}
+                                customerAccountId={state.customerAccountId}
+                                amendingOrderId={editOrderId === null ? null : String(editOrderId)}
+                                saleDay={saleDay}
+                                lines={state.lines}
+                                onAdd={(tile) => {
+                                    update({
+                                        ...state,
+                                        lines: addItem(state.lines, {
+                                            catalogueItemId: tile.id,
+                                            catalogueItemVariantId: null,
+                                            name: tile.name,
+                                            variantLabel: null,
+                                        }),
+                                    });
+                                }}
+                            />
+                        </>
+                    )}
                 </View>
 
                 <Ticket
@@ -1245,6 +1274,17 @@ function MenuGrid({
         }
         return map;
     }, [shelf.data]);
+    // What this customer must not eat, by tile. The agent is warned, never stopped.
+    const conflictsById = useMemo(
+        () =>
+            new Map(
+                (shelf.data?.allergenConflicts ?? []).map((conflict) => [
+                    String(conflict.mealId),
+                    conflict.allergenCodes,
+                ]),
+            ),
+        [shelf.data],
+    );
 
     const quantities = useMemo(() => {
         const map = new Map<string, number>();
@@ -1299,6 +1339,7 @@ function MenuGrid({
                                               })
                                     }
                                     refused={quoted !== null && quoted.refusals.length > 0}
+                                    conflict={conflictsById.get(tile.id) ?? null}
                                     count={quantities.get(tile.id) ?? 0}
                                     onAdd={() => {
                                         onAdd(tile);
@@ -1332,6 +1373,7 @@ function MenuTileButton({
     width,
     price,
     refused,
+    conflict,
     count,
     onAdd,
 }: {
@@ -1342,11 +1384,24 @@ function MenuTileButton({
     readonly price: string | null;
     /** The desk does not sell this — the shelf quote refused it. */
     readonly refused: boolean;
+    /** The allergen codes this dish conflicts on for the chosen customer; `null` when it does not. */
+    readonly conflict: readonly string[] | null;
     readonly count: number;
     readonly onAdd: () => void;
 }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+
+    const conflictLabel =
+        conflict === null
+            ? null
+            : conflict.length === 0
+              ? t('kitchen:desk.sale.tileConflictDiet')
+              : t('kitchen:desk.sale.tileConflict', {
+                    allergens: conflict
+                        .map((code) => allergenLabel(code, t))
+                        .join(t('kitchen:common.listSeparator')),
+                });
 
     const label = [
         price === null
@@ -1354,6 +1409,7 @@ function MenuTileButton({
             : t('kitchen:desk.sale.addItemPriced', { item: name, price }),
         count > 0 ? t('kitchen:desk.sale.onTicket', { count }) : null,
         refused ? t('kitchen:desk.sale.notSold') : null,
+        conflictLabel,
     ]
         .filter((part) => part !== null)
         .join('. ');
@@ -1373,7 +1429,9 @@ function MenuTileButton({
             className={
                 refused
                     ? 'relative flex-col overflow-hidden rounded border border-stroke-subtle bg-surface-sunken opacity-60'
-                    : 'relative flex-col overflow-hidden rounded border border-stroke-subtle bg-surface-raised shadow-elevation-card active:opacity-80 web:hover:border-surface-brand'
+                    : conflict !== null
+                      ? 'relative flex-col overflow-hidden rounded border border-danger-border bg-surface-raised shadow-elevation-card active:opacity-80'
+                      : 'relative flex-col overflow-hidden rounded border border-stroke-subtle bg-surface-raised shadow-elevation-card active:opacity-80 web:hover:border-surface-brand'
             }
         >
             <EntityImage
@@ -1397,6 +1455,14 @@ function MenuTileButton({
                 >
                     {refused ? t('kitchen:desk.sale.notSold') : (price ?? EM_DASH)}
                 </Text>
+                {conflictLabel === null ? null : (
+                    <Badge
+                        testID={`kitchen-order-desk-sale-tile-${tile.id}-conflict`}
+                        tone="danger"
+                        icon="warning"
+                        label={conflictLabel}
+                    />
+                )}
             </View>
             {count > 0 ? (
                 <View className="absolute end-1.5 top-1.5" aria-hidden>

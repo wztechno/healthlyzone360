@@ -637,6 +637,7 @@ export const queryKeys = {
          * takes nothing else, and the org scope is the transport's.
          */
         customers: (query: string) => ['orderDesk', 'customers', query] as const,
+        customerAllergies: (id: string) => ['orderDesk', 'customer-allergies', id] as const,
         /**
          * The same orders counted by *date* rather than by due-ness.
          *
