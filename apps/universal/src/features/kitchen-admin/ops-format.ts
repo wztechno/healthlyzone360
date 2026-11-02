@@ -3,6 +3,7 @@ import type {
     DriverJobTrackingStatus,
     KitchenOrderAllergy,
     KitchenOrderLine,
+    KitchenOrderCancellationDisposition,
     KitchenOrderCancellationReason,
     KitchenOrderFulfilmentType,
     KitchenOrderPaymentMethod,
@@ -184,10 +185,24 @@ const KITCHEN_ORDER_CANCELLATION_REASON_KEYS: Readonly<
     kitchen_unable_to_fulfil: 'kitchen:ops.orders.reason.kitchenUnableToFulfil',
     delivery_unavailable: 'kitchen:ops.orders.reason.deliveryUnavailable',
     address_unreachable: 'kitchen:ops.orders.reason.addressUnreachable',
+    delivery_failed: 'kitchen:ops.orders.reason.deliveryFailed',
 };
 
 export function kitchenOrderCancellationReasonKey(reason: KitchenOrderCancellationReason): string {
     return KITCHEN_ORDER_CANCELLATION_REASON_KEYS[reason];
+}
+
+const KITCHEN_ORDER_CANCELLATION_DISPOSITION_KEYS: Readonly<
+    Record<KitchenOrderCancellationDisposition, string>
+> = {
+    returned: 'kitchen:ops.orders.disposition.returned',
+    wasted: 'kitchen:ops.orders.disposition.wasted',
+};
+
+export function kitchenOrderCancellationDispositionKey(
+    disposition: KitchenOrderCancellationDisposition,
+): string {
+    return KITCHEN_ORDER_CANCELLATION_DISPOSITION_KEYS[disposition];
 }
 
 /**

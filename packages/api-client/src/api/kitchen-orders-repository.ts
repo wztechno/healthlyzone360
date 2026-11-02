@@ -120,6 +120,7 @@ function mapDelivery(wire: WireKitchenOrderDelivery): KitchenOrderDelivery {
         windowNameEn: wire.window_name_en ?? null,
         windowNameAr: wire.window_name_ar ?? null,
         zoneNameAr: wire.zone_name_ar ?? null,
+        pickedUpAt: wire.picked_up_at ?? null,
     };
 }
 
@@ -146,6 +147,7 @@ export function mapKitchenOrder(wire: WireKitchenOrder): KitchenOrder {
         fulfilledAt: wire.fulfilled_at,
         cancelledAt: wire.cancelled_at,
         cancellationReason: wire.cancellation_reason,
+        cancellationDisposition: wire.cancellation_disposition ?? null,
         deliveryRun:
             wire.delivery_run === null || wire.delivery_run === undefined
                 ? null
@@ -324,6 +326,7 @@ export function createApiKitchenOrdersRepository(transport: Transport): KitchenO
         async cancelOrder(request: CancelKitchenOrderRequest): Promise<KitchenOrder> {
             return transition(request.id, request.lockVersion, 'cancel', {
                 reason: request.reason,
+                ...(request.disposition === undefined ? {} : { disposition: request.disposition }),
             });
         },
 

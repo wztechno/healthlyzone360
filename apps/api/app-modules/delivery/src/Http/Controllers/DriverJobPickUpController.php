@@ -30,8 +30,12 @@ use Illuminate\Support\Facades\DB;
  * **Only the driver whose run it is, and only once.** `driver_user_id = me AND
  * status = 'assigned'` travels inside the `UPDATE`, the claim's own shape: a run
  * that is somebody else's or does not exist is `404`, and one already picked up
- * or delivered is `409`. No `If-Match`, for the reason `DeliveryJob` gives for
- * deliver: nobody races a driver for their own job.
+ * or delivered is `409`. No `If-Match`: nobody races a driver for their own job.
+ *
+ * **A cancelled order racing this has one winner.** The `status = 'assigned'`
+ * guard and `DeliveryJobProjector::cancel()` contend for the same row, so a run
+ * cancelled a moment ago finds nothing to update here and is refused, and a run
+ * picked up a moment ago refuses the cancellation.
  */
 final class DriverJobPickUpController
 {
@@ -78,7 +82,7 @@ final class DriverJobPickUpController
             ]);
 
         if ($updated === 0) {
-            throw new ApiException(ErrorCode::ResourceConflict, 'This run has already been picked up.');
+            throw new ApiException(ErrorCode::ResourceConflict, 'This run is no longer waiting to be picked up.');
         }
 
         $record->refresh();

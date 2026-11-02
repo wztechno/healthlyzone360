@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Orders\Http\Requests;
 
+use Healthy360\Orders\Enums\CancellationDisposition;
 use Healthy360\Orders\Enums\CancellationReason;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Enum;
@@ -25,6 +26,11 @@ use Illuminate\Validation\Rules\Enum;
  *
  * No `note` field. It would be the free-text column this enum exists to
  * prevent, arriving under a name that made it sound optional.
+ *
+ * `delivery_failed` is refused here: only closing a failed delivery sets it, so
+ * that the reason always means a run really came back. `disposition` is optional
+ * to the shape and required by `KitchenOrderCancelController` once cooking has
+ * started, because whether it is needed depends on the order, not the request.
  */
 class CancelOrderRequest extends FormRequest
 {
@@ -43,16 +49,17 @@ class CancelOrderRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'reason' => ['required', new Enum(CancellationReason::class)],
+            'reason' => ['required', (new Enum(CancellationReason::class))->except(CancellationReason::DeliveryFailed)],
+            'disposition' => ['nullable', new Enum(CancellationDisposition::class)],
         ];
     }
 
     /**
-     * @return array{reason: string}
+     * @return array{reason: string, disposition?: string|null}
      */
     public function payload(): array
     {
-        /** @var array{reason: string} $validated */
+        /** @var array{reason: string, disposition?: string|null} $validated */
         $validated = $this->validated();
 
         return $validated;

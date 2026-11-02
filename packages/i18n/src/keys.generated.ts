@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9247 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9252 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4710,6 +4710,7 @@ export interface NamespaceKeys {
     | 'ops.orders.cancelConfirm'
     | 'ops.orders.cancelDismiss'
     | 'ops.orders.cancelFinal'
+    | 'ops.orders.cancelNeedsManager'
     | 'ops.orders.cancelReasonLabel'
     | 'ops.orders.cancelTitle'
     | 'ops.orders.cancellationHeading'
@@ -4743,6 +4744,9 @@ export interface NamespaceKeys {
     | 'ops.orders.deliveryZone'
     | 'ops.orders.detailLoadErrorTitle'
     | 'ops.orders.detailTitle'
+    | 'ops.orders.disposition.returned'
+    | 'ops.orders.disposition.wasted'
+    | 'ops.orders.dispositionLabel'
     | 'ops.orders.driver'
     | 'ops.orders.driverNone'
     | 'ops.orders.emptyBody'
@@ -4782,6 +4786,7 @@ export interface NamespaceKeys {
     | 'ops.orders.readyAt'
     | 'ops.orders.reason.addressUnreachable'
     | 'ops.orders.reason.customerRequested'
+    | 'ops.orders.reason.deliveryFailed'
     | 'ops.orders.reason.deliveryUnavailable'
     | 'ops.orders.reason.kitchenUnableToFulfil'
     | 'ops.orders.saveFailed'
@@ -13975,6 +13980,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.cancelConfirm',
   'kitchen:ops.orders.cancelDismiss',
   'kitchen:ops.orders.cancelFinal',
+  'kitchen:ops.orders.cancelNeedsManager',
   'kitchen:ops.orders.cancelReasonLabel',
   'kitchen:ops.orders.cancelTitle',
   'kitchen:ops.orders.cancellationHeading',
@@ -14008,6 +14014,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.deliveryZone',
   'kitchen:ops.orders.detailLoadErrorTitle',
   'kitchen:ops.orders.detailTitle',
+  'kitchen:ops.orders.disposition.returned',
+  'kitchen:ops.orders.disposition.wasted',
+  'kitchen:ops.orders.dispositionLabel',
   'kitchen:ops.orders.driver',
   'kitchen:ops.orders.driverNone',
   'kitchen:ops.orders.emptyBody',
@@ -14047,6 +14056,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.readyAt',
   'kitchen:ops.orders.reason.addressUnreachable',
   'kitchen:ops.orders.reason.customerRequested',
+  'kitchen:ops.orders.reason.deliveryFailed',
   'kitchen:ops.orders.reason.deliveryUnavailable',
   'kitchen:ops.orders.reason.kitchenUnableToFulfil',
   'kitchen:ops.orders.saveFailed',

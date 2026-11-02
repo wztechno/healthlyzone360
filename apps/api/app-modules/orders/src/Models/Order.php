@@ -11,6 +11,7 @@ use Healthy360\Customers\Enums\AllergenSeverity;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Orders\Database\Factories\OrderFactory;
+use Healthy360\Orders\Enums\CancellationDisposition;
 use Healthy360\Orders\Enums\CancellationReason;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Enums\OrderStatus;
@@ -86,6 +87,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $fulfilled_at
  * @property CarbonImmutable|null $cancelled_at
  * @property CancellationReason|null $cancellation_reason
+ * @property CancellationDisposition|null $cancellation_disposition returned or wasted, on a cancellation after cooking started; null restored the stock
  * @property string|null $created_by
  * @property string|null $placed_on_behalf_by
  * @property list<array{allergen_code: string, severity: string, notes: string|null, conflicts_with_line: list<string>}>|null $allergy_snapshot every allergy declared at placement; null when none was
@@ -138,6 +140,7 @@ class Order extends BaseModel
             'fulfilment_type' => FulfilmentType::class,
             'payment_method' => PaymentMethod::class,
             'cancellation_reason' => CancellationReason::class,
+            'cancellation_disposition' => CancellationDisposition::class,
             'subtotal_minor' => 'integer',
             'delivery_fee_minor' => 'integer',
             'total_minor' => 'integer',

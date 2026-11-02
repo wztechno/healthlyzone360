@@ -9,6 +9,7 @@ use Closure;
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Orders\Contracts\DeliveryJobProjection;
 use Healthy360\Orders\Contracts\OrderStockConsumption;
+use Healthy360\Orders\Enums\CancellationDisposition;
 use Healthy360\Orders\Enums\CancellationReason;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Enums\OrderStatus;
@@ -263,22 +264,24 @@ final readonly class OrderLifecycle
      * only useful if it is never optional — an order cancelled "for no stated
      * reason" is the row that makes every count wrong.
      *
-     * **The stock comes back and the delivery job does not go anywhere.** The
-     * asymmetry is deliberate and it is not an oversight: stock is a quantity
-     * that has to balance, so a deduction that is not reversed is a wrong number
-     * forever, whereas a delivery job is a *record of work* whose own status
-     * lifecycle — assigned, in transit, cancelled — belongs to the delivery
-     * module and is worked on the dispatch board. A cancelled confirmed order
-     * keeps its job row so that the board can show a dispatcher there is a run
-     * to call off, and so that a driver already holding the food is not deleted
-     * out of the system mid-journey. Cancelling the *run* is a delivery decision
-     * made where delivery decisions are made; this class does not reach across
-     * to make it, and `DeliveryJobProjection` deliberately offers no reverse to
-     * make it with.
+     * **The run ends first, and the stock follows what became of the food.**
+     * `DeliveryJobProjection::cancel()` is the first thing inside the
+     * transaction, because it is the one step that can refuse: food already on
+     * the road cannot be cancelled, and a refusal there rolls the order back to
+     * where it was, before any stock has moved. This reverses the old ruling
+     * that a run was the dispatch board's to call off. The live audit showed a
+     * cancelled order still offered to drivers, and an end that nobody has to
+     * go and remember is the only version of that which stays fixed.
+     *
+     * A null disposition restores, as every cancellation always has. `Wasted`
+     * leaves the deduction where it is, so the cost of food cooked and thrown
+     * away stays counted. Who may answer that question is
+     * `KitchenOrderCancelController`'s business, so a caller with no screen is
+     * asked nothing.
      *
      * @throws ApiException
      */
-    public function cancel(Order $order, CancellationReason $reason, ?int $expectedLockVersion = null): Order
+    public function cancel(Order $order, CancellationReason $reason, ?int $expectedLockVersion = null, ?CancellationDisposition $disposition = null): Order
     {
         return $this->transition(
             $order,
@@ -287,9 +290,14 @@ final readonly class OrderLifecycle
             [
                 'cancelled_at' => CarbonImmutable::now(),
                 'cancellation_reason' => $reason,
+                'cancellation_disposition' => $disposition,
             ],
-            function (Order $cancelled): void {
-                $this->consumption->restore($cancelled);
+            function (Order $cancelled) use ($disposition): void {
+                $this->jobs->cancel($cancelled);
+
+                if ($disposition !== CancellationDisposition::Wasted) {
+                    $this->consumption->restore($cancelled);
+                }
             },
         );
     }
@@ -346,6 +354,7 @@ final readonly class OrderLifecycle
                 'from_status' => $from->value,
                 'to_status' => $to->value,
                 'cancellation_reason' => $order->cancellation_reason?->value,
+                'cancellation_disposition' => $order->cancellation_disposition?->value,
                 'lock_version' => $order->lock_version,
             ], static fn (mixed $value): bool => $value !== null),
         );

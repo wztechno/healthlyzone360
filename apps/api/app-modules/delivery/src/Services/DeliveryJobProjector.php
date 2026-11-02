@@ -8,6 +8,8 @@ use Carbon\CarbonImmutable;
 use Healthy360\Delivery\Models\DeliveryJob;
 use Healthy360\Orders\Contracts\DeliveryJobProjection;
 use Healthy360\Orders\Models\Order;
+use Healthy360\Support\Api\ErrorCode;
+use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\Scopes\OrganisationScope;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -90,7 +92,7 @@ final class DeliveryJobProjector implements DeliveryJobProjection
      */
     private const string INITIAL_TRACKING_STATUS = 'awaiting_assignment';
 
-    /** The two ends of a run; `close()` leaves either one as it is. */
+    /** The ends of a run; `close()` and `cancel()` leave each one as it is. */
     private const array CLOSED_STATUSES = ['delivered', 'cancelled'];
 
     public function project(Order $order): void
@@ -138,5 +140,35 @@ final class DeliveryJobProjector implements DeliveryJobProjection
                 'lock_version' => DB::raw('lock_version + 1'),
                 'updated_at' => $closedAt,
             ]);
+    }
+
+    /**
+     * The order was cancelled: the run ends and leaves every driver's sheet.
+     *
+     * One conditional `UPDATE`, so a Picked up racing it has exactly one
+     * outcome. Whichever statement reaches the row first wins and the other
+     * re-reads it: this one then matches nothing and refuses below, or the
+     * pick-up finds the run no longer `assigned` and is refused there. The
+     * refusal is decided by a read after the write, never before it.
+     * `tracking_status` stays: its CHECK has no cancelled value.
+     *
+     * @throws ApiException `order.out_for_delivery`, rolling the order back
+     */
+    public function cancel(Order $order): void
+    {
+        $open = fn () => DeliveryJob::query()
+            ->withoutGlobalScope(OrganisationScope::class)
+            ->where('order_id', $order->getKey())
+            ->whereNotIn('status', self::CLOSED_STATUSES);
+
+        $cancelled = $open()->whereNull('picked_up_at')->update([
+            'status' => 'cancelled',
+            'lock_version' => DB::raw('lock_version + 1'),
+            'updated_at' => CarbonImmutable::now(),
+        ]);
+
+        if ($cancelled === 0 && $open()->exists()) {
+            throw new ApiException(ErrorCode::OrderOutForDelivery);
+        }
     }
 }

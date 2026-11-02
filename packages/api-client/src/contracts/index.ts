@@ -587,7 +587,9 @@ export type {
 } from './kitchen-ops.ts';
 
 export {
+    KITCHEN_ORDER_CANCELLATION_DISPOSITIONS,
     KITCHEN_ORDER_CANCELLATION_REASONS,
+    KITCHEN_ORDER_PICKABLE_CANCELLATION_REASONS,
     KITCHEN_ORDER_FULFILMENT_TYPES,
     KITCHEN_ORDER_OPEN_STATUSES,
     KITCHEN_ORDER_PAYMENT_METHODS,
@@ -596,7 +598,9 @@ export {
 export type {
     CancelKitchenOrderRequest,
     KitchenOrder,
+    KitchenOrderCancellationDisposition,
     KitchenOrderCancellationReason,
+    KitchenOrderPickableCancellationReason,
     KitchenOrderAllergy,
     KitchenOrderAllergyItem,
     KitchenOrderDelivery,

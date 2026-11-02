@@ -1,13 +1,15 @@
 import { OrderId } from '@healthy360/domain-types';
 import type {
     KitchenOrder,
-    KitchenOrderCancellationReason,
+    KitchenOrderCancellationDisposition,
     KitchenOrderFilters,
     KitchenOrderLine,
+    KitchenOrderPickableCancellationReason,
     KitchenOrderStatus,
 } from '@healthy360/api-client/contracts';
 import {
-    KITCHEN_ORDER_CANCELLATION_REASONS,
+    KITCHEN_ORDER_CANCELLATION_DISPOSITIONS,
+    KITCHEN_ORDER_PICKABLE_CANCELLATION_REASONS,
     KITCHEN_ORDER_STATUSES,
 } from '@healthy360/api-client/contracts';
 import {
@@ -70,6 +72,7 @@ import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import {
     ORDER_CREATE_ON_BEHALF_PERMISSION,
     ORDER_MANAGE_PERMISSION,
+    ORDER_SUPERVISE_PERMISSION,
     ORDER_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { humaniseCode } from '../format.ts';
@@ -77,6 +80,7 @@ import {
     canCancelKitchenOrder,
     canConfirmKitchenOrder,
     canFulfilKitchenOrder,
+    kitchenOrderCancellationDispositionKey,
     kitchenOrderCancellationReasonKey,
     kitchenOrderFulfilmentTypeKey,
     kitchenOrderRowTestId,
@@ -659,6 +663,7 @@ function OrderRecord({
     const router = useRouter();
     const canManage = useCan(ORDER_MANAGE_PERMISSION);
     const canSell = useCan(ORDER_CREATE_ON_BEHALF_PERMISSION);
+    const canSupervise = useCan(ORDER_SUPERVISE_PERMISSION);
 
     const detail = useKitchenOrderQuery(seed.id);
     const confirmOrder = useConfirmOrderMutation();
@@ -666,7 +671,10 @@ function OrderRecord({
     const cancelOrder = useCancelOrderMutation();
 
     const [cancelling, setCancelling] = useState(false);
-    const [reason, setReason] = useState<KitchenOrderCancellationReason | null>(null);
+    const [reason, setReason] = useState<KitchenOrderPickableCancellationReason | null>(null);
+    const [disposition, setDisposition] = useState<KitchenOrderCancellationDisposition | null>(
+        null,
+    );
     const [delivering, setDelivering] = useState(false);
 
     const order = detail.data ?? null;
@@ -674,6 +682,10 @@ function OrderRecord({
     // the escape hatch, offered once it is ready and behind a confirmation, because it also ends
     // the driver's run (HA-29).
     const isDelivery = order?.fulfilmentType === 'delivery';
+    // Cooking has started, so cancelling takes a manager and an answer about the food. Once it has
+    // been picked up nobody can cancel it: it ends as delivered or failed.
+    const started = (order?.preparingAt ?? order?.readyAt ?? null) !== null;
+    const pickedUp = (order?.delivery.pickedUpAt ?? null) !== null;
     const detailFailure = toFailure(detail.error);
     const actionPending = confirmOrder.isPending || fulfilOrder.isPending || cancelOrder.isPending;
     const actionFailure =
@@ -723,12 +735,18 @@ function OrderRecord({
     function closeCancel() {
         setCancelling(false);
         setReason(null);
+        setDisposition(null);
     }
 
     function submitCancellation() {
         if (order === null || reason === null) return;
         cancelOrder.mutate(
-            { id: order.id, lockVersion: order.lockVersion, reason },
+            {
+                id: order.id,
+                lockVersion: order.lockVersion,
+                reason,
+                ...(disposition === null ? {} : { disposition }),
+            },
             {
                 onSuccess: (next) => {
                     closeCancel();
@@ -822,7 +840,15 @@ function OrderRecord({
                     )}
                 </Text>
             )}
-            {!canManage || order === null ? null : canCancelKitchenOrder(order.status) ? (
+            {!canManage || order === null ? null : !canCancelKitchenOrder(order.status) ? (
+                <Text variant="caption" tone="secondary" testID="kitchen-orders-detail-closed">
+                    {t('kitchen:ops.orders.nothingToDo')}
+                </Text>
+            ) : pickedUp ? null : started && !canSupervise ? (
+                <Text variant="caption" tone="secondary" testID="kitchen-orders-cancel-manager">
+                    {t('kitchen:ops.orders.cancelNeedsManager')}
+                </Text>
+            ) : (
                 <View className="flex-row">
                     <Button
                         testID="kitchen-orders-cancel"
@@ -836,10 +862,6 @@ function OrderRecord({
                         }}
                     />
                 </View>
-            ) : (
-                <Text variant="caption" tone="secondary" testID="kitchen-orders-detail-closed">
-                    {t('kitchen:ops.orders.nothingToDo')}
-                </Text>
             )}
         </Stack>
     );
@@ -975,6 +997,17 @@ function OrderRecord({
                             testID="kitchen-orders-detail-cancellation-reason"
                             label={t('kitchen:ops.orders.cancellationReason')}
                             value={t(kitchenOrderCancellationReasonKey(shown.cancellationReason))}
+                        />
+                    )}
+                    {(shown.cancellationDisposition ?? null) === null ? null : (
+                        <FactRow
+                            testID="kitchen-orders-detail-cancellation-disposition"
+                            label={t('kitchen:ops.orders.dispositionLabel')}
+                            value={t(
+                                kitchenOrderCancellationDispositionKey(
+                                    shown.cancellationDisposition ?? 'returned',
+                                ),
+                            )}
                         />
                     )}
                 </Stack>
@@ -1150,7 +1183,11 @@ function OrderRecord({
                             variant="danger"
                             label={t('kitchen:ops.orders.cancelConfirm')}
                             loading={cancelOrder.isPending}
-                            disabled={reason === null || actionPending}
+                            disabled={
+                                reason === null ||
+                                (started && disposition === null) ||
+                                actionPending
+                            }
                             onPress={submitCancellation}
                         />
                     </>
@@ -1160,11 +1197,11 @@ function OrderRecord({
                     <Text variant="strong">{t('kitchen:ops.orders.cancelReasonLabel')}</Text>
                     {/*
                      * Chips rather than a `Select`: the reason is required, there are exactly four
-                     * of them and the enum is closed, so every option can be on screen at the
-                     * moment of the decision instead of behind a second modal.
+                     * a person can pick and the enum is closed, so every option can be on screen at
+                     * the moment of the decision instead of behind a second modal.
                      */}
                     <Inline space="xs" wrap testID="kitchen-orders-cancel-reasons">
-                        {KITCHEN_ORDER_CANCELLATION_REASONS.map((candidate) => (
+                        {KITCHEN_ORDER_PICKABLE_CANCELLATION_REASONS.map((candidate) => (
                             <FilterChip
                                 key={candidate}
                                 testID={`kitchen-orders-cancel-reason-${candidate}`}
@@ -1176,6 +1213,24 @@ function OrderRecord({
                             />
                         ))}
                     </Inline>
+                    {!started ? null : (
+                        <>
+                            <Text variant="strong">{t('kitchen:ops.orders.dispositionLabel')}</Text>
+                            <Inline space="xs" wrap testID="kitchen-orders-cancel-dispositions">
+                                {KITCHEN_ORDER_CANCELLATION_DISPOSITIONS.map((candidate) => (
+                                    <FilterChip
+                                        key={candidate}
+                                        testID={`kitchen-orders-cancel-disposition-${candidate}`}
+                                        label={t(kitchenOrderCancellationDispositionKey(candidate))}
+                                        selected={disposition === candidate}
+                                        onChange={() => {
+                                            setDisposition(candidate);
+                                        }}
+                                    />
+                                ))}
+                            </Inline>
+                        </>
+                    )}
                     {cancelOrder.error === null ? null : (
                         <Text testID="kitchen-orders-cancel-error" tone="danger">
                             {toFailure(cancelOrder.error)?.message ??

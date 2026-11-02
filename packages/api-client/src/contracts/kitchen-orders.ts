@@ -80,8 +80,24 @@ export const KITCHEN_ORDER_CANCELLATION_REASONS = [
     'kitchen_unable_to_fulfil',
     'delivery_unavailable',
     'address_unreachable',
+    'delivery_failed',
 ] as const;
 export type KitchenOrderCancellationReason = (typeof KITCHEN_ORDER_CANCELLATION_REASONS)[number];
+
+/** The reasons a person picks. `delivery_failed` is set only by closing a failed delivery. */
+export const KITCHEN_ORDER_PICKABLE_CANCELLATION_REASONS = [
+    'customer_requested',
+    'kitchen_unable_to_fulfil',
+    'delivery_unavailable',
+    'address_unreachable',
+] as const satisfies readonly KitchenOrderCancellationReason[];
+export type KitchenOrderPickableCancellationReason =
+    (typeof KITCHEN_ORDER_PICKABLE_CANCELLATION_REASONS)[number];
+
+/** What became of the food once cooking had started: `wasted` keeps the stock deducted. */
+export const KITCHEN_ORDER_CANCELLATION_DISPOSITIONS = ['returned', 'wasted'] as const;
+export type KitchenOrderCancellationDisposition =
+    (typeof KITCHEN_ORDER_CANCELLATION_DISPOSITIONS)[number];
 
 /**
  * Three methods, and each one has a table behind it — see the wire's own note on `payment_method`.
@@ -154,6 +170,11 @@ export interface KitchenOrderDelivery {
     /** The zone's name in each language (HA-21); absent on payloads that predate it. */
     readonly zoneNameEn?: string | null;
     readonly zoneNameAr?: string | null;
+    /**
+     * When a driver or a courier took the food. Set means nobody can cancel the order any more: it
+     * ends as delivered or failed. Absent on payloads that predate it.
+     */
+    readonly pickedUpAt?: IsoDateTime | null;
 }
 
 /** A delivery order's run, as the kitchen sees it (HA-19). */
@@ -260,6 +281,8 @@ export interface KitchenOrder {
     readonly fulfilledAt: IsoDateTime | null;
     readonly cancelledAt: IsoDateTime | null;
     readonly cancellationReason: KitchenOrderCancellationReason | null;
+    /** Null on anything but a cancellation after cooking started; absent on older payloads. */
+    readonly cancellationDisposition?: KitchenOrderCancellationDisposition | null;
     /**
      * The order's delivery run — who is driving it and when they were given it, collected it and
      * handed it over. `null` on a pickup or counter order and on a delivery order not yet confirmed
@@ -347,7 +370,9 @@ export interface KitchenOrderTransitionRequest {
 
 export interface CancelKitchenOrderRequest extends KitchenOrderTransitionRequest {
     /** Required, and an enum. See the file header for why there is no free-text note beside it. */
-    readonly reason: KitchenOrderCancellationReason;
+    readonly reason: KitchenOrderPickableCancellationReason;
+    /** Required by the server once cooking has started, and ignored before that. */
+    readonly disposition?: KitchenOrderCancellationDisposition | undefined;
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -462,7 +487,10 @@ export interface KitchenOrdersRepository {
     /** `confirmed → fulfilled`, terminal — "Handed over". */
     fulfilOrder(request: KitchenOrderTransitionRequest): Promise<KitchenOrder>;
 
-    /** From `placed` or `confirmed` only, terminal. */
+    /**
+     * From `placed` or `confirmed` only, terminal. Once cooking has started it takes a manager and a
+     * disposition, and food on the road answers `order.out_for_delivery`.
+     */
     cancelOrder(request: CancelKitchenOrderRequest): Promise<KitchenOrder>;
 
     /**

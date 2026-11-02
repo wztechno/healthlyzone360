@@ -244,7 +244,8 @@
                 "customerRequested": "طلب العميل الإلغاء",
                 "kitchenUnableToFulfil": "المطبخ غير قادر على التنفيذ",
                 "deliveryUnavailable": "لا يتوفر توصيل",
-                "addressUnreachable": "تعذّر الوصول إلى العنوان"
+                "addressUnreachable": "تعذّر الوصول إلى العنوان",
+                "deliveryFailed": "تعذّر التوصيل"
             },
             "status": {
                 "placed": "مقدَّم",
@@ -281,7 +282,13 @@
             "deliveredAt": "سُلِّم",
             "driver": "السائق",
             "driverNone": "لا أحد بعد",
-            "preparingAt": "بدأ الطهي"
+            "preparingAt": "بدأ الطهي",
+            "dispositionLabel": "ماذا حدث للطعام؟",
+            "disposition": {
+                "returned": "أُعيد إلى المخزون",
+                "wasted": "تالف"
+            },
+            "cancelNeedsManager": "بدأ الطهي، لذا يجب أن يلغي المدير هذا الطلب."
         },
         "quotations": {
             "title": "عروض الأسعار",

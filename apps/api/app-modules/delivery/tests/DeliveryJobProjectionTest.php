@@ -49,9 +49,9 @@ use Illuminate\Support\Facades\DB;
 | reads nothing through the scope — asserted rather than assumed, because the
 | failure mode is a background run that stops dispatching and says nothing.
 |
-| The cancel assertions are the other half of the design: a cancelled order keeps
-| its run, because a job's own lifecycle belongs to this module and deleting one
-| would erase the fact that a driver was sent.
+| The cancel assertions are the other half of the design: a cancelled order ends
+| its run, and keeps the row, because deleting one would erase the fact that a
+| driver was sent.
 |
 */
 
@@ -173,18 +173,19 @@ it('creates no job when an order is cancelled without ever being confirmed', fun
     expect(jobsFor($order))->toHaveCount(0);
 });
 
-it('leaves the run in place when a confirmed delivery order is cancelled', function (): void {
-    // The deliberate asymmetry with stock, and the reason the port offers no
-    // reverse: a delivery job is a record of work whose own status lifecycle is
-    // this module's business, worked on the dispatch board. Deleting it would
-    // erase the fact that a driver was sent, possibly while they are holding the
-    // food.
+it('ends the run and keeps the row when a confirmed delivery order is cancelled', function (): void {
+    // The live audit reversed the old ruling that a run was the dispatch
+    // board's to call off: a cancelled order stayed on offer to drivers.
+    // Deleting the row would erase the fact that a run existed.
     $order = projectedOrder($this);
 
     $confirmed = app(OrderLifecycle::class)->confirm($order);
     app(OrderLifecycle::class)->cancel($confirmed, CancellationReason::KitchenUnableToFulfil);
 
-    expect(jobsFor($order))->toHaveCount(1);
+    $jobs = jobsFor($order);
+
+    expect($jobs)->toHaveCount(1)
+        ->and($jobs[0]->status)->toBe('cancelled');
 });
 
 it('projects the same order twice without creating a second run', function (): void {

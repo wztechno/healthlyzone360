@@ -22,4 +22,6 @@ final class NullDeliveryJobProjection implements DeliveryJobProjection
     public function project(Order $order): void {}
 
     public function close(Order $order): void {}
+
+    public function cancel(Order $order): void {}
 }

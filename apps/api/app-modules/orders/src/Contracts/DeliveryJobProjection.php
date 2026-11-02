@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Orders\Contracts;
 
 use Healthy360\Orders\Models\Order;
+use Healthy360\Support\Api\Exceptions\ApiException;
 
 /**
  * The seam through which a confirmed delivery order becomes a job somebody has
@@ -37,20 +38,20 @@ use Healthy360\Orders\Models\Order;
  * unique index on `delivery_jobs.order_id` rather than on a read-then-write,
  * which is the only version of the guarantee that survives concurrency.
  *
- * **There is deliberately no reverse.** `cancel()` calls nothing here, unlike
- * `OrderStockConsumption::restore()`: stock is a quantity that must balance, and
- * a delivery job is a *record of work* whose own status lifecycle belongs to the
- * delivery module. A cancelled order keeps its job row, and cancelling the run
- * is a dispatch decision made on the dispatch board — deleting it from under
- * that board would erase the fact that a driver was once sent.
+ * **A cancelled order closes its run.** This used to be declined, on the ground
+ * that calling a run off was a decision for the dispatch board. The live audit
+ * reversed that: an order cancelled after Ready stayed on offer to drivers, and
+ * one could collect food for a customer who had been told it was off. So
+ * {@link cancel()} runs first inside the cancellation's own transaction. Nothing
+ * is erased, the row stays as the record that a run existed, and food already on
+ * the road refuses the cancellation rather than being called back by a column.
  *
  * **Fulfilment does reach the run (HA-29).** The kitchen can close a delivery
  * order by hand — the driver's phone died, a colleague drove it — and an order
  * the book calls delivered over a run still open is a driver claiming, picking
  * up and carrying food that has already arrived. {@see close()} marks the run
- * delivered in the fulfil's own transaction. It is not the reverse the
- * paragraph above declines: nothing is erased, the run simply ends where the
- * order did.
+ * delivered in the fulfil's own transaction, and for the same reason: the run
+ * ends where the order did.
  */
 interface DeliveryJobProjection
 {
@@ -72,4 +73,16 @@ interface DeliveryJobProjection
      * order that has none.
      */
     public function close(Order $order): void;
+
+    /**
+     * End this order's run because the order was cancelled, so no driver can
+     * claim it or pick it up.
+     *
+     * A no-op for a run already closed and for an order that has none. Throws
+     * when the food is on the road, refusing the caller's whole transaction: a
+     * run picked up and not closed ends as delivered or failed, never cancelled.
+     *
+     * @throws ApiException `order.out_for_delivery`
+     */
+    public function cancel(Order $order): void;
 }

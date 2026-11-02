@@ -299,7 +299,8 @@ final class OrderPresenter
      *         window_code: string|null,
      *         window_name_en: string|null,
      *         window_name_ar: string|null,
-     *         requested_date: string|null
+     *         requested_date: string|null,
+     *         picked_up_at: string|null
      *     },
      *     placed_at: string,
      *     confirmed_at: string|null,
@@ -308,6 +309,7 @@ final class OrderPresenter
      *     fulfilled_at: string|null,
      *     cancelled_at: string|null,
      *     cancellation_reason: string|null,
+     *     cancellation_disposition: string|null,
      *     delivery_run: array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null}|null,
      *     created_by: string|null,
      *     placed_on_behalf_by: string|null,
@@ -394,6 +396,9 @@ final class OrderPresenter
                 'window_name_en' => $this->windows->for($order->organisation_id, $order->delivery_window_code)['en'] ?? null,
                 'window_name_ar' => $this->windows->for($order->organisation_id, $order->delivery_window_code)['ar'] ?? null,
                 'requested_date' => $order->requested_delivery_date?->toDateString(),
+                // When a driver or a courier took it. Set means nobody can cancel
+                // it any more, and every reader that decides that reads it here.
+                'picked_up_at' => $run['picked_up_at'] ?? null,
             ],
             'placed_at' => $order->placed_at->toIso8601String(),
             'confirmed_at' => $order->confirmed_at?->toIso8601String(),
@@ -402,6 +407,7 @@ final class OrderPresenter
             'fulfilled_at' => $order->fulfilled_at?->toIso8601String(),
             'cancelled_at' => $order->cancelled_at?->toIso8601String(),
             'cancellation_reason' => $order->cancellation_reason?->value,
+            'cancellation_disposition' => $order->cancellation_disposition?->value,
             // The delivery run, when there is one (HA-19): who drove it and when
             // they were given it, collected it and handed it over. Null for a
             // pickup or counter order, and for a delivery order not yet

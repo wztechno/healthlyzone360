@@ -13139,7 +13139,14 @@ paths:
         it is the transition where getting it wrong costs a customer their
         dinner.
 
-        Requires `order.manage_organisation`.
+        Requires `order.manage_organisation`. **Once cooking has started** it also
+        needs `order.supervise_organisation` (`403` without it) and a
+        `disposition` (`422` without it), and the owner is alerted.
+
+        **Food on the road cannot be cancelled.** A run picked up and not closed
+        answers `409 order.out_for_delivery`: it ends as delivered or failed. A
+        run that has not been picked up ends as `cancelled`, so it leaves every
+        driver's sheet, and a later pick-up is refused.
       parameters:
         - $ref: '#/components/parameters/OrderPath'
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -17254,7 +17261,7 @@ paths:
         **Only the caller's own run, only once, and only once it is ready.**
         A job that is not the caller's is `404`; one whose order the kitchen
         has not marked ready, or that is not `assigned` (already picked up,
-        delivered or cancelled), is `409 resource.conflict`. No `If-Match`:
+        delivered, failed or cancelled), is `409 resource.conflict`. No `If-Match`:
         nobody races a driver for their own job. Audited as
         `delivery.job_picked_up`.
       parameters:
@@ -25679,6 +25686,7 @@ components:
         - cart.channel_refused
         - shop.view_only
         - order.placement_refused
+        - order.out_for_delivery
         - b2b.application_state_invalid
         - b2b.documents_incomplete
         - b2b.signatory_required
@@ -32908,7 +32916,19 @@ components:
         because the food could be made but not delivered — the kitchen's fault
         in a different way, and the one an operations team can fix.
         `payment_failed` is **not** here: there is nothing to fail.
-      enum: [customer_requested, kitchen_unable_to_fulfil, delivery_unavailable, address_unreachable]
+
+        `delivery_failed` is set only by closing a failed delivery
+        (`POST /catalogue/orders/{order}/delivery/close-failed`), and
+        `CancelOrderRequest` does not accept it.
+      enum: [customer_requested, kitchen_unable_to_fulfil, delivery_unavailable, address_unreachable, delivery_failed]
+
+    CancellationDisposition:
+      type: string
+      description: |
+        What became of the food on an order cancelled after cooking started.
+        `returned` restores the stock. `wasted` leaves the deduction in place, so
+        the cost stays counted.
+      enum: [returned, wasted]
 
     PaymentMethod:
       type: string
@@ -33352,7 +33372,16 @@ components:
       required: [reason]
       properties:
         reason:
-          $ref: '#/components/schemas/CancellationReason'
+          type: string
+          description: Why it is being cancelled. `delivery_failed` is not offered here.
+          enum: [customer_requested, kitchen_unable_to_fulfil, delivery_unavailable, address_unreachable]
+        disposition:
+          oneOf:
+            - $ref: '#/components/schemas/CancellationDisposition'
+            - type: 'null'
+          description: |
+            Required once cooking has started (`preparing_at` or `ready_at`
+            set), and ignored before that.
       additionalProperties: false
 
     OrderLineAllergen:
@@ -33548,6 +33577,12 @@ components:
               description: The zone's name, for reading; null when the order fell into no zone.
             zone_name_ar:
               type: ['string', 'null']
+            picked_up_at:
+              type: ['string', 'null']
+              format: date-time
+              description: |
+                When a driver or a courier took the food. Set means the order
+                can no longer be cancelled: it ends as delivered or failed.
 
     StockItem:
       type: object
@@ -38009,6 +38044,11 @@ components:
           oneOf:
             - $ref: '#/components/schemas/CancellationReason'
             - type: 'null'
+        cancellation_disposition:
+          oneOf:
+            - $ref: '#/components/schemas/CancellationDisposition'
+            - type: 'null'
+          description: What became of the food on a cancellation after cooking started. Null otherwise.
         delivery_run:
           oneOf:
             - $ref: '#/components/schemas/KitchenOrderDeliveryRun'

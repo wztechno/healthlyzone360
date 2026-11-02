@@ -24,7 +24,7 @@ export type Meta = {
  * `Healthy360\Support\Api\ErrorCode`; a Pest test asserts the two agree.
  *
  */
-export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'cart.channel_refused' | 'shop.view_only' | 'order.placement_refused' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'b2b.quotation_state_invalid' | 'b2b.quotation_empty' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'payment.refund_exceeds_capture' | 'inventory.insufficient_stock' | 'production.state_invalid' | 'production.plan_refused' | 'production.consumption_recorded' | 'unit.conversion_unsupported' | 'barcode.taken' | 'barcode.invalid' | 'access.self_lockout' | 'rate_limit.exceeded' | 'server.internal_error' | 'allergens.provider_unavailable' | 'nutrition.provider_unavailable' | 'nutrition.provider_configuration';
+export type ErrorCode = 'validation.failed' | 'auth.unauthenticated' | 'auth.invalid_credentials' | 'auth.email_unverified' | 'auth.two_factor_required' | 'auth.two_factor_invalid' | 'auth.step_up_required' | 'auth.csrf_token_mismatch' | 'auth.invalid_signature' | 'context.organisation_required' | 'context.organisation_forbidden' | 'context.branch_out_of_scope' | 'context.branch_required' | 'authz.permission_denied' | 'request.invalid' | 'request.precondition_required' | 'request.idempotency_key_reused' | 'resource.not_found' | 'resource.conflict' | 'organisation.suspended' | 'catalogue.in_use' | 'catalogue.version_immutable' | 'catalogue.allergen_unmapped' | 'catalogue.publish_blocked' | 'otp.invalid' | 'otp.expired' | 'otp.attempts_exceeded' | 'otp.cooldown_active' | 'otp.locked' | 'otp.channel_unavailable' | 'contact.already_in_use' | 'account.verification_required' | 'address.area_not_served' | 'guest.session_invalid' | 'cart.line_refused' | 'cart.channel_refused' | 'shop.view_only' | 'order.placement_refused' | 'order.out_for_delivery' | 'b2b.application_state_invalid' | 'b2b.documents_incomplete' | 'b2b.signatory_required' | 'b2b.quotation_state_invalid' | 'b2b.quotation_empty' | 'subscription.refused' | 'subscription.change_refused' | 'closure.refused' | 'offboarding.refused' | 'offboarding.settlement_outstanding' | 'record_export.unavailable' | 'payment.refund_exceeds_capture' | 'inventory.insufficient_stock' | 'production.state_invalid' | 'production.plan_refused' | 'production.consumption_recorded' | 'unit.conversion_unsupported' | 'barcode.taken' | 'barcode.invalid' | 'access.self_lockout' | 'rate_limit.exceeded' | 'server.internal_error' | 'allergens.provider_unavailable' | 'nutrition.provider_unavailable' | 'nutrition.provider_configuration';
 
 export type Error = {
     code: ErrorCode;
@@ -4918,8 +4918,20 @@ export type OrderStatus = 'placed' | 'confirmed' | 'fulfilled' | 'cancelled';
  * in a different way, and the one an operations team can fix.
  * `payment_failed` is **not** here: there is nothing to fail.
  *
+ * `delivery_failed` is set only by closing a failed delivery
+ * (`POST /catalogue/orders/{order}/delivery/close-failed`), and
+ * `CancelOrderRequest` does not accept it.
+ *
  */
-export type CancellationReason = 'customer_requested' | 'kitchen_unable_to_fulfil' | 'delivery_unavailable' | 'address_unreachable';
+export type CancellationReason = 'customer_requested' | 'kitchen_unable_to_fulfil' | 'delivery_unavailable' | 'address_unreachable' | 'delivery_failed';
+
+/**
+ * What became of the food on an order cancelled after cooking started.
+ * `returned` restores the stock. `wasted` leaves the deduction in place, so
+ * the cost stays counted.
+ *
+ */
+export type CancellationDisposition = 'returned' | 'wasted';
 
 /**
  * **Three cases, and each one has a table behind it.** That is the whole
@@ -5265,7 +5277,16 @@ export type CheckoutPreviewEnvelope = {
 };
 
 export type CancelOrderRequest = {
-    reason: CancellationReason;
+    /**
+     * Why it is being cancelled. `delivery_failed` is not offered here.
+     */
+    reason: 'customer_requested' | 'kitchen_unable_to_fulfil' | 'delivery_unavailable' | 'address_unreachable';
+    /**
+     * Required once cooking has started (`preparing_at` or `ready_at`
+     * set), and ignored before that.
+     *
+     */
+    disposition?: CancellationDisposition | null;
 };
 
 /**
@@ -5410,6 +5431,12 @@ export type KitchenOrderDelivery = CustomerOrderDelivery & {
      */
     zone_name_en?: string | null;
     zone_name_ar?: string | null;
+    /**
+     * When a driver or a courier took the food. Set means the order
+     * can no longer be cancelled: it ends as delivered or failed.
+     *
+     */
+    picked_up_at?: string | null;
 };
 
 /**
@@ -8580,6 +8607,10 @@ export type KitchenOrder = {
     fulfilled_at: string | null;
     cancelled_at: string | null;
     cancellation_reason: CancellationReason | null;
+    /**
+     * What became of the food on a cancellation after cooking started. Null otherwise.
+     */
+    cancellation_disposition?: CancellationDisposition | null;
     /**
      * The order's delivery run. Null on a pickup or counter order, and on a delivery order not yet confirmed — a run is projected on confirm.
      */

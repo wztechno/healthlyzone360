@@ -60,6 +60,7 @@ export const zErrorCode = z.enum([
     'cart.channel_refused',
     'shop.view_only',
     'order.placement_refused',
+    'order.out_for_delivery',
     'b2b.application_state_invalid',
     'b2b.documents_incomplete',
     'b2b.signatory_required',
@@ -3219,13 +3220,26 @@ export const zOrderStatus = z.enum([
  * in a different way, and the one an operations team can fix.
  * `payment_failed` is **not** here: there is nothing to fail.
  *
+ * `delivery_failed` is set only by closing a failed delivery
+ * (`POST /catalogue/orders/{order}/delivery/close-failed`), and
+ * `CancelOrderRequest` does not accept it.
+ *
  */
 export const zCancellationReason = z.enum([
     'customer_requested',
     'kitchen_unable_to_fulfil',
     'delivery_unavailable',
-    'address_unreachable'
+    'address_unreachable',
+    'delivery_failed'
 ]);
+
+/**
+ * What became of the food on an order cancelled after cooking started.
+ * `returned` restores the stock. `wasted` leaves the deduction in place, so
+ * the cost stays counted.
+ *
+ */
+export const zCancellationDisposition = z.enum(['returned', 'wasted']);
 
 /**
  * **Three cases, and each one has a table behind it.** That is the whole
@@ -3447,7 +3461,13 @@ export const zCheckoutPreviewEnvelope = z.object({
 });
 
 export const zCancelOrderRequest = z.object({
-    reason: zCancellationReason
+    reason: z.enum([
+        'customer_requested',
+        'kitchen_unable_to_fulfil',
+        'delivery_unavailable',
+        'address_unreachable'
+    ]),
+    disposition: zCancellationDisposition.nullish()
 });
 
 /**
@@ -3533,7 +3553,8 @@ export const zCustomerOrderDelivery = z.object({
 export const zKitchenOrderDelivery = zCustomerOrderDelivery.and(z.object({
     zone_id: z.uuid().nullable(),
     zone_name_en: z.string().nullish(),
-    zone_name_ar: z.string().nullish()
+    zone_name_ar: z.string().nullish(),
+    picked_up_at: z.iso.datetime({ offset: true }).nullish()
 }));
 
 /**
@@ -8853,6 +8874,7 @@ export const zKitchenOrder = z.object({
     fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
     cancelled_at: z.iso.datetime({ offset: true }).nullable(),
     cancellation_reason: zCancellationReason.nullable(),
+    cancellation_disposition: zCancellationDisposition.nullish(),
     delivery_run: zKitchenOrderDeliveryRun.nullish(),
     created_by: z.uuid().nullable(),
     placed_on_behalf_by: z.uuid().nullable(),

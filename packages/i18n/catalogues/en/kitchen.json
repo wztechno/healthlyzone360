@@ -224,7 +224,8 @@
                 "customerRequested": "The customer asked to cancel",
                 "kitchenUnableToFulfil": "The kitchen cannot fulfil it",
                 "deliveryUnavailable": "No delivery is available",
-                "addressUnreachable": "The address could not be reached"
+                "addressUnreachable": "The address could not be reached",
+                "deliveryFailed": "The delivery failed"
             },
             "status": {
                 "placed": "Placed",
@@ -257,7 +258,13 @@
             "deliveredAt": "Delivered",
             "driver": "Driver",
             "driverNone": "Nobody yet",
-            "preparingAt": "Started cooking"
+            "preparingAt": "Started cooking",
+            "dispositionLabel": "What happened to the food?",
+            "disposition": {
+                "returned": "Returned to stock",
+                "wasted": "Wasted"
+            },
+            "cancelNeedsManager": "Cooking has started, so a manager has to cancel this order."
         },
         "quotations": {
             "title": "Quotations",
