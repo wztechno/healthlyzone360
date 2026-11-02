@@ -171,6 +171,35 @@ it('needs the order book\'s own read', function (): void {
         ->assertForbidden();
 });
 
+it('lets a cook read the wall without the money or the street address, allergies intact', function (): void {
+    $cook = PricingWorld::kitchen('cook@kitchen.test', ['order.prepare_organisation']);
+    $this->orgId = (string) $cook->organisation->getKey();
+    $this->channelId = (string) PricingWorld::channel($cook->organisation, 'web-shop')->getKey();
+
+    displayOrder($this, [
+        'total_minor' => 1500,
+        'subtotal_minor' => 1500,
+        'delivery_line_one' => 'Hamra street',
+        'allergy_note' => 'Sesame, anaphylaxis',
+    ]);
+
+    $ticket = $this->actingAs($cook->user)
+        ->getJson(KITCHEN_DISPLAY_URL, firstPartyHeaders() + ['X-Organisation-Id' => (string) $cook->organisation->getKey()])
+        ->assertOk()
+        ->json('data.orders.0');
+
+    expect($ticket['total_minor'])->toBe(0)
+        ->and($ticket['subtotal_minor'])->toBe(0)
+        ->and($ticket['delivery']['line_one'])->toBeNull()
+        ->and($ticket['allergy']['note'])->toBe('Sesame, anaphylaxis');
+});
+
+it('leaves the wall as it stands for somebody who reads the order book', function (): void {
+    displayOrder($this, ['total_minor' => 1500]);
+
+    expect($this->getJson(KITCHEN_DISPLAY_URL, $this->headers)->assertOk()->json('data.orders.0.total_minor'))->toBe(1500);
+});
+
 it('hands over the alarm limit and each placed order\'s open minutes, and no one else\'s', function (): void {
     $branch = displayBranch($this->orgId);
     displayWeek($branch, '09:00:00', '18:00:00');

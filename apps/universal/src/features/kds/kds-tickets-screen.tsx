@@ -32,6 +32,7 @@ import { useOnlineStatus } from '../../online/online-status.tsx';
 import { useAccessState } from '../../session/session-provider.tsx';
 import {
     ORDER_MANAGE_PERMISSION,
+    ORDER_PREPARE_PERMISSION,
     ORDER_VIEW_PERMISSION,
 } from '../kitchen-admin/entity-registry.ts';
 import { displayName, humaniseCode } from '../kitchen-admin/format.ts';
@@ -128,7 +129,11 @@ type KdsAction = 'accept' | 'start' | 'ready' | 'handOver';
 
 export function KdsTicketsScreen() {
     return (
-        <Gate area="kds" requirement={{ allOf: [ORDER_VIEW_PERMISSION] }} testID="kds-tickets">
+        <Gate
+            area="kds"
+            requirement={{ anyOf: [ORDER_VIEW_PERMISSION, ORDER_PREPARE_PERMISSION] }}
+            testID="kds-tickets"
+        >
             <KdsTickets />
         </Gate>
     );
@@ -209,6 +214,7 @@ function KdsTickets() {
     const access = useAccessState();
     const { online } = useOnlineStatus();
     const canManage = useCan(ORDER_MANAGE_PERMISSION);
+    const canPrepare = useCan(ORDER_PREPARE_PERMISSION) || canManage;
 
     const branchId = access.branch?.id ?? null;
     const now = useTickingNow(KDS_POLL_MS, online);
@@ -299,6 +305,7 @@ function KdsTickets() {
                 locale={locale}
                 alarmMinutes={alarmMinutes(order)}
                 canManage={canManage}
+                canPrepare={canPrepare}
                 pending={pendingId === order.id}
                 disabled={actionPending}
                 onBump={bump}
@@ -519,7 +526,10 @@ interface TicketProps {
     readonly locale: string;
     /** Open minutes this placed ticket has waited, while it is alarming; null otherwise. */
     readonly alarmMinutes: number | null;
+    /** Accept and Handed over: the desk's and the manager's. */
     readonly canManage: boolean;
+    /** Start and Ready: the line's. */
+    readonly canPrepare: boolean;
     /** A write is in flight for *this* ticket. */
     readonly pending: boolean;
     /** A write is in flight for some ticket — every bump button waits for it. */
@@ -540,6 +550,7 @@ function Ticket({
     locale,
     alarmMinutes,
     canManage,
+    canPrepare,
     pending,
     disabled,
     onBump,
@@ -652,7 +663,7 @@ function Ticket({
                             })}
                 </Text>
 
-                {!canManage ? null : isAwaitingStart(order) ? (
+                {!canPrepare ? null : isAwaitingStart(order) ? (
                     /*
                      * Accept and Start are two moments (HA-26). Accept tells the customer the order
                      * was seen — a scheduled order is accepted the day it arrives; Start says it is
@@ -677,7 +688,7 @@ function Ticket({
                                 }}
                             />
                         )}
-                        {order.status === 'placed' ? (
+                        {canManage && order.status === 'placed' ? (
                             <Button
                                 testID={`${testID}-accept`}
                                 block
@@ -715,7 +726,7 @@ function Ticket({
                                   : 'kitchen:kds.withDriver',
                         )}
                     </Text>
-                ) : canFulfilKitchenOrder(order.status) ? (
+                ) : canManage && canFulfilKitchenOrder(order.status) ? (
                     // Cooked and waiting for its customer: handing it over is the step that fulfils it.
                     <Button
                         testID={`${testID}-handed-over`}

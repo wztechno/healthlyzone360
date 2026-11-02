@@ -593,7 +593,10 @@ it('seeds exactly the registered permission set', function (): void {
     //
     // P0 Stage 1 takes it to 59 with `order.supervise_organisation`, which also ships as a
     // migration, because a deploy never seeds.
-    expect(Permission::query()->count())->toBe(59)
+    //
+    // P1 Wave A takes it to 60 with `order.prepare_organisation`, the kitchen
+    // display's own code, because a cook needs the wall and not the order book.
+    expect(Permission::query()->count())->toBe(60)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });

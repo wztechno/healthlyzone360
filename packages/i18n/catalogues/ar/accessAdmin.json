@@ -337,6 +337,9 @@
         "order.manage_organisation": {
             "name": "تأكيد الطلبات وتنفيذها وإلغاؤها"
         },
+        "order.prepare_organisation": {
+            "name": "العمل على شاشة المطبخ"
+        },
         "order.supervise_organisation": {
             "name": "إلغاء الطلبات بعد بدء الطهي وتلقي تنبيهات الطلبات"
         },

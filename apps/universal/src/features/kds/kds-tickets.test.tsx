@@ -275,18 +275,26 @@ function createOrderBook(seed: KitchenOrder[] = seedOrders()): OrderBook {
     };
 }
 
-/** The kitchen manager's grant minus the one code every bump button is gated on. */
+/** The kitchen manager's grant minus the two codes the bump buttons are gated on. */
 const VIEW_ONLY_PERMISSIONS = KITCHEN_MANAGER_PERMISSIONS.filter(
-    (permission) => permission !== 'order.manage_organisation',
+    (permission) =>
+        permission !== 'order.manage_organisation' && permission !== 'order.prepare_organisation',
 );
 
-async function renderBoard(book: OrderBook, options: { readonly canManage?: boolean } = {}) {
+async function renderBoard(
+    book: OrderBook,
+    options: { readonly canManage?: boolean; readonly permissions?: readonly string[] } = {},
+) {
     const session =
-        options.canManage === false
+        options.permissions !== undefined
             ? kitchenManagerSession({
-                  activeContext: testActiveContext({ permissions: VIEW_ONLY_PERMISSIONS }),
+                  activeContext: testActiveContext({ permissions: options.permissions }),
               })
-            : kitchenManagerSession();
+            : options.canManage === false
+              ? kitchenManagerSession({
+                    activeContext: testActiveContext({ permissions: VIEW_ONLY_PERMISSIONS }),
+                })
+              : kitchenManagerSession();
 
     return renderStubScreen(<KdsTicketsScreen />, {
         session,
@@ -650,6 +658,27 @@ describe('kds ticket board', () => {
         );
         expect(screen.queryByTestId(`${ticketId(orderIdAt(6))}-handed-over`)).toBeNull();
         expect(screen.queryByTestId(`${ticketId(orderIdAt(7))}-handed-over`)).toBeNull();
+    });
+
+    it('lets a cook on the wall code start a ticket and nothing else', async () => {
+        const book = createOrderBook();
+        await renderBoard(book, { permissions: ['order.prepare_organisation'] });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kds-column-incoming')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        const placed = book
+            .orders()
+            .find((order) => order.status === 'placed' && order.branchId === null);
+        if (placed === undefined) throw new Error('this test authored no placed order');
+
+        expect(screen.queryByTestId(`${ticketId(placed.id)}-accept`)).toBeNull();
+        expect(screen.queryAllByTestId(/-handed-over$/)).toHaveLength(0);
+        expect(screen.queryAllByTestId(/-start$/).length).toBeGreaterThan(0);
     });
 
     it('shows the tickets but no bump buttons to somebody who may not manage orders', async () => {

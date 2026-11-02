@@ -102,6 +102,12 @@ export const ORDER_CREATE_ON_BEHALF_PERMISSION = 'order.create_on_behalf_organis
 export const ORDER_SUPERVISE_PERMISSION = 'order.supervise_organisation';
 
 /**
+ * The kitchen display alone: read the wall, press Start, press Ready. Held by the chef and the cook,
+ * who read no order book, and the server takes the money off what it sends them.
+ */
+export const ORDER_PREPARE_PERMISSION = 'order.prepare_organisation';
+
+/**
  * Writing down a customer the kitchen has never met — a cold caller with no login.
  *
  * Separate from placing on their behalf because the two are refused separately: a desk that may take

@@ -251,6 +251,7 @@ use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskAmendmentController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCalendarController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCashReportController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAddressStoreController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAllergyController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerUpdateController;
@@ -2064,17 +2065,34 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             | path.
             |
             */
+            // The wall board: every open order, unpaged. A cook holds the wall's
+            // own code and not the book's, and gets it with the money off.
+            Route::get('/kitchen-display', KitchenDisplayController::class)
+                ->middleware('permission:order.view_organisation,order.prepare_organisation')
+                ->name('catalogue.kitchen-display.index');
+
             Route::middleware('permission:order.view_organisation')->group(function (): void {
                 Route::get('/orders', KitchenOrderIndexController::class)->name('catalogue.orders.index');
                 Route::get('/orders/{order}', KitchenOrderShowController::class)->name('catalogue.orders.show');
-
-                // The wall board: every open order, unpaged.
-                Route::get('/kitchen-display', KitchenDisplayController::class)->name('catalogue.kitchen-display.index');
 
                 // What the order book did over a range of days, against the
                 // range before it. Counts and units only — no money — so the
                 // order book's own read code, not the cost one.
                 Route::get('/reports/kitchen-analytics', KitchenAnalyticsReportController::class)->name('catalogue.reports.kitchen-analytics.index');
+            });
+
+            Route::middleware('permission:order.manage_organisation,order.prepare_organisation')->group(function (): void {
+                // "Start" on the kitchen display: cooking has begun (HA-24).
+                // Stamps `preparing_at`; a placed order is confirmed first.
+                Route::post('/orders/{order}/start', KitchenOrderStartController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.orders.start');
+
+                // "Ready" on the kitchen display: cooked, not yet handed over.
+                // Stamps `ready_at` and leaves the order confirmed.
+                Route::post('/orders/{order}/ready', KitchenOrderReadyController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.orders.ready');
             });
 
             Route::middleware('permission:order.manage_organisation')->group(function (): void {
@@ -2089,18 +2107,6 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/orders/{order}/fulfil', KitchenOrderFulfilController::class)
                     ->middleware('precondition')
                     ->name('catalogue.orders.fulfil');
-
-                // "Start" on the kitchen display: cooking has begun (HA-24).
-                // Stamps `preparing_at`; a placed order is confirmed first.
-                Route::post('/orders/{order}/start', KitchenOrderStartController::class)
-                    ->middleware('precondition')
-                    ->name('catalogue.orders.start');
-
-                // "Ready" on the kitchen display: cooked, not yet handed over.
-                // Stamps `ready_at` and leaves the order confirmed.
-                Route::post('/orders/{order}/ready', KitchenOrderReadyController::class)
-                    ->middleware('precondition')
-                    ->name('catalogue.orders.ready');
 
                 Route::post('/orders/{order}/cancel', KitchenOrderCancelController::class)
                     ->middleware('precondition')
@@ -2355,11 +2361,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             | the assign endpoint would then refuse.
             |
             | It lists **every** active member, and that is not an oversight.
-            | There is no driver role on this platform by design — the driver's
+            | The Driver role names a job and opens nothing — the driver's
             | own run-sheet routes (`/driver/jobs`, further up this file) narrow
             | by `driver_user_id` rather than by a permission code, because
             | *a driver is staff of the kitchen whose jobs these are* —
-            | and inventing one here would mean a kitchen could not hand
+            | and narrowing to it here would mean a kitchen could not hand
             | tonight's late delivery to the chef who offered to drop it off on
             | the way home. The endpoint answers a question of fact, who works
             | here; the picker is where a kitchen's operating judgement lives.
@@ -2450,6 +2456,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::middleware('permission:order.view_customer_contact_organisation')->group(function (): void {
                 Route::get('/order-desk/customers', OrderDeskCustomerIndexController::class)
                     ->name('catalogue.order-desk.customers.index');
+
+                // What the chosen customer declared, read for the order being
+                // taken: audited, codes and severities only.
+                Route::get('/order-desk/customers/{account}/allergies', OrderDeskCustomerAllergyController::class)
+                    ->name('catalogue.order-desk.customers.allergies');
 
                 // The kitchen's customer book: a read-only reference list and
                 // record, wider than the desk search (see the controllers).

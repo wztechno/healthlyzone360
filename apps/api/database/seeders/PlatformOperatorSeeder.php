@@ -52,8 +52,10 @@ class PlatformOperatorSeeder extends Seeder
         $role = $this->forOrganisation((string) $platform->getKey(), fn (): Role => Role::withoutTenancy()->updateOrCreate(
             ['organisation_id' => $platform->getKey(), 'code' => 'reference_editor'],
             [
-                'name_en' => 'Reference editor',
-                'name_ar' => 'محرّر البيانات المرجعية',
+                'name_en' => 'Platform super admin',
+                'name_ar' => 'المشرف العام للمنصة',
+                'description_en' => 'Runs the platform for every kitchen: opens and suspends kitchens, and keeps the shared reference data.',
+                'description_ar' => 'يدير المنصة لكل المطابخ: يفتح المطابخ ويعلّقها، ويحافظ على البيانات المرجعية المشتركة.',
                 'is_system' => false,
                 'created_by' => $ops->getKey(),
             ],

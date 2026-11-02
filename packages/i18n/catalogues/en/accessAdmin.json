@@ -317,6 +317,9 @@
         "order.manage_organisation": {
             "name": "Confirm, fulfil and cancel orders"
         },
+        "order.prepare_organisation": {
+            "name": "Work the kitchen display"
+        },
         "order.supervise_organisation": {
             "name": "Cancel started orders and receive order alerts"
         },

@@ -13077,7 +13077,7 @@ paths:
         second press, or a press on a ready, fulfilled or cancelled order, is
         `409`.
 
-        Requires `order.manage_organisation`.
+        Requires `order.manage_organisation` or `order.prepare_organisation`.
       parameters:
         - $ref: '#/components/parameters/OrderPath'
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -13121,7 +13121,7 @@ paths:
         `/fulfil`. Reachable from `confirmed` only, once — a second press is
         `409`.
 
-        Requires `order.manage_organisation`.
+        Requires `order.manage_organisation` or `order.prepare_organisation`.
       parameters:
         - $ref: '#/components/parameters/OrderPath'
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -14211,7 +14211,10 @@ paths:
         `alarm_after_minutes`. An order for a later day has no figure until that
         day, and its count then starts at the start of that day.
 
-        Requires `order.view_organisation`.
+        Requires `order.view_organisation` or `order.prepare_organisation`. A
+        caller with only the second reads the wall without the order book: every
+        money figure is `0`, price list references and the street address are
+        null, and the allergy block is untouched.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -14424,20 +14427,25 @@ paths:
         carries behind the same code. A search revealing more than the queue
         would make the queue's gating pointless.
 
-        ## Scope: two arms, and the application is the whole control
+        ## Scope: four arms, and the application is most of the control
 
-        An account is returned only when **either** this organisation holds at
-        least one order against it, **or** its origin is `staff` and it was
-        created by a user holding an **active** membership of this organisation.
+        An account is returned only when this organisation holds an order or a
+        subscription against it, **or** its origin is `staff` and it was created
+        by a user holding an **active** membership of this organisation, **or**
+        a query of its exact E.164 number linked it to this kitchen.
 
-        There is no third arm and no database predicate doing this work. A
-        `customer_accounts` row carries no organisation — the same person orders
+        That last arm is how a registered customer's first call reaches the desk.
+        Nothing searches consumers by name: a number the caller read out is the
+        only door, and the link it writes is audited.
+
+        A `customer_accounts` row carries no organisation — the same person orders
         from four kitchens with one account — and a staff-provisioned account has
         neither a user nor an organisation, which is the shape the row-level
         security policy admits to every kitchen session. The scoping rule, the
         permission code, and the fact that an account identifier is otherwise
-        unobtainable are the entire isolation story, and the schema migration
-        that made such rows possible states that rather than implying otherwise.
+        unobtainable are the isolation story for those rows, and the schema
+        migration that made them possible states that rather than implying
+        otherwise.
 
         A consequence worth naming: a member of staff who works at two kitchens
         holds an active membership of both, so a caller they wrote down at one is
@@ -14663,6 +14671,46 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/customers/{account}/allergies:
+    get:
+      operationId: getOrderDeskCustomerAllergies
+      tags: [Order desk]
+      summary: What the chosen customer has declared
+      description: |
+        Read once a customer is chosen, so the agent can say it back before any
+        dish is added. Special-category data: the read states its purpose
+        (`order_fulfilment`) and is recorded. Codes and severities only, never
+        the customer's free text.
+
+        Outside the desk's rule answers `404`, as the desk's other customer
+        operations do.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: account
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The declaration.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskCustomerAllergiesEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -39800,6 +39848,31 @@ components:
             first arm of the scoping rule restated as a fact: a `false` here
             means the row is visible on the second arm alone, because somebody
             who works at this kitchen wrote them down.
+
+    OrderDeskCustomerAllergiesEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [declared, declares_no_allergens, allergens]
+          properties:
+            declared:
+              type: boolean
+              description: False when nobody has ever asked, which is not the same as no allergens.
+            declares_no_allergens:
+              type: boolean
+            allergens:
+              type: array
+              items:
+                type: object
+                required: [allergen_code, severity]
+                properties:
+                  allergen_code:
+                    type: string
+                  severity:
+                    type: string
+                    enum: [avoidance, intolerance, allergy, anaphylaxis]
 
     OrderDeskCustomersEnvelope:
       type: object

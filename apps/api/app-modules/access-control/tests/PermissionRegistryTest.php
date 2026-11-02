@@ -51,6 +51,10 @@ function organisationTemplateRoleCodes(): array
         // neither reads across a tenant boundary. Both are assembled entirely
         // from codes that already existed.
         'procurement_manager', 'finance_manager',
+
+        // P1 Wave A: the own-driver job. Organisation-scoped and code-free apart
+        // from the own-scope set: the run sheet narrows by `driver_user_id`.
+        'kitchen_driver',
     ];
 }
 
@@ -311,22 +315,22 @@ function templateRolesHolding(string $code): array
 it('grants each template role the expected number of codes', function (string $role, int $expectedGrants): void {
     expect(PermissionRegistry::templateRoles()[$role]['permissions'])->toHaveCount($expectedGrants);
 })->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 47],
+    'organisation owner grants every organisation permission' => ['organisation_owner', 48],
     // The same count either way, which is why this row stayed green through AA1 while
     // its name stopped being true: the console swapped `role.manage_organisation`
     // in and `organisation.update_current` out, one for one. The count is the
     // weakest half of the pin; `separates the administrator from the owner`
     // above names which code is missing.
-    'organisation administrator runs everything except the legal identity of the business' => ['organisation_admin', 46],
-    'branch manager is limited to its branch and roster' => ['branch_manager', 3],
+    'organisation administrator runs everything except the legal identity of the business' => ['organisation_admin', 47],
+    'branch manager runs the service: its branch, the wall, the order book, the counter and the reads they stand on' => ['branch_manager', 14],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
-    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book, runs inventory including its costs, orders its supplies and holds the order desk in full' => ['kitchen_manager', 32],
+    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book, runs inventory including its costs, orders its supplies and holds the order desk in full' => ['kitchen_manager', 33],
     // Nine since PROD1: the chef gained `production.view_organisation` and
     // `production.manage_organisation` and not the costs code. Running the line
     // is the job; what the line cost is the commercial side's, which is the same
     // line `inventory.view_costs_organisation` already draws through this role.
-    'chef edits recipes and their costs and runs inventory and batches, but never publishes and never sees a price or a cost outside a recipe' => ['kitchen_chef', 9],
-    'kitchen staff read the catalogue, recipes and stock quantities, and no money at all' => ['kitchen_staff', 3],
+    'chef edits recipes and their costs, runs inventory, batches and the wall, but never publishes and never sees a price or a cost outside a recipe' => ['kitchen_chef', 10],
+    'cook reads the catalogue, recipes and stock quantities, works the wall, and sees no money at all' => ['kitchen_staff', 4],
     'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans, prices delivery, reads the subscription book, reads inventory and its costs and sees who is buying' => ['commercial_manager', 16],
     // Eight, not seven: the role gained `catalogue.view_organisation` with the
     // sale wizard's item picker, which reads the kitchen's own catalogue to
@@ -343,14 +347,45 @@ it('grants each template role the expected number of codes', function (string $r
     // the meal, sauce, dressing and frozen-meal lists that merged into it.
     'purchasing manager spends the kitchen money without seeing what it charges, and reads the recipe book' => ['procurement_manager', 8],
     'finance manager reads every number and can change exactly one, the unit cost of a recipe line' => ['finance_manager', 12],
+    'driver signs in and sees their own account, and the run sheet does the rest' => ['kitchen_driver', 7],
 ]);
 
-it('gives order supervision to the owner, the administrator and the kitchen manager and to nobody else', function (): void {
-    // Stage 1 leaves `branch_manager` out on purpose: it holds no order code at
-    // all today, and that is the P1 "roles for real jobs" work.
+it('gives order supervision to the owner, the administrator and both managers and to nobody else', function (): void {
     expect(templateRolesHolding('order.supervise_organisation'))->toEqualCanonicalizing([
-        'organisation_owner', 'organisation_admin', 'kitchen_manager',
+        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'branch_manager',
     ]);
+});
+
+it('gives the kitchen display to the line without the order book or the money', function (): void {
+    // The split the audit's refused Branch Manager exposed. The wall's own code
+    // reaches the chef and the cook; the order book's read does not, because the
+    // read carries totals and neither role sees a price on any other surface.
+    expect(templateRolesHolding('order.prepare_organisation'))->toEqualCanonicalizing([
+        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'branch_manager',
+        'kitchen_chef', 'kitchen_staff',
+    ])->and(templateRolesHolding('order.view_organisation'))->not->toContain('kitchen_chef', 'kitchen_staff')
+        ->and(templateRolesHolding('order.manage_organisation'))->not->toContain('kitchen_chef', 'kitchen_staff');
+});
+
+it('hides a retired template only while nobody uses it', function (): void {
+    $hidden = PermissionRegistry::isHiddenRole(...);
+
+    expect($hidden('commercial_manager', null, null, 0))->toBeTrue()
+        ->and($hidden('branch_manager', null, null, 0))->toBeTrue()
+        // Somebody holds it, or an administrator made or changed it.
+        ->and($hidden('commercial_manager', null, null, 1))->toBeFalse()
+        ->and($hidden('commercial_manager', 'someone', null, 0))->toBeFalse()
+        ->and($hidden('commercial_manager', null, 'someone', 0))->toBeFalse()
+        // Every job on the owner's list stays offered.
+        ->and($hidden('kitchen_manager', null, null, 0))->toBeFalse();
+});
+
+it('gives every template a name and a plain description in both languages', function (): void {
+    foreach (PermissionRegistry::templateRoles() as $code => $template) {
+        foreach (['name_en', 'name_ar', 'description_en', 'description_ar'] as $field) {
+            expect(trim($template[$field]))->not->toBe('', "{$code} has no {$field}.");
+        }
+    }
 });
 
 it('gives the delivery map to the two commercial roles and the branch hours to the kitchen manager', function (): void {

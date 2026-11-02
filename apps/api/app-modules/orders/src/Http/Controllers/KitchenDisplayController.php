@@ -19,6 +19,7 @@ use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * GET /api/v1/catalogue/kitchen-display — every open ticket, for the wall.
@@ -41,6 +42,12 @@ use Illuminate\Http\JsonResponse;
  * works out opening hours. Polled every few seconds: the branch hours are read
  * once for the whole response ({@see UnacceptedOrderClock}), and the presenter's
  * allergy read is audited once a day per reader and order, not per poll.
+ *
+ * **Two audiences.** `order.view_organisation` reads the order book anyway, so it
+ * gets the ticket as it stands. A cook on `order.prepare_organisation` alone gets
+ * the same ticket with the money and the street address taken off, because the
+ * chef and the cook read no price on any other surface and a wall needs neither.
+ * Allergies stay: they are what the cook is standing there to read.
  */
 final class KitchenDisplayController
 {
@@ -95,18 +102,64 @@ final class KitchenDisplayController
         $runs = $this->runs->forOrders($orderIds);
         $amendable = $this->amendability->reasons($orders, $lines);
         $this->presenter->preloadPlanDays($orderIds);
+        $readsTheBook = Gate::allows('order.view_organisation');
 
         return ApiResponse::data([
-            'orders' => $orders->map(fn (Order $order): array => $this->presenter->kitchen(
-                $order,
-                $lines[(string) $order->getKey()] ?? [],
-                $runs[(string) $order->getKey()] ?? null,
-                ($amendable[(string) $order->getKey()] ?? null) === null,
-            ))->all(),
+            'orders' => $orders->map(function (Order $order) use ($lines, $runs, $amendable, $readsTheBook): array {
+                $ticket = $this->presenter->kitchen(
+                    $order,
+                    $lines[(string) $order->getKey()] ?? [],
+                    $runs[(string) $order->getKey()] ?? null,
+                    ($amendable[(string) $order->getKey()] ?? null) === null,
+                );
+
+                return $readsTheBook ? $ticket : self::forTheLine($ticket);
+            })->all(),
             'truncated' => $rows->count() > self::MAX_ORDERS,
             'alarm_after_minutes' => $this->settings->for($organisationId)->alarm_after_minutes,
             // An object even when empty: `[]` on the wire would be a list.
             'unaccepted_open_minutes' => (object) $this->clock->openMinutes($organisationId, $orders, $now),
         ]);
+    }
+
+    /**
+     * A ticket as the line reads it: the same shape, no money and no street
+     * address. Zeros and nulls rather than absent keys, so one contract serves
+     * both audiences; the wall draws none of these fields.
+     *
+     * @param  array<string, mixed>  $ticket
+     * @return array<string, mixed>
+     */
+    private static function forTheLine(array $ticket): array
+    {
+        /** @var array<string, mixed> $delivery */
+        $delivery = $ticket['delivery'];
+
+        /** @var list<array<string, mixed>> $lines */
+        $lines = $ticket['lines'];
+
+        return [
+            ...$ticket,
+            'subtotal_minor' => 0,
+            'delivery_fee_minor' => 0,
+            'total_minor' => 0,
+            'delivery' => [
+                ...$delivery,
+                'line_one' => null,
+                'line_two' => null,
+                'building' => null,
+                'floor' => null,
+                'apartment' => null,
+                'directions' => null,
+                'contact_point_id' => null,
+            ],
+            'lines' => array_map(static fn (array $line): array => [
+                ...$line,
+                'unit_price_minor' => 0,
+                'line_total_minor' => 0,
+                'price_list_id' => null,
+                'price_list_item_id' => null,
+            ], $lines),
+        ];
     }
 }

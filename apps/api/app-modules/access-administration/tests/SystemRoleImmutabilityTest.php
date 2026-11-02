@@ -148,7 +148,7 @@ it('never serves, edits or deletes a platform template', function (): void {
         ->deleteJson($path, [], AccessWorld::headers($tenant) + AccessWorld::ifMatch(0))
         ->assertNotFound();
 
-    expect((string) Role::withoutTenancy()->whereKey($template->getKey())->value('name_en'))->toBe('Kitchen manager');
+    expect((string) Role::withoutTenancy()->whereKey($template->getKey())->value('name_en'))->toBe('Manager');
 });
 
 it('refuses a template through the policy even when the locator is bypassed', function (): void {
