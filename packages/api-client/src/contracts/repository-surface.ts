@@ -298,6 +298,8 @@ export const REPOSITORY_SURFACE = {
         'confirmProductionOrder',
         'countLowStockLevels',
         'countSupplyNeeds',
+        'getKitchenSetup',
+        'goLive',
         'listBranchClosures',
         'addBranchClosure',
         'removeBranchClosure',

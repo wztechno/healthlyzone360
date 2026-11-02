@@ -71,6 +71,7 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  *    `lead_minutes` say why. Customers only.
  *  * `below_zone_minimum` — the subtotal is under the delivery zone's minimum;
  *    `minimum_minor` and `currency_code` carry it. Customers only.
+ *  * `kitchen_not_open` — a new kitchen that has not gone live. Customers only.
  *  * `kitchen_paused` — the kitchen stopped taking orders for a while;
  *    `paused_until` says when it starts again. Customers only.
  *  * `window_full` — that window has taken as many orders as the kitchen said it

@@ -1,5 +1,6 @@
 import {
     Button,
+    Callout,
     Card,
     Cascade,
     EmptyState,
@@ -36,6 +37,7 @@ import {
 } from '../../../data/kitchen-admin-hooks.ts';
 import {
     useConsumptionExceptionCountQuery,
+    useKitchenSetupQuery,
     useLowStockCountQuery,
     useSuppliersQuery,
     useSupplyNeedsCountQuery,
@@ -311,6 +313,7 @@ export function KitchenHomeScreen() {
     const ingredientSummary = useIngredientSummaryQuery(permitted.has('ingredients'));
     const reviewSources = useReviewQueueQuery(permitted.has('review'));
     const lowStock = useLowStockCountQuery(permitted.has('stock'));
+    const setup = useKitchenSetupQuery(permitted.has('setup'));
     const exceptionsCount = useConsumptionExceptionCountQuery(
         permitted.has('consumption-exceptions'),
     );
@@ -686,6 +689,24 @@ export function KitchenHomeScreen() {
                         ) : null}
                     </Inline>
                 </Inline>
+
+                {setup.data?.isLive === false ? (
+                    <Callout
+                        testID="kitchen-home-not-open"
+                        tone="warning"
+                        icon="warning"
+                        title={t('kitchen:setup.notOpenTitle')}
+                        body={t('kitchen:setup.notOpenBody')}
+                        actions={
+                            <Button
+                                testID="kitchen-home-open-setup"
+                                size="sm"
+                                label={t('kitchen:families.setup.name')}
+                                onPress={open('/kitchen/setup')}
+                            />
+                        }
+                    />
+                ) : null}
 
                 {families.length === 0 ? (
                     <EmptyState

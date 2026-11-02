@@ -113,6 +113,10 @@ export const ORDER_APPROVE_REFUND_PERMISSION = 'order.approve_refund_organisatio
  */
 export const ORDER_PREPARE_PERMISSION = 'order.prepare_organisation';
 
+/** Reading the setup checklist, and the owner's call to open the kitchen. */
+export const KITCHEN_SETUP_PERMISSION = 'branch.view_current';
+export const GO_LIVE_PERMISSION = 'organisation.update_current';
+
 /**
  * Writing down a customer the kitchen has never met — a cold caller with no login.
  *
@@ -451,6 +455,17 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // takes the money code. Nothing is written from a report.
         permission: INVENTORY_VIEW_COSTS_PERMISSION,
         managePermission: null,
+    },
+    {
+        key: 'setup',
+        kind: 'workbench',
+        group: 'workbench',
+        nameKey: 'kitchen:families.setup.name',
+        descriptionKey: 'kitchen:families.setup.description',
+        icon: 'circleCheck',
+        href: '/kitchen/setup',
+        permission: KITCHEN_SETUP_PERMISSION,
+        managePermission: GO_LIVE_PERMISSION,
     },
     {
         // What the duplicate-stock merge could not settle alone. Reads only.

@@ -10,6 +10,7 @@ use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Catalogues\Enums\SalesChannelKind;
 use Healthy360\Catalogues\Enums\SalesChannelStatus;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Kitchens\Services\KitchenServiceSettingsLookup;
 use Healthy360\Organisations\Enums\BranchStatus;
 use Healthy360\Organisations\Enums\OrganisationStatus;
 use Healthy360\Organisations\Models\Organisation;
@@ -115,6 +116,7 @@ final readonly class KitchenProvisioning
     public function __construct(
         private AuditRecorder $audit,
         private OrganisationRoles $roles,
+        private KitchenServiceSettingsLookup $settings,
     ) {}
 
     /**
@@ -223,6 +225,7 @@ final readonly class KitchenProvisioning
             );
 
             $this->roles->provision((string) $kitchen->getKey());
+            $this->settings->markNotOpenYet((string) $kitchen->getKey());
 
             return $kitchen;
         });

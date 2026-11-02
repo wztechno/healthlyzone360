@@ -1704,6 +1704,19 @@ export interface ConsumptionExceptionFilter extends CursorPageRequest, OffsetPag
 }
 
 /** Optionally records why an exception is being marked handled. */
+export interface KitchenSetupStep {
+    readonly key: 'hours' | 'delivery' | 'menu' | 'prices' | 'team';
+    readonly done: boolean;
+    /** Team is the one step that does not hold back going live. */
+    readonly required: boolean;
+}
+
+/** The steps before a new kitchen takes customer orders. */
+export interface KitchenSetup {
+    readonly isLive: boolean;
+    readonly steps: readonly KitchenSetupStep[];
+}
+
 /** Dates a branch is shut on top of its week, both ends inclusive. */
 export interface BranchClosure {
     readonly id: string;
@@ -2420,6 +2433,10 @@ export interface KitchenOpsRepository {
     listConsumptionExceptions(
         filter?: ConsumptionExceptionFilter,
     ): Promise<CursorPage<ConsumptionException>>;
+    /** Needs `branch.view_current`. */
+    getKitchenSetup(): Promise<KitchenSetup>;
+    /** Opens the kitchen for customer orders. Needs `organisation.update_current`. */
+    goLive(): Promise<KitchenSetup>;
     /** The current branch's closures that have not ended. Needs `branch.view_current`. */
     listBranchClosures(): Promise<readonly BranchClosure[]>;
     /** Needs `branch.manage_current`. */

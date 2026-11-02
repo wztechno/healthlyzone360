@@ -14,6 +14,7 @@ import type {
     AddBranchClosureRequest,
     BranchClosure,
     CreateBranchRequest,
+    KitchenSetup,
     DuplicateStockGroup,
     CreateProductionOrderRequest,
     CreatePurchaseOrdersRequest,
@@ -1069,6 +1070,32 @@ export function useConsumptionExceptionCountQuery(
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.countUnresolvedConsumptionExceptions();
+        },
+    });
+}
+
+/** The setup checklist and whether the kitchen is live. */
+export function useKitchenSetupQuery(enabled = true): UseQueryResult<KitchenSetup> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.kitchenSetup(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.getKitchenSetup();
+        },
+    });
+}
+
+export function useGoLiveMutation(): UseMutationResult<KitchenSetup, unknown, void> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: () => repositories.kitchenOps.goLive(),
+        onSuccess: (setup) => {
+            queryClient.setQueryData(queryKeys.kitchenOps.kitchenSetup(), setup);
         },
     });
 }

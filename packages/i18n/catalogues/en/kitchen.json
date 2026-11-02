@@ -2275,6 +2275,7 @@
             "below_zone_minimum": "This order is below the delivery zone’s minimum.",
             "item_unavailable_on_date": "That article is off or sold out on that day. Choose another day or remove it.",
             "allergen_conflict": "This food conflicts with the customer’s allergies. Tick that you told them, then try again.",
+            "kitchen_not_open": "This kitchen has not gone live. A customer would be turned away; the desk can still take this.",
             "kitchen_paused": "The kitchen is paused. A customer would be turned away; the desk can still take this.",
             "window_full": "That slot has reached its limit. A customer would be turned away; the desk can still take this."
         },
@@ -2485,6 +2486,10 @@
         "costReport": {
             "name": "Cost report",
             "description": "Monthly spend and cost of goods sold beside selling revenue — the margin, at a glance."
+        },
+        "setup": {
+            "name": "Setup",
+            "description": "The steps before this kitchen takes customer orders, and the button that opens it."
         },
         "stockDuplicates": {
             "name": "Duplicate stock",
@@ -4835,6 +4840,24 @@
         "itemsFailedTitle_other": "{{count}} items could not be offered",
         "itemFailure": "{{name}}: {{message}}",
         "itemsReadError": "Which items are on the channel could not be read."
+    },
+    "setup": {
+        "subtitle": "Finish these steps, then open the kitchen to customers.",
+        "liveTitle": "This kitchen is open",
+        "liveBody": "Customers can order. Use the steps below to keep things in shape.",
+        "notOpenTitle": "Not open yet",
+        "notOpenBody": "Customers cannot order until you go live. The order desk can still take a sale.",
+        "open": "Open",
+        "goLive": "Go live",
+        "goLiveError": "The kitchen could not go live",
+        "liveToast": "The kitchen is open for orders.",
+        "step": {
+            "hours": { "title": "Opening hours", "body": "Say when this branch trades and when orders close." },
+            "delivery": { "title": "Delivery", "body": "An active zone with at least one delivery window." },
+            "menu": { "title": "Menu", "body": "At least one published dish or product." },
+            "prices": { "title": "Prices", "body": "At least one active price list." },
+            "team": { "title": "Team", "body": "Add the people who work here. Optional before going live." }
+        }
     },
     "branchClosures": {
         "title": "Holidays and closures",

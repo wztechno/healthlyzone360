@@ -109,6 +109,7 @@
         "lead_time_not_met": "That delivery slot is too soon for the kitchen to prepare your order. Choose a later slot or another day.",
         "below_zone_minimum": "This order is below the minimum for delivery to this address.",
         "item_unavailable_on_date": "Something in your basket is not available on that day.",
+        "kitchen_not_open": "This kitchen is not open for orders yet.",
         "kitchen_paused": "This kitchen has paused new orders for a short while. Please try again soon.",
         "window_full": "That delivery slot is full. Choose another slot or another day."
     },

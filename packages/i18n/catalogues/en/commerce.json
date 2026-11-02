@@ -50,6 +50,7 @@
         "checkout_below_zone_minimum": "This order is below the minimum for delivery to this address. Add more to your basket.",
         "checkout_item_unavailable_on_date": "Something in your basket is not available on that day. Choose another date or remove it.",
         "checkout_item_not_assessed": "Something in your basket is not on sale right now because its allergens have not been checked. Remove it to continue.",
+        "checkout_kitchen_not_open": "This kitchen is not open for orders yet.",
         "checkout_kitchen_paused": "This kitchen has paused new orders for a short while. Please try again soon.",
         "checkout_window_full": "That delivery slot is full. Choose another slot or another day."
     },

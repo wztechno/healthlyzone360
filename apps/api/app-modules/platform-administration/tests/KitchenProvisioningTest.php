@@ -8,6 +8,7 @@ use Healthy360\Catalogues\Enums\SalesChannelKind;
 use Healthy360\Catalogues\Enums\SalesChannelStatus;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Kitchens\Services\KitchenServiceSettingsLookup;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
@@ -82,6 +83,12 @@ it('lands all five writes together', function (): void {
             ->where('is_enabled', true)
             ->count())->toBe(1)
         ->and(array_keys(provisionedChannels($kitchen)))->toEqualCanonicalizing(['web-shop', 'desk']);
+});
+
+it('opens a new kitchen not yet taking customer orders', function (): void {
+    $kitchen = ($this->provision)();
+
+    expect(app(KitchenServiceSettingsLookup::class)->for((string) $kitchen->getKey())->not_open_yet)->toBeTrue();
 });
 
 it('opens the counter beside the web shop', function (): void {

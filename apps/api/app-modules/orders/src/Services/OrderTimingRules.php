@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\DB;
  * | `window_ended` | yes | yes | no |
  * | `lead_time_not_met` | yes | no | no |
  * | `below_zone_minimum` | yes | no | no |
- * | `kitchen_paused` | yes | warned | no |
+ * | `kitchen_not_open`, `kitchen_paused` | yes | warned | no |
  * | `window_full` | yes | warned | no |
  *
  * **The desk's override of the two brakes is the desk itself.** A cashier is
@@ -141,13 +141,20 @@ final readonly class OrderTimingRules
     }
 
     /**
-     * `kitchen_paused` while the kitchen's timed pause runs.
+     * `kitchen_not_open` until a new kitchen goes live, and `kitchen_paused` while
+     * its timed pause runs.
      *
      * @return list<array<string, mixed>>
      */
     public function pauseRefusals(string $organisationId, CarbonImmutable $now): array
     {
-        $pausedUntil = $this->settings->for($organisationId)->paused_until;
+        $settings = $this->settings->for($organisationId);
+
+        if ($settings->not_open_yet) {
+            return [['reason' => 'kitchen_not_open']];
+        }
+
+        $pausedUntil = $settings->paused_until;
 
         if ($pausedUntil === null || $pausedUntil->lessThanOrEqualTo($now)) {
             return [];

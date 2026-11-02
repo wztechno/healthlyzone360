@@ -227,6 +227,7 @@ use Healthy360\Kitchens\Http\Controllers\BranchStoreController;
 use Healthy360\Kitchens\Http\Controllers\KitchenPauseController;
 use Healthy360\Kitchens\Http\Controllers\KitchenServiceSettingsShowController;
 use Healthy360\Kitchens\Http\Controllers\KitchenServiceSettingsUpdateController;
+use Healthy360\Kitchens\Http\Controllers\KitchenSetupController;
 use Healthy360\Kitchens\Http\Controllers\PublicKitchenIndexController;
 use Healthy360\Kitchens\Http\Controllers\PublicKitchenShowController;
 use Healthy360\Kitchens\Http\Controllers\PublicMealIndexController;
@@ -2630,6 +2631,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 ->whereUuid('closure')
                 ->middleware('permission:branch.manage_current')
                 ->name('kitchen.branch-closures.destroy');
+            Route::get('/setup', [KitchenSetupController::class, 'show'])
+                ->middleware('permission:branch.view_current')
+                ->name('kitchen.setup.show');
+            Route::post('/setup/go-live', [KitchenSetupController::class, 'goLive'])
+                ->middleware('permission:organisation.update_current')
+                ->name('kitchen.setup.go-live');
             Route::post('/branches', BranchStoreController::class)
                 ->middleware('permission:branch.manage_current')
                 ->name('kitchen.branches.store');

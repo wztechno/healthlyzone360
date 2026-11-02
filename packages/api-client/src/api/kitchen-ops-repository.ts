@@ -78,6 +78,8 @@ import type {
     AddBranchClosureRequest,
     BranchClosure,
     CreateBranchRequest,
+    KitchenSetup,
+    KitchenSetupStep,
     DuplicateStockGroup,
     SetStockThresholdRequest,
     SpendSummary,
@@ -163,6 +165,11 @@ import type { Transport } from './transport.ts';
  * inventing a follow-up read the contract does not ask for. A screen that needs the fresh row
  * re-reads the list, which is also how it discovers a row another kitchen tablet just created.
  */
+
+interface WireKitchenSetup {
+    readonly is_live: boolean;
+    readonly steps: readonly KitchenSetupStep[];
+}
 
 interface WireBranchClosure {
     readonly id: string;
@@ -1986,6 +1993,22 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                 hasMore: meta.has_more ?? false,
                 totalCount: null,
             };
+        },
+
+        async getKitchenSetup(): Promise<KitchenSetup> {
+            const envelope = await transport.requestEnvelope<WireKitchenSetup>({
+                method: 'GET',
+                path: '/kitchen/setup',
+            });
+            return { isLive: envelope.data.is_live, steps: envelope.data.steps };
+        },
+
+        async goLive(): Promise<KitchenSetup> {
+            const envelope = await transport.requestEnvelope<WireKitchenSetup>({
+                method: 'POST',
+                path: '/kitchen/setup/go-live',
+            });
+            return { isLive: envelope.data.is_live, steps: envelope.data.steps };
         },
 
         async listBranchClosures(): Promise<readonly BranchClosure[]> {

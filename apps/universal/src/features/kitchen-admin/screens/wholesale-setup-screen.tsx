@@ -489,7 +489,7 @@ function WholesaleSetup() {
 }
 
 /** One checklist row: its number or a tick, what it is, where it stands, and what finishes it. */
-function SetupStep({
+export function SetupStep({
     testID,
     ordinal,
     title,

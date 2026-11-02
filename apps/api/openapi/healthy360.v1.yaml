@@ -8475,6 +8475,67 @@ paths:
           $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /kitchen/setup:
+    get:
+      operationId: getKitchenSetup
+      tags: [Kitchen operations]
+      summary: The steps before a new kitchen takes orders
+      description: |
+        Each step is read off the records themselves. `is_live` is false only
+        for a kitchen created since the gate shipped and not yet opened; such a
+        kitchen refuses customers with `kitchen_not_open` and warns the desk.
+
+        Requires `branch.view_current`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The checklist.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenSetupEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /kitchen/setup/go-live:
+    post:
+      operationId: goLiveKitchen
+      tags: [Kitchen operations]
+      summary: Open the kitchen for customer orders
+      description: |
+        Refused with `422` while a required step is unfinished. Idempotent and
+        audited.
+
+        Requires `organisation.update_current`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The checklist, now live.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenSetupEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /kitchen/branches:
     post:
       operationId: createKitchenBranch
@@ -38041,6 +38102,31 @@ components:
         meta:
           $ref: '#/components/schemas/Meta'
 
+    KitchenSetupEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [is_live, steps]
+          properties:
+            is_live:
+              type: boolean
+            steps:
+              type: array
+              items:
+                type: object
+                required: [key, done, required]
+                properties:
+                  key:
+                    type: string
+                    enum: [hours, delivery, menu, prices, team]
+                  done:
+                    type: boolean
+                  required:
+                    type: boolean
+        meta:
+          type: object
     BranchClosure:
       type: object
       required: [id, closed_from, closed_to, note]

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9447 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9471 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2363,6 +2363,7 @@ export interface NamespaceKeys {
     | 'warnings.checkout_item_not_assessed'
     | 'warnings.checkout_item_unavailable_on_date'
     | 'warnings.checkout_kitchen_closed'
+    | 'warnings.checkout_kitchen_not_open'
     | 'warnings.checkout_kitchen_paused'
     | 'warnings.checkout_lead_time_not_met'
     | 'warnings.checkout_window_ended'
@@ -2755,6 +2756,7 @@ export interface NamespaceKeys {
     | 'orderRefusal.item_unavailable_on_date'
     | 'orderRefusal.item_unknown'
     | 'orderRefusal.kitchen_closed'
+    | 'orderRefusal.kitchen_not_open'
     | 'orderRefusal.kitchen_paused'
     | 'orderRefusal.lead_time_not_met'
     | 'orderRefusal.minimum_order_not_met'
@@ -3639,6 +3641,7 @@ export interface NamespaceKeys {
     | 'desk.refusal.item_unavailable_on_date'
     | 'desk.refusal.item_unknown'
     | 'desk.refusal.kitchen_closed'
+    | 'desk.refusal.kitchen_not_open'
     | 'desk.refusal.kitchen_paused'
     | 'desk.refusal.lead_time_not_met'
     | 'desk.refusal.unpriced'
@@ -3967,6 +3970,8 @@ export interface NamespaceKeys {
     | 'families.review.name'
     | 'families.roles.description'
     | 'families.roles.name'
+    | 'families.setup.description'
+    | 'families.setup.name'
     | 'families.stock.description'
     | 'families.stock.name'
     | 'families.stockDuplicates.description'
@@ -6994,6 +6999,25 @@ export interface NamespaceKeys {
     | 'serviceTimings.savedToast'
     | 'serviceTimings.title'
     | 'serviceTimings.unit'
+    | 'setup.goLive'
+    | 'setup.goLiveError'
+    | 'setup.liveBody'
+    | 'setup.liveTitle'
+    | 'setup.liveToast'
+    | 'setup.notOpenBody'
+    | 'setup.notOpenTitle'
+    | 'setup.open'
+    | 'setup.step.delivery.body'
+    | 'setup.step.delivery.title'
+    | 'setup.step.hours.body'
+    | 'setup.step.hours.title'
+    | 'setup.step.menu.body'
+    | 'setup.step.menu.title'
+    | 'setup.step.prices.body'
+    | 'setup.step.prices.title'
+    | 'setup.step.team.body'
+    | 'setup.step.team.title'
+    | 'setup.subtitle'
     | 'status.all'
     | 'status.draft'
     | 'status.label'
@@ -11834,6 +11858,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:warnings.checkout_item_not_assessed',
   'commerce:warnings.checkout_item_unavailable_on_date',
   'commerce:warnings.checkout_kitchen_closed',
+  'commerce:warnings.checkout_kitchen_not_open',
   'commerce:warnings.checkout_kitchen_paused',
   'commerce:warnings.checkout_lead_time_not_met',
   'commerce:warnings.checkout_window_ended',
@@ -12223,6 +12248,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:orderRefusal.item_unavailable_on_date',
   'errors:orderRefusal.item_unknown',
   'errors:orderRefusal.kitchen_closed',
+  'errors:orderRefusal.kitchen_not_open',
   'errors:orderRefusal.kitchen_paused',
   'errors:orderRefusal.lead_time_not_met',
   'errors:orderRefusal.minimum_order_not_met',
@@ -13104,6 +13130,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.refusal.item_unavailable_on_date',
   'kitchen:desk.refusal.item_unknown',
   'kitchen:desk.refusal.kitchen_closed',
+  'kitchen:desk.refusal.kitchen_not_open',
   'kitchen:desk.refusal.kitchen_paused',
   'kitchen:desk.refusal.lead_time_not_met',
   'kitchen:desk.refusal.unpriced',
@@ -13432,6 +13459,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.review.name',
   'kitchen:families.roles.description',
   'kitchen:families.roles.name',
+  'kitchen:families.setup.description',
+  'kitchen:families.setup.name',
   'kitchen:families.stock.description',
   'kitchen:families.stock.name',
   'kitchen:families.stockDuplicates.description',
@@ -16459,6 +16488,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:serviceTimings.savedToast',
   'kitchen:serviceTimings.title',
   'kitchen:serviceTimings.unit',
+  'kitchen:setup.goLive',
+  'kitchen:setup.goLiveError',
+  'kitchen:setup.liveBody',
+  'kitchen:setup.liveTitle',
+  'kitchen:setup.liveToast',
+  'kitchen:setup.notOpenBody',
+  'kitchen:setup.notOpenTitle',
+  'kitchen:setup.open',
+  'kitchen:setup.step.delivery.body',
+  'kitchen:setup.step.delivery.title',
+  'kitchen:setup.step.hours.body',
+  'kitchen:setup.step.hours.title',
+  'kitchen:setup.step.menu.body',
+  'kitchen:setup.step.menu.title',
+  'kitchen:setup.step.prices.body',
+  'kitchen:setup.step.prices.title',
+  'kitchen:setup.step.team.body',
+  'kitchen:setup.step.team.title',
+  'kitchen:setup.subtitle',
   'kitchen:status.all',
   'kitchen:status.draft',
   'kitchen:status.label',
