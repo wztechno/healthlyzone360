@@ -81,7 +81,9 @@ use Healthy360\Orders\Enums\PaymentMethod;
  * A delivery normally has to name a window its zone offers
  * (`window_not_offered`). Subscription generation sets this false: the
  * subscriber chose the slot when it was offered, and a later edit to the
- * kitchen's map must not start skipping their deliveries. Every other caller
+ * kitchen's map must not start skipping their deliveries. The same flag keeps a
+ * subscription on the schedule path it always had and off the item calendar —
+ * see `OrderPlacementService::composedTimingReasons()`. Every other caller
  * leaves it at the default.
  *
  * `requestedDate` is effectively required for a composed placement: a

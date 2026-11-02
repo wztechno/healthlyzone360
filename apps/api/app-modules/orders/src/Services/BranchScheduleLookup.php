@@ -145,7 +145,7 @@ final readonly class BranchScheduleLookup implements OrderSchedulingLookup
      * guessing UTC for a Beirut kitchen is how a cut-off drifts by three hours
      * for half the year.
      */
-    private function timezoneOf(string $branchId): string
+    public function timezoneOf(string $branchId): string
     {
         $branch = OrganisationBranch::withoutTenancy()->whereKey($branchId)->first();
 

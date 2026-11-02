@@ -150,6 +150,9 @@ final readonly class CartService
             $deliveryDate,
             $cart->currency_code,
             $buyer,
+            // An undated line is not for today, it is for a day not chosen yet.
+            // Placement asks the calendar about the day that is.
+            enforceCalendar: $deliveryDate !== null,
         );
 
         if (! $result->isOrderable()) {
@@ -218,6 +221,7 @@ final readonly class CartService
             $line->delivery_date,
             $cart->currency_code,
             $this->buyerOf($cart),
+            enforceCalendar: $line->delivery_date !== null,
         );
 
         if (! $result->isOrderable()) {

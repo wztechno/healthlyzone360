@@ -9396,8 +9396,9 @@ paths:
         and refuses the whole order with `409 order.placement_refused`; a
         preview has no transaction to abort, so the same facts — `cart_empty`,
         `address_missing`, `address_not_deliverable`, `area_not_served`,
-        `zone_suspended`, `currency_mismatch`, `window_not_offered`, plus the
-        line-probe vocabulary —
+        `zone_suspended`, `currency_mismatch`, `window_not_offered`, `closed`,
+        `date_in_the_past`, `cut_off_passed`, `kitchen_closed`, `window_ended`,
+        `lead_time_not_met`, `below_zone_minimum`, plus the line-probe vocabulary —
         come back as `warnings` inside an ordinary `200`. Deliberately the
         *same words* placement would refuse with: a customer taught one
         vocabulary for "we don't deliver there" on the cart screen and a
@@ -9497,9 +9498,16 @@ paths:
         `address_not_deliverable`, `area_not_served`, `zone_suspended`,
         `window_not_offered` (with `delivery_window_code` and
         `delivery_zone_id` — the slot is not one the address's zone offers),
-        `currency_mismatch`, `mixed_delivery_dates`, `cut_off_passed`,
-        `branch_closed`, `date_in_the_past`, plus the whole line vocabulary
-        folded in per line with the offending `cart_item_id`. A checkout that
+        `currency_mismatch`, `mixed_delivery_dates`, `cut_off_passed`, `closed`,
+        `date_in_the_past`, `kitchen_closed` (the kitchen has no active branch),
+        `window_ended` (the slot asked for today is over), `lead_time_not_met`
+        (with `earliest_at` and `lead_minutes`), `below_zone_minimum` (with
+        `minimum_minor` and `currency_code`), plus the whole line vocabulary,
+        `item_unavailable_on_date` included (with `on` and `cause`: `day_off`,
+        `sold_out` or `cut_off_passed`),
+        folded in per line with the offending `cart_item_id`. A cart with no
+        branch is checked against the zone's branch, then every active branch of
+        the kitchen, and refused only when all of them refuse. A checkout that
         revealed one problem per attempt — verify your email, now add an address,
         now that article is withdrawn, now the cut-off has passed — is four round
         trips and a lost customer.
@@ -13782,15 +13790,17 @@ paths:
         Line refusals sit on the line, in `lines[].refusals`, using the same
         vocabulary the placement refusal folds in per article — `item_unknown`,
         `item_not_published`, `variant_unknown`, `variant_not_active`,
-        `channel_unavailable`, `unpriced`, `currency_mismatch`,
-        `channel_not_trading`. Order-level refusals sit in the top-level
+        `channel_unavailable`, `item_unavailable_on_date`, `unpriced`,
+        `currency_mismatch`, `channel_not_trading`. Order-level refusals sit in the top-level
         `refusals`, and are the three families an agent can actually do something
         about: the fulfilment **shape** (`customer_required`,
         `address_required`, `address_not_applicable`), the **destination**
         (`address_not_deliverable`, `area_not_served`, `zone_suspended`,
         `window_not_offered`, and a `currency_mismatch` whose `subject` is
         `delivery_fee`), and the
-        **schedule** (`cut_off_passed`, `branch_closed`, `date_in_the_past`).
+        **schedule** (`cut_off_passed`, `closed`, `date_in_the_past`,
+        `kitchen_closed`, `window_ended`). The desk is not asked the lead time or
+        the zone minimum.
 
         **`quotable` is the field a screen branches on.** It is false whenever
         *any* refusal exists, line-level or order-level, because the placement
@@ -35347,7 +35357,9 @@ components:
             vocabulary `409 order.placement_refused` uses at placement:
             `cart_empty`, `address_missing`, `address_not_deliverable`,
             `area_not_served`, `zone_suspended`, `currency_mismatch`,
-            `window_not_offered`, `allergen_conflict`, plus the line-probe vocabulary. Deduplicated — three lines refused for the
+            `window_not_offered`, `allergen_conflict`, `closed`, `date_in_the_past`,
+            `cut_off_passed`, `kitchen_closed`, `window_ended`, `lead_time_not_met`,
+            `below_zone_minimum`, plus the line-probe vocabulary. Deduplicated — three lines refused for the
             same reason read as one fact, not three repeats of it.
         offered_window_codes:
           type:
@@ -41910,12 +41922,13 @@ components:
           description: |
             The stable key. Line-level: `item_unknown`, `item_not_published`,
             `variant_unknown`, `variant_not_active`, `channel_unavailable`,
-            `unpriced`, `currency_mismatch`, `channel_not_trading`. Order-level:
+            `item_unavailable_on_date`, `unpriced`, `currency_mismatch`,
+            `channel_not_trading`. Order-level:
             `customer_required`, `address_required`, `address_not_applicable`,
             `address_not_deliverable`, `area_not_served`, `zone_suspended`,
             `window_not_offered`, `currency_mismatch` (with
-            `subject: delivery_fee`), `cut_off_passed`,
-            `branch_closed`, `date_in_the_past`.
+            `subject: delivery_fee`), `cut_off_passed`, `closed`,
+            `date_in_the_past`, `kitchen_closed`, `window_ended`.
       additionalProperties: true
     OrderDeskQuoteLine:
       type: object

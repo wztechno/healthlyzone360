@@ -5209,7 +5209,9 @@ export type CheckoutPreview = {
      * vocabulary `409 order.placement_refused` uses at placement:
      * `cart_empty`, `address_missing`, `address_not_deliverable`,
      * `area_not_served`, `zone_suspended`, `currency_mismatch`,
-     * `window_not_offered`, `allergen_conflict`, plus the line-probe vocabulary. Deduplicated — three lines refused for the
+     * `window_not_offered`, `allergen_conflict`, `closed`, `date_in_the_past`,
+     * `cut_off_passed`, `kitchen_closed`, `window_ended`, `lead_time_not_met`,
+     * `below_zone_minimum`, plus the line-probe vocabulary. Deduplicated — three lines refused for the
      * same reason read as one fact, not three repeats of it.
      *
      */
@@ -9165,12 +9167,13 @@ export type OrderDeskQuoteRefusal = {
     /**
      * The stable key. Line-level: `item_unknown`, `item_not_published`,
      * `variant_unknown`, `variant_not_active`, `channel_unavailable`,
-     * `unpriced`, `currency_mismatch`, `channel_not_trading`. Order-level:
+     * `item_unavailable_on_date`, `unpriced`, `currency_mismatch`,
+     * `channel_not_trading`. Order-level:
      * `customer_required`, `address_required`, `address_not_applicable`,
      * `address_not_deliverable`, `area_not_served`, `zone_suspended`,
      * `window_not_offered`, `currency_mismatch` (with
-     * `subject: delivery_fee`), `cut_off_passed`,
-     * `branch_closed`, `date_in_the_past`.
+     * `subject: delivery_fee`), `cut_off_passed`, `closed`,
+     * `date_in_the_past`, `kitchen_closed`, `window_ended`.
      *
      */
     reason: string;

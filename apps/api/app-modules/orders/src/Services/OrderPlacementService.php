@@ -24,7 +24,6 @@ use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Services\ZoneResolver;
 use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Orders\Contracts\BuyerAllergenCheck;
-use Healthy360\Orders\Contracts\OrderSchedulingLookup;
 use Healthy360\Orders\Contracts\OrderStockConsumption;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Enums\OrderStatus;
@@ -82,9 +81,10 @@ use Illuminate\Support\Facades\DB;
  *    precedence lives. The `AreaServiceLookup` port answers the broader
  *    question, so a refusal can say "nobody delivers to this area yet" rather
  *    than the less useful "we do not".
- * 5. The branch will still take an order for the requested day —
- *    `OrderSchedulingLookup`, the port over the kitchen's cut-offs.
- * 6. Every line is repriced and re-checked.
+ * 5. A serving branch can still make it for the requested day and window —
+ *    `OrderTimingRules`, over the kitchen's opening hours and cut-offs.
+ * 6. Every line is repriced and re-checked, and the subtotal meets the zone's
+ *    minimum.
  *
  * All of it inside one transaction, with the cart marked converted in the same
  * transaction: an order that exists beside a still-open basket is how a
@@ -151,7 +151,7 @@ use Illuminate\Support\Facades\DB;
  * | `CheckoutEligibility::outstanding()` | self-service only | self-service only | self-service only |
  * | `addressReasons()`, `zoneFor()`, fee currency | yes | — | — |
  * | `windowReasons()` | unless `enforceWindowOffer` is false | — | — |
- * | `scheduleReasons()` | yes | **yes** | — |
+ * | `composedTimingReasons()` | yes | **yes** | — |
  * | `composedSnapshots()` (repricing) | yes | yes | yes |
  * | `agreementReasons()`, agreement snapshot | yes | yes | yes |
  *
@@ -181,7 +181,7 @@ final readonly class OrderPlacementService
         private AreaServiceLookup $areas,
         private ZoneResolver $zones,
         private ZoneWindowService $zoneWindows,
-        private OrderSchedulingLookup $scheduling,
+        private OrderTimingRules $timing,
         private DerivedAllergenService $allergens,
         private OrderNumbers $numbers,
         private OrderIdempotency $idempotency,
@@ -415,7 +415,7 @@ final readonly class OrderPlacementService
         // branch closed its book for that day is refused exactly as a delivery
         // is. A counter sale is handed over now and has no day to be late for.
         if ($placement->fulfilmentType !== FulfilmentType::Counter) {
-            $reasons = [...$reasons, ...$this->scheduleReasons($placement->branchId, $effectiveDate, $now)];
+            $reasons = [...$reasons, ...$this->composedTimingReasons($placement, $zone, $effectiveDate, $now)];
         }
 
         $channel = SalesChannel::withoutTenancy()->whereKey($placement->salesChannelId)->first();
@@ -638,7 +638,19 @@ final readonly class OrderPlacementService
             ];
         }
 
-        $reasons = [...$reasons, ...$this->scheduleReasons($cart->branch_id, $effectiveDate, $now)];
+        // The basket's branch is usually null, and `OrderTimingRules` answers
+        // for whichever branches serve it then. A customer who names no day is
+        // asked about today, as `LineProbe` reads it: leaving the field blank
+        // must not be a way round the kitchen's hours.
+        $reasons = [...$reasons, ...$this->timing->refusals(
+            $cart->organisation_id,
+            $cart->branch_id,
+            $zone,
+            $effectiveDate,
+            $deliveryWindowCode,
+            $now,
+            leadTime: true,
+        )];
 
         $channel = SalesChannel::withoutTenancy()->whereKey($cart->sales_channel_id)->first();
 
@@ -648,6 +660,7 @@ final readonly class OrderPlacementService
         if ($lineReasons === []) {
             $subtotal = array_sum(array_map(static fn (array $line): int => $line['line_total_minor'], $snapshots));
             $reasons = [...$reasons, ...$this->agreementReasons($account, $channel, $subtotal, $effectiveDate ?? $now)];
+            $reasons = [...$reasons, ...$this->timing->minimumRefusals($zone, $subtotal, $cart->currency_code)];
         }
 
         if ($reasons !== []) {
@@ -1008,31 +1021,46 @@ final readonly class OrderPlacementService
             }
         }
 
-        if ($fulfilmentType->requiresAddress() && ($address !== null || $windowChanged)) {
-            $windowZone = $zone ?? ($locked->delivery_zone_id === null
-                ? null
-                : DeliveryZone::query()->whereKey($locked->delivery_zone_id)->first());
+        $servingZone = $zone ?? ($locked->delivery_zone_id === null
+            ? null
+            : DeliveryZone::query()->whereKey($locked->delivery_zone_id)->first());
 
-            $reasons = [...$reasons, ...$this->windowReasons($windowZone, $windowCode)];
+        if ($fulfilmentType->requiresAddress() && ($address !== null || $windowChanged)) {
+            $reasons = [...$reasons, ...$this->windowReasons($servingZone, $windowCode)];
         }
 
         $cutOffOverridden = false;
 
-        if ($fulfilmentType !== FulfilmentType::Counter && ($dateChanged || $windowChanged)) {
-            foreach ($this->scheduleReasons($locked->branch_id, $effectiveDate, $now) as $reason) {
-                if ($reason['reason'] === 'cut_off_passed') {
-                    $cutOffOverridden = true;
+        if ($fulfilmentType !== FulfilmentType::Counter && ($dateChanged || $windowChanged) && $effectiveDate instanceof CarbonImmutable) {
+            $timing = fn (bool $waiveCutOff): array => $this->timing->refusals(
+                $locked->organisation_id,
+                $locked->branch_id,
+                $servingZone,
+                $effectiveDate,
+                $windowCode,
+                $now,
+                leadTime: false,
+                waiveCutOff: $waiveCutOff,
+            );
 
-                    continue;
-                }
+            $refused = $timing(false);
 
-                $reasons[] = $reason;
+            if (($refused[0]['reason'] ?? null) === 'cut_off_passed') {
+                $cutOffOverridden = true;
+                $refused = $timing(true);
             }
+
+            $reasons = [...$reasons, ...$refused];
         }
 
         $channel = SalesChannel::withoutTenancy()->whereKey($locked->sales_channel_id)->first();
 
-        [$snapshots, $lineReasons] = $this->composedSnapshots($placement, $effectiveDate);
+        // A line the order already holds for this day keeps its place. The
+        // calendar is about what can still be sold, and a kitchen that sold out
+        // after taking this order has not un-taken it.
+        $heldItemIds = $dateChanged ? [] : $stored->pluck('catalogue_item_id')->all();
+
+        [$snapshots, $lineReasons] = $this->composedSnapshots($placement, $effectiveDate, $heldItemIds);
         $reasons = [...$reasons, ...$lineReasons];
 
         $subtotal = array_sum(array_map(static fn (array $line): int => $line['line_total_minor'], $snapshots));
@@ -1178,30 +1206,48 @@ final readonly class OrderPlacementService
     }
 
     /**
-     * Whether the branch will still take an order for that day, as refusals.
+     * What a composed order is asked about its day and slot.
      *
-     * Shared by both entry points so there is one definition of "too late".
+     * **A subscription keeps the path it always had** (`enforceWindowOffer`
+     * false): its own branch's schedule when it has one, and nothing when it
+     * does not. A standing subscriber is not refused retroactively, so none of
+     * the wider rules a one-off order now meets reach it.
+     *
+     * **Everything else composed — a desk sale, an accepted quotation — is an
+     * agreed sale.** A person has already spoken to the kitchen or signed for
+     * the order, so the lead time and the zone minimum do not apply; a closed
+     * kitchen and a slot that has ended still do. No named day means nothing to
+     * ask, as `ComposedPlacement` says of `requestedDate`.
      *
      * @return list<array<string, mixed>>
      */
-    private function scheduleReasons(?string $branchId, ?CarbonImmutable $effectiveDate, CarbonImmutable $now): array
-    {
-        if ($branchId === null || ! $effectiveDate instanceof CarbonImmutable) {
+    private function composedTimingReasons(
+        ComposedPlacement $placement,
+        ?DeliveryZone $zone,
+        ?CarbonImmutable $effectiveDate,
+        CarbonImmutable $now,
+    ): array {
+        if (! $effectiveDate instanceof CarbonImmutable) {
             return [];
         }
 
-        $schedule = $this->scheduling->explain($branchId, $effectiveDate, $now);
+        if (! $placement->enforceWindowOffer) {
+            $refusal = $placement->branchId === null
+                ? null
+                : $this->timing->scheduleRefusal($placement->branchId, $effectiveDate, $now);
 
-        if ($schedule['accepted']) {
-            return [];
+            return $refusal === null ? [] : [$refusal];
         }
 
-        return [[
-            'reason' => $schedule['reason'] ?? 'cut_off_passed',
-            'branch_id' => $branchId,
-            'requested_date' => $effectiveDate->toDateString(),
-            'cut_off_at' => $schedule['cut_off_at'],
-        ]];
+        return $this->timing->refusals(
+            $placement->organisationId,
+            $placement->branchId,
+            $zone,
+            $effectiveDate,
+            $placement->deliveryWindowCode,
+            $now,
+            leadTime: false,
+        );
     }
 
     /**
@@ -1217,9 +1263,14 @@ final readonly class OrderPlacementService
      * `currency_mismatch` in the override itself, which is checked here rather
      * than trusted.
      *
+     * The calendar is asked of everything but a subscription, which is exempt
+     * for the reason `composedTimingReasons()` gives, and `$heldItemIds`, the
+     * articles an order being edited already holds for that day.
+     *
+     * @param  list<string>  $heldItemIds
      * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>}
      */
-    private function composedSnapshots(ComposedPlacement $placement, ?CarbonImmutable $on): array
+    private function composedSnapshots(ComposedPlacement $placement, ?CarbonImmutable $on, array $heldItemIds = []): array
     {
         $channel = SalesChannel::withoutTenancy()->whereKey($placement->salesChannelId)->first();
 
@@ -1241,6 +1292,7 @@ final readonly class OrderPlacementService
                 $on,
                 $placement->currencyCode,
                 $placement->account,
+                enforceCalendar: $placement->enforceWindowOffer && ! in_array($line->catalogueItemId, $heldItemIds, true),
             );
 
             // A grandfathered line answers price and currency itself. A

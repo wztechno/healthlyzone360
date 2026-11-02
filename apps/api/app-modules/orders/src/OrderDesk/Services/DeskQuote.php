@@ -16,10 +16,10 @@ use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Services\ZoneResolver;
 use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Orders\Contracts\HeldStockLookup;
-use Healthy360\Orders\Contracts\OrderSchedulingLookup;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Services\ComposedLine;
+use Healthy360\Orders\Services\OrderTimingRules;
 use Healthy360\Orders\Services\SellerContext;
 
 /**
@@ -78,9 +78,13 @@ use Healthy360\Orders\Services\SellerContext;
  * `OrderPlacementService::agreementReasons()` — and running it would mean
  * quoting a corporate minimum against a counter sale.
  *
+ * **The lead time and the zone minimum.** A cashier is talking to the kitchen,
+ * and staff may agree a small order.
+ *
  * Everything else runs: the shape rules, the address and zone questions on a
- * delivery, and the branch cut-off on a delivery or a pickup. Those are the
- * three families the agent can do something about.
+ * delivery, and `OrderTimingRules` on a delivery or a pickup, which is the same
+ * call `composeNow()` makes. Those are the three families the agent can do
+ * something about.
  */
 final readonly class DeskQuote
 {
@@ -90,7 +94,7 @@ final readonly class DeskQuote
         private ChannelCurrency $currencies,
         private ZoneResolver $zones,
         private ZoneWindowService $zoneWindows,
-        private OrderSchedulingLookup $scheduling,
+        private OrderTimingRules $timing,
         private SellerContext $seller,
         private HeldStockLookup $held,
     ) {}
@@ -189,12 +193,14 @@ final readonly class DeskQuote
 
         $fee = null;
         $offeredWindowCodes = null;
+        $zone = null;
 
         if ($keepsStoredAddress) {
             $fee = $amending->delivery_fee_minor;
             $storedZone = $amending->delivery_zone_id === null
                 ? null
                 : DeliveryZone::query()->whereKey($amending->delivery_zone_id)->first();
+            $zone = $storedZone;
 
             if ($storedZone instanceof DeliveryZone) {
                 $offeredWindowCodes = $this->zoneWindows->offeredCodes($storedZone);
@@ -259,24 +265,37 @@ final readonly class DeskQuote
             }
         }
 
+        $dateMoved = $amending instanceof Order
+            && $requestedDate instanceof CarbonImmutable
+            && $requestedDate->toDateString() !== $amending->requested_delivery_date?->toDateString();
+
         // Delivery and pickup, never a counter sale — the cut-off is about when
-        // the food can be *made*, and a counter sale is handed over now.
-        if ($fulfilmentType !== FulfilmentType::Counter && ! $amending instanceof Order) {
-            $refusals = [...$refusals, ...$this->scheduleRefusals($branchId, $requestedDate, $now)];
+        // the food can be *made*, and a counter sale is handed over now. An edit
+        // re-asks only for a day or slot that moved, and staff may override the
+        // cut-off — exactly as the save will.
+        $asksTiming = ! $amending instanceof Order || $dateMoved || $deliveryWindowCode !== $amending->delivery_window_code;
+
+        $timingDate = $requestedDate ?? $amending?->requested_delivery_date;
+
+        if ($fulfilmentType !== FulfilmentType::Counter && $asksTiming && $timingDate instanceof CarbonImmutable) {
+            $refusals = [...$refusals, ...$this->timing->refusals(
+                (string) $channel->organisation_id,
+                $branchId,
+                $zone,
+                $timingDate,
+                $deliveryWindowCode,
+                $now,
+                leadTime: false,
+                waiveCutOff: $amending instanceof Order,
+            )];
         }
 
-        // An edit re-asks the schedule only for a day or slot that moved, and
-        // staff may override the cut-off — exactly as the save will.
-        if ($fulfilmentType !== FulfilmentType::Counter && $amending instanceof Order
-            && ($requestedDate?->toDateString() !== $amending->requested_delivery_date?->toDateString()
-                || $deliveryWindowCode !== $amending->delivery_window_code)) {
-            $refusals = [...$refusals, ...array_values(array_filter(
-                $this->scheduleRefusals($branchId, $requestedDate, $now),
-                static fn (array $refusal): bool => $refusal['reason'] !== 'cut_off_passed',
-            ))];
-        }
+        // The same exemption the save gives a line the order already holds.
+        $heldItemIds = $amending instanceof Order && ! $dateMoved
+            ? $amending->lines()->pluck('catalogue_item_id')->all()
+            : [];
 
-        [$quoted, $lineRefused] = $this->lines($channel, $lines, $currencyCode, $requestedDate, $account, $branchId);
+        [$quoted, $lineRefused] = $this->lines($channel, $lines, $currencyCode, $requestedDate, $account, $branchId, $heldItemIds);
 
         $subtotal = 0;
 
@@ -315,6 +334,7 @@ final readonly class DeskQuote
      * and a total they were charged, differing for a reason nobody could see.
      *
      * @param  list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: string}>  $lines
+     * @param  list<string>  $heldItemIds  articles an order being edited already holds for that day
      * @return array{0: list<array<string, mixed>>, 1: bool}
      */
     private function lines(
@@ -324,6 +344,7 @@ final readonly class DeskQuote
         ?CarbonImmutable $on,
         ?CustomerAccount $account,
         ?string $branchId,
+        array $heldItemIds,
     ): array {
         $quoted = [];
         $anyRefused = false;
@@ -337,6 +358,7 @@ final readonly class DeskQuote
                 $on,
                 $currencyCode,
                 $account,
+                enforceCalendar: ! in_array($line->catalogueItemId, $heldItemIds, true),
             );
 
             $item = $result->item;
@@ -459,28 +481,5 @@ final readonly class DeskQuote
             'reason' => 'area_not_served',
             'delivery_area_id' => $areaId,
         ]]];
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    private function scheduleRefusals(?string $branchId, ?CarbonImmutable $requestedDate, CarbonImmutable $now): array
-    {
-        if ($branchId === null || ! $requestedDate instanceof CarbonImmutable) {
-            return [];
-        }
-
-        $schedule = $this->scheduling->explain($branchId, $requestedDate, $now);
-
-        if ($schedule['accepted']) {
-            return [];
-        }
-
-        return [[
-            'reason' => $schedule['reason'] ?? 'cut_off_passed',
-            'branch_id' => $branchId,
-            'requested_date' => $requestedDate->toDateString(),
-            'cut_off_at' => $schedule['cut_off_at'],
-        ]];
     }
 }

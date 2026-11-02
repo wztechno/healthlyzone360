@@ -127,6 +127,8 @@ final readonly class SubstitutionFinder
                 '1',
                 $on,
                 $subscription->currency_code,
+                // Generation never asks the calendar, so a substitute is not held to it.
+                enforceCalendar: false,
             );
 
             if ($probe->isOrderable()) {

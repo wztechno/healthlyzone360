@@ -9,10 +9,13 @@ use Healthy360\Catalogues\Enums\SalesChannelStatus;
 use Healthy360\Catalogues\Enums\VariantStatus;
 use Healthy360\Catalogues\Enums\VariantType;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemAvailabilityDay;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Customers\Models\CustomerAccount;
+use Healthy360\Organisations\Enums\BranchStatus;
+use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Services\PriceResolver;
 use Healthy360\Pricing\Services\ResolvedPrice;
 use Healthy360\Tenancy\Database\DatabaseTenantContext;
@@ -55,7 +58,10 @@ use Healthy360\Tenancy\Database\DatabaseTenantContext;
  *    The variant rule mirrors pricing's: a named variant matches its own row
  *    *or* the item-level row (a kitchen that offers the article offers every
  *    pack of it); an unnamed one matches only the item-level row.
- * 6. **There is a price**, and it is in the currency the basket is denominated
+ * 6. **The kitchen's calendar has not ruled the day out.** {@see calendarRefusal()}.
+ *    A meal with no row for the date stays available, or every meal nobody
+ *    filled a calendar in for would vanish.
+ * 7. **There is a price**, and it is in the currency the basket is denominated
  *    in. Both halves matter. An unpriced article is not free, and a price in
  *    another currency is not a price in this one — converting it would be this
  *    class inventing an exchange rate nobody agreed to.
@@ -82,6 +88,7 @@ final readonly class LineProbe
      * @param  string  $quantity  decimal string, as `cart_items.quantity` is held
      * @param  CarbonImmutable|null  $on  the day the line is wanted; today when none is named
      * @param  string  $currencyCode  what the basket or order is denominated in
+     * @param  bool  $enforceCalendar  false where the day is not being sold: subscription deliveries, undated basket lines, and a line an edited order already holds
      */
     public function probe(
         SalesChannel $channel,
@@ -91,6 +98,7 @@ final readonly class LineProbe
         ?CarbonImmutable $on,
         string $currencyCode,
         ?CustomerAccount $buyer = null,
+        bool $enforceCalendar = true,
     ): LineProbeResult {
         // Scoped to the channel's kitchen for the whole probe: prices (and any
         // future RLS-bound catalogue tables) must answer under that tenant, not
@@ -108,6 +116,7 @@ final readonly class LineProbe
                 $on,
                 $currencyCode,
                 $buyer,
+                $enforceCalendar,
             ),
         );
     }
@@ -150,6 +159,7 @@ final readonly class LineProbe
         ?CarbonImmutable $on,
         string $currencyCode,
         ?CustomerAccount $buyer,
+        bool $enforceCalendar,
     ): LineProbeResult {
         $day = ($on ?? CarbonImmutable::now())->startOfDay();
         $refusals = [];
@@ -212,6 +222,12 @@ final readonly class LineProbe
             ];
         }
 
+        $unavailable = $enforceCalendar ? $this->calendarRefusal($item, $on) : null;
+
+        if ($unavailable !== null) {
+            $refusals[] = $unavailable;
+        }
+
         $price = $this->prices->currentFor(
             (string) $channel->getKey(),
             (string) $item->getKey(),
@@ -237,6 +253,74 @@ final readonly class LineProbe
         }
 
         return new LineProbeResult($item, $variant, $refusals === [] ? $price : null, $refusals);
+    }
+
+    /**
+     * `item_unavailable_on_date` when the kitchen's own calendar rules the day
+     * out: `day_off`, `sold_out`, or for a same-day order `cut_off_passed`.
+     *
+     * One read on the `(catalogue_item_id, date)` index per line, so a desk quote
+     * of many lines stays linear, as every other read in this probe is. An
+     * undated probe adds one for the timezone, because "today" is the branch's.
+     *
+     * Portions are read, never counted down; that is a later stage's.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function calendarRefusal(CatalogueItem $item, ?CarbonImmutable $on): ?array
+    {
+        $date = $on?->toDateString() ?? $this->branchNow($item)->toDateString();
+
+        $row = CatalogueItemAvailabilityDay::withoutTenancy()
+            ->where('catalogue_item_id', $item->getKey())
+            ->where('date', $date)
+            ->first();
+
+        if (! $row instanceof CatalogueItemAvailabilityDay) {
+            return null;
+        }
+
+        $cause = match (true) {
+            ! $row->is_available => 'day_off',
+            $row->remaining_portions === 0 => 'sold_out',
+            default => null,
+        };
+
+        if ($cause === null && $row->order_cut_off_at !== null) {
+            $local = $this->branchNow($item);
+
+            if ($local->toDateString() === $date && $local->format('H:i:s') > $row->order_cut_off_at) {
+                $cause = 'cut_off_passed';
+            }
+        }
+
+        if ($cause === null) {
+            return null;
+        }
+
+        return [
+            'reason' => 'item_unavailable_on_date',
+            'catalogue_item_id' => (string) $item->getKey(),
+            'on' => $date,
+            'cause' => $cause,
+        ];
+    }
+
+    /**
+     * The clock on the kitchen's wall. A probe has no branch, so a calendar cut-off
+     * is read on the organisation's first active branch, and an organisation with
+     * none falls back to the application's clock as `BranchScheduleLookup` does.
+     */
+    private function branchNow(CatalogueItem $item): CarbonImmutable
+    {
+        $timezone = OrganisationBranch::withoutTenancy()
+            ->where('organisation_id', $item->organisation_id)
+            ->where('status', BranchStatus::Active->value)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->value('timezone');
+
+        return CarbonImmutable::now(is_string($timezone) && $timezone !== '' ? $timezone : (string) config('app.timezone', 'UTC'));
     }
 
     /**

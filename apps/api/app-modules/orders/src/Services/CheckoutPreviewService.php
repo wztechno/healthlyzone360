@@ -34,7 +34,7 @@ use Healthy360\Orders\Contracts\BuyerAllergenCheck;
  * has no transaction to abort and no order to refuse, so the same facts —
  * `cart_empty`, `address_missing`, `address_not_deliverable`,
  * `area_not_served`, `zone_suspended`, `currency_mismatch`,
- * `window_not_offered`, plus the line-probe vocabulary — come back as
+ * `window_not_offered`, what `OrderTimingRules` refuses, plus the line-probe vocabulary — come back as
  * `CheckoutPreviewResult::$warnings` inside an ordinary answer. Deliberately
  * the *same words* placement would refuse with: a customer taught one
  * vocabulary for "we don't deliver there" on the cart screen and a different
@@ -57,6 +57,7 @@ final readonly class CheckoutPreviewService
         private ZoneWindowService $zoneWindows,
         private SellerContext $seller,
         private BuyerAllergenCheck $allergens,
+        private OrderTimingRules $timing,
     ) {}
 
     /**
@@ -104,6 +105,28 @@ final readonly class CheckoutPreviewService
 
                 if ($offered !== null && $deliveryWindowCode !== null && ! in_array($deliveryWindowCode, $offered, true)) {
                     $warnings[] = 'window_not_offered';
+                }
+
+                if ($lines !== []) {
+                    // The same rules on the same day placement would ask about,
+                    // with a subtotal only when every line priced, as there.
+                    /** @var CarbonImmutable|null $day */
+                    $day = $requestedDate ?? collect($lines)->pluck('delivery_date')->filter()->first();
+
+                    $refusals = [
+                        ...$this->timing->refusals(
+                            $cart->organisation_id,
+                            $cart->branch_id,
+                            $zone,
+                            $day,
+                            $deliveryWindowCode,
+                            CarbonImmutable::now(),
+                            leadTime: true,
+                        ),
+                        ...($lineWarnings === [] ? $this->timing->minimumRefusals($zone, $subtotal, $cart->currency_code) : []),
+                    ];
+
+                    $warnings = [...$warnings, ...array_column($refusals, 'reason')];
                 }
 
                 return new CheckoutPreviewResult(

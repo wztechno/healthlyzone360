@@ -55,6 +55,13 @@ interface OrderSchedulingLookup
     public function explain(string $branchId, CarbonImmutable $requestedDate, CarbonImmutable $at): array;
 
     /**
+     * The timezone the branch's clock faces are read in, which is what makes
+     * "today" and "that window has ended" mean the same thing here and in the
+     * kitchen.
+     */
+    public function timezoneOf(string $branchId): string;
+
+    /**
      * The ISO weekdays (1 = Monday … 7 = Sunday) on which nothing is made — for
      * a standing arrangement that repeats by weekday, where no single date can
      * be asked about.

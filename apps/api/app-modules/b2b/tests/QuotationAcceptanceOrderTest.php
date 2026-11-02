@@ -13,10 +13,12 @@ use Healthy360\B2b\Services\QuotationService;
 use Healthy360\B2b\Tests\Fixtures\B2bCheckoutWorld;
 use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
 use Healthy360\Delivery\Models\DeliveryZone;
+use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
 use Healthy360\Orders\OrderDesk\Services\CalendarComposition;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
+use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\Support\Mail\NoticeMessage;
 use Illuminate\Support\Facades\Mail;
@@ -111,6 +113,31 @@ function acceptBody(mixed $test, string $window = 'midday'): array
         'delivery_window_code' => $window,
     ];
 }
+
+it('refuses an acceptance for a day the kitchen is shut, though the order names no branch', function (): void {
+    $quoted = quotedForAcceptance($this, unitMinor: 1500);
+
+    $branch = OrganisationBranch::withoutTenancy()
+        ->where('organisation_id', $this->world['seller']->organisation->getKey())
+        ->sole();
+
+    BranchOpeningHour::withoutTenancy()->create([
+        'organisation_id' => $branch->organisation_id,
+        'branch_id' => $branch->getKey(),
+        'weekday' => CarbonImmutable::parse($this->deliveryDate)->dayOfWeekIso,
+        'opens_at' => null,
+        'closes_at' => null,
+        'order_cut_off_at' => null,
+    ]);
+
+    $this->postJson(
+        "/api/v1/b2b/quotations/{$quoted->getKey()}/accept",
+        acceptBody($this),
+        $this->buyer['headers'] + ['If-Match' => '"'.$quoted->lock_version.'"'],
+    )
+        ->assertStatus(409)
+        ->assertJsonPath('error.details.reasons.0.reason', 'closed');
+});
 
 it('places the order at the quoted price when the buyer accepts, and the kitchen calendar shows it', function (): void {
     $quoted = quotedForAcceptance($this, unitMinor: 1500);
