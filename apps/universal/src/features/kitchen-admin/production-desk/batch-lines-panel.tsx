@@ -46,6 +46,8 @@ export interface BatchLinesPanelProps {
     readonly withOutcome: boolean;
     /** No hairline over the section: the first in its column. */
     readonly first?: boolean | undefined;
+    /** The table alone, with no heading or picker — under the batch page's Record lens. */
+    readonly bare?: boolean | undefined;
 }
 
 type LineColumn = ControlledColumn<ProductionOrderLine, CatalogueColumn<ProductionOrderLine>>;
@@ -56,6 +58,7 @@ export function BatchLinesPanel({
     costsVisible,
     withOutcome,
     first = false,
+    bare = false,
 }: BatchLinesPanelProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -231,6 +234,7 @@ export function BatchLinesPanel({
     return (
         <ProductionTable<ProductionOrderLine>
             first={first}
+            bare={bare}
             sectionTestID={testID}
             testID={`${testID}-table`}
             title={t('kitchen:ops.production.headingLines')}

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9191 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9195 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4891,6 +4891,7 @@ export interface NamespaceKeys {
     | 'ops.production.abandonedToast'
     | 'ops.production.actualCost'
     | 'ops.production.actualCostCaption'
+    | 'ops.production.actualCostFact'
     | 'ops.production.amountRequired'
     | 'ops.production.asPlanned'
     | 'ops.production.backToDesk'
@@ -4959,6 +4960,7 @@ export interface NamespaceKeys {
     | 'ops.production.emptyTitle'
     | 'ops.production.estimatedCost'
     | 'ops.production.estimatedCostCaption'
+    | 'ops.production.estimatedCostFact'
     | 'ops.production.estimatedLiveCaption'
     | 'ops.production.expiredBadge'
     | 'ops.production.expiredNotice'
@@ -4975,6 +4977,7 @@ export interface NamespaceKeys {
     | 'ops.production.headingPlan'
     | 'ops.production.headingRecord'
     | 'ops.production.headingYield'
+    | 'ops.production.historyLabel'
     | 'ops.production.labelBatchOf'
     | 'ops.production.labelCopies'
     | 'ops.production.lineKindIngredient'
@@ -5089,6 +5092,7 @@ export interface NamespaceKeys {
     | 'ops.production.stepsTitle'
     | 'ops.production.storageLocationLabel'
     | 'ops.production.storageLocationPlaceholder'
+    | 'ops.production.summaryLabel'
     | 'ops.production.summaryMakes'
     | 'ops.production.summaryPortions'
     | 'ops.production.summaryRuns'
@@ -14100,6 +14104,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.abandonedToast',
   'kitchen:ops.production.actualCost',
   'kitchen:ops.production.actualCostCaption',
+  'kitchen:ops.production.actualCostFact',
   'kitchen:ops.production.amountRequired',
   'kitchen:ops.production.asPlanned',
   'kitchen:ops.production.backToDesk',
@@ -14168,6 +14173,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.emptyTitle',
   'kitchen:ops.production.estimatedCost',
   'kitchen:ops.production.estimatedCostCaption',
+  'kitchen:ops.production.estimatedCostFact',
   'kitchen:ops.production.estimatedLiveCaption',
   'kitchen:ops.production.expiredBadge',
   'kitchen:ops.production.expiredNotice',
@@ -14184,6 +14190,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.headingPlan',
   'kitchen:ops.production.headingRecord',
   'kitchen:ops.production.headingYield',
+  'kitchen:ops.production.historyLabel',
   'kitchen:ops.production.labelBatchOf',
   'kitchen:ops.production.labelCopies',
   'kitchen:ops.production.lineKindIngredient',
@@ -14298,6 +14305,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.stepsTitle',
   'kitchen:ops.production.storageLocationLabel',
   'kitchen:ops.production.storageLocationPlaceholder',
+  'kitchen:ops.production.summaryLabel',
   'kitchen:ops.production.summaryMakes',
   'kitchen:ops.production.summaryPortions',
   'kitchen:ops.production.summaryRuns',

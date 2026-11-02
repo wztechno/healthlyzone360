@@ -1,6 +1,7 @@
 import { FormSection } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
@@ -45,6 +46,8 @@ export interface ProductionTableProps<Row> {
     readonly rowKey: (row: Row) => string;
     /** Drawn in place of the list, with no column picker, when there are no rows. */
     readonly empty?: ReactNode | undefined;
+    /** The list alone: no section, no heading, no picker. `title` still names it for a reader. */
+    readonly bare?: boolean | undefined;
 }
 
 export function ProductionTable<Row>(props: ProductionTableProps<Row>) {
@@ -78,8 +81,28 @@ export function ProductionTableSection<Row>({
     empty,
     controls,
     picker = false,
+    bare = false,
 }: ProductionTableSectionProps<Row>) {
     const { t } = useTranslation();
+
+    const list =
+        rows.length === 0 && empty !== undefined ? (
+            empty
+        ) : (
+            <CatalogueList<Row>
+                testID={testID}
+                label={title}
+                columns={controls.columns}
+                rows={controls.rows}
+                rowKey={rowKey}
+                density="sm"
+                rowActionsLabel={t('kitchen:list.rowActions')}
+            />
+        );
+
+    // The batch page's claimed lines sit straight under its Record lens, which already says what
+    // they are and how many: no heading, no picker.
+    if (bare) return <View testID={sectionTestID ?? `${testID}-section`}>{list}</View>;
 
     return (
         <FormSection
@@ -94,19 +117,7 @@ export function ProductionTableSection<Row>({
                 )
             }
         >
-            {rows.length === 0 && empty !== undefined ? (
-                empty
-            ) : (
-                <CatalogueList<Row>
-                    testID={testID}
-                    label={title}
-                    columns={controls.columns}
-                    rows={controls.rows}
-                    rowKey={rowKey}
-                    density="sm"
-                    rowActionsLabel={t('kitchen:list.rowActions')}
-                />
-            )}
+            {list}
         </FormSection>
     );
 }
