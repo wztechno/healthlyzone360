@@ -1799,7 +1799,7 @@ describe('the kitchen service timings', () => {
                 kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING },
                 staffAlerts: {
                     getServiceSettings: async () => TIMINGS,
-                    saveServiceSettings: async (saved) => saved,
+                    saveServiceSettings: async (saved) => ({ ...saved, pausedUntil: null }),
                 },
             },
         });
