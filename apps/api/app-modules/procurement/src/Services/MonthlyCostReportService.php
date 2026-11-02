@@ -522,8 +522,11 @@ final readonly class MonthlyCostReportService
 
     /**
      * Waste value by month and currency: Σ waste-movement cost, where one is
-     * present. Waste that carries no cost contributes nothing here and is
-     * surfaced through {@see wasteQuantityByMonth()} instead.
+     * present, plus what was cooked for orders cancelled as `wasted`. Those are
+     * dropped from COGS with every other cancelled order, and their deduction
+     * stands, so without this the cost would be counted nowhere. Waste that
+     * carries no cost contributes nothing here and is surfaced through
+     * {@see wasteQuantityByMonth()} instead.
      *
      * @return array<string, array<string, numeric-string>>
      */
@@ -541,7 +544,32 @@ final readonly class MonthlyCostReportService
 
         $this->boundMonths($query, "to_char(stock_movements.created_at, 'YYYY-MM')", $from, $to);
 
-        return $this->pivot($query->get());
+        $waste = $this->pivot($query->get());
+
+        $cancelled = StockMovement::query()
+            ->where('stock_movements.organisation_id', $organisationId)
+            ->where('stock_movements.reason', 'consume')
+            ->where('stock_movements.reference_type', 'order')
+            ->whereNotNull('stock_movements.cost_amount')
+            ->whereNotNull('stock_movements.cost_currency_code')
+            ->join('orders', 'orders.id', '=', DB::raw('stock_movements.reference_id::uuid'))
+            ->where('orders.organisation_id', $organisationId)
+            ->where('orders.cancellation_disposition', 'wasted')
+            ->whereNotExists(fn (QueryBuilder $reversal): QueryBuilder => $this->reversalOf($reversal))
+            ->selectRaw("to_char(stock_movements.created_at, 'YYYY-MM') as month")
+            ->selectRaw('stock_movements.cost_currency_code as currency')
+            ->selectRaw('SUM(stock_movements.cost_amount) as total')
+            ->groupBy('month', 'currency');
+
+        $this->boundMonths($cancelled, "to_char(stock_movements.created_at, 'YYYY-MM')", $from, $to);
+
+        foreach ($this->pivot($cancelled->get()) as $month => $amounts) {
+            foreach ($amounts as $currency => $amount) {
+                $waste[$month][$currency] = bcadd($waste[$month][$currency] ?? '0', $amount, self::SCALE);
+            }
+        }
+
+        return $waste;
     }
 
     /**

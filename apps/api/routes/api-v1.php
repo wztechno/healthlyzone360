@@ -203,6 +203,7 @@ use Healthy360\Ingredients\Http\Controllers\IngredientShowController;
 use Healthy360\Ingredients\Http\Controllers\IngredientStoreController;
 use Healthy360\Ingredients\Http\Controllers\IngredientUpdateController;
 use Healthy360\Ingredients\Http\Controllers\NutritionReferenceSearchController;
+use Healthy360\Audit\Http\Controllers\AuditActivityIndexController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionCountController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionIndexController;
 use Healthy360\Inventory\Http\Controllers\DuplicateStockIndexController;
@@ -211,6 +212,7 @@ use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionRetryController;
 use Healthy360\Inventory\Http\Controllers\OrderDeskRequirementsController;
 use Healthy360\Inventory\Http\Controllers\OrderDeskShortfallCountController;
 use Healthy360\Inventory\Http\Controllers\OrderDeskWeeklyCheckController;
+use Healthy360\Inventory\Http\Controllers\StockActivityIndexController;
 use Healthy360\Inventory\Http\Controllers\StockAdjustController;
 use Healthy360\Inventory\Http\Controllers\StockCountController;
 use Healthy360\Inventory\Http\Controllers\StockCountImportController;
@@ -1046,6 +1048,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             | suspended kitchen still has orders to finish, and the row carries
             | no `lock_version`.
             */
+            // The Activity page: read-only, for an owner investigating a number.
+            Route::middleware('permission:audit.view_organisation')->group(function (): void {
+                Route::get('/activity', AuditActivityIndexController::class)->name('catalogue.activity.index');
+                Route::get('/stock-activity', StockActivityIndexController::class)->name('catalogue.stock-activity.index');
+            });
+
             Route::get('/kitchen-service-settings', KitchenServiceSettingsShowController::class)->name('catalogue.kitchen-service-settings.show');
             Route::put('/kitchen-service-settings', KitchenServiceSettingsUpdateController::class)
                 ->middleware('permission:catalogue.manage_organisation')->name('catalogue.kitchen-service-settings.update');

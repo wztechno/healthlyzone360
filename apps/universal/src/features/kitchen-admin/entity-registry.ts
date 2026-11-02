@@ -101,6 +101,9 @@ export const ORDER_CREATE_ON_BEHALF_PERMISSION = 'order.create_on_behalf_organis
  */
 export const ORDER_SUPERVISE_PERMISSION = 'order.supervise_organisation';
 
+/** The kitchen's audit trail, on the Activity page. */
+export const AUDIT_VIEW_PERMISSION = 'audit.view_organisation';
+
 /** Counting what drivers and couriers hand in. The cashier's and the managers' above them. */
 export const ORDER_SETTLE_CASH_PERMISSION = 'order.settle_cash_organisation';
 
@@ -695,6 +698,18 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // procurement, production and QC all exist to answer what this list is asking for.
         permission: ORDER_VIEW_PERMISSION,
         managePermission: ORDER_MANAGE_PERMISSION,
+    },
+    {
+        key: 'activity',
+        kind: 'workbench',
+        group: 'operations',
+        nameKey: 'kitchen:families.activity.name',
+        descriptionKey: 'kitchen:families.activity.description',
+        icon: 'scrollText',
+        href: '/kitchen/activity',
+        permission: AUDIT_VIEW_PERMISSION,
+        // Read-only: nothing here writes, by design.
+        managePermission: null,
     },
     {
         key: 'stock',

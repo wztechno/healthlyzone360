@@ -131,12 +131,64 @@ export interface StockMovement {
     readonly reason: StockMovementReason;
 }
 
+/** One row of the ledger on the Activity page. */
+export interface StockActivityMovement {
+    readonly id: string;
+    readonly at: IsoDateTime;
+    readonly itemName: string;
+    readonly unit: string;
+    readonly reason: StockMovementReason;
+    readonly quantityDelta: string;
+    /** `null` when nothing valued it, which is never the same as free. */
+    readonly costMinor: number | null;
+    readonly currencyCode: CurrencyCode | null;
+    readonly notes: string | null;
+    readonly orderNumber: string | null;
+    /** A deduction for an order cancelled as wasted. */
+    readonly wastedOrder: boolean;
+    /** `false` on a row from before the actor column, or made by a job. */
+    readonly attributed: boolean;
+    readonly actorName: string | null;
+}
+
+export interface StockActivity {
+    readonly movements: readonly StockActivityMovement[];
+    /** Waste movements and wasted orders, per currency. */
+    readonly waste: readonly { readonly currencyCode: CurrencyCode; readonly amountMinor: number }[];
+    /** Waste with no cost to add, so a total is never read as complete when it is not. */
+    readonly unvaluedWasteCount: number;
+    readonly truncated: boolean;
+}
+
+/** One row of the audit trail. */
+export interface ActivityEntry {
+    readonly id: string;
+    readonly at: IsoDateTime;
+    readonly action: string;
+    readonly actorName: string | null;
+    readonly subjectType: string;
+    readonly orderNumber: string | null;
+    readonly metadata: Readonly<Record<string, unknown>>;
+}
+
+export interface ActivityPage {
+    readonly entries: readonly ActivityEntry[];
+    readonly truncated: boolean;
+}
+
+/** A window of whole UTC days, at most 31. */
+export interface ActivityWindow {
+    readonly from: string;
+    readonly to: string;
+}
+
 export interface StockAdjustmentRequest {
     readonly branchId: BranchId;
     readonly stockItemId: StockItemId;
     /** Signed: a correction that raises the level is positive, one that lowers it is negative. */
     readonly quantityDelta: number;
-    readonly notes?: string | null | undefined;
+    /** Why. The server refuses a movement without one. */
+    readonly notes: string;
 }
 
 export interface StockWasteRequest {
@@ -144,7 +196,8 @@ export interface StockWasteRequest {
     readonly stockItemId: StockItemId;
     /** Always positive; the server signs it negative on the ledger. */
     readonly quantity: number;
-    readonly notes?: string | null | undefined;
+    /** Why. The server refuses waste without one. */
+    readonly notes: string;
 }
 
 /** A stock count: what the shelf holds. The server posts the difference from the ledger. */
@@ -2191,6 +2244,8 @@ export interface KitchenOpsRepository {
     listStockLevels(): Promise<readonly StockLevel[]>;
     recordStockAdjustment(request: StockAdjustmentRequest): Promise<StockMovement>;
     recordStockWaste(request: StockWasteRequest): Promise<StockMovement>;
+    getStockActivity(window: ActivityWindow): Promise<StockActivity>;
+    getActivity(window: ActivityWindow): Promise<ActivityPage>;
     /** Sets the shelf to what was counted; the movement carries the difference. */
     recordStockCount(request: StockCountRequest): Promise<StockMovement>;
     /** Sets or clears a level's reorder threshold; returns the updated level with its computed `isLow`. */

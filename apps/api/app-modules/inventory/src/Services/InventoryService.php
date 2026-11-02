@@ -7,8 +7,11 @@ namespace Healthy360\Inventory\Services;
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Inventory\Exceptions\InsufficientStock;
 use Healthy360\Inventory\Jobs\RetryOpenConsumptionExceptions;
+use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockMovement;
+use Healthy360\ReferenceData\Models\MeasurementUnit;
+use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
@@ -43,6 +46,8 @@ final readonly class InventoryService
     public function __construct(
         private ReservationService $reservations,
         private AuditRecorder $audit,
+        private ConsumptionValuation $valuation,
+        private TenantContext $context,
     ) {}
 
     /**
@@ -155,7 +160,50 @@ final readonly class InventoryService
                 'unit_cost_amount' => $unitCostAmount,
                 'cost_amount' => $costAmount,
                 'cost_currency_code' => $costCurrencyCode,
+                // Here because this is the one path, so nothing can forget it. Null
+                // for a job with nobody signed in.
+                'actor_user_id' => $this->context->userId(),
             ]);
+        });
+    }
+
+    /**
+     * Food thrown away, valued as a confirmed order values what it eats, so the
+     * month's waste has a figure and the basis comes down with the shelf. Left
+     * unvalued, never free, when no cost is held.
+     *
+     * @param  numeric-string  $quantity  positive; the ledger records it negative
+     *
+     * @throws InsufficientStock when it would take more than is on hand
+     */
+    public function recordWaste(string $organisationId, string $branchId, string $stockItemId, string $quantity, string $notes): StockMovement
+    {
+        $item = StockItem::withoutTenancy()->where('organisation_id', $organisationId)->whereKey($stockItemId)->first();
+        $unit = $item?->unit_id === null ? null : MeasurementUnit::query()->find($item->unit_id);
+
+        $valued = $item?->ingredient_id !== null && $unit instanceof MeasurementUnit
+            ? $this->valuation->value($organisationId, $item->ingredient_id, $unit, $quantity)
+            : null;
+        $figures = is_array($valued) ? $valued : null;
+
+        return DB::transaction(function () use ($organisationId, $branchId, $stockItemId, $quantity, $notes, $figures): StockMovement {
+            $movement = $this->recordMovement(
+                $organisationId,
+                $branchId,
+                $stockItemId,
+                'waste',
+                '-'.$quantity,
+                notes: $notes,
+                unitCostAmount: $figures['unit_cost_amount'] ?? null,
+                costAmount: $figures['cost_amount'] ?? null,
+                costCurrencyCode: $figures['currency_code'] ?? null,
+            );
+
+            if ($figures !== null) {
+                $this->valuation->lowerBasis($figures['cost_id'], $figures['quantity_in_cost_unit']);
+            }
+
+            return $movement;
         });
     }
 
@@ -188,7 +236,7 @@ final readonly class InventoryService
             $level = $this->lockLevel($organisationId, $branchId, $stockItemId);
             $delta = bcsub($counted, $this->numeric((string) $level->quantity), self::SCALE);
 
-            return $this->recordMovement($organisationId, $branchId, $stockItemId, 'adjust', $delta, notes: $notes);
+            return $this->recordMovement($organisationId, $branchId, $stockItemId, 'adjust', $delta, notes: $notes ?? 'Stock count');
         });
     }
 

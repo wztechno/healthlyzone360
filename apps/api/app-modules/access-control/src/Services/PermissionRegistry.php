@@ -1035,12 +1035,8 @@ final class PermissionRegistry
              * publish code stay absent.
              *
              * `audit.view_organisation` is the one code no other operating role
-             * holds, and it opens nothing today: no route is gated on it. That
-             * is how this registry has always treated a proposal —
-             * `subscription.view_organisation` "had no endpoint until the
-             * schedule projection" and was granted before it did — and a
-             * finance function that cannot read who changed what is not a
-             * finance function.
+             * holds, and it opens the Activity page: a finance function that
+             * cannot read who changed what is not a finance function.
              *
              * **`order.manage_organisation` stops here, and it costs something
              * real.** Granting it would let finance cancel somebody's dinner,

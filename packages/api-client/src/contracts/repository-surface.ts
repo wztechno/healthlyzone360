@@ -345,6 +345,8 @@ export const REPOSITORY_SURFACE = {
         'recordStockAdjustment',
         'recordStockCount',
         'recordStockWaste',
+        'getStockActivity',
+        'getActivity',
         'releaseQualityCheck',
         'removeIngredientBarcode',
         'replaceSupplierContacts',

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9471 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9498 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3911,6 +3911,8 @@ export interface NamespaceKeys {
     | 'editor.stepCounter'
     | 'editor.stepsLabel'
     | 'editor.unsaved'
+    | 'families.activity.description'
+    | 'families.activity.name'
     | 'families.allergenClasses.description'
     | 'families.allergenClasses.name'
     | 'families.analytics.description'
@@ -4459,6 +4461,30 @@ export interface NamespaceKeys {
     | 'nutritionLookup.tryShorter'
     | 'nutritionLookup.unavailable'
     | 'nutritionLookup.unsuitable'
+    | 'ops.activity.columnAction'
+    | 'ops.activity.columnActor'
+    | 'ops.activity.columnDetails'
+    | 'ops.activity.columnItem'
+    | 'ops.activity.columnOrder'
+    | 'ops.activity.columnQuantity'
+    | 'ops.activity.columnReason'
+    | 'ops.activity.columnValue'
+    | 'ops.activity.columnWhen'
+    | 'ops.activity.emptyTitle'
+    | 'ops.activity.loadErrorTitle'
+    | 'ops.activity.reason.adjust'
+    | 'ops.activity.reason.consume'
+    | 'ops.activity.reason.receipt'
+    | 'ops.activity.reason.waste'
+    | 'ops.activity.reason.yield'
+    | 'ops.activity.truncated'
+    | 'ops.activity.unattributed'
+    | 'ops.activity.unvalued'
+    | 'ops.activity.view.audit'
+    | 'ops.activity.view.stock'
+    | 'ops.activity.wasteHeading'
+    | 'ops.activity.wasteNone'
+    | 'ops.activity.wastedOrder'
     | 'ops.batch.awaitingTarget'
     | 'ops.batch.baseTimes'
     | 'ops.batch.baseTimesWithWaste'
@@ -5662,6 +5688,7 @@ export interface NamespaceKeys {
     | 'ops.stock.fieldCountedQuantity'
     | 'ops.stock.fieldNotes'
     | 'ops.stock.fieldNotesPlaceholder'
+    | 'ops.stock.fieldNotesRequired'
     | 'ops.stock.fieldParLevel'
     | 'ops.stock.fieldThreshold'
     | 'ops.stock.filteredEmptyBody'
@@ -13400,6 +13427,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:editor.stepCounter',
   'kitchen:editor.stepsLabel',
   'kitchen:editor.unsaved',
+  'kitchen:families.activity.description',
+  'kitchen:families.activity.name',
   'kitchen:families.allergenClasses.description',
   'kitchen:families.allergenClasses.name',
   'kitchen:families.analytics.description',
@@ -13948,6 +13977,30 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:nutritionLookup.tryShorter',
   'kitchen:nutritionLookup.unavailable',
   'kitchen:nutritionLookup.unsuitable',
+  'kitchen:ops.activity.columnAction',
+  'kitchen:ops.activity.columnActor',
+  'kitchen:ops.activity.columnDetails',
+  'kitchen:ops.activity.columnItem',
+  'kitchen:ops.activity.columnOrder',
+  'kitchen:ops.activity.columnQuantity',
+  'kitchen:ops.activity.columnReason',
+  'kitchen:ops.activity.columnValue',
+  'kitchen:ops.activity.columnWhen',
+  'kitchen:ops.activity.emptyTitle',
+  'kitchen:ops.activity.loadErrorTitle',
+  'kitchen:ops.activity.reason.adjust',
+  'kitchen:ops.activity.reason.consume',
+  'kitchen:ops.activity.reason.receipt',
+  'kitchen:ops.activity.reason.waste',
+  'kitchen:ops.activity.reason.yield',
+  'kitchen:ops.activity.truncated',
+  'kitchen:ops.activity.unattributed',
+  'kitchen:ops.activity.unvalued',
+  'kitchen:ops.activity.view.audit',
+  'kitchen:ops.activity.view.stock',
+  'kitchen:ops.activity.wasteHeading',
+  'kitchen:ops.activity.wasteNone',
+  'kitchen:ops.activity.wastedOrder',
   'kitchen:ops.batch.awaitingTarget',
   'kitchen:ops.batch.baseTimes',
   'kitchen:ops.batch.baseTimesWithWaste',
@@ -15151,6 +15204,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.fieldCountedQuantity',
   'kitchen:ops.stock.fieldNotes',
   'kitchen:ops.stock.fieldNotesPlaceholder',
+  'kitchen:ops.stock.fieldNotesRequired',
   'kitchen:ops.stock.fieldParLevel',
   'kitchen:ops.stock.fieldThreshold',
   'kitchen:ops.stock.filteredEmptyBody',

@@ -500,7 +500,8 @@
             "countInvalid": "Enter what you counted — zero or more.",
             "exceedsShelf": "Only {{amount}} is on the shelf. If there is really more, post a Count first, then try again.",
             "parNotAboveThreshold": "The restock level must be above the reorder threshold.",
-            "notStocked": "Not stocked"
+            "notStocked": "Not stocked",
+            "fieldNotesRequired": "Why"
         },
         "supplyOrders": {
             "cancelFailed": "The order could not be cancelled.",
@@ -1867,6 +1868,37 @@
             "savedToast": "Hand-in recorded.",
             "saveError": "The hand-in was not recorded.",
             "loadErrorTitle": "The cash waiting to be settled could not be loaded."
+        },
+        "activity": {
+            "view": {
+                "stock": "Stock movements",
+                "audit": "Audit trail"
+            },
+            "columnWhen": "When",
+            "columnItem": "Item",
+            "columnReason": "Reason",
+            "columnQuantity": "Quantity",
+            "columnValue": "Value",
+            "columnActor": "Who",
+            "columnAction": "What happened",
+            "columnOrder": "Order",
+            "columnDetails": "Details",
+            "reason": {
+                "adjust": "Adjustment",
+                "waste": "Waste",
+                "receipt": "Delivery received",
+                "consume": "Used for an order",
+                "yield": "Batch yield"
+            },
+            "unattributed": "Unattributed",
+            "wastedOrder": "Wasted when order {{number}} was cancelled",
+            "wasteHeading": "Waste in this period",
+            "wasteNone": "No valued waste in this period.",
+            "unvalued_one": "1 waste entry has no cost held, so it adds nothing here.",
+            "unvalued_other": "{{count}} waste entries have no cost held, so they add nothing here.",
+            "emptyTitle": "Nothing was recorded in this period.",
+            "truncated": "Showing the newest 500. Narrow the dates to see the rest.",
+            "loadErrorTitle": "The activity could not be loaded."
         }
     },
     "kds": {
@@ -2546,6 +2578,10 @@
         "orderSettlement": {
             "name": "Settle cash",
             "description": "Cash handed in by drivers and couriers, and any short amount for a manager to sign."
+        },
+        "activity": {
+            "name": "Activity",
+            "description": "Who moved the stock, what the waste cost, and everything the audit trail recorded."
         }
     },
     "analytics": {
@@ -4852,11 +4888,26 @@
         "goLiveError": "The kitchen could not go live",
         "liveToast": "The kitchen is open for orders.",
         "step": {
-            "hours": { "title": "Opening hours", "body": "Say when this branch trades and when orders close." },
-            "delivery": { "title": "Delivery", "body": "An active zone with at least one delivery window." },
-            "menu": { "title": "Menu", "body": "At least one published dish or product." },
-            "prices": { "title": "Prices", "body": "At least one active price list." },
-            "team": { "title": "Team", "body": "Add the people who work here. Optional before going live." }
+            "hours": {
+                "title": "Opening hours",
+                "body": "Say when this branch trades and when orders close."
+            },
+            "delivery": {
+                "title": "Delivery",
+                "body": "An active zone with at least one delivery window."
+            },
+            "menu": {
+                "title": "Menu",
+                "body": "At least one published dish or product."
+            },
+            "prices": {
+                "title": "Prices",
+                "body": "At least one active price list."
+            },
+            "team": {
+                "title": "Team",
+                "body": "Add the people who work here. Optional before going live."
+            }
         }
     },
     "branchClosures": {

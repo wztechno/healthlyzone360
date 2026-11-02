@@ -438,6 +438,9 @@ export const queryKeys = {
     kitchenOps: {
         all: () => ['kitchenOps'] as const,
         stockItems: () => ['kitchenOps', 'stock-items'] as const,
+        activity: (filter?: QueryScope) => ['kitchenOps', 'activity', scope(filter)] as const,
+        stockActivity: (filter?: QueryScope) =>
+            ['kitchenOps', 'stock-activity', scope(filter)] as const,
         /**
          * Keyed on the branch: the server narrows the levels through `X-Branch-Id`, and nothing
          * clears the cache when the picker switches branch, so without the branch in the key the

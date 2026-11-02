@@ -1,5 +1,8 @@
 import type {
+    ActivityPage,
+    ActivityWindow,
     AddIngredientBarcodeRequest,
+    StockActivity,
     BarcodeScan,
     GoodsReceiptFilter,
     IngredientBarcode,
@@ -218,6 +221,34 @@ export function useRecordStockAdjustmentMutation(): UseMutationResult<
         mutationFn: (request: StockAdjustmentRequest) =>
             repositories.kitchenOps.recordStockAdjustment(request),
         onSuccess: onWritten,
+    });
+}
+
+/** The Activity page's ledger view. */
+export function useStockActivityQuery(window: ActivityWindow): UseQueryResult<StockActivity> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.stockActivity(window),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.getStockActivity(window);
+        },
+    });
+}
+
+/** The Activity page's audit view. */
+export function useActivityQuery(window: ActivityWindow): UseQueryResult<ActivityPage> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.activity(window),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.getActivity(window);
+        },
     });
 }
 

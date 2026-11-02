@@ -5162,6 +5162,24 @@ export const zConsumptionExceptionRetryEnvelope = z.object({
     meta: zMeta
 });
 
+export const zKitchenSetupEnvelope = z.object({
+    data: z.object({
+        is_live: z.boolean(),
+        steps: z.array(z.object({
+            key: z.enum([
+                'hours',
+                'delivery',
+                'menu',
+                'prices',
+                'team'
+            ]),
+            done: z.boolean(),
+            required: z.boolean()
+        }))
+    }),
+    meta: z.record(z.string(), z.unknown())
+});
+
 export const zBranchClosure = z.object({
     id: z.uuid(),
     closed_from: z.iso.date(),
@@ -6547,6 +6565,59 @@ export const zOrderDeskSettlementsEnvelope = z.object({
         settlements: z.array(zCashSettlement)
     }),
     meta: zMeta
+});
+
+export const zKitchenActivityEntry = z.object({
+    id: z.string(),
+    at: z.iso.datetime({ offset: true }),
+    action: z.string(),
+    actor_name: z.string().nullable(),
+    subject_type: z.string(),
+    order_number: z.string().nullable(),
+    metadata: z.record(z.string(), z.unknown())
+});
+
+export const zKitchenActivityEnvelope = z.object({
+    data: z.array(zKitchenActivityEntry),
+    meta: zMeta.and(z.object({
+        truncated: z.boolean()
+    }))
+});
+
+export const zStockActivityMovement = z.object({
+    id: zUuid,
+    at: z.iso.datetime({ offset: true }),
+    item_name: z.string(),
+    unit: z.string(),
+    reason: z.enum([
+        'adjust',
+        'waste',
+        'receipt',
+        'consume',
+        'yield'
+    ]),
+    quantity_delta: z.string(),
+    cost_minor: z.int().nullable(),
+    currency_code: z.string().nullable(),
+    notes: z.string().nullable(),
+    order_number: z.string().nullable(),
+    wasted_order: z.boolean(),
+    attributed: z.boolean(),
+    actor_name: z.string().nullable()
+});
+
+export const zStockActivityEnvelope = z.object({
+    data: z.object({
+        movements: z.array(zStockActivityMovement),
+        waste: z.array(z.object({
+            currency_code: z.string(),
+            amount_minor: z.int()
+        })),
+        unvalued_waste_count: z.int().gte(0)
+    }),
+    meta: zMeta.and(z.object({
+        truncated: z.boolean()
+    }))
 });
 
 export const zOrderDeskCashReportAdjustment = z.object({
@@ -13522,6 +13593,26 @@ export const zRemoveBranchClosurePath = z.object({
  */
 export const zRemoveBranchClosureResponse = z.void();
 
+export const zGetKitchenSetupHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The checklist.
+ */
+export const zGetKitchenSetupResponse = zKitchenSetupEnvelope;
+
+export const zGoLiveKitchenHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The checklist, now live.
+ */
+export const zGoLiveKitchenResponse = zKitchenSetupEnvelope;
+
 export const zCreateKitchenBranchBody = z.object({
     name: z.string().max(160),
     city: z.string().max(120).nullish(),
@@ -15440,6 +15531,36 @@ export const zListOrderDeskDriversHeaders = z.object({
  * This organisation's active members, named where a name exists.
  */
 export const zListOrderDeskDriversResponse = zOrderDeskDriversEnvelope;
+
+export const zGetKitchenActivityHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetKitchenActivityQuery = z.object({
+    from: z.iso.date(),
+    to: z.iso.date()
+});
+
+/**
+ * The trail.
+ */
+export const zGetKitchenActivityResponse = zKitchenActivityEnvelope;
+
+export const zGetStockActivityHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetStockActivityQuery = z.object({
+    from: z.iso.date(),
+    to: z.iso.date()
+});
+
+/**
+ * The movements.
+ */
+export const zGetStockActivityResponse = zStockActivityEnvelope;
 
 export const zGetOrderDeskSettlementsHeaders = z.object({
     'X-Organisation-Id': zUuid,

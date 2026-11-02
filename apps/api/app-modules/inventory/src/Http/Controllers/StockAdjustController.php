@@ -18,7 +18,7 @@ final class StockAdjustController
             'branch_id' => ['required', 'uuid'],
             'stock_item_id' => ['required', 'uuid'],
             'quantity_delta' => ['required', 'numeric'],
-            'notes' => ['nullable', 'string', 'max:255'],
+            'notes' => ['required', 'string', 'max:255'],
         ]);
 
         $movement = $inventory->recordMovement(
@@ -27,7 +27,7 @@ final class StockAdjustController
             $validated['stock_item_id'],
             'adjust',
             (string) $validated['quantity_delta'],
-            notes: $validated['notes'] ?? null,
+            notes: $validated['notes'],
         );
 
         return ApiResponse::data(['movement' => [

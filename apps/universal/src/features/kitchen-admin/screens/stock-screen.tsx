@@ -1294,6 +1294,9 @@ function StockMovementEditor({
         (direction === 'decrease' || direction === 'waste') &&
         movementMagnitude > onHand;
 
+    // Every adjustment and every waste says why. A count's reason is that it is a count.
+    const reasonMissing = hasMovement && !isCount && notes.trim() === '';
+
     const canSave =
         branchId !== null &&
         !thresholdInvalid &&
@@ -1301,6 +1304,7 @@ function StockMovementEditor({
         !parNotAbove &&
         !quantityInvalid &&
         !exceedsShelf &&
+        !reasonMissing &&
         (thresholdChanged || hasMovement);
 
     // What the posted movement adds to the shelf: increase is positive, decrease and waste take
@@ -1344,13 +1348,13 @@ function StockMovementEditor({
                     parLevel: parMagnitude,
                 });
             }
-            const note = notes.trim() === '' ? null : notes.trim();
+            const note = notes.trim();
             if (movementMagnitude !== null && hasMovement && isCount) {
                 await count.mutateAsync({
                     branchId,
                     stockItemId: row.item.id,
                     countedQuantity: movementMagnitude,
-                    notes: note,
+                    notes: note === '' ? null : note,
                 });
             } else if (movementMagnitude !== null && hasMovement && direction === 'waste') {
                 await waste.mutateAsync({
@@ -1602,7 +1606,12 @@ function StockMovementEditor({
                                 <TextInputField
                                     testID="kitchen-stock-movement-notes"
                                     span={2}
-                                    label={t('kitchen:ops.stock.fieldNotes')}
+                                    label={t(
+                                        isCount
+                                            ? 'kitchen:ops.stock.fieldNotes'
+                                            : 'kitchen:ops.stock.fieldNotesRequired',
+                                    )}
+                                    required={!isCount}
                                     placeholder={t('kitchen:ops.stock.fieldNotesPlaceholder')}
                                     value={notes}
                                     onChangeText={edit(setNotes)}

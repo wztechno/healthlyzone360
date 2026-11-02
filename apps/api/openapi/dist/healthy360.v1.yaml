@@ -8767,6 +8767,69 @@ paths:
           $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /kitchen/setup:
+    get:
+      operationId: getKitchenSetup
+      tags:
+        - Kitchen operations
+      summary: The steps before a new kitchen takes orders
+      description: |
+        Each step is read off the records themselves. `is_live` is false only
+        for a kitchen created since the gate shipped and not yet opened; such a
+        kitchen refuses customers with `kitchen_not_open` and warns the desk.
+
+        Requires `branch.view_current`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The checklist.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenSetupEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /kitchen/setup/go-live:
+    post:
+      operationId: goLiveKitchen
+      tags:
+        - Kitchen operations
+      summary: Open the kitchen for customer orders
+      description: |
+        Refused with `422` while a required step is unfinished. Idempotent and
+        audited.
+
+        Requires `organisation.update_current`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The checklist, now live.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenSetupEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /kitchen/branches:
     post:
       operationId: createKitchenBranch
@@ -16398,6 +16461,98 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/activity:
+    get:
+      operationId: getKitchenActivity
+      tags:
+        - Kitchen orders
+      summary: The kitchen's audit trail
+      description: |
+        Newest first, at most 500 rows, with `meta.truncated`. A window of at most
+        31 UTC days. Read-only. Requires `audit.view_organisation`.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The trail.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenActivityEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/stock-activity:
+    get:
+      operationId: getStockActivity
+      tags:
+        - Kitchen orders
+      summary: Every stock movement, who made it and what it was worth
+      description: |
+        Newest first, at most 500 rows, with `meta.truncated`. `waste` totals waste
+        movements and what was cooked for orders cancelled as `wasted`, per
+        currency; `unvalued_waste_count` says how many had no cost to add. A row
+        with `attributed: false` predates the actor column or was made by a job.
+        A window of at most 31 UTC days. Read-only. Requires
+        `audit.view_organisation`.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The movements.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockActivityEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /catalogue/order-desk/settlements:
@@ -40862,6 +41017,43 @@ components:
                 $ref: '#/components/schemas/ConsumptionException'
         meta:
           $ref: '#/components/schemas/Meta'
+    KitchenSetupEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - is_live
+            - steps
+          properties:
+            is_live:
+              type: boolean
+            steps:
+              type: array
+              items:
+                type: object
+                required:
+                  - key
+                  - done
+                  - required
+                properties:
+                  key:
+                    type: string
+                    enum:
+                      - hours
+                      - delivery
+                      - menu
+                      - prices
+                      - team
+                  done:
+                    type: boolean
+                  required:
+                    type: boolean
+        meta:
+          type: object
     BranchClosure:
       type: object
       required:
@@ -45063,6 +45255,158 @@ components:
                 $ref: '#/components/schemas/CashSettlement'
         meta:
           $ref: '#/components/schemas/Meta'
+    KitchenActivityEntry:
+      type: object
+      required:
+        - id
+        - at
+        - action
+        - actor_name
+        - subject_type
+        - order_number
+        - metadata
+      properties:
+        id:
+          type: string
+        at:
+          type: string
+          format: date-time
+        action:
+          type: string
+        actor_name:
+          type:
+            - string
+            - 'null'
+        subject_type:
+          type: string
+        order_number:
+          type:
+            - string
+            - 'null'
+        metadata:
+          type: object
+          additionalProperties: true
+    KitchenActivityEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/KitchenActivityEntry'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required:
+                - truncated
+              properties:
+                truncated:
+                  type: boolean
+    StockActivityMovement:
+      type: object
+      required:
+        - id
+        - at
+        - item_name
+        - unit
+        - reason
+        - quantity_delta
+        - cost_minor
+        - currency_code
+        - notes
+        - order_number
+        - wasted_order
+        - attributed
+        - actor_name
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        at:
+          type: string
+          format: date-time
+        item_name:
+          type: string
+        unit:
+          type: string
+        reason:
+          type: string
+          enum:
+            - adjust
+            - waste
+            - receipt
+            - consume
+            - yield
+        quantity_delta:
+          type: string
+        cost_minor:
+          type:
+            - integer
+            - 'null'
+        currency_code:
+          type:
+            - string
+            - 'null'
+        notes:
+          type:
+            - string
+            - 'null'
+        order_number:
+          type:
+            - string
+            - 'null'
+        wasted_order:
+          type: boolean
+          description: A deduction for an order cancelled as wasted.
+        attributed:
+          type: boolean
+        actor_name:
+          type:
+            - string
+            - 'null'
+    StockActivityEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - movements
+            - waste
+            - unvalued_waste_count
+          properties:
+            movements:
+              type: array
+              items:
+                $ref: '#/components/schemas/StockActivityMovement'
+            waste:
+              type: array
+              items:
+                type: object
+                required:
+                  - currency_code
+                  - amount_minor
+                properties:
+                  currency_code:
+                    type: string
+                  amount_minor:
+                    type: integer
+            unvalued_waste_count:
+              type: integer
+              minimum: 0
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required:
+                - truncated
+              properties:
+                truncated:
+                  type: boolean
     OrderDeskCashReportAdjustment:
       type: object
       required:

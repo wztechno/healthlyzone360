@@ -12,6 +12,7 @@ import {
     SupplierId,
     UserId,
 } from '@healthy360/domain-types';
+import type { CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
 import type { CursorPage } from '../contracts/pagination.ts';
 import type {
@@ -110,6 +111,8 @@ import type {
     UpsertSupplierLinkRequest,
 } from '../contracts/kitchen-ops.ts';
 import type {
+    KitchenActivityEnvelope,
+    StockActivityEnvelope,
     ConsumptionException as WireConsumptionException,
     GoodsReceipt as WireGoodsReceipt,
     GoodsReceiptDetail as WireGoodsReceiptDetail,
@@ -1261,6 +1264,58 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                 },
             });
             return mapStockMovement(envelope.data.movement);
+        },
+
+        async getStockActivity(window: ActivityWindow): Promise<StockActivity> {
+            const envelope = await transport.requestEnvelope<StockActivityEnvelope['data']>({
+                method: 'GET',
+                path: `/catalogue/stock-activity?from=${window.from}&to=${window.to}`,
+            });
+            const { movements, waste, unvalued_waste_count: unvaluedWasteCount } = envelope.data;
+
+            return {
+                movements: movements.map((row) => ({
+                    id: row.id,
+                    at: row.at as IsoDateTime,
+                    itemName: row.item_name,
+                    unit: row.unit,
+                    reason: row.reason,
+                    quantityDelta: row.quantity_delta,
+                    costMinor: row.cost_minor,
+                    currencyCode: row.currency_code as CurrencyCode | null,
+                    notes: row.notes,
+                    orderNumber: row.order_number,
+                    wastedOrder: row.wasted_order,
+                    attributed: row.attributed,
+                    actorName: row.actor_name,
+                })),
+                waste: waste.map((total) => ({
+                    currencyCode: total.currency_code as CurrencyCode,
+                    amountMinor: total.amount_minor,
+                })),
+                unvaluedWasteCount,
+                truncated: (envelope.meta as StockActivityEnvelope['meta']).truncated,
+            };
+        },
+
+        async getActivity(window: ActivityWindow): Promise<ActivityPage> {
+            const envelope = await transport.requestEnvelope<KitchenActivityEnvelope['data']>({
+                method: 'GET',
+                path: `/catalogue/activity?from=${window.from}&to=${window.to}`,
+            });
+
+            return {
+                entries: envelope.data.map((row) => ({
+                    id: row.id,
+                    at: row.at as IsoDateTime,
+                    action: row.action,
+                    actorName: row.actor_name,
+                    subjectType: row.subject_type,
+                    orderNumber: row.order_number,
+                    metadata: row.metadata,
+                })),
+                truncated: (envelope.meta as KitchenActivityEnvelope['meta']).truncated,
+            };
         },
 
         async recordStockWaste(request: StockWasteRequest): Promise<StockMovement> {

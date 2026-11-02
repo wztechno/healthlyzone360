@@ -49,6 +49,7 @@ it('lists stock levels enriched with the item code, name and ingredient, and rec
         'branch_id' => (string) $this->branch->getKey(),
         'stock_item_id' => (string) $item->getKey(),
         'quantity_delta' => 10,
+        'notes' => 'Counted',
     ], $this->headers)->assertCreated();
 
     expect(StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->value('quantity'))->toBe('10.0000');
@@ -85,6 +86,7 @@ it('narrows stock levels to the branch the request names, and reads org-wide wit
             'branch_id' => (string) $branch->getKey(),
             'stock_item_id' => (string) $item->getKey(),
             'quantity_delta' => $delta,
+            'notes' => 'Counted',
         ], $this->headers)->assertCreated();
     }
 
@@ -119,6 +121,7 @@ it('defaults a branch-scoped member to its own branch\'s levels when no header i
             'branch_id' => (string) $branch->getKey(),
             'stock_item_id' => (string) $item->getKey(),
             'quantity_delta' => 3,
+            'notes' => 'Counted',
         ], $this->headers)->assertCreated();
     }
 
@@ -148,12 +151,14 @@ it('records waste as a negative movement', function (): void {
         'branch_id' => (string) $this->branch->getKey(),
         'stock_item_id' => (string) $item->getKey(),
         'quantity_delta' => 5,
+        'notes' => 'Counted',
     ], $this->headers)->assertCreated();
 
     $this->postJson('/api/v1/catalogue/inventory/waste', [
         'branch_id' => (string) $this->branch->getKey(),
         'stock_item_id' => (string) $item->getKey(),
         'quantity' => 3,
+        'notes' => 'Dropped',
     ], $this->headers)->assertCreated()
         ->assertJsonPath('data.movement.quantity_delta', '-3.0000');
 });
@@ -166,18 +171,18 @@ it('refuses waste or a decrease that would take the shelf below zero, and posts 
     ]);
     $shelf = ['branch_id' => (string) $this->branch->getKey(), 'stock_item_id' => (string) $item->getKey()];
 
-    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => 2], $this->headers)->assertCreated();
+    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => 2, 'notes' => 'Counted'], $this->headers)->assertCreated();
 
-    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => 2.5], $this->headers)
+    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => 2.5, 'notes' => 'Dropped'], $this->headers)
         ->assertStatus(409)
         ->assertJsonPath('error.code', 'inventory.insufficient_stock');
-    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => -2.5], $this->headers)
+    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => -2.5, 'notes' => 'Counted'], $this->headers)
         ->assertStatus(409);
 
     expect(StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->value('quantity'))->toBe('2.0000');
 
     // Exactly what is on the shelf is fine: it empties, it does not go under.
-    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => 2], $this->headers)->assertCreated();
+    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => 2, 'notes' => 'Dropped'], $this->headers)->assertCreated();
 
     expect(StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->value('quantity'))->toBe('0.0000');
 });
@@ -190,9 +195,9 @@ it('refuses a negative or zero waste on the quantity field, and posts nothing', 
     ]);
     $shelf = ['branch_id' => (string) $this->branch->getKey(), 'stock_item_id' => (string) $item->getKey()];
 
-    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => 5], $this->headers)->assertCreated();
+    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => 5, 'notes' => 'Counted'], $this->headers)->assertCreated();
 
-    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => $quantity], $this->headers)
+    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => $quantity, 'notes' => 'Dropped'], $this->headers)
         ->assertUnprocessable()
         ->assertJsonPath('error.code', 'validation.failed')
         ->assertJsonStructure(['error' => ['details' => ['fields' => ['quantity']]]]);
@@ -210,7 +215,7 @@ it('records a count as the difference from the ledger, in either direction and a
     $shelf = ['branch_id' => (string) $this->branch->getKey(), 'stock_item_id' => (string) $item->getKey()];
     $level = fn (): string => (string) StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->value('quantity');
 
-    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => 10], $this->headers)->assertCreated();
+    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => 10, 'notes' => 'Counted'], $this->headers)->assertCreated();
 
     $this->postJson('/api/v1/catalogue/inventory/counts', $shelf + ['counted_quantity' => 7.5, 'notes' => 'Weekly count'], $this->headers)
         ->assertCreated()
@@ -294,6 +299,7 @@ it('lists a shelf for every ingredient, tagged by backing and ranked with the st
         'branch_id' => (string) $this->branch->getKey(),
         'stock_item_id' => (string) $stocked->getKey(),
         'quantity_delta' => 12,
+        'notes' => 'Counted',
     ], $this->headers)->assertCreated();
 
     $response = $this->getJson('/api/v1/catalogue/inventory/items', $this->headers)->assertOk();
