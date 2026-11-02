@@ -914,7 +914,8 @@ export interface DishMargin {
     readonly costAmount: string | null;
     readonly currencyCode: string | null;
     readonly marginPercent: string | null;
-    readonly withheldReason: 'no_recipe' | 'no_price' | 'cost_incomplete' | 'currency_mismatch' | null;
+    readonly withheldReason:
+        'no_recipe' | 'no_price' | 'cost_incomplete' | 'currency_mismatch' | null;
     readonly isBelowTarget: boolean;
 }
 

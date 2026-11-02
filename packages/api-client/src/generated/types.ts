@@ -4313,6 +4313,29 @@ export type MarketplaceNutritionFacts = {
     calculation: MarketplaceNutritionCalculation;
 };
 
+export type OrderComplaintCause = 'wrong_item' | 'missing_item' | 'quality' | 'late' | 'foreign_object' | 'other';
+
+/**
+ * What went wrong with an order, what it cost and how it ended. `outcome`
+ * is null while it is open.
+ *
+ */
+export type OrderComplaint = {
+    id: Uuid;
+    order_id: Uuid;
+    order_number: string | null;
+    cause: OrderComplaintCause;
+    description: string | null;
+    cost_minor: number;
+    currency_code: string;
+    outcome: 'remade' | 'refunded' | 'apologised' | 'no_action' | null;
+    remake_order_id: string | null;
+    remake_order_number: string | null;
+    order_refund_id: string | null;
+    created_at: string | null;
+    closed_at: string | null;
+};
+
 /**
  * A free change to a dish: `remove` leaves something out, `choice` picks
  * one from a group such as Sauce. Neither has a price; the only priced
@@ -5773,6 +5796,10 @@ export type Supplier = {
      * Days between issuing an order and expecting it. 0 is a same-morning market run.
      */
     lead_time_days: number | null;
+    /**
+     * Days after the invoice a delivery falls due. Null works out no due date.
+     */
+    payment_due_days: number | null;
     notes: string | null;
     /**
      * Set when the supplier was archived. An archived supplier keeps every
@@ -6615,6 +6642,10 @@ export type CreateSupplierRequest = {
     address?: string | null;
     payment_terms?: string | null;
     lead_time_days?: number | null;
+    /**
+     * Days after the invoice a delivery falls due. Null works out no due date.
+     */
+    payment_due_days?: number | null;
     notes?: string | null;
 };
 
@@ -6645,6 +6676,10 @@ export type UpdateSupplierRequest = {
     address?: string | null;
     payment_terms?: string | null;
     lead_time_days?: number | null;
+    /**
+     * Days after the invoice a delivery falls due. Null works out no due date.
+     */
+    payment_due_days?: number | null;
     notes?: string | null;
 };
 
@@ -9766,6 +9801,14 @@ export type KitchenServiceSettings = {
      */
     refund_approval_above_minor: number;
     /**
+     * A delivery priced this far above the last price needs approval. Null turns approvals off.
+     */
+    price_approval_above_percent?: number | null;
+    /**
+     * The margin a dish should clear. Null turns the alert off.
+     */
+    dish_margin_target_percent?: number | null;
+    /**
      * The most orders one window takes on one day. Null means no limit.
      */
     orders_per_window?: number | null;
@@ -10356,6 +10399,68 @@ export type CourierCashOwed = {
     due_minor: number;
     fee_minor: number;
     runs: Array<CourierCashRun>;
+};
+
+export type DishMargin = {
+    id: Uuid;
+    catalogue_item_id: Uuid;
+    name_en: string;
+    name_ar: string | null;
+    channel: 'b2c' | 'b2b';
+    price_amount: string | null;
+    cost_amount: string | null;
+    currency_code: string | null;
+    margin_percent: string | null;
+    withheld_reason: 'no_recipe' | 'no_price' | 'cost_incomplete' | 'currency_mismatch' | null;
+    is_below_target: boolean;
+};
+
+export type DishMarginsEnvelope = {
+    data: {
+        target_percent: number | null;
+        computed_at: string | null;
+        dishes: Array<DishMargin>;
+    };
+};
+
+export type PayablePriceRise = {
+    name_en: string | null;
+    last_unit_price_amount: string;
+    unit_price_amount: string;
+    price_variance_percent: string;
+};
+
+export type Payable = {
+    id: Uuid;
+    supplier_name_en: string | null;
+    supplier_name_ar: string | null;
+    document_ref: string | null;
+    supplier_invoice_ref: string | null;
+    received_on: string | null;
+    due_on: string | null;
+    is_overdue: boolean;
+    payment_status: 'unpaid' | 'paid' | 'not_tracked';
+    paid_at: string | null;
+    paid_reference: string | null;
+    price_approval_status: 'pending' | 'approved' | null;
+    /**
+     * Major units. Null while a line has no price.
+     */
+    amount: string | null;
+    currency_code: string | null;
+    price_rises: Array<PayablePriceRise>;
+};
+
+export type PayablesEnvelope = {
+    data: {
+        today: string;
+        totals: Array<{
+            currency_code: string;
+            amount: string;
+        }>;
+        unpaid: Array<Payable>;
+        paid: Array<Payable>;
+    };
 };
 
 export type OpenDailyClose = {
@@ -15425,6 +15530,14 @@ export type KitchenServiceSettingsWritable = {
      * Refunds on one order above this, in minor units, need the owner.
      */
     refund_approval_above_minor: number;
+    /**
+     * A delivery priced this far above the last price needs approval. Null turns approvals off.
+     */
+    price_approval_above_percent?: number | null;
+    /**
+     * The margin a dish should clear. Null turns the alert off.
+     */
+    dish_margin_target_percent?: number | null;
     /**
      * The most orders one window takes on one day. Null means no limit.
      */
@@ -22600,6 +22713,250 @@ export type MarkCatalogueItemAllergensAssessedResponses = {
 };
 
 export type MarkCatalogueItemAllergensAssessedResponse = MarkCatalogueItemAllergensAssessedResponses[keyof MarkCatalogueItemAllergensAssessedResponses];
+
+export type ListOrderComplaintsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/complaints';
+};
+
+export type ListOrderComplaintsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListOrderComplaintsError = ListOrderComplaintsErrors[keyof ListOrderComplaintsErrors];
+
+export type ListOrderComplaintsResponses = {
+    /**
+     * Newest first, capped at 200.
+     */
+    200: {
+        data: {
+            complaints: Array<OrderComplaint>;
+        };
+    };
+};
+
+export type ListOrderComplaintsResponse = ListOrderComplaintsResponses[keyof ListOrderComplaintsResponses];
+
+export type RecordOrderComplaintData = {
+    body: {
+        cause: OrderComplaintCause;
+        description?: string | null;
+        cost_minor?: number | null;
+    };
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+    };
+    path: {
+        order: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/orders/{order}/complaints';
+};
+
+export type RecordOrderComplaintErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RecordOrderComplaintError = RecordOrderComplaintErrors[keyof RecordOrderComplaintErrors];
+
+export type RecordOrderComplaintResponses = {
+    /**
+     * The complaint.
+     */
+    201: {
+        data: {
+            complaint: OrderComplaint;
+        };
+    };
+};
+
+export type RecordOrderComplaintResponse = RecordOrderComplaintResponses[keyof RecordOrderComplaintResponses];
+
+export type UpdateOrderComplaintData = {
+    body: {
+        cause?: OrderComplaintCause;
+        description?: string | null;
+        cost_minor?: number;
+        outcome?: 'refunded' | 'apologised' | 'no_action' | null;
+        order_refund_id?: string | null;
+    };
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+    };
+    path: {
+        complaint: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/complaints/{complaint}';
+};
+
+export type UpdateOrderComplaintErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateOrderComplaintError = UpdateOrderComplaintErrors[keyof UpdateOrderComplaintErrors];
+
+export type UpdateOrderComplaintResponses = {
+    /**
+     * The complaint.
+     */
+    200: {
+        data: {
+            complaint: OrderComplaint;
+        };
+    };
+};
+
+export type UpdateOrderComplaintResponse = UpdateOrderComplaintResponses[keyof UpdateOrderComplaintResponses];
+
+export type RemakeOrderComplaintData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+    };
+    path: {
+        complaint: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/complaints/{complaint}/remake';
+};
+
+export type RemakeOrderComplaintErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RemakeOrderComplaintError = RemakeOrderComplaintErrors[keyof RemakeOrderComplaintErrors];
+
+export type RemakeOrderComplaintResponses = {
+    /**
+     * The complaint, closed as remade.
+     */
+    200: {
+        data: {
+            complaint: OrderComplaint;
+        };
+    };
+};
+
+export type RemakeOrderComplaintResponse = RemakeOrderComplaintResponses[keyof RemakeOrderComplaintResponses];
 
 export type ListDishOptionsData = {
     body?: never;
@@ -30594,6 +30951,325 @@ export type ListReceivableOrdersResponses = {
 };
 
 export type ListReceivableOrdersResponse = ListReceivableOrdersResponses[keyof ListReceivableOrdersResponses];
+
+export type GetDishMarginsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/reports/dish-margins';
+};
+
+export type GetDishMarginsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetDishMarginsError = GetDishMarginsErrors[keyof GetDishMarginsErrors];
+
+export type GetDishMarginsResponses = {
+    /**
+     * The dishes.
+     */
+    200: DishMarginsEnvelope;
+};
+
+export type GetDishMarginsResponse = GetDishMarginsResponses[keyof GetDishMarginsResponses];
+
+export type GetProcurementPayablesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/procurement/payables';
+};
+
+export type GetProcurementPayablesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetProcurementPayablesError = GetProcurementPayablesErrors[keyof GetProcurementPayablesErrors];
+
+export type GetProcurementPayablesResponses = {
+    /**
+     * The list.
+     */
+    200: PayablesEnvelope;
+};
+
+export type GetProcurementPayablesResponse = GetProcurementPayablesResponses[keyof GetProcurementPayablesResponses];
+
+export type ApproveProcurementPayablePriceData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        goodsReceipt: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/payables/{goodsReceipt}/approve-price';
+};
+
+export type ApproveProcurementPayablePriceErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ApproveProcurementPayablePriceError = ApproveProcurementPayablePriceErrors[keyof ApproveProcurementPayablePriceErrors];
+
+export type ApproveProcurementPayablePriceResponses = {
+    /**
+     * The list after the change.
+     */
+    200: PayablesEnvelope;
+};
+
+export type ApproveProcurementPayablePriceResponse = ApproveProcurementPayablePriceResponses[keyof ApproveProcurementPayablePriceResponses];
+
+export type PayProcurementPayableData = {
+    body?: {
+        reference?: string | null;
+    };
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        goodsReceipt: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/payables/{goodsReceipt}/pay';
+};
+
+export type PayProcurementPayableErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type PayProcurementPayableError = PayProcurementPayableErrors[keyof PayProcurementPayableErrors];
+
+export type PayProcurementPayableResponses = {
+    /**
+     * The list after the change.
+     */
+    200: PayablesEnvelope;
+};
+
+export type PayProcurementPayableResponse = PayProcurementPayableResponses[keyof PayProcurementPayableResponses];
+
+export type SetProcurementPayableDueDateData = {
+    body: {
+        due_on: string | null;
+    };
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        goodsReceipt: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/procurement/payables/{goodsReceipt}/due-date';
+};
+
+export type SetProcurementPayableDueDateErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SetProcurementPayableDueDateError = SetProcurementPayableDueDateErrors[keyof SetProcurementPayableDueDateErrors];
+
+export type SetProcurementPayableDueDateResponses = {
+    /**
+     * The list after the change.
+     */
+    200: PayablesEnvelope;
+};
+
+export type SetProcurementPayableDueDateResponse = SetProcurementPayableDueDateResponses[keyof SetProcurementPayableDueDateResponses];
 
 export type ListUnpricedReceiptsData = {
     body?: never;

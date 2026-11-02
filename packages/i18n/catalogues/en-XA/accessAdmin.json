@@ -391,13 +391,9 @@
     },
     "order.settle_cash_organisation": {
       "name": "[[Ŕéçóŕð çášĥ ĥáñðéð íñ ƀý ðŕíṽéŕš áñð çóúŕíéŕš āēīōūāēīōūāēīōūāēī]]"
-    }
-  },
-  "permissions": {
-    "inventory": {
-      "approve_payables_organisation": {
-        "name": "[[Áþþŕóṽé ðéłíṽéŕý þŕíçéš áñð ɱáŕķ íñṽóíçéš þáíð āēīōūāēīōūāēīōūāēīō]]"
-      }
+    },
+    "inventory.approve_payables_organisation": {
+      "name": "[[Áþþŕóṽé ðéłíṽéŕý þŕíçéš áñð ɱáŕķ íñṽóíçéš þáíð āēīōūāēīōūāēīōūāēīō]]"
     }
   }
 }

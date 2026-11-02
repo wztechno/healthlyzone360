@@ -464,7 +464,11 @@ function PayDialog({ row, onClose }: { readonly row: Payable; readonly onClose: 
                     testID="kitchen-payable-due"
                     label={t('kitchen:ops.payables.dueLabel')}
                     labelVisible
-                    value={setDue.data?.unpaid.find((owed) => owed.id === row.id)?.dueOn ?? row.dueOn ?? ''}
+                    value={
+                        setDue.data?.unpaid.find((owed) => owed.id === row.id)?.dueOn ??
+                        row.dueOn ??
+                        ''
+                    }
                     onChange={(next) => {
                         setDue.mutate(
                             { receiptId: row.id, dueOn: next },

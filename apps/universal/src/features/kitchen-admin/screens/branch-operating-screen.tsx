@@ -685,8 +685,10 @@ function ServiceTimingsSection({
     /** Left empty, the kitchen has no limit. */
     const windowLimit = edits.ordersPerWindow ?? String(stored.ordersPerWindow ?? '');
     /** Whole percentages. Left empty, the check is off. */
-    const priceLimit = edits.priceApprovalAbovePercent ?? String(stored.priceApprovalAbovePercent ?? '');
-    const marginTarget = edits.dishMarginTargetPercent ?? String(stored.dishMarginTargetPercent ?? '');
+    const priceLimit =
+        edits.priceApprovalAbovePercent ?? String(stored.priceApprovalAbovePercent ?? '');
+    const marginTarget =
+        edits.dishMarginTargetPercent ?? String(stored.dishMarginTargetPercent ?? '');
     const complete = SERVICE_TIMINGS.every(({ key }) => shown(key) !== '') && refundLimit !== '';
 
     const saveFailure = toFailure(save.error);

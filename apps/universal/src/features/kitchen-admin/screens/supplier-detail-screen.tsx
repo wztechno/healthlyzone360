@@ -1301,7 +1301,9 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                                     testID="kitchen-supplier-payment-due-days"
                                     id="kitchen-supplier-payment-due-days"
                                     label={t('kitchen:ops.suppliers.fieldPaymentDueDays')}
-                                    placeholder={t('kitchen:ops.suppliers.paymentDueDaysPlaceholder')}
+                                    placeholder={t(
+                                        'kitchen:ops.suppliers.paymentDueDaysPlaceholder',
+                                    )}
                                     size="sm"
                                     value={details.paymentDueDays}
                                     keyboardType="number-pad"

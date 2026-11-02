@@ -388,8 +388,7 @@ function CloseDialog({
         closing.cashRefundsMinor;
     const variance = countedMinor === null ? 0 : countedMinor - expected;
     const short = variance < 0;
-    const ready =
-        floatMinor !== null && countedMinor !== null && (!short || reason.trim() !== '');
+    const ready = floatMinor !== null && countedMinor !== null && (!short || reason.trim() !== '');
     const failure = toFailure(record.error);
 
     function submit() {

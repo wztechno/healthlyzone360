@@ -127,6 +127,7 @@ export interface NamespaceKeys {
     | 'codes.delivery_zone.manage_organisation.name'
     | 'codes.device.manage_own.name'
     | 'codes.entitlement.view_organisation.name'
+    | 'codes.inventory.approve_payables_organisation.name'
     | 'codes.inventory.manage_organisation.name'
     | 'codes.inventory.order_supplies_organisation.name'
     | 'codes.inventory.view_costs_organisation.name'
@@ -204,7 +205,6 @@ export interface NamespaceKeys {
     | 'pages.unmappedCount'
     | 'pages.unmappedHeading'
     | 'pages.unmappedHint'
-    | 'permissions.inventory.approve_payables_organisation.name'
     | 'role.back'
     | 'role.backToList'
     | 'role.cancel'
@@ -9864,6 +9864,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:codes.delivery_zone.manage_organisation.name',
   'accessAdmin:codes.device.manage_own.name',
   'accessAdmin:codes.entitlement.view_organisation.name',
+  'accessAdmin:codes.inventory.approve_payables_organisation.name',
   'accessAdmin:codes.inventory.manage_organisation.name',
   'accessAdmin:codes.inventory.order_supplies_organisation.name',
   'accessAdmin:codes.inventory.view_costs_organisation.name',
@@ -9941,7 +9942,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:pages.unmappedCount',
   'accessAdmin:pages.unmappedHeading',
   'accessAdmin:pages.unmappedHint',
-  'accessAdmin:permissions.inventory.approve_payables_organisation.name',
   'accessAdmin:role.back',
   'accessAdmin:role.backToList',
   'accessAdmin:role.cancel',

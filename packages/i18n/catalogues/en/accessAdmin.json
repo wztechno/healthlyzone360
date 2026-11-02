@@ -391,13 +391,9 @@
         },
         "order.settle_cash_organisation": {
             "name": "Record cash handed in by drivers and couriers"
-        }
-    },
-    "permissions": {
-        "inventory": {
-            "approve_payables_organisation": {
-                "name": "Approve delivery prices and mark invoices paid"
-            }
+        },
+        "inventory.approve_payables_organisation": {
+            "name": "Approve delivery prices and mark invoices paid"
         }
     }
 }

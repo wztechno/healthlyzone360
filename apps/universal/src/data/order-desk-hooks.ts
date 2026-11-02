@@ -364,7 +364,8 @@ export function useSignOffCashSettlementMutation(): UseMutationResult<
 
     return useMutation({
         retry: false,
-        mutationFn: (settlementId: string) => repositories.orderDesk.signOffSettlement(settlementId),
+        mutationFn: (settlementId: string) =>
+            repositories.orderDesk.signOffSettlement(settlementId),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
         },

@@ -36,6 +36,7 @@ beforeEach(function (): void {
 
     Mail::fake();
     $this->withoutDefer();
+    $this->travelTo('2026-11-20 12:00:00');
 
     $this->tenant = PricingWorld::kitchen('payables@kitchen.test', ['inventory.view_costs_organisation', 'inventory.approve_payables_organisation']);
     $this->orgId = (string) $this->tenant->organisation->getKey();

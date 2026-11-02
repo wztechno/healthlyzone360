@@ -2853,6 +2853,41 @@ export const zMarketplaceNutritionFacts = z.object({
     calculation: zMarketplaceNutritionCalculation
 });
 
+export const zOrderComplaintCause = z.enum([
+    'wrong_item',
+    'missing_item',
+    'quality',
+    'late',
+    'foreign_object',
+    'other'
+]);
+
+/**
+ * What went wrong with an order, what it cost and how it ended. `outcome`
+ * is null while it is open.
+ *
+ */
+export const zOrderComplaint = z.object({
+    id: zUuid,
+    order_id: zUuid,
+    order_number: z.string().nullable(),
+    cause: zOrderComplaintCause,
+    description: z.string().nullable(),
+    cost_minor: z.int(),
+    currency_code: z.string(),
+    outcome: z.enum([
+        'remade',
+        'refunded',
+        'apologised',
+        'no_action'
+    ]).nullable(),
+    remake_order_id: z.uuid().nullable(),
+    remake_order_number: z.string().nullable(),
+    order_refund_id: z.uuid().nullable(),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    closed_at: z.iso.datetime({ offset: true }).nullable()
+});
+
 /**
  * A free change to a dish: `remove` leaves something out, `choice` picks
  * one from a group such as Sauce. Neither has a price; the only priced
@@ -3851,6 +3886,7 @@ export const zSupplier = z.object({
     address: z.string().nullable(),
     payment_terms: z.string().nullable(),
     lead_time_days: z.int().gte(0).lte(365).nullable(),
+    payment_due_days: z.int().gte(0).lte(365).nullable(),
     notes: z.string().nullable(),
     archived_at: z.iso.datetime({ offset: true }).nullable(),
     contact_count: z.int().gte(0),
@@ -4301,6 +4337,7 @@ export const zCreateSupplierRequest = z.object({
     address: z.string().max(2000).nullish(),
     payment_terms: z.string().max(120).nullish(),
     lead_time_days: z.int().gte(0).lte(365).nullish(),
+    payment_due_days: z.int().gte(0).lte(365).nullish(),
     notes: z.string().max(2000).nullish()
 });
 
@@ -4331,6 +4368,7 @@ export const zUpdateSupplierRequest = z.object({
     address: z.string().max(2000).nullish(),
     payment_terms: z.string().max(120).nullish(),
     lead_time_days: z.int().gte(0).lte(365).nullish(),
+    payment_due_days: z.int().gte(0).lte(365).nullish(),
     notes: z.string().max(2000).nullish()
 });
 
@@ -6306,6 +6344,8 @@ export const zKitchenServiceSettings = z.object({
     manager_alert_after_minutes: z.int().gte(1).lte(10080),
     owner_alert_after_minutes: z.int().gte(1).lte(10080),
     refund_approval_above_minor: z.int().gte(0),
+    price_approval_above_percent: z.int().gte(0).lte(1000).nullish(),
+    dish_margin_target_percent: z.int().gte(1).lte(99).nullish(),
     orders_per_window: z.int().gte(1).lte(1000).nullish(),
     paused_until: z.iso.datetime({ offset: true }).readonly().nullish()
 });
@@ -6591,6 +6631,74 @@ export const zCourierCashOwed = z.object({
     due_minor: z.int(),
     fee_minor: z.int(),
     runs: z.array(zCourierCashRun)
+});
+
+export const zDishMargin = z.object({
+    id: zUuid,
+    catalogue_item_id: zUuid,
+    name_en: z.string(),
+    name_ar: z.string().nullable(),
+    channel: z.enum(['b2c', 'b2b']),
+    price_amount: z.string().nullable(),
+    cost_amount: z.string().nullable(),
+    currency_code: z.string().nullable(),
+    margin_percent: z.string().nullable(),
+    withheld_reason: z.enum([
+        'no_recipe',
+        'no_price',
+        'cost_incomplete',
+        'currency_mismatch'
+    ]).nullable(),
+    is_below_target: z.boolean()
+});
+
+export const zDishMarginsEnvelope = z.object({
+    data: z.object({
+        target_percent: z.int().nullable(),
+        computed_at: z.iso.datetime({ offset: true }).nullable(),
+        dishes: z.array(zDishMargin)
+    })
+});
+
+export const zPayablePriceRise = z.object({
+    name_en: z.string().nullable(),
+    last_unit_price_amount: z.string(),
+    unit_price_amount: z.string(),
+    price_variance_percent: z.string()
+});
+
+export const zPayable = z.object({
+    id: zUuid,
+    supplier_name_en: z.string().nullable(),
+    supplier_name_ar: z.string().nullable(),
+    document_ref: z.string().nullable(),
+    supplier_invoice_ref: z.string().nullable(),
+    received_on: z.iso.date().nullable(),
+    due_on: z.iso.date().nullable(),
+    is_overdue: z.boolean(),
+    payment_status: z.enum([
+        'unpaid',
+        'paid',
+        'not_tracked'
+    ]),
+    paid_at: z.iso.datetime({ offset: true }).nullable(),
+    paid_reference: z.string().nullable(),
+    price_approval_status: z.enum(['pending', 'approved']).nullable(),
+    amount: z.string().nullable(),
+    currency_code: z.string().nullable(),
+    price_rises: z.array(zPayablePriceRise)
+});
+
+export const zPayablesEnvelope = z.object({
+    data: z.object({
+        today: z.iso.date(),
+        totals: z.array(z.object({
+            currency_code: z.string(),
+            amount: z.string()
+        })),
+        unpaid: z.array(zPayable),
+        paid: z.array(zPayable)
+    })
 });
 
 export const zOpenDailyClose = z.object({
@@ -10442,6 +10550,8 @@ export const zKitchenServiceSettingsWritable = z.object({
     manager_alert_after_minutes: z.int().gte(1).lte(10080),
     owner_alert_after_minutes: z.int().gte(1).lte(10080),
     refund_approval_above_minor: z.int().gte(0),
+    price_approval_above_percent: z.int().gte(0).lte(1000).nullish(),
+    dish_margin_target_percent: z.int().gte(1).lte(99).nullish(),
     orders_per_window: z.int().gte(1).lte(1000).nullish()
 });
 
@@ -12701,6 +12811,88 @@ export const zMarkCatalogueItemAllergensAssessedPath = z.object({
  */
 export const zMarkCatalogueItemAllergensAssessedResponse = zCatalogueItemEnvelope;
 
+export const zListOrderComplaintsHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+/**
+ * Newest first, capped at 200.
+ */
+export const zListOrderComplaintsResponse = z.object({
+    data: z.object({
+        complaints: z.array(zOrderComplaint)
+    })
+});
+
+export const zRecordOrderComplaintBody = z.object({
+    cause: zOrderComplaintCause,
+    description: z.string().max(500).nullish(),
+    cost_minor: z.int().gte(0).nullish()
+});
+
+export const zRecordOrderComplaintHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+export const zRecordOrderComplaintPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The complaint.
+ */
+export const zRecordOrderComplaintResponse = z.object({
+    data: z.object({
+        complaint: zOrderComplaint
+    })
+});
+
+export const zUpdateOrderComplaintBody = z.object({
+    cause: zOrderComplaintCause.optional(),
+    description: z.string().max(500).nullish(),
+    cost_minor: z.int().gte(0).optional(),
+    outcome: z.enum([
+        'refunded',
+        'apologised',
+        'no_action'
+    ]).nullish(),
+    order_refund_id: z.uuid().nullish()
+});
+
+export const zUpdateOrderComplaintHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+export const zUpdateOrderComplaintPath = z.object({
+    complaint: zUuid
+});
+
+/**
+ * The complaint.
+ */
+export const zUpdateOrderComplaintResponse = z.object({
+    data: z.object({
+        complaint: zOrderComplaint
+    })
+});
+
+export const zRemakeOrderComplaintHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+export const zRemakeOrderComplaintPath = z.object({
+    complaint: zUuid
+});
+
+/**
+ * The complaint, closed as remade.
+ */
+export const zRemakeOrderComplaintResponse = z.object({
+    data: z.object({
+        complaint: zOrderComplaint
+    })
+});
+
 export const zListDishOptionsHeaders = z.object({
     'X-Organisation-Id': zUuid
 });
@@ -14523,6 +14715,76 @@ export const zListReceivableOrdersQuery = z.object({
  * Orders open for receiving at this branch, oldest first.
  */
 export const zListReceivableOrdersResponse = zReceivableOrderCollection;
+
+export const zGetDishMarginsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The dishes.
+ */
+export const zGetDishMarginsResponse = zDishMarginsEnvelope;
+
+export const zGetProcurementPayablesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The list.
+ */
+export const zGetProcurementPayablesResponse = zPayablesEnvelope;
+
+export const zApproveProcurementPayablePriceHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zApproveProcurementPayablePricePath = z.object({
+    goodsReceipt: zUuid
+});
+
+/**
+ * The list after the change.
+ */
+export const zApproveProcurementPayablePriceResponse = zPayablesEnvelope;
+
+export const zPayProcurementPayableBody = z.object({
+    reference: z.string().max(120).nullish()
+});
+
+export const zPayProcurementPayableHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zPayProcurementPayablePath = z.object({
+    goodsReceipt: zUuid
+});
+
+/**
+ * The list after the change.
+ */
+export const zPayProcurementPayableResponse = zPayablesEnvelope;
+
+export const zSetProcurementPayableDueDateBody = z.object({
+    due_on: z.iso.date().nullable()
+});
+
+export const zSetProcurementPayableDueDateHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSetProcurementPayableDueDatePath = z.object({
+    goodsReceipt: zUuid
+});
+
+/**
+ * The list after the change.
+ */
+export const zSetProcurementPayableDueDateResponse = zPayablesEnvelope;
 
 export const zListUnpricedReceiptsHeaders = z.object({
     'X-Organisation-Id': zUuid,
