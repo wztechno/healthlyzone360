@@ -644,6 +644,7 @@ describe('desk sale — an existing order as the sale it is', () => {
         expect(state).toEqual({
             fulfilmentType: 'delivery',
             customerAccountId: 'account-1',
+            walkIn: false,
             // `null` on an edit is "keep the stored destination".
             customerAddressId: null,
             lines: [

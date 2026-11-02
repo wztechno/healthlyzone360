@@ -423,6 +423,7 @@ async function chooseKind(kind: 'counter' | 'pickup' | 'delivery') {
 }
 
 async function chooseLayla() {
+    await untilVisible('kitchen-order-desk-sale-customer-search-input');
     await act(async () => {
         fireEvent.changeText(
             screen.getByTestId('kitchen-order-desk-sale-customer-search-input'),
@@ -907,11 +908,14 @@ describe('sale — collections and deliveries', () => {
                             : [],
                 }),
         });
-        expect(screen.queryByTestId('kitchen-order-desk-sale-customer')).toBeNull();
+        await untilVisible('kitchen-order-desk-sale-walk-in-chosen');
 
         await tapMeal();
         await chooseKind('pickup');
-        await untilVisible('kitchen-order-desk-sale-customer');
+        // A collection cannot be nameless, so the walk-in goes and the search comes back without it.
+        await untilVisible('kitchen-order-desk-sale-customer-search-input');
+        expect(screen.queryByTestId('kitchen-order-desk-sale-walk-in-chosen')).toBeNull();
+        expect(screen.queryByTestId('kitchen-order-desk-sale-walk-in')).toBeNull();
         // A collection has nowhere to go.
         expect(screen.queryByTestId('kitchen-order-desk-sale-address')).toBeNull();
 
@@ -1377,7 +1381,8 @@ describe('sale — Charge opens the checkout', () => {
         await chooseKind('counter');
         expect(screen.getByTestId('kitchen-order-desk-sale-method')).toBeTruthy();
         expect(screen.getByTestId(SUBMIT)).toBeTruthy();
-        expect(screen.queryByTestId('kitchen-order-desk-sale-customer')).toBeNull();
+        // Who it is for was answered before the menu, and stays said above the checkout.
+        expect(screen.getByTestId('kitchen-order-desk-sale-walk-in-chosen')).toBeTruthy();
     });
 
     it('goes back to the menu with the ticket and the chosen customer kept', async () => {
@@ -1458,7 +1463,8 @@ describe('sale — the menu turns pages, and the ticket says only what applies',
             fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-back'));
         });
 
-        await untilVisible(MEAL_TILE);
+        // The walk-in went with the collection, so the menu asks again who this is for.
+        await untilVisible('kitchen-order-desk-sale-party-pending');
         expect(
             screen.queryByTestId('kitchen-order-desk-sale-order-refusal-customer_required'),
         ).toBeNull();

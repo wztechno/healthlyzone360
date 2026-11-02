@@ -3,7 +3,7 @@ import type {
     OrderDeskSettlements,
 } from '@healthy360/api-client/contracts';
 import type { IsoDateTime } from '@healthy360/domain-types';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Dimensions } from 'react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
@@ -75,6 +75,14 @@ const RECORD: CashSettlementRecord = {
     signedOffAt: null,
 };
 
+/** A keystroke in a dialog, flushed before the next line reads the form. */
+async function type(testID: string, text: string) {
+    const field = await screen.findByTestId(testID);
+    await act(async () => {
+        fireEvent.changeText(field, text);
+    });
+}
+
 describe('settling cash', () => {
     it('asks why a hand-in is short before it can be recorded', async () => {
         const recordSettlement = jest.fn(async () => RECORD);
@@ -87,13 +95,13 @@ describe('settling cash', () => {
         });
 
         fireEvent.press(await screen.findByTestId('kitchen-settlement-driver-driver-1-settle'));
-        fireEvent.changeText(screen.getByTestId('kitchen-settlement-amount'), '45.00');
+        await type('kitchen-settlement-amount-input', '45.00');
         expect(screen.getByTestId('kitchen-settlement-short')).toBeTruthy();
 
         fireEvent.press(screen.getByTestId('kitchen-settlement-confirm'));
         expect(recordSettlement).not.toHaveBeenCalled();
 
-        fireEvent.changeText(screen.getByTestId('kitchen-settlement-reason'), 'Change');
+        await type('kitchen-settlement-reason-input', 'Change');
         fireEvent.press(screen.getByTestId('kitchen-settlement-confirm'));
 
         await waitFor(() => {

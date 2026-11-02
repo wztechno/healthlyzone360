@@ -5,7 +5,7 @@ import type {
     Payables,
 } from '@healthy360/api-client/contracts';
 import type { CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Dimensions } from 'react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
@@ -71,6 +71,14 @@ const SHORT_CLOSE: DailyCloseRecord = {
     signedOffAt: null,
 };
 
+/** A keystroke in a dialog, flushed before the next line reads the form. */
+async function type(testID: string, text: string) {
+    const field = await screen.findByTestId(testID);
+    await act(async () => {
+        fireEvent.changeText(field, text);
+    });
+}
+
 describe('the daily close', () => {
     it('asks why a count is short before it can be recorded', async () => {
         const recordClose = jest.fn(async () => SHORT_CLOSE);
@@ -81,15 +89,15 @@ describe('the daily close', () => {
         });
 
         fireEvent.press(await screen.findByTestId('kitchen-close-USD-open'));
-        expect(screen.getByTestId('kitchen-close-float').props.value).toBe('50.00');
+        expect((await screen.findByTestId('kitchen-close-float-input')).props.value).toBe('50.00');
 
-        fireEvent.changeText(screen.getByTestId('kitchen-close-counted'), '90.00');
+        await type('kitchen-close-counted-input', '90.00');
         expect(screen.getByTestId('kitchen-close-short')).toBeTruthy();
 
         fireEvent.press(screen.getByTestId('kitchen-close-confirm'));
         expect(recordClose).not.toHaveBeenCalled();
 
-        fireEvent.changeText(screen.getByTestId('kitchen-close-reason'), 'Change');
+        await type('kitchen-close-reason-input', 'Change');
         fireEvent.press(screen.getByTestId('kitchen-close-confirm'));
 
         await waitFor(() => {

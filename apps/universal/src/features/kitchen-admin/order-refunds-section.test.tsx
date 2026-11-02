@@ -1,7 +1,7 @@
 import type { KitchenOrder, OrderRefundLedger } from '@healthy360/api-client/contracts';
 import type { IsoDateTime } from '@healthy360/domain-types';
 import { OrderId } from '@healthy360/domain-types';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
@@ -40,6 +40,14 @@ const PENDING: OrderRefundLedger['entries'][number] = {
     decidedAt: null,
 };
 
+/** A keystroke in a dialog, flushed before the next line reads the form. */
+async function type(testID: string, text: string) {
+    const field = await screen.findByTestId(testID);
+    await act(async () => {
+        fireEvent.changeText(field, text);
+    });
+}
+
 describe('the refund part of the order record', () => {
     it('sends the reason and the amount, and says when it waits for the owner', async () => {
         const recordRefund = jest.fn(async () =>
@@ -54,11 +62,11 @@ describe('the refund part of the order record', () => {
         });
 
         fireEvent.press(await screen.findByTestId('kitchen-orders-refund-open'));
-        fireEvent.changeText(screen.getByTestId('kitchen-orders-refund-amount'), '60.00');
+        await type('kitchen-orders-refund-amount-input', '60.00');
         fireEvent.press(screen.getByTestId('kitchen-orders-refund-confirm'));
         expect(recordRefund).not.toHaveBeenCalled();
 
-        fireEvent.changeText(screen.getByTestId('kitchen-orders-refund-reason'), 'Cold on arrival');
+        await type('kitchen-orders-refund-reason-input', 'Cold on arrival');
         fireEvent.press(screen.getByTestId('kitchen-orders-refund-confirm'));
 
         await waitFor(() => {

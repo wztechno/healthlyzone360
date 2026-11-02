@@ -1819,8 +1819,10 @@ describe('the kitchen service timings', () => {
         });
 
         await untilVisible('kitchen-service-timings-saved-toast');
+        // The pause has its own endpoint: this save does not carry it.
+        const { pausedUntil: _pause, ...timings } = TIMINGS;
         expect(repositories.staffAlerts.saveServiceSettings).toHaveBeenCalledWith({
-            ...TIMINGS,
+            ...timings,
             orderLeadMinutes: 90,
         });
     });
