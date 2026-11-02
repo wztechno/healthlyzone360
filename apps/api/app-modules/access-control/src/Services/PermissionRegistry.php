@@ -285,10 +285,7 @@ final class PermissionRegistry
             // wasted, which is a manager's call. The same people are who an
             // ignored or failed order reaches, so holding this code is also what
             // makes someone a recipient of staff alerts.
-            //
-            // The one organisation code with no scope suffix; the name is the
-            // owner's, and `PermissionRegistryTest` carves out exactly this code.
-            'order.supervise' => ['domain' => 'order', 'description' => 'Cancel orders once cooking has started and receive order alerts'],
+            'order.supervise_organisation' => ['domain' => 'order', 'description' => 'Cancel orders once cooking has started and receive order alerts'],
 
             // B1 (quotations). The buyer side of a quotation — drafting
             // lines, submitting, accepting, declining — needs no permission
@@ -643,7 +640,7 @@ final class PermissionRegistry
                     // P0 Stage 1. The person the desk escalates to is the person
                     // who decides about an order already being cooked, and who
                     // hears about one nobody accepted.
-                    'order.supervise',
+                    'order.supervise_organisation',
 
                     // B1 (quotations). The kitchen manager reads and prices
                     // what corporate buyers submit against this kitchen's

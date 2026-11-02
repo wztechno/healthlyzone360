@@ -137,7 +137,7 @@ export interface NamespaceKeys {
     | 'codes.membership.view_organisation.name'
     | 'codes.order.create_on_behalf_organisation.name'
     | 'codes.order.manage_organisation.name'
-    | 'codes.order.supervise.name'
+    | 'codes.order.supervise_organisation.name'
     | 'codes.order.view_customer_contact_organisation.name'
     | 'codes.order.view_organisation.name'
     | 'codes.organisation.update_current.name'
@@ -9335,7 +9335,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:codes.membership.view_organisation.name',
   'accessAdmin:codes.order.create_on_behalf_organisation.name',
   'accessAdmin:codes.order.manage_organisation.name',
-  'accessAdmin:codes.order.supervise.name',
+  'accessAdmin:codes.order.supervise_organisation.name',
   'accessAdmin:codes.order.view_customer_contact_organisation.name',
   'accessAdmin:codes.order.view_organisation.name',
   'accessAdmin:codes.organisation.update_current.name',

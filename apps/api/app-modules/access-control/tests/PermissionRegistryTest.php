@@ -82,10 +82,7 @@ it('formats every registered permission code as domain.action_scope', function (
 });
 
 it('scopes organisation codes to the organisation or the caller, and platform codes to the platform', function (): void {
-    // `order.supervise` is the one code named without a scope, by the owner's
-    // Stage 1 spec. It is still organisation-held: `templateRoles()` builds on it
-    // and the platform set does not contain it.
-    foreach (array_diff(array_keys(PermissionRegistry::organisationPermissions()), ['order.supervise']) as $code) {
+    foreach (array_keys(PermissionRegistry::organisationPermissions()) as $code) {
         expect(str_ends_with($code, '_current') || str_ends_with($code, '_organisation') || str_ends_with($code, '_own'))
             ->toBeTrue("Organisation permission {$code} is not organisation- or own-scoped.");
     }
@@ -351,7 +348,7 @@ it('grants each template role the expected number of codes', function (string $r
 it('gives order supervision to the owner, the administrator and the kitchen manager and to nobody else', function (): void {
     // Stage 1 leaves `branch_manager` out on purpose: it holds no order code at
     // all today, and that is the P1 "roles for real jobs" work.
-    expect(templateRolesHolding('order.supervise'))->toEqualCanonicalizing([
+    expect(templateRolesHolding('order.supervise_organisation'))->toEqualCanonicalizing([
         'organisation_owner', 'organisation_admin', 'kitchen_manager',
     ]);
 });

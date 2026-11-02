@@ -7,7 +7,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
 /**
- * `order.supervise` reaches every database, not only a freshly seeded one.
+ * `order.supervise_organisation` reaches every database, not only a freshly
+ * seeded one.
  *
  * `PermissionRegistry` declares the code and the seeders write it, but a deploy
  * only migrates (`infrastructure/deploy/deploy.sh`), and nothing ever re-syncs an
@@ -16,10 +17,21 @@ use Illuminate\Support\Facades\DB;
  * have a code nobody holds.
  *
  * It grants the code to the three holders, on the templates and on every
- * organisation's role of that code, including a kitchen's `<code>_standard` copy
- * (`2026_10_26_000001`), whose holders were moved off the template and would
- * otherwise miss a grant the template gained. A role a kitchen deleted stays
- * deleted.
+ * organisation's copy of them. A copy is told apart by two things:
+ *
+ * - **Its code.** Either the template's, or `<code>_standard` with an optional
+ *   number, which is what `2026_10_26_000001` calls the copy it makes when a
+ *   kitchen already held the plain code. Those holders moved off the template
+ *   and would otherwise miss a grant it gained.
+ * - **An empty `created_by`.** A kitchen's own role can share either form of
+ *   code, and `roles` has no column that says "copy". `created_by` is the signal:
+ *   `RoleWriter` is the only path a kitchen creates a role through and it always
+ *   stamps the actor, while `OrganisationRoles` and that migration never do. So a
+ *   kitchen's own `kitchen_manager` keeps exactly what the kitchen gave it.
+ *
+ * One gap remains: `roles.created_by` is `nullOnDelete`, so a kitchen's role whose
+ * author's `users` row was deleted by hand looks like a copy. The application
+ * itself never deletes a user. A role a kitchen deleted stays deleted.
  *
  * Idempotent, and quiet on a fresh database, where migrations run before the
  * seeders: the permission row is written either way, the seeder then updates
@@ -31,19 +43,13 @@ use Illuminate\Support\Facades\DB;
  */
 return new class extends Migration
 {
-    private const string PERMISSION = 'order.supervise';
+    private const string PERMISSION = 'order.supervise_organisation';
 
     /**
-     * @var list<string>
+     * A binding rather than inline SQL, because PDO would read the `?` as a
+     * placeholder.
      */
-    private const array ROLES = [
-        'organisation_owner',
-        'organisation_admin',
-        'kitchen_manager',
-        'organisation_owner_standard',
-        'organisation_admin_standard',
-        'kitchen_manager_standard',
-    ];
+    private const string COPY_OF_A_HOLDER = '^(organisation_owner|organisation_admin|kitchen_manager)(_standard(_[0-9]+)?)?$';
 
     public function up(): void
     {
@@ -54,16 +60,15 @@ return new class extends Migration
             [self::PERMISSION, 'order', 'Cancel orders once cooking has started and receive order alerts'],
         );
 
-        $placeholders = implode(', ', array_fill(0, count(self::ROLES), '?'));
-
         $granted = DB::affectingStatement(
-            "INSERT INTO role_permissions (id, organisation_id, role_id, permission_id, created_by, created_at)
+            'INSERT INTO role_permissions (id, organisation_id, role_id, permission_id, created_by, created_at)
              SELECT gen_random_uuid(), roles.organisation_id, roles.id, permissions.id, NULL, now()
              FROM roles
              JOIN permissions ON permissions.code = ?
-             WHERE roles.code IN ({$placeholders})
-             ON CONFLICT (role_id, permission_id) DO NOTHING",
-            [self::PERMISSION, ...self::ROLES],
+             WHERE roles.code ~ ?
+               AND roles.created_by IS NULL
+             ON CONFLICT (role_id, permission_id) DO NOTHING',
+            [self::PERMISSION, self::COPY_OF_A_HOLDER],
         );
 
         if ($granted > 0) {

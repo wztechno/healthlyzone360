@@ -317,7 +317,7 @@
         "order.manage_organisation": {
             "name": "Confirm, fulfil and cancel orders"
         },
-        "order.supervise": {
+        "order.supervise_organisation": {
             "name": "Cancel started orders and receive order alerts"
         },
         "order.view_customer_contact_organisation": {
