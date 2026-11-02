@@ -151,7 +151,7 @@ it('queues mail in each recipient\'s locale after commit', function (): void {
         && $mail->kind === 'staff_alert_no_cash_collected'
         && $mail->heading === 'No cash was collected for order H-1001'
         && in_array('Order total: 25.00 USD.', $mail->lines, true)
-        && str_ends_with((string) $mail->actionUrl, '/kitchen/orders?order='.$this->subjectId));
+        && str_ends_with((string) $mail->actionUrl, '/kitchen/orders?view='.$this->subjectId));
 
     Mail::assertQueued(NoticeMessage::class, fn (NoticeMessage $mail): bool => $mail->hasTo($arabic->email)
         && $mail->locale === 'ar'

@@ -1,10 +1,15 @@
 import type { StaffAlert, StaffAlertList } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { useEffect } from 'react';
+import type { ReactNode } from 'react';
+import { View } from 'react-native';
 
 import { queryKeys } from '../data/query-keys.ts';
 import { playAlertTone } from '../features/kds/alert-tone.ts';
 import { ORDER_SUPERVISE_PERMISSION } from '../features/kitchen-admin/entity-registry.ts';
+import { useUnsavedGuard } from '../navigation/use-unsaved-guard.ts';
+import { useAccessState } from '../session/session-provider.tsx';
 import type { ExpoRouterMock } from '../testing/expo-router-mock.ts';
 import { kitchenManagerSession, testActiveContext } from '../testing/session-fixtures.ts';
 import { renderStubScreen } from '../testing/stub-screen.tsx';
@@ -42,10 +47,31 @@ const SUPERVISOR = kitchenManagerSession({
     activeContext: testActiveContext({ permissions: [ORDER_SUPERVISE_PERMISSION] }),
 });
 
+/** Appears once `me()` has landed, so an absent bell means refused rather than not yet known. */
+function SessionSettled() {
+    return useAccessState().organisation === undefined ? null : <View testID="session-settled" />;
+}
+
+/** An editor with unsaved work on the page, for `guardNavigation` to stop at. */
+function DirtyEditor() {
+    const { markDirty } = useUnsavedGuard({ message: 'Unsaved' });
+    useEffect(() => {
+        markDirty();
+    }, [markDirty]);
+    return null;
+}
+
 /** Renders the bell over a list a test can change, and a way to make the next poll happen. */
-async function renderBell(first: StaffAlertList, session = SUPERVISOR) {
+async function renderBell(first: StaffAlertList, session = SUPERVISOR, beside: ReactNode = null) {
     let current = first;
-    const harness = await renderStubScreen(<StaffAlertsButton />, {
+    const bell = (
+        <>
+            <StaffAlertsButton />
+            <SessionSettled />
+            {beside}
+        </>
+    );
+    const harness = await renderStubScreen(bell, {
         session,
         repositories: {
             staffAlerts: {
@@ -92,8 +118,25 @@ describe('the alerts bell', () => {
             list(alert('1')),
             kitchenManagerSession({ activeContext: testActiveContext({ permissions: [] }) }),
         );
+        await screen.findByTestId('session-settled');
+
         expect(screen.queryByTestId('staff-alerts-button')).toBeNull();
         expect(repositories.staffAlerts.listAlerts).not.toHaveBeenCalled();
+    });
+
+    it('is drawn, and polls, for the same session with the permission', async () => {
+        const { repositories } = await renderBell(
+            list(alert('1')),
+            kitchenManagerSession({
+                activeContext: testActiveContext({ permissions: [ORDER_SUPERVISE_PERMISSION] }),
+            }),
+        );
+        await screen.findByTestId('session-settled');
+
+        expect(screen.getByTestId('staff-alerts-button')).toBeTruthy();
+        await waitFor(() => {
+            expect(repositories.staffAlerts.listAlerts).toHaveBeenCalled();
+        });
     });
 
     it('words an alert by its type and order number, and calls a severe allergy severe', async () => {
@@ -117,9 +160,22 @@ describe('the alerts bell', () => {
             fireEvent.press(await screen.findByTestId('staff-alerts-panel-open'));
         });
 
-        expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/orders?order=order-1');
+        expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/orders?view=order-1');
         expect(repositories.staffAlerts.markAlertRead).toHaveBeenCalledWith('1');
         expect(screen.queryByTestId('staff-alerts-panel')).toBeNull();
+    });
+
+    it('leaves an alert unread while an unsaved editor is holding the reader', async () => {
+        const { repositories } = await renderBell(list(alert('1')), SUPERVISOR, <DirtyEditor />);
+        await screen.findByTestId('staff-alerts-count');
+        fireEvent.press(screen.getByTestId('staff-alerts-button'));
+
+        await act(async () => {
+            fireEvent.press(await screen.findByTestId('staff-alerts-panel-open'));
+        });
+
+        expect(routerMock.__push).not.toHaveBeenCalled();
+        expect(repositories.staffAlerts.markAlertRead).not.toHaveBeenCalled();
     });
 
     it('marks everything read from the panel', async () => {

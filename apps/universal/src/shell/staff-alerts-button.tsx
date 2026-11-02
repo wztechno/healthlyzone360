@@ -171,10 +171,11 @@ function AlertsBell() {
     const label = t('kitchen:alerts.buttonLabel', { n: unreadCount });
 
     const openAlert = (alert: StaffAlert) => {
-        if (alert.readAt === null) markRead.mutate(alert.id);
         setOpenOn(null);
+        // Read only once the reader is really going: Stay must leave an unopened alert unread.
         guardNavigation(() => {
-            router.push(`/kitchen/orders?order=${encodeURIComponent(alert.orderId)}` as never);
+            if (alert.readAt === null) markRead.mutate(alert.id);
+            router.push(`/kitchen/orders?view=${encodeURIComponent(alert.orderId)}` as never);
         });
     };
 
@@ -219,15 +220,7 @@ function AlertsBell() {
                         testID="staff-alerts-panel"
                         role="dialog"
                         aria-label={t('kitchen:alerts.title')}
-                        className={
-                            /*
-                             * On a phone the pill sits mid-bar, so a panel hung from its end would
-                             * run off the screen. There it spans the screen under the bar instead.
-                             */
-                            roomy
-                                ? 'absolute end-0 top-full z-tooltip mt-1 w-[320px] rounded-xl border border-stroke-strong bg-surface-raised px-3 pb-1 pt-2 shadow-elevation-3'
-                                : 'absolute end-0 top-full z-tooltip mt-1 w-[320px] rounded-xl border border-stroke-strong bg-surface-raised px-3 pb-1 pt-2 shadow-elevation-3 web:fixed web:end-2 web:start-2 web:top-12 web:w-auto'
-                        }
+                        className="absolute end-0 top-full z-tooltip mt-1 w-[320px] rounded-xl border border-stroke-strong bg-surface-raised px-3 pb-1 pt-2 shadow-elevation-3 web:max-w-[92vw]"
                     >
                         <View className="flex-row items-center gap-2 pb-1">
                             <View className="min-w-0 flex-1 flex-row items-center gap-2">

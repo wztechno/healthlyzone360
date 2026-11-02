@@ -157,7 +157,7 @@ final readonly class StaffAlerts
             (string) __("notices.staff_alert.{$type->value}.heading", ['number' => $data['order_number']], $locale),
             $lines,
             (string) __('notices.staff_alert.action', [], $locale),
-            rtrim((string) config('app.frontend_url'), '/').self::ORDER_PAGE.'?order='.$subjectId,
+            rtrim((string) config('app.frontend_url'), '/').self::ORDER_PAGE.'?view='.$subjectId,
             $locale,
         );
     }
