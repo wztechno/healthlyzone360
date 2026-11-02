@@ -47,21 +47,24 @@ use Healthy360\Tenancy\Database\DatabaseTenantContext;
  *    may be shown (§4.8), so it is the only status a consumer may buy. A
  *    retired article stays in an old basket and is refused here, visibly,
  *    which is the whole reason the `restrictOnDelete` on `cart_items` exists.
- * 4. **The variant belongs to the article and is active.** A pack is not
+ * 4. **Somebody has assessed it for allergens.** An unassessed dish would read
+ *    as safe to a customer when nobody checked, so it is off sale.
+ *    {@see CatalogueItem::scopeAllergensAssessed()} is the definition.
+ * 5. **The variant belongs to the article and is active.** A pack is not
  *    separately published, so `active` is its whole test. When the caller
  *    names no pack for a pack kind, the probe picks one the way the
  *    marketplace listing did ({@see offeredPack()}): consumer surfaces name
  *    the article, never the pack.
- * 5. **The channel offers it on the day.** The absence of an assignment says
+ * 6. **The channel offers it on the day.** The absence of an assignment says
  *    nothing at all — availability and publication are different questions —
  *    so an article no channel has been given is refused rather than assumed.
  *    The variant rule mirrors pricing's: a named variant matches its own row
  *    *or* the item-level row (a kitchen that offers the article offers every
  *    pack of it); an unnamed one matches only the item-level row.
- * 6. **The kitchen's calendar has not ruled the day out.** {@see calendarRefusal()}.
+ * 7. **The kitchen's calendar has not ruled the day out.** {@see calendarRefusal()}.
  *    A meal with no row for the date stays available, or every meal nobody
  *    filled a calendar in for would vanish.
- * 7. **There is a price**, and it is in the currency the basket is denominated
+ * 8. **There is a price**, and it is in the currency the basket is denominated
  *    in. Both halves matter. An unpriced article is not free, and a price in
  *    another currency is not a price in this one — converting it would be this
  *    class inventing an exchange rate nobody agreed to.
@@ -89,6 +92,7 @@ final readonly class LineProbe
      * @param  CarbonImmutable|null  $on  the day the line is wanted; today when none is named
      * @param  string  $currencyCode  what the basket or order is denominated in
      * @param  bool  $enforceCalendar  false where the day is not being sold: subscription deliveries, accepted quotations, undated basket lines, and a line an edited order already holds
+     * @param  bool  $enforceAssessment  false where the sale was settled before this line: subscription deliveries, accepted quotations, and a line an edited order already holds
      */
     public function probe(
         SalesChannel $channel,
@@ -99,6 +103,7 @@ final readonly class LineProbe
         string $currencyCode,
         ?CustomerAccount $buyer = null,
         bool $enforceCalendar = true,
+        bool $enforceAssessment = true,
     ): LineProbeResult {
         // Scoped to the channel's kitchen for the whole probe: prices (and any
         // future RLS-bound catalogue tables) must answer under that tenant, not
@@ -117,6 +122,7 @@ final readonly class LineProbe
                 $currencyCode,
                 $buyer,
                 $enforceCalendar,
+                $enforceAssessment,
             ),
         );
     }
@@ -160,6 +166,7 @@ final readonly class LineProbe
         string $currencyCode,
         ?CustomerAccount $buyer,
         bool $enforceCalendar,
+        bool $enforceAssessment,
     ): LineProbeResult {
         $day = ($on ?? CarbonImmutable::now())->startOfDay();
         $refusals = [];
@@ -190,6 +197,10 @@ final readonly class LineProbe
                 'catalogue_item_id' => (string) $item->getKey(),
                 'status' => $item->status->value,
             ];
+        }
+
+        if ($enforceAssessment && ! CatalogueItem::withoutTenancy()->whereKey($item->getKey())->allergensAssessed()->exists()) {
+            $refusals[] = ['reason' => 'item_not_assessed', 'catalogue_item_id' => (string) $item->getKey()];
         }
 
         $variant = null;

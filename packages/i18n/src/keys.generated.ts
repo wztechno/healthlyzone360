@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9299 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9307 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2359,6 +2359,7 @@ export interface NamespaceKeys {
     | 'warnings.checkout_cut_off_passed'
     | 'warnings.checkout_date_in_the_past'
     | 'warnings.checkout_empty_cart'
+    | 'warnings.checkout_item_not_assessed'
     | 'warnings.checkout_item_unavailable_on_date'
     | 'warnings.checkout_kitchen_closed'
     | 'warnings.checkout_lead_time_not_met'
@@ -2746,6 +2747,7 @@ export interface NamespaceKeys {
     | 'orderRefusal.cut_off_passed'
     | 'orderRefusal.date_in_the_past'
     | 'orderRefusal.guest_not_verified'
+    | 'orderRefusal.item_not_assessed'
     | 'orderRefusal.item_not_published'
     | 'orderRefusal.item_unavailable_on_date'
     | 'orderRefusal.item_unknown'
@@ -3017,6 +3019,11 @@ export interface NamespaceKeys {
     | 'aliases.remove'
     | 'aliases.removedToast'
     | 'aliases.title'
+    | 'allergenAssessment.calloutBody'
+    | 'allergenAssessment.calloutTitle'
+    | 'allergenAssessment.confirm'
+    | 'allergenAssessment.noRecipe'
+    | 'allergenAssessment.notAssessed'
     | 'allergenLookup.barcode'
     | 'allergenLookup.barcodeHint'
     | 'allergenLookup.barcodeShort'
@@ -3597,6 +3604,7 @@ export interface NamespaceKeys {
     | 'desk.refusal.customer_required'
     | 'desk.refusal.cut_off_passed'
     | 'desk.refusal.date_in_the_past'
+    | 'desk.refusal.item_not_assessed'
     | 'desk.refusal.item_not_published'
     | 'desk.refusal.item_unavailable_on_date'
     | 'desk.refusal.item_unknown'
@@ -11682,6 +11690,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:warnings.checkout_cut_off_passed',
   'commerce:warnings.checkout_date_in_the_past',
   'commerce:warnings.checkout_empty_cart',
+  'commerce:warnings.checkout_item_not_assessed',
   'commerce:warnings.checkout_item_unavailable_on_date',
   'commerce:warnings.checkout_kitchen_closed',
   'commerce:warnings.checkout_lead_time_not_met',
@@ -12066,6 +12075,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:orderRefusal.cut_off_passed',
   'errors:orderRefusal.date_in_the_past',
   'errors:orderRefusal.guest_not_verified',
+  'errors:orderRefusal.item_not_assessed',
   'errors:orderRefusal.item_not_published',
   'errors:orderRefusal.item_unavailable_on_date',
   'errors:orderRefusal.item_unknown',
@@ -12334,6 +12344,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:aliases.remove',
   'kitchen:aliases.removedToast',
   'kitchen:aliases.title',
+  'kitchen:allergenAssessment.calloutBody',
+  'kitchen:allergenAssessment.calloutTitle',
+  'kitchen:allergenAssessment.confirm',
+  'kitchen:allergenAssessment.noRecipe',
+  'kitchen:allergenAssessment.notAssessed',
   'kitchen:allergenLookup.barcode',
   'kitchen:allergenLookup.barcodeHint',
   'kitchen:allergenLookup.barcodeShort',
@@ -12914,6 +12929,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.refusal.customer_required',
   'kitchen:desk.refusal.cut_off_passed',
   'kitchen:desk.refusal.date_in_the_past',
+  'kitchen:desk.refusal.item_not_assessed',
   'kitchen:desk.refusal.item_not_published',
   'kitchen:desk.refusal.item_unavailable_on_date',
   'kitchen:desk.refusal.item_unknown',

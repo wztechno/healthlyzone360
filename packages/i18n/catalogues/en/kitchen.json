@@ -2161,6 +2161,7 @@
             "currency_mismatch": "Part of this basket is priced in another currency, so it cannot be sold in one go.",
             "item_unknown": "That article is no longer in the catalogue.",
             "item_not_published": "That article is not published, so it cannot be sold.",
+            "item_not_assessed": "Nobody has assessed that article for allergens, so it cannot be sold. Assess it in the catalogue first.",
             "variant_unknown": "That pack no longer exists.",
             "variant_not_active": "That pack is not available.",
             "channel_unavailable": "That article is not offered at the counter. Publish it to the desk channel first.",
@@ -2955,6 +2956,13 @@
         "aliasAdded": "{{alias}} was added to the other names.",
         "mappingAdded": "An allergen mapping row was added.",
         "mappingRemoved": "An allergen mapping row was removed."
+    },
+    "allergenAssessment": {
+        "notAssessed": "Not assessed",
+        "noRecipe": "No published recipe",
+        "calloutTitle": "Not assessed for allergens, so it is off sale",
+        "calloutBody": "Nobody has recorded what this contains. Publish a recipe or link its ingredients, or confirm it contains none of these: {{allergens}}",
+        "confirm": "Assessed: contains none of these"
     },
     "stockBlockers": {
         "gateCheck": "Lowers stock when sold",

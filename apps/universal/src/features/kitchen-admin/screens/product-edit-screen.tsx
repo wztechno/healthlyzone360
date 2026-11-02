@@ -72,6 +72,7 @@ import {
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
+import { AllergenAssessmentCallout, AssessmentBadges } from '../catalogue/allergen-assessment.tsx';
 import { stockBlockersSentence } from '../catalogue/recipe-columns.tsx';
 import {
     ChannelAvailabilityEditor,
@@ -1566,6 +1567,14 @@ function ProductEditor({
         />
     ) : null;
 
+    const assessmentBadges = (
+        <AssessmentBadges
+            testID="kitchen-product-editor-screen"
+            allergensAssessed={data?.allergensAssessed}
+            onSaleWithoutRecipe={data?.onSaleWithoutRecipe}
+        />
+    );
+
     /*
      * Archive · Cancel · Save draft · Publish. Archive leads and is quiet: it is the one act here
      * that takes the record off sale, and it should not sit where a hand reaching for Save lands.
@@ -1748,6 +1757,7 @@ function ProductEditor({
                             testID="kitchen-product-editor-screen-meta"
                         >
                             {statusBadge}
+                            {assessmentBadges}
                             {dirtyBadge}
                         </Inline>
                         {actions}
@@ -1765,6 +1775,7 @@ function ProductEditor({
                                 testID="kitchen-product-editor-screen-meta"
                             >
                                 {statusBadge}
+                                {assessmentBadges}
                                 {/*
                                  * Nothing issues a resale reference — `ReferenceSeries` has no
                                  * `RSL-` — so a new record has none to preview, and only a saved one
@@ -1787,6 +1798,12 @@ function ProductEditor({
                 )}
 
                 {embedded ? null : <View className="border-b border-stroke" />}
+                {data?.allergensAssessed === false && parsed !== null ? (
+                    <AllergenAssessmentCallout
+                        testID="kitchen-product-allergen-assessment"
+                        itemId={parsed}
+                    />
+                ) : null}
             </Stack>
 
             {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}

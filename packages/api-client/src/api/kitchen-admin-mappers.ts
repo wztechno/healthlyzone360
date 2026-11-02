@@ -713,6 +713,8 @@ export function mapProductAdminFromItem(
         dataQualityFlags: wire.data_quality_flags,
         imagePlaceholderId: catalogueImageId(wire),
         stockBlockers: mapStockBlockers(wire.stock_blockers),
+        allergensAssessed: wire.allergens_assessed,
+        onSaleWithoutRecipe: wire.on_sale_without_recipe,
     };
 }
 
@@ -776,6 +778,8 @@ export function mapMealAdminFromItem(
         availability: options?.availability ?? availabilityFromWire ?? [],
         imagePlaceholderId: catalogueImageId(wire),
         stockBlockers: mapStockBlockers(wire.stock_blockers),
+        allergensAssessed: wire.allergens_assessed,
+        onSaleWithoutRecipe: wire.on_sale_without_recipe,
         marginPercent: null,
     };
 }
@@ -920,6 +924,8 @@ function mapRecipeSeller(wire: AdminRecipeSoldAs): RecipeSoldAs {
                       netUnit: mapMeasureUnit(wire.default_pack.net_unit_code),
                   },
         stockBlockers: mapStockBlockers(wire.stock_blockers),
+        allergensAssessed: wire.allergens_assessed,
+        onSaleWithoutRecipe: wire.on_sale_without_recipe,
     };
 }
 

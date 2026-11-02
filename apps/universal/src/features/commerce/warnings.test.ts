@@ -4,6 +4,7 @@ import pseudoErrors from '@healthy360/i18n/catalogues/en-XA/errors.json';
 import pseudoKitchen from '@healthy360/i18n/catalogues/en-XA/kitchen.json';
 
 import {
+    CHECKOUT_ITEM_NOT_ASSESSED,
     CHECKOUT_TIMING_WARNINGS,
     displayableWarnings,
     isCriticalWarning,
@@ -18,6 +19,7 @@ const NEW_REFUSALS = [
     'lead_time_not_met',
     'below_zone_minimum',
     'item_unavailable_on_date',
+    'item_not_assessed',
 ] as const;
 
 type Catalogue = Record<string, Record<string, unknown>>;
@@ -42,6 +44,14 @@ describe.each(['en', 'ar', 'en-XA'] as const)('impossible orders are worded in %
         expect(displayableWarnings([code])).toEqual([code]);
 
         const key = warningMessageKey(code).replace('commerce:warnings.', '');
+        expect(copyAt(bundle.commerce, 'warnings', key)).toEqual(expect.any(String));
+    });
+
+    it('warns about a dish nobody has assessed at checkout', () => {
+        expect(isKnownWarning(CHECKOUT_ITEM_NOT_ASSESSED)).toBe(true);
+        expect(isCriticalWarning(CHECKOUT_ITEM_NOT_ASSESSED)).toBe(false);
+
+        const key = warningMessageKey(CHECKOUT_ITEM_NOT_ASSESSED).replace('commerce:warnings.', '');
         expect(copyAt(bundle.commerce, 'warnings', key)).toEqual(expect.any(String));
     });
 

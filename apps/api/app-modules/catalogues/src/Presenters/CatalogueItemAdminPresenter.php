@@ -12,6 +12,7 @@ use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Catalogues\Services\AllergenAssessment;
 use Healthy360\Catalogues\Services\RecordPhotoService;
 use Healthy360\Catalogues\Services\StockDeductionReadiness;
 use Healthy360\Kitchens\Presenters\BranchOperatingPresenter;
@@ -43,6 +44,7 @@ final class CatalogueItemAdminPresenter
     public function __construct(
         private readonly RecordPhotoService $photos,
         private readonly StockDeductionReadiness $stock,
+        private readonly AllergenAssessment $assessment,
     ) {}
 
     /**
@@ -78,6 +80,8 @@ final class CatalogueItemAdminPresenter
      *     image_placeholder_id: string|null,
      *     data_quality_flags: list<string>,
      *     stock_blockers: list<string>,
+     *     allergens_assessed: bool,
+     *     on_sale_without_recipe: bool,
      *     source_system: string|null,
      *     source_ref: string|null,
      *     lock_version: int,
@@ -141,6 +145,9 @@ final class CatalogueItemAdminPresenter
             // same facts the publish gate refuses on, carried so a listing already on
             // sale says what to fix instead of failing silently at every order.
             'stock_blockers' => $this->stock->codes($item),
+            // False is off sale, and it says why a dish has gone from the shop.
+            'allergens_assessed' => $this->assessment->isAssessed($item),
+            'on_sale_without_recipe' => $this->assessment->isOnSaleWithoutRecipe($item),
             'source_system' => $item->source_system,
             'source_ref' => $item->source_ref,
             'lock_version' => $item->lock_version,

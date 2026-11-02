@@ -409,6 +409,7 @@ final readonly class DeskQuote
                 $currencyCode,
                 $account,
                 enforceCalendar: $asksCalendar && ! in_array($line->catalogueItemId, $heldItemIds, true),
+                enforceAssessment: ! in_array($line->catalogueItemId, $heldItemIds, true),
             );
 
             $item = $result->item;

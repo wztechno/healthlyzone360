@@ -1353,6 +1353,21 @@ export type AdminRecipeSoldAs = {
      */
     stock_blockers: Array<string>;
     /**
+     * Whether anyone has assessed this item for allergens: a published
+     * recipe version with a line, an allergen through its ingredients, an
+     * ingredient link, or staff stating it contains none. False takes it
+     * off sale, and `POST /catalogue/items/{item}/allergens-assessed` is
+     * one way back. Always true for a subscription plan, which is not food.
+     *
+     */
+    allergens_assessed: boolean;
+    /**
+     * A meal, sauce, dressing or frozen meal on sale with no published
+     * recipe. A warning for staff: it stays on sale.
+     *
+     */
+    on_sale_without_recipe: boolean;
+    /**
      * How many packs the item is sold in, archived ones excluded. Zero on
      * a meal, which is sold as itself, and on a packaged item nobody has
      * given a pack yet.
@@ -2631,6 +2646,21 @@ export type AdminCatalogueItem = {
      *
      */
     stock_blockers: Array<string>;
+    /**
+     * Whether anyone has assessed this item for allergens: a published
+     * recipe version with a line, an allergen through its ingredients, an
+     * ingredient link, or staff stating it contains none. False takes it
+     * off sale, and `POST /catalogue/items/{item}/allergens-assessed` is
+     * one way back. Always true for a subscription plan, which is not food.
+     *
+     */
+    allergens_assessed: boolean;
+    /**
+     * A meal, sauce, dressing or frozen meal on sale with no published
+     * recipe. A warning for staff: it stays on sale.
+     *
+     */
+    on_sale_without_recipe: boolean;
     source_system?: string | null;
     source_ref?: string | null;
     /**
@@ -9291,7 +9321,7 @@ export type OrderDeskCounterPayment = {
 export type OrderDeskQuoteRefusal = {
     /**
      * The stable key. Line-level: `item_unknown`, `item_not_published`,
-     * `variant_unknown`, `variant_not_active`, `channel_unavailable`,
+     * `item_not_assessed`, `variant_unknown`, `variant_not_active`, `channel_unavailable`,
      * `item_unavailable_on_date`, `unpriced`, `currency_mismatch`,
      * `channel_not_trading`. Order-level:
      * `customer_required`, `address_required`, `address_not_applicable`,
@@ -22088,6 +22118,85 @@ export type RetireCatalogueItemResponses = {
 };
 
 export type RetireCatalogueItemResponse = RetireCatalogueItemResponses[keyof RetireCatalogueItemResponses];
+
+export type MarkCatalogueItemAllergensAssessedData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/allergens-assessed';
+};
+
+export type MarkCatalogueItemAllergensAssessedErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type MarkCatalogueItemAllergensAssessedError = MarkCatalogueItemAllergensAssessedErrors[keyof MarkCatalogueItemAllergensAssessedErrors];
+
+export type MarkCatalogueItemAllergensAssessedResponses = {
+    /**
+     * The assessed item.
+     */
+    200: CatalogueItemEnvelope;
+};
+
+export type MarkCatalogueItemAllergensAssessedResponse = MarkCatalogueItemAllergensAssessedResponses[keyof MarkCatalogueItemAllergensAssessedResponses];
 
 export type ReplaceCatalogueItemVariantsData = {
     body: ReplaceCatalogueItemVariantsRequest;

@@ -87,6 +87,7 @@ use Healthy360\Cart\Http\Controllers\CartItemStoreController;
 use Healthy360\Cart\Http\Controllers\CartItemUpdateController;
 use Healthy360\Cart\Http\Controllers\CartStoreController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemAllergenIndexController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemAllergensAssessedController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemAvailabilityReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemChannelReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemDietClassificationReplaceController;
@@ -1319,6 +1320,9 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::delete('/items/{record}/photo', RecordPhotoDestroyController::class)
                     ->defaults('subject', 'catalogue_item')
                     ->name('catalogue.items.photo.destroy');
+
+                Route::post('/items/{item}/allergens-assessed', CatalogueItemAllergensAssessedController::class)
+                    ->name('catalogue.items.allergens-assessed');
 
                 Route::patch('/items/{item}', CatalogueItemUpdateController::class)
                     ->middleware('precondition')

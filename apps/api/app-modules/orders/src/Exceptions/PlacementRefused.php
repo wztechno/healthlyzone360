@@ -72,7 +72,7 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  *  * `below_zone_minimum` — the subtotal is under the delivery zone's minimum;
  *    `minimum_minor` and `currency_code` carry it. Customers only.
  *  * the whole line vocabulary from `LineRefused` — `item_not_published`,
- *    `unpriced`, `channel_unavailable`, `item_unavailable_on_date` and the rest — folded in per line with
+ *    `item_not_assessed`, `unpriced`, `channel_unavailable`, `item_unavailable_on_date` and the rest — folded in per line with
  *    the offending `catalogue_item_id` attached, because at checkout they are
  *    reasons the *order* was refused.
  *

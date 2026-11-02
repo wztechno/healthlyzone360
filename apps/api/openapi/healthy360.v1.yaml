@@ -5584,6 +5584,53 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/items/{item}/allergens-assessed:
+    post:
+      operationId: markCatalogueItemAllergensAssessed
+      tags: [Sellable catalogue]
+      summary: State a catalogue item contains none of the allergens
+      description: |
+        "Assessed: contains none of these". For an item with
+        `allergens_assessed: false` and nothing else to vouch for it: stamps
+        `allergens_assessed_at` and `allergens_assessed_by`, which puts it back
+        on sale, and writes the audit event `catalogue.item_allergens_assessed`.
+
+        An item already assessed by any route is refused `409`: a statement of
+        absence must not land on top of a recipe or ingredients saying otherwise.
+
+        No `If-Match`: it touches no field an editor holds, so it leaves
+        `lock_version` alone and cannot make an open form stale.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The assessed item.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogueItemEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/items/{item}/variants:
     put:
       operationId: replaceCatalogueItemVariants
@@ -8930,9 +8977,9 @@ paths:
 
         Refusals are **`422 cart.line_refused`** carrying `details.reasons`: one
         `{reason, …context}` entry per problem, **all of them at once**, from the
-        vocabulary `item_unknown`, `item_not_published`, `variant_unknown`,
-        `variant_not_active`, `channel_not_trading`, `channel_unavailable`,
-        `unpriced`, `currency_mismatch`. A refusal that revealed one problem per
+        vocabulary `item_unknown`, `item_not_published`, `item_not_assessed`,
+        `variant_unknown`, `variant_not_active`, `channel_not_trading`,
+        `channel_unavailable`, `unpriced`, `currency_mismatch`. A refusal that revealed one problem per
         attempt would turn one fix into three round trips.
 
         The whole cart comes back beside the line, because the write pushed the
@@ -13703,7 +13750,7 @@ paths:
 
         Line refusals sit on the line, in `lines[].refusals`, using the same
         vocabulary the placement refusal folds in per article — `item_unknown`,
-        `item_not_published`, `variant_unknown`, `variant_not_active`,
+        `item_not_published`, `item_not_assessed`, `variant_unknown`, `variant_not_active`,
         `channel_unavailable`, `item_unavailable_on_date`, `unpriced`,
         `currency_mismatch`, `channel_not_trading`. Order-level refusals sit in the top-level
         `refusals`, and are the three families an agent can actually do something
@@ -27838,6 +27885,8 @@ components:
           pack_count,
           default_pack,
           stock_blockers,
+          allergens_assessed,
+          on_sale_without_recipe,
         ]
       description: |
         One catalogue item selling a recipe, as the recipe book draws it beside
@@ -27913,6 +27962,19 @@ components:
             stock). The publish gate refuses on the same codes.
           items:
             type: string
+        allergens_assessed:
+          type: boolean
+          description: |
+            Whether anyone has assessed this item for allergens: a published
+            recipe version with a line, an allergen through its ingredients, an
+            ingredient link, or staff stating it contains none. False takes it
+            off sale, and `POST /catalogue/items/{item}/allergens-assessed` is
+            one way back. Always true for a subscription plan, which is not food.
+        on_sale_without_recipe:
+          type: boolean
+          description: |
+            A meal, sauce, dressing or frozen meal on sale with no published
+            recipe. A warning for staff: it stays on sale.
         pack_count:
           type: integer
           minimum: 0
@@ -29583,6 +29645,8 @@ components:
           status,
           data_quality_flags,
           stock_blockers,
+          allergens_assessed,
+          on_sale_without_recipe,
           lock_version,
         ]
       description: |
@@ -29768,6 +29832,19 @@ components:
             stock). The publish gate refuses on the same codes.
           items:
             type: string
+        allergens_assessed:
+          type: boolean
+          description: |
+            Whether anyone has assessed this item for allergens: a published
+            recipe version with a line, an allergen through its ingredients, an
+            ingredient link, or staff stating it contains none. False takes it
+            off sale, and `POST /catalogue/items/{item}/allergens-assessed` is
+            one way back. Always true for a subscription plan, which is not food.
+        on_sale_without_recipe:
+          type: boolean
+          description: |
+            A meal, sauce, dressing or frozen meal on sale with no published
+            recipe. A warning for staff: it stays on sale.
         source_system:
           type: ['string', 'null']
         source_ref:
@@ -39192,7 +39269,7 @@ components:
           type: string
           description: |
             The stable key. Line-level: `item_unknown`, `item_not_published`,
-            `variant_unknown`, `variant_not_active`, `channel_unavailable`,
+            `item_not_assessed`, `variant_unknown`, `variant_not_active`, `channel_unavailable`,
             `item_unavailable_on_date`, `unpriced`, `currency_mismatch`,
             `channel_not_trading`. Order-level:
             `customer_required`, `address_required`, `address_not_applicable`,

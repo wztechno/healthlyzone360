@@ -197,6 +197,7 @@ export const REPOSITORY_SURFACE = {
     kitchenAdmin: [
         'searchAllergenReferences',
         'importIngredientAllergenReference',
+        'markAllergensAssessed',
         'searchNutritionReferences',
         'assistIngredient',
         'confirmIngredientAllergens',

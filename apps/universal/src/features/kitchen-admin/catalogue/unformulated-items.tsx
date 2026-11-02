@@ -27,6 +27,7 @@ interface UnformulatedRow {
     readonly id: string;
     readonly kind: SellerKind;
     readonly name: LocalisedText;
+    readonly allergensAssessed: boolean | undefined;
 }
 
 /**
@@ -75,7 +76,14 @@ export function UnformulatedItems({
 
     const rows = useMemo<readonly UnformulatedRow[]>(() => {
         const byKind: Readonly<
-            Record<SellerKind, readonly { id: unknown; name: LocalisedText }[]>
+            Record<
+                SellerKind,
+                readonly {
+                    id: unknown;
+                    name: LocalisedText;
+                    allergensAssessed?: boolean | undefined;
+                }[]
+            >
         > = {
             meal: meals.data?.items ?? [],
             sauce: sauces.data?.items ?? [],
@@ -87,6 +95,7 @@ export function UnformulatedItems({
                 id: String(item.id),
                 kind: candidate,
                 name: item.name,
+                allergensAssessed: item.allergensAssessed,
             })),
         );
         // `wants` reads `kind` only.
@@ -97,6 +106,12 @@ export function UnformulatedItems({
         router.push(
             `/kitchen/recipes/item/${encodeURIComponent(row.id)}?kind=${row.kind}` as never,
         );
+    };
+    const rowLabel = (row: UnformulatedRow) => {
+        const name = displayName(row.name, locale).value;
+        return row.allergensAssessed === false
+            ? `${name} · ${t('kitchen:allergenAssessment.notAssessed')}`
+            : name;
     };
     const title = `${t('kitchen:stockBlockers.unformulatedTitle')} · ${t(
         'kitchen:stockBlockers.unformulatedCount',
@@ -117,7 +132,7 @@ export function UnformulatedItems({
                   items: rows.map((row) => ({
                       key: `${row.kind}-${row.id}`,
                       tone: 'warning' as const,
-                      label: displayName(row.name, locale).value,
+                      label: rowLabel(row),
                       action: {
                           onPress: () => {
                               open(row);
@@ -141,7 +156,7 @@ export function UnformulatedItems({
                     testID={`${testID}-${row.id}`}
                     variant="secondary"
                     size="sm"
-                    label={displayName(row.name, locale).value}
+                    label={rowLabel(row)}
                     onPress={() => {
                         open(row);
                     }}

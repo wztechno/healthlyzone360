@@ -264,6 +264,22 @@ export function stockBlockedLabel(sellers: readonly RecipeSoldAs[], t: TFunction
     return codes.length === 0 ? null : stockBlockersSentence(codes, 'rowLabel', t);
 }
 
+/**
+ * What a row's items are missing for food safety, or `null`. An unassessed seller is off sale; a
+ * seller on sale with no published recipe stays there.
+ */
+export function assessmentLabel(sellers: readonly RecipeSoldAs[], t: TFunction): string | null {
+    const notes = [
+        ...(sellers.some((seller) => seller.allergensAssessed === false)
+            ? [t('kitchen:allergenAssessment.notAssessed')]
+            : []),
+        ...(sellers.some((seller) => seller.onSaleWithoutRecipe === true)
+            ? [t('kitchen:allergenAssessment.noRecipe')]
+            : []),
+    ];
+    return notes.length === 0 ? null : notes.join(', ');
+}
+
 /** "Selling this doesn't lower stock: recipe has no pieces produced" — the codes, named. */
 export function stockBlockersSentence(
     codes: readonly StockBlocker[],
@@ -427,6 +443,19 @@ export function recipeColumns({
                      * missing. A glyph for the reason the not-formulated mark is one; its label
                      * names what is missing, and pressing it opens the recipe where it is fixed.
                      */}
+                    {/* Not assessed, or on sale unpublished. A glyph here too, and for the same reason. */}
+                    {assessmentLabel(row.soldAs ?? [], t) === null ? null : (
+                        <IconButton
+                            testID={`${rowID(row)}-assessment`}
+                            variant="ghost"
+                            size="sm"
+                            label={assessmentLabel(row.soldAs ?? [], t) ?? ''}
+                            icon={<Icon name="warning" size="sm" className="text-danger-strong" />}
+                            onPress={() => {
+                                onOpen?.(row);
+                            }}
+                        />
+                    )}
                     {stockBlocked(row) === null ? null : (
                         <IconButton
                             testID={`${rowID(row)}-stock-blocked`}

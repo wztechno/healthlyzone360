@@ -18,6 +18,7 @@ use Healthy360\Support\Enums\DataClassification;
 use Healthy360\Support\Models\BaseModel;
 use Healthy360\Tenancy\Concerns\BelongsToOrganisation;
 use Healthy360\Tenancy\Contracts\OrganisationScoped;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -65,6 +66,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property CatalogueItemStatus $status
  * @property string|null $review_reason
  * @property string|null $image_placeholder_id
+ * @property CarbonImmutable|null $allergens_assessed_at when a member of staff stated it contains none of the allergens
+ * @property string|null $allergens_assessed_by
  * @property array<string, mixed>|null $nutrition_facts
  * @property list<string>|null $data_quality_flags
  * @property string|null $source_system
@@ -79,6 +82,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 #[Classified(DataClassification::Public, 'slug', 'name_en', 'name_ar', 'description_en', 'description_ar')]
 #[Classified(DataClassification::Public, 'nutrition_facts')]
 #[Classified(DataClassification::Internal, 'review_reason', 'data_quality_flags', 'source_system', 'source_ref')]
+#[Classified(DataClassification::Internal, 'allergens_assessed_at', 'allergens_assessed_by')]
 class CatalogueItem extends BaseModel implements OrganisationScoped
 {
     use BelongsToOrganisation;
@@ -128,6 +132,7 @@ class CatalogueItem extends BaseModel implements OrganisationScoped
             'data_quality_flags' => 'array',
             'meal_types' => 'array',
             'seeded_at' => 'immutable_datetime',
+            'allergens_assessed_at' => 'immutable_datetime',
             'lock_version' => 'integer',
         ];
     }
@@ -162,6 +167,46 @@ class CatalogueItem extends BaseModel implements OrganisationScoped
         // by a factory that has not round-tripped that default — carries no
         // attribute at all, and a sale is not the place to discover it.
         return $this->item_type->sellsFromFinishedStock((bool) ($this->sells_from_finished_stock ?? false));
+    }
+
+    /**
+     * Food somebody has actually assessed for allergens, or anything that is not
+     * food.
+     *
+     * **The one definition**, in SQL, because the marketplace filters a whole
+     * listing on it and a per-row check there would undo the query fix that page
+     * needed. Anything asking about one row asks here too, with `whereKey()`.
+     *
+     * Assessed means any one of:
+     *
+     * 1. A published recipe version with at least one ingredient line. Through
+     *    `recipe_has_published_lines()`, because the marketplace and the corporate
+     *    catalogue cannot see `recipe_versions` under row-level security: the
+     *    migration that adds it says why.
+     * 2. At least one allergen recorded through the item's listed ingredients,
+     *    from either layer of `AllergenRollupService::effectiveFor()`. A list of
+     *    ingredients carrying none proves nothing: it may be that nobody mapped them.
+     * 3. An ingredient link, on an item that is exactly one ingredient.
+     * 4. A member of staff stating it contains none of the allergens.
+     *
+     * Applies to meals, products, sauces, dressings and frozen meals. A
+     * subscription plan is not food: its meals are, and they answer for themselves.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeAllergensAssessed(Builder $query): void
+    {
+        $query->where(function (Builder $assessed): void {
+            $assessed->where('catalogue_items.item_type', CatalogueItemType::SubscriptionPlan->value)
+                ->orWhereNotNull('catalogue_items.allergens_assessed_at')
+                ->orWhereNotNull('catalogue_items.ingredient_id')
+                ->orWhereRaw('recipe_has_published_lines(catalogue_items.recipe_id, catalogue_items.organisation_id)')
+                ->orWhereExists(fn ($recorded) => $recorded->from('catalogue_item_ingredients')
+                    ->join('ingredient_allergens', 'ingredient_allergens.ingredient_id', '=', 'catalogue_item_ingredients.ingredient_id')
+                    ->whereColumn('catalogue_item_ingredients.catalogue_item_id', 'catalogue_items.id')
+                    ->where(fn ($layer) => $layer->whereNull('ingredient_allergens.organisation_id')
+                        ->orWhereColumn('ingredient_allergens.organisation_id', 'catalogue_items.organisation_id')));
+        });
     }
 
     /**

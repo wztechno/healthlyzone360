@@ -149,6 +149,7 @@ export type ApiKitchenAdminWrites = Pick<
     | 'updateMeal'
     | 'publishMeal'
     | 'retireMeal'
+    | 'markAllergensAssessed'
     | 'setMealAvailability'
     | 'createPlan'
     | 'updatePlan'
@@ -1652,6 +1653,13 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 headers: ifMatch(request.lockVersion),
             });
             return reads.getMeal(mealId);
+        },
+
+        async markAllergensAssessed(itemId: ProductId | MealId): Promise<void> {
+            await transport.request({
+                method: 'POST',
+                path: `/catalogue/items/${encodeURIComponent(String(itemId))}/allergens-assessed`,
+            });
         },
 
         async createPlan(request: CreatePlanRequest): Promise<PlanAdmin> {

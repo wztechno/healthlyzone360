@@ -1132,6 +1132,10 @@ export interface RecipeSoldAs {
     readonly defaultPack: RecipeSoldAsPack | null;
     /** Why selling it cannot lower stock (HA-45); empty when a sale can. */
     readonly stockBlockers?: readonly StockBlocker[] | undefined;
+    /** `false` is not assessed for allergens, which puts it off sale. */
+    readonly allergensAssessed?: boolean | undefined;
+    /** A dish on sale with no published recipe. A warning: it stays on sale. */
+    readonly onSaleWithoutRecipe?: boolean | undefined;
 }
 
 export interface RecipeAdminSummary {
@@ -1698,6 +1702,10 @@ export interface ProductAdmin {
     readonly dataQualityFlags: readonly string[];
     /** Why selling it cannot lower stock (HA-45); empty when a sale can. */
     readonly stockBlockers?: readonly StockBlocker[] | undefined;
+    /** `false` is not assessed for allergens, which puts it off sale. */
+    readonly allergensAssessed?: boolean | undefined;
+    /** A dish on sale with no published recipe. A warning: it stays on sale. */
+    readonly onSaleWithoutRecipe?: boolean | undefined;
     /**
      * The photograph id, resolved by `EntityImage` — the stored one when a kitchen set it,
      * otherwise `<item_type>-<slug>`, the same id the storefront derives. Most products have no
@@ -1972,6 +1980,10 @@ export interface MealAdmin {
     readonly imagePlaceholderId: string;
     /** Why selling it cannot lower stock (HA-45); empty when a sale can. */
     readonly stockBlockers?: readonly StockBlocker[] | undefined;
+    /** `false` is not assessed for allergens, which puts it off sale. */
+    readonly allergensAssessed?: boolean | undefined;
+    /** A dish on sale with no published recipe. A warning: it stays on sale. */
+    readonly onSaleWithoutRecipe?: boolean | undefined;
     /**
      * CONFIDENTIAL — gross margin against the recipe's cost per serving at the current confirmed
      * price, whole percent. `null` when either side of that sum is missing, which is honest: a
@@ -2545,6 +2557,8 @@ export interface KitchenAdminRepository {
     /** Makes the meal visible to consumers. Refused from `review_required`. */
     publishMeal(mealId: MealId, request: LockedRequest): Promise<MealAdmin>;
     retireMeal(mealId: MealId, request: LockedRequest): Promise<MealAdmin>;
+    /** Staff state the item contains none of the allergens. Refused once anything else vouches for it. */
+    markAllergensAssessed(itemId: ProductId | MealId): Promise<void>;
     setMealAvailability(mealId: MealId, request: SetMealAvailabilityRequest): Promise<MealAdmin>;
 
     /* ── subscription plans ─────────────────────────────────────────────────────────────────── */

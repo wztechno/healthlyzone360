@@ -49,6 +49,9 @@ class CatalogueItemFactory extends Factory
             'status' => CatalogueItemStatus::Draft,
             'review_reason' => null,
             'image_placeholder_id' => null,
+            // Assessed by default: a test about selling is not a test about
+            // allergens, and `notAssessed()` is the state that is.
+            'allergens_assessed_at' => now(),
             'nutrition_facts' => null,
             'data_quality_flags' => null,
             'lock_version' => 0,
@@ -58,6 +61,14 @@ class CatalogueItemFactory extends Factory
     public function meal(): static
     {
         return $this->state(fn (array $attributes): array => ['item_type' => CatalogueItemType::Meal]);
+    }
+
+    /**
+     * Nobody has said what is in it, which is what a real row starts as.
+     */
+    public function notAssessed(): static
+    {
+        return $this->state(fn (array $attributes): array => ['allergens_assessed_at' => null]);
     }
 
     public function subscriptionPlan(): static

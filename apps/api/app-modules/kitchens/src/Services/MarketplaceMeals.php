@@ -28,7 +28,7 @@ use Illuminate\Database\Eloquent\Builder;
  *
  * ## What makes a listing public
  *
- * Four conditions, and every one of them is somebody's decision rather than an
+ * Five conditions, and every one of them is somebody's decision rather than an
  * inference:
  *
  * 1. **`item_type` is anything but a plan** — meal, product, sauce, dressing or
@@ -53,6 +53,10 @@ use Illuminate\Database\Eloquent\Builder;
  *    price at all (`PriceResolver` makes the three indistinguishable on
  *    purpose), so an item a kitchen has not finished pricing simply does not
  *    appear — which is the same answer the kitchen's own readiness gate gives.
+ * * 5. **Somebody has assessed it for allergens.** The listing shows "None
+ *    declared" for an empty label, which reads as safe, so a dish nobody checked
+ *    cannot be listed. In SQL, through {@see CatalogueItem::scopeAllergensAssessed()},
+ *    which also answers correctly here with no tenant context.
  *
  * ## Where the price comes from
  *
@@ -96,6 +100,7 @@ final readonly class MarketplaceMeals
             ->with(['category' => fn ($query) => $query->withoutGlobalScope(OrganisationScope::class)])
             ->whereIn('item_type', self::LISTING_ITEM_TYPES)
             ->where('status', CatalogueItemStatus::Published->value)
+            ->allergensAssessed()
             ->whereIn('organisation_id', app(MarketplaceKitchens::class)->visible()->select('organisations.id'))
             ->whereExists(fn ($query) => $query->from('channel_catalogue_items')
                 ->join('sales_channels', 'sales_channels.id', '=', 'channel_catalogue_items.sales_channel_id')

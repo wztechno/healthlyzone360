@@ -48,7 +48,8 @@
         "checkout_window_ended": "That delivery slot has already ended today. Choose a later slot or another day.",
         "checkout_lead_time_not_met": "That delivery slot is too soon for the kitchen to prepare your order. Choose a later slot or another day.",
         "checkout_below_zone_minimum": "This order is below the minimum for delivery to this address. Add more to your basket.",
-        "checkout_item_unavailable_on_date": "Something in your basket is not available on that day. Choose another date or remove it."
+        "checkout_item_unavailable_on_date": "Something in your basket is not available on that day. Choose another date or remove it.",
+        "checkout_item_not_assessed": "Something in your basket is not on sale right now because its allergens have not been checked. Remove it to continue."
     },
     "address": {
         "label": "Name for this address",

@@ -1351,6 +1351,8 @@ export const zAdminRecipeSoldAs = z.object({
     composition: z.string().nullable(),
     channel_codes: z.array(z.string()),
     stock_blockers: z.array(z.string()),
+    allergens_assessed: z.boolean(),
+    on_sale_without_recipe: z.boolean(),
     pack_count: z.int().gte(0),
     default_pack: z.object({
         label_en: z.string(),
@@ -1587,6 +1589,8 @@ export const zAdminCatalogueItem = z.object({
     image_placeholder_id: z.string().max(80).nullish(),
     data_quality_flags: z.array(z.string()),
     stock_blockers: z.array(z.string()),
+    allergens_assessed: z.boolean(),
+    on_sale_without_recipe: z.boolean(),
     source_system: z.string().nullish(),
     source_ref: z.string().nullish(),
     lock_version: z.int().gte(0),
@@ -12337,6 +12341,23 @@ export const zRetireCatalogueItemPath = z.object({
  * The retired item.
  */
 export const zRetireCatalogueItemResponse = zCatalogueItemEnvelope;
+
+export const zMarkCatalogueItemAllergensAssessedHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zMarkCatalogueItemAllergensAssessedPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The assessed item.
+ */
+export const zMarkCatalogueItemAllergensAssessedResponse = zCatalogueItemEnvelope;
 
 export const zReplaceCatalogueItemVariantsBody = zReplaceCatalogueItemVariantsRequest;
 

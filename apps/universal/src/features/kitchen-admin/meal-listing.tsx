@@ -79,6 +79,7 @@ import {
     unitDimension,
     unitKey,
 } from './format.ts';
+import { AllergenAssessmentCallout, AssessmentBadges } from './catalogue/allergen-assessment.tsx';
 import { stockBlockersSentence } from './catalogue/recipe-columns.tsx';
 import { serverFieldErrors } from './server-field-errors.ts';
 import { useNudgeOnRefusal } from './tray-nudge.ts';
@@ -956,6 +957,11 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                 tone="neutral"
                                 label={t('kitchen:meals.allergensFromRecipe')}
                             />
+                            <AssessmentBadges
+                                testID="kitchen-meal-allergens"
+                                allergensAssessed={data?.allergensAssessed}
+                                onSaleWithoutRecipe={data?.onSaleWithoutRecipe}
+                            />
                         </Inline>
 
                         {data === undefined || data.allergens.length === 0 ? (
@@ -978,6 +984,12 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                 ))}
                             </Inline>
                         )}
+                        {data?.allergensAssessed === false ? (
+                            <AllergenAssessmentCallout
+                                testID="kitchen-meal-allergen-assessment"
+                                itemId={data.id}
+                            />
+                        ) : null}
                     </View>
 
                     <View

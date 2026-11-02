@@ -35,6 +35,8 @@ export const CHECKOUT_TIMING_WARNINGS = [
     'checkout.below_zone_minimum',
     'checkout.item_unavailable_on_date',
 ] as const;
+/** `item_not_assessed` — nobody has assessed a dish in the basket for allergens, so it is off sale. */
+export const CHECKOUT_ITEM_NOT_ASSESSED = 'checkout.item_not_assessed';
 /** A picked meal crosses the person's allergies; generation would swap it for a safe one. */
 export const SUBSCRIPTION_ALLERGEN_CONFLICT = 'subscription.allergen_conflict';
 export const SUBSCRIPTION_NO_DELIVERY_DAYS = 'subscription.no_delivery_days';
@@ -46,6 +48,7 @@ const KNOWN: ReadonlySet<string> = new Set([
     CHECKOUT_ADDRESS_MISSING,
     CHECKOUT_WINDOW_NOT_OFFERED,
     ...CHECKOUT_TIMING_WARNINGS,
+    CHECKOUT_ITEM_NOT_ASSESSED,
     ALLERGEN_CONFLICT_WARNING,
     SUBSCRIPTION_ALLERGEN_CONFLICT,
     SUBSCRIPTION_NO_DELIVERY_DAYS,
