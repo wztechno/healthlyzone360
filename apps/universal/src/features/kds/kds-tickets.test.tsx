@@ -20,7 +20,7 @@ import arKitchen from '../../../../../packages/i18n/catalogues/ar/kitchen.json';
 import arMarketplace from '../../../../../packages/i18n/catalogues/ar/marketplace.json';
 import { queryKeys } from '../../data/query-keys.ts';
 import { addDays, todayIso } from '../commerce/dates.ts';
-import { allergyBanner } from '../kitchen-admin/ops-format.ts';
+import { allergenLabel, allergyBanner } from '../kitchen-admin/ops-format.ts';
 import { playAlertTone } from './alert-tone.ts';
 import { isAlarming, placedTicketIds, unseenTickets } from './kds-board.ts';
 import { KDS_ALARM_TONE_MS, KdsTicketsScreen } from './kds-tickets-screen.tsx';
@@ -347,6 +347,9 @@ describe('the allergy banner in Arabic', () => {
         expect(banner.title).toBe(arKitchen.allergy.titleSevere);
         expect(banner.body).toContain(arMarketplace.allergens.sesame);
         expect(banner.body).toContain(arKitchen.allergy.severity.anaphylaxis);
+
+        // The ticket's own badges read the same source, never the code.
+        expect(allergenLabel('tree_nut', i18n.t)).toBe(arMarketplace.allergens.tree_nut);
     });
 });
 

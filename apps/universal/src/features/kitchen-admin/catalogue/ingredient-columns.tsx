@@ -10,6 +10,7 @@ import {
     statusTone,
     unitShortKey,
 } from '../format.ts';
+import { allergenLabel } from '../ops-format.ts';
 import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 import { ingredientStockPhotoId } from './ingredient-photo.ts';
@@ -126,10 +127,10 @@ export function ingredientColumns({
     formatter,
     categoryName,
 }: IngredientColumnDeps): readonly CatalogueColumn<IngredientAdmin>[] {
-    const allergenLabel = (row: IngredientAdmin): string =>
+    const allergensOf = (row: IngredientAdmin): string =>
         row.allergens.length === 0
             ? t('kitchen:list.noAllergens')
-            : row.allergens.map((mapping) => mapping.allergenCode).join(', ');
+            : row.allergens.map((mapping) => allergenLabel(mapping.allergenCode, t)).join(', ');
 
     const noValue = t('kitchen:list.noValue');
 
@@ -316,7 +317,7 @@ export function ingredientColumns({
             // column that is usually empty into the loudest thing on the page, and the badge's
             // tone was carrying a distinction (contains versus may-contain) that no reader can
             // decode from colour alone anyway. The row's editor states it in words.
-            value: allergenLabel,
+            value: allergensOf,
             render: (row) => {
                 const testID = ingredientRowTestId(row.id);
                 return (
@@ -334,7 +335,7 @@ export function ingredientColumns({
                         }
                         tone={row.allergens.length === 0 ? 'secondary' : 'primary'}
                     >
-                        {allergenLabel(row)}
+                        {allergensOf(row)}
                     </Text>
                 );
             },

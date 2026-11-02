@@ -96,6 +96,7 @@ import {
     kitchenOrderRowTestId,
     kitchenOrderStatusKey,
     kitchenOrderStatusTone,
+    allergenLabel,
     allergyBanner,
 } from '../ops-format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
@@ -608,7 +609,7 @@ function OrderLinesTable({
                                     tone={
                                         allergen.containment === 'contains' ? 'danger' : 'warning'
                                     }
-                                    label={allergen.allergenCode}
+                                    label={allergenLabel(allergen.allergenCode, t)}
                                 />
                             ))}
                         </Inline>

@@ -22,6 +22,7 @@ import {
     unitShortKey,
 } from '../format.ts';
 import { resolveEntityImage } from '../../../media/entity-image.tsx';
+import { allergenLabel } from '../ops-format.ts';
 import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
@@ -328,10 +329,10 @@ export function recipeColumns({
      * Read off the row, which the listing already answered — the codes, the sellers, the line
      * count. Nothing on this list costs a request per row, so no cell has an in-flight state.
      */
-    const allergenLabel = (row: RecipeAdminSummary): string =>
+    const allergensOf = (row: RecipeAdminSummary): string =>
         row.allergenCodes.length === 0
             ? t('kitchen:recipes.noAllergens')
-            : row.allergenCodes.join(', ');
+            : row.allergenCodes.map((code) => allergenLabel(code, t)).join(', ');
 
     const categoryLabel = (row: RecipeAdminSummary): string =>
         recipeCategoryLabel(row.recipeCategory, t) ?? kitchenCategoryPair(row.soldAs?.[0]) ?? dash;
@@ -530,7 +531,7 @@ export function recipeColumns({
         min: 132,
         priority: CATALOGUE_PRIORITY.allergens,
         role: 'meta',
-        value: allergenLabel,
+        value: allergensOf,
         render: (row) => {
             const derived = row.allergenCodes;
             return (
@@ -545,7 +546,7 @@ export function recipeColumns({
                     }
                     tone={derived.length === 0 ? 'secondary' : 'primary'}
                 >
-                    {allergenLabel(row)}
+                    {allergensOf(row)}
                 </Text>
             );
         },

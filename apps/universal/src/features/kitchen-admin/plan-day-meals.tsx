@@ -4,6 +4,8 @@ import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { allergenLabel } from './ops-format.ts';
+
 /**
  * Which dish is for which sitting of a subscription day, drawn under the order's plan line.
  *
@@ -90,7 +92,7 @@ export function PlanDayMeals({
                             <Badge
                                 key={allergen.allergenCode}
                                 tone={allergen.containment === 'contains' ? 'danger' : 'warning'}
-                                label={allergen.allergenCode}
+                                label={allergenLabel(allergen.allergenCode, t)}
                             />
                         ))}
                     </View>

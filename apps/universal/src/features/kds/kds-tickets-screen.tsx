@@ -36,7 +36,11 @@ import {
     ORDER_VIEW_PERMISSION,
 } from '../kitchen-admin/entity-registry.ts';
 import { displayName, humaniseCode } from '../kitchen-admin/format.ts';
-import { allergyBanner, canFulfilKitchenOrder } from '../kitchen-admin/ops-format.ts';
+import {
+    allergenLabel,
+    allergyBanner,
+    canFulfilKitchenOrder,
+} from '../kitchen-admin/ops-format.ts';
 import { playAlertTone } from './alert-tone.ts';
 import {
     bucketTickets,
@@ -632,10 +636,11 @@ function Ticket({
                                             // Colour alone is not the claim: the words say it.
                                             label={
                                                 allergen.containment === 'contains'
-                                                    ? humaniseCode(allergen.allergenCode)
+                                                    ? allergenLabel(allergen.allergenCode, t)
                                                     : t('kitchen:kds.mayContain', {
-                                                          allergen: humaniseCode(
+                                                          allergen: allergenLabel(
                                                               allergen.allergenCode,
+                                                              t,
                                                           ),
                                                       })
                                             }
