@@ -1,0 +1,53 @@
+import type { IsoDateTime, OrderId } from '@healthy360/domain-types';
+
+/**
+ * The kitchen's top-bar alerts, and the service timings that decide when some of them fire.
+ *
+ * Every alert belongs to one person: the server filters on the caller's own user, so there is no
+ * call here that could read or mark a colleague's. An alert carries what the bell draws and no more.
+ * The wording is the screen's, from `type` and `orderNumber`, and the order link shows the rest to
+ * whoever may see it.
+ */
+
+export const STAFF_ALERT_TYPES = [
+    'unaccepted_manager',
+    'unaccepted_owner',
+    'allergy_order',
+    'late_cancel',
+    'delivery_failed',
+    'no_cash_collected',
+] as const;
+export type StaffAlertType = (typeof STAFF_ALERT_TYPES)[number];
+
+export interface StaffAlert {
+    readonly id: string;
+    readonly type: StaffAlertType;
+    readonly orderId: OrderId;
+    readonly orderNumber: string;
+    readonly severe: boolean;
+    readonly readAt: IsoDateTime | null;
+    readonly createdAt: IsoDateTime;
+}
+
+export interface StaffAlertList {
+    /** The most recent, newest first. */
+    readonly alerts: readonly StaffAlert[];
+    /** Every unread alert of the caller's, so it can be more than `alerts` holds. */
+    readonly unreadCount: number;
+}
+
+/** One kitchen's timings, in whole minutes. */
+export interface KitchenServiceSettings {
+    readonly orderLeadMinutes: number;
+    readonly alarmAfterMinutes: number;
+    readonly managerAlertAfterMinutes: number;
+    readonly ownerAlertAfterMinutes: number;
+}
+
+export interface StaffAlertsRepository {
+    listAlerts(): Promise<StaffAlertList>;
+    markAlertRead(alertId: string): Promise<void>;
+    markAllAlertsRead(): Promise<void>;
+    getServiceSettings(): Promise<KitchenServiceSettings>;
+    saveServiceSettings(settings: KitchenServiceSettings): Promise<KitchenServiceSettings>;
+}

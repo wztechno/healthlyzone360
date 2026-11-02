@@ -216,6 +216,8 @@ export const DRAWN_ICON_FALLBACKS = {
     swatchBook: 'prototype',
     // Ingredient barcodes: the camera scan control. Lucide's `scan-barcode`.
     scanBarcode: 'search',
+    // The kitchen top bar's staff alerts. Lucide's `bell`.
+    bell: 'warning',
 } as const satisfies Readonly<Record<string, IconGlyphName>>;
 export type DrawnIconName = keyof typeof DRAWN_ICON_FALLBACKS;
 

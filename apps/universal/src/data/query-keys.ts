@@ -87,6 +87,7 @@ export const QUERY_ROOTS = [
     'driverJobs',
     'accessAdmin',
     'kitchenCustomers',
+    'staffAlerts',
 ] as const;
 export type QueryRoot = (typeof QUERY_ROOTS)[number];
 
@@ -722,6 +723,19 @@ export const queryKeys = {
         all: () => ['kitchenCustomers'] as const,
         list: (filter: QueryScope) => ['kitchenCustomers', 'list', filter] as const,
         customer: (customerId: string) => ['kitchenCustomers', 'customer', customerId] as const,
+    },
+
+    /**
+     * ── staffAlerts: the top-bar bell and the service timings behind it ─────────────────────────
+     * ────────────────────────────────────────────────────────────────────────────────────────────
+     *
+     * Two entries under one root, invalidated apart, so reading an alert does not refetch the
+     * timings. **Never persisted**: the alerts are one person's, on a tablet the kitchen shares.
+     */
+    staffAlerts: {
+        all: () => ['staffAlerts'] as const,
+        list: () => ['staffAlerts', 'list'] as const,
+        serviceSettings: () => ['staffAlerts', 'service-settings'] as const,
     },
 
     /**

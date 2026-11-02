@@ -14119,6 +14119,169 @@ paths:
           $ref: '#/components/responses/PreconditionRequired'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/staff-notifications:
+    get:
+      operationId: listStaffNotifications
+      tags:
+        - Order desk
+      summary: The caller's own recent staff alerts
+      description: |
+        The bell: the 30 most recent alerts addressed to the caller, newest
+        first, with `meta.unread_count` counting every unread one, so it can be
+        higher than the unread rows on this page.
+
+        Filtered on the caller's `user_id` as well as the organisation: the
+        policy says whose kitchen a row belongs to, not whose bell it rings.
+
+        Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The caller's recent alerts, newest first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffNotificationsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/staff-notifications/read-all:
+    post:
+      operationId: markAllStaffNotificationsRead
+      tags:
+        - Order desk
+      summary: Mark all the caller's alerts read
+      description: |
+        Every one of the caller's unread alerts, including those older than the
+        page the bell shows. A colleague's are untouched.
+
+        Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '204':
+          description: Nothing of the caller's is left unread.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/staff-notifications/{notification}/read:
+    post:
+      operationId: markStaffNotificationRead
+      tags:
+        - Order desk
+      summary: Mark one of the caller's alerts read
+      description: |
+        A colleague's row answers `404`, as a row that does not exist does.
+        Reading a row twice keeps the first `read_at`.
+
+        Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: notification
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '204':
+          description: The alert is read.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/kitchen-service-settings:
+    get:
+      operationId: getKitchenServiceSettings
+      tags:
+        - Kitchen operations
+      summary: This kitchen's service timings
+      description: |
+        One row per organisation, created with defaults the first time it is
+        read, in whole minutes.
+
+        Requires `catalogue.manage_organisation` or
+        `order.manage_organisation`: the kitchen display reads its alarm minutes
+        from here.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The kitchen's timings.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenServiceSettingsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      operationId: updateKitchenServiceSettings
+      tags:
+        - Kitchen operations
+      summary: Replace this kitchen's service timings
+      description: |
+        All four values together. No `If-Match`: the row carries no
+        `lock_version`. `manager_alert_after_minutes` must be less than
+        `owner_alert_after_minutes`.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KitchenServiceSettings'
+      responses:
+        '200':
+          description: The timings as stored.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenServiceSettingsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/customers:
     get:
       operationId: listKitchenCustomers
@@ -42200,6 +42363,103 @@ components:
               oneOf:
                 - $ref: '#/components/schemas/KitchenCustomerCompany'
                 - type: 'null'
+    StaffNotificationType:
+      type: string
+      enum:
+        - unaccepted_manager
+        - unaccepted_owner
+        - allergy_order
+        - late_cancel
+        - delivery_failed
+        - no_cash_collected
+    StaffNotification:
+      type: object
+      required:
+        - id
+        - type
+        - order_id
+        - order_number
+        - severe
+        - read_at
+        - created_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        type:
+          $ref: '#/components/schemas/StaffNotificationType'
+        order_id:
+          $ref: '#/components/schemas/Uuid'
+        order_number:
+          type: string
+        severe:
+          type: boolean
+        read_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+    StaffNotificationsEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/StaffNotification'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required:
+                - count
+                - unread_count
+              properties:
+                count:
+                  type: integer
+                  minimum: 0
+                unread_count:
+                  type: integer
+                  minimum: 0
+                  description: Every unread alert of the caller's, not only those returned.
+    KitchenServiceSettings:
+      type: object
+      required:
+        - order_lead_minutes
+        - alarm_after_minutes
+        - manager_alert_after_minutes
+        - owner_alert_after_minutes
+      properties:
+        order_lead_minutes:
+          type: integer
+          minimum: 0
+          maximum: 10080
+        alarm_after_minutes:
+          type: integer
+          minimum: 1
+          maximum: 10080
+        manager_alert_after_minutes:
+          type: integer
+          minimum: 1
+          maximum: 10080
+        owner_alert_after_minutes:
+          type: integer
+          minimum: 1
+          maximum: 10080
+    KitchenServiceSettingsEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          $ref: '#/components/schemas/KitchenServiceSettings'
+        meta:
+          $ref: '#/components/schemas/Meta'
     KitchenCustomersEnvelope:
       type: object
       required:

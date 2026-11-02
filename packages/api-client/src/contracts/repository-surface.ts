@@ -381,6 +381,13 @@ export const REPOSITORY_SURFACE = {
     ],
     kitchenQuotations: ['getQuotation', 'listQuotations', 'quoteQuotation'],
     kitchenCustomers: ['getCustomer', 'listCustomers'],
+    staffAlerts: [
+        'getServiceSettings',
+        'listAlerts',
+        'markAlertRead',
+        'markAllAlertsRead',
+        'saveServiceSettings',
+    ],
     driverJobs: ['claimJob', 'deliverJob', 'listJobs', 'pickUpJob'],
     platformAdmin: [
         'createKitchen',

@@ -218,6 +218,8 @@ use Healthy360\Inventory\Http\Controllers\StockThresholdController;
 use Healthy360\Inventory\Http\Controllers\StockWasteController;
 use Healthy360\Kitchens\Http\Controllers\BranchOperatingReplaceController;
 use Healthy360\Kitchens\Http\Controllers\BranchOperatingShowController;
+use Healthy360\Kitchens\Http\Controllers\KitchenServiceSettingsShowController;
+use Healthy360\Kitchens\Http\Controllers\KitchenServiceSettingsUpdateController;
 use Healthy360\Kitchens\Http\Controllers\PublicKitchenIndexController;
 use Healthy360\Kitchens\Http\Controllers\PublicKitchenShowController;
 use Healthy360\Kitchens\Http\Controllers\PublicMealIndexController;
@@ -358,6 +360,9 @@ use Healthy360\Subscriptions\Http\Controllers\SubscriptionSkipStoreController;
 use Healthy360\Subscriptions\Http\Controllers\SubscriptionStoreController;
 use Healthy360\Subscriptions\Http\Controllers\SubscriptionWeekdaysUpdateController;
 use Healthy360\Subscriptions\Http\Controllers\SubscriptionWindowUpdateController;
+use Healthy360\Support\Http\Controllers\StaffNotificationIndexController;
+use Healthy360\Support\Http\Controllers\StaffNotificationReadAllController;
+use Healthy360\Support\Http\Controllers\StaffNotificationReadController;
 use Healthy360\Verification\Http\Controllers\ChallengeResendController;
 use Healthy360\Verification\Http\Controllers\ChallengeShowController;
 use Healthy360\Verification\Http\Controllers\ChallengeVerifyController;
@@ -1008,6 +1013,29 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         |
         */
         Route::middleware('org.context')->prefix('/catalogue')->group(function (): void {
+            /*
+            | The bell, under `/catalogue` because `/me` routes carry no tenant
+            | context. The permission decides who has a bell at all; each
+            | controller filters on `user_id`, because the organisation policy
+            | would otherwise show a colleague's alerts.
+            */
+            Route::middleware('permission:order.supervise_organisation')->group(function (): void {
+                Route::get('/staff-notifications', StaffNotificationIndexController::class)->name('catalogue.staff-notifications.index');
+                Route::post('/staff-notifications/read-all', StaffNotificationReadAllController::class)->name('catalogue.staff-notifications.read-all');
+                Route::post('/staff-notifications/{notification}/read', StaffNotificationReadController::class)
+                    ->whereUuid('notification')->name('catalogue.staff-notifications.read');
+            });
+
+            /*
+            | A kitchen's service timings. Reading checks its own two permissions
+            | (see the controller). No `org.trading` and no `precondition`: a
+            | suspended kitchen still has orders to finish, and the row carries
+            | no `lock_version`.
+            */
+            Route::get('/kitchen-service-settings', KitchenServiceSettingsShowController::class)->name('catalogue.kitchen-service-settings.show');
+            Route::put('/kitchen-service-settings', KitchenServiceSettingsUpdateController::class)
+                ->middleware('permission:catalogue.manage_organisation')->name('catalogue.kitchen-service-settings.update');
+
             Route::get('/ingredients/nutrition-references', NutritionReferenceSearchController::class)
                 ->middleware('permission:catalogue.manage_organisation')->name('catalogue.ingredients.nutrition-references');
             Route::get('/ingredients/allergen-references', AllergenReferenceSearchController::class)

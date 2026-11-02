@@ -6064,6 +6064,45 @@ export const zKitchenCustomerDetail = zKitchenCustomer.and(z.object({
     company: zKitchenCustomerCompany.nullable()
 }));
 
+export const zStaffNotificationType = z.enum([
+    'unaccepted_manager',
+    'unaccepted_owner',
+    'allergy_order',
+    'late_cancel',
+    'delivery_failed',
+    'no_cash_collected'
+]);
+
+export const zStaffNotification = z.object({
+    id: zUuid,
+    type: zStaffNotificationType,
+    order_id: zUuid,
+    order_number: z.string(),
+    severe: z.boolean(),
+    read_at: z.iso.datetime({ offset: true }).nullable(),
+    created_at: z.iso.datetime({ offset: true })
+});
+
+export const zStaffNotificationsEnvelope = z.object({
+    data: z.array(zStaffNotification),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0),
+        unread_count: z.int().gte(0)
+    }))
+});
+
+export const zKitchenServiceSettings = z.object({
+    order_lead_minutes: z.int().gte(0).lte(10080),
+    alarm_after_minutes: z.int().gte(1).lte(10080),
+    manager_alert_after_minutes: z.int().gte(1).lte(10080),
+    owner_alert_after_minutes: z.int().gte(1).lte(10080)
+});
+
+export const zKitchenServiceSettingsEnvelope = z.object({
+    data: zKitchenServiceSettings,
+    meta: zMeta
+});
+
 export const zKitchenCustomersEnvelope = z.object({
     data: z.array(zKitchenCustomer),
     meta: zMeta.and(z.object({
@@ -14447,6 +14486,62 @@ export const zAmendOrderDeskOrderPath = z.object({
  * The edited order, in the kitchen shape, with its new validator.
  */
 export const zAmendOrderDeskOrderResponse = zKitchenOrderEnvelope;
+
+export const zListStaffNotificationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The caller's recent alerts, newest first.
+ */
+export const zListStaffNotificationsResponse = zStaffNotificationsEnvelope;
+
+export const zMarkAllStaffNotificationsReadHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Nothing of the caller's is left unread.
+ */
+export const zMarkAllStaffNotificationsReadResponse = z.void();
+
+export const zMarkStaffNotificationReadHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zMarkStaffNotificationReadPath = z.object({
+    notification: zUuid
+});
+
+/**
+ * The alert is read.
+ */
+export const zMarkStaffNotificationReadResponse = z.void();
+
+export const zGetKitchenServiceSettingsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The kitchen's timings.
+ */
+export const zGetKitchenServiceSettingsResponse = zKitchenServiceSettingsEnvelope;
+
+export const zUpdateKitchenServiceSettingsBody = zKitchenServiceSettings;
+
+export const zUpdateKitchenServiceSettingsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The timings as stored.
+ */
+export const zUpdateKitchenServiceSettingsResponse = zKitchenServiceSettingsEnvelope;
 
 export const zListKitchenCustomersHeaders = z.object({
     'X-Organisation-Id': zUuid,

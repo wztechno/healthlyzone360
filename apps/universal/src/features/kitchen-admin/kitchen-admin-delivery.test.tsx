@@ -1781,6 +1781,69 @@ describe('the service-area picker at gazetteer scale', () => {
  * Branch operating hours
  * ---------------------------------------------------------------------------------------------- */
 
+describe('the kitchen service timings', () => {
+    const TIMINGS = {
+        orderLeadMinutes: 120,
+        alarmAfterMinutes: 5,
+        managerAlertAfterMinutes: 10,
+        ownerAlertAfterMinutes: 20,
+    };
+
+    it('reads the four timings and saves a changed one with the rest', async () => {
+        const { repositories } = await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING },
+                staffAlerts: {
+                    getServiceSettings: async () => TIMINGS,
+                    saveServiceSettings: async (saved) => saved,
+                },
+            },
+        });
+        await untilVisible('kitchen-service-timings');
+
+        expect(screen.getByTestId('kitchen-service-timings-lead').props.value).toBe('120');
+
+        fireEvent.changeText(screen.getByTestId('kitchen-service-timings-lead'), '90');
+        fireEvent.press(screen.getByTestId('kitchen-service-timings-save'));
+
+        await untilVisible('kitchen-service-timings-saved-toast');
+        expect(repositories.staffAlerts.saveServiceSettings).toHaveBeenCalledWith({
+            ...TIMINGS,
+            orderLeadMinutes: 90,
+        });
+    });
+
+    it('will not save an empty timing as zero', async () => {
+        await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING },
+                staffAlerts: { getServiceSettings: async () => TIMINGS },
+            },
+        });
+        await untilVisible('kitchen-service-timings');
+
+        fireEvent.changeText(screen.getByTestId('kitchen-service-timings-alarm'), '');
+
+        expect(screen.getByTestId('kitchen-service-timings-save')).toBeDisabled();
+    });
+
+    it('is not drawn for someone who may only read the week', async () => {
+        const { repositories } = await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenManagerSession({
+                memberships: [testMembership({ branches: [testBranch()] })],
+                activeContext: testActiveContext({ permissions: ['catalogue.view_organisation'] }),
+            }),
+            repositories: { kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING } },
+        });
+        await untilVisible('kitchen-branch-hours-screen');
+
+        expect(screen.queryByTestId('kitchen-service-timings')).toBeNull();
+        expect(repositories.staffAlerts.getServiceSettings).not.toHaveBeenCalled();
+    });
+});
+
 describe('the branch operating week', () => {
     it('renders all seven days for the branch already in context', async () => {
         await renderStubScreen(<BranchOperatingScreen />, {

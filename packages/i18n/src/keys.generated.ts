@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9168 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9199 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2978,6 +2978,22 @@ export interface NamespaceKeys {
     | 'a11y.listUpdated'
     | 'a11y.mappingAdded'
     | 'a11y.mappingRemoved'
+    | 'alerts.buttonLabel'
+    | 'alerts.empty'
+    | 'alerts.freshMany'
+    | 'alerts.loadError'
+    | 'alerts.markAllRead'
+    | 'alerts.open'
+    | 'alerts.openLabel'
+    | 'alerts.title'
+    | 'alerts.type.allergy_order'
+    | 'alerts.type.delivery_failed'
+    | 'alerts.type.late_cancel'
+    | 'alerts.type.no_cash_collected'
+    | 'alerts.type.severe_allergy'
+    | 'alerts.type.unaccepted_manager'
+    | 'alerts.type.unaccepted_owner'
+    | 'alerts.unreadDetail'
     | 'aliases.add'
     | 'aliases.count'
     | 'aliases.description'
@@ -6727,6 +6743,21 @@ export interface NamespaceKeys {
     | 'search.label'
     | 'search.placeholder'
     | 'search.trigger'
+    | 'serviceTimings.alarmHint'
+    | 'serviceTimings.alarmLabel'
+    | 'serviceTimings.description'
+    | 'serviceTimings.leadHint'
+    | 'serviceTimings.leadLabel'
+    | 'serviceTimings.loadErrorTitle'
+    | 'serviceTimings.managerHint'
+    | 'serviceTimings.managerLabel'
+    | 'serviceTimings.ownerHint'
+    | 'serviceTimings.ownerLabel'
+    | 'serviceTimings.save'
+    | 'serviceTimings.saveError'
+    | 'serviceTimings.savedToast'
+    | 'serviceTimings.title'
+    | 'serviceTimings.unit'
     | 'status.all'
     | 'status.draft'
     | 'status.label'
@@ -12164,6 +12195,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:a11y.listUpdated',
   'kitchen:a11y.mappingAdded',
   'kitchen:a11y.mappingRemoved',
+  'kitchen:alerts.buttonLabel',
+  'kitchen:alerts.empty',
+  'kitchen:alerts.freshMany',
+  'kitchen:alerts.loadError',
+  'kitchen:alerts.markAllRead',
+  'kitchen:alerts.open',
+  'kitchen:alerts.openLabel',
+  'kitchen:alerts.title',
+  'kitchen:alerts.type.allergy_order',
+  'kitchen:alerts.type.delivery_failed',
+  'kitchen:alerts.type.late_cancel',
+  'kitchen:alerts.type.no_cash_collected',
+  'kitchen:alerts.type.severe_allergy',
+  'kitchen:alerts.type.unaccepted_manager',
+  'kitchen:alerts.type.unaccepted_owner',
+  'kitchen:alerts.unreadDetail',
   'kitchen:aliases.add',
   'kitchen:aliases.count',
   'kitchen:aliases.description',
@@ -15913,6 +15960,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:search.label',
   'kitchen:search.placeholder',
   'kitchen:search.trigger',
+  'kitchen:serviceTimings.alarmHint',
+  'kitchen:serviceTimings.alarmLabel',
+  'kitchen:serviceTimings.description',
+  'kitchen:serviceTimings.leadHint',
+  'kitchen:serviceTimings.leadLabel',
+  'kitchen:serviceTimings.loadErrorTitle',
+  'kitchen:serviceTimings.managerHint',
+  'kitchen:serviceTimings.managerLabel',
+  'kitchen:serviceTimings.ownerHint',
+  'kitchen:serviceTimings.ownerLabel',
+  'kitchen:serviceTimings.save',
+  'kitchen:serviceTimings.saveError',
+  'kitchen:serviceTimings.savedToast',
+  'kitchen:serviceTimings.title',
+  'kitchen:serviceTimings.unit',
   'kitchen:status.all',
   'kitchen:status.draft',
   'kitchen:status.label',

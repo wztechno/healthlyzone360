@@ -9370,6 +9370,41 @@ export type KitchenCustomerDetail = KitchenCustomer & {
     company: KitchenCustomerCompany | null;
 };
 
+export type StaffNotificationType = 'unaccepted_manager' | 'unaccepted_owner' | 'allergy_order' | 'late_cancel' | 'delivery_failed' | 'no_cash_collected';
+
+export type StaffNotification = {
+    id: Uuid;
+    type: StaffNotificationType;
+    order_id: Uuid;
+    order_number: string;
+    severe: boolean;
+    read_at: string | null;
+    created_at: string;
+};
+
+export type StaffNotificationsEnvelope = {
+    data: Array<StaffNotification>;
+    meta: Meta & {
+        count: number;
+        /**
+         * Every unread alert of the caller's, not only those returned.
+         */
+        unread_count: number;
+    };
+};
+
+export type KitchenServiceSettings = {
+    order_lead_minutes: number;
+    alarm_after_minutes: number;
+    manager_alert_after_minutes: number;
+    owner_alert_after_minutes: number;
+};
+
+export type KitchenServiceSettingsEnvelope = {
+    data: KitchenServiceSettings;
+    meta: Meta;
+};
+
 export type KitchenCustomersEnvelope = {
     data: Array<KitchenCustomer>;
     meta: Meta & {
@@ -32230,6 +32265,271 @@ export type AmendOrderDeskOrderResponses = {
 };
 
 export type AmendOrderDeskOrderResponse = AmendOrderDeskOrderResponses[keyof AmendOrderDeskOrderResponses];
+
+export type ListStaffNotificationsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/staff-notifications';
+};
+
+export type ListStaffNotificationsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListStaffNotificationsError = ListStaffNotificationsErrors[keyof ListStaffNotificationsErrors];
+
+export type ListStaffNotificationsResponses = {
+    /**
+     * The caller's recent alerts, newest first.
+     */
+    200: StaffNotificationsEnvelope;
+};
+
+export type ListStaffNotificationsResponse = ListStaffNotificationsResponses[keyof ListStaffNotificationsResponses];
+
+export type MarkAllStaffNotificationsReadData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/staff-notifications/read-all';
+};
+
+export type MarkAllStaffNotificationsReadErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type MarkAllStaffNotificationsReadError = MarkAllStaffNotificationsReadErrors[keyof MarkAllStaffNotificationsReadErrors];
+
+export type MarkAllStaffNotificationsReadResponses = {
+    /**
+     * Nothing of the caller's is left unread.
+     */
+    204: void;
+};
+
+export type MarkAllStaffNotificationsReadResponse = MarkAllStaffNotificationsReadResponses[keyof MarkAllStaffNotificationsReadResponses];
+
+export type MarkStaffNotificationReadData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        notification: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/staff-notifications/{notification}/read';
+};
+
+export type MarkStaffNotificationReadErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type MarkStaffNotificationReadError = MarkStaffNotificationReadErrors[keyof MarkStaffNotificationReadErrors];
+
+export type MarkStaffNotificationReadResponses = {
+    /**
+     * The alert is read.
+     */
+    204: void;
+};
+
+export type MarkStaffNotificationReadResponse = MarkStaffNotificationReadResponses[keyof MarkStaffNotificationReadResponses];
+
+export type GetKitchenServiceSettingsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/kitchen-service-settings';
+};
+
+export type GetKitchenServiceSettingsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetKitchenServiceSettingsError = GetKitchenServiceSettingsErrors[keyof GetKitchenServiceSettingsErrors];
+
+export type GetKitchenServiceSettingsResponses = {
+    /**
+     * The kitchen's timings.
+     */
+    200: KitchenServiceSettingsEnvelope;
+};
+
+export type GetKitchenServiceSettingsResponse = GetKitchenServiceSettingsResponses[keyof GetKitchenServiceSettingsResponses];
+
+export type UpdateKitchenServiceSettingsData = {
+    body: KitchenServiceSettings;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/kitchen-service-settings';
+};
+
+export type UpdateKitchenServiceSettingsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateKitchenServiceSettingsError = UpdateKitchenServiceSettingsErrors[keyof UpdateKitchenServiceSettingsErrors];
+
+export type UpdateKitchenServiceSettingsResponses = {
+    /**
+     * The timings as stored.
+     */
+    200: KitchenServiceSettingsEnvelope;
+};
+
+export type UpdateKitchenServiceSettingsResponse = UpdateKitchenServiceSettingsResponses[keyof UpdateKitchenServiceSettingsResponses];
 
 export type ListKitchenCustomersData = {
     body?: never;

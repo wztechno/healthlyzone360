@@ -79,8 +79,8 @@ final readonly class StaffAlerts
                 fn (): array => $this->writeRows($type, $organisationId, $subjectId, $data),
             ));
 
-            DB::afterCommit(function () use ($type, $alerted, $data): void {
-                defer(fn () => $this->deliver($type, $alerted, $data), always: true);
+            DB::afterCommit(function () use ($type, $alerted, $subjectId, $data): void {
+                defer(fn () => $this->deliver($type, $alerted, $subjectId, $data), always: true);
             });
         } catch (Throwable $e) {
             report($e);
@@ -125,10 +125,10 @@ final readonly class StaffAlerts
      * @param  list<array{user_id: string, email: string, locale: string}>  $recipients
      * @param  array{order_number: string, total_minor?: int, currency_code?: string, severe?: bool}  $data
      */
-    private function deliver(StaffAlertType $type, array $recipients, array $data): void
+    private function deliver(StaffAlertType $type, array $recipients, string $subjectId, array $data): void
     {
         foreach ($recipients as $recipient) {
-            $this->attempt(fn () => Mail::to($recipient['email'])->queue($this->message($type, $data, $recipient['locale'])));
+            $this->attempt(fn () => Mail::to($recipient['email'])->queue($this->message($type, $subjectId, $data, $recipient['locale'])));
 
             if ($type->isEscalation()) {
                 $this->attempt(fn () => SendStaffAlertSms::dispatch(
@@ -142,7 +142,7 @@ final readonly class StaffAlerts
     /**
      * @param  array{order_number: string, total_minor?: int, currency_code?: string, severe?: bool}  $data
      */
-    private function message(StaffAlertType $type, array $data, string $locale): NoticeMessage
+    private function message(StaffAlertType $type, string $subjectId, array $data, string $locale): NoticeMessage
     {
         $lines = [(string) __("notices.staff_alert.{$type->value}.line", [], $locale)];
 
@@ -157,7 +157,7 @@ final readonly class StaffAlerts
             (string) __("notices.staff_alert.{$type->value}.heading", ['number' => $data['order_number']], $locale),
             $lines,
             (string) __('notices.staff_alert.action', [], $locale),
-            rtrim((string) config('app.frontend_url'), '/').self::ORDER_PAGE,
+            rtrim((string) config('app.frontend_url'), '/').self::ORDER_PAGE.'?order='.$subjectId,
             $locale,
         );
     }

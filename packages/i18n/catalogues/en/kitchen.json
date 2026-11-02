@@ -4737,5 +4737,42 @@
             "nutrition": "Nutrition confirmed",
             "price": "Unit price on file"
         }
+    },
+    "alerts": {
+        "title": "Alerts",
+        "buttonLabel": "Alerts · {{n}} unread",
+        "freshMany": "{{n}} new alerts",
+        "empty": "No alerts yet.",
+        "loadError": "Alerts could not be loaded.",
+        "markAllRead": "Mark all read",
+        "open": "Open",
+        "openLabel": "Open: {{title}}",
+        "unreadDetail": "New · {{when}}",
+        "type": {
+            "unaccepted_manager": "Order {{number}} has not been accepted",
+            "unaccepted_owner": "Order {{number}} is still not accepted",
+            "allergy_order": "New order {{number}} has an allergy on it",
+            "severe_allergy": "New order {{number}} has a severe allergy on it",
+            "late_cancel": "Order {{number}} was cancelled after cooking started",
+            "delivery_failed": "Delivery failed for order {{number}}",
+            "no_cash_collected": "No cash was collected for order {{number}}"
+        }
+    },
+    "serviceTimings": {
+        "title": "Service timings",
+        "description": "These apply to the whole kitchen, not only this branch. Alert times count only while a branch is open.",
+        "save": "Save timings",
+        "savedToast": "Service timings saved.",
+        "saveError": "The service timings were not saved.",
+        "loadErrorTitle": "The service timings could not be loaded.",
+        "unit": "min",
+        "leadLabel": "Order lead time",
+        "leadHint": "How long before a delivery window an order must be placed.",
+        "alarmLabel": "Display alarm after",
+        "alarmHint": "How long an order waits before the kitchen display alarms.",
+        "managerLabel": "Alert managers after",
+        "managerHint": "Must be less than the owner alert.",
+        "ownerLabel": "Alert owner after",
+        "ownerHint": "How long an order waits before the owner is told."
     }
 }

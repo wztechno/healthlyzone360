@@ -11,6 +11,7 @@ import type { KitchenAdminRepository } from './kitchen-admin.ts';
 import type { KitchenOpsRepository } from './kitchen-ops.ts';
 import type { KitchenOrdersRepository } from './kitchen-orders.ts';
 import type { KitchenCustomersRepository } from './kitchen-customers.ts';
+import type { StaffAlertsRepository } from './staff-alerts.ts';
 import type { KitchenQuotationsRepository } from './kitchen-quotations.ts';
 import type { MarketplaceRepository } from './marketplace.ts';
 import type { NutritionRepository } from './nutrition.ts';
@@ -703,6 +704,15 @@ export type {
     KitchenCustomerType,
 } from './kitchen-customers.ts';
 
+export { STAFF_ALERT_TYPES } from './staff-alerts.ts';
+export type {
+    KitchenServiceSettings,
+    StaffAlert,
+    StaffAlertList,
+    StaffAlertsRepository,
+    StaffAlertType,
+} from './staff-alerts.ts';
+
 export { KITCHEN_QUOTATION_STATUSES } from './kitchen-quotations.ts';
 export type {
     KitchenQuotation,
@@ -1107,6 +1117,12 @@ export interface Repositories {
      * customer shape on purpose — see `./kitchen-customers.ts`'s header.
      */
     readonly kitchenCustomers: KitchenCustomersRepository;
+
+    /**
+     * The top-bar alerts addressed to the caller, and the kitchen's service timings that decide
+     * when they fire. See `./staff-alerts.ts`.
+     */
+    readonly staffAlerts: StaffAlertsRepository;
 
     /**
      * One driver's run sheet, and the stamp that closes a job.

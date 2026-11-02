@@ -14,6 +14,7 @@ import {
 } from '../../src/features/kitchen-admin/kitchen-ops-shell.tsx';
 import { KitchenPageSearch } from '../../src/features/kitchen-admin/kitchen-page-search.tsx';
 import { AreaShell } from '../../src/shell/area-shell.tsx';
+import { StaffAlertsButton } from '../../src/shell/staff-alerts-button.tsx';
 
 /**
  * The `kitchen` area. `AreaShell` applies `<Gate area="kitchen">` and this area's chrome — here
@@ -46,7 +47,12 @@ function KitchenAreaShell() {
             sidebarStart={<KitchenBrandBlock />}
             sidebarStartCollapsed={<KitchenRailTop />}
             topbarTitle={crumbs.length === 0 ? undefined : <KitchenTrail crumbs={crumbs} />}
-            topbarSearch={<KitchenPageSearch navigation={navigation} />}
+            topbarSearch={
+                <>
+                    <StaffAlertsButton />
+                    <KitchenPageSearch navigation={navigation} />
+                </>
+            }
         >
             <KitchenOpsShell>
                 <Slot />

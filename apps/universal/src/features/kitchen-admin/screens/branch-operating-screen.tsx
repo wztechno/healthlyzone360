@@ -1,3 +1,4 @@
+import type { KitchenServiceSettings } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -5,8 +6,11 @@ import {
     Cascade,
     EmptyState,
     ErrorState,
+    FormGrid,
     FormSection,
     FormSkeleton,
+    Text,
+    TextInputField,
     useToast,
 } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
@@ -20,6 +24,10 @@ import {
     useBranchOperatingQuery,
     useSetBranchOperatingMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
+import {
+    useKitchenServiceSettingsQuery,
+    useSaveKitchenServiceSettingsMutation,
+} from '../../../data/staff-alerts-hooks.ts';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
 import { weekdayKey } from '../../marketplace/format.ts';
 import {
@@ -88,6 +96,13 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * IANA zones a picker would need. A free-text field for `Asia/Dubai` is a field that accepts
  * `Asia/Duabi`, and a mistyped zone shifts every cut-off on this page by hours without saying so.
  * Changing it belongs with whoever owns the branch record.
+ *
+ * ## The service timings sit here, and save on their own
+ *
+ * How long a kitchen needs before a window, and how long an order may wait before somebody is told,
+ * sit beside the hours they count against. They are one record per organisation rather than one per
+ * branch, so they carry their own Save and their own unsaved guard, and they are drawn only for
+ * someone who may edit them, because their read refuses a reader who may only look at this page.
  */
 
 /**
@@ -109,6 +124,20 @@ const EM_DASH = '—';
 const ASIDE_WIDTH = 300;
 const FORM_MIN_WIDTH = 830;
 const COLUMN_GAP = 16;
+
+type ServiceTimingKey = keyof KitchenServiceSettings;
+
+/** The four timings: each field's copy, its name on the wire, and its place in the form. */
+const SERVICE_TIMINGS = [
+    { key: 'orderLeadMinutes', copy: 'lead', server: 'order_lead_minutes' },
+    { key: 'alarmAfterMinutes', copy: 'alarm', server: 'alarm_after_minutes' },
+    { key: 'managerAlertAfterMinutes', copy: 'manager', server: 'manager_alert_after_minutes' },
+    { key: 'ownerAlertAfterMinutes', copy: 'owner', server: 'owner_alert_after_minutes' },
+] as const satisfies readonly {
+    readonly key: ServiceTimingKey;
+    readonly copy: string;
+    readonly server: string;
+}[];
 
 export function BranchOperatingScreen() {
     return (
@@ -406,6 +435,8 @@ function BranchOperatingEditor() {
                             }}
                         />
                     </FormSection>
+
+                    {canManage ? <ServiceTimingsSection /> : null}
                 </View>
 
                 {/*
@@ -483,5 +514,142 @@ function BranchOperatingEditor() {
                 testID="kitchen-branch-hours-screen"
             />
         </Cascade>
+    );
+}
+
+/** The kitchen's service timings. See the note on the screen for why they save on their own. */
+function ServiceTimingsSection() {
+    const { t } = useTranslation();
+    const toast = useToast();
+    const settings = useKitchenServiceSettingsQuery();
+    const save = useSaveKitchenServiceSettingsMutation();
+    const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
+    /** Only what has been typed, as typed: a field may be empty on its way to a new number. */
+    const [edits, setEdits] = useState<Partial<Record<ServiceTimingKey, string>>>({});
+
+    const loadFailure = toFailure(settings.error);
+    if (loadFailure !== null) {
+        return (
+            <ErrorState
+                testID="kitchen-service-timings-load-error"
+                failure={loadFailure}
+                title={t('kitchen:serviceTimings.loadErrorTitle')}
+                onRetry={() => {
+                    void settings.refetch();
+                }}
+                retrying={settings.isFetching}
+            />
+        );
+    }
+
+    const stored = settings.data;
+    if (stored === undefined) {
+        return (
+            <FormSkeleton
+                testID="kitchen-service-timings-loading"
+                partTestID="kitchen-service-timings"
+                heading={false}
+                sections={1}
+                tabs={0}
+            />
+        );
+    }
+
+    const shown = (key: ServiceTimingKey) => edits[key] ?? String(stored[key]);
+    const dirty = Object.keys(edits).length > 0;
+    const complete = SERVICE_TIMINGS.every(({ key }) => shown(key) !== '');
+
+    const saveFailure = toFailure(save.error);
+    const server = serverFieldErrors(
+        saveFailure,
+        Object.fromEntries(
+            SERVICE_TIMINGS.map(({ copy, server: field }) => [
+                field,
+                {
+                    label: t(`kitchen:serviceTimings.${copy}Label`),
+                    fieldId: `kitchen-service-timings-${copy}`,
+                },
+            ]),
+        ),
+    );
+
+    const saveTimings = () => {
+        save.mutate(
+            {
+                orderLeadMinutes: Number(shown('orderLeadMinutes')),
+                alarmAfterMinutes: Number(shown('alarmAfterMinutes')),
+                managerAlertAfterMinutes: Number(shown('managerAlertAfterMinutes')),
+                ownerAlertAfterMinutes: Number(shown('ownerAlertAfterMinutes')),
+            },
+            {
+                onSuccess: () => {
+                    setEdits({});
+                    guard.markClean();
+                    toast.show({
+                        testID: 'kitchen-service-timings-saved-toast',
+                        tone: 'success',
+                        message: t('kitchen:serviceTimings.savedToast'),
+                    });
+                },
+            },
+        );
+    };
+
+    return (
+        <>
+            <FormSection
+                variant="card"
+                testID="kitchen-service-timings"
+                title={t('kitchen:serviceTimings.title')}
+                description={t('kitchen:serviceTimings.description')}
+                actions={
+                    <Button
+                        testID="kitchen-service-timings-save"
+                        size="sm"
+                        label={t('kitchen:serviceTimings.save')}
+                        loading={save.isPending}
+                        disabled={!dirty || !complete || save.isPending}
+                        onPress={saveTimings}
+                    />
+                }
+            >
+                {saveFailure === null ? null : (
+                    <Callout
+                        testID="kitchen-service-timings-save-error"
+                        role="alert"
+                        tone="danger"
+                        title={t('kitchen:serviceTimings.saveError')}
+                        body={server.unplaced ?? saveFailure.message}
+                    />
+                )}
+                <FormGrid track="half" testID="kitchen-service-timings-grid">
+                    {SERVICE_TIMINGS.map(({ key, copy, server: field }) => (
+                        <TextInputField
+                            key={key}
+                            testID={`kitchen-service-timings-${copy}`}
+                            id={`kitchen-service-timings-${copy}`}
+                            label={t(`kitchen:serviceTimings.${copy}Label`)}
+                            hint={t(`kitchen:serviceTimings.${copy}Hint`)}
+                            size="sm"
+                            inputMode="numeric"
+                            autoCorrect={false}
+                            required
+                            trailing={
+                                <Text variant="caption" tone="secondary">
+                                    {t('kitchen:serviceTimings.unit')}
+                                </Text>
+                            }
+                            value={shown(key)}
+                            {...server.flag(field)}
+                            onChangeText={(next) => {
+                                setEdits({ ...edits, [key]: next.replace(/[^0-9]/gu, '') });
+                                guard.markDirty();
+                            }}
+                        />
+                    ))}
+                </FormGrid>
+            </FormSection>
+            <EditorGuardDialogs guard={guard} testID="kitchen-service-timings" />
+        </>
     );
 }
