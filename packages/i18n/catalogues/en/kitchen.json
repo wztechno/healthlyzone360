@@ -2134,6 +2134,8 @@
             "open": "Open now",
             "openCaption": "In this window",
             "late": "Past due",
+            "lateInfo": "Every open order past its due time, on any date, not only this view.",
+            "lateFilter": "Show every past due order, on any date",
             "lateCaption": "Past their due time",
             "needsDriverCaption": "Confirmed, nobody assigned",
             "unsettledCaption": "Money still to collect"

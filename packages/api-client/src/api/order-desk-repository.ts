@@ -187,6 +187,7 @@ function queueQuery(filters?: OrderDeskQueueFilters): string {
     if (filters.query !== undefined && filters.query.trim() !== '') {
         search.set('query', filters.query.trim());
     }
+    if (filters.lens !== undefined) search.set('lens', filters.lens);
 
     const rendered = search.toString();
     return rendered === '' ? '' : `?${rendered}`;

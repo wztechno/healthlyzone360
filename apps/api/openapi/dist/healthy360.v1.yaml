@@ -13744,6 +13744,16 @@ paths:
           schema:
             type: string
             maxLength: 60
+        - name: lens
+          in: query
+          required: false
+          description: |
+            `past_due` lists every open order whose `due_at` has passed, whatever
+            its date, in place of `window`. The other filters still apply.
+          schema:
+            type: string
+            enum:
+              - past_due
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
@@ -41686,11 +41696,33 @@ components:
                 - window
                 - today
                 - timezone
+                - past_due_count
+                - overdue_count
+                - overdue_grace_minutes
               properties:
                 count:
                   type: integer
                   minimum: 0
                   description: Rows in this response.
+                past_due_count:
+                  type: integer
+                  minimum: 0
+                  description: |
+                    Open orders whose `due_at` has passed, across all dates, whatever
+                    this view shows and however many rows it was capped to. Inside
+                    the kitchen, and the branch when one is named.
+                overdue_count:
+                  type: integer
+                  minimum: 0
+                  description: |
+                    Those at least `overdue_grace_minutes` past due, the same order
+                    the due badge draws red.
+                overdue_grace_minutes:
+                  type: integer
+                  minimum: 0
+                  description: |
+                    The grace itself, so a client reads the rule and never keeps a
+                    copy of it.
                 limit:
                   type: integer
                   description: |

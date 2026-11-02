@@ -75,6 +75,14 @@ use Illuminate\Support\Facades\DB;
  * orders is already a kitchen in trouble, and a desk that silently showed the
  * first page of a much longer list would be hiding exactly the trouble it
  * exists to surface.
+ *
+ * ## Past due is a question about the whole book
+ *
+ * The figures counted the rows on screen, so a desk on Today showed Past due 0
+ * with eleven orders overdue from other days. `past_due_count` and
+ * `overdue_count` therefore cross every date, ignore the view's filters, and are
+ * an aggregate of their own, so the row cap cannot shorten them. They stay inside
+ * the kitchen and, when one is named, the branch.
  */
 final class OrderDeskQueue
 {
@@ -85,6 +93,16 @@ final class OrderDeskQueue
      * is not still gets an answer.
      */
     public const int MAX_ROWS = 200;
+
+    /**
+     * How long past due an order may be before it is overdue. The one copy: the
+     * payload carries it, and the due badges read it from there, so the red
+     * badges and `overdue_count` cannot disagree.
+     */
+    public const int OVERDUE_GRACE_MINUTES = 30;
+
+    /** The `lens` that lists every order past due, whatever the window. */
+    public const string LENS_PAST_DUE = 'past_due';
 
     /**
      * The due-order expression, in one place because it is used twice — once
@@ -125,7 +143,9 @@ final class OrderDeskQueue
      *     due_at: array<string, string>,
      *     truncated: bool,
      *     today: string,
-     *     timezone: string
+     *     timezone: string,
+     *     past_due_count: int,
+     *     overdue_count: int
      * }
      */
     public function forSeller(
@@ -138,13 +158,21 @@ final class OrderDeskQueue
         ?FulfilmentType $fulfilmentType = null,
         ?string $from = null,
         ?string $to = null,
+        bool $pastDueOnly = false,
     ): array {
         $timezone = $this->timezoneFor($organisationId, $branchId);
-        $today = CarbonImmutable::now($timezone)->toDateString();
+        $now = CarbonImmutable::now($timezone);
+        $today = $now->toDateString();
 
         $query = $this->base($organisationId, $statuses ?? self::openStatuses());
 
-        $this->applyWindow($query, $window, $today, $from, $to);
+        // The lens replaces the window: past due is a question across all dates.
+        if ($pastDueOnly) {
+            $query->whereRaw(self::DUE_AT.' < CAST(? AS timestamptz)', [$now->toIso8601String()]);
+        } else {
+            $this->applyWindow($query, $window, $today, $from, $to);
+        }
+
         $this->applyBranch($query, $branchId);
         $this->applyDeliveryWindowCode($query, $deliveryWindowCode);
         $this->applyOrderNumber($query, $orderNumberQuery);
@@ -171,6 +199,37 @@ final class OrderDeskQueue
             'truncated' => $truncated,
             'today' => $today,
             'timezone' => $timezone,
+            ...$this->dueCounts($organisationId, $branchId, $now),
+        ];
+    }
+
+    /**
+     * How many open orders are past due and overdue, on the clock the rows show.
+     *
+     * `<=` for overdue because the badge goes red on reaching the grace, not on
+     * passing it. Instants travel as offset strings, not as Carbon bindings, which
+     * would be written without a zone and read in the session's.
+     *
+     * @return array{past_due_count: int, overdue_count: int}
+     */
+    private function dueCounts(string $organisationId, ?string $branchId, CarbonImmutable $now): array
+    {
+        $query = $this->base($organisationId, self::openStatuses())
+            ->reorder()
+            ->select([])
+            ->selectRaw(
+                'count(*) filter (where '.self::DUE_AT.' < CAST(? AS timestamptz)) as past_due,
+                count(*) filter (where '.self::DUE_AT.' <= CAST(? AS timestamptz)) as overdue',
+                [$now->toIso8601String(), $now->subMinutes(self::OVERDUE_GRACE_MINUTES)->toIso8601String()],
+            );
+
+        $this->applyBranch($query, $branchId);
+
+        $counts = $query->toBase()->first();
+
+        return [
+            'past_due_count' => (int) ($counts->past_due ?? 0),
+            'overdue_count' => (int) ($counts->overdue ?? 0),
         ];
     }
 

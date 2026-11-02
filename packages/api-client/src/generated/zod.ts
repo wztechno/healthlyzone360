@@ -8884,6 +8884,9 @@ export const zOrderDeskQueueEnvelope = z.object({
     data: z.array(zOrderDeskRow),
     meta: zMeta.and(z.object({
         count: z.int().gte(0),
+        past_due_count: z.int().gte(0),
+        overdue_count: z.int().gte(0),
+        overdue_grace_minutes: z.int().gte(0),
         limit: z.int(),
         truncated: z.boolean(),
         window: zOrderDeskWindow,
@@ -14473,7 +14476,8 @@ export const zListOrderDeskQueueQuery = z.object({
     'status[]': z.array(z.enum(['placed', 'confirmed'])).optional(),
     delivery_window_code: z.string().max(40).optional(),
     fulfilment_type: zFulfilmentType.optional(),
-    query: z.string().max(60).optional()
+    query: z.string().max(60).optional(),
+    lens: z.enum(['past_due']).optional()
 });
 
 /**

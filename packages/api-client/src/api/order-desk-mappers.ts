@@ -177,6 +177,9 @@ export function mapOrderDeskQueueMeta(wire: OrderDeskQueueEnvelope['meta']): Ord
         to: wire.to ?? null,
         today: wire.today,
         timezone: wire.timezone,
+        pastDueCount: wire.past_due_count,
+        overdueCount: wire.overdue_count,
+        overdueGraceMinutes: wire.overdue_grace_minutes,
     };
 }
 

@@ -8950,6 +8950,25 @@ export type OrderDeskQueueEnvelope = {
          */
         count: number;
         /**
+         * Open orders whose `due_at` has passed, across all dates, whatever
+         * this view shows and however many rows it was capped to. Inside
+         * the kitchen, and the branch when one is named.
+         *
+         */
+        past_due_count: number;
+        /**
+         * Those at least `overdue_grace_minutes` past due, the same order
+         * the due badge draws red.
+         *
+         */
+        overdue_count: number;
+        /**
+         * The grace itself, so a client reads the rule and never keeps a
+         * copy of it.
+         *
+         */
+        overdue_grace_minutes: number;
+        /**
          * The most rows this operation will ever return. There is no
          * second page — the computed sort makes a cursor impossible —
          * so the cap is stated rather than implied.
@@ -32074,6 +32093,12 @@ export type ListOrderDeskQueueData = {
          * Case-insensitive substring match on the order number, and on nothing else.
          */
         query?: string;
+        /**
+         * `past_due` lists every open order whose `due_at` has passed, whatever
+         * its date, in place of `window`. The other filters still apply.
+         *
+         */
+        lens?: 'past_due';
     };
     url: '/catalogue/order-desk/queue';
 };

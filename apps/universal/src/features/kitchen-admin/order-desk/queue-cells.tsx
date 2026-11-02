@@ -18,16 +18,24 @@ import {
 /**
  * How late an order is, as the interval itself.
  *
- * The tone is the kitchen display's ageing scale (`orderDeskDueTone`: amber at fifteen minutes
- * past due, red at thirty, neutral while early). The label *is* the interval, spelled by the
- * locale's relative-time formatter, so the badge reads the same in greyscale as in colour.
+ * The tone is `orderDeskDueTone`: amber at fifteen minutes past due, red at the server's grace,
+ * neutral while early. The label *is* the interval, spelled by the locale's relative-time
+ * formatter, so the badge reads the same in greyscale as in colour.
  */
-export function DueBadge({ row, now }: { readonly row: OrderDeskQueueRow; readonly now: Date }) {
+export function DueBadge({
+    row,
+    now,
+    overdueGraceMinutes,
+}: {
+    readonly row: OrderDeskQueueRow;
+    readonly now: Date;
+    readonly overdueGraceMinutes: number;
+}) {
     const formatter = useFormatter();
     return (
         <Badge
             testID={`${orderDeskRowTestId(String(row.id))}-due-age`}
-            tone={orderDeskDueTone(row.dueAt, now)}
+            tone={orderDeskDueTone(row.dueAt, now, overdueGraceMinutes)}
             label={formatter.formatRelativeTime(row.dueAt, now)}
         />
     );

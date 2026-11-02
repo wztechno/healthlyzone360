@@ -91,6 +91,7 @@ final class OrderDeskQueueController
             // `OrderDeskQueue::applyFulfilmentType()` for why the two filters
             // that look alike are shaped differently.
             'fulfilment_type' => ['nullable', Rule::in(FulfilmentType::codes())],
+            'lens' => ['nullable', Rule::in([OrderDeskQueue::LENS_PAST_DUE])],
         ]);
 
         $page = $this->queue->forSeller(
@@ -105,6 +106,7 @@ final class OrderDeskQueueController
                 : null,
             isset($validated['from']) ? (string) $validated['from'] : null,
             isset($validated['to']) ? (string) $validated['to'] : null,
+            ($validated['lens'] ?? null) === OrderDeskQueue::LENS_PAST_DUE,
         );
 
         $orders = $page['orders'];
@@ -176,6 +178,10 @@ final class OrderDeskQueueController
             // them: which day the window was measured from, and on whose clock.
             'today' => $page['today'],
             'timezone' => $page['timezone'],
+            // Across every date, unlike the rows. See `OrderDeskQueue`.
+            'past_due_count' => $page['past_due_count'],
+            'overdue_count' => $page['overdue_count'],
+            'overdue_grace_minutes' => OrderDeskQueue::OVERDUE_GRACE_MINUTES,
         ]);
     }
 

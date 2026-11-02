@@ -165,6 +165,9 @@ function meta(overrides: Partial<OrderDeskQueueMeta> = {}): OrderDeskQueueMeta {
         to: null,
         today: '2026-08-15',
         timezone: 'UTC',
+        pastDueCount: 0,
+        overdueCount: 0,
+        overdueGraceMinutes: KDS_LATE_MINUTES,
         ...overrides,
     };
 }
@@ -422,23 +425,70 @@ describe('order desk queue — the truncation callout', () => {
     });
 });
 
+describe('order desk queue — past due across all dates', () => {
+    it("reads Past due from the server, not from the rows on screen (the audit's 0 with 11 overdue)", async () => {
+        await renderDesk(async () => queue([], { pastDueCount: 11, overdueCount: 11 }));
+
+        await waitFor(
+            () => {
+                expect(
+                    screen.getByTestId('kitchen-order-desk-toolbar-figure-late'),
+                ).toHaveTextContent(/11/);
+            },
+            { timeout: 5000 },
+        );
+    });
+
+    it('lists them when the figure is pressed, and a window ends the lens', async () => {
+        const { repositories } = await renderDesk(async () =>
+            queue(seedQueue(), { pastDueCount: 11, overdueCount: 11 }),
+        );
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kitchen-order-desk-table')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-toolbar-figure-late'));
+        await waitFor(() => {
+            expect(repositories.orderDesk.listQueue).toHaveBeenLastCalledWith({
+                window: 'today',
+                lens: 'past_due',
+            });
+        });
+
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-window-overdue'));
+        await waitFor(() => {
+            expect(repositories.orderDesk.listQueue).toHaveBeenLastCalledWith({
+                window: 'overdue',
+            });
+        });
+    });
+});
+
 describe('order desk queue — ageing against the due instant', () => {
-    it('grades minutes past due on the kitchen display scale, clamped before the deadline', () => {
+    it("grades minutes past due up to the server's grace, clamped before the deadline", () => {
         const now = new Date('2026-08-15T12:00:00.000Z');
+        const grace = KDS_LATE_MINUTES;
         const at = (minutesPast: number) =>
             new Date(now.getTime() - minutesPast * MINUTE_MS).toISOString();
 
         // Early is not "very early": the two sides of a deadline are different questions.
         expect(minutesPastDue(at(-45), now)).toBe(0);
-        expect(orderDeskDueTone(at(-45), now)).toBe('neutral');
-        expect(orderDeskDueTone(at(0), now)).toBe('neutral');
-        expect(orderDeskDueTone(at(KDS_WARNING_MINUTES - 1), now)).toBe('neutral');
+        expect(orderDeskDueTone(at(-45), now, grace)).toBe('neutral');
+        expect(orderDeskDueTone(at(0), now, grace)).toBe('neutral');
+        expect(orderDeskDueTone(at(KDS_WARNING_MINUTES - 1), now, grace)).toBe('neutral');
 
-        // The two thresholds are inclusive, exactly as `ticketAgeTone` reads them.
-        expect(orderDeskDueTone(at(KDS_WARNING_MINUTES), now)).toBe('warning');
-        expect(orderDeskDueTone(at(KDS_LATE_MINUTES - 1), now)).toBe('warning');
-        expect(orderDeskDueTone(at(KDS_LATE_MINUTES), now)).toBe('danger');
-        expect(orderDeskDueTone(at(KDS_LATE_MINUTES * 4), now)).toBe('danger');
+        // Both thresholds are inclusive.
+        expect(orderDeskDueTone(at(KDS_WARNING_MINUTES), now, grace)).toBe('warning');
+        expect(orderDeskDueTone(at(grace - 1), now, grace)).toBe('warning');
+        expect(orderDeskDueTone(at(grace), now, grace)).toBe('danger');
+        expect(orderDeskDueTone(at(grace * 4), now, grace)).toBe('danger');
+
+        // Red is whatever the server says, not a number kept here.
+        expect(orderDeskDueTone(at(45), now, 60)).toBe('warning');
 
         // An unreadable instant is not an emergency somebody has to dismiss.
         expect(minutesPastDue('not an instant', now)).toBe(0);

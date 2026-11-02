@@ -106,11 +106,13 @@ it('returns all 31 open orders, oldest first, where the order book showed 25', f
 it('carries what was fulfilled today and leaves older work and cancellations out', function (): void {
     $today = displayOrder($this, [
         'status' => OrderStatus::Fulfilled,
+        'placed_at' => now()->subHours(4),
         'confirmed_at' => now()->subHours(3),
         'fulfilled_at' => now()->subHours(2),
     ]);
     displayOrder($this, [
         'status' => OrderStatus::Fulfilled,
+        'placed_at' => now()->subDays(4),
         'confirmed_at' => now()->subDays(3),
         'fulfilled_at' => now()->subDays(2),
     ]);

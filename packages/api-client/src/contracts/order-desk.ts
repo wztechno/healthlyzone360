@@ -267,6 +267,15 @@ export interface OrderDeskQueueMeta {
     readonly today: string;
     /** The IANA zone that day was computed in: the named branch's, or `UTC` when none was named. */
     readonly timezone: string;
+    /**
+     * Open orders past their due time **across all dates**, whatever this view shows and however
+     * many rows it was capped to.
+     */
+    readonly pastDueCount: number;
+    /** Those at least {@link OrderDeskQueueMeta.overdueGraceMinutes} past due. */
+    readonly overdueCount: number;
+    /** The server's rule, read rather than copied, so a red badge and the count cannot disagree. */
+    readonly overdueGraceMinutes: number;
 }
 
 /** One bounded queue read. Not a page — see the file header. */
@@ -307,6 +316,8 @@ export interface OrderDeskQueueFilters {
      * pickups", so an array here would be inventing a question to justify a control.
      */
     readonly fulfilmentType?: OrderDeskFulfilmentType | undefined;
+    /** `past_due` lists every order past its due time, whatever its date, in place of the window. */
+    readonly lens?: 'past_due' | undefined;
     /** One named delivery slot, by the window's own code. */
     readonly deliveryWindowCode?: string | undefined;
     /**

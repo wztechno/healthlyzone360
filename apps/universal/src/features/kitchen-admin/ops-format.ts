@@ -20,7 +20,7 @@ import type {
 import type { BadgeTone, CalloutProps } from '@healthy360/design-system';
 import type { TFunction } from 'i18next';
 
-import { ticketAgeTone } from '../kds/kds-board.ts';
+import { KDS_WARNING_MINUTES } from '../kds/kds-board.ts';
 import { displayName, humaniseCode } from './format.ts';
 
 /**
@@ -285,18 +285,18 @@ export function minutesPastDue(dueAt: string, now: Date): number {
 /**
  * The tone the desk queue's due badge carries.
  *
- * Deliberately `ticketAgeTone` — the kitchen display's own scale, amber at fifteen minutes and red
- * at thirty — rather than a second table with the same numbers in it. The two surfaces are looking
- * at the same orders from two seats, and an order that is red on the wall has to be red at the desk;
- * two tables would agree today and drift the first time one of them is tuned.
+ * Amber on the kitchen display's own warning, red at the server's grace, which comes with the queue
+ * so a red badge and `overdueCount` cannot disagree.
  *
- * What differs is what the minutes are measured *from*. The board ages a ticket from when it was
+ * What differs from the kitchen display is what the minutes are measured *from*. The board ages a ticket from when it was
  * placed, because a cook's question is "how long has this been waiting on me?". The desk ages it
  * from when it is **due**, because a desk's question is "how late are we to the customer?" — and an
  * order placed a fortnight ago for tomorrow lunchtime is not late at all.
  */
-export function orderDeskDueTone(dueAt: string, now: Date): BadgeTone {
-    return ticketAgeTone(minutesPastDue(dueAt, now));
+export function orderDeskDueTone(dueAt: string, now: Date, overdueGraceMinutes: number): BadgeTone {
+    const minutes = minutesPastDue(dueAt, now);
+    if (minutes >= overdueGraceMinutes) return 'danger';
+    return minutes >= KDS_WARNING_MINUTES ? 'warning' : 'neutral';
 }
 
 /**

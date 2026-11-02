@@ -94,7 +94,6 @@ import {
     kitchenOrderStatusTone,
     orderDeskDeliveryState,
     orderDeskDeliveryStateKey,
-    orderDeskDueTone,
     orderDeskRowTestId,
     allergyBanner,
 } from '../ops-format.ts';
@@ -171,10 +170,11 @@ import { useNudgeOnRefusal } from '../tray-nudge.ts';
  * choose them). Unnamed, the boundary is UTC. A branch picker is a later slice's, where somebody
  * chooses to narrow and can see that they have.
  *
- * ## Ageing is the kitchen display's scale, measured from a different instant
+ * ## Ageing is measured from when an order is due
  *
- * `orderDeskDueTone` is `ticketAgeTone` — amber at fifteen minutes, red at thirty — against minutes
- * *past due*, clamped at zero so an order that is early is simply neutral. Colour never carries it
+ * `orderDeskDueTone` goes amber at the kitchen display's fifteen minutes and red at the grace the
+ * queue carries (`meta.overdueGraceMinutes`), against minutes *past due*, clamped at zero so an
+ * order that is early is simply neutral. Colour never carries it
  * alone: the badge's label is the interval itself, spelled by the locale's own relative-time
  * formatter, so "in 3 hours" and "2 hours ago" read the same to somebody who cannot separate amber
  * from red. `ops-format.ts` holds the argument.
@@ -881,6 +881,8 @@ function OrderDeskQueueList() {
      */
     const [fulfilmentType, setFulfilmentType] = useState<OrderDeskFulfilmentType | null>(null);
     const [query, setQuery] = useState('');
+    /** The Past due figure is pressed: every order past due, in place of the window. */
+    const [pastDueOnly, setPastDueOnly] = useState(false);
     /**
      * The row the record page was opened from, held rather than looked up by identifier.
      *
@@ -928,8 +930,9 @@ function OrderDeskQueueList() {
             // for.
             ...(fulfilmentType === null ? {} : { fulfilmentType }),
             ...(trimmed === '' ? {} : { query: trimmed }),
+            ...(pastDueOnly ? { lens: 'past_due' as const } : {}),
         }),
-        [deskWindow, rangeFrom, rangeTo, statuses, fulfilmentType, trimmed],
+        [deskWindow, rangeFrom, rangeTo, statuses, fulfilmentType, trimmed, pastDueOnly],
     );
 
     const queue = useOrderDeskQueueQuery(filters, true, {
@@ -987,8 +990,15 @@ function OrderDeskQueueList() {
         setDeskWindow('today');
     }
 
+    /** Choosing a window asks about that window, so it ends the Past due lens. */
+    function chooseWindow(next: OrderDeskWindow) {
+        setDeskWindow(next);
+        setPastDueOnly(false);
+    }
+
     function clearFilters() {
         setDeskWindow('today');
+        setPastDueOnly(false);
         setRangeFrom('');
         setRangeTo('');
         setStatuses([]);
@@ -1105,15 +1115,14 @@ function OrderDeskQueueList() {
     }
 
     /*
-     * The four figures, counted over the rows on screen.
+     * The four figures. Past due is the server's, across all dates, because counting the rows on
+     * screen showed Past due 0 on Today with eleven orders overdue from other days. Its red turns on
+     * the same grace as the badges (`meta.overdueGraceMinutes`), so they cannot disagree.
      *
-     * Over the *loaded* queue deliberately — it is bounded, not paged, so the rows are the whole
-     * answer unless the truncation callout says otherwise, and a figure the list below could not
-     * account for would be a figure nobody can check. Overdue reads the due clock the badges read, so
-     * the count and the red badges can never disagree.
+     * The other three describe the current view, over the *loaded* queue deliberately: it is
+     * bounded, not paged, so the rows are the whole answer unless the truncation callout says
+     * otherwise.
      */
-    const overdueCount = rows.filter((row) => orderDeskDueTone(row.dueAt, now) === 'danger').length;
-    const lateCount = rows.filter((row) => Date.parse(row.dueAt) < now.getTime()).length;
     const needsDriverCount = rows.filter(
         (row) => orderDeskDeliveryState(row) === 'unassigned',
     ).length;
@@ -1130,11 +1139,17 @@ function OrderDeskQueueList() {
         {
             key: 'late',
             label: t('kitchen:desk.figures.late'),
-            ...counted(lateCount),
+            ...counted(meta?.pastDueCount ?? 0),
             tone: 'danger',
             // Red only once a late order is past its grace too — the badges' own rule.
-            alarm: overdueCount > 0,
+            alarm: (meta?.overdueCount ?? 0) > 0,
             separated: true,
+            active: pastDueOnly,
+            info: t('kitchen:desk.figures.lateInfo'),
+            accessibilityLabel: t('kitchen:desk.figures.lateFilter'),
+            onPress: () => {
+                setPastDueOnly((current) => !current);
+            },
         },
         {
             key: 'needsDriver',
@@ -1277,7 +1292,10 @@ function OrderDeskQueueList() {
             // How late an order is *is* its due time read against now, so it sorts the same way.
             sort: (left, right, direction) =>
                 compareNumber(Date.parse(left.dueAt), Date.parse(right.dueAt), direction),
-            render: (row) => <DueBadge row={row} now={now} />,
+            render: (row) =>
+                meta === null ? null : (
+                    <DueBadge row={row} now={now} overdueGraceMinutes={meta.overdueGraceMinutes} />
+                ),
         },
         {
             key: 'kind',
@@ -1351,6 +1369,7 @@ function OrderDeskQueueList() {
         statuses.length > 0 ||
         fulfilmentType !== null ||
         deskWindow !== 'today' ||
+        pastDueOnly ||
         controls.filtered;
 
     /**
@@ -1509,7 +1528,13 @@ function OrderDeskQueueList() {
                     }}
                     titleAside={
                         <Inline space="xs" align="center">
-                            <DueBadge row={selectedRow} now={now} />
+                            {meta === null ? null : (
+                                <DueBadge
+                                    row={selectedRow}
+                                    now={now}
+                                    overdueGraceMinutes={meta.overdueGraceMinutes}
+                                />
+                            )}
                             <Text variant="mono" tone="secondary">
                                 {t('kitchen:desk.dueAt', {
                                     time: formatter.formatDate(selectedRow.dueAt, {
@@ -2037,7 +2062,7 @@ function OrderDeskQueueList() {
                             label={t('kitchen:desk.windowLabel')}
                             value={deskWindow}
                             onChange={(next) => {
-                                setDeskWindow(next);
+                                chooseWindow(next);
                                 setRangeFrom('');
                                 setRangeTo('');
                             }}
@@ -2077,7 +2102,7 @@ function OrderDeskQueueList() {
                                     ) {
                                         setRangeTo(next);
                                     }
-                                    setDeskWindow('range');
+                                    chooseWindow('range');
                                 }}
                                 onClear={clearRange}
                             />
@@ -2099,7 +2124,7 @@ function OrderDeskQueueList() {
                                     ) {
                                         setRangeFrom(next);
                                     }
-                                    setDeskWindow('range');
+                                    chooseWindow('range');
                                 }}
                                 onClear={clearRange}
                             />
