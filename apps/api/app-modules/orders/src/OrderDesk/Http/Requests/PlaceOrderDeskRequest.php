@@ -107,6 +107,9 @@ class PlaceOrderDeskRequest extends FormRequest
             'lines.*.catalogue_item_id' => ['required', 'uuid'],
             'lines.*.catalogue_item_variant_id' => ['nullable', 'uuid'],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'lines.*.option_ids' => ['nullable', 'array', 'max:40'],
+            'lines.*.option_ids.*' => ['uuid'],
+            'lines.*.note' => ['nullable', 'string', 'max:300'],
             // Which of these is required, forbidden or merely allowed is decided
             // by `fulfilment_type`, and it is deliberately **not** decided here.
             // `OrderPlacementService::shapeReasons()` answers it as
@@ -197,7 +200,7 @@ class PlaceOrderDeskRequest extends FormRequest
      *     fulfilment_type: string,
      *     payment_method: string,
      *     branch_id: string|null,
-     *     lines: list<array{catalogue_item_id: string, catalogue_item_variant_id: string|null, quantity: string}>,
+     *     lines: list<array{catalogue_item_id: string, catalogue_item_variant_id: string|null, quantity: string, option_ids: list<string>, note: string|null}>,
      *     customer_account_id: string|null,
      *     customer_address_id: string|null,
      *     requested_delivery_date: string|null,
@@ -212,7 +215,7 @@ class PlaceOrderDeskRequest extends FormRequest
         /** @var array<string, mixed> $validated */
         $validated = $this->validated();
 
-        /** @var list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: int|float|string}> $lines */
+        /** @var list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: int|float|string, option_ids?: list<string>|null, note?: string|null}> $lines */
         $lines = $validated['lines'];
 
         return [
@@ -226,6 +229,8 @@ class PlaceOrderDeskRequest extends FormRequest
                         ? null
                         : (string) $line['catalogue_item_variant_id'],
                     'quantity' => (string) $line['quantity'],
+                    'option_ids' => array_values($line['option_ids'] ?? []),
+                    'note' => $line['note'] ?? null,
                 ],
                 $lines,
             ),

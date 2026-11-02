@@ -1,6 +1,7 @@
 import type { AllergenConflict } from './commerce.ts';
 import type { BranchId, CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
+import type { DishChoices, DishOption, DishOptionDraft } from './dish-options.ts';
 import type { DriverJobStatus, DriverJobTrackingStatus } from './driver-jobs.ts';
 import type { ServiceArea } from './kitchen-admin.ts';
 import type {
@@ -788,6 +789,9 @@ export interface OrderDeskBasketLine {
     readonly catalogueItemVariantId: string | null;
     /** A decimal string, never a number — a counter sells 0.35 kg as readily as three coffees. */
     readonly quantity: string;
+    /** The dish's free options chosen. Lines made differently do not merge. */
+    readonly optionIds?: readonly string[] | undefined;
+    readonly note?: string | null | undefined;
 }
 
 /** Everything a quote and a sale share. A sale adds only how the customer is paying. */
@@ -876,9 +880,13 @@ export interface OrderDeskQuoteLine {
     readonly lineTotalMinor: number | null;
     readonly currencyCode: CurrencyCode;
     readonly refusals: readonly OrderDeskRefusal[];
+    /** The options and note this line was quoted with, so a row finds its own quote. */
+    readonly optionIds?: readonly string[] | undefined;
+    readonly note?: string | null | undefined;
     /**
-     * Ingredients this line would draw that have stock on quality hold — a warning the agent
-     * reads before selling, never a refusal. Empty when nothing is held.
+     * Ingredients this line would draw that have stock on quality hold. A warning while free
+     * stock is left; beside a `quality_hold` refusal once nothing else is. Empty when nothing is
+     * held.
      */
     readonly heldStock?: readonly string[];
 }
@@ -1194,6 +1202,15 @@ export interface RecordDailyCloseRequest {
 }
 
 export interface OrderDeskRepository {
+    /** What can be changed about a dish, with its portions at the counter's prices. */
+    getDishChoices(itemId: string): Promise<DishChoices>;
+    /** The kitchen's list of a dish's free options. */
+    listDishOptions(itemId: string): Promise<readonly DishOption[]>;
+    replaceDishOptions(
+        itemId: string,
+        options: readonly DishOptionDraft[],
+    ): Promise<readonly DishOption[]>;
+
     getCloses(): Promise<OrderDeskCloses>;
     recordClose(request: RecordDailyCloseRequest): Promise<DailyCloseRecord>;
     /** A manager accepts a short close. */

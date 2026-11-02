@@ -15,6 +15,7 @@ use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Services\DerivedAllergenService;
+use Healthy360\Catalogues\Services\DishOptions;
 use Healthy360\Customers\Contracts\AreaServiceLookup;
 use Healthy360\Customers\Enums\CustomerAccountType;
 use Healthy360\Customers\Enums\CustomerAddressType;
@@ -208,6 +209,7 @@ final readonly class OrderPlacementService
         private OrderAmendability $amendability,
         private StaffAlerts $alerts,
         private CalendarPortions $portions,
+        private DishOptions $dishOptions,
     ) {}
 
     /**
@@ -317,6 +319,8 @@ final readonly class OrderPlacementService
                     $line->catalogueItemVariantId,
                     $line->quantity,
                     $line->price?->unitPriceMinor,
+                    $line->optionIds,
+                    $line->note,
                 ],
                 $placement->lines,
             ), JSON_THROW_ON_ERROR),
@@ -1029,6 +1033,9 @@ final readonly class OrderPlacementService
         $line->currency_code = $snapshot['currency_code'];
         $line->allergens = $snapshot['allergens'];
         $line->pack_summary = $snapshot['pack_summary'];
+        $line->selected_options = ($snapshot['selected_options'] ?? []) === [] ? null : $snapshot['selected_options'];
+        $line->note = $snapshot['note'] ?? null;
+        $line->line_key = $snapshot['line_key'] ?? '';
         $line->price_list_id = $snapshot['price_list_id'];
         $line->price_list_item_id = $snapshot['price_list_item_id'];
         // NULL for every line the resolver priced — which is every line except
@@ -1254,7 +1261,7 @@ final readonly class OrderPlacementService
         $remaining = [];
 
         foreach ($stored as $line) {
-            $remaining[$line->catalogue_item_id.'|'.($line->catalogue_item_variant_id ?? '')] = $line;
+            $remaining[$line->catalogue_item_id.'|'.($line->catalogue_item_variant_id ?? '').'|'.$line->line_key] = $line;
         }
 
         $kept = [];
@@ -1263,7 +1270,7 @@ final readonly class OrderPlacementService
         $changedCount = 0;
 
         foreach ($snapshots as $snapshot) {
-            $key = $snapshot['catalogue_item_id'].'|'.($snapshot['catalogue_item_variant_id'] ?? '');
+            $key = $snapshot['catalogue_item_id'].'|'.($snapshot['catalogue_item_variant_id'] ?? '').'|'.$snapshot['line_key'];
             $existing = $remaining[$key] ?? null;
             unset($remaining[$key]);
 
@@ -1516,6 +1523,14 @@ final readonly class OrderPlacementService
                 continue;
             }
 
+            $selected = $this->dishOptions->snapshot($line->catalogueItemId, $line->optionIds);
+
+            if ($selected === null) {
+                $refusals[] = ['reason' => 'option_unknown', 'catalogue_item_id' => $line->catalogueItemId];
+
+                continue;
+            }
+
             $variant = $result->variant;
             $unitPriceMinor = $override === null ? $result->price?->amountMinor : $override->unitPriceMinor;
 
@@ -1541,6 +1556,9 @@ final readonly class OrderPlacementService
                 'currency_code' => $placement->currencyCode,
                 'allergens' => $this->publicAllergens($item),
                 'pack_summary' => $variant === null ? null : $this->packSummary((string) $variant->getKey()),
+                'selected_options' => $selected,
+                'note' => $line->note,
+                'line_key' => DishOptions::lineKey($line->optionIds, $line->note),
                 // The tariff row is still recorded when there was one, even
                 // behind an override: "which row said so today" is worth
                 // knowing beside "what we actually charged".
@@ -1596,6 +1614,15 @@ final readonly class OrderPlacementService
             $variant = $result->variant;
             $price = $result->price;
 
+            // Re-read from the dish: an option withdrawn since it was added is not sold.
+            $selected = $this->dishOptions->snapshot($line->catalogue_item_id, array_column($line->selected_options ?? [], 'id'));
+
+            if ($selected === null) {
+                $refusals[] = ['reason' => 'option_unknown', 'catalogue_item_id' => $line->catalogue_item_id, 'cart_item_id' => (string) $line->getKey()];
+
+                continue;
+            }
+
             // Minor units, so the multiplication is integer × decimal and the
             // rounding happens exactly once, at the line total. Rounding the
             // unit price would compound across the order.
@@ -1613,6 +1640,9 @@ final readonly class OrderPlacementService
                 'currency_code' => $price->currencyCode,
                 'allergens' => $this->publicAllergens($item),
                 'pack_summary' => $variant === null ? null : $this->packSummary((string) $variant->getKey()),
+                'selected_options' => $selected,
+                'note' => $line->note,
+                'line_key' => $line->line_key,
                 'price_list_id' => $price->priceListId,
                 'price_list_item_id' => $price->priceListItemId,
             ];

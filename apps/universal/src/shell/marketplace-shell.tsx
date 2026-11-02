@@ -158,6 +158,7 @@ function usePendingAddReplay(basket: BasketAdd, basketSettled: boolean): void {
             {
                 id: next.mealId,
                 ...(next.kitchenId === undefined ? {} : { kitchenId: next.kitchenId }),
+                ...(next.choices === undefined ? {} : { choices: next.choices }),
             },
             next.quantity,
         );

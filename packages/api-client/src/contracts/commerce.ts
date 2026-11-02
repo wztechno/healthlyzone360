@@ -13,6 +13,8 @@ import type {
     SubscriptionState,
 } from '@healthy360/domain-types';
 
+import type { DishLineChoices, DishOption } from './dish-options.ts';
+
 import type { MealSlot, PlanSitting } from './marketplace.ts';
 import type { CursorPage, CursorPageRequest } from './pagination.ts';
 
@@ -41,6 +43,9 @@ export interface CartItem {
     readonly allergens: readonly AllergenCode[];
     /** `YYYY-MM-DD`, when the person chose a delivery date for this line. */
     readonly deliveryDate: string | null;
+    /** What this line changes about the dish. Empty on a plain line. */
+    readonly options?: readonly DishOption[] | undefined;
+    readonly note?: string | null | undefined;
 }
 
 export interface Cart {
@@ -59,7 +64,7 @@ export interface Cart {
     readonly updatedAt: IsoDateTime;
 }
 
-export interface AddCartItemRequest {
+export interface AddCartItemRequest extends DishLineChoices {
     readonly mealId: MealId;
     readonly quantity: number;
     readonly deliveryDate?: string | undefined;

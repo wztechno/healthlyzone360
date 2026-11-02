@@ -1,4 +1,4 @@
-import type { LocalisedText } from '@healthy360/api-client/contracts';
+import type { DishOption, LocalisedText } from '@healthy360/api-client/contracts';
 
 /**
  * The desk basket — what the agent has tapped, before it is a quote and long before it is an order.
@@ -71,6 +71,9 @@ export interface BasketLine {
     readonly name: LocalisedText;
     /** The pack's own label, when this line is a variant. Display only. */
     readonly variantLabel: string | null;
+    /** The dish's free options chosen. Absent on a plain line. */
+    readonly options?: readonly DishOption[] | undefined;
+    readonly note?: string | null | undefined;
 }
 
 /** What the basket sends per line. Exactly the wire's `OrderDeskBasketLine`, in domain casing. */
@@ -78,21 +81,35 @@ export interface BasketWireLine {
     readonly catalogueItemId: string;
     readonly catalogueItemVariantId: string | null;
     readonly quantity: string;
+    readonly optionIds?: readonly string[] | undefined;
+    readonly note?: string | null | undefined;
 }
 
 /**
- * The identity of a basket row: the article **and** the pack.
+ * The identity of a basket row: the article, the pack, and how it is made.
  *
  * The absent variant is spelled `-` rather than left to interpolate, so no article identifier
- * ending in a literal `undefined` can be made to collide with a real variant.
+ * ending in a literal `undefined` can be made to collide with a real variant. A plain line's key
+ * ends in nothing, so a tap on a tile lands on the plain row and a row with a note stays apart.
  */
-export function basketKey(catalogueItemId: string, catalogueItemVariantId: string | null): string {
-    return `${catalogueItemId}|${catalogueItemVariantId ?? '-'}`;
+export function basketKey(
+    catalogueItemId: string,
+    catalogueItemVariantId: string | null,
+    optionIds: readonly string[] = [],
+    note: string | null = null,
+): string {
+    const made = [[...optionIds].sort().join(','), (note ?? '').trim()].join('|');
+    return `${catalogueItemId}|${catalogueItemVariantId ?? '-'}${made === '|' ? '' : `|${made}`}`;
 }
 
 /** The key of a line already in the basket. */
 export function lineKey(line: BasketLine): string {
-    return basketKey(line.catalogueItemId, line.catalogueItemVariantId);
+    return basketKey(
+        line.catalogueItemId,
+        line.catalogueItemVariantId,
+        line.options?.map((option) => option.id),
+        line.note ?? null,
+    );
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -232,6 +249,33 @@ export function setQuantity(
     return lines.map((line) => (lineKey(line) === key ? { ...line, quantity } : line));
 }
 
+/**
+ * Change how a row is made. Made like another row, the two become one: the wire would merge them,
+ * and a basket must not show the agent two lines the order will hold as one.
+ */
+export function changeLine(
+    lines: readonly BasketLine[],
+    key: string,
+    change: Pick<
+        BasketLine,
+        'catalogueItemVariantId' | 'variantLabel' | 'options' | 'note'
+    >,
+): readonly BasketLine[] {
+    const changed = lines.flatMap((line) => (lineKey(line) === key ? [{ ...line, ...change }] : []))[0];
+    if (changed === undefined) return lines;
+
+    const twin = lines.find((line) => lineKey(line) === lineKey(changed) && lineKey(line) !== key);
+    if (twin === undefined) {
+        return lines.map((line) => (lineKey(line) === key ? changed : line));
+    }
+    return lines.flatMap((line) => {
+        if (lineKey(line) === key) return [];
+        return line === twin
+            ? [{ ...line, quantity: addQuantity(line.quantity, changed.quantity) }]
+            : [line];
+    });
+}
+
 export function removeLine(lines: readonly BasketLine[], key: string): readonly BasketLine[] {
     return lines.filter((line) => lineKey(line) !== key);
 }
@@ -260,5 +304,9 @@ export function toWire(lines: readonly BasketLine[]): readonly BasketWireLine[] 
             catalogueItemId: line.catalogueItemId,
             catalogueItemVariantId: line.catalogueItemVariantId,
             quantity: line.quantity,
+            ...(line.options === undefined || line.options.length === 0
+                ? {}
+                : { optionIds: line.options.map((option) => option.id) }),
+            ...(line.note == null || line.note === '' ? {} : { note: line.note }),
         }));
 }

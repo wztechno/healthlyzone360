@@ -25,7 +25,12 @@ import type {
     OpeningHours,
     PackSize,
 } from '../contracts/marketplace.ts';
+import type { DishOption, DishPortion } from '../contracts/dish-options.ts';
 import type { CursorPage } from '../contracts/pagination.ts';
+import type {
+    DishOption as WireDishOption,
+    DishPortion as WireDishPortion,
+} from '../generated/types.ts';
 import type {
     MarketplaceBranch as WireBranch,
     MarketplaceDeliveryZone as WireZone,
@@ -360,6 +365,30 @@ export function mapMarketplaceMeal(wire: WireMeal): MarketplaceMeal | null {
         channels: mapSalesChannels(wire.channels),
         rating: wire.rating,
         ratingCount: wire.rating_count,
+        options: (wire.options ?? []).map(mapDishOption),
+        portions: (wire.portions ?? []).map(mapDishPortion),
+    };
+}
+
+/** A dish option off the wire, on a meal, a line or the desk's read. */
+export function mapDishOption(wire: WireDishOption): DishOption {
+    return {
+        id: wire.id,
+        kind: wire.kind,
+        groupEn: wire.group_en,
+        groupAr: wire.group_ar,
+        nameEn: wire.name_en,
+        nameAr: wire.name_ar,
+    };
+}
+
+export function mapDishPortion(wire: WireDishPortion): DishPortion {
+    return {
+        catalogueItemVariantId: wire.catalogue_item_variant_id,
+        nameEn: wire.name_en,
+        nameAr: wire.name_ar,
+        unitPriceMinor: wire.unit_price_minor,
+        currencyCode: wire.currency_code as DishPortion['currencyCode'],
     };
 }
 

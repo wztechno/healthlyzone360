@@ -1,11 +1,12 @@
 import { Icon, IconButton } from '@healthy360/design-system';
 import type { CartItem } from '@healthy360/api-client/contracts';
-import { useFormatter } from '@healthy360/i18n';
+import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
 
 import { useMealQuery } from '../../data/catalogue-hooks.ts';
 import { EntityImage } from '../../media/entity-image.tsx';
+import { dishOptionsLine } from '../../ui/dish-choices.tsx';
 import { TextLink } from './checkout-frame.tsx';
 import { YourAllergens } from './my-allergens.tsx';
 
@@ -14,16 +15,15 @@ import { YourAllergens } from './my-allergens.tsx';
  * total level beside it, the modifiers line, then the quantity stepper and the line's two text
  * actions in one row.
  *
- * ## The second line reads "No changes"
+ * ## The second line
  *
- * The design's grey line lists a line's modifiers, and says "No changes" when there are none. A
- * `CartItem` has no modifiers — the contract carries a meal, a quantity and two prices — so every
- * line is honestly the design's own no-modifier case.
+ * The design's grey line lists a line's options and its note, and says "No changes" when there are
+ * none.
  *
  * ## "View meal", not "Edit options"
  *
- * The design's underlined link opens the meal to change its options. There are no options to
- * change, so the same link, in the same place, says what it does: it opens the dish.
+ * A line's options are part of what it is: changing them is another line. So the link opens the
+ * dish, and says so.
  *
  * ## The photograph is the meal's, fetched by id
  *
@@ -47,6 +47,7 @@ export interface CartLineProps {
 
 export function CartLine({ item, priceText, busy, onQuantity, onRemove, onOpen }: CartLineProps) {
     const { t } = useTranslation();
+    const { locale } = useLocale();
     const meal = useMealQuery(item.mealId);
     const testID = `cart-line-${item.id}`;
 
@@ -89,7 +90,10 @@ export function CartLine({ item, priceText, busy, onQuantity, onRemove, onOpen }
                     testID={`${testID}-mods`}
                     className="mt-1 text-sm text-content-secondary text-start"
                 >
-                    {t('commerce:cart.noChanges')}
+                    {[dishOptionsLine(item.options, locale, t), item.note]
+                        .filter((part) => part != null && part !== '')
+                        .join(t('catalogue:dishOptions.separator')) ||
+                        t('commerce:cart.noChanges')}
                 </RNText>
 
                 <YourAllergens

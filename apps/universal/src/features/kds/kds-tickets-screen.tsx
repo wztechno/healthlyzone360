@@ -29,6 +29,7 @@ import {
     useKitchenDisplayQuery,
 } from '../../data/kitchen-orders-hooks.ts';
 import { useOnlineStatus } from '../../online/online-status.tsx';
+import { dishOptionsLine } from '../../ui/dish-choices.tsx';
 import { useAccessState } from '../../session/session-provider.tsx';
 import {
     ORDER_MANAGE_PERMISSION,
@@ -620,6 +621,16 @@ function Ticket({
                                     quantity: formatter.formatNumber(Number(line.quantity)),
                                 })}
                             </Text>
+                            {line.options.length === 0 ? null : (
+                                <Text variant="body" testID={`${testID}-options`}>
+                                    {dishOptionsLine(line.options, locale, t)}
+                                </Text>
+                            )}
+                            {line.note === null ? null : (
+                                <Text variant="body" testID={`${testID}-note`}>
+                                    {t('kitchen:dishOptions.lineNote', { note: line.note })}
+                                </Text>
+                            )}
                             {line.allergens.length === 0 ? null : (
                                 <Inline space="xs" wrap testID={`${testID}-allergens`}>
                                     {line.allergens.map((allergen) => (

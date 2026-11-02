@@ -179,7 +179,9 @@ final class OrderPresenter
      *         line_total_minor: int,
      *         currency_code: string,
      *         allergens: list<array{allergen_code: string, containment: string}>,
-     *         pack_summary: array<string, mixed>|null
+     *         pack_summary: array<string, mixed>|null,
+     *         options: list<array<string, string|null>>,
+     *         note: string|null
      *     }>,
      *     created_at: string|null
      * }
@@ -335,6 +337,8 @@ final class OrderPresenter
      *         currency_code: string,
      *         allergens: list<array{allergen_code: string, containment: string}>,
      *         pack_summary: array<string, mixed>|null,
+     *         options: list<array<string, string|null>>,
+     *         note: string|null,
      *         price_list_id: string|null,
      *         price_list_item_id: string|null
      *     }>,
@@ -643,7 +647,9 @@ final class OrderPresenter
      *     line_total_minor: int,
      *     currency_code: string,
      *     allergens: list<array{allergen_code: string, containment: string}>,
-     *     pack_summary: array<string, mixed>|null
+     *     pack_summary: array<string, mixed>|null,
+     *     options: list<array<string, string|null>>,
+     *     note: string|null
      * }
      */
     private function customerLine(OrderLine $line): array
@@ -661,6 +667,8 @@ final class OrderPresenter
             'currency_code' => $line->currency_code,
             'allergens' => $line->allergens,
             'pack_summary' => $line->pack_summary,
+            'options' => $line->selected_options ?? [],
+            'note' => $line->note,
         ];
     }
 
@@ -678,6 +686,8 @@ final class OrderPresenter
      *     currency_code: string,
      *     allergens: list<array{allergen_code: string, containment: string}>,
      *     pack_summary: array<string, mixed>|null,
+     *     options: list<array<string, string|null>>,
+     *     note: string|null,
      *     price_list_id: string|null,
      *     price_list_item_id: string|null
      * }
@@ -697,6 +707,8 @@ final class OrderPresenter
             'currency_code' => $line->currency_code,
             'allergens' => $line->allergens,
             'pack_summary' => $line->pack_summary,
+            'options' => $line->selected_options ?? [],
+            'note' => $line->note,
             'price_list_id' => $line->price_list_id,
             'price_list_item_id' => $line->price_list_item_id,
         ];

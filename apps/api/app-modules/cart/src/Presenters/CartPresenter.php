@@ -51,6 +51,8 @@ final class CartPresenter
      *         catalogue_item_variant_id: string|null,
      *         quantity: string,
      *         delivery_date: string|null,
+     *         options: list<array<string, string|null>>,
+     *         note: string|null,
      *         created_at: string|null,
      *         updated_at: string|null
      *     }>,
@@ -95,6 +97,8 @@ final class CartPresenter
      *     catalogue_item_variant_id: string|null,
      *     quantity: string,
      *     delivery_date: string|null,
+     *     options: list<array<string, string|null>>,
+     *     note: string|null,
      *     created_at: string|null,
      *     updated_at: string|null
      * }
@@ -107,6 +111,8 @@ final class CartPresenter
             'catalogue_item_variant_id' => $line->catalogue_item_variant_id,
             'quantity' => (string) $line->quantity,
             'delivery_date' => $line->delivery_date?->toDateString(),
+            'options' => $line->selected_options ?? [],
+            'note' => $line->note,
             'created_at' => $line->created_at?->toIso8601String(),
             'updated_at' => $line->updated_at?->toIso8601String(),
         ];

@@ -20,6 +20,9 @@ import type {
     OrderDeskCustomerAllergies,
     OrderDeskCustomerSearch,
     OrderDeskDeliveryWindow,
+    DishChoices,
+    DishOption,
+    DishOptionDraft,
     OrderDeskDrivers,
     OrderDeskQueue,
     OrderDeskQueueFilters,
@@ -686,5 +689,54 @@ export function useAddOrderDeskCustomerAddressMutation(): UseMutationResult<
         retry: false,
         mutationFn: (request: AddOrderDeskCustomerAddressRequest) =>
             repositories.orderDesk.addCustomerAddress(request),
+    });
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * What can be changed about a dish
+ * ---------------------------------------------------------------------------------------------- */
+
+/** Asked when the agent opens a line, so `itemId` is `null` until one is open. */
+export function useDishChoicesQuery(itemId: string | null): UseQueryResult<DishChoices> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.orderDesk.dishChoices(itemId ?? ''),
+        enabled: itemId !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (itemId === null) throw new Error('There is no dish to read.');
+            return repositories.orderDesk.getDishChoices(itemId);
+        },
+    });
+}
+
+export function useDishOptionsQuery(itemId: string): UseQueryResult<readonly DishOption[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.orderDesk.dishOptions(itemId),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.orderDesk.listDishOptions(itemId);
+        },
+    });
+}
+
+export function useReplaceDishOptionsMutation(
+    itemId: string,
+): UseMutationResult<readonly DishOption[], unknown, readonly DishOptionDraft[]> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (options) => repositories.orderDesk.replaceDishOptions(itemId, options),
+        onSuccess: (options) => {
+            queryClient.setQueryData(queryKeys.orderDesk.dishOptions(itemId), options);
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.orderDesk.dishChoices(itemId),
+            });
+        },
     });
 }

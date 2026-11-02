@@ -17,6 +17,8 @@ import type {
 } from '@healthy360/domain-types';
 import type { MeasureUnit, NutritionFacts, Serving } from '@healthy360/nutrition';
 
+import type { DishOption, DishPortion } from './dish-options.ts';
+
 import type {
     CursorPage,
     CursorPageRequest,
@@ -171,6 +173,10 @@ export interface MarketplaceMeal {
     readonly price: Money;
     /** What `price` buys — the B2C pack's size. `null` for a dish priced as itself. */
     readonly pack: PackSize | null;
+    /** The dish's free options. Empty on a listing, which does not read them. */
+    readonly options?: readonly DishOption[] | undefined;
+    /** The portions to pick between, on the detail. Empty unless there are two. */
+    readonly portions?: readonly DishPortion[] | undefined;
     readonly preparationMinutes: number | null;
     readonly imagePlaceholderId: string;
     readonly availability: readonly MealAvailability[];

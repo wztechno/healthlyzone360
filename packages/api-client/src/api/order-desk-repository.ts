@@ -1,5 +1,6 @@
 import type { BranchId } from '@healthy360/domain-types';
 
+import type { DishChoices, DishOption, DishOptionDraft } from '../contracts/dish-options.ts';
 import type { ServiceArea } from '../contracts/kitchen-admin.ts';
 import type { KitchenOrder } from '../contracts/kitchen-orders.ts';
 import type {
@@ -65,10 +66,13 @@ import type {
     OrderDeskWeeklyCheckEnvelope,
     PlaceOrderDeskRequest,
     QuoteOrderDeskRequest,
+    DishOption as WireDishOption,
+    DishPortion as WireDishPortion,
 } from '../generated/types.ts';
 import { generateRequestId } from './config.ts';
 import { mapServiceAreaFromDeliveryArea } from './kitchen-admin-mappers.ts';
 import { mapKitchenOrder } from './kitchen-orders-repository.ts';
+import { mapDishOption, mapDishPortion } from './marketplace-mappers.ts';
 import {
     mapAssignedDeliveryJob,
     mapCalendarDay,
@@ -267,6 +271,10 @@ function wireLine(line: OrderDeskBasketLine): WireOrderDeskBasketLine {
         // a plain article to a default this client does not own.
         catalogue_item_variant_id: line.catalogueItemVariantId,
         quantity: line.quantity,
+        ...(line.optionIds === undefined || line.optionIds.length === 0
+            ? {}
+            : { option_ids: [...line.optionIds] }),
+        ...(line.note == null || line.note.trim() === '' ? {} : { note: line.note }),
     };
 }
 
@@ -513,6 +521,53 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                     payload.meta as OrderDeskCashReportEnvelope['meta'],
                 ),
             };
+        },
+
+        async getDishChoices(itemId: string): Promise<DishChoices> {
+            const payload = await transport.request<{
+                readonly options: readonly WireDishOption[];
+                readonly portions: readonly WireDishPortion[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/order-desk/items/${encodeURIComponent(itemId)}/choices`,
+            });
+            return {
+                options: payload.options.map(mapDishOption),
+                portions: payload.portions.map(mapDishPortion),
+            };
+        },
+
+        async listDishOptions(itemId: string): Promise<readonly DishOption[]> {
+            const payload = await transport.request<{
+                readonly options: readonly WireDishOption[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/items/${encodeURIComponent(itemId)}/options`,
+            });
+            return payload.options.map(mapDishOption);
+        },
+
+        async replaceDishOptions(
+            itemId: string,
+            options: readonly DishOptionDraft[],
+        ): Promise<readonly DishOption[]> {
+            const payload = await transport.request<{
+                readonly options: readonly WireDishOption[];
+            }>({
+                method: 'PUT',
+                path: `/catalogue/items/${encodeURIComponent(itemId)}/options`,
+                body: {
+                    options: options.map((option) => ({
+                        id: option.id,
+                        kind: option.kind,
+                        group_en: option.kind === 'choice' ? option.groupEn : null,
+                        group_ar: option.kind === 'choice' ? option.groupAr : null,
+                        name_en: option.nameEn,
+                        name_ar: option.nameAr,
+                    })),
+                },
+            });
+            return payload.options.map(mapDishOption);
         },
 
         async quoteSale(request: OrderDeskSaleRequest): Promise<OrderDeskQuote> {

@@ -45,6 +45,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { dishOptionsLine } from '../../../ui/dish-choices.tsx';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { useWindowName } from '../order-desk/use-window-name.ts';
 import { toFailure } from '../../../data/hooks.ts';
@@ -1798,6 +1799,18 @@ function OrderDeskQueueList() {
                                                                                   {
                                                                                       line.variantLabel
                                                                                   }
+                                                                              </Text>
+                                                                          )}
+                                                                          {line.options.length === 0 ? null : (
+                                                                              <Text variant="caption">
+                                                                                  {dishOptionsLine(line.options, 'en', t)}
+                                                                              </Text>
+                                                                          )}
+                                                                          {line.note === null ? null : (
+                                                                              <Text variant="caption">
+                                                                                  {t('kitchen:dishOptions.lineNote', {
+                                                                                      note: line.note,
+                                                                                  })}
                                                                               </Text>
                                                                           )}
                                                                           {isPlanDayLine(

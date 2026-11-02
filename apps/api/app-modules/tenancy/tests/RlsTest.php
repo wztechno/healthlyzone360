@@ -935,10 +935,14 @@ it('protects exactly the fourteen declared tables and no others', function (): v
     // from carts with no organisation declared.
     //
     // P1 Wave C's `daily_closes` joins on the plain organisation policy.
+    //
+    // Wave B's `catalogue_item_options` is shaped like `branch_closures`: a menu
+    // is public, so only its writes join.
     expect($protected)->toBe([
         'audit_logs',
         'branch_closures',
         'cash_settlements',
+        'catalogue_item_options',
         'consent_grants',
         'customer_accounts',
         'daily_closes',

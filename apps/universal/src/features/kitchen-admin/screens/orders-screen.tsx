@@ -49,6 +49,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { dishOptionsLine } from '../../../ui/dish-choices.tsx';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { useWindowName } from '../order-desk/use-window-name.ts';
 import { toFailure } from '../../../data/hooks.ts';
@@ -592,6 +593,16 @@ function OrderLinesTable({
                     {line.variantLabel === null ? null : (
                         <Text variant="caption" tone="secondary">
                             {line.variantLabel}
+                        </Text>
+                    )}
+                    {line.options.length === 0 ? null : (
+                        <Text variant="caption" testID={`${testID}-options`}>
+                            {dishOptionsLine(line.options, 'en', t)}
+                        </Text>
+                    )}
+                    {line.note === null ? null : (
+                        <Text variant="caption" testID={`${testID}-note`}>
+                            {t('kitchen:dishOptions.lineNote', { note: line.note })}
                         </Text>
                     )}
                     {/* A subscription day: which dish is for which sitting, under the plan. */}

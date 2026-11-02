@@ -42,6 +42,9 @@ class AmendOrderDeskOrderRequest extends FormRequest
             'lines.*.catalogue_item_id' => ['required', 'uuid'],
             'lines.*.catalogue_item_variant_id' => ['nullable', 'uuid'],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'lines.*.option_ids' => ['nullable', 'array', 'max:40'],
+            'lines.*.option_ids.*' => ['uuid'],
+            'lines.*.note' => ['nullable', 'string', 'max:300'],
             'customer_address_id' => ['nullable', 'uuid'],
             'requested_delivery_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today'],
             'delivery_window_code' => ['nullable', 'string', 'max:40'],
@@ -53,7 +56,7 @@ class AmendOrderDeskOrderRequest extends FormRequest
 
     /**
      * @return array{
-     *     lines: list<array{catalogue_item_id: string, catalogue_item_variant_id: string|null, quantity: string}>,
+     *     lines: list<array{catalogue_item_id: string, catalogue_item_variant_id: string|null, quantity: string, option_ids: list<string>, note: string|null}>,
      *     customer_address_id: string|null,
      *     requested_delivery_date: string|null,
      *     delivery_window_code: string|null,
@@ -67,7 +70,7 @@ class AmendOrderDeskOrderRequest extends FormRequest
         /** @var array<string, mixed> $validated */
         $validated = $this->validated();
 
-        /** @var list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: int|float|string}> $lines */
+        /** @var list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: int|float|string, option_ids?: list<string>|null, note?: string|null}> $lines */
         $lines = $validated['lines'];
 
         return [
@@ -78,6 +81,8 @@ class AmendOrderDeskOrderRequest extends FormRequest
                         ? null
                         : (string) $line['catalogue_item_variant_id'],
                     'quantity' => (string) $line['quantity'],
+                    'option_ids' => array_values($line['option_ids'] ?? []),
+                    'note' => $line['note'] ?? null,
                 ],
                 $lines,
             ),

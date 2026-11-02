@@ -38,6 +38,7 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { Gate, useCan } from '../../access/gate.tsx';
+import { DishOptionsSection } from './dish-options-section.tsx';
 import { toFailure } from '../../data/hooks.ts';
 import {
     ingredientsFromPages,
@@ -1353,6 +1354,8 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                         ))}
                     </Inline>
                 </FormSection>
+
+                <DishOptionsSection itemId={String(meal.id)} canManage={canManage} />
 
                 {/* ── source transcription ──────────────────────────────────────────────────── */}
                 {data?.composition == null && data?.kitchenCategory == null ? null : (

@@ -195,6 +195,8 @@ export function saleStateFromOrder(order: KitchenOrder): SaleState {
             quantity: addQuantity('0', line.quantity),
             name: { en: line.nameEn, ar: line.nameAr },
             variantLabel: line.variantLabel,
+            options: line.options,
+            note: line.note,
         })),
         paymentMethod: order.paymentMethod,
         payment: null,

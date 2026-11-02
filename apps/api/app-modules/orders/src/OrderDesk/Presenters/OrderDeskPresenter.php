@@ -209,6 +209,8 @@ final class OrderDeskPresenter
      *         currency_code: string,
      *         allergens: list<array{allergen_code: string, containment: string}>,
      *         pack_summary: array<string, mixed>|null,
+     *         options: list<array<string, string|null>>,
+     *         note: string|null,
      *         price_list_id: string|null,
      *         price_list_item_id: string|null
      *     }>,

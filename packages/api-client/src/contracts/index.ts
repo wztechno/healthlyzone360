@@ -1233,3 +1233,4 @@ export interface Repositories {
      */
     readonly accessAdmin: AccessAdminRepository;
 }
+export type * from './dish-options.ts';

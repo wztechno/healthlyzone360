@@ -639,6 +639,8 @@ export const queryKeys = {
          * the request body's size, not about whether it changes anything.
          */
         quote: (request?: QueryScope) => ['orderDesk', 'quote', scope(request)] as const,
+        dishChoices: (itemId: string) => ['orderDesk', 'dishChoices', itemId] as const,
+        dishOptions: (itemId: string) => ['orderDesk', 'dishOptions', itemId] as const,
         /**
          * The customer search behind the sale wizard. Keyed on the query text alone: the endpoint
          * takes nothing else, and the org scope is the transport's.

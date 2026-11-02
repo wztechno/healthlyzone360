@@ -11,6 +11,7 @@ use Healthy360\Cart\Services\ChannelCurrency;
 use Healthy360\Cart\Services\LineProbe;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Catalogues\Services\DishOptions;
 use Healthy360\Customers\Enums\CustomerAddressType;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAddress;
@@ -119,6 +120,7 @@ final readonly class DeskQuote
         private BuyerAllergenCheck $allergenCheck,
         private AuditRecorder $audit,
         private TenantContext $context,
+        private DishOptions $options,
     ) {}
 
     /**
@@ -137,7 +139,7 @@ final readonly class DeskQuote
      * the slot is checked only when it moved, and a passed cut-off is not a
      * refusal because staff may override it.
      *
-     * @param  list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: string}>  $lines
+     * @param  list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: string, option_ids?: list<string>, note?: string|null}>  $lines
      * @return array{
      *     lines: list<array<string, mixed>>,
      *     subtotal_minor: int,
@@ -170,7 +172,7 @@ final readonly class DeskQuote
     }
 
     /**
-     * @param  list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: string}>  $lines
+     * @param  list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: string, option_ids?: list<string>, note?: string|null}>  $lines
      * @return array{
      *     lines: list<array<string, mixed>>,
      *     subtotal_minor: int,
@@ -394,7 +396,7 @@ final readonly class DeskQuote
      * merged them into one line of three would be a total the customer was shown
      * and a total they were charged, differing for a reason nobody could see.
      *
-     * @param  list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: string}>  $lines
+     * @param  list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: string, option_ids?: list<string>, note?: string|null}>  $lines
      * @param  list<string>  $heldItemIds  articles an order being edited already holds for that day
      * @return array{0: list<array<string, mixed>>, 1: bool}
      */
@@ -427,7 +429,13 @@ final readonly class DeskQuote
             $item = $result->item;
             $price = $result->price;
 
-            $refused = $result->refusals !== [] || ! $item instanceof CatalogueItem || $price === null;
+            $lineRefusals = $result->refusals;
+
+            if ($this->options->snapshot($line->catalogueItemId, $line->optionIds) === null) {
+                $lineRefusals[] = ['reason' => 'option_unknown', 'catalogue_item_id' => $line->catalogueItemId];
+            }
+
+            $refused = $lineRefusals !== [] || ! $item instanceof CatalogueItem || $price === null;
 
             if ($refused) {
                 $anyRefused = true;
@@ -453,7 +461,9 @@ final readonly class DeskQuote
                 // where there is not — a refused line still has to say what the
                 // rest of the basket is denominated in.
                 'currency_code' => $price->currencyCode ?? $currencyCode,
-                'refusals' => $this->attributed($result->refusals, $line),
+                'option_ids' => $line->optionIds,
+                'note' => $line->note,
+                'refusals' => $this->attributed($lineRefusals, $line),
                 // The ingredients this line would draw that have stock on quality
                 // hold: a warning (owner decision, 13 Oct 2026), and the names
                 // behind a `quality_hold` refusal when nothing free is left.

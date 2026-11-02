@@ -62,6 +62,8 @@ final class CartItemStoreController
             $payload['catalogue_item_variant_id'] ?? null,
             $quantity ?? 1,
             $deliveryDate === null ? null : CarbonImmutable::createFromFormat('Y-m-d', $deliveryDate)->startOfDay(),
+            array_values($payload['option_ids'] ?? []),
+            $payload['note'] ?? null,
         );
 
         $lines = $basket->items()->orderBy('created_at')->orderBy('id')->get();

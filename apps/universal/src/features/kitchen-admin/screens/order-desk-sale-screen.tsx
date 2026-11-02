@@ -17,6 +17,7 @@ import {
     Callout,
     Checkbox,
     DatePickerButton,
+    Drawer,
     EmptyState,
     ErrorState,
     FormSection,
@@ -46,6 +47,7 @@ import {
 import { useKitchenOrderQuery } from '../../../data/kitchen-orders-hooks.ts';
 import {
     useAmendOrderDeskOrderMutation,
+    useDishChoicesQuery,
     useOrderDeskDeliveryWindowsQuery,
     useOrderDeskDriversQuery,
     useOrderDeskQuoteQuery,
@@ -70,11 +72,14 @@ import { EditorGuardDialogs } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
 import { allergenLabel, kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import type { BasketLine } from '../order-desk/basket.ts';
+import { DishChoiceFields, dishOptionsLine } from '../../../ui/dish-choices.tsx';
+import type { DishChoiceValue } from '../../../ui/dish-choices.tsx';
 import {
     MAX_LINE_QUANTITY,
     addItem,
     isQuotableBasket,
     basketKey,
+    changeLine,
     lineKey,
     quantityAsNumber,
     quantityFromNumber,
@@ -1598,12 +1603,23 @@ function Ticket({
     const quotedByKey = useMemo(() => {
         const map = new Map<string, OrderDeskQuoteLine>();
         for (const line of quote?.lines ?? []) {
-            map.set(basketKey(line.catalogueItemId, line.catalogueItemVariantId), line);
+            map.set(
+                basketKey(
+                    line.catalogueItemId,
+                    line.catalogueItemVariantId,
+                    line.optionIds,
+                    line.note ?? null,
+                ),
+                line,
+            );
         }
         return map;
     }, [quote]);
 
     const lines = state.lines;
+    // The row whose options and note are open.
+    const [choosing, setChoosing] = useState<string | null>(null);
+    const choosingLine = lines.find((line) => lineKey(line) === choosing);
     const counter = state.fulfilmentType === 'counter';
     const itemCount = lines.reduce((sum, line) => sum + (quantityAsNumber(line.quantity) ?? 0), 0);
     // Beside the refusals, not among them: a conflict is told to the customer, then sold.
@@ -1752,6 +1768,18 @@ function Ticket({
                                             </View>
                                             <View className="flex-row items-center gap-hair">
                                                 <IconButton
+                                                    testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-options`}
+                                                    icon={<Icon name="pen" size="sm" />}
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    label={t('kitchen:dishOptions.lineAction', {
+                                                        name,
+                                                    })}
+                                                    onPress={() => {
+                                                        setChoosing(key);
+                                                    }}
+                                                />
+                                                <IconButton
                                                     testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-decrement`}
                                                     icon={<Icon name="minus" size="sm" />}
                                                     variant="secondary"
@@ -1814,6 +1842,18 @@ function Ticket({
                                                 </Text>
                                             </View>
                                         </View>
+                                        {dishOptionsLine(line.options, locale, t) === null ? null : (
+                                            <Text variant="caption" tone="secondary">
+                                                {dishOptionsLine(line.options, locale, t)}
+                                            </Text>
+                                        )}
+                                        {line.note == null || line.note === '' ? null : (
+                                            <Text variant="caption" tone="secondary">
+                                                {t('kitchen:dishOptions.lineNote', {
+                                                    note: line.note,
+                                                })}
+                                            </Text>
+                                        )}
                                         {refusals.map((refusal) => (
                                             <Text
                                                 key={refusal.reason}
@@ -1824,7 +1864,7 @@ function Ticket({
                                                 {refusalText(refusal)}
                                             </Text>
                                         ))}
-                                        {/* A warning, never a block: the sale can still go ahead. */}
+                                        {/* A warning while free stock is left; a refusal beside it once none is. */}
                                         {(quoted?.heldStock ?? []).length === 0 ? null : (
                                             <Text
                                                 variant="caption"
@@ -1842,6 +1882,24 @@ function Ticket({
                                 );
                             })}
                         </ScrollView>
+                    )}
+
+                    {choosingLine === undefined ? null : (
+                        <DishChoicesDrawer
+                            key={lineKey(choosingLine)}
+                            line={choosingLine}
+                            money={money}
+                            onClose={() => {
+                                setChoosing(null);
+                            }}
+                            onSave={(change) => {
+                                onState({
+                                    ...state,
+                                    lines: changeLine(lines, lineKey(choosingLine), change),
+                                });
+                                setChoosing(null);
+                            }}
+                        />
                     )}
 
                     {lines.length === 0 ? null : (
@@ -2211,5 +2269,94 @@ function PaymentMethods({
                 );
             })}
         </View>
+    );
+}
+
+/**
+ * One row's portion, free options and note. Portions are packs, so the row's quote prices the
+ * choice; nothing here works out a price.
+ */
+function DishChoicesDrawer({
+    line,
+    money,
+    onClose,
+    onSave,
+}: {
+    readonly line: BasketLine;
+    readonly money: (amount: number, currency: OrderDeskQuote['currencyCode']) => string;
+    readonly onClose: () => void;
+    readonly onSave: (change: Parameters<typeof changeLine>[2]) => void;
+}) {
+    const { t } = useTranslation();
+    const { locale } = useLocale();
+    const read = useDishChoicesQuery(line.catalogueItemId);
+    const [value, setValue] = useState<DishChoiceValue>({
+        catalogueItemVariantId: line.catalogueItemVariantId,
+        optionIds: line.options?.map((option) => option.id) ?? [],
+    });
+    const [note, setNote] = useState(line.note ?? '');
+
+    const options = read.data?.options ?? [];
+    const portions = read.data?.portions ?? [];
+    const portion = portions.find(
+        (candidate) => candidate.catalogueItemVariantId === value.catalogueItemVariantId,
+    );
+
+    return (
+        <Drawer
+            testID="kitchen-order-desk-sale-choices"
+            open
+            onClose={onClose}
+            title={t('kitchen:dishOptions.drawerTitle')}
+            footer={
+                <Button
+                    testID="kitchen-order-desk-sale-choices-save"
+                    label={t('kitchen:dishOptions.apply')}
+                    onPress={() => {
+                        onSave({
+                            catalogueItemVariantId: value.catalogueItemVariantId,
+                            variantLabel:
+                                portion === undefined
+                                    ? line.variantLabel
+                                    : displayName(
+                                          { en: portion.nameEn, ar: portion.nameAr },
+                                          locale,
+                                      ).value,
+                            options: options.filter((option) =>
+                                value.optionIds.includes(option.id),
+                            ),
+                            note: note.trim(),
+                        });
+                    }}
+                />
+            }
+        >
+            <View className="flex-col gap-snug">
+                {options.length === 0 && portions.length === 0 ? null : (
+                    <DishChoiceFields
+                        testID="kitchen-order-desk-sale-choices-fields"
+                        size="sm"
+                        options={options}
+                        portions={portions}
+                        value={value}
+                        onChange={setValue}
+                        formatPrice={(choice) =>
+                            money(choice.unitPriceMinor, choice.currencyCode)
+                        }
+                    />
+                )}
+                <TextInputField
+                    testID="kitchen-order-desk-sale-choices-note"
+                    id="kitchen-order-desk-sale-choices-note"
+                    label={t('kitchen:dishOptions.noteLabel')}
+                    size="sm"
+                    multiline
+                    numberOfLines={2}
+                    maxLength={300}
+                    value={note}
+                    onChangeText={setNote}
+                />
+            </View>
+        </Drawer>
     );
 }

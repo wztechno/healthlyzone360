@@ -19,7 +19,7 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  * identifies the offending row — so a client can name the article rather than
  * printing a sentence about it. The vocabulary is `item_unknown`,
  * `item_not_published`, `item_not_assessed`, `quality_hold`, `variant_unknown`, `variant_not_active`,
- * `channel_not_trading`, `channel_unavailable`, `item_unavailable_on_date`,
+ * `option_unknown`, `channel_not_trading`, `channel_unavailable`, `item_unavailable_on_date`,
  * `unpriced` and `currency_mismatch`.
  *
  * Carried under `ErrorCode::CartLineRefused` (`cart.line_refused`, 422) since
