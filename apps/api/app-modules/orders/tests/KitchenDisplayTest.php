@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
+use Healthy360\Catalogues\Models\Catalogue;
+use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Customers\Database\Factories\CustomerAccountFactory;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Kitchens\Services\KitchenServiceSettingsLookup;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Http\Controllers\KitchenDisplayController;
 use Healthy360\Orders\Models\Order;
+use Healthy360\Orders\Models\OrderLine;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
@@ -178,7 +181,7 @@ it('lets a cook read the wall without the money or the street address, allergies
 
     displayOrder($this, [
         'total_minor' => 1500,
-        'subtotal_minor' => 1500,
+        'subtotal_minor' => 1000,
         'delivery_line_one' => 'Hamra street',
         'allergy_note' => 'Sesame, anaphylaxis',
     ]);
@@ -194,8 +197,44 @@ it('lets a cook read the wall without the money or the street address, allergies
         ->and($ticket['allergy']['note'])->toBe('Sesame, anaphylaxis');
 });
 
+it('answers a cook\'s Start and Ready presses without the money or the street address', function (): void {
+    $cook = PricingWorld::kitchen('line-cook@kitchen.test', ['order.prepare_organisation']);
+    $this->orgId = (string) $cook->organisation->getKey();
+    $this->channelId = (string) PricingWorld::channel($cook->organisation, 'web-shop')->getKey();
+    $headers = firstPartyHeaders() + ['X-Organisation-Id' => $this->orgId];
+
+    $order = displayOrder($this, [
+        'total_minor' => 1500,
+        'subtotal_minor' => 1000,
+        'delivery_line_one' => 'Hamra street',
+        'allergy_note' => 'Sesame, anaphylaxis',
+    ]);
+
+    $catalogue = Catalogue::factory()->create(['organisation_id' => $this->orgId]);
+    OrderLine::factory()->create([
+        'order_id' => $order->getKey(),
+        'catalogue_item_id' => CatalogueItem::factory()->create(['organisation_id' => $this->orgId, 'catalogue_id' => $catalogue->getKey()])->getKey(),
+        'unit_price_minor' => 1500,
+        'line_total_minor' => 1500,
+    ]);
+
+    $started = $this->actingAs($cook->user)
+        ->postJson("/api/v1/catalogue/orders/{$order->getKey()}/start", [], $headers + ['If-Match' => '"'.$order->lock_version.'"'])
+        ->assertOk();
+
+    $ready = $this->postJson("/api/v1/catalogue/orders/{$order->getKey()}/ready", [], $headers + ['If-Match' => $started->headers->get('ETag')])
+        ->assertOk();
+
+    foreach ([$started, $ready] as $answer) {
+        expect($answer->json('data.order.total_minor'))->toBe(0)
+            ->and($answer->json('data.order.delivery.line_one'))->toBeNull()
+            ->and($answer->json('data.order.lines.0.unit_price_minor'))->toBe(0)
+            ->and($answer->json('data.order.allergy.note'))->toBe('Sesame, anaphylaxis');
+    }
+});
+
 it('leaves the wall as it stands for somebody who reads the order book', function (): void {
-    displayOrder($this, ['total_minor' => 1500]);
+    displayOrder($this, ['total_minor' => 1500, 'subtotal_minor' => 1000]);
 
     expect($this->getJson(KITCHEN_DISPLAY_URL, $this->headers)->assertOk()->json('data.orders.0.total_minor'))->toBe(1500);
 });

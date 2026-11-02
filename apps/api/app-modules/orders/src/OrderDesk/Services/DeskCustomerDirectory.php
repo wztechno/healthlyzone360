@@ -194,6 +194,23 @@ final class DeskCustomerDirectory
     }
 
     /**
+     * Whether this kitchen has a tie of its own to this account: it has cooked for
+     * them, feeds them on a plan, or wrote them down.
+     *
+     * Stricter than `isInScope()` by the telephone link. Anyone who knows a number
+     * gets a link by searching it, which is enough to read the caller and take
+     * their order, and no ground to change the name and number another kitchen
+     * reaches them on.
+     */
+    public function hasKitchenTie(string $organisationId, CustomerAccount $account): bool
+    {
+        return CustomerAccount::query()
+            ->whereKey($account->getKey())
+            ->where(fn (Builder $scope): Builder => $this->applyScope($scope, $organisationId))
+            ->exists();
+    }
+
+    /**
      * Whether this kitchen's customer **book** may show this account — the
      * browse rule, asked about one row.
      *

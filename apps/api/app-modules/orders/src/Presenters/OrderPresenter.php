@@ -252,6 +252,48 @@ final class OrderPresenter
     }
 
     /**
+     * A ticket as the line reads it: the same shape, no money and no street
+     * address. Zeros and nulls rather than absent keys, so one contract serves
+     * both audiences; the wall draws none of these fields. Every answer a cook
+     * can reach goes through this: the wall, and the Start and Ready presses.
+     *
+     * @param  array<string, mixed>  $ticket
+     * @return array<string, mixed>
+     */
+    public function forTheLine(array $ticket): array
+    {
+        /** @var array<string, mixed> $delivery */
+        $delivery = $ticket['delivery'];
+
+        /** @var list<array<string, mixed>> $lines */
+        $lines = $ticket['lines'];
+
+        return [
+            ...$ticket,
+            'subtotal_minor' => 0,
+            'delivery_fee_minor' => 0,
+            'total_minor' => 0,
+            'delivery' => [
+                ...$delivery,
+                'line_one' => null,
+                'line_two' => null,
+                'building' => null,
+                'floor' => null,
+                'apartment' => null,
+                'directions' => null,
+                'contact_point_id' => null,
+            ],
+            'lines' => array_map(static fn (array $line): array => [
+                ...$line,
+                'unit_price_minor' => 0,
+                'line_total_minor' => 0,
+                'price_list_id' => null,
+                'price_list_item_id' => null,
+            ], $lines),
+        ];
+    }
+
+    /**
      * The kitchen's book.
      *
      * `lock_version` is here because this is the audience that *writes*: the

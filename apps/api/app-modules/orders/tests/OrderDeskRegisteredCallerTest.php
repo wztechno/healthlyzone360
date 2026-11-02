@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\User;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
+use Healthy360\Allergens\Models\Allergen;
 use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Customers\Enums\CustomerAccountOrigin;
 use Healthy360\Customers\Enums\CustomerAccountStatus;
@@ -101,6 +102,22 @@ it('finds them by their exact number, links them and audits the link', function 
     expect(AuditLog::query()->where('action', 'customer.desk_link_created')->count())->toBe(1);
 });
 
+it('lets a telephone link read a caller but not change their name or number', function (): void {
+    $this->getJson('/api/v1/catalogue/order-desk/customers?query=%2B96170111222', $this->headers)
+        ->assertOk()
+        ->assertJsonPath('data.0.id', (string) $this->caller->getKey());
+
+    $this->patchJson(
+        "/api/v1/catalogue/order-desk/customers/{$this->caller->getKey()}",
+        ['display_name' => 'Somebody Else'],
+        $this->headers,
+    )
+        ->assertNotFound()
+        ->assertJsonPath('error.code', 'resource.not_found');
+
+    expect($this->caller->refresh()->display_name)->toBe('Rana Haddad');
+});
+
 it('keeps a linked caller out of the customer book', function (): void {
     $this->getJson('/api/v1/catalogue/order-desk/customers?query=%2B96170111222', $this->headers)->assertOk();
 
@@ -110,6 +127,7 @@ it('keeps a linked caller out of the customer book', function (): void {
 
 it('reads a linked customer\'s allergies for the order, on the record, without the notes', function (): void {
     $this->getJson('/api/v1/catalogue/order-desk/customers?query=%2B96170111222', $this->headers)->assertOk();
+    Allergen::factory()->create(['code' => 'milk']);
 
     $profile = CustomerDietaryProfile::query()->create([
         'customer_account_id' => $this->caller->getKey(),
