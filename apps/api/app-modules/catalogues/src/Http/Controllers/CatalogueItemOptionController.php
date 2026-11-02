@@ -44,10 +44,12 @@ final class CatalogueItemOptionController
             'options.*.name_ar' => ['required', 'string', 'max:120'],
         ]);
 
+        $stamped = $record->allergens_assessed_at !== null;
         $options = $this->options->replace($record, $validated['options']);
 
         $this->audit->record('catalogue.item.options_replaced', (string) auth()->id(), 'catalogue_item', (string) $record->getKey(), [
             'option_count' => count($options),
+            'allergen_stamp_cleared' => $stamped && $record->allergens_assessed_at === null,
         ]);
 
         return ApiResponse::data(['options' => $options]);

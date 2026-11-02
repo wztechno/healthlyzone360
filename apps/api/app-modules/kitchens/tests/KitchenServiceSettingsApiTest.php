@@ -24,6 +24,8 @@ const SERVICE_SETTINGS = [
     'alarm_after_minutes' => 3,
     'manager_alert_after_minutes' => 8,
     'owner_alert_after_minutes' => 15,
+    // The form posts the limit with the rest, and unchanged it takes no extra code.
+    'refund_approval_above_minor' => 5000,
 ];
 
 beforeEach(function (): void {
@@ -79,7 +81,7 @@ it('saves all four timings and audits what changed', function (): void {
 
     $log = AuditLog::query()->where('action', 'kitchen.service_settings_updated')->sole();
 
-    expect($log->metadata['changed_fields'])->toEqualCanonicalizing(array_keys(SERVICE_SETTINGS));
+    expect($log->metadata['changed_fields'])->toEqualCanonicalizing(['order_lead_minutes', 'alarm_after_minutes', 'manager_alert_after_minutes', 'owner_alert_after_minutes']);
 });
 
 it('refuses a write without the catalogue permission, even from a reader', function (): void {
@@ -112,4 +114,50 @@ it('accepts a lead of nothing', function (): void {
     $this->putJson('/api/v1/catalogue/kitchen-service-settings', [...SERVICE_SETTINGS, 'order_lead_minutes' => 0], $this->headers)
         ->assertOk()
         ->assertJsonPath('data.order_lead_minutes', 0);
+});
+
+it('keeps the refund limit from the manager it limits', function (): void {
+    settingsCaller($this, 'manager@kitchen.test', ['catalogue.manage_organisation']);
+
+    $this->putJson('/api/v1/catalogue/kitchen-service-settings', [...SERVICE_SETTINGS, 'refund_approval_above_minor' => 999_999], $this->headers)
+        ->assertForbidden()
+        ->assertJsonPath('error.code', 'authz.permission_denied')
+        ->assertJsonPath('error.details.permission', 'order.approve_refund_organisation');
+
+    $this->getJson('/api/v1/catalogue/kitchen-service-settings', $this->headers)
+        ->assertJsonPath('data.refund_approval_above_minor', 5000);
+});
+
+it('keeps the price limit from the manager it limits', function (): void {
+    settingsCaller($this, 'manager@kitchen.test', ['catalogue.manage_organisation']);
+
+    $this->putJson('/api/v1/catalogue/kitchen-service-settings', [...SERVICE_SETTINGS, 'price_approval_above_percent' => 90], $this->headers)
+        ->assertForbidden()
+        ->assertJsonPath('error.details.permission', 'inventory.approve_payables_organisation');
+});
+
+it('lets a manager resend the limits unchanged with new timings', function (): void {
+    settingsCaller($this, 'manager@kitchen.test', ['catalogue.manage_organisation']);
+
+    $this->putJson('/api/v1/catalogue/kitchen-service-settings', [...SERVICE_SETTINGS, 'price_approval_above_percent' => null], $this->headers)
+        ->assertOk();
+});
+
+it('lets whoever holds the approvals move the limits, and audits both ends', function (): void {
+    settingsCaller($this, 'owner@kitchen.test', [
+        'catalogue.manage_organisation',
+        'order.approve_refund_organisation',
+        'inventory.approve_payables_organisation',
+    ]);
+
+    $this->putJson('/api/v1/catalogue/kitchen-service-settings', [
+        ...SERVICE_SETTINGS,
+        'refund_approval_above_minor' => 7500,
+        'price_approval_above_percent' => 15,
+    ], $this->headers)->assertOk();
+
+    $values = AuditLog::query()->where('action', 'kitchen.service_settings_updated')->sole()->metadata['values'];
+
+    expect($values['refund_approval_above_minor'])->toEqual(['old' => 5000, 'new' => 7500])
+        ->and($values['price_approval_above_percent'])->toEqual(['old' => null, 'new' => 15]);
 });

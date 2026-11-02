@@ -10,6 +10,7 @@ use Healthy360\Orders\OrderDesk\Services\DeskBasket;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Str;
 
 /*
@@ -35,6 +36,7 @@ describe('a dish\'s options', function (): void {
         $this->seed([ReferenceDataSeeder::class, OrganisationTypeSeeder::class, AccessControlSeeder::class]);
         $this->tenant = PricingWorld::kitchen('options@kitchen.test');
         $this->actingAs($this->tenant->user);
+        app(TenantContext::class)->setOrganisation((string) $this->tenant->user->getKey(), (string) $this->tenant->organisation->getKey());
 
         $catalogue = Catalogue::factory()->create(['organisation_id' => $this->tenant->organisation->getKey()]);
         $this->dish = CatalogueItem::factory()->create([
@@ -42,15 +44,19 @@ describe('a dish\'s options', function (): void {
             'catalogue_id' => (string) $catalogue->getKey(),
             'item_type' => 'meal',
         ]);
-        $this->options = app(DishOptions::class)->replace($this->dish, [
+        $this->dishOptions = app(DishOptions::class)->replace($this->dish, [
             ['kind' => 'remove', 'name_en' => 'Onions', 'name_ar' => 'بصل'],
             ['kind' => 'choice', 'group_en' => 'Sauce', 'group_ar' => 'صلصة', 'name_en' => 'Garlic', 'name_ar' => 'ثوم'],
             ['kind' => 'choice', 'group_en' => 'Sauce', 'group_ar' => 'صلصة', 'name_en' => 'Chilli', 'name_ar' => 'حار'],
         ]);
     });
 
+    afterEach(function (): void {
+        app(TenantContext::class)->clear();
+    });
+
     it('snapshots what was chosen', function (): void {
-        $snapshot = app(DishOptions::class)->snapshot((string) $this->dish->getKey(), [$this->options[0]['id']]);
+        $snapshot = app(DishOptions::class)->snapshot((string) $this->dish->getKey(), [$this->dishOptions[0]['id']]);
 
         expect($snapshot)->toHaveCount(1)
             ->and($snapshot[0]['name_en'])->toBe('Onions');
@@ -59,17 +65,17 @@ describe('a dish\'s options', function (): void {
     it('refuses two answers to one group, and an option that is not this dish\'s', function (): void {
         $dishId = (string) $this->dish->getKey();
 
-        expect(app(DishOptions::class)->snapshot($dishId, [$this->options[1]['id'], $this->options[2]['id']]))->toBeNull()
+        expect(app(DishOptions::class)->snapshot($dishId, [$this->dishOptions[1]['id'], $this->dishOptions[2]['id']]))->toBeNull()
             ->and(app(DishOptions::class)->snapshot($dishId, [(string) Str::uuid()]))->toBeNull();
     });
 
     it('keeps a row\'s id through a rename, so a basket still finds it', function (): void {
         $renamed = app(DishOptions::class)->replace($this->dish, [
-            ['id' => $this->options[0]['id'], 'kind' => 'remove', 'name_en' => 'Red onions', 'name_ar' => 'بصل أحمر'],
+            ['id' => $this->dishOptions[0]['id'], 'kind' => 'remove', 'name_en' => 'Red onions', 'name_ar' => 'بصل أحمر'],
         ]);
 
         expect($renamed)->toHaveCount(1)
-            ->and($renamed[0]['id'])->toBe($this->options[0]['id'])
+            ->and($renamed[0]['id'])->toBe($this->dishOptions[0]['id'])
             ->and($renamed[0]['name_en'])->toBe('Red onions');
     });
 });

@@ -6328,18 +6328,18 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /catalogue/items/{item}/options:
-    parameters:
-      - $ref: '#/components/parameters/XOrganisationIdRequired'
-      - name: item
-        in: path
-        required: true
-        schema:
-          $ref: '#/components/schemas/Uuid'
     get:
       operationId: listDishOptions
       tags:
         - Sellable catalogue
       summary: A dish's free options
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: item
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
       responses:
         '200':
           description: The options, in menu order.
@@ -6373,6 +6373,13 @@ paths:
         - Sellable catalogue
       summary: Replace a dish's free options
       description: The whole list. A row naming its `id` keeps it, so a basket holding that option still finds it.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: item
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
       requestBody:
         required: true
         content:
@@ -6409,18 +6416,18 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /catalogue/order-desk/items/{item}/choices:
-    parameters:
-      - $ref: '#/components/parameters/XOrganisationIdRequired'
-      - name: item
-        in: path
-        required: true
-        schema:
-          $ref: '#/components/schemas/Uuid'
     get:
       operationId: getOrderDeskDishChoices
       tags:
         - Order desk
       summary: What the desk can change about a dish
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: item
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
       responses:
         '200':
           description: Its free options, and its portions at the counter's prices.
@@ -16012,7 +16019,12 @@ paths:
         `lock_version`. `manager_alert_after_minutes` must be less than
         `owner_alert_after_minutes`.
 
-        Requires `catalogue.manage_organisation`.
+        Requires `catalogue.manage_organisation`. Changing
+        `refund_approval_above_minor` also takes
+        `order.approve_refund_organisation`, and changing
+        `price_approval_above_percent` takes
+        `inventory.approve_payables_organisation`: a manager may not raise the limit
+        they work under. Sending either unchanged takes nothing extra.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'

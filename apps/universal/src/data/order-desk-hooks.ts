@@ -738,6 +738,9 @@ export function useReplaceDishOptionsMutation(
             void queryClient.invalidateQueries({
                 queryKey: queryKeys.orderDesk.dishChoices(itemId),
             });
+            // A new choice can take the dish off sale, which the listing reads.
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.catalogue.all() });
         },
     });
 }

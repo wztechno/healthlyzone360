@@ -75,6 +75,31 @@ function isAssessed(CatalogueItem $item): bool
     return CatalogueItem::withoutTenancy()->whereKey($item->getKey())->allergensAssessed()->exists();
 }
 
+it('takes a stamped dish off sale when a choice is added or renamed, and not for a removal', function (): void {
+    $item = unassessedItem($this->a, ['allergens_assessed_at' => now(), 'allergens_assessed_by' => $this->a->user->getKey()]);
+    $url = '/api/v1/catalogue/items/'.$item->getKey().'/options';
+    $this->actingAs($this->a->user);
+    $headers = CatalogueWorld::headers($this->a);
+    $sauce = ['kind' => 'choice', 'group_en' => 'Sauce', 'group_ar' => 'صلصة', 'name_en' => 'Tahini', 'name_ar' => 'طحينة'];
+
+    $this->putJson($url, ['options' => [['kind' => 'remove', 'name_en' => 'No onion', 'name_ar' => 'بدون بصل']]], $headers)->assertOk();
+    expect(isAssessed($item))->toBeTrue();
+
+    $saved = $this->putJson($url, ['options' => [$sauce]], $headers)->assertOk()->json('data.options.0.id');
+    $item->refresh();
+    expect(isAssessed($item))->toBeFalse()
+        ->and($item->allergens_assessed_by)->toBeNull()
+        ->and(AuditLog::query()->where('action', 'catalogue.item.options_replaced')->get()->filter(static fn (AuditLog $log): bool => $log->metadata['allergen_stamp_cleared']))->toHaveCount(1);
+
+    // Somebody looks again; the same list resent asks nothing new, a rename does.
+    $this->postJson('/api/v1/catalogue/items/'.$item->getKey().'/allergens-assessed', [], $headers)->assertOk();
+    $this->putJson($url, ['options' => [[...$sauce, 'id' => $saved]]], $headers)->assertOk();
+    expect(isAssessed($item))->toBeTrue();
+
+    $this->putJson($url, ['options' => [[...$sauce, 'id' => $saved, 'name_en' => 'Peanut sauce']]], $headers)->assertOk();
+    expect(isAssessed($item))->toBeFalse();
+});
+
 it('treats an item nothing vouches for as not assessed', function (): void {
     expect(isAssessed(unassessedItem($this->a)))->toBeFalse();
 });

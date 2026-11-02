@@ -5228,7 +5228,7 @@
     },
     "dishOptions": {
         "title": "Dish options",
-        "aside": "Free changes a customer can make. Portions are the dish’s packs. Allergens stay as they are.",
+        "aside": "Free changes a customer can make. Portions are the dish’s packs. Leaving something out keeps the allergens as they are. Adding or renaming a choice on a dish marked as containing none takes it off sale until it is checked again.",
         "kind": "Kind",
         "kindRemove": "Leave out",
         "kindChoice": "Choice",

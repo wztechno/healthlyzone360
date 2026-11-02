@@ -15,6 +15,13 @@ use Illuminate\Support\Facades\DB;
  * The kitchen may still cross-contact, so a line with "no peanuts" carries the
  * dish's allergens as they stand, and nothing here reads or writes them.
  *
+ * A choice is different: a new sauce is a new thing on the plate. So adding or
+ * renaming one clears a member of staff's stamp that the dish contains no
+ * allergens, and {@see CatalogueItem::scopeAllergensAssessed()} takes it off sale
+ * until somebody looks again. The stamp is all it can clear: a recipe or ingredient
+ * list is not a statement anybody made about the new choice, and those still vouch
+ * for the dish. A removal, a reorder or a deleted row clears nothing.
+ *
  * @phpstan-type DishOption array{id: string, kind: string, group_en: string|null, group_ar: string|null, name_en: string, name_ar: string}
  */
 final readonly class DishOptions
@@ -81,7 +88,8 @@ final readonly class DishOptions
 
     /**
      * The dish's whole list, as the editor sends it. A row that names its id keeps
-     * it, so a basket holding that option still finds it after a rename.
+     * it, so a basket holding that option still finds it after a rename. Clears
+     * the allergen stamp on `$item` when a choice is added or renamed.
      *
      * @param  list<array{id?: string|null, kind: string, group_en?: string|null, group_ar?: string|null, name_en: string, name_ar: string}>  $rows
      * @return list<DishOption>
@@ -90,6 +98,7 @@ final readonly class DishOptions
     {
         DB::transaction(function () use ($item, $rows): void {
             $kept = array_values(array_filter(array_column($rows, 'id')));
+            $unreviewed = false;
 
             CatalogueItemOption::query()
                 ->where('catalogue_item_id', $item->getKey())
@@ -112,7 +121,14 @@ final readonly class DishOptions
                 $option->name_en = $row['name_en'];
                 $option->name_ar = $row['name_ar'];
                 $option->display_order = $order;
+
+                $unreviewed = $unreviewed || ($choice && $option->isDirty(['kind', 'group_en', 'group_ar', 'name_en', 'name_ar']));
+
                 $option->save();
+            }
+
+            if ($unreviewed && $item->allergens_assessed_at !== null) {
+                $item->forceFill(['allergens_assessed_at' => null, 'allergens_assessed_by' => null])->save();
             }
         });
 
