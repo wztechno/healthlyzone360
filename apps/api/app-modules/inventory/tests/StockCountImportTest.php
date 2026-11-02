@@ -84,7 +84,7 @@ function stockCountDownloadedSheet(TestResponse $response): array
 }
 
 it('posts a count as an adjust movement and leaves the level on the counted figure', function (): void {
-    $this->postJson('/api/v1/catalogue/inventory/adjustments', $this->shelf + ['quantity_delta' => 10], $this->headers)->assertCreated();
+    $this->postJson('/api/v1/catalogue/inventory/adjustments', $this->shelf + ['quantity_delta' => 10, 'notes' => 'Opening count'], $this->headers)->assertCreated();
 
     stockCountImport([['rice-01', 'Rice', 7.5, null, null]])
         ->assertOk()
@@ -169,7 +169,7 @@ it('skips an unknown code and never creates a stock item, and skips the example 
 });
 
 it('leaves the level alone when the counted quantity is blank', function (): void {
-    $this->postJson('/api/v1/catalogue/inventory/adjustments', $this->shelf + ['quantity_delta' => 6], $this->headers)->assertCreated();
+    $this->postJson('/api/v1/catalogue/inventory/adjustments', $this->shelf + ['quantity_delta' => 6, 'notes' => 'Opening count'], $this->headers)->assertCreated();
 
     stockCountImport([['rice-01', 'Rice', null, null, null]])
         ->assertOk()
@@ -230,8 +230,8 @@ it('exports the header branch\'s shelves with the count blank and the ledger in 
         'currency_code' => $this->tenant->organisation->default_currency_code,
     ]);
 
-    $this->postJson('/api/v1/catalogue/inventory/adjustments', $this->shelf + ['quantity_delta' => 10], $this->headers)->assertCreated();
-    $this->postJson('/api/v1/catalogue/inventory/adjustments', ['branch_id' => (string) $other->getKey(), 'stock_item_id' => (string) $this->item->getKey(), 'quantity_delta' => 99], $this->headers)->assertCreated();
+    $this->postJson('/api/v1/catalogue/inventory/adjustments', $this->shelf + ['quantity_delta' => 10, 'notes' => 'Opening count'], $this->headers)->assertCreated();
+    $this->postJson('/api/v1/catalogue/inventory/adjustments', ['branch_id' => (string) $other->getKey(), 'stock_item_id' => (string) $this->item->getKey(), 'quantity_delta' => 99, 'notes' => 'Opening count'], $this->headers)->assertCreated();
     $this->patchJson('/api/v1/catalogue/inventory/threshold', $this->shelf + ['reorder_threshold' => 10, 'par_level' => 30], $this->headers)->assertOk();
 
     $response = $this->get('/api/v1/catalogue/inventory/levels/export', $this->headers)->assertOk();

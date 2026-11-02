@@ -384,6 +384,7 @@ it('gates the inventory write endpoint on the role resolved inventory.manage gra
         'branch_id' => (string) $branch->getKey(),
         'stock_item_id' => (string) $item->getKey(),
         'quantity_delta' => 5,
+        'notes' => 'Opening count',
     ], $headers);
 
     if ($mayWrite) {

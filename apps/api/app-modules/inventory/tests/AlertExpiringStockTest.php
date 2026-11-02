@@ -14,6 +14,7 @@ use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\Support\Alerts\StaffAlertType;
 use Healthy360\Support\Models\StaffNotification;
+use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -42,8 +43,17 @@ beforeEach(function (): void {
         ['name_en' => 'Yoghurt', 'code' => 'yoghurt'],
     )->getKey();
 
-    app(InventoryService::class)->recordMovement($this->orgId, $this->branchId, $this->itemId, 'adjust', '4');
+    shelfMovement($this, 'adjust', '4');
 });
+
+/** The kitchen's context for the service, cleared so the job has to set its own. */
+function shelfMovement(object $test, string $type, string $quantity): void
+{
+    $context = app(TenantContext::class);
+    $context->setOrganisation((string) $test->tenant->user->getKey(), $test->orgId);
+    app(InventoryService::class)->recordMovement($test->orgId, $test->branchId, $test->itemId, $type, $quantity);
+    $context->clear();
+}
 
 function expiringLine(string $on): string
 {
@@ -55,6 +65,8 @@ function expiringLine(string $on): string
         'organisation_id' => test()->orgId,
         'branch_id' => test()->branchId,
         'received_at' => now(),
+        'received_on' => now()->toDateString(),
+        'cost_status' => 'complete',
     ]);
     DB::table('goods_receipt_lines')->insert([
         'id' => $lineId,
@@ -83,7 +95,7 @@ it('alerts the managers once about a delivery line about to pass its date', func
 
 it('stays quiet about an empty shelf', function (): void {
     expiringLine('2026-11-04');
-    app(InventoryService::class)->recordMovement($this->orgId, $this->branchId, $this->itemId, 'waste', '-4');
+    shelfMovement($this, 'waste', '-4');
 
     app()->call([new AlertExpiringStock, 'handle']);
 

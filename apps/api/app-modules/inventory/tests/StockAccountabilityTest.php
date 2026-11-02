@@ -35,7 +35,10 @@ beforeEach(function (): void {
     $this->actingAs($this->world->tenant->user);
 
     $this->organisationId = (string) $this->world->organisation->getKey();
-    $this->branch = OrganisationBranch::factory()->create(['organisation_id' => $this->organisationId]);
+    $this->branch = OrganisationBranch::factory()->create([
+        'organisation_id' => $this->organisationId,
+        'country_code' => $this->world->organisation->country_code,
+    ]);
     $this->item = StockItem::withoutTenancy()->create([
         'organisation_id' => $this->organisationId,
         'code' => 'FLOUR',
@@ -90,6 +93,7 @@ it('leaves waste unvalued rather than free when no cost is held, and says so', f
 it('counts a wasted late cancel as waste, at what it cost', function (): void {
     $order = RunWorld::order($this->world, [
         'status' => OrderStatus::Cancelled,
+        'cancelled_at' => now(),
         'cancellation_disposition' => 'wasted',
     ]);
 
