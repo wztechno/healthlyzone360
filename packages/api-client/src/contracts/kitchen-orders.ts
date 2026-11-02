@@ -9,7 +9,12 @@ import type {
 } from '@healthy360/domain-types';
 
 import type { MealChoiceSource } from './commerce.ts';
-import type { DriverJobStatus, DriverJobTrackingStatus } from './driver-jobs.ts';
+import type {
+    DeliveryFailureReason,
+    DriverJobStatus,
+    DriverJobTrackingStatus,
+    FailDeliveryRequest,
+} from './driver-jobs.ts';
 import type { MealSlot } from './marketplace.ts';
 
 /**
@@ -186,6 +191,12 @@ export interface KitchenOrderDeliveryRun {
     readonly assignedAt: IsoDateTime | null;
     readonly pickedUpAt: IsoDateTime | null;
     readonly deliveredAt: IsoDateTime | null;
+    /** Set while the run has `failed`, cleared by a re-deliver. Absent on older payloads. */
+    readonly failedAt?: IsoDateTime | null;
+    readonly failureReason?: DeliveryFailureReason | null;
+    readonly failureNote?: string | null;
+    /** The courier carrying it. There is then no driver. Absent on older payloads. */
+    readonly courierName?: string | null;
 }
 
 /**
@@ -375,6 +386,30 @@ export interface CancelKitchenOrderRequest extends KitchenOrderTransitionRequest
     readonly disposition?: KitchenOrderCancellationDisposition | undefined;
 }
 
+/** A manager's decision to send a failed delivery out again, with a new day or window if moving. */
+export interface RedeliverKitchenOrderRequest extends KitchenOrderTransitionRequest {
+    /** `YYYY-MM-DD`. Runs the desk's timing rules, as does {@link window}. */
+    readonly date?: string | undefined;
+    readonly window?: string | undefined;
+}
+
+export interface CloseFailedDeliveryRequest extends KitchenOrderTransitionRequest {
+    readonly disposition: KitchenOrderCancellationDisposition;
+}
+
+export interface HandToCourierRequest {
+    readonly id: OrderId;
+    readonly name: string;
+    /** The courier's own tracking reference. */
+    readonly reference?: string | undefined;
+    /** What the courier charges, in the order's minor units. */
+    readonly feeMinor?: number | undefined;
+}
+
+export interface FailKitchenOrderDeliveryRequest extends FailDeliveryRequest {
+    readonly id: OrderId;
+}
+
 /* ------------------------------------------------------------------------------------------------
  * Money arriving against an order
  * ---------------------------------------------------------------------------------------------- */
@@ -492,6 +527,21 @@ export interface KitchenOrdersRepository {
      * disposition, and food on the road answers `order.out_for_delivery`.
      */
     cancelOrder(request: CancelKitchenOrderRequest): Promise<KitchenOrder>;
+
+    /**
+     * A courier took the food: nobody can cancel it from here, and it leaves no receipt. It ends with
+     * {@link fulfilOrder} or {@link failDelivery}. `resource.conflict` unless it is ready and waiting.
+     */
+    handToCourier(request: HandToCourierRequest): Promise<KitchenOrder>;
+
+    /** A courier's run came back. The order stays `confirmed`. */
+    failDelivery(request: FailKitchenOrderDeliveryRequest): Promise<KitchenOrder>;
+
+    /** Send a failed run out again. `order.placement_refused` for a day the desk could not sell. */
+    redeliverOrder(request: RedeliverKitchenOrderRequest): Promise<KitchenOrder>;
+
+    /** Cancels with `delivery_failed`. `resource.conflict` unless the run has failed. */
+    closeFailedDelivery(request: CloseFailedDeliveryRequest): Promise<KitchenOrder>;
 
     /**
      * Write down money that arrived against an order.

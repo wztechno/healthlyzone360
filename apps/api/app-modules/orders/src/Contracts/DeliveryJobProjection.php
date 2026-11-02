@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Orders\Contracts;
 
+use Healthy360\Delivery\Enums\DeliveryFailureReason;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Support\Api\Exceptions\ApiException;
 
@@ -51,7 +52,14 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  * the book calls delivered over a run still open is a driver claiming, picking
  * up and carrying food that has already arrived. {@see close()} marks the run
  * delivered in the fulfil's own transaction, and for the same reason: the run
- * ends where the order did.
+ * ends where the order did. The one run it refuses is a failed one: food that came
+ * back cannot be quietly marked delivered, and has to be sent out again first.
+ *
+ * **A run can come back.** {@link fail()} is the door nobody answered, and it
+ * leaves the order `confirmed`. {@link reopen()} is the manager sending it out
+ * again, and {@link handToCourier()} is a run leaving with somebody the kitchen
+ * does not employ. All three are refused from the wrong state rather than ignored:
+ * unlike a retried confirm, each is somebody asking for something to happen.
  */
 interface DeliveryJobProjection
 {
@@ -70,7 +78,9 @@ interface DeliveryJobProjection
      *
      * A no-op for a run already delivered or cancelled — the driver's own
      * Mark delivered reaches here after it has closed the run — and for an
-     * order that has none.
+     * order that has none. Refuses a failed run, rolling the fulfil back.
+     *
+     * @throws ApiException `resource.conflict`
      */
     public function close(Order $order): void;
 
@@ -78,11 +88,36 @@ interface DeliveryJobProjection
      * End this order's run because the order was cancelled, so no driver can
      * claim it or pick it up.
      *
-     * A no-op for a run already closed and for an order that has none. Throws
-     * when the food is on the road, refusing the caller's whole transaction: a
-     * run picked up and not closed ends as delivered or failed, never cancelled.
+     * A no-op for a run already closed, a failed one included, and for an order
+     * that has none. Throws when the food is on the road, refusing the caller's
+     * whole transaction: a run picked up and not closed ends as delivered or
+     * failed, never cancelled.
      *
      * @throws ApiException `order.out_for_delivery`
      */
     public function cancel(Order $order): void;
+
+    /**
+     * The run came back: `failed`, off every sheet, with why. Only from `in_transit`.
+     *
+     * @throws ApiException `resource.conflict`
+     */
+    public function fail(Order $order, DeliveryFailureReason $reason, ?string $note): void;
+
+    /**
+     * Send a failed run out again: back to `pending` and `awaiting_assignment`,
+     * with the driver, the pick-up, the failure and any courier cleared. Only from
+     * `failed`. The order's `ready_at` stands, so drivers are offered it at once.
+     *
+     * @throws ApiException `resource.conflict`
+     */
+    public function reopen(Order $order): void;
+
+    /**
+     * A courier took the food: `in_transit`, picked up now, with no driver. Only
+     * from a run nobody has picked up.
+     *
+     * @throws ApiException `resource.conflict`
+     */
+    public function handToCourier(Order $order, string $name, ?string $reference, ?int $feeMinor): void;
 }

@@ -10,6 +10,9 @@ import type { CurrencyCode } from '@healthy360/domain-types';
 
 import type {
     CancelKitchenOrderRequest,
+    CloseFailedDeliveryRequest,
+    FailKitchenOrderDeliveryRequest,
+    HandToCourierRequest,
     KitchenDisplay,
     KitchenOrder,
     KitchenOrderDelivery,
@@ -22,6 +25,7 @@ import type {
     KitchenOrderTransitionRequest,
     RecordedKitchenOrderPayment,
     RecordKitchenOrderPaymentRequest,
+    RedeliverKitchenOrderRequest,
 } from '../contracts/kitchen-orders.ts';
 import type {
     KitchenDisplayEnvelope,
@@ -34,6 +38,7 @@ import type {
     StorePaymentReceiptRequest,
 } from '../generated/types.ts';
 import { generateRequestId } from './config.ts';
+import { failureBody } from './driver-jobs-repository.ts';
 import type { Transport } from './transport.ts';
 
 /**
@@ -158,6 +163,10 @@ export function mapKitchenOrder(wire: WireKitchenOrder): KitchenOrder {
                       assignedAt: wire.delivery_run.assigned_at,
                       pickedUpAt: wire.delivery_run.picked_up_at,
                       deliveredAt: wire.delivery_run.delivered_at,
+                      failedAt: wire.delivery_run.failed_at ?? null,
+                      failureReason: wire.delivery_run.failure_reason ?? null,
+                      failureNote: wire.delivery_run.failure_note ?? null,
+                      courierName: wire.delivery_run.courier_name ?? null,
                   },
         lockVersion: wire.lock_version,
         customerAccountId: wire.customer_account_id,
@@ -271,6 +280,22 @@ export function createApiKitchenOrdersRepository(transport: Transport): KitchenO
         return mapKitchenOrder(payload.order);
     }
 
+    /** The `/delivery/*` actions. `courier` and `fail` write the run alone and carry no `If-Match`. */
+    async function deliveryAction(
+        orderId: OrderId,
+        action: 'courier' | 'fail' | 'redeliver' | 'close-failed',
+        body: Record<string, unknown>,
+        lockVersion?: number,
+    ): Promise<KitchenOrder> {
+        const payload = await transport.request<{ readonly order: WireKitchenOrder }>({
+            method: 'POST',
+            path: `/catalogue/orders/${encodeURIComponent(String(orderId))}/delivery/${action}`,
+            ...(lockVersion === undefined ? {} : { headers: ifMatch(lockVersion) }),
+            body,
+        });
+        return mapKitchenOrder(payload.order);
+    }
+
     return {
         async listOrders(filters?: KitchenOrderFilters): Promise<KitchenOrderPage> {
             const envelope = await transport.requestEnvelope<readonly WireKitchenOrder[]>({
@@ -328,6 +353,39 @@ export function createApiKitchenOrdersRepository(transport: Transport): KitchenO
                 reason: request.reason,
                 ...(request.disposition === undefined ? {} : { disposition: request.disposition }),
             });
+        },
+
+        async handToCourier(request: HandToCourierRequest): Promise<KitchenOrder> {
+            return deliveryAction(request.id, 'courier', {
+                name: request.name,
+                ...(request.reference === undefined ? {} : { reference: request.reference }),
+                ...(request.feeMinor === undefined ? {} : { fee_minor: request.feeMinor }),
+            });
+        },
+
+        async failDelivery(request: FailKitchenOrderDeliveryRequest): Promise<KitchenOrder> {
+            return deliveryAction(request.id, 'fail', failureBody(request));
+        },
+
+        async redeliverOrder(request: RedeliverKitchenOrderRequest): Promise<KitchenOrder> {
+            return deliveryAction(
+                request.id,
+                'redeliver',
+                {
+                    ...(request.date === undefined ? {} : { date: request.date }),
+                    ...(request.window === undefined ? {} : { window: request.window }),
+                },
+                request.lockVersion,
+            );
+        },
+
+        async closeFailedDelivery(request: CloseFailedDeliveryRequest): Promise<KitchenOrder> {
+            return deliveryAction(
+                request.id,
+                'close-failed',
+                { disposition: request.disposition },
+                request.lockVersion,
+            );
         },
 
         async recordPayment(

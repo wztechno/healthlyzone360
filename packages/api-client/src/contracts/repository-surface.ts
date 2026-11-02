@@ -352,13 +352,17 @@ export const REPOSITORY_SURFACE = {
     ],
     kitchenOrders: [
         'cancelOrder',
+        'closeFailedDelivery',
         'confirmOrder',
+        'failDelivery',
         'fulfilOrder',
         'getDisplay',
         'getOrder',
+        'handToCourier',
         'listOrders',
         'markOrderReady',
         'recordPayment',
+        'redeliverOrder',
         'startOrder',
     ],
     orderDesk: [
@@ -389,7 +393,7 @@ export const REPOSITORY_SURFACE = {
         'markAllAlertsRead',
         'saveServiceSettings',
     ],
-    driverJobs: ['claimJob', 'deliverJob', 'listJobs', 'pickUpJob'],
+    driverJobs: ['claimJob', 'deliverJob', 'failJob', 'listJobs', 'pickUpJob'],
     platformAdmin: [
         'createKitchen',
         'getKitchen',

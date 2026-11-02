@@ -1,4 +1,9 @@
-import type { DriverJob, DriverJobDelivery } from '@healthy360/api-client/contracts';
+import { DELIVERY_FAILURE_REASONS } from '@healthy360/api-client/contracts';
+import type {
+    DeliveryFailureReason,
+    DriverJob,
+    DriverJobDelivery,
+} from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -7,6 +12,7 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
+    FilterChip,
     Heading,
     Inline,
     Skeleton,
@@ -27,6 +33,7 @@ import {
     toFailure,
     useClaimDriverJobMutation,
     useDeliverDriverJobMutation,
+    useFailDriverJobMutation,
     usePickUpDriverJobMutation,
     useDriverJobsQuery,
 } from '../../data/driver-jobs-hooks.ts';
@@ -88,6 +95,12 @@ import { useOnlineStatus } from '../../online/online-status.tsx';
  *
  * After a successful stamp the run sheet re-reads and the job leaves the list, because the endpoint
  * excludes terminal jobs, and a toast says so — once the server has answered, never before.
+ *
+ * ## A run that could not be delivered
+ *
+ * Beside Mark delivered sits **Could not deliver**, with a reason and an optional note. The order
+ * stays open for a manager to send out again or close, nothing is collected, and the job leaves the
+ * sheet.
  *
  * ## Picked up comes first (HA-19)
  *
@@ -188,12 +201,18 @@ function DriverJobs() {
     const deliver = useDeliverDriverJobMutation();
     const claim = useClaimDriverJobMutation();
     const pickUp = usePickUpDriverJobMutation();
+    const fail = useFailDriverJobMutation();
     const toast = useToast();
 
     /** The job the confirmation is open for. `null` closes the dialog. */
     const [delivering, setDelivering] = useState<DriverJob | null>(null);
     const [notes, setNotes] = useState('');
     const [collected, setCollected] = useState('');
+
+    /** The job the could-not-deliver dialog is open for. `null` closes it. */
+    const [failing, setFailing] = useState<DriverJob | null>(null);
+    const [failReason, setFailReason] = useState<DeliveryFailureReason | null>(null);
+    const [failNote, setFailNote] = useState('');
 
     const owed = delivering === null ? 0 : amountToCollect(delivering);
     const collectedMinor =
@@ -208,9 +227,10 @@ function DriverJobs() {
     const actionFailure = toFailure(deliver.error);
     const claimFailure = toFailure(claim.error);
     const pickUpFailure = toFailure(pickUp.error);
+    const failFailure = toFailure(fail.error);
     const rows = jobs.data?.jobs ?? [];
     const available = jobs.data?.available ?? [];
-    const busy = deliver.isPending || claim.isPending || pickUp.isPending;
+    const busy = deliver.isPending || claim.isPending || pickUp.isPending || fail.isPending;
 
     function openDeliver(job: DriverJob) {
         deliver.reset();
@@ -242,6 +262,31 @@ function DriverJobs() {
                         testID: 'driver-jobs-delivered',
                         tone: 'success',
                         message: t('kitchen:driver.deliveredToast', { reference }),
+                    });
+                },
+            },
+        );
+    }
+
+    function openFail(job: DriverJob) {
+        fail.reset();
+        setFailReason(null);
+        setFailNote('');
+        setFailing(job);
+    }
+
+    function submitFail() {
+        if (failing === null || failReason === null) return;
+        const reference = failing.orderNumber ?? String(failing.orderId);
+        fail.mutate(
+            { jobId: failing.id, reason: failReason, note: failNote },
+            {
+                onSuccess: () => {
+                    setFailing(null);
+                    toast.show({
+                        testID: 'driver-jobs-failed',
+                        tone: 'warning',
+                        message: t('kitchen:driver.failedToast', { reference }),
                     });
                 },
             },
@@ -328,6 +373,7 @@ function DriverJobs() {
                                             openDeliver(picked);
                                         }
                                     }}
+                                    onFail={job.status === 'in_transit' ? openFail : undefined}
                                 />
                             ))}
                         </Stack>
@@ -437,6 +483,68 @@ function DriverJobs() {
                     )}
                 </Stack>
             </Dialog>
+
+            <Dialog
+                testID="driver-jobs-fail-dialog"
+                open={failing !== null}
+                onClose={() => {
+                    setFailing(null);
+                }}
+                title={t('kitchen:driver.failTitle')}
+                description={t('kitchen:driver.failBody')}
+                actions={
+                    <>
+                        <Button
+                            testID="driver-jobs-fail-dismiss"
+                            variant="quiet"
+                            label={t('kitchen:driver.deliverDismiss')}
+                            onPress={() => {
+                                setFailing(null);
+                            }}
+                        />
+                        <Button
+                            testID="driver-jobs-fail-confirm"
+                            variant="danger"
+                            label={t('kitchen:driver.failConfirm')}
+                            loading={fail.isPending}
+                            disabled={failReason === null || fail.isPending}
+                            onPress={submitFail}
+                        />
+                    </>
+                }
+            >
+                <Stack space="sm">
+                    <Text variant="strong">{t('kitchen:driver.failReasonLabel')}</Text>
+                    <Inline space="xs" wrap testID="driver-jobs-fail-reasons">
+                        {DELIVERY_FAILURE_REASONS.map((candidate) => (
+                            <FilterChip
+                                key={candidate}
+                                testID={`driver-jobs-fail-reason-${candidate}`}
+                                label={t(`kitchen:driver.failReason.${candidate}`)}
+                                selected={failReason === candidate}
+                                onChange={() => {
+                                    setFailReason(candidate);
+                                }}
+                            />
+                        ))}
+                    </Inline>
+                    <TextInputField
+                        testID="driver-jobs-fail-note"
+                        id="driver-jobs-fail-note"
+                        label={t('kitchen:driver.failNoteLabel')}
+                        value={failNote}
+                        onChangeText={setFailNote}
+                        multiline
+                        maxLength={1000}
+                        autoCapitalize="sentences"
+                    />
+                    {failFailure === null ? null : (
+                        <Text testID="driver-jobs-fail-error" tone="danger">
+                            {failFailure.message}
+                        </Text>
+                    )}
+                </Stack>
+            </Dialog>
         </Stack>
     );
 }
@@ -476,6 +584,8 @@ interface JobCardProps {
     /** Collect or deliver one of the caller's own runs, or claim one from the pool. */
     readonly action: 'pickUp' | 'deliver' | 'claim';
     readonly onAction: (job: DriverJob) => void;
+    /** Offered only on a run that is on the road. */
+    readonly onFail?: ((job: DriverJob) => void) | undefined;
 }
 
 /**
@@ -484,7 +594,7 @@ interface JobCardProps {
  * The card takes no `onPress`. It holds a button, and a pressable card around a button is both an
  * axe `nested-interactive` violation and a way to deliver an order with a mistimed thumb.
  */
-function JobCard({ job, locale, disabled, action, onAction }: JobCardProps) {
+function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const testID = `driver-job-${job.id}`;
@@ -644,6 +754,18 @@ function JobCard({ job, locale, disabled, action, onAction }: JobCardProps) {
                         disabled={disabled}
                         onPress={() => {
                             onAction(job);
+                        }}
+                    />
+                )}
+                {onFail === undefined ? null : (
+                    <Button
+                        testID={`${testID}-fail`}
+                        block
+                        variant="secondary"
+                        label={t('kitchen:driver.fail')}
+                        disabled={disabled}
+                        onPress={() => {
+                            onFail(job);
                         }}
                     />
                 )}

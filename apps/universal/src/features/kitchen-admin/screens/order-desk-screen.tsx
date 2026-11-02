@@ -51,6 +51,7 @@ import { toFailure } from '../../../data/hooks.ts';
 import {
     useConfirmOrderMutation,
     useFulfilOrderMutation,
+    useHandToCourierMutation,
     useKitchenOrderQuery,
     useRecordOrderPaymentMutation,
 } from '../../../data/kitchen-orders-hooks.ts';
@@ -524,6 +525,111 @@ function AssignDriverDialog({
 }
 
 /**
+ * A courier company took the food: the {@link AssignDriverDialog} of a run nobody on the kitchen's
+ * own sheet will carry. It ends on the order page with Mark delivered or a failed delivery, and
+ * unpaid either way until batch settlement.
+ */
+function HandToCourierDialog({
+    order,
+    onClose,
+    onHanded,
+}: {
+    readonly order: KitchenOrder;
+    readonly onClose: () => void;
+    readonly onHanded: (courier: string) => void;
+}) {
+    const { t } = useTranslation();
+    const hand = useHandToCourierMutation();
+    const [name, setName] = useState('');
+    const [reference, setReference] = useState('');
+    const [fee, setFee] = useState('');
+
+    const feeMinor = fee.trim() === '' ? undefined : parseMinorAmount(fee, order.currencyCode);
+    const failure = toFailure(hand.error);
+
+    function confirm() {
+        if (name.trim() === '' || feeMinor === null) return;
+        hand.mutate(
+            {
+                id: order.id,
+                name: name.trim(),
+                ...(reference.trim() === '' ? {} : { reference: reference.trim() }),
+                ...(feeMinor === undefined ? {} : { feeMinor }),
+            },
+            {
+                onSuccess: () => {
+                    onHanded(name.trim());
+                },
+            },
+        );
+    }
+
+    return (
+        <Dialog
+            testID="kitchen-order-desk-courier"
+            open
+            onClose={onClose}
+            title={t('kitchen:desk.courier.title')}
+            description={t('kitchen:desk.courier.description', { number: order.orderNumber })}
+            actions={
+                <>
+                    <Button
+                        testID="kitchen-order-desk-courier-cancel"
+                        variant="secondary"
+                        label={t('kitchen:common.cancel')}
+                        onPress={onClose}
+                    />
+                    <Button
+                        testID="kitchen-order-desk-courier-confirm"
+                        label={t('kitchen:desk.courier.confirm')}
+                        loading={hand.isPending}
+                        disabled={name.trim() === '' || feeMinor === null || hand.isPending}
+                        onPress={confirm}
+                    />
+                </>
+            }
+        >
+            {failure === null ? null : (
+                <Text testID="kitchen-order-desk-courier-error" tone="danger" role="alert">
+                    {failure.message}
+                </Text>
+            )}
+
+            <TextInputField
+                testID="kitchen-order-desk-courier-name"
+                id="kitchen-order-desk-courier-name"
+                label={t('kitchen:desk.courier.nameLabel')}
+                value={name}
+                onChangeText={setName}
+                maxLength={120}
+            />
+            <TextInputField
+                testID="kitchen-order-desk-courier-reference"
+                id="kitchen-order-desk-courier-reference"
+                label={t('kitchen:desk.courier.referenceLabel')}
+                value={reference}
+                onChangeText={setReference}
+                maxLength={120}
+                autoCapitalize="none"
+                autoCorrect={false}
+            />
+            <TextInputField
+                testID="kitchen-order-desk-courier-fee"
+                id="kitchen-order-desk-courier-fee"
+                label={t('kitchen:desk.courier.feeLabel', { currency: order.currencyCode })}
+                placeholder={t('kitchen:fields.amountPlaceholder')}
+                {...(feeMinor === null ? { error: t('kitchen:desk.courier.feeInvalid') } : {})}
+                value={fee}
+                onChangeText={setFee}
+                inputMode="decimal"
+                autoCapitalize="none"
+                autoCorrect={false}
+            />
+        </Dialog>
+    );
+}
+
+/**
  * Write down money that has arrived.
  *
  * ## Why the desk needs this at all
@@ -900,6 +1006,8 @@ function OrderDeskQueueList() {
      * stale version the endpoint exists to reject.
      */
     const [assigning, setAssigning] = useState(false);
+    /** Whether the courier dialog is open. It reads the order off the detail query. */
+    const [handingToCourier, setHandingToCourier] = useState(false);
     /**
      * Whether the receipt dialog is open.
      *
@@ -1020,6 +1128,7 @@ function OrderDeskQueueList() {
     function closeDetail() {
         setSelected(null);
         setAssigning(false);
+        setHandingToCourier(false);
         setRecordingPayment(false);
         clearActionState();
     }
@@ -1058,6 +1167,15 @@ function OrderDeskQueueList() {
      * because the decision is made; the record page stays open on the order, which is what the person
      * was reading.
      */
+    function onHandedToCourier(courier: string) {
+        setHandingToCourier(false);
+        toast.show({
+            testID: 'kitchen-order-desk-courier-toast',
+            tone: 'success',
+            message: t('kitchen:desk.courier.handedToast', { name: courier }),
+        });
+    }
+
     function onAssigned(driverName: string) {
         setAssigning(false);
         toast.show({
@@ -1412,6 +1530,16 @@ function OrderDeskQueueList() {
                         void queue.refetch();
                     }}
                     refreshing={queue.isFetching}
+                />
+            ) : null}
+
+            {handingToCourier && order !== null ? (
+                <HandToCourierDialog
+                    order={order}
+                    onClose={() => {
+                        setHandingToCourier(false);
+                    }}
+                    onHanded={onHandedToCourier}
                 />
             ) : null}
 
@@ -1924,16 +2052,20 @@ function OrderDeskQueueList() {
                                                                     />
                                                                 </>
                                                             )}
-                                                            <View className="flex-row pt-tight">
+                                                            <View className="flex-row gap-snug pt-tight">
                                                                 {
                                                                     /*
                                                                      * `canManage` gates it on the same code the lifecycle
                                                                      * buttons take: choosing whose evening this is, is managing
-                                                                     * the order rather than reading it.
+                                                                     * the order rather than reading it. A courier's run has
+                                                                     * left, so there is nobody left to name.
                                                                      */
                                                                     selectedRow.deliveryJob ===
                                                                         null ||
                                                                     !canManage ||
+                                                                    (order?.deliveryRun
+                                                                        ?.courierName ?? null) !==
+                                                                        null ||
                                                                     !canAssignDeliveryJob(
                                                                         selectedRow.deliveryJob
                                                                             .status,
@@ -1952,6 +2084,33 @@ function OrderDeskQueueList() {
                                                                             )}
                                                                             onPress={() => {
                                                                                 openAssign();
+                                                                            }}
+                                                                        />
+                                                                    )
+                                                                }
+                                                                {
+                                                                    // Ready and not yet on the road, the driver's own rule.
+                                                                    selectedRow.deliveryJob ===
+                                                                        null ||
+                                                                    !canManage ||
+                                                                    (order?.readyAt ?? null) ===
+                                                                        null ||
+                                                                    (selectedRow.deliveryJob
+                                                                        .status !== 'pending' &&
+                                                                        selectedRow.deliveryJob
+                                                                            .status !==
+                                                                            'assigned') ? undefined : (
+                                                                        <Button
+                                                                            testID="kitchen-order-desk-detail-courier"
+                                                                            size="sm"
+                                                                            variant="ghost"
+                                                                            label={t(
+                                                                                'kitchen:desk.courier.open',
+                                                                            )}
+                                                                            onPress={() => {
+                                                                                setHandingToCourier(
+                                                                                    true,
+                                                                                );
                                                                             }}
                                                                         />
                                                                     )

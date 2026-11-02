@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Orders\Services;
 
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Delivery\Enums\DeliveryFailureReason;
 use Healthy360\Orders\Contracts\DeliveredOrderHandover;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Enums\PaymentMethod;
@@ -41,6 +42,7 @@ final class DeliveredOrderFulfilment implements DeliveredOrderHandover
         private readonly OrderPaymentReceipts $receipts,
         private readonly StaffAlerts $alerts,
         private readonly AuditRecorder $audit,
+        private readonly FailedDelivery $failures,
     ) {}
 
     /**
@@ -71,6 +73,14 @@ final class DeliveredOrderFulfilment implements DeliveredOrderHandover
         } elseif ($outstanding > 0) {
             $this->noCashCollected($order, $driverUserId, $outstanding);
         }
+    }
+
+    /**
+     * @throws ApiException
+     */
+    public function failed(string $orderId, DeliveryFailureReason $reason, ?string $note): void
+    {
+        $this->failures->fail(Order::query()->whereKey($orderId)->firstOrFail(), $reason, $note);
     }
 
     /**

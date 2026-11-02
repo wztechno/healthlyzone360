@@ -8553,6 +8553,13 @@ export type KitchenOrderDeliveryRun = {
     assigned_at: string | null;
     picked_up_at: string | null;
     delivered_at: string | null;
+    failed_at: string | null;
+    failure_reason: DeliveryFailureReason | null;
+    failure_note: string | null;
+    /**
+     * The courier carrying it. There is then no driver.
+     */
+    courier_name: string | null;
 };
 
 /**
@@ -12099,6 +12106,43 @@ export type DriverJob = {
      */
     payment_method: string | null;
     delivery: DriverJobDelivery;
+};
+
+/**
+ * Why a run came back.
+ */
+export type DeliveryFailureReason = 'no_answer' | 'wrong_address' | 'refused' | 'unreachable' | 'other';
+
+export type FailDeliveryRequest = {
+    reason: DeliveryFailureReason;
+    note?: string | null;
+};
+
+export type RedeliverOrderRequest = {
+    /**
+     * A new day for the order, if it is moving.
+     */
+    date?: string | null;
+    /**
+     * A new delivery window code, if it is moving.
+     */
+    window?: string | null;
+};
+
+export type CloseFailedDeliveryRequest = {
+    disposition: CancellationDisposition;
+};
+
+export type HandToCourierRequest = {
+    name: string;
+    /**
+     * The courier's own tracking reference.
+     */
+    reference?: string | null;
+    /**
+     * What the courier charges, held for settlement.
+     */
+    fee_minor?: number | null;
 };
 
 export type AssignDeliveryJobRequest = {
@@ -31930,6 +31974,372 @@ export type CancelKitchenOrderResponses = {
 
 export type CancelKitchenOrderResponse = CancelKitchenOrderResponses[keyof CancelKitchenOrderResponses];
 
+export type HandKitchenOrderToCourierData = {
+    body: HandToCourierRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/orders/{order}/delivery/courier';
+};
+
+export type HandKitchenOrderToCourierErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type HandKitchenOrderToCourierError = HandKitchenOrderToCourierErrors[keyof HandKitchenOrderToCourierErrors];
+
+export type HandKitchenOrderToCourierResponses = {
+    /**
+     * The order, as the kitchen reads it.
+     */
+    200: KitchenOrderEnvelope;
+};
+
+export type HandKitchenOrderToCourierResponse = HandKitchenOrderToCourierResponses[keyof HandKitchenOrderToCourierResponses];
+
+export type FailKitchenOrderDeliveryData = {
+    body: FailDeliveryRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/orders/{order}/delivery/fail';
+};
+
+export type FailKitchenOrderDeliveryErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type FailKitchenOrderDeliveryError = FailKitchenOrderDeliveryErrors[keyof FailKitchenOrderDeliveryErrors];
+
+export type FailKitchenOrderDeliveryResponses = {
+    /**
+     * The order, as the kitchen reads it.
+     */
+    200: KitchenOrderEnvelope;
+};
+
+export type FailKitchenOrderDeliveryResponse = FailKitchenOrderDeliveryResponses[keyof FailKitchenOrderDeliveryResponses];
+
+export type RedeliverKitchenOrderData = {
+    body?: RedeliverOrderRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/orders/{order}/delivery/redeliver';
+};
+
+export type RedeliverKitchenOrderErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RedeliverKitchenOrderError = RedeliverKitchenOrderErrors[keyof RedeliverKitchenOrderErrors];
+
+export type RedeliverKitchenOrderResponses = {
+    /**
+     * The order, as the kitchen reads it.
+     */
+    200: KitchenOrderEnvelope;
+};
+
+export type RedeliverKitchenOrderResponse = RedeliverKitchenOrderResponses[keyof RedeliverKitchenOrderResponses];
+
+export type CloseFailedKitchenOrderDeliveryData = {
+    body: CloseFailedDeliveryRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/orders/{order}/delivery/close-failed';
+};
+
+export type CloseFailedKitchenOrderDeliveryErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CloseFailedKitchenOrderDeliveryError = CloseFailedKitchenOrderDeliveryErrors[keyof CloseFailedKitchenOrderDeliveryErrors];
+
+export type CloseFailedKitchenOrderDeliveryResponses = {
+    /**
+     * The order, as the kitchen reads it.
+     */
+    200: KitchenOrderEnvelope;
+};
+
+export type CloseFailedKitchenOrderDeliveryResponse = CloseFailedKitchenOrderDeliveryResponses[keyof CloseFailedKitchenOrderDeliveryResponses];
+
 export type RecordOrderPaymentData = {
     body: StorePaymentReceiptRequest;
     headers: {
@@ -35978,6 +36388,104 @@ export type DeliverDriverJobResponses = {
 };
 
 export type DeliverDriverJobResponse = DeliverDriverJobResponses[keyof DeliverDriverJobResponses];
+
+export type FailDriverJobData = {
+    body: FailDeliveryRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The delivery job identifier. On the driver routes, one that is not the
+         * caller's own answers 404, decided before the request body is looked at;
+         * on the dispatcher's `assign`, one belonging to another organisation
+         * answers 404 for the same reason — a 403 would confirm that the
+         * identifier names something real.
+         *
+         */
+        job: Uuid;
+    };
+    query?: never;
+    url: '/driver/jobs/{job}/fail';
+};
+
+export type FailDriverJobErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type FailDriverJobError = FailDriverJobErrors[keyof FailDriverJobErrors];
+
+export type FailDriverJobResponses = {
+    /**
+     * The job, failed.
+     */
+    200: {
+        data: {
+            job: {
+                id: Uuid;
+                /**
+                 * Always `failed` on success.
+                 */
+                status: DeliveryJobStatus;
+            };
+        };
+        meta: Meta;
+    };
+};
+
+export type FailDriverJobResponse = FailDriverJobResponses[keyof FailDriverJobResponses];
 
 export type AssignDeliveryJobData = {
     body: AssignDeliveryJobRequest;

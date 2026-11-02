@@ -264,7 +264,29 @@
                 "returned": "Returned to stock",
                 "wasted": "Wasted"
             },
-            "cancelNeedsManager": "Cooking has started, so a manager has to cancel this order."
+            "cancelNeedsManager": "Cooking has started, so a manager has to cancel this order.",
+            "deliveryFailedNote": "Delivery failed: {{reason}}",
+            "withCourier": "Out with {{name}}",
+            "redeliver": "Deliver again",
+            "closeFailed": "Close as failed",
+            "failDelivery": "Delivery failed",
+            "failedToast": "Order {{number}} is marked as failed.",
+            "redeliveredToast": "Order {{number}} is going out again.",
+            "closedFailedToast": "Order {{number}} is closed as failed.",
+            "deliveryAction": {
+                "failTitle": "Did the delivery of {{number}} fail?",
+                "failBody": "The order stays open for a manager, and no cash is recorded.",
+                "failConfirm": "Mark as failed",
+                "redeliverTitle": "Deliver {{number}} again?",
+                "redeliverBody": "It goes back to the drivers. Choose a new day or window if it is moving.",
+                "redeliverConfirm": "Deliver again",
+                "closeTitle": "Close {{number}} as failed?",
+                "closeBody": "This cancels the order. It cannot be undone.",
+                "closeConfirm": "Close as failed",
+                "dateLabel": "New day",
+                "keepDate": "Keep the same day",
+                "keepWindow": "Keep the same window"
+            }
         },
         "quotations": {
             "title": "Quotations",
@@ -1855,7 +1877,21 @@
         "collectedHint": "{{amount}} is due. Change it if the customer paid less.",
         "collectedInvalid": "Enter an amount, like 12.50.",
         "collectedTooMuch": "That is more than this order owes.",
-        "noCashNote": "Say why no cash was collected."
+        "noCashNote": "Say why no cash was collected.",
+        "fail": "Could not deliver",
+        "failTitle": "Could not deliver this order?",
+        "failBody": "Bring the food back. A manager will decide what happens next, and no cash is recorded.",
+        "failConfirm": "Could not deliver",
+        "failReasonLabel": "What happened?",
+        "failNoteLabel": "Note (optional)",
+        "failedToast": "Order {{reference}} is with a manager now.",
+        "failReason": {
+            "no_answer": "No answer",
+            "wrong_address": "Wrong address",
+            "refused": "Customer refused it",
+            "unreachable": "Could not get there",
+            "other": "Something else"
+        }
     },
     "desk": {
         "title": "Order desk",
@@ -2203,6 +2239,17 @@
                 "paid_online": "The order was paid online.",
                 "legacy_consumption": "The order's stock was taken out before line-by-line tracking, so it cannot be edited."
             }
+        },
+        "courier": {
+            "open": "Hand to courier",
+            "title": "Hand to courier",
+            "description": "Order {{number}} leaves with them now. It can no longer be cancelled, and cash stays unpaid until the courier settles.",
+            "confirm": "Hand over",
+            "nameLabel": "Courier",
+            "referenceLabel": "Reference (optional)",
+            "feeLabel": "Fee in {{currency}} (optional)",
+            "feeInvalid": "Enter an amount, like 3.00.",
+            "handedToast": "Handed to {{name}}."
         }
     },
     "calendar": {

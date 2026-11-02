@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Healthy360\Orders\Contracts;
 
+use Healthy360\Delivery\Enums\DeliveryFailureReason;
+use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -40,4 +42,14 @@ interface DeliveredOrderHandover
      * @throws ValidationException when the amount cannot be true
      */
     public function delivered(string $orderId, string $driverUserId, ?int $collectedMinor, ?string $note): void;
+
+    /**
+     * The driver could not hand it over. The order stays `confirmed` and the
+     * managers are alerted.
+     *
+     * @param  string  $orderId  `delivery_jobs.order_id`
+     *
+     * @throws ApiException when the run is not on the road
+     */
+    public function failed(string $orderId, DeliveryFailureReason $reason, ?string $note): void;
 }

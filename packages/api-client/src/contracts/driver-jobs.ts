@@ -177,6 +177,23 @@ export interface DeliverDriverJobRequest {
     readonly note?: string | undefined;
 }
 
+/** Why a run came back. */
+export const DELIVERY_FAILURE_REASONS = [
+    'no_answer',
+    'wrong_address',
+    'refused',
+    'unreachable',
+    'other',
+] as const;
+export type DeliveryFailureReason = (typeof DELIVERY_FAILURE_REASONS)[number];
+
+/** What a driver, or the kitchen for a courier, says when a run comes back. */
+export interface FailDeliveryRequest {
+    readonly reason: DeliveryFailureReason;
+    /** Free text kept on the job. Up to 1000 characters. */
+    readonly note?: string | undefined;
+}
+
 /** The two lists one read of the run sheet answers. */
 export interface DriverRunSheet {
     /** The caller's own live jobs, oldest first. Empty when there is nothing to run. */
@@ -208,4 +225,10 @@ export interface DriverJobsRepository {
      * declines to confirm that somebody else's job is out there.
      */
     deliverJob(jobId: string, request?: DeliverDriverJobRequest): Promise<void>;
+
+    /**
+     * The driver could not hand it over. The order stays `confirmed`, a manager is alerted and the
+     * run leaves the sheet. `resource.conflict` unless it is `in_transit`.
+     */
+    failJob(jobId: string, request: FailDeliveryRequest): Promise<void>;
 }

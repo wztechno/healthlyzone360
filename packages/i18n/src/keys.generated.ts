@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9258 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9299 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3478,6 +3478,15 @@ export interface NamespaceKeys {
     | 'desk.columnSlot'
     | 'desk.columnStatus'
     | 'desk.columnTotal'
+    | 'desk.courier.confirm'
+    | 'desk.courier.description'
+    | 'desk.courier.feeInvalid'
+    | 'desk.courier.feeLabel'
+    | 'desk.courier.handedToast'
+    | 'desk.courier.nameLabel'
+    | 'desk.courier.open'
+    | 'desk.courier.referenceLabel'
+    | 'desk.courier.title'
     | 'desk.delivery.assigned'
     | 'desk.delivery.awaitingConfirmation'
     | 'desk.delivery.noRun'
@@ -3765,6 +3774,18 @@ export interface NamespaceKeys {
     | 'driver.directions'
     | 'driver.emptyBody'
     | 'driver.emptyTitle'
+    | 'driver.fail'
+    | 'driver.failBody'
+    | 'driver.failConfirm'
+    | 'driver.failNoteLabel'
+    | 'driver.failReason.no_answer'
+    | 'driver.failReason.other'
+    | 'driver.failReason.refused'
+    | 'driver.failReason.unreachable'
+    | 'driver.failReason.wrong_address'
+    | 'driver.failReasonLabel'
+    | 'driver.failTitle'
+    | 'driver.failedToast'
     | 'driver.loadErrorTitle'
     | 'driver.mineTitle'
     | 'driver.noAddress'
@@ -4726,6 +4747,8 @@ export interface NamespaceKeys {
     | 'ops.orders.caption'
     | 'ops.orders.chip'
     | 'ops.orders.clearFilters'
+    | 'ops.orders.closeFailed'
+    | 'ops.orders.closedFailedToast'
     | 'ops.orders.columnActions'
     | 'ops.orders.columnDelivery'
     | 'ops.orders.columnItems'
@@ -4741,9 +4764,22 @@ export interface NamespaceKeys {
     | 'ops.orders.conflictTitle'
     | 'ops.orders.deliveredAt'
     | 'ops.orders.deliveredToast'
+    | 'ops.orders.deliveryAction.closeBody'
+    | 'ops.orders.deliveryAction.closeConfirm'
+    | 'ops.orders.deliveryAction.closeTitle'
+    | 'ops.orders.deliveryAction.dateLabel'
+    | 'ops.orders.deliveryAction.failBody'
+    | 'ops.orders.deliveryAction.failConfirm'
+    | 'ops.orders.deliveryAction.failTitle'
+    | 'ops.orders.deliveryAction.keepDate'
+    | 'ops.orders.deliveryAction.keepWindow'
+    | 'ops.orders.deliveryAction.redeliverBody'
+    | 'ops.orders.deliveryAction.redeliverConfirm'
+    | 'ops.orders.deliveryAction.redeliverTitle'
     | 'ops.orders.deliveryAddress'
     | 'ops.orders.deliveryArea'
     | 'ops.orders.deliveryDate'
+    | 'ops.orders.deliveryFailedNote'
     | 'ops.orders.deliveryFee'
     | 'ops.orders.deliveryHeading'
     | 'ops.orders.deliveryWindow'
@@ -4757,6 +4793,8 @@ export interface NamespaceKeys {
     | 'ops.orders.driverNone'
     | 'ops.orders.emptyBody'
     | 'ops.orders.emptyTitle'
+    | 'ops.orders.failDelivery'
+    | 'ops.orders.failedToast'
     | 'ops.orders.filterAll'
     | 'ops.orders.filteredEmptyBody'
     | 'ops.orders.filteredEmptyTitle'
@@ -4795,6 +4833,8 @@ export interface NamespaceKeys {
     | 'ops.orders.reason.deliveryFailed'
     | 'ops.orders.reason.deliveryUnavailable'
     | 'ops.orders.reason.kitchenUnableToFulfil'
+    | 'ops.orders.redeliver'
+    | 'ops.orders.redeliveredToast'
     | 'ops.orders.saveFailed'
     | 'ops.orders.searchHint'
     | 'ops.orders.searchLabel'
@@ -4816,6 +4856,7 @@ export interface NamespaceKeys {
     | 'ops.orders.totalsHeading'
     | 'ops.orders.viewKind'
     | 'ops.orders.viewPlacedNote'
+    | 'ops.orders.withCourier'
     | 'ops.procurement.addLine'
     | 'ops.procurement.arrivalSection'
     | 'ops.procurement.awaitingAll'
@@ -12754,6 +12795,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.columnSlot',
   'kitchen:desk.columnStatus',
   'kitchen:desk.columnTotal',
+  'kitchen:desk.courier.confirm',
+  'kitchen:desk.courier.description',
+  'kitchen:desk.courier.feeInvalid',
+  'kitchen:desk.courier.feeLabel',
+  'kitchen:desk.courier.handedToast',
+  'kitchen:desk.courier.nameLabel',
+  'kitchen:desk.courier.open',
+  'kitchen:desk.courier.referenceLabel',
+  'kitchen:desk.courier.title',
   'kitchen:desk.delivery.assigned',
   'kitchen:desk.delivery.awaitingConfirmation',
   'kitchen:desk.delivery.noRun',
@@ -13041,6 +13091,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:driver.directions',
   'kitchen:driver.emptyBody',
   'kitchen:driver.emptyTitle',
+  'kitchen:driver.fail',
+  'kitchen:driver.failBody',
+  'kitchen:driver.failConfirm',
+  'kitchen:driver.failNoteLabel',
+  'kitchen:driver.failReason.no_answer',
+  'kitchen:driver.failReason.other',
+  'kitchen:driver.failReason.refused',
+  'kitchen:driver.failReason.unreachable',
+  'kitchen:driver.failReason.wrong_address',
+  'kitchen:driver.failReasonLabel',
+  'kitchen:driver.failTitle',
+  'kitchen:driver.failedToast',
   'kitchen:driver.loadErrorTitle',
   'kitchen:driver.mineTitle',
   'kitchen:driver.noAddress',
@@ -14002,6 +14064,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.caption',
   'kitchen:ops.orders.chip',
   'kitchen:ops.orders.clearFilters',
+  'kitchen:ops.orders.closeFailed',
+  'kitchen:ops.orders.closedFailedToast',
   'kitchen:ops.orders.columnActions',
   'kitchen:ops.orders.columnDelivery',
   'kitchen:ops.orders.columnItems',
@@ -14017,9 +14081,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.conflictTitle',
   'kitchen:ops.orders.deliveredAt',
   'kitchen:ops.orders.deliveredToast',
+  'kitchen:ops.orders.deliveryAction.closeBody',
+  'kitchen:ops.orders.deliveryAction.closeConfirm',
+  'kitchen:ops.orders.deliveryAction.closeTitle',
+  'kitchen:ops.orders.deliveryAction.dateLabel',
+  'kitchen:ops.orders.deliveryAction.failBody',
+  'kitchen:ops.orders.deliveryAction.failConfirm',
+  'kitchen:ops.orders.deliveryAction.failTitle',
+  'kitchen:ops.orders.deliveryAction.keepDate',
+  'kitchen:ops.orders.deliveryAction.keepWindow',
+  'kitchen:ops.orders.deliveryAction.redeliverBody',
+  'kitchen:ops.orders.deliveryAction.redeliverConfirm',
+  'kitchen:ops.orders.deliveryAction.redeliverTitle',
   'kitchen:ops.orders.deliveryAddress',
   'kitchen:ops.orders.deliveryArea',
   'kitchen:ops.orders.deliveryDate',
+  'kitchen:ops.orders.deliveryFailedNote',
   'kitchen:ops.orders.deliveryFee',
   'kitchen:ops.orders.deliveryHeading',
   'kitchen:ops.orders.deliveryWindow',
@@ -14033,6 +14110,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.driverNone',
   'kitchen:ops.orders.emptyBody',
   'kitchen:ops.orders.emptyTitle',
+  'kitchen:ops.orders.failDelivery',
+  'kitchen:ops.orders.failedToast',
   'kitchen:ops.orders.filterAll',
   'kitchen:ops.orders.filteredEmptyBody',
   'kitchen:ops.orders.filteredEmptyTitle',
@@ -14071,6 +14150,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.reason.deliveryFailed',
   'kitchen:ops.orders.reason.deliveryUnavailable',
   'kitchen:ops.orders.reason.kitchenUnableToFulfil',
+  'kitchen:ops.orders.redeliver',
+  'kitchen:ops.orders.redeliveredToast',
   'kitchen:ops.orders.saveFailed',
   'kitchen:ops.orders.searchHint',
   'kitchen:ops.orders.searchLabel',
@@ -14092,6 +14173,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.totalsHeading',
   'kitchen:ops.orders.viewKind',
   'kitchen:ops.orders.viewPlacedNote',
+  'kitchen:ops.orders.withCourier',
   'kitchen:ops.procurement.addLine',
   'kitchen:ops.procurement.arrivalSection',
   'kitchen:ops.procurement.awaitingAll',

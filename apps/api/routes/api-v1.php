@@ -168,6 +168,7 @@ use Healthy360\Delivery\Http\Controllers\DeliveryZoneWindowIndexController;
 use Healthy360\Delivery\Http\Controllers\DeliveryZoneWindowReplaceController;
 use Healthy360\Delivery\Http\Controllers\DriverJobClaimController;
 use Healthy360\Delivery\Http\Controllers\DriverJobDeliverController;
+use Healthy360\Delivery\Http\Controllers\DriverJobFailController;
 use Healthy360\Delivery\Http\Controllers\DriverJobIndexController;
 use Healthy360\Delivery\Http\Controllers\DriverJobPickUpController;
 use Healthy360\Delivery\Http\Controllers\PublicDeliveryAreaIndexController;
@@ -233,6 +234,7 @@ use Healthy360\Orders\Http\Controllers\KitchenAnalyticsReportController;
 use Healthy360\Orders\Http\Controllers\KitchenDisplayController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderCancelController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderConfirmController;
+use Healthy360\Orders\Http\Controllers\KitchenOrderDeliveryController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderFulfilController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderIndexController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderReadyController;
@@ -755,6 +757,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::get('/driver/jobs', DriverJobIndexController::class)->name('driver.jobs.index');
             Route::post('/driver/jobs/{job}/pick-up', DriverJobPickUpController::class)->name('driver.jobs.pick-up');
             Route::post('/driver/jobs/{job}/deliver', DriverJobDeliverController::class)->name('driver.jobs.deliver');
+            Route::post('/driver/jobs/{job}/fail', DriverJobFailController::class)->name('driver.jobs.fail');
             Route::post('/driver/jobs/{job}/claim', DriverJobClaimController::class)->name('driver.jobs.claim');
 
             Route::get('/delivery/jobs', DeliveryJobIndexController::class)->name('delivery.jobs.index');
@@ -2111,6 +2114,23 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/orders/{order}/payments', OrderPaymentReceiptStoreController::class)
                     ->middleware(['precondition', 'idempotency'])
                     ->name('catalogue.orders.payments.store');
+
+                // A run leaving with a courier, and the same run coming back.
+                // Both write the run alone, so its state is the guard.
+                Route::post('/orders/{order}/delivery/courier', [KitchenOrderDeliveryController::class, 'courier'])
+                    ->name('catalogue.orders.delivery.courier');
+                Route::post('/orders/{order}/delivery/fail', [KitchenOrderDeliveryController::class, 'fail'])
+                    ->name('catalogue.orders.delivery.fail');
+            });
+
+            // What happens to a failed delivery is a manager's decision.
+            Route::middleware('permission:order.supervise_organisation')->group(function (): void {
+                Route::post('/orders/{order}/delivery/redeliver', [KitchenOrderDeliveryController::class, 'redeliver'])
+                    ->middleware('precondition')
+                    ->name('catalogue.orders.delivery.redeliver');
+                Route::post('/orders/{order}/delivery/close-failed', [KitchenOrderDeliveryController::class, 'closeFailed'])
+                    ->middleware('precondition')
+                    ->name('catalogue.orders.delivery.close-failed');
             });
 
             /*

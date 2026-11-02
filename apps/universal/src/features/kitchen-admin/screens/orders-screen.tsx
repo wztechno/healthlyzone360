@@ -1,5 +1,6 @@
 import { OrderId } from '@healthy360/domain-types';
 import type {
+    DeliveryFailureReason,
     KitchenOrder,
     KitchenOrderCancellationDisposition,
     KitchenOrderFilters,
@@ -8,6 +9,7 @@ import type {
     KitchenOrderStatus,
 } from '@healthy360/api-client/contracts';
 import {
+    DELIVERY_FAILURE_REASONS,
     KITCHEN_ORDER_CANCELLATION_DISPOSITIONS,
     KITCHEN_ORDER_PICKABLE_CANCELLATION_REASONS,
     KITCHEN_ORDER_STATUSES,
@@ -17,16 +19,19 @@ import {
     Button,
     Callout,
     Cascade,
+    DatePickerButton,
     Dialog,
     EmptyState,
     ErrorState,
     FilterChip,
     Inline,
     IssueTrayFrame,
+    Select,
     Stack,
     Table,
     TableSkeleton,
     Text,
+    TextInputField,
     useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
@@ -49,11 +54,15 @@ import { useWindowName } from '../order-desk/use-window-name.ts';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     useCancelOrderMutation,
+    useCloseFailedDeliveryMutation,
     useConfirmOrderMutation,
+    useFailDeliveryMutation,
     useFulfilOrderMutation,
     useKitchenOrderQuery,
     useKitchenOrdersQuery,
+    useRedeliverOrderMutation,
 } from '../../../data/kitchen-orders-hooks.ts';
+import { useOrderDeskDeliveryWindowsQuery } from '../../../data/order-desk-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
@@ -80,6 +89,7 @@ import {
     canCancelKitchenOrder,
     canConfirmKitchenOrder,
     canFulfilKitchenOrder,
+    deliveryFailureReasonKey,
     kitchenOrderCancellationDispositionKey,
     kitchenOrderCancellationReasonKey,
     kitchenOrderFulfilmentTypeKey,
@@ -676,6 +686,7 @@ function OrderRecord({
         null,
     );
     const [delivering, setDelivering] = useState(false);
+    const [deliveryAction, setDeliveryAction] = useState<DeliveryAction | null>(null);
 
     const order = detail.data ?? null;
     // A delivery order's normal end is the driver's Mark delivered (HA-19). Closing it here is
@@ -686,6 +697,11 @@ function OrderRecord({
     // been picked up nobody can cancel it: it ends as delivered or failed.
     const started = (order?.preparingAt ?? order?.readyAt ?? null) !== null;
     const pickedUp = (order?.delivery.pickedUpAt ?? null) !== null;
+    const run = order?.deliveryRun ?? null;
+    // A failed run waits for a manager, and is not marked delivered until it has been sent out again.
+    const failed = run?.status === 'failed';
+    const courierName = run?.courierName ?? null;
+    const withCourier = run?.status === 'in_transit' && courierName !== null;
     const detailFailure = toFailure(detail.error);
     const actionPending = confirmOrder.isPending || fulfilOrder.isPending || cancelOrder.isPending;
     const actionFailure =
@@ -831,14 +847,63 @@ function OrderRecord({
             {order === null || !isDelivery || !canFulfilKitchenOrder(order.status) ? null : (
                 // Where the run stands, in the kitchen display's words.
                 <Text variant="caption" tone="secondary" testID="kitchen-orders-detail-run-state">
-                    {t(
-                        (order.readyAt ?? null) === null
-                            ? 'kitchen:ops.orders.notReadyYet'
-                            : (order.deliveryRun?.pickedUpAt ?? null) === null
-                              ? 'kitchen:kds.waitingForDriver'
-                              : 'kitchen:kds.withDriver',
-                    )}
+                    {failed
+                        ? [
+                              t('kitchen:ops.orders.deliveryFailedNote', {
+                                  reason: t(deliveryFailureReasonKey(run.failureReason ?? 'other')),
+                              }),
+                              run.failureNote,
+                          ]
+                              .filter((part) => part !== null && part !== undefined)
+                              .join(t('kitchen:common.listSeparator'))
+                        : withCourier
+                          ? t('kitchen:ops.orders.withCourier', { name: courierName })
+                          : t(
+                                (order.readyAt ?? null) === null
+                                    ? 'kitchen:ops.orders.notReadyYet'
+                                    : (order.deliveryRun?.pickedUpAt ?? null) === null
+                                      ? 'kitchen:kds.waitingForDriver'
+                                      : 'kitchen:kds.withDriver',
+                            )}
                 </Text>
+            )}
+            {order === null || !failed || !canSupervise ? null : (
+                <Inline space="xs" wrap>
+                    <Button
+                        testID="kitchen-orders-redeliver"
+                        variant="secondary"
+                        size="sm"
+                        label={t('kitchen:ops.orders.redeliver')}
+                        disabled={actionPending}
+                        onPress={() => {
+                            setDeliveryAction('redeliver');
+                        }}
+                    />
+                    <Button
+                        testID="kitchen-orders-close-failed"
+                        variant="secondary"
+                        size="sm"
+                        label={t('kitchen:ops.orders.closeFailed')}
+                        disabled={actionPending}
+                        onPress={() => {
+                            setDeliveryAction('close');
+                        }}
+                    />
+                </Inline>
+            )}
+            {order === null || !withCourier || !canManage ? null : (
+                <View className="flex-row">
+                    <Button
+                        testID="kitchen-orders-fail-delivery"
+                        variant="secondary"
+                        size="sm"
+                        label={t('kitchen:ops.orders.failDelivery')}
+                        disabled={actionPending}
+                        onPress={() => {
+                            setDeliveryAction('fail');
+                        }}
+                    />
+                </View>
             )}
             {!canManage || order === null ? null : !canCancelKitchenOrder(order.status) ? (
                 <Text variant="caption" tone="secondary" testID="kitchen-orders-detail-closed">
@@ -964,6 +1029,7 @@ function OrderRecord({
                                 testID="kitchen-orders-detail-driver"
                                 label={t('kitchen:ops.orders.driver')}
                                 value={
+                                    shown.deliveryRun?.courierName ??
                                     shown.deliveryRun?.driverName ??
                                     t('kitchen:ops.orders.driverNone')
                                 }
@@ -1080,7 +1146,7 @@ function OrderRecord({
                     },
                 }
               : canFulfilKitchenOrder(order.status) && isDelivery
-                ? (order.readyAt ?? null) === null
+                ? (order.readyAt ?? null) === null || failed
                     ? undefined
                     : {
                           label: t('kitchen:ops.orders.markDelivered'),
@@ -1239,7 +1305,208 @@ function OrderRecord({
                     )}
                 </Stack>
             </Dialog>
+
+            {deliveryAction === null || order === null ? null : (
+                <DeliveryActionDialog
+                    action={deliveryAction}
+                    order={order}
+                    onClose={() => {
+                        setDeliveryAction(null);
+                    }}
+                />
+            )}
         </IssueTrayFrame>
+    );
+}
+
+type DeliveryAction = 'fail' | 'redeliver' | 'close';
+
+/** The empty choice in the window picker: the order keeps the one it has. */
+const KEEP_WINDOW = '';
+
+/**
+ * What the kitchen does about a run: say a courier's delivery failed, send a failed one out again,
+ * or close it. Mounted only while open, so every opening starts clean.
+ */
+function DeliveryActionDialog({
+    action,
+    order,
+    onClose,
+}: {
+    readonly action: DeliveryAction;
+    readonly order: KitchenOrder;
+    readonly onClose: () => void;
+}) {
+    const { t } = useTranslation();
+    const { locale } = useLocale();
+    const toast = useToast();
+    // The list needs the desk's own permission; without it the day can still move.
+    const canSell = useCan(ORDER_CREATE_ON_BEHALF_PERMISSION);
+    const windows = useOrderDeskDeliveryWindowsQuery(action === 'redeliver' && canSell);
+
+    const failDelivery = useFailDeliveryMutation();
+    const redeliver = useRedeliverOrderMutation();
+    const closeFailed = useCloseFailedDeliveryMutation();
+
+    const [reason, setReason] = useState<DeliveryFailureReason | null>(null);
+    const [note, setNote] = useState('');
+    const [date, setDate] = useState('');
+    const [window, setWindow] = useState(KEEP_WINDOW);
+    const [disposition, setDisposition] = useState<KitchenOrderCancellationDisposition | null>(
+        null,
+    );
+
+    const pending = failDelivery.isPending || redeliver.isPending || closeFailed.isPending;
+    const failure =
+        toFailure(failDelivery.error) ?? toFailure(redeliver.error) ?? toFailure(closeFailed.error);
+    const ready =
+        action === 'fail' ? reason !== null : action === 'close' ? disposition !== null : true;
+    const number = order.orderNumber;
+
+    function done(message: string) {
+        onClose();
+        toast.show({ testID: 'kitchen-orders-delivery-toast', tone: 'success', message });
+    }
+
+    function submit() {
+        const version = { id: order.id, lockVersion: order.lockVersion };
+        if (action === 'fail' && reason !== null) {
+            failDelivery.mutate(
+                { id: order.id, reason, note },
+                { onSuccess: () => done(t('kitchen:ops.orders.failedToast', { number })) },
+            );
+        } else if (action === 'close' && disposition !== null) {
+            closeFailed.mutate(
+                { ...version, disposition },
+                { onSuccess: () => done(t('kitchen:ops.orders.closedFailedToast', { number })) },
+            );
+        } else if (action === 'redeliver') {
+            redeliver.mutate(
+                {
+                    ...version,
+                    ...(date === '' ? {} : { date }),
+                    ...(window === KEEP_WINDOW ? {} : { window }),
+                },
+                { onSuccess: () => done(t('kitchen:ops.orders.redeliveredToast', { number })) },
+            );
+        }
+    }
+
+    return (
+        <Dialog
+            testID="kitchen-orders-delivery-dialog"
+            open
+            onClose={onClose}
+            title={t(`kitchen:ops.orders.deliveryAction.${action}Title`, { number })}
+            description={t(`kitchen:ops.orders.deliveryAction.${action}Body`)}
+            actions={
+                <>
+                    <Button
+                        testID="kitchen-orders-delivery-dismiss"
+                        variant="quiet"
+                        label={t('kitchen:common.cancel')}
+                        onPress={onClose}
+                    />
+                    <Button
+                        testID="kitchen-orders-delivery-confirm"
+                        {...(action === 'redeliver' ? {} : { variant: 'danger' as const })}
+                        label={t(`kitchen:ops.orders.deliveryAction.${action}Confirm`)}
+                        loading={pending}
+                        disabled={!ready || pending}
+                        onPress={submit}
+                    />
+                </>
+            }
+        >
+            <Stack space="sm">
+                {action !== 'fail' ? null : (
+                    <>
+                        <Text variant="strong">{t('kitchen:driver.failReasonLabel')}</Text>
+                        <Inline space="xs" wrap testID="kitchen-orders-delivery-reasons">
+                            {DELIVERY_FAILURE_REASONS.map((candidate) => (
+                                <FilterChip
+                                    key={candidate}
+                                    testID={`kitchen-orders-delivery-reason-${candidate}`}
+                                    label={t(deliveryFailureReasonKey(candidate))}
+                                    selected={reason === candidate}
+                                    onChange={() => {
+                                        setReason(candidate);
+                                    }}
+                                />
+                            ))}
+                        </Inline>
+                        <TextInputField
+                            testID="kitchen-orders-delivery-note"
+                            id="kitchen-orders-delivery-note"
+                            label={t('kitchen:driver.failNoteLabel')}
+                            value={note}
+                            onChangeText={setNote}
+                            multiline
+                            maxLength={1000}
+                        />
+                    </>
+                )}
+                {action !== 'redeliver' ? null : (
+                    <>
+                        <DatePickerButton
+                            testID="kitchen-orders-delivery-date"
+                            label={t('kitchen:ops.orders.deliveryAction.dateLabel')}
+                            labelVisible
+                            placeholder={t('kitchen:ops.orders.deliveryAction.keepDate')}
+                            value={date}
+                            onChange={setDate}
+                            onClear={() => {
+                                setDate('');
+                            }}
+                        />
+                        {(windows.data ?? []).length === 0 ? null : (
+                            <Select<string>
+                                testID="kitchen-orders-delivery-window"
+                                label={t('kitchen:ops.orders.deliveryWindow')}
+                                size="sm"
+                                value={window}
+                                onChange={setWindow}
+                                options={[
+                                    {
+                                        value: KEEP_WINDOW,
+                                        label: t('kitchen:ops.orders.deliveryAction.keepWindow'),
+                                    },
+                                    ...(windows.data ?? []).map((candidate) => ({
+                                        value: candidate.code,
+                                        label: locale.toLowerCase().startsWith('ar')
+                                            ? candidate.nameAr
+                                            : candidate.nameEn,
+                                    })),
+                                ]}
+                            />
+                        )}
+                    </>
+                )}
+                {action !== 'close' ? null : (
+                    <>
+                        <Text variant="strong">{t('kitchen:ops.orders.dispositionLabel')}</Text>
+                        <Inline space="xs" wrap testID="kitchen-orders-delivery-dispositions">
+                            {KITCHEN_ORDER_CANCELLATION_DISPOSITIONS.map((candidate) => (
+                                <FilterChip
+                                    key={candidate}
+                                    testID={`kitchen-orders-delivery-disposition-${candidate}`}
+                                    label={t(kitchenOrderCancellationDispositionKey(candidate))}
+                                    selected={disposition === candidate}
+                                    onChange={() => {
+                                        setDisposition(candidate);
+                                    }}
+                                />
+                            ))}
+                        </Inline>
+                    </>
+                )}
+                {failure === null ? null : (
+                    <Text testID="kitchen-orders-delivery-error" tone="danger" role="alert">
+                        {failure.message}
+                    </Text>
+                )}
+            </Stack>
+        </Dialog>
     );
 }
 

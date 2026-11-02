@@ -124,7 +124,7 @@ final class OrderPresenter
      * The receipt.
      *
      * @param  iterable<int, OrderLine>  $lines
-     * @param  array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null}|null  $run  the order's delivery run, from `OrderDeliveryRuns`
+     * @param  array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null, failed_at: string|null, failure_reason: string|null, failure_note: string|null, courier_name: string|null}|null  $run  the order's delivery run, from `OrderDeliveryRuns`
      * @return array{
      *     id: string,
      *     order_number: string,
@@ -265,7 +265,7 @@ final class OrderPresenter
      * records the read.
      *
      * @param  iterable<int, OrderLine>  $lines
-     * @param  array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null}|null  $run  the order's delivery run, from `OrderDeliveryRuns`
+     * @param  array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null, failed_at: string|null, failure_reason: string|null, failure_note: string|null, courier_name: string|null}|null  $run  the order's delivery run, from `OrderDeliveryRuns`
      * @return array{
      *     id: string,
      *     order_number: string,
@@ -310,7 +310,7 @@ final class OrderPresenter
      *     cancelled_at: string|null,
      *     cancellation_reason: string|null,
      *     cancellation_disposition: string|null,
-     *     delivery_run: array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null}|null,
+     *     delivery_run: array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null, failed_at: string|null, failure_reason: string|null, failure_note: string|null, courier_name: string|null}|null,
      *     created_by: string|null,
      *     placed_on_behalf_by: string|null,
      *     lock_version: int,

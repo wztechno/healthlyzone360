@@ -1,5 +1,8 @@
 import type {
     CancelKitchenOrderRequest,
+    CloseFailedDeliveryRequest,
+    FailKitchenOrderDeliveryRequest,
+    HandToCourierRequest,
     KitchenDisplay,
     KitchenOrder,
     KitchenOrderFilters,
@@ -7,6 +10,7 @@ import type {
     KitchenOrderTransitionRequest,
     RecordKitchenOrderPaymentRequest,
     RecordedKitchenOrderPayment,
+    RedeliverKitchenOrderRequest,
 } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -229,6 +233,70 @@ export function useFulfilOrderMutation(): UseMutationResult<
  * `reason` is required and is one of four fixed values — there is no free-text note to collect, so
  * the confirm dialog behind this is a choice, not a form.
  */
+/** A courier took the food. The desk's "Hand to courier". */
+export function useHandToCourierMutation(): UseMutationResult<
+    KitchenOrder,
+    unknown,
+    HandToCourierRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOrderWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: HandToCourierRequest) =>
+            repositories.kitchenOrders.handToCourier(request),
+        onSuccess: onWritten,
+    });
+}
+
+/** A courier's run came back. */
+export function useFailDeliveryMutation(): UseMutationResult<
+    KitchenOrder,
+    unknown,
+    FailKitchenOrderDeliveryRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOrderWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: FailKitchenOrderDeliveryRequest) =>
+            repositories.kitchenOrders.failDelivery(request),
+        onSuccess: onWritten,
+    });
+}
+
+/** Send a failed run out again. */
+export function useRedeliverOrderMutation(): UseMutationResult<
+    KitchenOrder,
+    unknown,
+    RedeliverKitchenOrderRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOrderWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: RedeliverKitchenOrderRequest) =>
+            repositories.kitchenOrders.redeliverOrder(request),
+        onSuccess: onWritten,
+    });
+}
+
+/** Cancel a failed delivery with `delivery_failed`. */
+export function useCloseFailedDeliveryMutation(): UseMutationResult<
+    KitchenOrder,
+    unknown,
+    CloseFailedDeliveryRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOrderWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: CloseFailedDeliveryRequest) =>
+            repositories.kitchenOrders.closeFailedDelivery(request),
+        onSuccess: onWritten,
+    });
+}
+
 export function useCancelOrderMutation(): UseMutationResult<
     KitchenOrder,
     unknown,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Orders\Services;
 
+use Healthy360\Delivery\Enums\DeliveryFailureReason;
 use Healthy360\Orders\Contracts\DeliveryJobProjection;
 use Healthy360\Orders\Models\Order;
 
@@ -24,4 +25,10 @@ final class NullDeliveryJobProjection implements DeliveryJobProjection
     public function close(Order $order): void {}
 
     public function cancel(Order $order): void {}
+
+    public function fail(Order $order, DeliveryFailureReason $reason, ?string $note): void {}
+
+    public function reopen(Order $order): void {}
+
+    public function handToCourier(Order $order, string $name, ?string $reference, ?int $feeMinor): void {}
 }

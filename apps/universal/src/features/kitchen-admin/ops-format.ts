@@ -1,4 +1,5 @@
 import type {
+    DeliveryFailureReason,
     DriverJobStatus,
     DriverJobTrackingStatus,
     KitchenOrderAllergy,
@@ -198,6 +199,18 @@ const KITCHEN_ORDER_CANCELLATION_DISPOSITION_KEYS: Readonly<
     returned: 'kitchen:ops.orders.disposition.returned',
     wasted: 'kitchen:ops.orders.disposition.wasted',
 };
+
+const DELIVERY_FAILURE_REASON_KEYS: Readonly<Record<DeliveryFailureReason, string>> = {
+    no_answer: 'kitchen:driver.failReason.no_answer',
+    wrong_address: 'kitchen:driver.failReason.wrong_address',
+    refused: 'kitchen:driver.failReason.refused',
+    unreachable: 'kitchen:driver.failReason.unreachable',
+    other: 'kitchen:driver.failReason.other',
+};
+
+export function deliveryFailureReasonKey(reason: DeliveryFailureReason): string {
+    return DELIVERY_FAILURE_REASON_KEYS[reason];
+}
 
 export function kitchenOrderCancellationDispositionKey(
     disposition: KitchenOrderCancellationDisposition,

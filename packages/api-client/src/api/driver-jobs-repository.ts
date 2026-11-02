@@ -2,6 +2,7 @@ import type {
     DeliverDriverJobRequest,
     DriverJobsRepository,
     DriverRunSheet,
+    FailDeliveryRequest,
 } from '../contracts/driver-jobs.ts';
 import type { DriverJob as WireDriverJob } from '../generated/types.ts';
 import { mapDriverJob } from './driver-jobs-mappers.ts';
@@ -30,6 +31,16 @@ import type { Transport } from './transport.ts';
  * wire at all: the guard on `deliver` is that the run is still open, so a driver on a bad connection
  * who taps twice writes one receipt and has the second tap answered `resource.conflict`.
  */
+/** The note left out when blank, on the driver's route and the kitchen's alike. */
+export function failureBody(request: FailDeliveryRequest): Record<string, unknown> {
+    return {
+        reason: request.reason,
+        ...(request.note === undefined || request.note.trim() === ''
+            ? {}
+            : { note: request.note.trim() }),
+    };
+}
+
 export function createApiDriverJobsRepository(transport: Transport): DriverJobsRepository {
     return {
         async listJobs(): Promise<DriverRunSheet> {
@@ -72,6 +83,14 @@ export function createApiDriverJobsRepository(transport: Transport): DriverJobsR
                         ? {}
                         : { note: request.note.trim() }),
                 },
+            });
+        },
+
+        async failJob(jobId: string, request: FailDeliveryRequest): Promise<void> {
+            await transport.request({
+                method: 'POST',
+                path: `/driver/jobs/${encodeURIComponent(jobId)}/fail`,
+                body: failureBody(request),
             });
         },
     };

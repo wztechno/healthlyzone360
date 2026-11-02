@@ -110,6 +110,12 @@ use Illuminate\Support\Facades\DB;
  * becomes a receipt (`DriverJobDeliverController`). `payment_method` comes with
  * it because a WISH order has nothing to collect, whatever it still owes.
  *
+ * ## A courier's run is on neither list
+ *
+ * A handover to a courier clears `driver_user_id` and moves the run to
+ * `in_transit`, so it matches neither `jobs` nor `available`. No filter here says
+ * so because none is needed; `CourierHandoverTest` holds that line.
+ *
  * **Scoped in the query, not filtered afterwards.** `jobs`' `where
  * driver_user_id = me` *is* its isolation, on top of the organisation scope the
  * model applies and which fails closed.
@@ -121,7 +127,7 @@ final class DriverJobIndexController
      *
      * @var list<string>
      */
-    private const array CLOSED_STATUSES = ['delivered', 'cancelled'];
+    private const array CLOSED_STATUSES = ['delivered', 'cancelled', 'failed'];
 
     /**
      * The order's half of a run sheet row, aliased so the joined values land as

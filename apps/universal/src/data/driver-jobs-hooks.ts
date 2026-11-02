@@ -1,4 +1,4 @@
-import type { DriverRunSheet } from '@healthy360/api-client/contracts';
+import type { DriverRunSheet, FailDeliveryRequest } from '@healthy360/api-client/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
@@ -97,6 +97,26 @@ export function usePickUpDriverJobMutation(): UseMutationResult<void, unknown, s
         onSettled: () => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.driverJobs.all() });
             void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
+        },
+    });
+}
+
+/** "Could not deliver". Re-reads on failure too, for the reason Picked up does. */
+export function useFailDriverJobMutation(): UseMutationResult<
+    void,
+    unknown,
+    FailDeliveryRequest & { readonly jobId: string }
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ jobId, ...request }: FailDeliveryRequest & { readonly jobId: string }) =>
+            repositories.driverJobs.failJob(jobId, request),
+        onSettled: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.driverJobs.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
         },
     });
 }

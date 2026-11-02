@@ -598,9 +598,13 @@ export {
 export type {
     CancelKitchenOrderRequest,
     KitchenOrder,
+    CloseFailedDeliveryRequest,
+    FailKitchenOrderDeliveryRequest,
+    HandToCourierRequest,
     KitchenOrderCancellationDisposition,
     KitchenOrderCancellationReason,
     KitchenOrderPickableCancellationReason,
+    RedeliverKitchenOrderRequest,
     KitchenOrderAllergy,
     KitchenOrderAllergyItem,
     KitchenOrderDelivery,
@@ -686,9 +690,15 @@ export type {
     UpdateOrderDeskCustomerRequest,
 } from './order-desk.ts';
 
-export { DRIVER_JOB_STATUSES, DRIVER_JOB_TRACKING_STATUSES } from './driver-jobs.ts';
+export {
+    DELIVERY_FAILURE_REASONS,
+    DRIVER_JOB_STATUSES,
+    DRIVER_JOB_TRACKING_STATUSES,
+} from './driver-jobs.ts';
 export type {
     DeliverDriverJobRequest,
+    DeliveryFailureReason,
+    FailDeliveryRequest,
     DriverJob,
     DriverJobDelivery,
     DriverJobStatus,

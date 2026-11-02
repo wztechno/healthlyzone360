@@ -7792,15 +7792,6 @@ export const zDeliveryJobTrackingStatus = z.enum([
     'delivered'
 ]);
 
-export const zKitchenOrderDeliveryRun = z.object({
-    status: zDeliveryJobStatus,
-    tracking_status: zDeliveryJobTrackingStatus,
-    driver_name: z.string().nullable(),
-    assigned_at: z.iso.datetime({ offset: true }).nullable(),
-    picked_up_at: z.iso.datetime({ offset: true }).nullable(),
-    delivered_at: z.iso.datetime({ offset: true }).nullable()
-});
-
 /**
  * The run this order became: which driver has it, what state it is in, and
  * when it was assigned.
@@ -7896,6 +7887,50 @@ export const zDriverJob = z.object({
     currency_code: z.string().nullable(),
     payment_method: z.string().nullable(),
     delivery: zDriverJobDelivery
+});
+
+/**
+ * Why a run came back.
+ */
+export const zDeliveryFailureReason = z.enum([
+    'no_answer',
+    'wrong_address',
+    'refused',
+    'unreachable',
+    'other'
+]);
+
+export const zKitchenOrderDeliveryRun = z.object({
+    status: zDeliveryJobStatus,
+    tracking_status: zDeliveryJobTrackingStatus,
+    driver_name: z.string().nullable(),
+    assigned_at: z.iso.datetime({ offset: true }).nullable(),
+    picked_up_at: z.iso.datetime({ offset: true }).nullable(),
+    delivered_at: z.iso.datetime({ offset: true }).nullable(),
+    failed_at: z.iso.datetime({ offset: true }).nullable(),
+    failure_reason: zDeliveryFailureReason.nullable(),
+    failure_note: z.string().nullable(),
+    courier_name: z.string().nullable()
+});
+
+export const zFailDeliveryRequest = z.object({
+    reason: zDeliveryFailureReason,
+    note: z.string().max(1000).nullish()
+});
+
+export const zRedeliverOrderRequest = z.object({
+    date: z.iso.date().nullish(),
+    window: z.string().max(64).nullish()
+});
+
+export const zCloseFailedDeliveryRequest = z.object({
+    disposition: zCancellationDisposition
+});
+
+export const zHandToCourierRequest = z.object({
+    name: z.string().max(120),
+    reference: z.string().max(120).nullish(),
+    fee_minor: z.int().gte(0).nullish()
 });
 
 export const zAssignDeliveryJobRequest = z.object({
@@ -14462,6 +14497,72 @@ export const zCancelKitchenOrderPath = z.object({
  */
 export const zCancelKitchenOrderResponse = zKitchenOrderEnvelope;
 
+export const zHandKitchenOrderToCourierBody = zHandToCourierRequest;
+
+export const zHandKitchenOrderToCourierHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zHandKitchenOrderToCourierPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order, as the kitchen reads it.
+ */
+export const zHandKitchenOrderToCourierResponse = zKitchenOrderEnvelope;
+
+export const zFailKitchenOrderDeliveryBody = zFailDeliveryRequest;
+
+export const zFailKitchenOrderDeliveryHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zFailKitchenOrderDeliveryPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order, as the kitchen reads it.
+ */
+export const zFailKitchenOrderDeliveryResponse = zKitchenOrderEnvelope;
+
+export const zRedeliverKitchenOrderBody = zRedeliverOrderRequest;
+
+export const zRedeliverKitchenOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRedeliverKitchenOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order, as the kitchen reads it.
+ */
+export const zRedeliverKitchenOrderResponse = zKitchenOrderEnvelope;
+
+export const zCloseFailedKitchenOrderDeliveryBody = zCloseFailedDeliveryRequest;
+
+export const zCloseFailedKitchenOrderDeliveryHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCloseFailedKitchenOrderDeliveryPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order, as the kitchen reads it.
+ */
+export const zCloseFailedKitchenOrderDeliveryResponse = zKitchenOrderEnvelope;
+
 export const zRecordOrderPaymentBody = zStorePaymentReceiptRequest;
 
 export const zRecordOrderPaymentHeaders = z.object({
@@ -15406,6 +15507,30 @@ export const zDeliverDriverJobPath = z.object({
  * The job, delivered.
  */
 export const zDeliverDriverJobResponse = z.object({
+    data: z.object({
+        job: z.object({
+            id: zUuid,
+            status: zDeliveryJobStatus
+        })
+    }),
+    meta: zMeta
+});
+
+export const zFailDriverJobBody = zFailDeliveryRequest;
+
+export const zFailDriverJobHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zFailDriverJobPath = z.object({
+    job: zUuid
+});
+
+/**
+ * The job, failed.
+ */
+export const zFailDriverJobResponse = z.object({
     data: z.object({
         job: z.object({
             id: zUuid,

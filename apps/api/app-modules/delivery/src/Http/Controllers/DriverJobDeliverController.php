@@ -31,7 +31,7 @@ final class DriverJobDeliverController
     /**
      * @var list<string>
      */
-    private const array CLOSED_STATUSES = ['delivered', 'cancelled'];
+    private const array CLOSED_STATUSES = ['delivered', 'cancelled', 'failed'];
 
     public function __construct(private readonly DeliveredOrderHandover $handover) {}
 

@@ -288,7 +288,29 @@
                 "returned": "أُعيد إلى المخزون",
                 "wasted": "تالف"
             },
-            "cancelNeedsManager": "بدأ الطهي، لذا يجب أن يلغي المدير هذا الطلب."
+            "cancelNeedsManager": "بدأ الطهي، لذا يجب أن يلغي المدير هذا الطلب.",
+            "deliveryFailedNote": "تعذّر التوصيل: {{reason}}",
+            "withCourier": "مع {{name}}",
+            "redeliver": "إعادة التوصيل",
+            "closeFailed": "إغلاق كفاشل",
+            "failDelivery": "تعذّر التوصيل",
+            "failedToast": "سُجّل الطلب {{number}} كفاشل.",
+            "redeliveredToast": "سيخرج الطلب {{number}} مجدداً.",
+            "closedFailedToast": "أُغلق الطلب {{number}} كفاشل.",
+            "deliveryAction": {
+                "failTitle": "هل تعذّر توصيل {{number}}؟",
+                "failBody": "يبقى الطلب مفتوحاً للمدير، ولا يُسجَّل أي نقد.",
+                "failConfirm": "تسجيل كفاشل",
+                "redeliverTitle": "إعادة توصيل {{number}}؟",
+                "redeliverBody": "يعود إلى السائقين. اختر يوماً أو نافذة جديدة إذا تغيّر الموعد.",
+                "redeliverConfirm": "إعادة التوصيل",
+                "closeTitle": "إغلاق {{number}} كفاشل؟",
+                "closeBody": "يؤدي هذا إلى إلغاء الطلب، ولا يمكن التراجع عنه.",
+                "closeConfirm": "إغلاق كفاشل",
+                "dateLabel": "اليوم الجديد",
+                "keepDate": "الإبقاء على اليوم نفسه",
+                "keepWindow": "الإبقاء على النافذة نفسها"
+            }
         },
         "quotations": {
             "title": "عروض الأسعار",
@@ -2106,7 +2128,21 @@
         "collectedHint": "المبلغ المستحق {{amount}}. عدّله إذا دفع الزبون أقل.",
         "collectedInvalid": "أدخل مبلغاً، مثل 12.50.",
         "collectedTooMuch": "هذا أكثر مما يستحق على هذا الطلب.",
-        "noCashNote": "اذكر سبب عدم تحصيل النقد."
+        "noCashNote": "اذكر سبب عدم تحصيل النقد.",
+        "fail": "تعذّر التوصيل",
+        "failTitle": "هل تعذّر توصيل هذا الطلب؟",
+        "failBody": "أعد الطعام. سيقرر المدير ما سيحدث بعد ذلك، ولن يُسجَّل أي نقد.",
+        "failConfirm": "تعذّر التوصيل",
+        "failReasonLabel": "ماذا حدث؟",
+        "failNoteLabel": "ملاحظة (اختيارية)",
+        "failedToast": "أصبح الطلب {{reference}} لدى المدير الآن.",
+        "failReason": {
+            "no_answer": "لا يوجد رد",
+            "wrong_address": "العنوان خاطئ",
+            "refused": "رفض الزبون الطلب",
+            "unreachable": "تعذّر الوصول",
+            "other": "سبب آخر"
+        }
     },
     "desk": {
         "title": "مكتب الطلبات",
@@ -2482,6 +2518,17 @@
                 "paid_online": "تم دفع الطلب عبر الإنترنت.",
                 "legacy_consumption": "سُحب مخزون هذا الطلب قبل التتبّع حسب البند، لذا لا يمكن تعديله."
             }
+        },
+        "courier": {
+            "open": "تسليم إلى شركة توصيل",
+            "title": "تسليم إلى شركة توصيل",
+            "description": "يغادر الطلب {{number}} معهم الآن. لا يمكن إلغاؤه بعد ذلك، ويبقى النقد غير مسدد حتى تسوية الحساب مع الشركة.",
+            "confirm": "تسليم",
+            "nameLabel": "شركة التوصيل",
+            "referenceLabel": "المرجع (اختياري)",
+            "feeLabel": "الرسوم بـ {{currency}} (اختياري)",
+            "feeInvalid": "أدخل مبلغاً، مثل 3.00.",
+            "handedToast": "سُلّم إلى {{name}}."
         }
     },
     "calendar": {

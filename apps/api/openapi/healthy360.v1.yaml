@@ -13187,6 +13187,207 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/orders/{order}/delivery/courier:
+    post:
+      operationId: handKitchenOrderToCourier
+      tags: [Kitchen orders]
+      summary: Hand an order to a courier
+      description: |
+        Records the courier, stamps `picked_up_at` and moves the run to
+        `in_transit`, with no driver, so it reaches no run sheet. From there nobody
+        can cancel it: staff close it with `fulfil`, which writes no receipt, or
+        with `delivery/fail`. Cash from a courier stays unpaid until batch
+        settlement.
+
+        The food must be ready and the run not yet picked up, or `409`. Audited as
+        `delivery.job_handed_to_courier`. Requires `order.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HandToCourierRequest'
+      responses:
+        '200':
+          description: The order, as the kitchen reads it.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenOrderEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/orders/{order}/delivery/fail:
+    post:
+      operationId: failKitchenOrderDelivery
+      tags: [Kitchen orders]
+      summary: Say a courier's delivery failed
+      description: |
+        The kitchen's own version of `POST /driver/jobs/{job}/fail`, for a run with
+        no driver's phone behind it. The run must be `in_transit`, or `409`. The
+        order stays `confirmed`, no money moves and the managers are alerted.
+        Audited as `delivery.job_failed`. Requires `order.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FailDeliveryRequest'
+      responses:
+        '200':
+          description: The order, as the kitchen reads it.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenOrderEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/orders/{order}/delivery/redeliver:
+    post:
+      operationId: redeliverKitchenOrder
+      tags: [Kitchen orders]
+      summary: Send a failed delivery out again
+      description: |
+        Returns the run to `pending` and `awaiting_assignment`, clearing the
+        driver, the pick-up, the failure and any courier. `ready_at` stands, so it
+        is offered to drivers at once. `409` unless the run has `failed`.
+
+        A new `date` or `window` updates the order and runs the rules a desk sale
+        runs, refused as `409 order.placement_refused`. Audited as
+        `delivery.job_reopened`. Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedeliverOrderRequest'
+      responses:
+        '200':
+          description: The order, as the kitchen reads it.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenOrderEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/orders/{order}/delivery/close-failed:
+    post:
+      operationId: closeFailedKitchenOrderDelivery
+      tags: [Kitchen orders]
+      summary: Close a failed delivery
+      description: |
+        Cancels the order with `delivery_failed` and the `disposition`, so `wasted`
+        keeps the stock deducted. The run stays `failed`, as the record of what
+        happened. `409` unless the run has `failed`. Audited as `order.cancelled`.
+        Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseFailedDeliveryRequest'
+      responses:
+        '200':
+          description: The order, as the kitchen reads it.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenOrderEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/orders/{order}/payments:
     post:
       operationId: recordOrderPayment
@@ -17377,6 +17578,73 @@ paths:
                               status enum rather than a bare string so a client
                               reads it with the same vocabulary the two lists
                               serve.
+                        additionalProperties: false
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /driver/jobs/{job}/fail:
+    post:
+      operationId: failDriverJob
+      tags: [Delivery]
+      summary: Say a run could not be delivered
+      description: |
+        Sets the job to `failed` with the reason and note, and takes it off the
+        driver's sheet. The order stays `confirmed`, no money moves, and the
+        managers are alerted. A manager then re-delivers it or closes it as
+        failed.
+
+        A job that is not the caller's is `404`. One not `in_transit` is `409
+        resource.conflict`. Audited as `delivery.job_failed`.
+      parameters:
+        - $ref: '#/components/parameters/DeliveryJobPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FailDeliveryRequest'
+      responses:
+        '200':
+          description: The job, failed.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [job]
+                    properties:
+                      job:
+                        type: object
+                        required: [id, status]
+                        properties:
+                          id:
+                            $ref: '#/components/schemas/Uuid'
+                          status:
+                            allOf:
+                              - $ref: '#/components/schemas/DeliveryJobStatus'
+                            description: Always `failed` on success.
                         additionalProperties: false
                   meta:
                     $ref: '#/components/schemas/Meta'
@@ -37939,7 +38207,7 @@ components:
 
     KitchenOrderDeliveryRun:
       type: object
-      required: [status, tracking_status, driver_name, assigned_at, picked_up_at, delivered_at]
+      required: [status, tracking_status, driver_name, assigned_at, picked_up_at, delivered_at, failed_at, failure_reason, failure_note, courier_name]
       properties:
         status:
           $ref: '#/components/schemas/DeliveryJobStatus'
@@ -37957,6 +38225,18 @@ components:
         delivered_at:
           type: ['string', 'null']
           format: date-time
+        failed_at:
+          type: ['string', 'null']
+          format: date-time
+        failure_reason:
+          oneOf:
+            - $ref: '#/components/schemas/DeliveryFailureReason'
+            - type: 'null'
+        failure_note:
+          type: ['string', 'null']
+        courier_name:
+          type: ['string', 'null']
+          description: The courier carrying it. There is then no driver.
       additionalProperties: false
 
     KitchenOrder:
@@ -42924,6 +43204,60 @@ components:
         `driver_user_id` is absent because it would say the same thing on every
         row — the caller's own id, which they already have — and the dispatch
         board is the surface where whose job it is is worth answering.
+
+    DeliveryFailureReason:
+      type: string
+      description: Why a run came back.
+      enum: [no_answer, wrong_address, refused, unreachable, other]
+
+    FailDeliveryRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          $ref: '#/components/schemas/DeliveryFailureReason'
+        note:
+          type: ['string', 'null']
+          maxLength: 1000
+      additionalProperties: false
+
+    RedeliverOrderRequest:
+      type: object
+      properties:
+        date:
+          type: ['string', 'null']
+          format: date
+          description: A new day for the order, if it is moving.
+        window:
+          type: ['string', 'null']
+          maxLength: 64
+          description: A new delivery window code, if it is moving.
+      additionalProperties: false
+
+    CloseFailedDeliveryRequest:
+      type: object
+      required: [disposition]
+      properties:
+        disposition:
+          $ref: '#/components/schemas/CancellationDisposition'
+      additionalProperties: false
+
+    HandToCourierRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        reference:
+          type: ['string', 'null']
+          maxLength: 120
+          description: The courier's own tracking reference.
+        fee_minor:
+          type: ['integer', 'null']
+          minimum: 0
+          description: What the courier charges, held for settlement.
+      additionalProperties: false
 
     AssignDeliveryJobRequest:
       type: object

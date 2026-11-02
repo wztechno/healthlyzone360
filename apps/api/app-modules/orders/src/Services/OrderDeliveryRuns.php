@@ -29,7 +29,7 @@ final readonly class OrderDeliveryRuns
 {
     /**
      * @param  array<int, string>  $orderIds
-     * @return array<string, array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null}>
+     * @return array<string, array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null, failed_at: string|null, failure_reason: string|null, failure_note: string|null, courier_name: string|null}>
      */
     public function forOrders(array $orderIds): array
     {
@@ -63,6 +63,10 @@ final readonly class OrderDeliveryRuns
                 'assigned_at' => $row->assigned_at?->toIso8601String(),
                 'picked_up_at' => $row->picked_up_at?->toIso8601String(),
                 'delivered_at' => $row->delivered_at?->toIso8601String(),
+                'failed_at' => $row->failed_at?->toIso8601String(),
+                'failure_reason' => $row->failure_reason,
+                'failure_note' => $row->failure_note,
+                'courier_name' => $row->courier_name,
             ];
         }
 
@@ -70,7 +74,7 @@ final readonly class OrderDeliveryRuns
     }
 
     /**
-     * @return array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null}|null
+     * @return array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null, failed_at: string|null, failure_reason: string|null, failure_note: string|null, courier_name: string|null}|null
      */
     public function forOrder(string $orderId): ?array
     {
