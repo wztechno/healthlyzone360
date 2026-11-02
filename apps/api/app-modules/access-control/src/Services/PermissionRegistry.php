@@ -278,6 +278,18 @@ final class PermissionRegistry
             // kitchen may reasonably want the first without the second.
             'customer.create_on_behalf_organisation' => ['domain' => 'customer', 'description' => 'Open a customer account at the order desk and record its contact details and delivery addresses'],
 
+            // P0 Stage 1. A fifth order code, and the one that sits above the
+            // others. `order.manage_organisation` is the desk's: it moves an
+            // order nobody has started on. Once food is being cooked, cancelling
+            // spends real ingredients and asks whether they came back or were
+            // wasted, which is a manager's call. The same people are who an
+            // ignored or failed order reaches, so holding this code is also what
+            // makes someone a recipient of staff alerts.
+            //
+            // The one organisation code with no scope suffix; the name is the
+            // owner's, and `PermissionRegistryTest` carves out exactly this code.
+            'order.supervise' => ['domain' => 'order', 'description' => 'Cancel orders once cooking has started and receive order alerts'],
+
             // B1 (quotations). The buyer side of a quotation — drafting
             // lines, submitting, accepting, declining — needs no permission
             // beyond organisation membership (B7: org-shared server drafts).
@@ -627,6 +639,11 @@ final class PermissionRegistry
                     'order.create_on_behalf_organisation',
                     'customer.create_on_behalf_organisation',
                     'order.view_customer_contact_organisation',
+
+                    // P0 Stage 1. The person the desk escalates to is the person
+                    // who decides about an order already being cooked, and who
+                    // hears about one nobody accepted.
+                    'order.supervise',
 
                     // B1 (quotations). The kitchen manager reads and prices
                     // what corporate buyers submit against this kitchen's

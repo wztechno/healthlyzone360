@@ -892,7 +892,7 @@ it('publishes every context change to the session, wherever it happens', functio
         ->and(RuntimeRole::setting('app.branch_id'))->toBe('');
 });
 
-it('protects exactly the twelve declared tables and no others', function (): void {
+it('protects exactly the fourteen declared tables and no others', function (): void {
     $protected = DB::table('pg_tables')
         ->where('schemaname', 'public')
         ->where('rowsecurity', true)
@@ -919,11 +919,16 @@ it('protects exactly the twelve declared tables and no others', function (): voi
     // tenant-writable for the first time. Its sibling `membership_roles` is
     // still out, deliberately — `PermissionChecker` reads it on a hotter path,
     // so it waits for its own migration and its own evidence.
+    //
+    // P0 Stage 1 brings in `kitchen_service_settings` and `staff_notifications`,
+    // both on the plain organisation policy; `StaffAlertTablesRlsTest` proves
+    // them.
     expect($protected)->toBe([
         'audit_logs',
         'consent_grants',
         'customer_accounts',
         'feature_entitlements',
+        'kitchen_service_settings',
         'organisation_branches',
         'organisation_memberships',
         'price_list_items',
@@ -932,6 +937,7 @@ it('protects exactly the twelve declared tables and no others', function (): voi
         'recipe_versions',
         'role_permissions',
         'roles',
+        'staff_notifications',
     ]);
 });
 

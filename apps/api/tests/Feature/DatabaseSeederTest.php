@@ -590,7 +590,10 @@ it('seeds exactly the registered permission set', function (): void {
     // advance, carries an estimated cost and blends a finished valuation into the
     // basis every sale is costed against. Whoever may count a shelf is not
     // thereby whoever may commit next Thursday's oil to a batch.
-    expect(Permission::query()->count())->toBe(58)
+    //
+    // P0 Stage 1 takes it to 59 with `order.supervise`, which also ships as a
+    // migration, because a deploy never seeds.
+    expect(Permission::query()->count())->toBe(59)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });

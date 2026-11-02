@@ -50,6 +50,7 @@ export const KITCHEN_MANAGER_PERMISSIONS: readonly string[] = [
     'order.create_on_behalf_organisation',
     'customer.create_on_behalf_organisation',
     'order.view_customer_contact_organisation',
+    'order.supervise',
     // B1/B4. The backend grants this pair to `kitchen_manager` alongside the tariff pair — reading
     // what corporate buyers submitted against this kitchen's programmes, and naming a price against
     // it. Absent here until the kitchen gained a screen that needed them, which is exactly the drift
@@ -148,6 +149,7 @@ export const ORGANISATION_OWNER_PERMISSIONS: readonly string[] = [
     'order.view_customer_contact_organisation',
     'order.create_on_behalf_organisation',
     'customer.create_on_behalf_organisation',
+    'order.supervise',
     'b2b_quotation.view_organisation',
     'b2b_quotation.quote_organisation',
     'inventory.view_organisation',
@@ -206,6 +208,7 @@ export const PERMISSIONS_ADMINISTRATOR_PERMISSIONS: readonly string[] = [
     'order.view_customer_contact_organisation',
     'order.create_on_behalf_organisation',
     'customer.create_on_behalf_organisation',
+    'order.supervise',
     'b2b_quotation.view_organisation',
     'b2b_quotation.quote_organisation',
     'inventory.view_organisation',

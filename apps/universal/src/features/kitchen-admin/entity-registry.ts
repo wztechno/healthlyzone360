@@ -95,6 +95,12 @@ export const PRODUCTION_VIEW_COSTS_PERMISSION = 'production.view_costs_organisat
 export const ORDER_CREATE_ON_BEHALF_PERMISSION = 'order.create_on_behalf_organisation';
 
 /**
+ * Who decides about an order once cooking has started, and who staff alerts reach. Held by the
+ * owner, the administrator and the kitchen manager; the desk agent stays on `order.manage`.
+ */
+export const ORDER_SUPERVISE_PERMISSION = 'order.supervise';
+
+/**
  * Writing down a customer the kitchen has never met — a cold caller with no login.
  *
  * Separate from placing on their behalf because the two are refused separately: a desk that may take

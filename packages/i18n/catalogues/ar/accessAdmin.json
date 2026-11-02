@@ -337,6 +337,9 @@
         "order.manage_organisation": {
             "name": "تأكيد الطلبات وتنفيذها وإلغاؤها"
         },
+        "order.supervise": {
+            "name": "إلغاء الطلبات بعد بدء الطهي وتلقي تنبيهات الطلبات"
+        },
         "order.view_customer_contact_organisation": {
             "name": "الاطّلاع على بيانات تواصل العملاء وعناوينهم وسجلات شركاتهم"
         },

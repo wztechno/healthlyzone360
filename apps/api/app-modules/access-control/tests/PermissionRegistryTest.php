@@ -82,7 +82,10 @@ it('formats every registered permission code as domain.action_scope', function (
 });
 
 it('scopes organisation codes to the organisation or the caller, and platform codes to the platform', function (): void {
-    foreach (array_keys(PermissionRegistry::organisationPermissions()) as $code) {
+    // `order.supervise` is the one code named without a scope, by the owner's
+    // Stage 1 spec. It is still organisation-held: `templateRoles()` builds on it
+    // and the platform set does not contain it.
+    foreach (array_diff(array_keys(PermissionRegistry::organisationPermissions()), ['order.supervise']) as $code) {
         expect(str_ends_with($code, '_current') || str_ends_with($code, '_organisation') || str_ends_with($code, '_own'))
             ->toBeTrue("Organisation permission {$code} is not organisation- or own-scoped.");
     }
@@ -311,16 +314,16 @@ function templateRolesHolding(string $code): array
 it('grants each template role the expected number of codes', function (string $role, int $expectedGrants): void {
     expect(PermissionRegistry::templateRoles()[$role]['permissions'])->toHaveCount($expectedGrants);
 })->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 46],
-    // Forty-five either way, which is why this row stayed green through AA1 while
+    'organisation owner grants every organisation permission' => ['organisation_owner', 47],
+    // The same count either way, which is why this row stayed green through AA1 while
     // its name stopped being true: the console swapped `role.manage_organisation`
     // in and `organisation.update_current` out, one for one. The count is the
     // weakest half of the pin; `separates the administrator from the owner`
     // above names which code is missing.
-    'organisation administrator runs everything except the legal identity of the business' => ['organisation_admin', 45],
+    'organisation administrator runs everything except the legal identity of the business' => ['organisation_admin', 46],
     'branch manager is limited to its branch and roster' => ['branch_manager', 3],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
-    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book, runs inventory including its costs, orders its supplies and holds the order desk in full' => ['kitchen_manager', 31],
+    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book, runs inventory including its costs, orders its supplies and holds the order desk in full' => ['kitchen_manager', 32],
     // Nine since PROD1: the chef gained `production.view_organisation` and
     // `production.manage_organisation` and not the costs code. Running the line
     // is the job; what the line cost is the commercial side's, which is the same
@@ -344,6 +347,14 @@ it('grants each template role the expected number of codes', function (string $r
     'purchasing manager spends the kitchen money without seeing what it charges, and reads the recipe book' => ['procurement_manager', 8],
     'finance manager reads every number and can change exactly one, the unit cost of a recipe line' => ['finance_manager', 12],
 ]);
+
+it('gives order supervision to the owner, the administrator and the kitchen manager and to nobody else', function (): void {
+    // Stage 1 leaves `branch_manager` out on purpose: it holds no order code at
+    // all today, and that is the P1 "roles for real jobs" work.
+    expect(templateRolesHolding('order.supervise'))->toEqualCanonicalizing([
+        'organisation_owner', 'organisation_admin', 'kitchen_manager',
+    ]);
+});
 
 it('gives the delivery map to the two commercial roles and the branch hours to the kitchen manager', function (): void {
     // K1.7's half of the same split. Where a kitchen delivers and what it
