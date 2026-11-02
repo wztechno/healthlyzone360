@@ -1,6 +1,8 @@
 import type {
     DriverJobStatus,
     DriverJobTrackingStatus,
+    KitchenOrderAllergy,
+    KitchenOrderLine,
     KitchenOrderCancellationReason,
     KitchenOrderFulfilmentType,
     KitchenOrderPaymentMethod,
@@ -15,9 +17,11 @@ import type {
     QualityCheckStatus,
     QualityCheckSubjectType,
 } from '@healthy360/api-client/contracts';
-import type { BadgeTone } from '@healthy360/design-system';
+import type { BadgeTone, CalloutProps } from '@healthy360/design-system';
+import type { TFunction } from 'i18next';
 
 import { ticketAgeTone } from '../kds/kds-board.ts';
+import { displayName, humaniseCode } from './format.ts';
 
 /**
  * Display helpers for the kitchen ops workspace (O1–O4).
@@ -196,6 +200,57 @@ export function kitchenOrderCancellationReasonKey(reason: KitchenOrderCancellati
  */
 export function canConfirmKitchenOrder(status: KitchenOrderStatus): boolean {
     return status === 'placed';
+}
+
+/** An allergen as the reader says it: the shared label, translated, never the code. */
+export function allergenLabel(code: string, t: TFunction): string {
+    return t(`marketplace:allergens.${code}`, { defaultValue: humaniseCode(code) });
+}
+
+/**
+ * Everything a {@link KitchenOrderAllergy} banner says, so the kitchen display, the order record and
+ * the desk record say it alike. Severe is the danger tone, and the icon and the title say it too:
+ * colour is never the only signal. It interrupts a screen reader only when it is severe.
+ */
+export function allergyBanner(
+    allergy: KitchenOrderAllergy,
+    lines: readonly KitchenOrderLine[],
+    locale: string,
+    t: TFunction,
+): Required<Pick<CalloutProps, 'tone' | 'icon' | 'role' | 'title' | 'body'>> {
+    const separator = t('kitchen:common.listSeparator');
+
+    const items = allergy.items.map((item) => {
+        const conflicting = lines
+            .filter((line) => item.conflictsWithLine.includes(line.id))
+            .map((line) => displayName({ en: line.nameEn, ar: line.nameAr }, locale).value);
+        return [
+            t('kitchen:allergy.item', {
+                allergen: allergenLabel(item.allergenCode, t),
+                severity: t(`kitchen:allergy.severity.${item.severity}`),
+            }),
+            item.notes,
+            conflicting.length === 0
+                ? null
+                : t('kitchen:allergy.conflictsWith', { lines: conflicting.join(separator) }),
+        ]
+            .filter((part) => part !== null)
+            .join(' — ');
+    });
+
+    return {
+        tone: allergy.severe ? 'danger' : 'warning',
+        icon: 'warning',
+        role: allergy.severe ? 'alert' : 'note',
+        title: t(allergy.severe ? 'kitchen:allergy.titleSevere' : 'kitchen:allergy.title'),
+        body: [
+            ...items,
+            allergy.note === null ? null : t('kitchen:allergy.note', { note: allergy.note }),
+            allergy.acknowledgedAt === null ? null : t('kitchen:allergy.acknowledged'),
+        ]
+            .filter((part) => part !== null)
+            .join('\n'),
+    };
 }
 
 export function canFulfilKitchenOrder(status: KitchenOrderStatus): boolean {

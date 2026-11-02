@@ -1,3 +1,4 @@
+import { mapAllergenConflict } from './cart-repository.ts';
 import type { CurrencyCode } from '@healthy360/domain-types';
 
 import type {
@@ -472,6 +473,7 @@ export function mapOrderDeskQuote(wire: WireOrderDeskQuote): OrderDeskQuote {
         refusals: wire.refusals.map(mapOrderDeskRefusal),
         quotable: wire.quotable,
         offeredWindowCodes: wire.offered_window_codes ?? null,
+        allergenConflicts: (wire.allergen_conflicts ?? []).map(mapAllergenConflict),
     };
 }
 

@@ -12015,6 +12015,12 @@ export type DriverJob = {
      * When the kitchen marked the food ready. Picked up is refused until then, and a run is only offered under `available` once it is set.
      */
     ready_at: string | null;
+    /**
+     * The allergens declared on this order, empty when there are none.
+     * Names only: the notes and severities stay with the kitchen.
+     *
+     */
+    allergy_allergen_codes: Array<string>;
     delivery: DriverJobDelivery;
 };
 

@@ -174,6 +174,7 @@ function quoteFor(request: OrderDeskSaleRequest, rules: QuoteRules = {}): OrderD
         refusals: orderRefusals,
         quotable: orderRefusals.length === 0 && lines.every((line) => line.refusals.length === 0),
         offeredWindowCodes: rules.offeredWindowCodes ?? null,
+        allergenConflicts: [],
     };
 }
 
@@ -209,6 +210,7 @@ function placedOrder(overrides: Partial<KitchenOrder> = {}): KitchenOrder {
         lockVersion: 2,
         customerAccountId: null,
         amendable: false,
+        allergy: null,
         lineCount: 1,
         lines: [],
         ...overrides,
@@ -601,6 +603,77 @@ describe('sale — the ticket is priced by the quote alone', () => {
         // No price to show, and an em dash rather than a confident zero.
         expect(screen.getByTestId(`${MEAL_LINE}-total`)).toHaveTextContent('—');
         expect(screen.getByTestId(CHARGE)).toBeDisabled();
+    });
+});
+
+describe('sale — allergies', () => {
+    const conflicted = (request: OrderDeskSaleRequest): OrderDeskQuote => ({
+        ...quoteFor(request),
+        allergenConflicts:
+            request.customerAccountId === undefined
+                ? []
+                : [{ mealId: MEAL_ID, reason: 'allergen_declared', allergenCodes: ['sesame'] }],
+    });
+
+    it('sends a note on any sale', async () => {
+        const placeSale = jest.fn(async () => placedOrder());
+        await renderSale({ placeSale });
+        await tapMeal();
+        await chooseKind('counter');
+
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-order-desk-sale-allergy-note'),
+                ' No nuts please ',
+            );
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId(SUBMIT)).toBeEnabled();
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(SUBMIT));
+        });
+
+        await waitFor(() => {
+            expect(placeSale).toHaveBeenCalledWith(
+                expect.objectContaining({ allergyNote: 'No nuts please' }),
+            );
+        });
+    });
+
+    it('will not place a conflict until the agent ticks that the customer was told', async () => {
+        const placeSale = jest.fn(async () => placedOrder());
+        await renderSale({ placeSale, quoteSale: async (request) => conflicted(request) });
+        await tapMeal();
+        await chooseKind('pickup');
+        await chooseLayla();
+
+        await untilVisible('kitchen-order-desk-sale-allergy-conflict');
+        expect(screen.getByTestId('kitchen-order-desk-sale-allergy-conflict')).toHaveTextContent(
+            /Sesame/,
+        );
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-order-desk-sale-shortfall')).toHaveTextContent(
+                /allergy conflict/,
+            );
+        });
+        expect(screen.getByTestId(SUBMIT)).toBeDisabled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-allergy-ack'));
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId(SUBMIT)).toBeEnabled();
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(SUBMIT));
+        });
+
+        await waitFor(() => {
+            expect(placeSale).toHaveBeenCalledWith(
+                expect.objectContaining({ acknowledgeAllergenConflicts: true }),
+            );
+        });
     });
 });
 

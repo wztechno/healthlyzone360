@@ -46899,6 +46899,7 @@ components:
         - assigned_at
         - picked_up_at
         - ready_at
+        - allergy_allergen_codes
         - delivery
       properties:
         id:
@@ -46932,6 +46933,13 @@ components:
             - 'null'
           format: date-time
           description: When the kitchen marked the food ready. Picked up is refused until then, and a run is only offered under `available` once it is set.
+        allergy_allergen_codes:
+          type: array
+          items:
+            type: string
+          description: |
+            The allergens declared on this order, empty when there are none.
+            Names only: the notes and severities stay with the kitchen.
         delivery:
           $ref: '#/components/schemas/DriverJobDelivery'
       additionalProperties: false

@@ -7,6 +7,7 @@ import type {
 } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { createInstance } from 'i18next';
 
 import {
     KITCHEN_MANAGER_PERMISSIONS,
@@ -15,7 +16,10 @@ import {
     testActiveContext,
 } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import arKitchen from '../../../../../packages/i18n/catalogues/ar/kitchen.json';
+import arMarketplace from '../../../../../packages/i18n/catalogues/ar/marketplace.json';
 import { addDays, todayIso } from '../commerce/dates.ts';
+import { allergyBanner } from '../kitchen-admin/ops-format.ts';
 import { KdsTicketsScreen } from './kds-tickets-screen.tsx';
 
 jest.mock('expo-router', () => ({
@@ -115,6 +119,7 @@ function kitchenOrder(overrides: Partial<KitchenOrder> = {}): KitchenOrder {
         lockVersion: 1,
         customerAccountId: null,
         amendable: false,
+        allergy: null,
         lineCount: lines.length,
         lines,
         ...overrides,
@@ -279,11 +284,89 @@ async function renderBoard(book: OrderBook, options: { readonly canManage?: bool
     });
 }
 
+describe('the allergy banner in Arabic', () => {
+    /*
+     * The banner is the design system's `Callout`, whose layout is logical and is tested there, and
+     * the one new block around a row's badge is a column aligned to its start. Jest measures no
+     * layout on React Native, so what is pinned here is the half this feature wrote: the wording.
+     */
+    it('reads from the Arabic catalogues, the allergen included', async () => {
+        const i18n = createInstance();
+        await i18n.init({
+            lng: 'ar',
+            resources: { ar: { kitchen: arKitchen, marketplace: arMarketplace } },
+        });
+
+        const banner = allergyBanner(
+            {
+                severe: true,
+                items: [
+                    {
+                        allergenCode: 'sesame',
+                        severity: 'anaphylaxis',
+                        notes: null,
+                        conflictsWithLine: [],
+                    },
+                ],
+                note: null,
+                acknowledgedAt: null,
+            },
+            [],
+            'ar',
+            i18n.t,
+        );
+
+        expect(banner.tone).toBe('danger');
+        expect(banner.icon).toBe('warning');
+        expect(banner.title).toBe(arKitchen.allergy.titleSevere);
+        expect(banner.body).toContain(arMarketplace.allergens.sesame);
+        expect(banner.body).toContain(arKitchen.allergy.severity.anaphylaxis);
+    });
+});
+
 function ticketId(orderId: OrderId): string {
     return `kds-ticket-${String(orderId)}`;
 }
 
 describe('kds ticket board', () => {
+    it('puts a severe allergy on the ticket in the danger tone, with wording and notes', async () => {
+        const order = kitchenOrder({
+            allergy: {
+                severe: true,
+                items: [
+                    {
+                        allergenCode: 'sesame',
+                        severity: 'anaphylaxis',
+                        notes: 'Carries an EpiPen',
+                        conflictsWithLine: [],
+                    },
+                ],
+                note: null,
+                acknowledgedAt: null,
+            },
+        });
+        await renderStubScreen(<KdsTicketsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOrders: {
+                    listOrders: async () => ({ items: [order], nextCursor: null, hasMore: false }),
+                },
+            },
+        });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(`${ticketId(order.id)}-allergy`)).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        const banner = screen.getByTestId(`${ticketId(order.id)}-allergy`);
+        expect(banner).toHaveTextContent(/Severe allergy on this order/);
+        expect(banner).toHaveTextContent(/Sesame \(life-threatening\)/);
+        expect(banner).toHaveTextContent(/Carries an EpiPen/);
+    });
+
     it('shows this branch and unattributed work, and nothing else', async () => {
         const book = createOrderBook();
         const { repositories } = await renderBoard(book);

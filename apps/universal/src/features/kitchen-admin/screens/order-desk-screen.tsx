@@ -39,7 +39,7 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { IssueCardItem, IssueTrayContent, MenuItem } from '@healthy360/design-system';
-import { useFormatter } from '@healthy360/i18n';
+import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -96,6 +96,7 @@ import {
     orderDeskDeliveryStateKey,
     orderDeskDueTone,
     orderDeskRowTestId,
+    allergyBanner,
 } from '../ops-format.ts';
 import { DeskAmount, DeskFact } from '../order-desk/desk-parts.tsx';
 import { DueBadge, PaymentCell } from '../order-desk/queue-cells.tsx';
@@ -852,6 +853,7 @@ function useTickingNow(intervalMs: number, running: boolean): Date {
 
 function OrderDeskQueueList() {
     const { t } = useTranslation();
+    const { locale } = useLocale();
     const windowName = useWindowName();
     const formatter = useFormatter();
     const router = useRouter();
@@ -1189,9 +1191,23 @@ function OrderDeskQueueList() {
                 compareText(left.orderNumber, right.orderNumber, direction),
             mono: true,
             render: (row) => (
-                <Text variant="mono" testID={`${orderDeskRowTestId(String(row.id))}-number`}>
-                    {row.orderNumber}
-                </Text>
+                <View className="flex-col items-start gap-hair">
+                    <Text variant="mono" testID={`${orderDeskRowTestId(String(row.id))}-number`}>
+                        {row.orderNumber}
+                    </Text>
+                    {row.allergy === null ? null : (
+                        <Badge
+                            testID={`${orderDeskRowTestId(String(row.id))}-allergy`}
+                            tone={row.allergy.severe ? 'danger' : 'warning'}
+                            icon="warning"
+                            label={t(
+                                row.allergy.severe
+                                    ? 'kitchen:allergy.badgeSevere'
+                                    : 'kitchen:allergy.badge',
+                            )}
+                        />
+                    )}
+                </View>
             ),
         },
         {
@@ -1591,8 +1607,19 @@ function OrderDeskQueueList() {
                                                    */
                                                   <View
                                                       testID="kitchen-order-desk-detail-body"
-                                                      className="flex-col"
+                                                      className="flex-col gap-snug"
                                                   >
+                                                      {order.allergy === null ? null : (
+                                                          <Callout
+                                                              {...allergyBanner(
+                                                                  order.allergy,
+                                                                  order.lines,
+                                                                  locale,
+                                                                  t,
+                                                              )}
+                                                              testID="kitchen-order-desk-detail-allergy"
+                                                          />
+                                                      )}
                                                       <View
                                                           testID="kitchen-order-desk-detail-lines"
                                                           className="flex-col"

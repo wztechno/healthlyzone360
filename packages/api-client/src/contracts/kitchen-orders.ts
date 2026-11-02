@@ -205,6 +205,27 @@ export interface KitchenOrderPlanDay {
     readonly meals: readonly KitchenOrderPlanMeal[];
 }
 
+/** One declared allergy on an order, as it stood at placement or the last edit. */
+export interface KitchenOrderAllergyItem {
+    readonly allergenCode: string;
+    readonly severity: 'avoidance' | 'intolerance' | 'allergy' | 'anaphylaxis';
+    /** The customer's own words. */
+    readonly notes: string | null;
+    /** The ids of this order's lines that conflict with it. A list: one allergy can hit two dishes. */
+    readonly conflictsWithLine: readonly string[];
+}
+
+/** What the kitchen must know about who is eating. Health data, on no customer shape. */
+export interface KitchenOrderAllergy {
+    /** Any item is `anaphylaxis`. */
+    readonly severe: boolean;
+    /** Every allergy declared, conflicting with anything or not. Empty for a walk-in's note alone. */
+    readonly items: readonly KitchenOrderAllergyItem[];
+    /** Free text taken at the desk. */
+    readonly note: string | null;
+    readonly acknowledgedAt: string | null;
+}
+
 export interface KitchenOrder {
     readonly id: OrderId;
     /** The human-quotable reference — what a customer reads over the phone. Unique platform-wide. */
@@ -254,6 +275,8 @@ export interface KitchenOrder {
      * the edit itself cannot disagree; a client never works the rules out.
      */
     readonly amendable: boolean;
+    /** `null` when nothing was declared and nothing noted. */
+    readonly allergy: KitchenOrderAllergy | null;
     /** The server's own count, so a collapsed list row can say "4 items" without holding the lines. */
     readonly lineCount: number;
     readonly lines: readonly KitchenOrderLine[];

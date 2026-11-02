@@ -70,6 +70,7 @@ function driverJob(overrides: Partial<DriverJob> = {}): DriverJob {
         assignedAt: '2026-08-16T06:40:00.000Z',
         pickedUpAt: null,
         readyAt: '2026-08-16T06:35:00.000Z',
+        allergyAllergenCodes: [],
         delivery: driverDelivery(),
         ...overrides,
     };
@@ -254,6 +255,39 @@ describe('the driver run sheet ladder', () => {
             { timeout: 5000 },
         );
         expect(screen.queryByTestId('driver-jobs-list')).toBeNull();
+    });
+
+    it('names the allergens on a run, in words, and nothing else about them', async () => {
+        await renderRunSheet({
+            listJobs: async () => [driverJob({ allergyAllergenCodes: ['sesame', 'egg'] })],
+        });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(`${jobTestId(JOB_ONE)}-allergy`)).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        const banner = screen.getByTestId(`${jobTestId(JOB_ONE)}-allergy`);
+        expect(banner).toHaveTextContent(/Allergy on this order/);
+        expect(banner).toHaveTextContent(/Sesame/);
+        expect(banner).toHaveTextContent(/Eggs/);
+        // The wire carries no notes and no severity, so neither does the card.
+        expect(banner).not.toHaveTextContent(/life-threatening/);
+    });
+
+    it('draws no allergy banner on a run with none', async () => {
+        await renderRunSheet({ listJobs: async () => [driverJob()] });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('driver-jobs-list')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        expect(screen.queryByTestId(`${jobTestId(JOB_ONE)}-allergy`)).toBeNull();
     });
 
     it('lists the caller’s live jobs with both status axes, asking the endpoint for nothing', async () => {

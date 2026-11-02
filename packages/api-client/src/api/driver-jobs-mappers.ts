@@ -52,6 +52,7 @@ export function mapDriverJob(wire: WireDriverJob): DriverJob {
         assignedAt: wire.assigned_at,
         pickedUpAt: wire.picked_up_at,
         readyAt: wire.ready_at,
+        allergyAllergenCodes: wire.allergy_allergen_codes ?? [],
         delivery: mapDelivery(wire.delivery),
     };
 }

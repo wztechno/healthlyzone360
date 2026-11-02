@@ -7873,6 +7873,7 @@ export const zDriverJob = z.object({
     assigned_at: z.iso.datetime({ offset: true }).nullable(),
     picked_up_at: z.iso.datetime({ offset: true }).nullable(),
     ready_at: z.iso.datetime({ offset: true }).nullable(),
+    allergy_allergen_codes: z.array(z.string()),
     delivery: zDriverJobDelivery
 });
 

@@ -455,6 +455,29 @@ it('refuses the same Idempotency-Key over HTTP with a different note', function 
     expect(Order::query()->sole()->allergy_note)->toBe('Coeliac');
 });
 
+it('gives the driver the allergen codes and nothing else about them', function (): void {
+    declareAllergy($this->account);
+
+    // A desk delivery is confirmed at placement, which projects its run.
+    $this->postJson('/api/v1/catalogue/order-desk/orders', allergyPickupBody($this, [
+        'fulfilment_type' => 'delivery',
+        'payment_method' => 'cash_on_delivery',
+        'customer_address_id' => (string) $this->world->customer->address->getKey(),
+        'acknowledge_allergen_conflicts' => true,
+        'allergy_note' => 'Coeliac',
+    ]), $this->headers + ['Idempotency-Key' => 'driver-sheet'])->assertCreated();
+
+    Order::query()->sole()->forceFill(['ready_at' => now()])->save();
+
+    $response = $this->getJson('/api/v1/driver/jobs', $this->headers)
+        ->assertOk()
+        ->assertJsonPath('data.available.0.allergy_allergen_codes', ['sesame']);
+
+    expect($response->getContent())->not->toContain('EpiPen')
+        ->and($response->getContent())->not->toContain('anaphylaxis')
+        ->and($response->getContent())->not->toContain('Coeliac');
+});
+
 it('quotes the conflict beside the refusals without touching quotable', function (): void {
     declareAllergy($this->account);
 

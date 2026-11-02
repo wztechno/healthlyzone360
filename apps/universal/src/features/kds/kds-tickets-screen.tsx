@@ -35,7 +35,7 @@ import {
     ORDER_VIEW_PERMISSION,
 } from '../kitchen-admin/entity-registry.ts';
 import { displayName, humaniseCode } from '../kitchen-admin/format.ts';
-import { canFulfilKitchenOrder } from '../kitchen-admin/ops-format.ts';
+import { allergyBanner, canFulfilKitchenOrder } from '../kitchen-admin/ops-format.ts';
 import {
     bucketTickets,
     isAwaitingStart,
@@ -458,6 +458,15 @@ function Ticket({ order, now, locale, canManage, pending, disabled, onBump }: Ti
                         })}
                     />
                 </Inline>
+
+                {/* Above the food: it decides how everything under it is cooked. */}
+                {order.allergy === null ? null : (
+                    <Callout
+                        {...allergyBanner(order.allergy, order.lines, locale, t)}
+                        size="regular"
+                        testID={`${testID}-allergy`}
+                    />
+                )}
 
                 <Stack space="xs" testID={`${testID}-lines`}>
                     {order.lines.map((line) => (

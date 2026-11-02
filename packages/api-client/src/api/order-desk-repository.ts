@@ -449,6 +449,10 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                 ...(request.driverUserId === undefined
                     ? {}
                     : { driver_user_id: request.driverUserId }),
+                ...(request.allergyNote === undefined ? {} : { allergy_note: request.allergyNote }),
+                ...(request.acknowledgeAllergenConflicts === true
+                    ? { acknowledge_allergen_conflicts: true }
+                    : {}),
                 ...(request.payment === undefined
                     ? {}
                     : {
@@ -491,6 +495,10 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                 ...(request.paymentMethod === undefined
                     ? {}
                     : { payment_method: request.paymentMethod }),
+                ...(request.allergyNote === undefined ? {} : { allergy_note: request.allergyNote }),
+                ...(request.acknowledgeAllergenConflicts === true
+                    ? { acknowledge_allergen_conflicts: true }
+                    : {}),
             };
             const payload = await transport.request<{ readonly order: WireKitchenOrder }>({
                 method: 'PATCH',

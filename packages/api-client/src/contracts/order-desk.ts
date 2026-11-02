@@ -1,3 +1,4 @@
+import type { AllergenConflict } from './commerce.ts';
 import type { BranchId, CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
 import type { DriverJobStatus, DriverJobTrackingStatus } from './driver-jobs.ts';
@@ -805,6 +806,10 @@ export interface AmendOrderDeskOrderRequest {
     readonly requestedDeliveryDate?: string | undefined;
     readonly deliveryWindowCode?: string | undefined;
     readonly paymentMethod?: KitchenOrderPaymentMethod | undefined;
+    /** Omitted keeps the stored note; empty clears it. */
+    readonly allergyNote?: string | undefined;
+    /** The customer was told about the new basket's conflicts. Every edit re-checks them. */
+    readonly acknowledgeAllergenConflicts?: boolean | undefined;
 }
 
 /**
@@ -883,6 +888,11 @@ export interface OrderDeskQuote {
      * address resolves to a serving zone; `null` means no filtering applies.
      */
     readonly offeredWindowCodes: readonly string[] | null;
+    /**
+     * The meals that clash with the named customer's allergies. Not refusals, and no part of
+     * `quotable`: the sale goes ahead once the agent says the customer was told.
+     */
+    readonly allergenConflicts: readonly AllergenConflict[];
 }
 
 /**
@@ -919,6 +929,10 @@ export interface PlaceOrderDeskSaleRequest extends OrderDeskSaleRequest {
      * it to leave the run in the unassigned pool drivers claim from.
      */
     readonly driverUserId?: string | undefined;
+    /** Any allergy the customer mentioned. How a walk-in with no profile is covered. */
+    readonly allergyNote?: string | undefined;
+    /** The customer was told about the basket's conflicts. Refused `allergen_conflict` without it. */
+    readonly acknowledgeAllergenConflicts?: boolean | undefined;
 }
 
 /** How a customer record came to exist. `staff` is a caller some kitchen wrote down at a desk. */

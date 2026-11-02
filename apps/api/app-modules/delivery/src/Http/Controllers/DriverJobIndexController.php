@@ -6,8 +6,11 @@ namespace Healthy360\Delivery\Http\Controllers;
 
 use Carbon\CarbonImmutable;
 use Closure;
+use Healthy360\Audit\Enums\PurposeOfUse;
+use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Delivery\Models\DeliveryJob;
 use Healthy360\Support\Api\ApiResponse;
+use Healthy360\Support\Enums\DataClassification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -84,6 +87,14 @@ use Illuminate\Support\Facades\DB;
  * order — `OrderDeskQueue::contactsForOrders()` records why — and a guest or an
  * anonymised account answers `null`.
  *
+ * ## Which allergens are on the order, and nothing more
+ *
+ * `allergy_allergen_codes` is the codes from the order's own snapshot, so a
+ * driver handing a bag to somebody can say what to watch for. The notes and the
+ * severities stay with the kitchen: they are health detail, and a run sheet has
+ * no decision that turns on them. Even the codes are `SpecialCategory`, so the
+ * read is recorded, daily because this sheet polls.
+ *
  * ## What is still deliberately absent
  *
  * `driver_user_id`. It would say the same thing on every row — the caller's own
@@ -129,6 +140,7 @@ final class DriverJobIndexController
         'orders.delivery_window_code as delivery_window_code',
         'orders.requested_delivery_date as requested_delivery_date',
         'orders.ready_at as order_ready_at',
+        'orders.allergy_snapshot as allergy_snapshot',
         'ca.display_name as customer_name',
     ];
 
@@ -156,6 +168,8 @@ final class DriverJobIndexController
             limit 1
         )) as delivery_phone
         SQL;
+
+    public function __construct(private readonly AuditRecorder $audit) {}
 
     public function __invoke(): JsonResponse
     {
@@ -222,6 +236,7 @@ final class DriverJobIndexController
      *     assigned_at: string|null,
      *     picked_up_at: string|null,
      *     ready_at: string|null,
+     *     allergy_allergen_codes: list<string>,
      *     delivery: array{
      *         line_one: string|null,
      *         building: string|null,
@@ -250,6 +265,7 @@ final class DriverJobIndexController
             // When the kitchen marked the food ready; the driver's Picked up
             // waits for it (HA-28).
             'ready_at' => $this->instant($job, 'order_ready_at'),
+            'allergy_allergen_codes' => $this->allergenCodes($job),
             'delivery' => [
                 'line_one' => $this->text($job, 'delivery_line_one'),
                 // The half of the snapshot a courier navigates by: the street
@@ -270,6 +286,34 @@ final class DriverJobIndexController
                 'phone' => $this->text($job, 'delivery_phone'),
             ],
         ];
+    }
+
+    /**
+     * The allergen codes on the order's snapshot, and the recorded read of them.
+     *
+     * The joined column is the raw JSON: there is no cast on this model for it.
+     *
+     * @return list<string>
+     */
+    private function allergenCodes(DeliveryJob $job): array
+    {
+        /** @var list<array{allergen_code: string}> $allergies */
+        $allergies = json_decode($this->text($job, 'allergy_snapshot') ?? '[]', true, flags: JSON_THROW_ON_ERROR);
+
+        if ($allergies === []) {
+            return [];
+        }
+
+        $this->audit->recordAccessDaily(
+            'order.allergy_read',
+            PurposeOfUse::OrderFulfilment,
+            DataClassification::SpecialCategory,
+            (string) auth()->id(),
+            'order',
+            $job->order_id,
+        );
+
+        return array_column($allergies, 'allergen_code');
     }
 
     /**

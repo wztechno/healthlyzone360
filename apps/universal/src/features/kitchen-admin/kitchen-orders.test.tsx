@@ -105,6 +105,7 @@ function kitchenOrder(overrides: Partial<KitchenOrder> = {}): KitchenOrder {
         lockVersion: 1,
         customerAccountId: null,
         amendable: false,
+        allergy: null,
         lineCount: lines.length,
         lines,
         ...overrides,
@@ -626,6 +627,33 @@ describe('kitchen orders', () => {
             order.id === orderIdAt(3) ? { ...order, ...patch } : order,
         );
     }
+
+    it('opens the record on the allergy banner, naming the conflicting dish', async () => {
+        const conflicted = withConfirmed({
+            allergy: {
+                severe: false,
+                items: [
+                    {
+                        allergenCode: 'sesame',
+                        severity: 'intolerance',
+                        notes: null,
+                        conflictsWithLine: [String(line(1).id)],
+                    },
+                ],
+                note: 'Asked twice about sesame',
+                acknowledgedAt: '2026-08-16T06:35:00.000Z',
+            },
+            lines: [line(1)],
+        });
+        await openOrder(createOrderBook(conflicted), orderIdAt(3));
+
+        const banner = screen.getByTestId('kitchen-orders-detail-allergy');
+        expect(banner).toHaveTextContent(/Allergy on this order/);
+        expect(banner).toHaveTextContent(/Sesame \(intolerance\)/);
+        expect(banner).toHaveTextContent(/conflicts with/);
+        expect(banner).toHaveTextContent(/Note: Asked twice about sesame/);
+        expect(banner).toHaveTextContent(/Customer told about the conflict/);
+    });
 
     it('offers Edit order on an amendable order and opens the desk sale page on it', async () => {
         mockPush.mockClear();

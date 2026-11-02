@@ -97,6 +97,13 @@ export interface SaleState {
     readonly deliveryWindowCode: string | null;
     /** Delivery only: who takes the run. `null` leaves it for a driver to claim. */
     readonly driverUserId: string | null;
+    /** Any allergy the customer mentioned. Every kind of sale may carry one. */
+    readonly allergyNote: string;
+    /**
+     * The agent told the customer about the quote's allergen conflicts. The screen clears it when
+     * the food or the customer changes: it was said about that basket.
+     */
+    readonly allergyAcknowledged: boolean;
 }
 
 /**
@@ -158,6 +165,8 @@ export function initialSaleState(): SaleState {
         requestedDeliveryDate: null,
         deliveryWindowCode: null,
         driverUserId: null,
+        allergyNote: '',
+        allergyAcknowledged: false,
     };
 }
 
@@ -186,6 +195,8 @@ export function saleStateFromOrder(order: KitchenOrder): SaleState {
         requestedDeliveryDate: order.delivery.requestedDate,
         deliveryWindowCode: order.delivery.windowCode,
         driverUserId: null,
+        allergyNote: order.allergy?.note ?? '',
+        allergyAcknowledged: false,
     };
 }
 
@@ -379,7 +390,7 @@ export function isCounterPaymentComplete(payment: CounterPaymentDraft | null): b
 }
 
 /** The first thing this sale still needs, in the order the page asks for it. */
-export type SaleShortfall = 'customer' | 'address' | 'items' | 'reference';
+export type SaleShortfall = 'customer' | 'address' | 'items' | 'reference' | 'allergy';
 
 /**
  * What stands between this sale and the place button — `null` when nothing does.
@@ -389,7 +400,8 @@ export type SaleShortfall = 'customer' | 'address' | 'items' | 'reference';
  * depend on a request, and its rules would stop being testable without one.
  *
  * Top to bottom, the way the page reads: the customer and the address sit above the menu, the items
- * are the menu, and the reference is the last thing on the ticket.
+ * are the menu, and the reference is the last thing on the ticket. `allergy` is never answered here:
+ * it comes from the quote, so the screen adds it once this has nothing to say.
  */
 export function saleShortfall(state: SaleState, addressOnFile = false): SaleShortfall | null {
     if (needsCustomer(state.fulfilmentType) && state.customerAccountId === null) return 'customer';

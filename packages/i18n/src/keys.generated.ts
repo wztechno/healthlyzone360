@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9218 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9238 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3070,6 +3070,18 @@ export interface NamespaceKeys {
     | 'allergens.upgradeOnlyContainment'
     | 'allergens.upgradeOnlyVerification'
     | 'allergens.verificationLabel'
+    | 'allergy.acknowledged'
+    | 'allergy.badge'
+    | 'allergy.badgeSevere'
+    | 'allergy.conflictsWith'
+    | 'allergy.item'
+    | 'allergy.note'
+    | 'allergy.severity.allergy'
+    | 'allergy.severity.anaphylaxis'
+    | 'allergy.severity.avoidance'
+    | 'allergy.severity.intolerance'
+    | 'allergy.title'
+    | 'allergy.titleSevere'
     | 'analytics.charts.channelVolume'
     | 'analytics.charts.channels.aLaCarte'
     | 'analytics.charts.channels.b2b'
@@ -3563,6 +3575,7 @@ export interface NamespaceKeys {
     | 'desk.refusal.address_not_applicable'
     | 'desk.refusal.address_not_deliverable'
     | 'desk.refusal.address_required'
+    | 'desk.refusal.allergen_conflict'
     | 'desk.refusal.area_not_served'
     | 'desk.refusal.below_zone_minimum'
     | 'desk.refusal.branch_closed'
@@ -3592,6 +3605,11 @@ export interface NamespaceKeys {
     | 'desk.sale.addressTitle'
     | 'desk.sale.addressUndeliverableBody'
     | 'desk.sale.addressUndeliverableTitle'
+    | 'desk.sale.allergyAcknowledge'
+    | 'desk.sale.allergyConflictMeal'
+    | 'desk.sale.allergyConflictTitle'
+    | 'desk.sale.allergyNoteHint'
+    | 'desk.sale.allergyNoteLabel'
     | 'desk.sale.areaLabel'
     | 'desk.sale.areaPlaceholder'
     | 'desk.sale.areaPlaceholderNone'
@@ -3678,6 +3696,7 @@ export interface NamespaceKeys {
     | 'desk.sale.section.sauces'
     | 'desk.sale.sectionsLabel'
     | 'desk.sale.shortfall.address'
+    | 'desk.sale.shortfall.allergy'
     | 'desk.sale.shortfall.customer'
     | 'desk.sale.shortfall.reference'
     | 'desk.sale.slotHours'
@@ -3723,6 +3742,7 @@ export interface NamespaceKeys {
     | 'dressings.kindSaladDressing'
     | 'dressings.title'
     | 'dressings.viewKind'
+    | 'driver.allergyTitle'
     | 'driver.assignedAt'
     | 'driver.availableHint'
     | 'driver.availableTitle'
@@ -12306,6 +12326,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:allergens.upgradeOnlyContainment',
   'kitchen:allergens.upgradeOnlyVerification',
   'kitchen:allergens.verificationLabel',
+  'kitchen:allergy.acknowledged',
+  'kitchen:allergy.badge',
+  'kitchen:allergy.badgeSevere',
+  'kitchen:allergy.conflictsWith',
+  'kitchen:allergy.item',
+  'kitchen:allergy.note',
+  'kitchen:allergy.severity.allergy',
+  'kitchen:allergy.severity.anaphylaxis',
+  'kitchen:allergy.severity.avoidance',
+  'kitchen:allergy.severity.intolerance',
+  'kitchen:allergy.title',
+  'kitchen:allergy.titleSevere',
   'kitchen:analytics.charts.channelVolume',
   'kitchen:analytics.charts.channels.aLaCarte',
   'kitchen:analytics.charts.channels.b2b',
@@ -12799,6 +12831,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.refusal.address_not_applicable',
   'kitchen:desk.refusal.address_not_deliverable',
   'kitchen:desk.refusal.address_required',
+  'kitchen:desk.refusal.allergen_conflict',
   'kitchen:desk.refusal.area_not_served',
   'kitchen:desk.refusal.below_zone_minimum',
   'kitchen:desk.refusal.branch_closed',
@@ -12828,6 +12861,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.addressTitle',
   'kitchen:desk.sale.addressUndeliverableBody',
   'kitchen:desk.sale.addressUndeliverableTitle',
+  'kitchen:desk.sale.allergyAcknowledge',
+  'kitchen:desk.sale.allergyConflictMeal',
+  'kitchen:desk.sale.allergyConflictTitle',
+  'kitchen:desk.sale.allergyNoteHint',
+  'kitchen:desk.sale.allergyNoteLabel',
   'kitchen:desk.sale.areaLabel',
   'kitchen:desk.sale.areaPlaceholder',
   'kitchen:desk.sale.areaPlaceholderNone',
@@ -12914,6 +12952,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.section.sauces',
   'kitchen:desk.sale.sectionsLabel',
   'kitchen:desk.sale.shortfall.address',
+  'kitchen:desk.sale.shortfall.allergy',
   'kitchen:desk.sale.shortfall.customer',
   'kitchen:desk.sale.shortfall.reference',
   'kitchen:desk.sale.slotHours',
@@ -12959,6 +12998,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:dressings.kindSaladDressing',
   'kitchen:dressings.title',
   'kitchen:dressings.viewKind',
+  'kitchen:driver.allergyTitle',
   'kitchen:driver.assignedAt',
   'kitchen:driver.availableHint',
   'kitchen:driver.availableTitle',

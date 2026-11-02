@@ -597,6 +597,8 @@ export type {
     CancelKitchenOrderRequest,
     KitchenOrder,
     KitchenOrderCancellationReason,
+    KitchenOrderAllergy,
+    KitchenOrderAllergyItem,
     KitchenOrderDelivery,
     KitchenOrderDeliveryRun,
     KitchenOrderFilters,

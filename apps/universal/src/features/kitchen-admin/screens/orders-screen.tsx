@@ -13,6 +13,7 @@ import {
 import {
     Badge,
     Button,
+    Callout,
     Cascade,
     Dialog,
     EmptyState,
@@ -81,6 +82,7 @@ import {
     kitchenOrderRowTestId,
     kitchenOrderStatusKey,
     kitchenOrderStatusTone,
+    allergyBanner,
 } from '../ops-format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import {
@@ -848,7 +850,13 @@ function OrderRecord({
             key: 'items',
             title: t('kitchen:ops.orders.linesHeading'),
             content: (
-                <View testID="kitchen-orders-detail-lines">
+                <View testID="kitchen-orders-detail-lines" className="flex-col gap-snug">
+                    {shown.allergy === null ? null : (
+                        <Callout
+                            {...allergyBanner(shown.allergy, shown.lines, locale, t)}
+                            testID="kitchen-orders-detail-allergy"
+                        />
+                    )}
                     <OrderLinesTable order={shown} testID="kitchen-orders-detail-lines-table" />
                 </View>
             ),

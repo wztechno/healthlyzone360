@@ -2,6 +2,7 @@ import type { DriverJob, DriverJobDelivery } from '@healthy360/api-client/contra
 import {
     Badge,
     Button,
+    Callout,
     Card,
     Dialog,
     EmptyState,
@@ -50,6 +51,10 @@ import { useOnlineStatus } from '../../online/online-status.tsx';
  * still cannot be found. That is what somebody standing next to a van needs and it is the whole of what the wire
  * carries — no money (a driver collecting cash belongs to the receipts ledger, not to a run sheet)
  * and no `driverUserId` (it would say "you" on every row).
+ *
+ * **The allergens on the order are named and nothing more.** Whoever takes the bag at the door may
+ * need to hear it. The notes and the severity stay with the kitchen, and the wire does not carry
+ * them, so this banner is one tone for every order.
  *
  * **The heading falls back visibly.** `orderNumber` is nullable on the wire, so a job without one
  * shows the order identifier — which is what this screen showed on every row before the number
@@ -451,6 +456,20 @@ function JobCard({ job, locale, disabled, action, onAction }: JobCardProps) {
                 <Heading level={2} testID={`${testID}-order`}>
                     {job.orderNumber ?? String(job.orderId)}
                 </Heading>
+
+                {job.allergyAllergenCodes.length === 0 ? null : (
+                    <Callout
+                        testID={`${testID}-allergy`}
+                        tone="warning"
+                        icon="warning"
+                        title={t('kitchen:driver.allergyTitle')}
+                        body={job.allergyAllergenCodes
+                            .map((code) =>
+                                t(`marketplace:allergens.${code}`, { defaultValue: code }),
+                            )
+                            .join(t('kitchen:common.listSeparator'))}
+                    />
+                )}
 
                 <Inline space="xs" wrap testID={`${testID}-statuses`}>
                     <Badge

@@ -151,6 +151,8 @@ export interface DriverJob {
     readonly orderNumber: string | null;
     readonly status: DriverJobStatus;
     readonly trackingStatus: DriverJobTrackingStatus;
+    /** The allergens on this order, for the handover. Names only, never notes or severity. */
+    readonly allergyAllergenCodes: readonly string[];
     /** When this run was handed to the caller. `null` on a job nobody has assigned. */
     readonly assignedAt: IsoDateTime | null;
     /** When the caller said they had collected the food. `null` until they press Picked up. */

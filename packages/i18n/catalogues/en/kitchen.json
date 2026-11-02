@@ -1834,7 +1834,8 @@
         "pickUp": "Picked up",
         "pickedUpAt": "Picked up at {{at}}",
         "deliveredToast": "Delivered. Order {{reference}} is closed.",
-        "waitingForKitchen": "Waiting for the kitchen"
+        "waitingForKitchen": "Waiting for the kitchen",
+        "allergyTitle": "Allergy on this order"
     },
     "desk": {
         "title": "Order desk",
@@ -2080,10 +2081,16 @@
             "shortfall": {
                 "customer": "Choose the customer to place this order.",
                 "address": "Save the delivery address to place this order.",
-                "reference": "Write down the transfer reference to take a Whish payment."
+                "reference": "Write down the transfer reference to take a Whish payment.",
+                "allergy": "Tell the customer about the allergy conflict, then tick the box."
             },
             "zoneNoSlots": "The delivery zone for this address offers none of the kitchen’s slots. Tick one on the zone’s Delivery windows step.",
-            "heldStock": "On quality hold: {{names}}"
+            "heldStock": "On quality hold: {{names}}",
+            "allergyNoteLabel": "Allergy note",
+            "allergyNoteHint": "Anything the customer said about allergies. The kitchen will see it.",
+            "allergyConflictTitle": "This food conflicts with the customer’s allergies",
+            "allergyConflictMeal": "{{meal}} ({{allergens}})",
+            "allergyAcknowledge": "I told the customer about this"
         },
         "refusal": {
             "customer_required": "This kind of sale needs a customer. Go back and choose or add one.",
@@ -2109,7 +2116,8 @@
             "window_ended": "That slot has already ended today. Choose a later slot or another day.",
             "lead_time_not_met": "That slot is too soon for the kitchen to prepare this order.",
             "below_zone_minimum": "This order is below the delivery zone’s minimum.",
-            "item_unavailable_on_date": "That article is off or sold out on that day. Choose another day or remove it."
+            "item_unavailable_on_date": "That article is off or sold out on that day. Choose another day or remove it.",
+            "allergen_conflict": "This food conflicts with the customer’s allergies. Tick that you told them, then try again."
         },
         "columnPhone": "Telephone",
         "columnAgeing": "Ageing",
@@ -4780,5 +4788,21 @@
         "managerHint": "Must be less than the owner alert.",
         "ownerLabel": "Alert owner after",
         "ownerHint": "How long an order waits before the owner is told."
+    },
+    "allergy": {
+        "title": "Allergy on this order",
+        "titleSevere": "Severe allergy on this order",
+        "badge": "Allergy",
+        "badgeSevere": "Severe allergy",
+        "item": "{{allergen}} ({{severity}})",
+        "conflictsWith": "conflicts with {{lines}}",
+        "note": "Note: {{note}}",
+        "acknowledged": "Customer told about the conflict.",
+        "severity": {
+            "avoidance": "avoids it",
+            "intolerance": "intolerance",
+            "allergy": "allergy",
+            "anaphylaxis": "life-threatening"
+        }
     }
 }

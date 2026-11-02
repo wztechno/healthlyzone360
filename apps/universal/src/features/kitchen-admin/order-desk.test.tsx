@@ -114,6 +114,7 @@ function deskRow(overrides: Partial<OrderDeskQueueRow> = {}): OrderDeskQueueRow 
         lockVersion: 1,
         customerAccountId: null,
         amendable: false,
+        allergy: null,
         lineCount: 0,
         lines: [],
         dueAt: minutesFromNow(90),
@@ -359,6 +360,35 @@ describe('order desk queue — the four-state ladder', () => {
         expect(screen.getByTestId(rowTestId(1, 'total'))).toHaveTextContent('AED 160.00');
         // Pages are cut from the loaded queue, eighteen rows each; three rows need no pager at all.
         expect(screen.queryByTestId('kitchen-order-desk-pagination')).toBeNull();
+    });
+});
+
+describe('order desk queue — allergies on the row', () => {
+    it('flags a severe allergy in words, and leaves other rows alone', async () => {
+        await renderDesk(async () =>
+            queue([
+                deskRow({
+                    id: orderIdAt(1),
+                    allergy: { severe: true, items: [], note: null, acknowledgedAt: null },
+                }),
+                deskRow({
+                    id: orderIdAt(2),
+                    allergy: { severe: false, items: [], note: 'Coeliac', acknowledgedAt: null },
+                }),
+                deskRow({ id: orderIdAt(3) }),
+            ]),
+        );
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(rowTestId(1, 'allergy'))).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        expect(screen.getByTestId(rowTestId(1, 'allergy'))).toHaveTextContent('Severe allergy');
+        expect(screen.getByTestId(rowTestId(2, 'allergy'))).toHaveTextContent('Allergy');
+        expect(screen.queryByTestId(rowTestId(3, 'allergy'))).toBeNull();
     });
 });
 

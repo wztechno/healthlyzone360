@@ -15,6 +15,7 @@ import {
     Badge,
     Button,
     Callout,
+    Checkbox,
     DatePickerButton,
     EmptyState,
     ErrorState,
@@ -62,7 +63,7 @@ import { ChoiceTiles } from '../choice-tiles.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
-import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
+import { allergenLabel, kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import type { BasketLine } from '../order-desk/basket.ts';
 import {
     MAX_LINE_QUANTITY,
@@ -142,6 +143,13 @@ import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
  * shared number, an area nobody delivers to — are strips at the head of those cards
  * (`order-desk/sale-customer.tsx`). A refused sale or edit stays on the ticket, beside the button
  * that was pressed, with the edit's own reasons and its conflict.
+ *
+ * ## Allergies at the desk
+ *
+ * Any sale can take a note. A named customer's allergen conflicts come back on the quote, beside the
+ * refusals rather than among them: the sale can go ahead, once the agent ticks that the customer was
+ * told. The tick is about the basket it was given for, so changing the food or the customer clears
+ * it, and an edit asks again because the server re-checks every edit.
  *
  * ## What the design draws that this does not
  *
@@ -250,6 +258,7 @@ const SHORTFALL_KEYS: Readonly<Record<Exclude<SaleShortfall, 'items'>, string>> 
     customer: 'kitchen:desk.sale.shortfall.customer',
     address: 'kitchen:desk.sale.shortfall.address',
     reference: 'kitchen:desk.sale.shortfall.reference',
+    allergy: 'kitchen:desk.sale.shortfall.allergy',
 };
 
 /** One button on the menu. */
@@ -373,7 +382,9 @@ function Sale() {
     );
 
     function update(next: SaleState) {
-        setState(next);
+        const basketMoved =
+            next.lines !== state.lines || next.customerAccountId !== state.customerAccountId;
+        setState(basketMoved ? { ...next, allergyAcknowledged: false } : next);
         setSold(null);
         place.reset();
         amend.reset();
@@ -488,6 +499,10 @@ function Sale() {
                 ...(state.paymentMethod === was.paymentMethod
                     ? {}
                     : { paymentMethod: state.paymentMethod }),
+                ...(state.allergyNote.trim() === was.allergyNote
+                    ? {}
+                    : { allergyNote: state.allergyNote.trim() }),
+                ...(state.allergyAcknowledged ? { acknowledgeAllergenConflicts: true } : {}),
             },
             {
                 onSuccess: (order) => {
@@ -535,6 +550,10 @@ function Sale() {
                               : { deliveryWindowCode: schedule.deliveryWindowCode }),
                       }),
                 ...(state.driverUserId === null ? {} : { driverUserId: state.driverUserId }),
+                ...(state.allergyNote.trim() === ''
+                    ? {}
+                    : { allergyNote: state.allergyNote.trim() }),
+                ...(state.allergyAcknowledged ? { acknowledgeAllergenConflicts: true } : {}),
                 ...(counter && state.payment !== null
                     ? {
                           payment: {
@@ -1465,7 +1484,10 @@ function Ticket({
     const lines = state.lines;
     const counter = state.fulfilmentType === 'counter';
     const itemCount = lines.reduce((sum, line) => sum + (quantityAsNumber(line.quantity) ?? 0), 0);
-    const shortfall = saleShortfall(state, editing !== null);
+    // Beside the refusals, not among them: a conflict is told to the customer, then sold.
+    const allergenConflicts = quote?.allergenConflicts ?? [];
+    const untold = allergenConflicts.length > 0 && !state.allergyAcknowledged;
+    const shortfall = saleShortfall(state, editing !== null) ?? (untold ? 'allergy' : null);
     const refusalReasons =
         placeFailure?.code === 'order.placement_refused' ? placeFailure.reasons : [];
     // An edit sent against a version somebody else has since moved.
@@ -1737,6 +1759,63 @@ function Ticket({
                             autoCapitalize="characters"
                             autoCorrect={false}
                         />
+                    ) : null}
+
+                    {paying ? (
+                        <TextInputField
+                            testID="kitchen-order-desk-sale-allergy-note"
+                            id="kitchen-order-desk-sale-allergy-note"
+                            label={t('kitchen:desk.sale.allergyNoteLabel')}
+                            hint={t('kitchen:desk.sale.allergyNoteHint')}
+                            size="sm"
+                            maxLength={500}
+                            value={state.allergyNote}
+                            onChangeText={(allergyNote) => {
+                                onState({ ...state, allergyNote });
+                            }}
+                            autoCapitalize="sentences"
+                        />
+                    ) : null}
+
+                    {paying && allergenConflicts.length > 0 ? (
+                        <View className="flex-col gap-tight">
+                            <Callout
+                                testID="kitchen-order-desk-sale-allergy-conflict"
+                                tone="danger"
+                                icon="warning"
+                                role="alert"
+                                title={t('kitchen:desk.sale.allergyConflictTitle')}
+                                body={allergenConflicts
+                                    .map((conflict) => {
+                                        const line = lines.find(
+                                            (candidate) =>
+                                                candidate.catalogueItemId ===
+                                                String(conflict.mealId),
+                                        );
+                                        const meal =
+                                            line === undefined
+                                                ? EM_DASH
+                                                : displayName(line.name, locale).value;
+                                        return conflict.allergenCodes.length === 0
+                                            ? meal
+                                            : t('kitchen:desk.sale.allergyConflictMeal', {
+                                                  meal,
+                                                  allergens: conflict.allergenCodes
+                                                      .map((code) => allergenLabel(code, t))
+                                                      .join(t('kitchen:common.listSeparator')),
+                                              });
+                                    })
+                                    .join('\n')}
+                            />
+                            <Checkbox
+                                testID="kitchen-order-desk-sale-allergy-ack"
+                                label={t('kitchen:desk.sale.allergyAcknowledge')}
+                                checked={state.allergyAcknowledged}
+                                onChange={(allergyAcknowledged) => {
+                                    onState({ ...state, allergyAcknowledged });
+                                }}
+                            />
+                        </View>
                     ) : null}
 
                     {placeFailure === null ? null : conflicted ? (

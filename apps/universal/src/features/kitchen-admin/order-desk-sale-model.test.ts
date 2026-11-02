@@ -605,6 +605,7 @@ describe('desk sale — an existing order as the sale it is', () => {
         lockVersion: 3,
         customerAccountId: 'account-1',
         amendable: true,
+        allergy: { severe: false, items: [], note: 'Coeliac', acknowledgedAt: null },
         lineCount: 1,
         lines: [
             {
@@ -648,6 +649,9 @@ describe('desk sale — an existing order as the sale it is', () => {
             requestedDeliveryDate: '2026-08-16',
             deliveryWindowCode: 'morning',
             driverUserId: null,
+            // The stored note, to be read and changed. The tick is about a basket, so it never seeds.
+            allergyNote: 'Coeliac',
+            allergyAcknowledged: false,
         });
     });
 

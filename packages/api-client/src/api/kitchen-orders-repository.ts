@@ -158,6 +158,20 @@ export function mapKitchenOrder(wire: WireKitchenOrder): KitchenOrder {
         lockVersion: wire.lock_version,
         customerAccountId: wire.customer_account_id,
         amendable: wire.amendable,
+        allergy:
+            wire.allergy === null || wire.allergy === undefined
+                ? null
+                : {
+                      severe: wire.allergy.severe,
+                      items: wire.allergy.items.map((item) => ({
+                          allergenCode: item.allergen_code,
+                          severity: item.severity,
+                          notes: item.notes,
+                          conflictsWithLine: item.conflicts_with_line,
+                      })),
+                      note: wire.allergy.note,
+                      acknowledgedAt: wire.allergy.acknowledged_at,
+                  },
         lineCount: wire.line_count,
         lines: wire.lines.map(mapLine),
         planDay:
