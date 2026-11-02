@@ -168,6 +168,14 @@ function GuardedAreaShell({
     // would otherwise come out at the customer app's 44px. Every staff area takes the 28px pair —
     // the KDS and the driver area included, by the user's choice on 2026-10-25.
     const barDensity = WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant) ? 'compact' : 'comfortable';
+    // On a phone the staff bar's two labelled buttons pushed it 33px past the window, so below `md`
+    // they are their glyphs, named for a screen reader and on hover.
+    const iconsOnly = WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant) && !atLeast('md');
+    const toWorkspace = () => {
+        guardNavigation(() => {
+            router.push('/workspace' as never);
+        });
+    };
 
     const signOut = () => {
         logout.mutate(undefined, {
@@ -208,7 +216,14 @@ function GuardedAreaShell({
                  * them to the top of a row whose toggles are taller.
                  */}
                 <DensityProvider value={barDensity}>
-                    {showWorkspacesButton ? (
+                    {!showWorkspacesButton ? null : iconsOnly ? (
+                        <IconButton
+                            testID="workspaces-button"
+                            label={t('marketplace:nav.workspaces')}
+                            icon={<Icon name="chevronBackward" />}
+                            onPress={toWorkspace}
+                        />
+                    ) : (
                         <Button
                             testID="workspaces-button"
                             size="sm"
@@ -216,13 +231,9 @@ function GuardedAreaShell({
                             label={t('marketplace:nav.workspaces')}
                             iconStart={<Icon name="chevronBackward" size="sm" />}
                             className="self-center"
-                            onPress={() => {
-                                guardNavigation(() => {
-                                    router.push('/workspace' as never);
-                                });
-                            }}
+                            onPress={toWorkspace}
                         />
-                    ) : null}
+                    )}
                     {/*
                      * Sign out is filled green — a deliberate departure from Rule 4, which would
                      * keep it quiet and leave the top-bar primary empty. The areas with a core-loop
@@ -232,7 +243,15 @@ function GuardedAreaShell({
                      * When the area pins Sign out to its sidebar, this control moves there — but only
                      * while the sidebar is on screen.
                      */}
-                    {sidebarPresent ? null : (
+                    {sidebarPresent ? null : iconsOnly ? (
+                        <IconButton
+                            testID="sign-out"
+                            label={t('common:action.signOut')}
+                            disabled={logout.isPending}
+                            icon={<Icon name="signOut" />}
+                            onPress={signOut}
+                        />
+                    ) : (
                         <Button
                             testID="sign-out"
                             size="sm"
