@@ -361,7 +361,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                     setViewing(null);
                 }}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:ops.quotations.columnReference')}
+                searchPlaceholder={t('kitchen:ops.quotations.searchPlaceholder')}
                 tokens={
                     filter === 'all'
                         ? []

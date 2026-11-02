@@ -988,12 +988,13 @@ function RecipeEditor({
         packagingDirty,
     ]);
 
-    /** A leave the reader chose to make without saving — Cancel's discard: nothing is kept. */
-    const leaveWithoutKeeping = (go: () => void) =>
-        guard.intercept(() => {
-            recipeDrafts.clear(detourKey);
-            go();
-        });
+    /**
+     * Cancel, and the way back to where the reader came from: a leave without saving, which asks
+     * like any other. The draft is not cleared here — this runs after "Keep for later" too, and
+     * clearing it then left a kept card that opened an empty form. "Discard" clears it through
+     * `keptRef`, and a form with nothing unsaved holds no draft.
+     */
+    const leaveWithoutKeeping = (go: () => void) => guard.intercept(go);
 
     /**
      * The packaging draft as the contract states it.

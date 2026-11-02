@@ -11,6 +11,7 @@ import {
 } from './screens/consumption-exceptions-screen.tsx';
 import { endProcess, readActiveProcess, startProcess } from '../../navigation/active-process.ts';
 import { withReturnTo } from '../../navigation/return-to.ts';
+import { todayIso } from '../commerce/dates.ts';
 
 /** An ingredient id, as a gap reads it out of its detail line. */
 const LENTILS_ID = '0f9a6c1e-2b3d-4e5f-8a9b-0c1d2e3f4a5b';
@@ -640,6 +641,45 @@ describe('consumption exceptions at desk width', () => {
             );
             expect(screen.getByTestId('kitchen-exceptions-filter-from-trigger')).toBeTruthy();
             expect(screen.getByTestId('kitchen-exceptions-filter-to-trigger')).toBeTruthy();
+            // A window that is no shortcut reads back as Custom.
+            expect(
+                screen.getByTestId('kitchen-exceptions-filter-period-trigger'),
+            ).toHaveTextContent(/Custom/);
+        });
+
+        it('fills both days from a Period shortcut, and All clears them', async () => {
+            const harness = await renderStubScreen(<ConsumptionExceptionsScreen />, {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenOps: {
+                        listConsumptionExceptions: async () => pageOf([exception()]),
+                    },
+                },
+            });
+            const list = harness.repositories.kitchenOps.listConsumptionExceptions;
+            const today = todayIso();
+
+            await untilVisible('kitchen-consumption-exceptions-table');
+            // No window is the default view: All.
+            expect(
+                screen.getByTestId('kitchen-exceptions-filter-period-trigger'),
+            ).toHaveTextContent(/All/);
+
+            fireEvent.press(screen.getByTestId('kitchen-exceptions-filter-period-trigger'));
+            fireEvent.press(await screen.findByTestId('kitchen-exceptions-filter-period-today'));
+            await waitFor(() => {
+                expect(list).toHaveBeenLastCalledWith(
+                    expect.objectContaining({ from: today, to: today }),
+                );
+            });
+
+            // The menu stays open after a pick, so All is pressed from the same menu.
+            fireEvent.press(await screen.findByTestId('kitchen-exceptions-filter-period-all'));
+            await waitFor(() => {
+                const last = jest.mocked(list).mock.calls.at(-1)?.[0];
+                expect(last).not.toHaveProperty('from');
+                expect(last).not.toHaveProperty('to');
+            });
         });
 
         it('starts from the view the URL holds and writes every change back to it', async () => {

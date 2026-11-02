@@ -414,6 +414,7 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                     setViewing(null);
                 }}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
+                searchPlaceholder={t('kitchen:priceLists.searchPlaceholder')}
                 tokens={statusLensTokens(lens, t)}
                 result={
                     total === null
@@ -611,12 +612,10 @@ function lensFigures(
     return [
         ...statusLensFigures(lens, t, {
             allLabel: t('kitchen:lens.allPriceLists'),
-            review: true,
-            reviewAction: t('kitchen:lens.reviewAction'),
         }),
         {
             key: 'nothingPriced',
-            label: t('kitchen:priceLists.statNothingPriced'),
+            label: t('kitchen:list.statUnpriced'),
             value: counted(nothingPriced),
             tone: 'warning',
             separated: true,

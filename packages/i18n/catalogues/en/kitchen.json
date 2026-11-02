@@ -82,7 +82,7 @@
         "customers": {
             "caption": "This kitchen's customers",
             "searchLabel": "Search customers",
-            "searchHint": "Name, or full phone number with country code",
+            "searchHint": "Search by name, or full phone number with country code",
             "segmentLabel": "Customer type",
             "segmentAll": "All",
             "typeB2c": "Consumer",
@@ -163,7 +163,7 @@
             "statusFilterLabel": "Status",
             "filterAll": "All",
             "searchLabel": "Order number",
-            "searchHint": "Part of an order number, for example 0148.",
+            "searchHint": "Search by order number, e.g. 0148",
             "columnNumber": "Order",
             "columnStatus": "Status",
             "columnPlaced": "Placed",
@@ -346,7 +346,8 @@
             "contact": "Reply to",
             "order": "Order placed",
             "declineReason": "Why the buyer declined",
-            "buyer": "Buyer"
+            "buyer": "Buyer",
+            "searchPlaceholder": "Search quotations by reference"
         },
         "stock": {
             "metrics": {
@@ -393,7 +394,7 @@
             "kindProducts": "Resale",
             "levelLabel": "Level",
             "levelOut": "Out",
-            "searchPlaceholder": "Item name or reference",
+            "searchPlaceholder": "Search by item name or reference",
             "columnReorderPar": "Reorder / Restock",
             "reorderPar": "{{threshold}} / {{par}}",
             "filteredEmptyBody": "Try a shorter search, or another level.",
@@ -635,7 +636,7 @@
                 "nativeUnavailableBody": "Open this order in a web browser to print it or save it as a PDF. The orders below are complete — you can read them from here."
             },
             "searchLabel": "Search orders",
-            "searchPlaceholder": "Order number or supplier",
+            "searchPlaceholder": "Search by order number or supplier",
             "ordersFilteredEmptyTitle": "No order matches",
             "ordersFilteredEmptyBody": "Try a shorter search, or another status.",
             "ordersFoot": "Issuing freezes the items, the quantities and the supplier’s details. Nothing is sent anywhere.",
@@ -662,7 +663,7 @@
             "caption": "Suppliers",
             "create": "New supplier",
             "searchLabel": "Search suppliers",
-            "searchHint": "Matches the name in either language, and the code.",
+            "searchHint": "Search suppliers by name or code",
             "columnName": "Supplier",
             "columnContact": "Main contact",
             "columnTerms": "Terms",
@@ -820,7 +821,7 @@
             "unpricedReceipts": "Prices to finish",
             "fieldInvoiceRef": "Invoice number",
             "fieldReceivedOn": "Date received",
-            "searchPlaceholder": "Supplier or document reference",
+            "searchPlaceholder": "Search by supplier or document reference",
             "columnRefs": "References",
             "filteredEmptyBody": "Try a shorter search, or choose another price state.",
             "listFoot": "Stock rises the moment a receipt is posted; prices can be added afterwards.",
@@ -1058,7 +1059,7 @@
             "chargeTax": "Tax",
             "chargeDelivery": "Delivery",
             "chargeOther": "Other charges",
-            "searchPlaceholder": "Item or supplier on this page",
+            "searchPlaceholder": "Search this page by item or supplier",
             "columnQuantity": "Quantity",
             "columnState": "Price",
             "stateUnpriced": "No price yet",
@@ -1249,7 +1250,7 @@
             "columnVersion": "Recipe version",
             "columnBranch": "Branch",
             "thisBranch": "This branch",
-            "searchPlaceholder": "Batch, lot or recipe",
+            "searchPlaceholder": "Search by batch, lot or recipe",
             "filteredEmptyTitle": "No batches match",
             "filteredEmptyBody": "Clear the search or the status to see every batch.",
             "viewKind": "Production batch",
@@ -1350,7 +1351,7 @@
                 "productionOrder": "Production order"
             },
             "columnKind": "Kind",
-            "searchPlaceholder": "Subject id or reference",
+            "searchPlaceholder": "Search by subject ID or reference",
             "filteredEmptyTitle": "No checks match",
             "filteredEmptyBody": "Clear the search or the status to see every check.",
             "viewKind": "Quality check",
@@ -1427,7 +1428,6 @@
             "filterFrom": "From month",
             "filterTo": "To month",
             "currencyLabel": "Currency",
-            "dataQualityTitle": "This month's COGS may be understated",
             "dataQualityBody_one": "One month has unresolved consumption exceptions, so its cost of goods sold is understated.",
             "dataQualityBody_other": "{{count}} months have unresolved consumption exceptions, so their cost of goods sold is understated.",
             "flagged": "Understated",
@@ -1456,12 +1456,10 @@
             "columnMargin": "Margin",
             "columnMarginPercent": "Margin %",
             "spendIncomplete": "Spend incomplete",
-            "spendIncompleteTitle": "Some purchases are still waiting on their prices",
             "spendIncompleteBody_one": "One receipt line in {{months}} has no usable price yet, so that month's purchasing spend is understated. The purchases ledger's weekly and monthly view lists them.",
             "spendIncompleteBody_other": "{{count}} receipt lines in {{months}} have no usable price yet, so those months' purchasing spend is understated. The purchases ledger's weekly and monthly view lists them.",
             "chip": "Costs",
             "monthInvalid": "Use a month as YYYY-MM.",
-            "openExceptions": "Open stock gaps",
             "chartRevenueCogs": "Revenue and COGS by month",
             "chartRevenueMixTitle": "Revenue by line of business",
             "window": {
@@ -1507,7 +1505,7 @@
                 "product": "Fix the product",
                 "production": "See production plan"
             },
-            "searchPlaceholder": "Order, item, ingredient or reason",
+            "searchPlaceholder": "Search by order, item, ingredient or reason",
             "filteredEmptyTitle": "No stock gaps match",
             "filteredEmptyBody": "Change the search or the filters.",
             "nextPage": "Next page",
@@ -1641,8 +1639,8 @@
             "kpiReceiptsCaption": "Confirmed on this day",
             "kpiRowsCaption": "Agent, method and currency",
             "kpiCurrenciesCaption": "Totals are never mixed",
-            "subtitle": "What each agent took on one day, and how it arrived.",
-            "caption": "The day's takings by agent and method",
+            "subtitle": "What each agent took, day by day, and how it arrived.",
+            "caption": "Takings by day, agent and method",
             "measuredOn": "The day of {{date}}, cut on the {{timezone}} clock.",
             "scopeTitle": "This says who took what, not whether the drawer balances",
             "scopeBody": "Nobody has told this system what was in the till at the start or the end of a shift, so nothing here can be checked against a count. It is the record of what each person wrote down as they took it.",
@@ -1650,8 +1648,8 @@
             "dateInvalidTitle": "That is not a day yet",
             "dateInvalidBody": "Finish the date as YYYY-MM-DD and the takings will load.",
             "loadErrorTitle": "The takings could not be loaded",
-            "emptyTitle": "Nothing was taken that day",
-            "emptyBody": "No payment was written down against any order on this day. That is an answer rather than a gap.",
+            "emptyTitle": "Nothing was taken in this period",
+            "emptyBody": "No payment was written down against any order on these days. That is an answer rather than a gap.",
             "columnAgent": "Taken by",
             "columnMethod": "Type",
             "columnCount": "Receipts",
@@ -1664,7 +1662,12 @@
             "summaryRows_one": "{{count}} line",
             "summaryRows_other": "{{count}} lines",
             "summaryCurrencies_one": "{{count}} currency",
-            "summaryCurrencies_other": "{{count}} currencies"
+            "summaryCurrencies_other": "{{count}} currencies",
+            "fromLabel": "From",
+            "toLabel": "To",
+            "columnDay": "Day",
+            "windowTooLongTitle_one": "Pick at most {{count}} day",
+            "windowTooLongTitle_other": "Pick at most {{count}} days"
         },
         "batch": {
             "recipeLabel": "Recipe",
@@ -1827,7 +1830,7 @@
         "caption": "Open orders, soonest due first",
         "measuredOn": "Measured against {{date}}, on the {{timezone}} clock.",
         "searchLabel": "Order number",
-        "searchPlaceholder": "For example 0148",
+        "searchPlaceholder": "Search by order number, e.g. 0148",
         "searchHint": "Order numbers only. A customer's name or telephone number is not searchable here.",
         "windowLabel": "Which orders",
         "window": {
@@ -1872,7 +1875,7 @@
             "title": "Who takes this run?",
             "description": "Order {{number}}. Only the person you choose is told about it.",
             "searchLabel": "Find a driver",
-            "searchPlaceholder": "Part of a name",
+            "searchPlaceholder": "Search by name",
             "searchHint": "Everybody with an active membership here is listed. Somebody who has not put a name on their profile can only be found with this box empty.",
             "choose": "Choose",
             "chosen": "Chosen",
@@ -1965,7 +1968,7 @@
                 "delivery": "We take it to them. We need the customer and somewhere to send it, and they pay at the door."
             },
             "customerSearchLabel": "Find the customer",
-            "customerSearchPlaceholder": "A name, or a telephone number",
+            "customerSearchPlaceholder": "Search by name or phone number",
             "customerSearchTooShort": "Keep going — {{count}} characters or more to search.",
             "customerSearchErrorTitle": "The search could not be run",
             "customerNoneTitle": "Nobody matches that",
@@ -2005,7 +2008,7 @@
             "addressUndeliverableTitle": "Nobody delivers to that area yet",
             "addressUndeliverableBody": "The address is saved, but no zone covers it at the moment, so this order cannot be sent there. Tell the customer, and offer collection instead.",
             "pickerSearchLabel": "Search the menu",
-            "pickerSearchPlaceholder": "For example coffee",
+            "pickerSearchPlaceholder": "Search the menu, e.g. coffee",
             "pickerErrorTitle": "The menu could not be loaded",
             "pickerEmptyTitle": "Nothing published matches",
             "pickerEmptyBody": "Only published meals and products can be sold. Try a different search, or publish the article first.",
@@ -2327,20 +2330,14 @@
     "analytics": {
         "title": "Kitchen analytics",
         "subtitle": "Live views for kitchen staff — filter by date and segment and every chart, KPI, and row updates together.",
-        "sampleBadge": "Sample data",
         "theme": {
             "dark": "Dark mode",
             "light": "Light mode"
         },
         "filters": {
-            "dateRange": "Date range",
+            "from": "From",
+            "to": "To",
             "segment": "Segment"
-        },
-        "ranges": {
-            "7d": "7 days",
-            "30d": "30 days",
-            "90d": "90 days",
-            "ytd": "Year to date"
         },
         "segments": {
             "all": "All",
@@ -2446,7 +2443,9 @@
         "columnWhy": "Why it is here",
         "columnUpdated": "Last changed",
         "searchLabel": "Search the queue",
-        "searchPlaceholder": "Item",
+        "searchPlaceholder": "Search by item name",
+        "filterFrom": "Changed from",
+        "filterTo": "Changed until",
         "scopeLabel": "Show",
         "scopeAll": "All",
         "scopeBlocked": "Blocked",
@@ -2523,7 +2522,7 @@
         "filtersActive": "Filters ({{n}})",
         "removeFilter": "Remove filter: {{filter}}",
         "searchLabel": "Search",
-        "searchPlaceholder": "Name, alias or reference",
+        "searchPlaceholder": "Search by name, alias or reference",
         "statusLabel": "Status",
         "categoryLabel": "Category",
         "categoryAll": "Every category",
@@ -2603,7 +2602,7 @@
         "statShownAction": "Clear the search, the status and every column filter",
         "statRecords": "records",
         "statDraftAction": "Show only draft records",
-        "statUncosted": "Uncosted",
+        "statUnpriced": "Unpriced",
         "statUncostedCaption": "no unit price on file",
         "view": "View",
         "viewKind": "Ingredient",
@@ -3616,7 +3615,6 @@
         "publishedToast": "{{name}} is published.",
         "viewKind": "Price list",
         "viewPending": "Not yet a price",
-        "statNothingPriced": "Nothing priced",
         "statNothingPricedCaption": "no confirmed entry",
         "statAgreementCaption": "negotiated rates inside",
         "removeColumn": "Remove",
@@ -3740,7 +3738,8 @@
         "channelsSave": "Save channels",
         "channelsSavedToast": "Channels saved.",
         "channelsLoadError": "The list’s channels could not be read.",
-        "channelInactive": "Inactive"
+        "channelInactive": "Inactive",
+        "searchPlaceholder": "Search price lists by name or code"
     },
     "plans": {
         "title": "Plans",
@@ -3903,7 +3902,8 @@
         "createChip": "Subscriptions",
         "savePlan": "Save the plan",
         "addVariant": "Add a configuration",
-        "oneOffExplainer": "A one-off is a single delivery, so it has no day count at all — not zero, none."
+        "oneOffExplainer": "A one-off is a single delivery, so it has no day count at all — not zero, none.",
+        "searchPlaceholder": "Search plans by name"
     },
     "time": {
         "formatHint": "24-hour clock, HH:mm — for example 08:00 or 18:30.",
@@ -4006,14 +4006,15 @@
         "viewKind": "Delivery zone",
         "viewFee": "Delivery fee",
         "viewMinimum": "Minimum order",
-        "viewWeekdays": "Days covered"
+        "viewWeekdays": "Days covered",
+        "searchPlaceholder": "Search zones by name or code"
     },
     "areas": {
         "selectedLabel": "Chosen areas",
         "selectedNone": "None yet. This zone reaches nowhere until an area is chosen.",
         "searchLabel": "Find an area",
         "searchHint": "Matches either language and the governorate an area sits in.",
-        "searchPlaceholder": "Area or governorate",
+        "searchPlaceholder": "Search by area or governorate",
         "matchCount_one": "{{count}} of {{total}} areas match",
         "matchCount_other": "{{count}} of {{total}} areas match",
         "groupLabel": "Delivery areas, grouped by governorate",
@@ -4189,11 +4190,7 @@
         "columnPackPrice": "Pack price",
         "columnCapacity": "Holds",
         "columnWaste": "Waste",
-        "statUnpriced": "Unpriced",
         "statUnpricedCaption": "no pack price on file",
-        "statInactive": "Inactive",
-        "statInactiveCaption": "not in use",
-        "statInactiveAction": "Show only inactive packaging",
         "statMissingArabicCaption": "no Arabic name yet",
         "archiveTitle": "Archive this packaging item?",
         "archiveBody": "It stops being offered on new recipes. Nothing is deleted: a recipe that already names it keeps naming it, and its technical sheet keeps costing it.",
@@ -4665,7 +4662,6 @@
         "allAllergenClasses": "All classes",
         "activeAction": "Show only active records",
         "archivedAction": "Show only archived records",
-        "packagingMix": "{{active}} active, {{inactive}} inactive, {{review}} awaiting review",
         "zoneMix": "{{published}} published, {{draft}} draft, {{archived}} archived",
         "allergenMix": "{{active}} active, {{withdrawn}} withdrawn",
         "allStock": "All items",
@@ -4706,7 +4702,19 @@
         "allProducts": "All products",
         "reviewAction": "Show only records awaiting review",
         "requirementsMix": "{{short}} short, {{covered}} covered",
-        "deskMix": "{{placed}} placed, {{confirmed}} confirmed"
+        "deskMix": "{{placed}} placed, {{confirmed}} confirmed",
+        "periodLabel": "Period",
+        "period": {
+            "all": "All",
+            "today": "Today",
+            "yesterday": "Yesterday",
+            "week": "This week",
+            "month": "This month",
+            "lastMonth": "Last month",
+            "quarter": "Last 3 months",
+            "year": "This year",
+            "custom": "Custom"
+        }
     },
     "tray": {
         "noChannel": "No sales channel",

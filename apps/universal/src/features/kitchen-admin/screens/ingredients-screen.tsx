@@ -450,7 +450,6 @@ function lensFigures(list: IngredientListState, t: TFunction): readonly LensFigu
     return [
         ...statusLensFigures(list, t, {
             allLabel: t('kitchen:lens.allIngredients'),
-            review: false,
         }),
         {
             key: 'missingArabic',
@@ -462,7 +461,7 @@ function lensFigures(list: IngredientListState, t: TFunction): readonly LensFigu
         },
         {
             key: 'uncosted',
-            label: t('kitchen:list.statUncosted'),
+            label: t('kitchen:list.statUnpriced'),
             value: counted(list.uncostedCount),
             tone: 'warning',
         },

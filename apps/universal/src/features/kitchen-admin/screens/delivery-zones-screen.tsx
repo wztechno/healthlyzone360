@@ -487,6 +487,7 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                     setViewing(null);
                 }}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
+                searchPlaceholder={t('kitchen:zones.searchPlaceholder')}
                 tokens={statusLensTokens(lens, t)}
                 result={
                     total === null
@@ -679,7 +680,7 @@ function lensFigures(
 ): readonly LensFigure[] {
     const counted = (count: number) => (gaps.pending ? null : count);
     return [
-        ...statusLensFigures(lens, t, { allLabel: t('kitchen:lens.allZones'), review: false }),
+        ...statusLensFigures(lens, t, { allLabel: t('kitchen:lens.allZones') }),
         {
             key: 'retired',
             label: t(statusKey('retired')),

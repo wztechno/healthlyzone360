@@ -604,6 +604,8 @@ export interface WeeklyStockCheck {
  * reconciliation is still a later table.
  */
 export interface OrderDeskCashReportRow {
+    /** `YYYY-MM-DD` — the UTC day the receipts were confirmed on. Part of the row's identity. */
+    readonly day: string;
     readonly confirmedBy: string;
     /**
      * **Null for an agent whose profile was never completed.** They still took the money, so they
@@ -635,8 +637,10 @@ export interface OrderDeskCashReportTotal {
 
 /** What the report was measured against, echoed because the client chose only half of it. */
 export interface OrderDeskCashReportMeta {
-    /** `YYYY-MM-DD` — the day reported. */
-    readonly date: string;
+    /** `YYYY-MM-DD` — the first day reported. */
+    readonly from: string;
+    /** `YYYY-MM-DD` — the last day reported, inclusive. */
+    readonly to: string;
     /** The site it was narrowed to, or `null` for the whole organisation. */
     readonly branchId: string | null;
     /**
@@ -650,7 +654,7 @@ export interface OrderDeskCashReportMeta {
     readonly count: number;
 }
 
-/** One day's takings, by agent and by method. */
+/** A window's takings, day by day, by agent and by method. */
 export interface OrderDeskCashReport {
     readonly rows: readonly OrderDeskCashReportRow[];
     readonly totals: readonly OrderDeskCashReportTotal[];
@@ -658,8 +662,12 @@ export interface OrderDeskCashReport {
 }
 
 export interface OrderDeskCashReportFilters {
-    /** `YYYY-MM-DD`. **Required** — one day, not a range: reconciling a till is a daily act. */
-    readonly date: string;
+    /**
+     * `YYYY-MM-DD`, both inclusive, at most 31 days apart. Each day stays on its own rows, so a
+     * week is still read one till-day at a time.
+     */
+    readonly from: string;
+    readonly to: string;
     /**
      * Narrow to the site that cooked it, through the **order** — a receipt has no branch of its own.
      *
@@ -1115,7 +1123,7 @@ export interface OrderDeskRepository {
     listDeliveryAreas(): Promise<readonly ServiceArea[]>;
 
     /**
-     * One day's takings, by agent, method and currency — **the till-shift mitigation**.
+     * A window's takings, day by day, by agent, method and currency — **the till-shift mitigation**.
      *
      * The desk takes cash and this platform has no shift table: nothing opens a drawer with a float
      * or closes it against a count, so nothing here can say whether the box balances. What it can

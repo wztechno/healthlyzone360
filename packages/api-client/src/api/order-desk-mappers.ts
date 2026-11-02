@@ -365,6 +365,7 @@ export function mapOrderDeskDriver(wire: WireOrderDeskDriver): OrderDeskDriver {
  */
 export function mapOrderDeskCashReportRow(wire: WireCashReportRow): OrderDeskCashReportRow {
     return {
+        day: wire.day,
         confirmedBy: wire.confirmed_by,
         displayName: wire.display_name,
         method: wire.method,
@@ -403,7 +404,8 @@ export function mapOrderDeskCashReportMeta(
     wire: OrderDeskCashReportEnvelope['meta'],
 ): OrderDeskCashReportMeta {
     return {
-        date: wire.date,
+        from: wire.from,
+        to: wire.to,
         branchId: wire.branch_id,
         timezone: wire.timezone,
         count: wire.count,

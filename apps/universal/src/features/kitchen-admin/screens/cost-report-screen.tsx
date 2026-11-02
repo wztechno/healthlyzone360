@@ -5,24 +5,21 @@ import {
     DatePickerButton,
     EmptyState,
     ErrorState,
-    IssueTrayFrame,
-    RecordSkeleton,
+    TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { IssueTrayContent } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { Gate } from '../../../access/gate.tsx';
-import { addDays, todayIso } from '../../commerce/dates.ts';
+import { todayIso } from '../../commerce/dates.ts';
 import { toFailure } from '../../../data/hooks.ts';
 import { useCostReportQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { PairedBars } from '../analytics/paired-bars.tsx';
 import { RatioBars } from '../analytics/ratio-bars.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import {
@@ -33,15 +30,16 @@ import {
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { WithColumnPicker } from '../catalogue/column-picker.tsx';
-import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
+import { PeriodScope, periodWindows } from '../catalogue/period-scope.tsx';
 /**
  * `/kitchen/cost-report` — the monthly cost report (INV1.4), as `Workbench.dc.html` draws it (§3.4).
  *
  * ```
- * Monthly cost report  [ COSTS ]
- * From month [ 2026-03 ▦ ]  To month [ 2026-08 ▦ ]  Currency [ USD ▾ ]
- * ┌ SPEND ┐ ┌ COGS ┐ ┌ REVENUE ┐ ┌ MARGIN ┐
+ * Spend · 2026-08 4 210.00 USD  COGS · 2026-08 …  Revenue · 2026-08 …  ● Margin · 2026-08 …
+ * [Period This month ▾] [2026-08-01 ▦] to [2026-08-29 ▦]                6 of 6   ▦ Columns
  * REVENUE AND COGS BY MONTH            REVENUE BY LINE OF BUSINESS  2026-08
  * MONTHLY COST REPORT
  * MONTH              SPEND       COGS      REVENUE     MARGIN   MARGIN %
@@ -49,26 +47,26 @@ import { ToolbarPanel } from '../catalogue/toolbar-panel.tsx';
  *
  * Real repository figures, behind `inventory.view_costs_organisation`: the report *is* the valuation.
  *
- * ## Two cards, because two different figures can be short
+ * ## No issue tray
  *
- * `dataQuality` (warning) when a month in range has unresolved consumption exceptions — COGS is
- * understated, and the card links to the exceptions queue because that is where the fix is.
- * `spendIncomplete` (info) when a receipt line has no usable price — spend is understated. Merging
- * them would leave a manager unable to tell which number to distrust. The `Understated` badge on a
- * month row is the warning's row-level echo, and both are derived from the same rows.
- *
- * Both are cards in the page's issue tray, under Check, rather than strips over the figures: the
- * title, and for the spend the months it is short in — the only fact the card carries that the
- * table does not. The why is not spelled out on screen.
+ * The tray's two cards — COGS understated, spend incomplete — were taken off on 2026-11-02, the
+ * user's call. A month with unresolved consumption exceptions still carries its `Understated` badge
+ * in the table, and its record says why.
  *
  * ## One currency at a time
  *
  * Currency is a filter, never a mix: there is no exchange rate, so there is no grand total across
  * currencies and no component on this screen with a slot that could add one.
  *
- * ## No summary strip
+ * ## The Lens bar is the summary
  *
- * The four cost tiles are the summary (§3z). Margin is the one tile in brand ink.
+ * The latest month's four figures sit on the Lens bar, as every list page's do — no cards. Margin
+ * is the one with a brand dot. The figure's meaning is behind its (i).
+ *
+ * ## The window is in months
+ *
+ * The Period shortcut offers months (This month, Last month, Last 3 months, This year) and the two
+ * day pickers stand for the months they fall in — the query sends `YYYY-MM`. It opens on This month.
  *
  * ## The range and the open month are in the address
  *
@@ -100,9 +98,11 @@ function CostReport() {
     const formatter = useFormatter();
     const router = useRouter();
     const params = useLocalSearchParams<{ from?: string; to?: string; month?: string }>();
-    // Today to a week out by default, as the order desk's pickers open.
-    const fromDate = isIsoDay(params.from) ? params.from : todayIso();
-    const toDate = isIsoDay(params.to) ? params.to : (addDays(todayIso(), 7) ?? todayIso());
+    // This month by default — the Period shortcut's first.
+    const [today] = useState(() => todayIso());
+    const thisMonth = periodWindows(today).month;
+    const fromDate = isIsoDay(params.from) ? params.from : thisMonth.from;
+    const toDate = isIsoDay(params.to) ? params.to : thisMonth.to;
     const from = fromDate.slice(0, 7);
     const to = toDate.slice(0, 7);
     // Cleared with an empty value, which parses as no month — the recipe list's `?kind=` precedent.
@@ -132,20 +132,6 @@ function CostReport() {
     const latest = currencyRows[0] ?? null;
     // The month in the address, once the report has it — a range moved past it opens nothing.
     const viewing = currencyRows.find((row) => row.month === params.month) ?? null;
-    const flaggedCount = currencyRows.filter((row) => row.hasDataQualityFlag).length;
-    // Counted once per month, not per row: the lines are a month fact repeated across currencies.
-    const incompleteSpend = useMemo(() => {
-        const byMonth = new Map<string, number>();
-        for (const row of currencyRows) {
-            if (row.isSpendComplete) continue;
-            byMonth.set(row.month, row.unpricedLineCount + row.valuationPendingLineCount);
-        }
-        const months = [...byMonth.keys()].sort((left, right) => right.localeCompare(left));
-        return {
-            months,
-            lineCount: [...byMonth.values()].reduce((sum, count) => sum + count, 0),
-        };
-    }, [currencyRows]);
     /** A major-unit decimal, two places, without the code — the code is the column's or tile's unit. */
     const amount = (value: string | null): string =>
         value === null
@@ -403,217 +389,164 @@ function CostReport() {
         );
     }
 
-    /*
-     * The window sits under the figures it produced — the same order as the order desk's pages —
-     * and at the top only while there are no figures to sit under, so it is never out of reach.
-     */
     const showsReport =
         !report.isPending && failure === null && currencyRows.length > 0 && latest !== null;
-    const filterBar = (
-        <ToolbarPanel testID="kitchen-cost-report-filters">
-            {/* The order desk's date picker. The report is monthly, so a picked day stands for
-                        its month — the query sends `YYYY-MM`. */}
-            <DatePickerButton
-                testID="kitchen-cost-report-filter-from"
-                label={t('kitchen:ops.costReport.filterFrom')}
-                value={fromDate}
-                max={toDate === '' ? undefined : toDate}
-                onChange={(next) => {
-                    router.setParams({ from: next, month: '' });
-                }}
-            />
-            <Text variant="caption" tone="secondary" aria-hidden>
-                {t('kitchen:ops.requirements.windowTo')}
-            </Text>
-            <DatePickerButton
-                testID="kitchen-cost-report-filter-to"
-                label={t('kitchen:ops.costReport.filterTo')}
-                value={toDate}
-                min={fromDate === '' ? undefined : fromDate}
-                onChange={(next) => {
-                    router.setParams({ to: next, month: '' });
-                }}
-            />
-        </ToolbarPanel>
+    /** A figure of the latest month: a placeholder in flight, a dash with nothing to show. */
+    const figure = (value: string | null): Pick<LensFigure, 'value' | 'display'> =>
+        report.isPending
+            ? { value: null }
+            : !showsReport || value === null
+              ? { value: 0, display: t('kitchen:list.noValue') }
+              : { value: Number(value), display: withCode(value) };
+    const month = latest?.month ?? '';
+    const lensBar = (
+        <LensBar
+            testID="kitchen-cost-report-toolbar"
+            label={t('kitchen:lens.label')}
+            figures={(
+                [
+                    ['spend', 'Spend', latest?.spendAmount ?? null],
+                    ['cogs', 'Cogs', latest?.cogsAmount ?? null],
+                    ['revenue', 'Revenue', latest?.revenueAmount ?? null],
+                    ['margin', 'Margin', latest?.grossMarginAmount ?? null],
+                ] as const
+            ).map(([key, name, value]): LensFigure => ({
+                key,
+                // "Margin · 2026-08" once there is a month to name, the bare name before.
+                label:
+                    month === ''
+                        ? t(`kitchen:ops.costReport.column${name}`)
+                        : t(`kitchen:ops.costReport.tile${name}`, { month }),
+                ...figure(value),
+                info: t(`kitchen:ops.costReport.hint${name}`),
+                ...(key === 'margin' ? { tone: 'brand' as const, separated: true } : {}),
+            }))}
+            /*
+             * The Period shortcut in months, then the window it stands for. A picked day stands
+             * for its month; picking either closes the month that was open.
+             */
+            scope={
+                <>
+                    <PeriodScope
+                        testID="kitchen-cost-report-filter-period"
+                        today={today}
+                        unit="month"
+                        value={{ from: fromDate, to: toDate }}
+                        onChange={(next) => {
+                            router.setParams({ from: next.from, to: next.to, month: '' });
+                        }}
+                    />
+                    <View className="z-auto flex-row items-center gap-tight">
+                        <DatePickerButton
+                            testID="kitchen-cost-report-filter-from"
+                            label={t('kitchen:ops.costReport.filterFrom')}
+                            value={fromDate}
+                            max={toDate}
+                            onChange={(next) => {
+                                router.setParams({ from: next, month: '' });
+                            }}
+                        />
+                        <Text variant="caption" tone="secondary" aria-hidden>
+                            {t('kitchen:ops.requirements.windowTo')}
+                        </Text>
+                        <DatePickerButton
+                            testID="kitchen-cost-report-filter-to"
+                            label={t('kitchen:ops.costReport.filterTo')}
+                            value={toDate}
+                            min={fromDate}
+                            onChange={(next) => {
+                                router.setParams({ to: next, month: '' });
+                            }}
+                        />
+                    </View>
+                </>
+            }
+            result={
+                report.isPending
+                    ? null
+                    : t('kitchen:lens.result', {
+                          shown: controls.rows.length,
+                          total: currencyRows.length,
+                      })
+            }
+            clearLabel={t('kitchen:lens.clear')}
+            {...(controls.filtered ? { onClear: controls.clearFilters } : {})}
+            // Always the labelled button, "Columns 6 of 6", as on the other lists.
+            trailing={showsReport ? <ColumnPicker {...controls.picker} /> : undefined}
+        />
     );
 
-    /*
-     * The two shortfalls, as cards in the page's issue tray under Check — see the file header. The
-     * COGS one carries the way to the stock gaps; the spend one names its months and is an `info`
-     * card, never counted, so the two still read as two different figures to distrust.
-     */
-    const trayContent: IssueTrayContent = {
-        title: t('kitchen:tray.title'),
-        testID: 'kitchen-cost-report-tray',
-        // A list page has no "done" to show: the tray appears only while it has something.
-        hideWhenClear: true,
-        groups: [
-            {
-                key: 'check',
-                title: t('kitchen:tray.groupCheck'),
-                testID: 'kitchen-cost-report-notices',
-                items: [
-                    ...(flaggedCount === 0
-                        ? []
-                        : [
-                              {
-                                  key: 'data-quality',
-                                  tone: 'warning' as const,
-                                  label: t('kitchen:ops.costReport.dataQualityTitle', {
-                                      count: flaggedCount,
-                                  }),
-                                  action: {
-                                      label: t('kitchen:ops.costReport.openExceptions'),
-                                      onPress: () => {
-                                          router.push('/kitchen/consumption-exceptions' as never);
-                                      },
-                                      testID: 'kitchen-cost-report-open-exceptions',
-                                  },
-                                  testID: 'kitchen-cost-report-data-quality',
-                              },
-                          ]),
-                    ...(incompleteSpend.months.length === 0
-                        ? []
-                        : [
-                              {
-                                  key: 'spend-quality',
-                                  tone: 'info' as const,
-                                  label: t('kitchen:ops.costReport.spendIncompleteTitle'),
-                                  detail: incompleteSpend.months.join(', '),
-                                  testID: 'kitchen-cost-report-spend-quality',
-                              },
-                          ]),
-                ],
-            },
-        ],
-    };
-
     return (
-        <IssueTrayFrame tray={trayContent}>
-            <Cascade space="md" testID="kitchen-cost-report-screen">
-                {showsReport ? null : filterBar}
-                {report.isPending ? (
-                    <RecordSkeleton
-                        testID="kitchen-cost-report-loading"
-                        heading={false}
-                        tiles={4}
-                        rows={6}
-                    />
-                ) : failure !== null ? (
-                    <ErrorState
-                        testID="kitchen-cost-report-error"
-                        failure={failure}
-                        onRetry={() => {
-                            void report.refetch();
-                        }}
-                        retrying={report.isFetching}
-                    />
-                ) : currencyRows.length === 0 || latest === null ? (
-                    <EmptyState
-                        testID="kitchen-cost-report-empty"
-                        title={t('kitchen:ops.costReport.emptyTitle')}
-                        body={t('kitchen:ops.costReport.emptyBody')}
-                    />
-                ) : (
-                    /*
-                     * The report's own run of sections, as a cascade that continues the page's count:
-                     * when the months land they arrive in order in place of the skeleton, rather than
-                     * all at once.
-                     */
-                    <Cascade space="md">
-                        <CatalogueStatCards
-                            testID="kitchen-cost-report-tile"
-                            cards={(
-                                [
-                                    [
-                                        'spend',
-                                        'tileSpend',
-                                        latest.spendAmount,
-                                        'hintSpend',
-                                        'shoppingCart',
-                                    ],
-                                    [
-                                        'cogs',
-                                        'tileCogs',
-                                        latest.cogsAmount,
-                                        'hintCogs',
-                                        'cookingPot',
-                                    ],
-                                    [
-                                        'revenue',
-                                        'tileRevenue',
-                                        latest.revenueAmount,
-                                        'hintRevenue',
-                                        'trendingUp',
-                                    ],
-                                    [
-                                        'margin',
-                                        'tileMargin',
-                                        latest.grossMarginAmount,
-                                        'hintMargin',
-                                        'percent',
-                                    ],
-                                ] as const
-                            ).map(([key, labelKey, value, hintKey, mark]) => ({
-                                key,
-                                label: t(`kitchen:ops.costReport.${labelKey}`, {
-                                    month: latest.month,
-                                }),
-                                value: amount(value),
-                                ...(activeCurrency === null ? {} : { unit: activeCurrency }),
-                                caption: t(`kitchen:ops.costReport.${hintKey}`),
-                                mark,
-                                tone: key === 'margin' ? ('brand' as const) : ('default' as const),
-                            }))}
-                        />
-                        {filterBar}
-                        <View className="flex-row flex-wrap gap-4">
+        <Cascade space="md" testID="kitchen-cost-report-screen">
+            {lensBar}
+            {report.isPending ? (
+                <TableSkeleton testID="kitchen-cost-report-loading" rows={6} />
+            ) : failure !== null ? (
+                <ErrorState
+                    testID="kitchen-cost-report-error"
+                    failure={failure}
+                    onRetry={() => {
+                        void report.refetch();
+                    }}
+                    retrying={report.isFetching}
+                />
+            ) : currencyRows.length === 0 || latest === null ? (
+                <EmptyState
+                    testID="kitchen-cost-report-empty"
+                    title={t('kitchen:ops.costReport.emptyTitle')}
+                    body={t('kitchen:ops.costReport.emptyBody')}
+                />
+            ) : (
+                /*
+                 * The report's own run of sections, as a cascade that continues the page's count:
+                 * when the months land they arrive in order in place of the skeleton, rather than
+                 * all at once.
+                 */
+                <Cascade space="md">
+                    <View className="flex-row flex-wrap gap-4">
+                        <View className="min-w-[300px] flex-1 flex-col gap-snug">
+                            <WorkbenchSectionHeading
+                                title={t('kitchen:ops.costReport.chartRevenueCogs')}
+                            />
+                            <PairedBars
+                                testID="kitchen-cost-report-chart-revenue-cogs"
+                                aLabel={t('kitchen:ops.costReport.columnRevenue')}
+                                bLabel={t('kitchen:ops.costReport.columnCogs')}
+                                series={chronological.map((row) => ({
+                                    tick: row.month.slice(5),
+                                    a: Number(row.revenueAmount),
+                                    b: Number(row.cogsAmount),
+                                    aTitle: `${row.month} · ${t('kitchen:ops.costReport.columnRevenue')} ${withCode(row.revenueAmount)}`,
+                                    bTitle: `${row.month} · ${t('kitchen:ops.costReport.columnCogs')} ${withCode(row.cogsAmount)}`,
+                                }))}
+                            />
+                        </View>
+                        {mixRows.length === 0 ? null : (
                             <View className="min-w-[300px] flex-1 flex-col gap-snug">
                                 <WorkbenchSectionHeading
-                                    title={t('kitchen:ops.costReport.chartRevenueCogs')}
+                                    title={t('kitchen:ops.costReport.chartRevenueMixTitle')}
+                                    aside={latest.month}
                                 />
-                                <PairedBars
-                                    testID="kitchen-cost-report-chart-revenue-cogs"
-                                    aLabel={t('kitchen:ops.costReport.columnRevenue')}
-                                    bLabel={t('kitchen:ops.costReport.columnCogs')}
-                                    series={chronological.map((row) => ({
-                                        tick: row.month.slice(5),
-                                        a: Number(row.revenueAmount),
-                                        b: Number(row.cogsAmount),
-                                        aTitle: `${row.month} · ${t('kitchen:ops.costReport.columnRevenue')} ${withCode(row.revenueAmount)}`,
-                                        bTitle: `${row.month} · ${t('kitchen:ops.costReport.columnCogs')} ${withCode(row.cogsAmount)}`,
-                                    }))}
+                                <RatioBars
+                                    testID="kitchen-cost-report-chart-mix"
+                                    labelWidth={88}
+                                    valueWidth={84}
+                                    rows={mixRows}
                                 />
                             </View>
-                            {mixRows.length === 0 ? null : (
-                                <View className="min-w-[300px] flex-1 flex-col gap-snug">
-                                    <WorkbenchSectionHeading
-                                        title={t('kitchen:ops.costReport.chartRevenueMixTitle')}
-                                        aside={latest.month}
-                                    />
-                                    <RatioBars
-                                        testID="kitchen-cost-report-chart-mix"
-                                        labelWidth={88}
-                                        valueWidth={84}
-                                        rows={mixRows}
-                                    />
-                                </View>
-                            )}
-                        </View>
-                        <WithColumnPicker picker={controls.picker}>
-                            <CatalogueList<MonthlyCostReportRow>
-                                testID="kitchen-cost-report-table"
-                                label={t('kitchen:ops.costReport.caption')}
-                                columns={controls.columns}
-                                rows={controls.rows}
-                                rowKey={(row) => `${row.month}-${row.currencyCode}`}
-                                onRowPress={setViewing}
-                                rowActionsLabel={t('kitchen:list.rowActions')}
-                            />
-                        </WithColumnPicker>
-                    </Cascade>
-                )}
-            </Cascade>
-        </IssueTrayFrame>
+                        )}
+                    </View>
+                    <CatalogueList<MonthlyCostReportRow>
+                        testID="kitchen-cost-report-table"
+                        label={t('kitchen:ops.costReport.caption')}
+                        columns={controls.columns}
+                        rows={controls.rows}
+                        rowKey={(row) => `${row.month}-${row.currencyCode}`}
+                        onRowPress={setViewing}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                    />
+                </Cascade>
+            )}
+        </Cascade>
     );
 }

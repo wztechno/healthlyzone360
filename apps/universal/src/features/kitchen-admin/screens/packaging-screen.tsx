@@ -16,8 +16,8 @@ import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
-import { statusLensFigures, statusLensMix } from '../catalogue/lens-status.ts';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
+import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
@@ -202,12 +202,12 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                 testID="kitchen-packaging-toolbar"
                 label={t('kitchen:lens.label')}
                 figures={lensFigures(list, t)}
-                {...lensMix(list, t)}
+                {...statusLensMix(list, t)}
                 search={list.query}
                 onSearchChange={list.setQuery}
                 searchLabel={t('kitchen:toolbar.searchLabel')}
                 searchPlaceholder={t('kitchen:packaging.searchPlaceholder')}
-                tokens={statusTokens(list, t)}
+                tokens={statusLensTokens(list, t)}
                 result={
                     list.total === null
                         ? null
@@ -372,93 +372,31 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
 }
 
 /**
- * The status as this page says it: a box is Active or Inactive, not Published or Draft — the words
- * the packaging table used before it joined the ingredient one.
- */
-function packagingStatusLabel(status: PublishableStatus, t: TFunction): string {
-    if (status === 'published') return t('kitchen:status.operational.active');
-    if (status === 'draft') return t('kitchen:packaging.statInactive');
-    return t(packagingStatusKey(status));
-}
-
-/** The figure key `statusLensFigures` gives each status. */
-const FIGURE_STATUS: Readonly<Record<string, PublishableStatus>> = {
-    published: 'published',
-    draft: 'draft',
-    review: 'review_required',
-};
-
-/**
- * The Lens bar's figures: All · Active · Inactive · Review, then Unpriced — what this page exists to
- * chase, since a recipe's technical sheet withholds its total while any packaging line has no price
- * — and Missing Arabic. Those two count the rows the list shows, the status included.
+ * The Lens bar's figures, named and ordered as every catalogue page's: All · Published · Draft ·
+ * Awaiting review, then Missing Arabic and Unpriced — what this page exists to chase, since a
+ * recipe's technical sheet withholds its total while any packaging line has no price. Those two
+ * count the rows the list shows, the status included.
  */
 function lensFigures(list: PackagingListState, t: TFunction): readonly LensFigure[] {
     const counted = (count: number) => (list.countsPending ? null : count);
-    const statusFigures = statusLensFigures(list, t, {
-        allLabel: t('kitchen:lens.allPackaging'),
-        review: true,
-        reviewAction: t('kitchen:lens.reviewAction'),
-    }).map((figure) => {
-        const status = FIGURE_STATUS[figure.key];
-        if (status === undefined) return figure;
-        return {
-            ...figure,
-            label: packagingStatusLabel(status, t),
-            ...(status === 'published'
-                ? { accessibilityLabel: t('kitchen:lens.activeAction') }
-                : status === 'draft'
-                  ? { accessibilityLabel: t('kitchen:packaging.statInactiveAction') }
-                  : {}),
-        };
-    });
     return [
-        ...statusFigures,
-        {
-            key: 'unpriced',
-            label: t('kitchen:packaging.statUnpriced'),
-            value: counted(list.unpricedCount),
-            tone: 'warning',
-            separated: true,
-        },
+        // Published, Draft and Awaiting review, as every catalogue page names them.
+        ...statusLensFigures(list, t, { allLabel: t('kitchen:lens.allPackaging') }),
         {
             key: 'missingArabic',
             label: t('kitchen:list.statMissingArabic'),
             value: counted(list.missingArabicCount),
             tone: 'danger',
             alarm: true,
+            separated: true,
+        },
+        {
+            key: 'unpriced',
+            label: t('kitchen:list.statUnpriced'),
+            value: counted(list.unpricedCount),
+            tone: 'warning',
         },
     ];
-}
-
-/** The shared mix, said in this page's words. */
-function lensMix(list: PackagingListState, t: TFunction) {
-    return {
-        mix: statusLensMix(list, t).mix,
-        mixLabel: t('kitchen:lens.packagingMix', {
-            active: list.statusCounts.published,
-            inactive: list.statusCounts.draft,
-            review: list.statusCounts.review_required,
-        }),
-    };
-}
-
-/** The status in force as a token — "Status: Inactive ×". */
-function statusTokens(list: PackagingListState, t: TFunction): readonly LensToken[] {
-    return list.statuses.map((status) => {
-        const label = t('kitchen:lens.token', {
-            label: t('kitchen:toolbar.statusLabel'),
-            value: packagingStatusLabel(status, t),
-        });
-        return {
-            key: `status-${status}`,
-            label,
-            removeLabel: t('kitchen:toolbar.removeFilter', { filter: label }),
-            onRemove: () => {
-                list.setStatuses(list.statuses.filter((other) => other !== status));
-            },
-        };
-    });
 }
 
 /**

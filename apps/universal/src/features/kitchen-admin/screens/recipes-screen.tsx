@@ -934,25 +934,8 @@ function lensFigures(list: RecipeListState, t: TFunction): readonly LensFigure[]
     return [
         ...statusLensFigures(list, t, {
             allLabel: t('kitchen:lens.allRecipes'),
-            review: !packaged,
             reviewAction: t('kitchen:recipes.statReviewAction'),
         }),
-        ...(list.sells
-            ? [
-                  {
-                      key: 'onSale',
-                      label: t('kitchen:recipes.columnOnSale'),
-                      value: counted(list.onSaleCount),
-                      icon: 'eye' as const,
-                      separated: true,
-                      active: onSaleActive,
-                      onPress: () => {
-                          list.setSellingStatus(onSaleActive ? null : 'published');
-                      },
-                      accessibilityLabel: t('kitchen:recipes.statOnSaleAction'),
-                  },
-              ]
-            : []),
         ...(packaged
             ? [
                   {
@@ -960,7 +943,23 @@ function lensFigures(list: RecipeListState, t: TFunction): readonly LensFigure[]
                       label: t('kitchen:products.statNoPack'),
                       value: counted(list.noPackCount),
                       tone: 'warning' as const,
-                      separated: !list.sells,
+                      separated: true,
+                  },
+              ]
+            : []),
+        ...(list.sells
+            ? [
+                  {
+                      key: 'onSale',
+                      label: t('kitchen:recipes.columnOnSale'),
+                      value: counted(list.onSaleCount),
+                      icon: 'eye' as const,
+                      separated: !packaged,
+                      active: onSaleActive,
+                      onPress: () => {
+                          list.setSellingStatus(onSaleActive ? null : 'published');
+                      },
+                      accessibilityLabel: t('kitchen:recipes.statOnSaleAction'),
                   },
               ]
             : []),

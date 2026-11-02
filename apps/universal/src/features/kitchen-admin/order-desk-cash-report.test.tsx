@@ -8,7 +8,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
-import { todayIso } from '../commerce/dates.ts';
+import { addDays, isoWeekday, todayIso } from '../commerce/dates.ts';
 import { OrderDeskCashReportScreen } from './screens/order-desk-cash-report-screen.tsx';
 import { Dimensions } from 'react-native';
 
@@ -58,6 +58,7 @@ const NAMELESS = 'user-0000-0000-0003';
 
 function row(overrides: Partial<OrderDeskCashReportRow> = {}): OrderDeskCashReportRow {
     return {
+        day: '2026-05-10',
         confirmedBy: SARA,
         displayName: 'Sara Nasr',
         method: 'cash_on_delivery',
@@ -118,7 +119,13 @@ function report(rows: readonly OrderDeskCashReportRow[]): OrderDeskCashReport {
             },
             { method: 'wish', currencyCode: 'USD', receiptCount: 1, amountMinorSum: 250 },
         ],
-        meta: { date: '2026-05-10', branchId: null, timezone: 'UTC', count: rows.length },
+        meta: {
+            from: '2026-05-10',
+            to: '2026-05-10',
+            branchId: null,
+            timezone: 'UTC',
+            count: rows.length,
+        },
     };
 }
 
@@ -141,7 +148,7 @@ async function settled() {
 }
 
 function rowTestId(entry: OrderDeskCashReportRow, suffix: string): string {
-    return `kitchen-order-desk-cash-${entry.confirmedBy}-${entry.method}-${entry.currencyCode}-${suffix}`;
+    return `kitchen-order-desk-cash-${entry.day}-${entry.confirmedBy}-${entry.method}-${entry.currencyCode}-${suffix}`;
 }
 
 describe('order desk cash report — the ladder', () => {
@@ -183,7 +190,13 @@ describe('order desk cash report — the ladder', () => {
         await renderReport(async () => ({
             rows: [],
             totals: [],
-            meta: { date: '2026-05-10', branchId: null, timezone: 'UTC', count: 0 },
+            meta: {
+                from: '2026-05-10',
+                to: '2026-05-10',
+                branchId: null,
+                timezone: 'UTC',
+                count: 0,
+            },
         }));
 
         await waitFor(
@@ -197,24 +210,62 @@ describe('order desk cash report — the ladder', () => {
         expect(screen.queryByTestId('kitchen-order-desk-cash-report-totals')).toBeNull();
     });
 
-    it('asks for the day chosen from the calendar picker', async () => {
+    it('opens on today, and asks for the window chosen from the From picker', async () => {
         const { repositories } = await renderReport(async () => report(seedRows()));
+        const today = todayIso();
 
         await settled();
-        expect(repositories.orderDesk.getCashReport).toHaveBeenCalledTimes(1);
+        expect(repositories.orderDesk.getCashReport).toHaveBeenCalledWith({
+            from: today,
+            to: today,
+        });
+        expect(
+            screen.getByTestId('kitchen-order-desk-cash-report-period-trigger'),
+        ).toHaveTextContent(/Today/);
 
-        const firstOfMonth = `${todayIso().slice(0, 8)}01`;
-        fireEvent.press(screen.getByTestId('kitchen-order-desk-cash-report-date-trigger'));
+        const firstOfMonth = `${today.slice(0, 8)}01`;
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-cash-report-from-trigger'));
         fireEvent.press(
-            await screen.findByTestId(`kitchen-order-desk-cash-report-date-day-${firstOfMonth}`),
+            await screen.findByTestId(`kitchen-order-desk-cash-report-from-day-${firstOfMonth}`),
         );
 
         await waitFor(() => {
             expect(repositories.orderDesk.getCashReport).toHaveBeenCalledWith({
-                date: firstOfMonth,
+                from: firstOfMonth,
+                to: today,
             });
         });
-        expect(screen.queryByTestId('kitchen-order-desk-cash-report-date-panel')).toBeNull();
+        expect(screen.queryByTestId('kitchen-order-desk-cash-report-from-panel')).toBeNull();
+    });
+
+    it('writes both days when a period shortcut is picked', async () => {
+        const { repositories } = await renderReport(async () => report(seedRows()));
+        const today = todayIso();
+        await settled();
+
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-cash-report-period-trigger'));
+        fireEvent.press(
+            await screen.findByTestId('kitchen-order-desk-cash-report-period-yesterday'),
+        );
+        const yesterday = addDays(today, -1);
+        await waitFor(() => {
+            expect(repositories.orderDesk.getCashReport).toHaveBeenCalledWith({
+                from: yesterday,
+                to: yesterday,
+            });
+        });
+
+        // A scope menu stays open after a pick (its items are checkable), so the next pick is
+        // made from the same open menu.
+        fireEvent.press(await screen.findByTestId('kitchen-order-desk-cash-report-period-week'));
+        // Monday of this week through today.
+        const monday = addDays(today, 1 - (isoWeekday(today) ?? 1));
+        await waitFor(() => {
+            expect(repositories.orderDesk.getCashReport).toHaveBeenCalledWith({
+                from: monday,
+                to: today,
+            });
+        });
     });
 });
 
@@ -251,6 +302,17 @@ describe('order desk cash report — rows, totals and the em dash', () => {
             screen.getByTestId('kitchen-order-desk-cash-report-total-cash_at_counter-USD'),
         ).toBeTruthy();
         expect(screen.getByTestId('kitchen-order-desk-cash-report-total-wish-USD')).toBeTruthy();
+    });
+
+    it('keeps each day of a window on its own row, with its day printed', async () => {
+        const monday = row();
+        const tuesday = row({ day: '2026-05-11', receiptCount: 1, amountMinorSum: 700 });
+        await renderReport(async () => report([monday, tuesday]));
+        await settled();
+
+        expect(screen.getByTestId(rowTestId(monday, 'day'))).toHaveTextContent(/10/);
+        expect(screen.getByTestId(rowTestId(tuesday, 'day'))).toHaveTextContent(/11/);
+        expect(screen.getByTestId(rowTestId(tuesday, 'count'))).toHaveTextContent('1');
     });
 
     it('renders a nameless agent as an em dash that says in words what it stands for', async () => {

@@ -1,14 +1,14 @@
 /**
  * Deterministic sample analytics for the kitchen workspace dashboard.
  *
- * Seeded so the same date-range + segment always yields the same figures (stable demos/tests),
+ * Seeded so the same window length + segment always yields the same figures (stable demos/tests),
  * while still looking like live kitchen ops data. Labeled as sample on the screen — not API truth.
+ *
+ * The window is a number of days — the screen's From–To window, both ends counted — so the Period
+ * shortcuts and a custom window all draw from the one builder.
  */
 
 import { palette } from '@healthy360/design-tokens';
-
-export const ANALYTICS_DATE_RANGES = ['7d', '30d', '90d', 'ytd'] as const;
-export type AnalyticsDateRange = (typeof ANALYTICS_DATE_RANGES)[number];
 
 export const ANALYTICS_SEGMENTS = ['all', 'meals', 'recipes', 'delivery', 'stock'] as const;
 export type AnalyticsSegment = (typeof ANALYTICS_SEGMENTS)[number];
@@ -66,21 +66,14 @@ function mulberry32(seed: number): () => number {
     };
 }
 
-function hashSeed(range: AnalyticsDateRange, segment: AnalyticsSegment): number {
-    const text = `${range}:${segment}`;
+function hashSeed(days: number, segment: AnalyticsSegment): number {
+    const text = `${String(days)}:${segment}`;
     let hash = 2166136261;
     for (let i = 0; i < text.length; i += 1) {
         hash ^= text.charCodeAt(i);
         hash = Math.imul(hash, 16777619);
     }
     return hash >>> 0;
-}
-
-function dayCount(range: AnalyticsDateRange): number {
-    if (range === '7d') return 7;
-    if (range === '30d') return 30;
-    if (range === '90d') return 90;
-    return 120;
 }
 
 function segmentMultiplier(segment: AnalyticsSegment): number {
@@ -93,17 +86,21 @@ function segmentMultiplier(segment: AnalyticsSegment): number {
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
-function trendLabels(range: AnalyticsDateRange, rand: () => number): string[] {
-    const days = dayCount(range);
-    if (days <= 7) return [...WEEKDAYS];
-    if (days <= 30) {
-        return Array.from({ length: 10 }, (_, index) => `W${index + 1}`);
-    }
-    const buckets = days <= 90 ? 12 : 16;
-    return Array.from({ length: buckets }, (_, index) => {
-        void rand;
-        return `P${index + 1}`;
-    });
+/**
+ * How many bars a window of `days` draws: one a day up to ten days, then ten, twelve or sixteen
+ * runs of days as the window grows.
+ */
+export function trendBucketCount(days: number): number {
+    if (days <= 10) return Math.max(1, days);
+    if (days <= 31) return 10;
+    if (days <= 90) return 12;
+    return 16;
+}
+
+function trendLabels(days: number): string[] {
+    const count = trendBucketCount(days);
+    if (days <= 7) return Array.from({ length: count }, (_, index) => WEEKDAYS[index % 7]!);
+    return Array.from({ length: count }, (_, index) => `P${index + 1}`);
 }
 
 const MEAL_NAMES = [
@@ -161,12 +158,12 @@ function pickStatus(rand: () => number): AnalyticsTableRow['status'] {
  * Build a full analytics bundle for the selected filters.
  */
 export function buildKitchenAnalytics(
-    range: AnalyticsDateRange,
+    days: number,
     segment: AnalyticsSegment,
 ): KitchenAnalyticsBundle {
-    const rand = mulberry32(hashSeed(range, segment));
+    const rand = mulberry32(hashSeed(days, segment));
     const mult = segmentMultiplier(segment);
-    const labels = trendLabels(range, rand);
+    const labels = trendLabels(days);
 
     const productionTrend = labels.map((label, index) => {
         const wave = Math.sin(index / 2.2) * 18 + Math.cos(index / 3.1) * 10;
@@ -183,8 +180,9 @@ export function buildKitchenAnalytics(
     ];
 
     const onTrack = Math.round(58 + rand() * 12);
-    const watch = Math.round(22 + rand() * 8);
-    const blocked = Math.max(4, 100 - onTrack - watch);
+    // Watch gives way so blocked keeps its 4% floor and the three still make 100.
+    const watch = Math.min(Math.round(22 + rand() * 8), 96 - onTrack);
+    const blocked = 100 - onTrack - watch;
     const statusMix: AnalyticsSlice[] = [
         {
             key: 'on_track',
@@ -261,7 +259,7 @@ export function buildKitchenAnalytics(
         const status = pickStatus(rand);
         const hoursAgo = Math.round(rand() * 48);
         return {
-            id: `row-${range}-${segment}-${index}`,
+            id: `row-${segment}-${index}`,
             name,
             segment: rowSegment,
             status,

@@ -347,7 +347,7 @@ describe('the packaging list', () => {
         expect(screen.getByTestId(`${base}-status`)).toHaveTextContent(/Published/);
     });
 
-    it('opens with the figures a kitchen has to clear, and Inactive narrows the list', async () => {
+    it('opens with the figures a kitchen has to clear, and Draft narrows the list', async () => {
         await renderStubScreen(<PackagingScreen />, {
             session: kitchenManagerSession(),
             repositories: {
@@ -376,9 +376,9 @@ describe('the packaging list', () => {
         expect(
             screen.getByTestId('kitchen-packaging-toolbar-figure-unpriced-value'),
         ).toHaveTextContent('1');
-        // Draft, in this page's words: Inactive.
+        // Draft, named as on every catalogue page.
         expect(screen.getByTestId('kitchen-packaging-toolbar-figure-draft')).toHaveTextContent(
-            /Inactive/,
+            /Draft/,
         );
         expect(
             screen.getByTestId('kitchen-packaging-toolbar-figure-draft-value'),
@@ -537,7 +537,7 @@ describe('the packaging list', () => {
 
         /*
          * Packaging shares the ingredient status vocabulary, and the Lens figures name three of its
-         * four states, in this page's words; Archived stays out and is reachable from the Status column's own filter,
+         * four states in the words every catalogue page uses; Archived stays out and is reachable from the Status column's own filter,
          * which is the call the ingredient list makes about `retired` too.
          *
          * Review used to be out as well, on the argument that the state is the *allergen
@@ -548,9 +548,9 @@ describe('the packaging list', () => {
          * nothing when no row is in it, because the value simply matches none.
          */
         const figures = screen.getByTestId('kitchen-packaging-toolbar-figures');
-        expect(figures).toHaveTextContent(/Active/);
-        expect(figures).toHaveTextContent(/Inactive/);
-        expect(figures).toHaveTextContent(/Review/);
+        expect(figures).toHaveTextContent(/Published/);
+        expect(figures).toHaveTextContent(/Draft/);
+        expect(figures).toHaveTextContent(/Awaiting review/);
         expect(figures).not.toHaveTextContent(/Archived/);
     });
 

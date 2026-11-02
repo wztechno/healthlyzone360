@@ -215,7 +215,7 @@ function calendarQuery(filters: OrderDeskCalendarFilters): string {
  * organisation-wide read.
  */
 function cashReportQuery(filters: OrderDeskCashReportFilters): string {
-    const search = new URLSearchParams({ date: filters.date });
+    const search = new URLSearchParams({ from: filters.from, to: filters.to });
     if (filters.branchId !== undefined) search.set('branch_id', String(filters.branchId));
     return `?${search.toString()}`;
 }

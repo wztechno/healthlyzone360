@@ -2775,6 +2775,22 @@ describe('Open Food Facts allergen lookup', () => {
         expect(screen.getByTestId('allergen-reference-select-off:3017620422003')).toBeDisabled();
     });
 
+    it('drops the product lookup once allergens are recorded, and lists them instead', async () => {
+        const record = ingredient(92, { allergens: [mapping('milk')] });
+        await renderStubScreen(<IngredientAllergenEditor ingredient={record} classes={[]} />);
+        await untilVisible('ingredient-allergen-recorded-milk');
+        expect(screen.queryByTestId('allergen-reference-picker')).toBeNull();
+    });
+
+    it('offers the product lookup again when a changed reference asks for a review', async () => {
+        const record = ingredient(93, {
+            allergens: [mapping('milk')],
+            allergenReviewRequired: true,
+        });
+        await renderStubScreen(<IngredientAllergenEditor ingredient={record} classes={[]} />);
+        await untilVisible('allergen-reference-picker');
+    });
+
     it('requires purchased-product acknowledgement before importing suggestions with the current review token', async () => {
         const record = ingredient(90, { allergenReviewToken: 'b'.repeat(64), allergens: [] });
         const { repositories } = await renderStubScreen(
@@ -3456,6 +3472,38 @@ describe('leaving the ingredient form with unsaved work', () => {
             first.view.unmount();
         });
 
+        await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => []) },
+        });
+        await untilVisible('kitchen-ingredient-draft-restored-toast');
+        expect(screen.getByTestId('kitchen-ingredient-name-en-input').props.value).toBe('Sumac');
+        clearAllSessionDrafts();
+    });
+
+    it('keeps the work when Cancel is answered with Keep for later', async () => {
+        const first = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => []) },
+        });
+        await untilVisible('kitchen-ingredient-name-en-input');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-ingredient-name-en-input'), 'Sumac');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-back'));
+        });
+        await untilVisible('kitchen-ingredient-editor-screen-unsaved-dialog');
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-ingredient-editor-screen-unsaved-keep-for-later'),
+            );
+        });
+        await act(async () => {
+            first.view.unmount();
+        });
+
+        // Cancel's own leave used to clear the draft after it was kept: the card opened empty.
         await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
             session: kitchenManagerSession(),
             repositories: { kitchenAdmin: editorReads(() => []) },

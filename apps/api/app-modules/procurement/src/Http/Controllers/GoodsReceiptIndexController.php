@@ -25,6 +25,10 @@ use Illuminate\Support\Facades\Gate;
  * `?supplier_lot=` answers the recall question — which deliveries brought lot X
  * (ingredient barcodes, plan §7). An exact match: a lot is an identifier, and a
  * near miss on a recall is a wrong answer.
+ *
+ * `?from=` and `?to=` (YYYY-MM-DD) narrow to the days the deliveries were
+ * received (`received_on`, the branch-local day), both ends inclusive, so an
+ * older delivery is reachable past the fifty.
  */
 final class GoodsReceiptIndexController
 {
@@ -34,6 +38,12 @@ final class GoodsReceiptIndexController
     {
         $showCosts = Gate::allows('inventory.view_costs_organisation');
         $lot = $request->query('supplier_lot');
+        $validated = $request->validate([
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+        $from = $validated['from'] ?? null;
+        $to = $validated['to'] ?? null;
 
         $receipts = GoodsReceipt::query()
             ->with(['lines', 'supplier'])
@@ -41,6 +51,8 @@ final class GoodsReceiptIndexController
                 'lines',
                 fn (Builder $lines) => $lines->where('supplier_lot', $lot),
             ))
+            ->when(is_string($from), fn (Builder $query) => $query->where('received_on', '>=', $from))
+            ->when(is_string($to), fn (Builder $query) => $query->where('received_on', '<=', $to))
             ->orderByDesc('received_at')
             ->limit(50)
             ->get()

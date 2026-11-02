@@ -979,12 +979,13 @@ function IngredientEditor({
      * back. Only a record that has not loaded yet leaves the leaf off, because there is nothing
      * truthful to put in it for the frame or two before it arrives.
      */
-    /** A leave the reader chose to make without saving — Cancel's discard: nothing is kept. */
-    const leaveWithoutKeeping = (go: () => void) =>
-        guard.intercept(() => {
-            if (draftKey !== null) ingredientDrafts.clear(draftKey);
-            go();
-        });
+    /**
+     * Cancel, and the way back to where the reader came from: a leave without saving, which asks
+     * like any other. The draft is not cleared here — this runs after "Keep for later" too, and
+     * clearing it then left a kept card that opened an empty form. "Discard" clears it through
+     * `keptRef`, and a form with nothing unsaved holds no draft.
+     */
+    const leaveWithoutKeeping = (go: () => void) => guard.intercept(go);
 
     // Sent from a recipe, the crumb above is that recipe, by name, and takes the reader back to it.
     useKitchenTrailLeaf(

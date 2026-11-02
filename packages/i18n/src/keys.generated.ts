@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9167 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9176 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1331,6 +1331,7 @@ export interface NamespaceKeys {
     | 'dashboard.programmesCaption'
     | 'dashboard.quotationsTitle'
     | 'dashboard.searchLabel'
+    | 'dashboard.searchPlaceholder'
     | 'dashboard.sourceNote'
     | 'dashboard.statAwaiting'
     | 'dashboard.statOpen'
@@ -1452,6 +1453,7 @@ export interface NamespaceKeys {
     | 'quotations.oneOff'
     | 'quotations.recurring'
     | 'quotations.searchLabel'
+    | 'quotations.searchPlaceholder'
     | 'quotations.statAll'
     | 'quotations.statClosed'
     | 'quotations.statOpen'
@@ -3049,17 +3051,13 @@ export interface NamespaceKeys {
     | 'analytics.charts.statusCenter'
     | 'analytics.charts.statusMix'
     | 'analytics.charts.trendBarTitle'
-    | 'analytics.filters.dateRange'
+    | 'analytics.filters.from'
     | 'analytics.filters.segment'
+    | 'analytics.filters.to'
     | 'analytics.kpi.onTime'
     | 'analytics.kpi.prep'
     | 'analytics.kpi.produced'
     | 'analytics.kpi.review'
-    | 'analytics.ranges.30d'
-    | 'analytics.ranges.7d'
-    | 'analytics.ranges.90d'
-    | 'analytics.ranges.ytd'
-    | 'analytics.sampleBadge'
     | 'analytics.segments.all'
     | 'analytics.segments.delivery'
     | 'analytics.segments.meals'
@@ -4087,9 +4085,18 @@ export interface NamespaceKeys {
     | 'lens.ledgerMix'
     | 'lens.mix'
     | 'lens.ordersMix'
-    | 'lens.packagingMix'
     | 'lens.partialAction'
     | 'lens.pendingChecksAction'
+    | 'lens.period.all'
+    | 'lens.period.custom'
+    | 'lens.period.lastMonth'
+    | 'lens.period.month'
+    | 'lens.period.quarter'
+    | 'lens.period.today'
+    | 'lens.period.week'
+    | 'lens.period.year'
+    | 'lens.period.yesterday'
+    | 'lens.periodLabel'
     | 'lens.publishedAction'
     | 'lens.qcMix'
     | 'lens.quotationsMix'
@@ -4172,8 +4179,8 @@ export interface NamespaceKeys {
     | 'list.statShownUnit'
     | 'list.statTotal'
     | 'list.statTotalCaption'
-    | 'list.statUncosted'
     | 'list.statUncostedCaption'
+    | 'list.statUnpriced'
     | 'list.subtitle'
     | 'list.summaryDraft'
     | 'list.summaryMissingArabic'
@@ -4388,12 +4395,14 @@ export interface NamespaceKeys {
     | 'ops.cashReport.columnAmount'
     | 'ops.cashReport.columnCount'
     | 'ops.cashReport.columnCurrency'
+    | 'ops.cashReport.columnDay'
     | 'ops.cashReport.columnMethod'
     | 'ops.cashReport.dateInvalidBody'
     | 'ops.cashReport.dateInvalidTitle'
     | 'ops.cashReport.dateLabel'
     | 'ops.cashReport.emptyBody'
     | 'ops.cashReport.emptyTitle'
+    | 'ops.cashReport.fromLabel'
     | 'ops.cashReport.kpiCurrencies'
     | 'ops.cashReport.kpiCurrenciesCaption'
     | 'ops.cashReport.kpiReceipts'
@@ -4408,7 +4417,9 @@ export interface NamespaceKeys {
     | 'ops.cashReport.summaryCurrencies'
     | 'ops.cashReport.summaryRows'
     | 'ops.cashReport.title'
+    | 'ops.cashReport.toLabel'
     | 'ops.cashReport.totalsHeading'
+    | 'ops.cashReport.windowTooLongTitle'
     | 'ops.costReport.caption'
     | 'ops.costReport.chartCogs'
     | 'ops.costReport.chartCogsMix'
@@ -4430,7 +4441,6 @@ export interface NamespaceKeys {
     | 'ops.costReport.columnSpend'
     | 'ops.costReport.currencyLabel'
     | 'ops.costReport.dataQualityBody'
-    | 'ops.costReport.dataQualityTitle'
     | 'ops.costReport.emptyBody'
     | 'ops.costReport.emptyTitle'
     | 'ops.costReport.filterFrom'
@@ -4445,10 +4455,8 @@ export interface NamespaceKeys {
     | 'ops.costReport.mixOther'
     | 'ops.costReport.mixProduct'
     | 'ops.costReport.monthInvalid'
-    | 'ops.costReport.openExceptions'
     | 'ops.costReport.spendIncomplete'
     | 'ops.costReport.spendIncompleteBody'
-    | 'ops.costReport.spendIncompleteTitle'
     | 'ops.costReport.subtitle'
     | 'ops.costReport.tileCogs'
     | 'ops.costReport.tileMargin'
@@ -5248,6 +5256,7 @@ export interface NamespaceKeys {
     | 'ops.quotations.requestHeading'
     | 'ops.quotations.requestedDelivery'
     | 'ops.quotations.schedule'
+    | 'ops.quotations.searchPlaceholder'
     | 'ops.quotations.send'
     | 'ops.quotations.staleBody'
     | 'ops.quotations.staleTitle'
@@ -5845,11 +5854,7 @@ export interface NamespaceKeys {
     | 'packaging.emptyBody'
     | 'packaging.emptyTitle'
     | 'packaging.searchPlaceholder'
-    | 'packaging.statInactive'
-    | 'packaging.statInactiveAction'
-    | 'packaging.statInactiveCaption'
     | 'packaging.statMissingArabicCaption'
-    | 'packaging.statUnpriced'
     | 'packaging.statUnpricedCaption'
     | 'packaging.viewKind'
     | 'plans.addDuration'
@@ -5958,6 +5963,7 @@ export interface NamespaceKeys {
     | 'plans.saveDurations'
     | 'plans.savePlan'
     | 'plans.saveVariants'
+    | 'plans.searchPlaceholder'
     | 'plans.sectionDetails'
     | 'plans.sectionDurations'
     | 'plans.sectionPrices'
@@ -6156,13 +6162,13 @@ export interface NamespaceKeys {
     | 'priceLists.scopeAgreement'
     | 'priceLists.scopePublic'
     | 'priceLists.searchLabel'
+    | 'priceLists.searchPlaceholder'
     | 'priceLists.selectAll'
     | 'priceLists.selectEntry'
     | 'priceLists.selectedCount'
     | 'priceLists.setAtCounter'
     | 'priceLists.setOnMeal'
     | 'priceLists.statAgreementCaption'
-    | 'priceLists.statNothingPriced'
     | 'priceLists.statNothingPricedCaption'
     | 'priceLists.subtitle'
     | 'priceLists.title'
@@ -6630,6 +6636,8 @@ export interface NamespaceKeys {
     | 'review.columnUpdated'
     | 'review.columnWhy'
     | 'review.errorTitle'
+    | 'review.filterFrom'
+    | 'review.filterTo'
     | 'review.filteredEmptyBody'
     | 'review.filteredEmptyTitle'
     | 'review.loadingCaption'
@@ -7111,6 +7119,7 @@ export interface NamespaceKeys {
     | 'zones.notFoundTitle'
     | 'zones.resultCount'
     | 'zones.saveZone'
+    | 'zones.searchPlaceholder'
     | 'zones.sectionAreas'
     | 'zones.sectionDetails'
     | 'zones.sectionWindows'
@@ -10524,6 +10533,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:dashboard.programmesCaption',
   'business:dashboard.quotationsTitle',
   'business:dashboard.searchLabel',
+  'business:dashboard.searchPlaceholder',
   'business:dashboard.sourceNote',
   'business:dashboard.statAwaiting',
   'business:dashboard.statOpen',
@@ -10645,6 +10655,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:quotations.oneOff',
   'business:quotations.recurring',
   'business:quotations.searchLabel',
+  'business:quotations.searchPlaceholder',
   'business:quotations.statAll',
   'business:quotations.statClosed',
   'business:quotations.statOpen',
@@ -12234,17 +12245,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:analytics.charts.statusCenter',
   'kitchen:analytics.charts.statusMix',
   'kitchen:analytics.charts.trendBarTitle',
-  'kitchen:analytics.filters.dateRange',
+  'kitchen:analytics.filters.from',
   'kitchen:analytics.filters.segment',
+  'kitchen:analytics.filters.to',
   'kitchen:analytics.kpi.onTime',
   'kitchen:analytics.kpi.prep',
   'kitchen:analytics.kpi.produced',
   'kitchen:analytics.kpi.review',
-  'kitchen:analytics.ranges.30d',
-  'kitchen:analytics.ranges.7d',
-  'kitchen:analytics.ranges.90d',
-  'kitchen:analytics.ranges.ytd',
-  'kitchen:analytics.sampleBadge',
   'kitchen:analytics.segments.all',
   'kitchen:analytics.segments.delivery',
   'kitchen:analytics.segments.meals',
@@ -13272,9 +13279,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.ledgerMix',
   'kitchen:lens.mix',
   'kitchen:lens.ordersMix',
-  'kitchen:lens.packagingMix',
   'kitchen:lens.partialAction',
   'kitchen:lens.pendingChecksAction',
+  'kitchen:lens.period.all',
+  'kitchen:lens.period.custom',
+  'kitchen:lens.period.lastMonth',
+  'kitchen:lens.period.month',
+  'kitchen:lens.period.quarter',
+  'kitchen:lens.period.today',
+  'kitchen:lens.period.week',
+  'kitchen:lens.period.year',
+  'kitchen:lens.period.yesterday',
+  'kitchen:lens.periodLabel',
   'kitchen:lens.publishedAction',
   'kitchen:lens.qcMix',
   'kitchen:lens.quotationsMix',
@@ -13357,8 +13373,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:list.statShownUnit',
   'kitchen:list.statTotal',
   'kitchen:list.statTotalCaption',
-  'kitchen:list.statUncosted',
   'kitchen:list.statUncostedCaption',
+  'kitchen:list.statUnpriced',
   'kitchen:list.subtitle',
   'kitchen:list.summaryDraft',
   'kitchen:list.summaryMissingArabic',
@@ -13573,12 +13589,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.cashReport.columnAmount',
   'kitchen:ops.cashReport.columnCount',
   'kitchen:ops.cashReport.columnCurrency',
+  'kitchen:ops.cashReport.columnDay',
   'kitchen:ops.cashReport.columnMethod',
   'kitchen:ops.cashReport.dateInvalidBody',
   'kitchen:ops.cashReport.dateInvalidTitle',
   'kitchen:ops.cashReport.dateLabel',
   'kitchen:ops.cashReport.emptyBody',
   'kitchen:ops.cashReport.emptyTitle',
+  'kitchen:ops.cashReport.fromLabel',
   'kitchen:ops.cashReport.kpiCurrencies',
   'kitchen:ops.cashReport.kpiCurrenciesCaption',
   'kitchen:ops.cashReport.kpiReceipts',
@@ -13593,7 +13611,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.cashReport.summaryCurrencies',
   'kitchen:ops.cashReport.summaryRows',
   'kitchen:ops.cashReport.title',
+  'kitchen:ops.cashReport.toLabel',
   'kitchen:ops.cashReport.totalsHeading',
+  'kitchen:ops.cashReport.windowTooLongTitle',
   'kitchen:ops.costReport.caption',
   'kitchen:ops.costReport.chartCogs',
   'kitchen:ops.costReport.chartCogsMix',
@@ -13615,7 +13635,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.columnSpend',
   'kitchen:ops.costReport.currencyLabel',
   'kitchen:ops.costReport.dataQualityBody',
-  'kitchen:ops.costReport.dataQualityTitle',
   'kitchen:ops.costReport.emptyBody',
   'kitchen:ops.costReport.emptyTitle',
   'kitchen:ops.costReport.filterFrom',
@@ -13630,10 +13649,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.mixOther',
   'kitchen:ops.costReport.mixProduct',
   'kitchen:ops.costReport.monthInvalid',
-  'kitchen:ops.costReport.openExceptions',
   'kitchen:ops.costReport.spendIncomplete',
   'kitchen:ops.costReport.spendIncompleteBody',
-  'kitchen:ops.costReport.spendIncompleteTitle',
   'kitchen:ops.costReport.subtitle',
   'kitchen:ops.costReport.tileCogs',
   'kitchen:ops.costReport.tileMargin',
@@ -14433,6 +14450,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.requestHeading',
   'kitchen:ops.quotations.requestedDelivery',
   'kitchen:ops.quotations.schedule',
+  'kitchen:ops.quotations.searchPlaceholder',
   'kitchen:ops.quotations.send',
   'kitchen:ops.quotations.staleBody',
   'kitchen:ops.quotations.staleTitle',
@@ -15030,11 +15048,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:packaging.emptyBody',
   'kitchen:packaging.emptyTitle',
   'kitchen:packaging.searchPlaceholder',
-  'kitchen:packaging.statInactive',
-  'kitchen:packaging.statInactiveAction',
-  'kitchen:packaging.statInactiveCaption',
   'kitchen:packaging.statMissingArabicCaption',
-  'kitchen:packaging.statUnpriced',
   'kitchen:packaging.statUnpricedCaption',
   'kitchen:packaging.viewKind',
   'kitchen:plans.addDuration',
@@ -15143,6 +15157,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.saveDurations',
   'kitchen:plans.savePlan',
   'kitchen:plans.saveVariants',
+  'kitchen:plans.searchPlaceholder',
   'kitchen:plans.sectionDetails',
   'kitchen:plans.sectionDurations',
   'kitchen:plans.sectionPrices',
@@ -15341,13 +15356,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:priceLists.scopeAgreement',
   'kitchen:priceLists.scopePublic',
   'kitchen:priceLists.searchLabel',
+  'kitchen:priceLists.searchPlaceholder',
   'kitchen:priceLists.selectAll',
   'kitchen:priceLists.selectEntry',
   'kitchen:priceLists.selectedCount',
   'kitchen:priceLists.setAtCounter',
   'kitchen:priceLists.setOnMeal',
   'kitchen:priceLists.statAgreementCaption',
-  'kitchen:priceLists.statNothingPriced',
   'kitchen:priceLists.statNothingPricedCaption',
   'kitchen:priceLists.subtitle',
   'kitchen:priceLists.title',
@@ -15815,6 +15830,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:review.columnUpdated',
   'kitchen:review.columnWhy',
   'kitchen:review.errorTitle',
+  'kitchen:review.filterFrom',
+  'kitchen:review.filterTo',
   'kitchen:review.filteredEmptyBody',
   'kitchen:review.filteredEmptyTitle',
   'kitchen:review.loadingCaption',
@@ -16296,6 +16313,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:zones.notFoundTitle',
   'kitchen:zones.resultCount',
   'kitchen:zones.saveZone',
+  'kitchen:zones.searchPlaceholder',
   'kitchen:zones.sectionAreas',
   'kitchen:zones.sectionDetails',
   'kitchen:zones.sectionWindows',

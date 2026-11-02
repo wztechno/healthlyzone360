@@ -6260,6 +6260,7 @@ export const zAddOrderDeskCustomerAddressRequest = z.object({
  *
  */
 export const zOrderDeskCashReportRow = z.object({
+    day: z.iso.date(),
     confirmed_by: zUuid,
     display_name: z.string().nullable(),
     method: zPaymentMethod,
@@ -6291,7 +6292,8 @@ export const zOrderDeskCashReportEnvelope = z.object({
         totals: z.array(zOrderDeskCashReportTotal)
     }),
     meta: zMeta.and(z.object({
-        date: z.iso.date(),
+        from: z.iso.date(),
+        to: z.iso.date(),
         branch_id: z.uuid().nullable(),
         timezone: z.string(),
         count: z.int().gte(0)
@@ -13715,7 +13717,9 @@ export const zListGoodsReceiptsHeaders = z.object({
 });
 
 export const zListGoodsReceiptsQuery = z.object({
-    supplier_lot: z.string().max(20).optional()
+    supplier_lot: z.string().max(20).optional(),
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional()
 });
 
 /**
@@ -14670,12 +14674,13 @@ export const zGetOrderDeskCashReportHeaders = z.object({
 });
 
 export const zGetOrderDeskCashReportQuery = z.object({
-    date: z.iso.date(),
+    from: z.iso.date(),
+    to: z.iso.date(),
     branch_id: zUuid.optional()
 });
 
 /**
- * One day's takings by agent, method and currency, with the per-method totals.
+ * The window's takings by day, agent, method and currency, with the per-method totals.
  */
 export const zGetOrderDeskCashReportResponse = zOrderDeskCashReportEnvelope;
 

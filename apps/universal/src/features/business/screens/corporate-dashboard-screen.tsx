@@ -350,7 +350,7 @@ export function CorporateDashboardScreen() {
                 search={search}
                 onSearchChange={setSearch}
                 searchLabel={t('business:dashboard.searchLabel')}
-                searchPlaceholder={t('business:programme.columnProgramme')}
+                searchPlaceholder={t('business:dashboard.searchPlaceholder')}
             />
 
             {programmes.isPending ? (

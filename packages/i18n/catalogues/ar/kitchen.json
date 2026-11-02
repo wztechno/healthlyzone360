@@ -102,7 +102,7 @@
         "customers": {
             "caption": "عملاء هذا المطبخ",
             "searchLabel": "البحث في العملاء",
-            "searchHint": "الاسم، أو رقم الهاتف كاملاً مع رمز الدولة",
+            "searchHint": "ابحث بالاسم، أو برقم الهاتف كاملاً مع رمز الدولة",
             "segmentLabel": "نوع العميل",
             "segmentAll": "الكل",
             "typeB2c": "فرد",
@@ -183,7 +183,7 @@
             "statusFilterLabel": "الحالة",
             "filterAll": "الكل",
             "searchLabel": "رقم الطلب",
-            "searchHint": "جزء من رقم الطلب، مثل 0148.",
+            "searchHint": "ابحث برقم الطلب، مثل 0148",
             "columnNumber": "الطلب",
             "columnStatus": "الحالة",
             "columnPlaced": "تاريخ الطلب",
@@ -374,7 +374,8 @@
             "contact": "الرد إلى",
             "order": "الطلب المقدَّم",
             "declineReason": "سبب رفض المشتري",
-            "buyer": "المشتري"
+            "buyer": "المشتري",
+            "searchPlaceholder": "ابحث في عروض الأسعار بالمرجع"
         },
         "stock": {
             "metrics": {
@@ -425,7 +426,7 @@
             "kindProducts": "لإعادة البيع",
             "levelLabel": "المستوى",
             "levelOut": "نفد",
-            "searchPlaceholder": "اسم الصنف أو المرجع",
+            "searchPlaceholder": "ابحث باسم الصنف أو المرجع",
             "columnReorderPar": "إعادة الطلب / التعبئة",
             "reorderPar": "{{threshold}} / {{par}}",
             "filteredEmptyBody": "جرّب بحثًا أقصر أو مستوى آخر.",
@@ -718,7 +719,7 @@
                 "nativeUnavailableBody": "افتح هذا الطلب في متصفّح ويب لطباعته أو حفظه بصيغة PDF. الطلبات أدناه كاملة — يمكنك قراءتها من هنا."
             },
             "searchLabel": "ابحث في الطلبات",
-            "searchPlaceholder": "رقم الطلب أو المورّد",
+            "searchPlaceholder": "ابحث برقم الطلب أو المورّد",
             "ordersFilteredEmptyTitle": "لا يوجد طلب مطابق",
             "ordersFilteredEmptyBody": "جرّب بحثًا أقصر أو حالة أخرى.",
             "ordersFoot": "الإصدار يثبّت الأصناف والكميات وبيانات المورّد. لا يُرسل أي شيء إلى أي جهة.",
@@ -757,7 +758,7 @@
             "caption": "المورّدون",
             "create": "مورّد جديد",
             "searchLabel": "ابحث في المورّدين",
-            "searchHint": "يطابق الاسم بأي من اللغتين، ويطابق الرمز.",
+            "searchHint": "ابحث في المورّدين بالاسم أو الرمز",
             "columnName": "المورّد",
             "columnContact": "جهة الاتصال الرئيسية",
             "columnTerms": "الشروط",
@@ -931,7 +932,7 @@
             "unpricedReceipts": "أسعار غير مكتملة",
             "fieldInvoiceRef": "رقم الفاتورة",
             "fieldReceivedOn": "تاريخ الاستلام",
-            "searchPlaceholder": "المورّد أو مرجع المستند",
+            "searchPlaceholder": "ابحث بالمورّد أو مرجع المستند",
             "columnRefs": "المراجع",
             "filteredEmptyBody": "جرّب بحثًا أقصر، أو اختر حالة تسعير أخرى.",
             "listFoot": "يرتفع المخزون لحظة ترحيل الاستلام؛ ويمكن إضافة الأسعار لاحقًا.",
@@ -1225,7 +1226,7 @@
             "chargeTax": "الضريبة",
             "chargeDelivery": "التوصيل",
             "chargeOther": "رسوم أخرى",
-            "searchPlaceholder": "الصنف أو المورّد في هذه الصفحة",
+            "searchPlaceholder": "ابحث في هذه الصفحة بالصنف أو المورّد",
             "columnQuantity": "الكمية",
             "columnState": "السعر",
             "stateUnpriced": "بلا سعر بعد",
@@ -1424,7 +1425,7 @@
             "columnVersion": "إصدار الوصفة",
             "columnBranch": "الفرع",
             "thisBranch": "هذا الفرع",
-            "searchPlaceholder": "الدفعة أو رقم التشغيلة أو الوصفة",
+            "searchPlaceholder": "ابحث بالدفعة أو رقم التشغيلة أو الوصفة",
             "filteredEmptyTitle": "لا دُفعات مطابقة",
             "filteredEmptyBody": "امسح البحث أو الحالة لرؤية كل الدُفعات.",
             "viewKind": "دُفعة إنتاج",
@@ -1525,7 +1526,7 @@
                 "productionOrder": "أمر إنتاج"
             },
             "columnKind": "النوع",
-            "searchPlaceholder": "معرّف الموضوع أو مرجعه",
+            "searchPlaceholder": "ابحث بمعرّف الموضوع أو مرجعه",
             "filteredEmptyTitle": "لا فحوصات مطابقة",
             "filteredEmptyBody": "امسح البحث أو الحالة لرؤية كل الفحوصات.",
             "viewKind": "فحص جودة",
@@ -1610,7 +1611,6 @@
             "filterFrom": "من شهر",
             "filterTo": "إلى شهر",
             "currencyLabel": "العملة",
-            "dataQualityTitle": "قد تكون تكلفة البضاعة المُباعة أقل من الواقع",
             "dataQualityBody_zero": "لا توجد أشهر بها استثناءات استهلاك غير محلولة.",
             "dataQualityBody_one": "شهر واحد به استثناءات استهلاك غير محلولة، لذا فإن تكلفة البضاعة المُباعة فيه أقل من الواقع.",
             "dataQualityBody_two": "شهران بهما استثناءات استهلاك غير محلولة، لذا فإن تكلفة البضاعة المُباعة فيهما أقل من الواقع.",
@@ -1643,7 +1643,6 @@
             "columnMargin": "الهامش",
             "columnMarginPercent": "نسبة الهامش",
             "spendIncomplete": "إنفاق غير مكتمل",
-            "spendIncompleteTitle": "بعض المشتريات ما زالت تنتظر أسعارها",
             "spendIncompleteBody_zero": "كل بنود الاستلام مسعّرة.",
             "spendIncompleteBody_one": "بند استلام واحد في {{months}} بلا سعر صالح بعد، فإنفاق ذلك الشهر أقل من حقيقته. تجدها في العرض الأسبوعي والشهري لسجل المشتريات.",
             "spendIncompleteBody_two": "بندا استلام في {{months}} بلا سعر صالح بعد، فإنفاق تلك الأشهر أقل من حقيقته. تجدهما في العرض الأسبوعي والشهري لسجل المشتريات.",
@@ -1652,7 +1651,6 @@
             "spendIncompleteBody_other": "{{count}} بند استلام في {{months}} بلا سعر صالح بعد، فإنفاق تلك الأشهر أقل من حقيقته. تجدها في العرض الأسبوعي والشهري لسجل المشتريات.",
             "chip": "التكاليف",
             "monthInvalid": "أدخل الشهر بصيغة YYYY-MM.",
-            "openExceptions": "فتح نواقص المخزون",
             "chartRevenueCogs": "الإيرادات وتكلفة البضاعة المباعة حسب الشهر",
             "chartRevenueMixTitle": "الإيرادات حسب خط العمل",
             "window": {
@@ -1698,7 +1696,7 @@
                 "product": "أصلِح المنتج",
                 "production": "اعرض خطة الإنتاج"
             },
-            "searchPlaceholder": "الطلب أو الصنف أو المكوّن أو السبب",
+            "searchPlaceholder": "ابحث بالطلب أو الصنف أو المكوّن أو السبب",
             "filteredEmptyTitle": "لا توجد فجوات مخزون مطابقة",
             "filteredEmptyBody": "غيّر البحث أو عوامل التصفية.",
             "nextPage": "الصفحة التالية",
@@ -1864,8 +1862,8 @@
             "kpiReceiptsCaption": "المؤكدة في هذا اليوم",
             "kpiRowsCaption": "الموظف والطريقة والعملة",
             "kpiCurrenciesCaption": "لا تُجمع الإجماليات معًا",
-            "subtitle": "ما استلمه كل موظف في يوم واحد، وكيف وصل.",
-            "caption": "مستلمات اليوم حسب الموظف وطريقة الدفع",
+            "subtitle": "ما استلمه كل موظف، يومًا بيوم، وكيف وصل.",
+            "caption": "المستلمات حسب اليوم والموظف وطريقة الدفع",
             "measuredOn": "يوم {{date}}، محسوباً على ساعة {{timezone}}.",
             "scopeTitle": "هذا يبيّن من استلم ماذا، لا ما إذا كان الصندوق متوازناً",
             "scopeBody": "لم يُخبر أحد هذا النظام بما كان في الصندوق عند بداية الوردية أو نهايتها، فلا شيء هنا يمكن مطابقته بجرد. هذا سجل ما دوّنه كل شخص عند استلامه.",
@@ -1873,8 +1871,8 @@
             "dateInvalidTitle": "هذا ليس يوماً بعد",
             "dateInvalidBody": "أكمل التاريخ بصيغة YYYY-MM-DD وستظهر المستلمات.",
             "loadErrorTitle": "تعذّر تحميل المستلمات",
-            "emptyTitle": "لم يُستلم شيء في ذلك اليوم",
-            "emptyBody": "لم تُسجَّل أي دفعة على أي طلب في هذا اليوم. هذه إجابة وليست فجوة.",
+            "emptyTitle": "لم يُستلم شيء في هذه الفترة",
+            "emptyBody": "لم تُسجَّل أي دفعة على أي طلب في هذه الأيام. هذه إجابة وليست فجوة.",
             "columnAgent": "استلمها",
             "columnMethod": "النوع",
             "columnCount": "الإيصالات",
@@ -1895,7 +1893,16 @@
             "summaryCurrencies_two": "عملتان",
             "summaryCurrencies_few": "{{count}} عملات",
             "summaryCurrencies_many": "{{count}} عملة",
-            "summaryCurrencies_other": "{{count}} عملة"
+            "summaryCurrencies_other": "{{count}} عملة",
+            "fromLabel": "من",
+            "toLabel": "إلى",
+            "columnDay": "اليوم",
+            "windowTooLongTitle_zero": "اختر {{count}} يومًا على الأكثر",
+            "windowTooLongTitle_one": "اختر يومًا واحدًا على الأكثر",
+            "windowTooLongTitle_two": "اختر يومين على الأكثر",
+            "windowTooLongTitle_few": "اختر {{count}} أيام على الأكثر",
+            "windowTooLongTitle_many": "اختر {{count}} يومًا على الأكثر",
+            "windowTooLongTitle_other": "اختر {{count}} يوم على الأكثر"
         },
         "batch": {
             "recipeLabel": "الوصفة",
@@ -2066,7 +2073,7 @@
         "caption": "الطلبات المفتوحة، الأقرب موعداً أولاً",
         "measuredOn": "محسوبة على يوم {{date}} بتوقيت {{timezone}}.",
         "searchLabel": "رقم الطلب",
-        "searchPlaceholder": "مثال: 0148",
+        "searchPlaceholder": "ابحث برقم الطلب، مثل 0148",
         "searchHint": "أرقام الطلبات فقط. ولا يمكن البحث هنا باسم العميل أو رقم هاتفه.",
         "windowLabel": "أي الطلبات",
         "window": {
@@ -2111,7 +2118,7 @@
             "title": "من يأخذ هذه الرحلة؟",
             "description": "الطلب {{number}}. يُبلَّغ من تختاره وحده دون سواه.",
             "searchLabel": "ابحث عن سائق",
-            "searchPlaceholder": "جزء من الاسم",
+            "searchPlaceholder": "ابحث بالاسم",
             "searchHint": "كل من له عضوية نشطة في هذا المطبخ مدرج هنا. ومن لم يضع اسماً على ملفه لا يظهر إلا والحقل فارغ.",
             "choose": "اختيار",
             "chosen": "مختار",
@@ -2204,7 +2211,7 @@
                 "delivery": "نوصله إليه. نحتاج إلى العميل وإلى مكان نرسل إليه، ويدفع عند الباب."
             },
             "customerSearchLabel": "ابحث عن العميل",
-            "customerSearchPlaceholder": "اسم، أو رقم هاتف",
+            "customerSearchPlaceholder": "ابحث بالاسم أو رقم الهاتف",
             "customerSearchTooShort": "تابع الكتابة — {{count}} أحرف أو أكثر للبحث.",
             "customerSearchErrorTitle": "تعذّر تنفيذ البحث",
             "customerNoneTitle": "لا أحد يطابق ذلك",
@@ -2244,7 +2251,7 @@
             "addressUndeliverableTitle": "لا أحد يوصل إلى تلك المنطقة بعد",
             "addressUndeliverableBody": "حُفظ العنوان، لكن لا نطاق يغطيه حاليًا، فلا يمكن إرسال هذا الطلب إليه. أخبر العميل واعرض عليه الاستلام.",
             "pickerSearchLabel": "ابحث في القائمة",
-            "pickerSearchPlaceholder": "مثلًا قهوة",
+            "pickerSearchPlaceholder": "ابحث في القائمة، مثل قهوة",
             "pickerErrorTitle": "تعذّر تحميل القائمة",
             "pickerEmptyTitle": "لا شيء منشور يطابق ذلك",
             "pickerEmptyBody": "لا تُباع إلا الوجبات والمنتجات المنشورة. جرّب بحثًا آخر، أو انشر الصنف أولًا.",
@@ -2598,20 +2605,14 @@
     "analytics": {
         "title": "تحليلات المطبخ",
         "subtitle": "عروض مباشرة لطاقم المطبخ — صفِّ حسب التاريخ والشريحة فيتحدّث كل مخطط ومؤشر وصف معًا.",
-        "sampleBadge": "بيانات تجريبية",
         "theme": {
             "dark": "الوضع الداكن",
             "light": "الوضع الفاتح"
         },
         "filters": {
-            "dateRange": "نطاق التاريخ",
+            "from": "من",
+            "to": "إلى",
             "segment": "الشريحة"
-        },
-        "ranges": {
-            "7d": "٧ أيام",
-            "30d": "٣٠ يومًا",
-            "90d": "٩٠ يومًا",
-            "ytd": "منذ بداية السنة"
         },
         "segments": {
             "all": "الكل",
@@ -2745,7 +2746,9 @@
         "columnWhy": "سبب وجوده هنا",
         "columnUpdated": "آخر تغيير",
         "searchLabel": "البحث في القائمة",
-        "searchPlaceholder": "الصنف",
+        "searchPlaceholder": "ابحث باسم الصنف",
+        "filterFrom": "تغيّر من",
+        "filterTo": "تغيّر حتى",
         "scopeLabel": "إظهار",
         "scopeAll": "الكل",
         "scopeBlocked": "محظور",
@@ -2826,7 +2829,7 @@
         "filtersActive": "عوامل التصفية ({{n}})",
         "removeFilter": "إزالة عامل التصفية: {{filter}}",
         "searchLabel": "بحث",
-        "searchPlaceholder": "الاسم أو اسم بديل أو المرجع",
+        "searchPlaceholder": "ابحث بالاسم أو اسم بديل أو المرجع",
         "statusLabel": "الحالة",
         "categoryLabel": "الفئة",
         "categoryAll": "كل الفئات",
@@ -2910,7 +2913,7 @@
         "statShownAction": "امسح البحث والحالة وكل مرشّحات الأعمدة",
         "statRecords": "سجل",
         "statDraftAction": "أظهر المسودات فقط",
-        "statUncosted": "بلا تكلفة",
+        "statUnpriced": "بلا سعر",
         "statUncostedCaption": "لا سعر وحدة مسجّل",
         "view": "عرض",
         "viewKind": "مكوّن",
@@ -4051,7 +4054,6 @@
         "publishedToast": "نُشِرت {{name}}.",
         "viewKind": "قائمة أسعار",
         "viewPending": "ليس سعرًا بعد",
-        "statNothingPriced": "بلا تسعير",
         "statNothingPricedCaption": "لا بند مؤكد",
         "statAgreementCaption": "أسعار متفاوض عليها",
         "removeColumn": "إزالة",
@@ -4211,7 +4213,8 @@
         "channelsSave": "حفظ القنوات",
         "channelsSavedToast": "تم حفظ القنوات.",
         "channelsLoadError": "تعذّرت قراءة قنوات القائمة.",
-        "channelInactive": "غير نشطة"
+        "channelInactive": "غير نشطة",
+        "searchPlaceholder": "ابحث في قوائم الأسعار بالاسم أو الرمز"
     },
     "plans": {
         "title": "الخطط",
@@ -4438,7 +4441,8 @@
         "createChip": "الاشتراكات",
         "savePlan": "حفظ الخطة",
         "addVariant": "أضف تكوينًا",
-        "oneOffExplainer": "المرّة الواحدة توصيلة واحدة، فلا عدد أيام لها إطلاقًا — لا صفرًا ولا شيئًا."
+        "oneOffExplainer": "المرّة الواحدة توصيلة واحدة، فلا عدد أيام لها إطلاقًا — لا صفرًا ولا شيئًا.",
+        "searchPlaceholder": "ابحث في الخطط بالاسم"
     },
     "time": {
         "formatHint": "نظام 24 ساعة، بصيغة HH:mm — مثل 08:00 أو 18:30.",
@@ -4581,14 +4585,15 @@
         "viewKind": "منطقة توصيل",
         "viewFee": "رسوم التوصيل",
         "viewMinimum": "الحد الأدنى للطلب",
-        "viewWeekdays": "الأيام المغطاة"
+        "viewWeekdays": "الأيام المغطاة",
+        "searchPlaceholder": "ابحث في المناطق بالاسم أو الرمز"
     },
     "areas": {
         "selectedLabel": "النواحي المختارة",
         "selectedNone": "لا شيء بعد. هذه المنطقة لا تصل إلى أي مكان حتى تُختار ناحية.",
         "searchLabel": "ابحث عن ناحية",
         "searchHint": "يطابق اللغتين واسم المحافظة التي تقع فيها الناحية.",
-        "searchPlaceholder": "ناحية أو محافظة",
+        "searchPlaceholder": "ابحث بالناحية أو المحافظة",
         "matchCount_zero": "لا تطابق أي ناحية من أصل {{total}}",
         "matchCount_one": "تطابق ناحية واحدة من أصل {{total}}",
         "matchCount_two": "تطابق ناحيتان من أصل {{total}}",
@@ -4816,11 +4821,7 @@
         "columnPackPrice": "سعر العبوة",
         "columnCapacity": "يتّسع لـ",
         "columnWaste": "الهدر",
-        "statUnpriced": "بلا سعر",
         "statUnpricedCaption": "لا يوجد سعر عبوة مسجّل",
-        "statInactive": "غير نشط",
-        "statInactiveCaption": "خارج الاستخدام",
-        "statInactiveAction": "اعرض التغليف غير النشط فقط",
         "statMissingArabicCaption": "لا يوجد اسم عربي بعد",
         "archiveTitle": "أرشفة صنف التغليف هذا؟",
         "archiveBody": "لن يُعرض بعد الآن على الوصفات الجديدة. لا يُحذف شيء: الوصفة التي تستخدمه تبقى كذلك، وتبقى تكلفته في ورقتها الفنية.",
@@ -5328,7 +5329,6 @@
         "allAllergenClasses": "كل الفئات",
         "activeAction": "عرض السجلات النشطة فقط",
         "archivedAction": "عرض السجلات المؤرشفة فقط",
-        "packagingMix": "{{active}} نشط، {{inactive}} غير نشط، {{review}} بانتظار المراجعة",
         "zoneMix": "{{published}} منشور، {{draft}} مسودة، {{archived}} مؤرشف",
         "allergenMix": "{{active}} نشطة، {{withdrawn}} مسحوبة",
         "allStock": "كل الأصناف",
@@ -5369,7 +5369,19 @@
         "allProducts": "كل المنتجات",
         "reviewAction": "عرض السجلات بانتظار المراجعة فقط",
         "requirementsMix": "{{short}} ناقص، {{covered}} متوفر",
-        "deskMix": "{{placed}} مقدّم، {{confirmed}} مؤكد"
+        "deskMix": "{{placed}} مقدّم، {{confirmed}} مؤكد",
+        "periodLabel": "الفترة",
+        "period": {
+            "all": "الكل",
+            "today": "اليوم",
+            "yesterday": "أمس",
+            "week": "هذا الأسبوع",
+            "month": "هذا الشهر",
+            "lastMonth": "الشهر الماضي",
+            "quarter": "آخر 3 أشهر",
+            "year": "هذه السنة",
+            "custom": "مخصص"
+        }
     },
     "tray": {
         "noChannel": "لا توجد قناة بيع",

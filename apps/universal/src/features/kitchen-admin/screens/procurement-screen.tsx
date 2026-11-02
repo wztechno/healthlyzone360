@@ -3,6 +3,7 @@ import {
     Badge,
     Button,
     Cascade,
+    DatePickerButton,
     EmptyState,
     ErrorState,
     Inline,
@@ -27,6 +28,9 @@ import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensMixPart, LensToken } from '../catalogue/lens-bar.tsx';
+import { PeriodScope } from '../catalogue/period-scope.tsx';
+import type { PeriodWindow } from '../catalogue/period-scope.tsx';
+import { todayIso } from '../../commerce/dates.ts';
 import {
     compareAmount,
     compareNumber,
@@ -53,7 +57,7 @@ import { useViewedRecord } from '../use-viewed-record.ts';
  *
  * ```
  * (All receipts 50) │ ● No prices 4  ● Some prices 2  ● Priced 44              [Post receipt]
- * [ lot ]  [ ⌕ supplier or reference ]  [Prices: No prices ×]                    4 of 50  Clear
+ * [Period ▾] [From – To] [ lot ]  [ ⌕ supplier or reference ]  [Prices: No prices ×]  4 of 50  Clear
  * RECEIVED      SUPPLIER      LINES  REFERENCES        TOTAL   PRICES      ⋯
  * ```
  *
@@ -98,10 +102,18 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
      */
     const [lot, setLot] = useState('');
     const [appliedLot, setAppliedLot] = useState('');
-    const receipts = useGoodsReceiptsQuery(
-        true,
-        appliedLot === '' ? {} : { supplierLot: appliedLot },
-    );
+    /**
+     * The days received, asked of the server for the same reason as the lot: a window reaching
+     * past the latest fifty has to be answered by the book, not by the rows in hand.
+     */
+    const [from, setFrom] = useState('');
+    const [to, setTo] = useState('');
+    const [today] = useState(() => todayIso());
+    const receipts = useGoodsReceiptsQuery(true, {
+        ...(appliedLot === '' ? {} : { supplierLot: appliedLot }),
+        ...(from === '' ? {} : { from }),
+        ...(to === '' ? {} : { to }),
+    });
     const stockItems = useStockItemsQuery();
 
     // The list's own state: search and the price segment filter the receipts in hand (the endpoint
@@ -322,6 +334,11 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
         setAppliedLot('');
         setViewing(null);
     };
+    const pickWindow = (next: PeriodWindow) => {
+        setFrom(next.from);
+        setTo(next.to);
+        setViewing(null);
+    };
     // The lot asked of the server, removable like any filter in force.
     const lotLabel = t('kitchen:lens.token', {
         label: t('kitchen:barcodes.lotFilterLabel'),
@@ -432,27 +449,73 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                 mix={lens.mix}
                 mixLabel={lens.mixLabel}
                 scope={
-                    <TextInputField
-                        testID="kitchen-procurement-lot-filter"
-                        id="kitchen-procurement-lot-filter"
-                        size="sm"
-                        label={t('kitchen:barcodes.lotFilterLabel')}
-                        labelHidden
-                        placeholder={t('kitchen:barcodes.lotFilterPlaceholder')}
-                        value={lot}
-                        maxLength={20}
-                        autoCorrect={false}
-                        autoCapitalize="none"
-                        onChangeText={(next) => {
-                            setLot(next);
-                            // Emptied, the list goes back to the latest fifty at once.
-                            if (next.trim() === '') setAppliedLot('');
-                        }}
-                        onSubmitEditing={() => {
-                            setAppliedLot(lot.trim());
-                            setViewing(null);
-                        }}
-                    />
+                    <>
+                        <PeriodScope
+                            testID="kitchen-procurement-filter-period"
+                            today={today}
+                            value={{ from, to }}
+                            allowAll
+                            onChange={pickWindow}
+                        />
+                        <View className="z-auto flex-row items-center gap-tight">
+                            <DatePickerButton
+                                testID="kitchen-procurement-filter-from"
+                                label={t('kitchen:ops.ledger.filterFrom')}
+                                value={from}
+                                max={to === '' ? undefined : to}
+                                placeholder={t('kitchen:ops.ledger.fromPlaceholder')}
+                                onChange={(next) => {
+                                    pickWindow({ from: next, to });
+                                }}
+                                onClear={() => {
+                                    pickWindow({ from: '', to });
+                                }}
+                            />
+                            <Text variant="caption" tone="secondary" aria-hidden>
+                                {t('kitchen:ops.requirements.windowTo')}
+                            </Text>
+                            <DatePickerButton
+                                testID="kitchen-procurement-filter-to"
+                                label={t('kitchen:ops.ledger.filterTo')}
+                                value={to}
+                                min={from === '' ? undefined : from}
+                                placeholder={t('kitchen:ops.ledger.toPlaceholder')}
+                                onChange={(next) => {
+                                    pickWindow({ from, to: next });
+                                }}
+                                onClear={() => {
+                                    pickWindow({ from, to: '' });
+                                }}
+                            />
+                        </View>
+                        {/*
+                         * A fixed width: in the scope row the field has no width of its own and
+                         * collapsed to an empty sliver beside the search.
+                         */}
+                        <View className="w-40">
+                            <TextInputField
+                                testID="kitchen-procurement-lot-filter"
+                                id="kitchen-procurement-lot-filter"
+                                size="sm"
+                                label={t('kitchen:barcodes.lotFilterLabel')}
+                                labelHidden
+                                placeholder={t('kitchen:barcodes.lotFilterPlaceholder')}
+                                value={lot}
+                                maxLength={20}
+                                autoCorrect={false}
+                                autoCapitalize="none"
+                                onChangeText={(next) => {
+                                    setLot(next);
+                                    // Emptied, the list goes back to the latest fifty at once.
+                                    if (next.trim() === '') setAppliedLot('');
+                                }}
+                                onSubmitEditing={() => {
+                                    setAppliedLot(lot.trim());
+                                    setViewing(null);
+                                }}
+                            />
+                        </View>
+                    </>
                 }
                 search={query}
                 onSearchChange={(next) => {
@@ -471,7 +534,11 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                           })
                 }
                 clearLabel={t('kitchen:lens.clear')}
-                {...(unfiltered && appliedLot === '' && !controls.filtered
+                {...(unfiltered &&
+                appliedLot === '' &&
+                from === '' &&
+                to === '' &&
+                !controls.filtered
                     ? {}
                     : {
                           onClear: () => {
@@ -479,6 +546,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                               setPriceStatus('all');
                               controls.clearFilters();
                               clearLot();
+                              pickWindow({ from: '', to: '' });
                           },
                       })}
                 trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
