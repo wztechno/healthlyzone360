@@ -1812,6 +1812,8 @@ describe('the kitchen service timings', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-service-timings-lead-input'), '90');
         });
+        // The page's one unsaved marker covers this form too.
+        await untilVisible('kitchen-branch-hours-screen-dirty');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-service-timings-save'));
         });
