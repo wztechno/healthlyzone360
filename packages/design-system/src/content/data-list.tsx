@@ -318,6 +318,13 @@ const JUSTIFY_CLASS: Readonly<Record<'start' | 'end' | 'center', string>> = {
     center: 'justify-center',
 };
 
+/** The same alignment for a renderer's root, across the column-direction wrapper that holds it. */
+const ITEMS_CLASS: Readonly<Record<'start' | 'end' | 'center', string>> = {
+    start: 'items-start',
+    end: 'items-end',
+    center: 'items-center',
+};
+
 /**
  * Where a column's header and cells sit: the inline start, figures included.
  *
@@ -583,8 +590,24 @@ export function DataList<Row>({
                                            * of clipping. Shrinking here and stretching the
                                            * renderer's root to this width is what lets that text
                                            * take its ellipsis and hover.
+                                           *
+                                           * It takes the whole track, not its content's width:
+                                           * a renderer root at `w-full` (a time field, the
+                                           * weekday toggles) resolves against this box, and a
+                                           * content-sized one collapsed it to its min-content.
+                                           * The track's alignment moves to `items-*` here, so a
+                                           * content-sized root still sits where the column says.
                                            */}
-                                          <View className="min-w-0 shrink">
+                                          <View
+                                              className={cx(
+                                                  'min-w-0 flex-1',
+                                                  ITEMS_CLASS[
+                                                      dataListColumnAlign(
+                                                          column as DataListColumn<unknown>,
+                                                      )
+                                                  ],
+                                              )}
+                                          >
                                               {column.render(row)}
                                           </View>
                                       </TableCellTextContext.Provider>
