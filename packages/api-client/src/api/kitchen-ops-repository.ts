@@ -164,6 +164,22 @@ import type { Transport } from './transport.ts';
  * re-reads the list, which is also how it discovers a row another kitchen tablet just created.
  */
 
+interface WireBranchClosure {
+    readonly id: string;
+    readonly closed_from: string;
+    readonly closed_to: string;
+    readonly note: string | null;
+}
+
+function mapBranchClosure(wire: WireBranchClosure): BranchClosure {
+    return {
+        id: wire.id,
+        closedFrom: wire.closed_from,
+        closedTo: wire.closed_to,
+        note: wire.note,
+    };
+}
+
 function mapStockItem(wire: WireStockItem): StockItem {
     return {
         id: StockItemId.unsafe(wire.id),

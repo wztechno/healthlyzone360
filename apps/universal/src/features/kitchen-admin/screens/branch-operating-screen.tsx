@@ -4,6 +4,7 @@ import {
     Button,
     Callout,
     Cascade,
+    Dialog,
     EmptyState,
     ErrorState,
     FormGrid,
@@ -24,12 +25,14 @@ import {
     useBranchOperatingQuery,
     useSetBranchOperatingMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
+import { useCreateBranchMutation } from '../../../data/kitchen-ops-hooks.ts';
 import {
     useKitchenServiceSettingsQuery,
     useSaveKitchenServiceSettingsMutation,
 } from '../../../data/staff-alerts-hooks.ts';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
 import { weekdayKey } from '../../marketplace/format.ts';
+import { BranchClosuresSection } from '../branch-closures-section.tsx';
 import {
     copyDayToOpenDays,
     operatingDraftsFrom,
@@ -187,6 +190,7 @@ function BranchOperatingEditor() {
     const [daysKey, setDaysKey] = useState<string | null>(null);
     const [dirty, setDirty] = useState(false);
     const [announcement, setAnnouncement] = useState('');
+    const [addingBranch, setAddingBranch] = useState(false);
     /*
      * Read from the node rather than `onLayout`, which on the web delivered one early width and
      * nothing after — see the sale screen. The port re-reads on resize and when the page panel settles.

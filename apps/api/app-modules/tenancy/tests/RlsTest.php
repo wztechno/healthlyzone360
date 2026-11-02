@@ -929,8 +929,13 @@ it('protects exactly the fourteen declared tables and no others', function (): v
     //
     // P0 Stage 3 brings in `order_refunds` and `cash_settlements`, on the same
     // policy.
+    //
+    // P1 Wave A's `branch_closures` joins for its writes. Reads stay open, as
+    // `branch_opening_hours` is: a closure is a public fact about a place, read
+    // from carts with no organisation declared.
     expect($protected)->toBe([
         'audit_logs',
+        'branch_closures',
         'cash_settlements',
         'consent_grants',
         'customer_accounts',
