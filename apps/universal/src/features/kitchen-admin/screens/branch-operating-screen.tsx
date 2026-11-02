@@ -362,13 +362,23 @@ function BranchOperatingEditor() {
                 }
                 actions={
                     canManage ? (
-                        <Button
-                            testID="kitchen-branch-hours-screen-save"
-                            label={t('kitchen:branchHours.save')}
-                            loading={save.isPending}
-                            disabled={!dirty || dayIssues.size > 0 || save.isPending}
-                            onPress={saveWeek}
-                        />
+                        <>
+                            <Button
+                                testID="kitchen-branch-new"
+                                variant="secondary"
+                                label={t('kitchen:branchClosures.newBranch')}
+                                onPress={() => {
+                                    setAddingBranch(true);
+                                }}
+                            />
+                            <Button
+                                testID="kitchen-branch-hours-screen-save"
+                                label={t('kitchen:branchHours.save')}
+                                loading={save.isPending}
+                                disabled={!dirty || dayIssues.size > 0 || save.isPending}
+                                onPress={saveWeek}
+                            />
+                        </>
                     ) : undefined
                 }
             />
@@ -435,6 +445,8 @@ function BranchOperatingEditor() {
                             }}
                         />
                     </FormSection>
+
+                    <BranchClosuresSection canManage={canManage} />
 
                     {canManage ? <ServiceTimingsSection /> : null}
                 </View>
@@ -513,7 +525,102 @@ function BranchOperatingEditor() {
                 concurrency={concurrency}
                 testID="kitchen-branch-hours-screen"
             />
+
+            <NewBranchDialog
+                open={addingBranch}
+                onClose={() => {
+                    setAddingBranch(false);
+                }}
+            />
         </Cascade>
+    );
+}
+
+/** Opens another branch. It joins the branch picker at the next sign-in or context refresh. */
+function NewBranchDialog({
+    open,
+    onClose,
+}: {
+    readonly open: boolean;
+    readonly onClose: () => void;
+}) {
+    const { t } = useTranslation();
+    const toast = useToast();
+    const create = useCreateBranchMutation();
+    const [name, setName] = useState('');
+    const [city, setCity] = useState('');
+    const failure = toFailure(create.error);
+
+    return (
+        <Dialog
+            testID="kitchen-branch-new-dialog"
+            open={open}
+            onClose={onClose}
+            title={t('kitchen:branchClosures.newBranch')}
+            actions={
+                <>
+                    <Button
+                        testID="kitchen-branch-new-cancel"
+                        variant="quiet"
+                        label={t('kitchen:common.cancel')}
+                        onPress={onClose}
+                    />
+                    <Button
+                        testID="kitchen-branch-new-save"
+                        label={t('kitchen:branchClosures.newBranchSave')}
+                        loading={create.isPending}
+                        disabled={name.trim() === '' || create.isPending}
+                        onPress={() => {
+                            create.mutate(
+                                {
+                                    name: name.trim(),
+                                    city: city.trim() === '' ? null : city.trim(),
+                                },
+                                {
+                                    onSuccess: () => {
+                                        setName('');
+                                        setCity('');
+                                        onClose();
+                                        toast.show({
+                                            testID: 'kitchen-branch-new-toast',
+                                            tone: 'success',
+                                            message: t('kitchen:branchClosures.newBranchToast'),
+                                        });
+                                    },
+                                },
+                            );
+                        }}
+                    />
+                </>
+            }
+        >
+            {failure === null ? null : (
+                <Callout
+                    testID="kitchen-branch-new-error"
+                    role="alert"
+                    tone="danger"
+                    title={t('kitchen:branchClosures.newBranchError')}
+                    body={failure.message}
+                />
+            )}
+            <TextInputField
+                testID="kitchen-branch-new-name"
+                id="kitchen-branch-new-name"
+                label={t('kitchen:branchClosures.newBranchName')}
+                size="sm"
+                required
+                value={name}
+                onChangeText={setName}
+            />
+            <TextInputField
+                testID="kitchen-branch-new-city"
+                id="kitchen-branch-new-city"
+                label={t('kitchen:branchClosures.newBranchCity')}
+                size="sm"
+                value={city}
+                onChangeText={setCity}
+            />
+        </Dialog>
     );
 }
 
@@ -559,6 +666,8 @@ function ServiceTimingsSection() {
     /** Typed in whole dollars, kept in cents. */
     const refundLimit =
         edits.refundApprovalAboveMinor ?? String(stored.refundApprovalAboveMinor / 100);
+    /** Left empty, the kitchen has no limit. */
+    const windowLimit = edits.ordersPerWindow ?? String(stored.ordersPerWindow ?? '');
     const dirty = Object.keys(edits).length > 0;
     const complete = SERVICE_TIMINGS.every(({ key }) => shown(key) !== '') && refundLimit !== '';
 
@@ -569,6 +678,7 @@ function ServiceTimingsSection() {
             [
                 ...SERVICE_TIMINGS,
                 { copy: 'refund', server: 'refund_approval_above_minor' },
+                { copy: 'capacity', server: 'orders_per_window' },
             ].map(({ copy, server: field }) => [
                 field,
                 {
@@ -587,6 +697,7 @@ function ServiceTimingsSection() {
                 managerAlertAfterMinutes: Number(shown('managerAlertAfterMinutes')),
                 ownerAlertAfterMinutes: Number(shown('ownerAlertAfterMinutes')),
                 refundApprovalAboveMinor: Number(refundLimit) * 100,
+                ordersPerWindow: windowLimit === '' ? null : Number(windowLimit),
             },
             {
                 onSuccess: () => {
@@ -675,6 +786,26 @@ function ServiceTimingsSection() {
                                 ...edits,
                                 refundApprovalAboveMinor: next.replace(/[^0-9]/gu, ''),
                             });
+                            guard.markDirty();
+                        }}
+                    />
+                    <TextInputField
+                        testID="kitchen-service-timings-capacity"
+                        id="kitchen-service-timings-capacity"
+                        label={t('kitchen:serviceTimings.capacityLabel')}
+                        hint={t('kitchen:serviceTimings.capacityHint')}
+                        size="sm"
+                        inputMode="numeric"
+                        autoCorrect={false}
+                        trailing={
+                            <Text variant="caption" tone="secondary">
+                                {t('kitchen:serviceTimings.capacityUnit')}
+                            </Text>
+                        }
+                        value={windowLimit}
+                        {...server.flag('orders_per_window')}
+                        onChangeText={(next) => {
+                            setEdits({ ...edits, ordersPerWindow: next.replace(/[^0-9]/gu, '') });
                             guard.markDirty();
                         }}
                     />

@@ -8348,6 +8348,200 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /kitchen/branch-closures:
+    get:
+      operationId: listBranchClosures
+      tags: [Kitchen operations]
+      summary: Dates the current branch is shut
+      description: |
+        Closures that have not ended, soonest first. A closure answers `closed`
+        for its dates whatever the week says.
+
+        Requires `branch.view_current`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The closures.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BranchClosure'
+                  meta:
+                    type: object
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: addBranchClosure
+      tags: [Kitchen operations]
+      summary: Shut the current branch for some dates
+      description: |
+        Both ends inclusive. Audited.
+
+        Requires `branch.manage_current`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [closed_from, closed_to]
+              properties:
+                closed_from:
+                  type: string
+                  format: date
+                closed_to:
+                  type: string
+                  format: date
+                note:
+                  type: [string, 'null']
+                  maxLength: 160
+      responses:
+        '201':
+          description: The closure.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BranchClosure'
+                  meta:
+                    type: object
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /kitchen/branch-closures/{closure}:
+    delete:
+      operationId: removeBranchClosure
+      tags: [Kitchen operations]
+      summary: Take a closure back
+      description: |
+        Audited.
+
+        Requires `branch.manage_current`.
+      parameters:
+        - name: closure
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '204':
+          description: Removed.
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /kitchen/branches:
+    post:
+      operationId: createKitchenBranch
+      tags: [Kitchen operations]
+      summary: Open another branch
+      description: |
+        The country is the kitchen's and the timezone defaults to its own.
+        Refused to a membership bound to one branch. Audited.
+
+        Requires `branch.manage_current`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  maxLength: 160
+                city:
+                  type: [string, 'null']
+                  maxLength: 120
+                address:
+                  type: [string, 'null']
+                  maxLength: 255
+                timezone:
+                  type: [string, 'null']
+      responses:
+        '201':
+          description: The branch.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [id, name, city, timezone]
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      city:
+                        type: [string, 'null']
+                      timezone:
+                        type: string
+                  meta:
+                    type: object
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /kitchen/branch-operating:
     get:
       operationId: getBranchOperating
@@ -15860,6 +16054,123 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/settlements:
+    get:
+      operationId: getOrderDeskSettlements
+      tags: [Order desk]
+      summary: Cash still on the road, and recent hand-ins
+      description: |
+        Every own driver holding cash from delivered runs, every courier with
+        delivered orders still owing, and the last fifty hand-ins. There is no
+        shift table: a driver's shift is whatever they have not yet handed in.
+        Requires `order.settle_cash_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: What is owed, and what came back.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskSettlementsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: storeOrderDeskSettlement
+      tags: [Order desk]
+      summary: Settle runs against what was handed in
+      description: |
+        A driver's receipts already exist, so this records the cash reaching the
+        kitchen. A courier's do not, so this writes each order's receipt for its
+        full balance and carries the courier's fees on the settlement.
+
+        One driver or one courier, in one currency. `409 resource.conflict` when a
+        run is no longer waiting. `422` above what the runs brought in, or short
+        with no `short_reason`. A short hand-in waits for a manager's sign-off; the
+        app takes no pay decision from it. Audited as `order.cash_settled`.
+        Requires `order.settle_cash_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreOrderDeskSettlementRequest'
+      responses:
+        '201':
+          description: The settlement.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashSettlementEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/settlements/{settlement}/sign-off:
+    post:
+      operationId: signOffOrderDeskSettlement
+      tags: [Order desk]
+      summary: Accept a short hand-in
+      description: |
+        `409` unless it is short and unsigned. Audited as
+        `order.cash_short_signed_off`. Requires `order.supervise_organisation`.
+      parameters:
+        - name: settlement
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The settlement.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashSettlementEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -37730,6 +38041,21 @@ components:
         meta:
           $ref: '#/components/schemas/Meta'
 
+    BranchClosure:
+      type: object
+      required: [id, closed_from, closed_to, note]
+      properties:
+        id:
+          type: string
+          format: uuid
+        closed_from:
+          type: string
+          format: date
+        closed_to:
+          type: string
+          format: date
+        note:
+          type: [string, 'null']
     DuplicateStockEnvelope:
       type: object
       required: [data, meta]
@@ -40926,6 +41252,181 @@ components:
           type: [string, 'null']
           maxLength: 20
 
+    CashRun:
+      type: object
+      required: [job_id, order_id, order_number, delivered_at, amount_minor]
+      properties:
+        job_id:
+          $ref: '#/components/schemas/Uuid'
+        order_id:
+          $ref: '#/components/schemas/Uuid'
+        order_number:
+          type: string
+        delivered_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        amount_minor:
+          type: integer
+          description: The driver's cash from this run, or what the order still owes a courier's run.
+
+    CourierCashRun:
+      allOf:
+        - $ref: '#/components/schemas/CashRun'
+        - type: object
+          required: [fee_minor, reference]
+          properties:
+            fee_minor:
+              type: integer
+              minimum: 0
+            reference:
+              type: [string, 'null']
+
+    DriverCashOwed:
+      type: object
+      required: [driver_user_id, display_name, currency_code, collected_minor, runs]
+      properties:
+        driver_user_id:
+          $ref: '#/components/schemas/Uuid'
+        display_name:
+          type: [string, 'null']
+        currency_code:
+          type: string
+        collected_minor:
+          type: integer
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/CashRun'
+
+    CourierCashOwed:
+      type: object
+      required: [courier_name, currency_code, due_minor, fee_minor, runs]
+      properties:
+        courier_name:
+          type: string
+        currency_code:
+          type: string
+        due_minor:
+          type: integer
+        fee_minor:
+          type: integer
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/CourierCashRun'
+
+    CashSettlement:
+      type: object
+      required: [id, kind, party_name, currency_code, expected_minor, fee_minor, handed_in_minor, short_minor, short_reason, recorded_by_name, recorded_at, signed_off_by_name, signed_off_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          type: string
+          enum: [driver, courier]
+        party_name:
+          type: [string, 'null']
+        currency_code:
+          type: string
+        expected_minor:
+          type: integer
+        fee_minor:
+          type: integer
+        handed_in_minor:
+          type: integer
+        short_minor:
+          type: integer
+        short_reason:
+          type: [string, 'null']
+        recorded_by_name:
+          type: [string, 'null']
+        recorded_at:
+          type: string
+          format: date-time
+        signed_off_by_name:
+          type: [string, 'null']
+        signed_off_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+
+    StoreOrderDeskSettlementRequest:
+      type: object
+      required: [job_ids, handed_in_minor]
+      properties:
+        job_ids:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/Uuid'
+        handed_in_minor:
+          type: integer
+          minimum: 0
+        short_reason:
+          type: [string, 'null']
+          maxLength: 300
+      additionalProperties: false
+
+    CashSettlementEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [settlement]
+          properties:
+            settlement:
+              $ref: '#/components/schemas/CashSettlement'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    OrderDeskSettlementsEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [drivers, couriers, settlements]
+          properties:
+            drivers:
+              type: array
+              items:
+                $ref: '#/components/schemas/DriverCashOwed'
+            couriers:
+              type: array
+              items:
+                $ref: '#/components/schemas/CourierCashOwed'
+            settlements:
+              type: array
+              items:
+                $ref: '#/components/schemas/CashSettlement'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    OrderDeskCashReportAdjustment:
+      type: object
+      required: [day, kind, display_name, currency_code, entry_count, amount_minor_sum]
+      properties:
+        day:
+          type: string
+          format: date
+        kind:
+          type: string
+          enum: [refund, receipt_correction, courier_fee, short]
+        display_name:
+          type: [string, 'null']
+          description: The person who recorded a refund, the courier, or the driver who was short.
+        currency_code:
+          type: string
+        entry_count:
+          type: integer
+        amount_minor_sum:
+          type: integer
+
     OrderDeskCashReportRow:
       type: object
       required: [day, confirmed_by, display_name, method, currency_code, receipt_count, amount_minor_sum]
@@ -41003,9 +41504,17 @@ components:
       properties:
         data:
           type: object
-          required: [rows, totals]
+          required: [rows, totals, adjustments]
           additionalProperties: false
           properties:
+            adjustments:
+              type: array
+              description: |
+                What came off those takings: refunds and corrections that
+                completed, couriers' fees and short hand-ins. Beside the rows
+                rather than netted into them.
+              items:
+                $ref: '#/components/schemas/OrderDeskCashReportAdjustment'
             rows:
               type: array
               description: |

@@ -6,6 +6,7 @@ namespace Healthy360\Orders\Services;
 
 use Carbon\CarbonImmutable;
 use DateTimeZone;
+use Healthy360\Kitchens\Models\BranchClosure;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Orders\Contracts\OrderSchedulingLookup;
 use Healthy360\Organisations\Enums\BranchStatus;
@@ -30,6 +31,10 @@ use Illuminate\Support\Collection;
  * cut-off; the migration's own example says as much. Choosing the simpler
  * reading means a kitchen configures one rule and gets one behaviour, rather
  * than the system quietly deciding which of two readings applied today.
+ *
+ * **A closure date comes before the week.** A holiday on a Tuesday answers
+ * `closed`, the same answer a shut weekday gives, so every caller already knows
+ * what to do with it. {@see BranchClosure}
  *
  * **Three things are checked, in order, and each has its own answer.**
  *
@@ -67,6 +72,10 @@ final readonly class BranchScheduleLookup implements OrderSchedulingLookup
 
         if ($day->toDateString() < $localNow->toDateString()) {
             return ['accepted' => false, 'reason' => 'date_in_the_past', 'cut_off_at' => null];
+        }
+
+        if ($this->isClosedOn($this->closuresOf([$branchId], $day->toDateString()), $day->toDateString())) {
+            return ['accepted' => false, 'reason' => 'closed', 'cut_off_at' => null];
         }
 
         $row = BranchOpeningHour::withoutTenancy()
@@ -179,6 +188,7 @@ final readonly class BranchScheduleLookup implements OrderSchedulingLookup
 
         $weeks = BranchOpeningHour::withoutTenancy()->whereIn('branch_id', $branchIds)->get()->groupBy('branch_id');
         $zones = OrganisationBranch::withoutTenancy()->whereKey($branchIds)->pluck('timezone', 'id');
+        $closures = $this->closuresOf($branchIds, CarbonImmutable::createFromTimestamp($earliest)->subDay()->toDateString())->groupBy('branch_id');
 
         $stretches = [];
 
@@ -188,6 +198,7 @@ final readonly class BranchScheduleLookup implements OrderSchedulingLookup
                 $this->zone($zones->get($branchId)),
                 $earliest,
                 $end,
+                $closures->get($branchId, collect()),
             );
         }
 
@@ -229,9 +240,10 @@ final readonly class BranchScheduleLookup implements OrderSchedulingLookup
      * gives. `closes_at > opens_at` is a CHECK, so no stretch crosses midnight.
      *
      * @param  Collection<int, BranchOpeningHour>  $week  keyed by ISO weekday
+     * @param  Collection<int, BranchClosure>  $closures
      * @return list<array{int, int}>
      */
-    private function openStretches(Collection $week, string $timezone, int $start, int $end): array
+    private function openStretches(Collection $week, string $timezone, int $start, int $end, Collection $closures): array
     {
         $stretches = [];
         $day = CarbonImmutable::createFromTimestamp($start, $timezone)->startOfDay();
@@ -239,11 +251,17 @@ final readonly class BranchScheduleLookup implements OrderSchedulingLookup
         while ($day->getTimestamp() < $end) {
             $next = $day->addDay()->startOfDay();
             $row = $week->get($day->dayOfWeekIso);
+            $date = $day->toDateString();
+
+            if ($this->isClosedOn($closures, $date)) {
+                $day = $next;
+
+                continue;
+            }
 
             if ($row === null) {
                 $stretches[] = [$day->getTimestamp(), $next->getTimestamp()];
             } elseif ($row->isOpen()) {
-                $date = $day->toDateString();
                 $stretches[] = [
                     CarbonImmutable::parse("{$date} {$row->opens_at}", $timezone)->getTimestamp(),
                     CarbonImmutable::parse("{$date} {$row->closes_at}", $timezone)->getTimestamp(),
@@ -254,6 +272,29 @@ final readonly class BranchScheduleLookup implements OrderSchedulingLookup
         }
 
         return $stretches;
+    }
+
+    /**
+     * Closures of these branches that have not ended before `$date`.
+     *
+     * @param  list<string>  $branchIds
+     * @return Collection<int, BranchClosure>
+     */
+    private function closuresOf(array $branchIds, string $date): Collection
+    {
+        return BranchClosure::withoutTenancy()
+            ->whereIn('branch_id', $branchIds)
+            ->where('closed_to', '>=', $date)
+            ->get();
+    }
+
+    /**
+     * @param  Collection<int, BranchClosure>  $closures
+     */
+    private function isClosedOn(Collection $closures, string $date): bool
+    {
+        return $closures->contains(static fn (BranchClosure $closure): bool => $closure->closed_from->toDateString() <= $date
+            && $closure->closed_to->toDateString() >= $date);
     }
 
     /**

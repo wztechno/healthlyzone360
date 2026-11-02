@@ -1989,7 +1989,14 @@
             "windowTooLongTitle_two": "اختر يومين على الأكثر",
             "windowTooLongTitle_few": "اختر {{count}} أيام على الأكثر",
             "windowTooLongTitle_many": "اختر {{count}} يومًا على الأكثر",
-            "windowTooLongTitle_other": "اختر {{count}} يوم على الأكثر"
+            "windowTooLongTitle_other": "اختر {{count}} يوم على الأكثر",
+            "adjustmentsHeading": "ما خُصم من المقبوضات",
+            "adjustment": {
+                "refund": "استرداد",
+                "receipt_correction": "تصحيح إيصال",
+                "courier_fee": "رسوم شركة التوصيل",
+                "short": "نقص في التسليم"
+            }
         },
         "batch": {
             "recipeLabel": "الوصفة",
@@ -2069,6 +2076,48 @@
             "factPortionsPerBatch_many": "{{count}} حصة في الدفعة",
             "factPortionsPerBatch_other": "{{count}} حصة في الدفعة",
             "wasteAddedToInputs": "+{{percent}} % هدر الإنتاج"
+        },
+        "settlement": {
+            "driversHeading": "سائقون بحوزتهم نقد",
+            "driversEmpty": "لا يوجد سائق بحوزته نقد.",
+            "couriersHeading": "شركات توصيل عليها نقد",
+            "couriersEmpty": "لا نقد مستحق على أي شركة توصيل.",
+            "recentHeading": "آخر عمليات التسليم",
+            "recentEmpty": "لم يُسلَّم شيء بعد.",
+            "columnDriver": "السائق",
+            "columnCourier": "شركة التوصيل",
+            "columnRuns": "الرحلات",
+            "columnCollected": "المحصّل",
+            "columnDue": "المستحق",
+            "columnFee": "الرسوم",
+            "columnWhen": "الوقت",
+            "columnParty": "من",
+            "columnHandedIn": "المسلَّم",
+            "columnShort": "النقص",
+            "columnStatus": "الحالة",
+            "columnAction": "الإجراء",
+            "settle": "تسوية",
+            "settled": "تمت التسوية",
+            "signOff": "توقيع",
+            "signedOff": "موقَّع",
+            "awaitingSignOff": "بانتظار مدير",
+            "signedOffToast": "تم التوقيع.",
+            "dialogTitle": "تسوية {{name}}",
+            "dialogBody": {
+                "driver": "ألغِ تحديد أي رحلة لا يشملها هذا التسليم. إيصالاتها مسجّلة أصلاً.",
+                "courier": "ألغِ تحديد أي طلب لا تشمله هذه الدفعة. تسجّل التسوية إيصال كل طلب."
+            },
+            "feeNote": "تُخصم رسوم قدرها {{fee}}، فيصبح المستحق {{net}}.",
+            "amountLabel": "المسلَّم ({{currency}})",
+            "amountHint": "المستحق {{amount}}.",
+            "amountInvalid": "أدخل مبلغاً لا يتجاوز المستحق.",
+            "shortTitle": "نقص {{amount}}",
+            "shortBody": "يُسجَّل هذا على التسليم ليوقّعه مدير. ولا يترتب عليه شيء آخر.",
+            "reasonLabel": "سبب النقص",
+            "confirm": "تسجيل التسليم",
+            "savedToast": "سُجّل التسليم.",
+            "saveError": "لم يُسجَّل التسليم.",
+            "loadErrorTitle": "تعذّر تحميل النقد المنتظر تسويته."
         }
     },
     "kds": {
@@ -2454,7 +2503,9 @@
             "customerAllergiesUnknown": "لم يُسأل هذا الزبون عن الحساسية بعد. اسأله قبل أخذ الطلب.",
             "customerAllergiesError": "تعذّرت قراءة الحساسيات. اسأل الزبون قبل أخذ الطلب.",
             "tileConflict": "يحتوي على {{allergens}}",
-            "tileConflictDiet": "يتعارض مع النظام الغذائي لهذا الزبون"
+            "tileConflictDiet": "يتعارض مع النظام الغذائي لهذا الزبون",
+            "offToday": "غير متوفر اليوم",
+            "backOnToday": "إعادته لليوم"
         },
         "refusal": {
             "customer_required": "هذا النوع من البيع يحتاج إلى عميل. ارجع واختر واحدًا أو أضفه.",
@@ -2482,7 +2533,9 @@
             "lead_time_not_met": "هذه الفترة قريبة جدًا ولا تكفي المطبخ لتحضير هذا الطلب.",
             "below_zone_minimum": "قيمة هذا الطلب أقل من الحد الأدنى لمنطقة التوصيل.",
             "item_unavailable_on_date": "هذا الصنف متوقف أو نفد في ذلك اليوم. اختر يومًا آخر أو أزله.",
-            "allergen_conflict": "هذا الطعام يتعارض مع حساسية الزبون. ضع علامة بأنك أبلغته، ثم حاول مجددًا."
+            "allergen_conflict": "هذا الطعام يتعارض مع حساسية الزبون. ضع علامة بأنك أبلغته، ثم حاول مجددًا.",
+            "kitchen_paused": "المطبخ متوقف مؤقتًا. سيُرفض طلب الزبون عبر الموقع، لكن يمكن للمكتب أخذ هذا الطلب.",
+            "window_full": "بلغ هذا الموعد حدّه. سيُرفض طلب الزبون عبر الموقع، لكن يمكن للمكتب أخذ هذا الطلب."
         },
         "columnPhone": "الهاتف",
         "columnAgeing": "التأخير",
@@ -2579,6 +2632,20 @@
             "feeLabel": "الرسوم بـ {{currency}} (اختياري)",
             "feeInvalid": "أدخل مبلغاً، مثل 3.00.",
             "handedToast": "سُلّم إلى {{name}}."
+        },
+        "pause": {
+            "minutes_zero": "لا دقائق",
+            "button": "إيقاف المطبخ مؤقتًا",
+            "title": "إيقاف طلبات الزبائن الجديدة مؤقتًا",
+            "body": "لن يتمكن الزبائن من الطلب حتى انتهاء الوقت. يبقى بإمكان المكتب الطلب، وتستمر الطلبات القائمة.",
+            "minutes_one": "دقيقة واحدة",
+            "minutes_two": "دقيقتان",
+            "minutes_few": "{{count}} دقائق",
+            "minutes_many": "{{count}} دقيقة",
+            "minutes_other": "{{count}} دقيقة",
+            "pausedUntil": "المطبخ متوقف حتى {{time}}",
+            "pausedBody": "يُرفض طلب الزبائن حتى ذلك الوقت. يبقى بإمكان المكتب أخذ الطلبات.",
+            "resume": "الاستئناف الآن"
         }
     },
     "calendar": {
@@ -2757,6 +2824,10 @@
         "wholesale": {
             "name": "إعداد البيع بالجملة",
             "description": "ما يحتاجه عميل الأعمال قبل أن يطلب من هذا المطبخ."
+        },
+        "orderSettlement": {
+            "name": "تسوية النقد",
+            "description": "النقد الذي يسلّمه السائقون وشركات التوصيل، وأي نقص يوقّعه مدير."
         }
     },
     "analytics": {
@@ -5444,6 +5515,25 @@
         "itemFailure": "{{name}}: {{message}}",
         "itemsReadError": "تعذّرت قراءة الأصناف الموجودة على القناة."
     },
+    "branchClosures": {
+        "title": "العطل والإغلاقات",
+        "description": "تواريخ يكون فيها هذا الفرع مغلقاً، مهما كانت ساعات الأسبوع أعلاه. لا يمكن للزبائن الطلب لهذه التواريخ.",
+        "add": "إضافة إغلاق",
+        "fromLabel": "أول يوم إغلاق",
+        "toLabel": "آخر يوم إغلاق",
+        "toHint": "اتركه فارغاً ليوم واحد.",
+        "noteLabel": "ملاحظة",
+        "empty": "لا إغلاقات قادمة.",
+        "remove": "إزالة",
+        "addedToast": "تمت إضافة الإغلاق.",
+        "saveError": "تعذّر حفظ هذا الإغلاق",
+        "newBranch": "فرع جديد",
+        "newBranchSave": "فتح الفرع",
+        "newBranchName": "اسم الفرع",
+        "newBranchCity": "المدينة",
+        "newBranchToast": "تم فتح الفرع. حدّد ساعاته الآن.",
+        "newBranchError": "تعذّر فتح هذا الفرع"
+    },
     "stockDuplicates": {
         "caption": "صفوف مخزون تحمل الاسم نفسه",
         "columnName": "الاسم",
@@ -5612,7 +5702,10 @@
         "ownerHint": "المدة التي ينتظرها الطلب قبل إبلاغ المالك.",
         "refundLabel": "يوافق المالك على الاسترداد فوق",
         "refundHint": "يُحتسب كل ما استُرد على الطلب الواحد. يسترد المديرون حتى هذا المبلغ بأنفسهم.",
-        "refundUnit": "دولار"
+        "refundUnit": "دولار",
+        "capacityLabel": "أقصى عدد طلبات لكل موعد توصيل",
+        "capacityHint": "يُبلَّغ الزبائن بامتلاء الموعد عند تجاوز هذا العدد. اتركه فارغًا لعدم تحديد حد.",
+        "capacityUnit": "طلبات"
     },
     "allergy": {
         "title": "حساسية في هذا الطلب",

@@ -11,6 +11,9 @@ import type {
     ConsumptionExceptionFilter,
     ConsumptionExceptionRetry,
     ConsumptionExceptionTotals,
+    AddBranchClosureRequest,
+    BranchClosure,
+    CreateBranchRequest,
     DuplicateStockGroup,
     CreateProductionOrderRequest,
     CreatePurchaseOrdersRequest,
@@ -1067,6 +1070,60 @@ export function useConsumptionExceptionCountQuery(
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.countUnresolvedConsumptionExceptions();
         },
+    });
+}
+
+/** The active branch's closures that have not ended. */
+export function useBranchClosuresQuery(): UseQueryResult<readonly BranchClosure[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.branchClosures(),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listBranchClosures();
+        },
+    });
+}
+
+export function useAddBranchClosureMutation(): UseMutationResult<
+    BranchClosure,
+    unknown,
+    AddBranchClosureRequest
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (request) => repositories.kitchenOps.addBranchClosure(request),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.kitchenOps.branchClosures(),
+            });
+        },
+    });
+}
+
+export function useRemoveBranchClosureMutation(): UseMutationResult<void, unknown, string> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (closureId) => repositories.kitchenOps.removeBranchClosure(closureId),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.kitchenOps.branchClosures(),
+            });
+        },
+    });
+}
+
+export function useCreateBranchMutation(): UseMutationResult<void, unknown, CreateBranchRequest> {
+    const repositories = useRepositories();
+
+    return useMutation({
+        mutationFn: (request) => repositories.kitchenOps.createBranch(request),
     });
 }
 

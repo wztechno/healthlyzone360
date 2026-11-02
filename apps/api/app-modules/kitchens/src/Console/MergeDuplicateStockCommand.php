@@ -15,8 +15,7 @@ use Illuminate\Console\Command;
  * Read-only unless `--apply` is passed: the default prints what would be merged,
  * what stays for a person (`/kitchen/stock-duplicates`) and which empty shelves of
  * archived ingredients would go. `--apply` is what the environment allowlist
- * guards. Idempotent: a second run
- * finds nothing.
+ * guards. Idempotent: a second run finds nothing.
  */
 final class MergeDuplicateStockCommand extends Command
 {

@@ -75,6 +75,9 @@ import type {
     RecipientSnapshotContact,
     ResolveConsumptionExceptionRequest,
     ConsumptionExceptionTotals,
+    AddBranchClosureRequest,
+    BranchClosure,
+    CreateBranchRequest,
     DuplicateStockGroup,
     SetStockThresholdRequest,
     SpendSummary,
@@ -1967,6 +1970,42 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                 hasMore: meta.has_more ?? false,
                 totalCount: null,
             };
+        },
+
+        async listBranchClosures(): Promise<readonly BranchClosure[]> {
+            const envelope = await transport.requestEnvelope<readonly WireBranchClosure[]>({
+                method: 'GET',
+                path: '/kitchen/branch-closures',
+            });
+            return envelope.data.map(mapBranchClosure);
+        },
+
+        async addBranchClosure(request: AddBranchClosureRequest): Promise<BranchClosure> {
+            const envelope = await transport.requestEnvelope<WireBranchClosure>({
+                method: 'POST',
+                path: '/kitchen/branch-closures',
+                body: {
+                    closed_from: request.closedFrom,
+                    closed_to: request.closedTo,
+                    note: request.note,
+                },
+            });
+            return mapBranchClosure(envelope.data);
+        },
+
+        async removeBranchClosure(closureId: string): Promise<void> {
+            await transport.request({
+                method: 'DELETE',
+                path: `/kitchen/branch-closures/${encodeURIComponent(closureId)}`,
+            });
+        },
+
+        async createBranch(request: CreateBranchRequest): Promise<void> {
+            await transport.request({
+                method: 'POST',
+                path: '/kitchen/branches',
+                body: { name: request.name, city: request.city },
+            });
         },
 
         async listDuplicateStock(): Promise<readonly DuplicateStockGroup[]> {

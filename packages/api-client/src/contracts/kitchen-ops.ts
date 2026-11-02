@@ -1704,6 +1704,25 @@ export interface ConsumptionExceptionFilter extends CursorPageRequest, OffsetPag
 }
 
 /** Optionally records why an exception is being marked handled. */
+/** Dates a branch is shut on top of its week, both ends inclusive. */
+export interface BranchClosure {
+    readonly id: string;
+    readonly closedFrom: string;
+    readonly closedTo: string;
+    readonly note: string | null;
+}
+
+export interface AddBranchClosureRequest {
+    readonly closedFrom: string;
+    readonly closedTo: string;
+    readonly note: string | null;
+}
+
+export interface CreateBranchRequest {
+    readonly name: string;
+    readonly city: string | null;
+}
+
 /** Shelves sharing one name that the merge left for a person, and why. */
 export interface DuplicateStockGroup {
     readonly name: string;
@@ -2401,6 +2420,14 @@ export interface KitchenOpsRepository {
     listConsumptionExceptions(
         filter?: ConsumptionExceptionFilter,
     ): Promise<CursorPage<ConsumptionException>>;
+    /** The current branch's closures that have not ended. Needs `branch.view_current`. */
+    listBranchClosures(): Promise<readonly BranchClosure[]>;
+    /** Needs `branch.manage_current`. */
+    addBranchClosure(request: AddBranchClosureRequest): Promise<BranchClosure>;
+    /** Needs `branch.manage_current`. */
+    removeBranchClosure(closureId: string): Promise<void>;
+    /** Opens another branch. Needs `branch.manage_current` and an organisation-wide membership. */
+    createBranch(request: CreateBranchRequest): Promise<void>;
     /** Stock shelves repeating a name that need a person. Needs `inventory.view_organisation`. */
     listDuplicateStock(): Promise<readonly DuplicateStockGroup[]>;
     /**

@@ -536,6 +536,7 @@ export const queryKeys = {
             ['kitchenOps', 'consumption-exceptions', filter] as const,
         consumptionExceptionCount: () => ['kitchenOps', 'consumption-exception-count'] as const,
         duplicateStock: () => ['kitchenOps', 'duplicate-stock'] as const,
+        branchClosures: () => ['kitchenOps', 'branch-closures'] as const,
         consumptionExceptionTotals: () => ['kitchenOps', 'consumption-exception-totals'] as const,
         /*
          * The desk queue is filtered (status, branch, page), so the filter is
@@ -692,6 +693,7 @@ export const queryKeys = {
          * disk.
          */
         cashReport: (filter?: QueryScope) => ['orderDesk', 'cash-report', scope(filter)] as const,
+        settlements: () => ['orderDesk', 'settlements'] as const,
     },
 
     /**

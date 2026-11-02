@@ -220,8 +220,10 @@ use Healthy360\Inventory\Http\Controllers\StockLevelIndexController;
 use Healthy360\Inventory\Http\Controllers\StockLowStockCountController;
 use Healthy360\Inventory\Http\Controllers\StockThresholdController;
 use Healthy360\Inventory\Http\Controllers\StockWasteController;
+use Healthy360\Kitchens\Http\Controllers\BranchClosureController;
 use Healthy360\Kitchens\Http\Controllers\BranchOperatingReplaceController;
 use Healthy360\Kitchens\Http\Controllers\BranchOperatingShowController;
+use Healthy360\Kitchens\Http\Controllers\BranchStoreController;
 use Healthy360\Kitchens\Http\Controllers\KitchenPauseController;
 use Healthy360\Kitchens\Http\Controllers\KitchenServiceSettingsShowController;
 use Healthy360\Kitchens\Http\Controllers\KitchenServiceSettingsUpdateController;
@@ -265,6 +267,7 @@ use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDriverIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlacementController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQueueController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQuoteController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskSettlementController;
 use Healthy360\Organisations\Http\Controllers\CurrentOrganisationController;
 use Healthy360\Payments\Http\Controllers\PaymentIntentCaptureController;
 use Healthy360\Payments\Http\Controllers\PaymentIntentStoreController;
@@ -2439,6 +2442,21 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                     ->name('catalogue.order-desk.cash-report');
             });
 
+            // Cash coming back from the road. The cashier counts it; a short
+            // hand-in is a manager's to accept.
+            Route::middleware('permission:order.settle_cash_organisation')->group(function (): void {
+                Route::get('/order-desk/settlements', [OrderDeskSettlementController::class, 'index'])
+                    ->name('catalogue.order-desk.settlements.index');
+                Route::post('/order-desk/settlements', [OrderDeskSettlementController::class, 'store'])
+                    ->middleware('idempotency')
+                    ->name('catalogue.order-desk.settlements.store');
+            });
+
+            Route::post('/order-desk/settlements/{settlement}/sign-off', [OrderDeskSettlementController::class, 'signOff'])
+                ->middleware('permission:order.supervise_organisation')
+                ->whereUuid('settlement')
+                ->name('catalogue.order-desk.settlements.sign-off');
+
             /*
             |--------------------------------------------------------------
             | The people on the other end of the telephone (C2)
@@ -2600,6 +2618,21 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::put('/branch-operating', BranchOperatingReplaceController::class)
                 ->middleware('permission:branch.manage_current')
                 ->name('kitchen.branch-operating.replace');
+
+            // The dates a branch is shut on top of its week, and a new branch.
+            Route::get('/branch-closures', [BranchClosureController::class, 'index'])
+                ->middleware('permission:branch.view_current')
+                ->name('kitchen.branch-closures.index');
+            Route::post('/branch-closures', [BranchClosureController::class, 'store'])
+                ->middleware('permission:branch.manage_current')
+                ->name('kitchen.branch-closures.store');
+            Route::delete('/branch-closures/{closure}', [BranchClosureController::class, 'destroy'])
+                ->whereUuid('closure')
+                ->middleware('permission:branch.manage_current')
+                ->name('kitchen.branch-closures.destroy');
+            Route::post('/branches', BranchStoreController::class)
+                ->middleware('permission:branch.manage_current')
+                ->name('kitchen.branches.store');
         });
 
         /*

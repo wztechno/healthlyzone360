@@ -927,9 +927,11 @@ it('protects exactly the fourteen declared tables and no others', function (): v
     // Stage 2's `kitchen_customer_links` joins on the same policy: it is what the
     // seventh arm of the customer policy reads (`OrderDeskRegisteredCallerTest`).
     //
-    // P0 Stage 3 brings in `order_refunds`, on the same policy.
+    // P0 Stage 3 brings in `order_refunds` and `cash_settlements`, on the same
+    // policy.
     expect($protected)->toBe([
         'audit_logs',
+        'cash_settlements',
         'consent_grants',
         'customer_accounts',
         'feature_entitlements',

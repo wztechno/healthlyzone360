@@ -1746,7 +1746,14 @@
             "toLabel": "To",
             "columnDay": "Day",
             "windowTooLongTitle_one": "Pick at most {{count}} day",
-            "windowTooLongTitle_other": "Pick at most {{count}} days"
+            "windowTooLongTitle_other": "Pick at most {{count}} days",
+            "adjustmentsHeading": "Came off the takings",
+            "adjustment": {
+                "refund": "Refund",
+                "receipt_correction": "Receipt correction",
+                "courier_fee": "Courier fee",
+                "short": "Short hand-in"
+            }
         },
         "batch": {
             "recipeLabel": "Recipe",
@@ -1818,6 +1825,48 @@
             "factPortionsPerBatch_one": "{{count}} portion per batch",
             "factPortionsPerBatch_other": "{{count}} portions per batch",
             "wasteAddedToInputs": "+{{percent}} % production waste"
+        },
+        "settlement": {
+            "driversHeading": "Drivers holding cash",
+            "driversEmpty": "No driver is holding cash.",
+            "couriersHeading": "Couriers owing cash",
+            "couriersEmpty": "No courier owes cash.",
+            "recentHeading": "Recent hand-ins",
+            "recentEmpty": "Nothing has been handed in yet.",
+            "columnDriver": "Driver",
+            "columnCourier": "Courier",
+            "columnRuns": "Runs",
+            "columnCollected": "Collected",
+            "columnDue": "Due",
+            "columnFee": "Fee",
+            "columnWhen": "When",
+            "columnParty": "From",
+            "columnHandedIn": "Handed in",
+            "columnShort": "Short",
+            "columnStatus": "Status",
+            "columnAction": "Action",
+            "settle": "Settle",
+            "settled": "Settled",
+            "signOff": "Sign off",
+            "signedOff": "Signed off",
+            "awaitingSignOff": "Waiting for a manager",
+            "signedOffToast": "Signed off.",
+            "dialogTitle": "Settle {{name}}",
+            "dialogBody": {
+                "driver": "Untick any run this hand-in does not cover. Their receipts are already recorded.",
+                "courier": "Untick any order this payment does not cover. Settling writes each order's receipt."
+            },
+            "feeNote": "Fees of {{fee}} come off, so {{net}} is due.",
+            "amountLabel": "Handed in ({{currency}})",
+            "amountHint": "{{amount}} is due.",
+            "amountInvalid": "Enter an amount up to what is due.",
+            "shortTitle": "{{amount}} short",
+            "shortBody": "This is recorded against the hand-in for a manager to sign. Nothing else happens.",
+            "reasonLabel": "Why it is short",
+            "confirm": "Record hand-in",
+            "savedToast": "Hand-in recorded.",
+            "saveError": "The hand-in was not recorded.",
+            "loadErrorTitle": "The cash waiting to be settled could not be loaded."
         }
     },
     "kds": {
@@ -2195,7 +2244,9 @@
             "customerAllergiesUnknown": "Nobody has asked this customer about allergies yet. Ask before you take the order.",
             "customerAllergiesError": "The allergies could not be read. Ask the customer before you take the order.",
             "tileConflict": "Contains {{allergens}}",
-            "tileConflictDiet": "Conflicts with this customer's diet"
+            "tileConflictDiet": "Conflicts with this customer's diet",
+            "offToday": "Off today",
+            "backOnToday": "Back on today"
         },
         "refusal": {
             "customer_required": "This kind of sale needs a customer. Go back and choose or add one.",
@@ -2223,7 +2274,9 @@
             "lead_time_not_met": "That slot is too soon for the kitchen to prepare this order.",
             "below_zone_minimum": "This order is below the delivery zone’s minimum.",
             "item_unavailable_on_date": "That article is off or sold out on that day. Choose another day or remove it.",
-            "allergen_conflict": "This food conflicts with the customer’s allergies. Tick that you told them, then try again."
+            "allergen_conflict": "This food conflicts with the customer’s allergies. Tick that you told them, then try again.",
+            "kitchen_paused": "The kitchen is paused. A customer would be turned away; the desk can still take this.",
+            "window_full": "That slot has reached its limit. A customer would be turned away; the desk can still take this."
         },
         "columnPhone": "Telephone",
         "columnAgeing": "Ageing",
@@ -2300,6 +2353,16 @@
             "feeLabel": "Fee in {{currency}} (optional)",
             "feeInvalid": "Enter an amount, like 3.00.",
             "handedToast": "Handed to {{name}}."
+        },
+        "pause": {
+            "button": "Pause kitchen",
+            "title": "Pause new customer orders",
+            "body": "Customers cannot order until the time runs out. The desk still can, and orders already placed carry on.",
+            "minutes_one": "{{count}} minute",
+            "minutes_other": "{{count}} minutes",
+            "pausedUntil": "Kitchen paused until {{time}}",
+            "pausedBody": "Customers are being turned away until then. The desk can still take orders.",
+            "resume": "Start again now"
         }
     },
     "calendar": {
@@ -2474,6 +2537,10 @@
         "wholesale": {
             "name": "Wholesale setup",
             "description": "What a business customer needs before they can order from this kitchen."
+        },
+        "orderSettlement": {
+            "name": "Settle cash",
+            "description": "Cash handed in by drivers and couriers, and any short amount for a manager to sign."
         }
     },
     "analytics": {
@@ -4769,6 +4836,25 @@
         "itemFailure": "{{name}}: {{message}}",
         "itemsReadError": "Which items are on the channel could not be read."
     },
+    "branchClosures": {
+        "title": "Holidays and closures",
+        "description": "Dates this branch is shut, whatever the week above says. Customers cannot order for these dates.",
+        "add": "Add closure",
+        "fromLabel": "First day shut",
+        "toLabel": "Last day shut",
+        "toHint": "Leave empty for one day.",
+        "noteLabel": "Note",
+        "empty": "No closures coming up.",
+        "remove": "Remove",
+        "addedToast": "Closure added.",
+        "saveError": "That closure could not be saved",
+        "newBranch": "New branch",
+        "newBranchSave": "Open branch",
+        "newBranchName": "Branch name",
+        "newBranchCity": "City",
+        "newBranchToast": "Branch opened. Set its hours next.",
+        "newBranchError": "That branch could not be opened"
+    },
     "stockDuplicates": {
         "caption": "Stock rows that share a name",
         "columnName": "Name",
@@ -4937,7 +5023,10 @@
         "ownerHint": "How long an order waits before the owner is told.",
         "refundLabel": "Owner approves refunds above",
         "refundHint": "Counts everything refunded on one order. Managers refund up to this on their own.",
-        "refundUnit": "USD"
+        "refundUnit": "USD",
+        "capacityLabel": "Most orders per delivery slot",
+        "capacityHint": "Customers are told the slot is full past this. Leave it empty for no limit.",
+        "capacityUnit": "orders"
     },
     "allergy": {
         "title": "Allergy on this order",
