@@ -754,7 +754,7 @@ final readonly class MonthlyCostReportService
                     ->from('stock_movements')
                     ->where('stock_movements.reason', 'consume')
                     ->where('stock_movements.reference_type', 'order')
-                    ->whereRaw('stock_movements.reference_id = orders.id::text')
+                    ->whereRaw('stock_movements.reference_id::text = orders.id::text')
                     ->whereNotNull('stock_movements.cost_amount')
                     ->where(function (QueryBuilder $attributed): void {
                         $attributed->whereColumn('stock_movements.order_line_id', 'order_lines.id')
