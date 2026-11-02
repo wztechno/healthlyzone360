@@ -660,7 +660,7 @@ describe('sale — allergies', () => {
         expect(screen.getByTestId(SUBMIT)).toBeDisabled();
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-allergy-ack'));
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-allergy-ack-control'));
         });
         await waitFor(() => {
             expect(screen.getByTestId(SUBMIT)).toBeEnabled();

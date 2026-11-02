@@ -137,7 +137,9 @@ function escalationOrder(object $test, CarbonImmutable $placedAt, array $attribu
         'organisation_id' => $test->orgId,
         'customer_account_id' => $test->customerId,
         'sales_channel_id' => $test->channelId,
-        'placed_at' => $placedAt,
+        // In UTC, as the app's own `now()` is: Eloquent writes a date's wall clock and drops
+        // its zone, so a Beirut time would land three hours in the future.
+        'placed_at' => $placedAt->utc(),
         ...$attributes,
     ]);
 }

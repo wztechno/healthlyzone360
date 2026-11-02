@@ -13,7 +13,7 @@ import type {
     RecordedKitchenOrderPayment,
 } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import { queryKeys } from '../../data/query-keys.ts';
 import { TEST_BRANCH_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
@@ -389,8 +389,11 @@ describe('order desk queue — allergies on the row', () => {
             { timeout: 5000 },
         );
 
-        expect(screen.getByTestId(rowTestId(1, 'allergy'))).toHaveTextContent('Severe allergy');
-        expect(screen.getByTestId(rowTestId(2, 'allergy'))).toHaveTextContent('Allergy');
+        // The word itself: the badge's icon renders as a glyph here, beside it.
+        const severe = within(screen.getByTestId(rowTestId(1, 'allergy')));
+        expect(severe.getByText('Severe allergy')).toBeTruthy();
+        const noted = within(screen.getByTestId(rowTestId(2, 'allergy')));
+        expect(noted.getByText('Allergy')).toBeTruthy();
         expect(screen.queryByTestId(rowTestId(3, 'allergy'))).toBeNull();
     });
 });

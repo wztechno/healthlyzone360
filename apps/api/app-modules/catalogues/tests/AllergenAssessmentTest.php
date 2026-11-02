@@ -61,6 +61,9 @@ function publishedRecipe(object $tenant, int $lines): Recipe
             'recipe_version_id' => $version->getKey(),
             'organisation_id' => $organisationId,
             'line_number' => $number,
+            // The line factory's own ingredient invents an organisation, and with it a
+            // random country on top of the seeded ones.
+            'ingredient_id' => Ingredient::factory()->create(['organisation_id' => $organisationId])->getKey(),
         ]);
     }
 

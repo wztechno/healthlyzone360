@@ -1802,10 +1802,14 @@ describe('the kitchen service timings', () => {
         });
         await untilVisible('kitchen-service-timings');
 
-        expect(screen.getByTestId('kitchen-service-timings-lead').props.value).toBe('120');
+        expect(screen.getByTestId('kitchen-service-timings-lead-input').props.value).toBe('120');
 
-        fireEvent.changeText(screen.getByTestId('kitchen-service-timings-lead'), '90');
-        fireEvent.press(screen.getByTestId('kitchen-service-timings-save'));
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-service-timings-lead-input'), '90');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-service-timings-save'));
+        });
 
         await untilVisible('kitchen-service-timings-saved-toast');
         expect(repositories.staffAlerts.saveServiceSettings).toHaveBeenCalledWith({
@@ -1824,7 +1828,9 @@ describe('the kitchen service timings', () => {
         });
         await untilVisible('kitchen-service-timings');
 
-        fireEvent.changeText(screen.getByTestId('kitchen-service-timings-alarm'), '');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-service-timings-alarm-input'), '');
+        });
 
         expect(screen.getByTestId('kitchen-service-timings-save')).toBeDisabled();
     });

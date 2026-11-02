@@ -1,6 +1,6 @@
 import type { StaffAlert, StaffAlertList } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
@@ -156,8 +156,9 @@ describe('the alerts bell', () => {
         await screen.findByTestId('staff-alerts-count');
         fireEvent.press(screen.getByTestId('staff-alerts-button'));
 
+        const target = await screen.findByTestId('staff-alerts-panel-open');
         await act(async () => {
-            fireEvent.press(await screen.findByTestId('staff-alerts-panel-open'));
+            fireEvent.press(target);
         });
 
         expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/orders?view=order-1');
@@ -170,8 +171,9 @@ describe('the alerts bell', () => {
         await screen.findByTestId('staff-alerts-count');
         fireEvent.press(screen.getByTestId('staff-alerts-button'));
 
+        const target = await screen.findByTestId('staff-alerts-panel-open');
         await act(async () => {
-            fireEvent.press(await screen.findByTestId('staff-alerts-panel-open'));
+            fireEvent.press(target);
         });
 
         expect(routerMock.__push).not.toHaveBeenCalled();
@@ -183,8 +185,9 @@ describe('the alerts bell', () => {
         await screen.findByTestId('staff-alerts-count');
         fireEvent.press(screen.getByTestId('staff-alerts-button'));
 
+        const target = await screen.findByTestId('staff-alerts-mark-all');
         await act(async () => {
-            fireEvent.press(await screen.findByTestId('staff-alerts-mark-all'));
+            fireEvent.press(target);
         });
 
         expect(repositories.staffAlerts.markAllAlertsRead).toHaveBeenCalledTimes(1);
@@ -207,9 +210,8 @@ describe('the alerts bell', () => {
         await waitFor(() => {
             expect(playAlertTone).toHaveBeenCalledTimes(1);
         });
-        expect(await screen.findByTestId('staff-alerts-toast')).toHaveTextContent(
-            'Delivery failed for order H-2',
-        );
+        const toast = within(await screen.findByTestId('staff-alerts-toast'));
+        expect(toast.getByText('Delivery failed for order H-2')).toBeTruthy();
     });
 
     it('sounds again when a repeat delivery failure brings the same row back', async () => {
@@ -221,9 +223,8 @@ describe('the alerts bell', () => {
         await waitFor(() => {
             expect(playAlertTone).toHaveBeenCalledTimes(1);
         });
-        expect(await screen.findByTestId('staff-alerts-toast')).toHaveTextContent(
-            'Delivery failed for order H-1',
-        );
+        const toast = within(await screen.findByTestId('staff-alerts-toast'));
+        expect(toast.getByText('Delivery failed for order H-1')).toBeTruthy();
     });
 
     it('sounds for the first row of a bell that loaded empty', async () => {
@@ -249,7 +250,8 @@ describe('the alerts bell', () => {
         await waitFor(() => {
             expect(playAlertTone).toHaveBeenCalledTimes(1);
         });
-        expect(await screen.findByTestId('staff-alerts-toast')).toHaveTextContent('2 new alerts');
+        const toast = within(await screen.findByTestId('staff-alerts-toast'));
+        expect(toast.getByText('2 new alerts')).toBeTruthy();
     });
 });
 

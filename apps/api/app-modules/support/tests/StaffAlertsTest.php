@@ -9,10 +9,10 @@ use Healthy360\AccessControl\Models\MembershipRole;
 use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
+use Healthy360\Catalogues\Tests\Fixtures\CatalogueWorld;
 use Healthy360\Identity\Models\ContactPoint;
 use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
-use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\Support\Alerts\StaffAlerts;
@@ -93,7 +93,7 @@ beforeEach(function (): void {
     $this->withoutDefer();
     config(['services.twilio' => ['sid' => 'ACtest', 'token' => 'token', 'from' => '+15005550006']]);
 
-    $this->organisationId = (string) Organisation::factory()->create()->getKey();
+    $this->organisationId = (string) CatalogueWorld::organisation()->getKey();
     $this->subjectId = (string) Str::uuid7();
     $this->alerts = app(StaffAlerts::class);
 });
