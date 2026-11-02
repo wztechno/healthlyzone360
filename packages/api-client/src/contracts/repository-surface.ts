@@ -306,6 +306,7 @@ export const REPOSITORY_SURFACE = {
         'deleteSupplierLink',
         'getGoodsReceipt',
         'getInventoryValue',
+        'getKitchenAnalytics',
         'getOrderProposal',
         'getProcurementReference',
         'getProductionOrder',
