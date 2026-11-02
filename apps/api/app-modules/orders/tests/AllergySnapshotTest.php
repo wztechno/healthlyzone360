@@ -14,6 +14,7 @@ use Healthy360\Customers\Models\CustomerAllergenDeclaration;
 use Healthy360\Customers\Models\CustomerDietaryProfile;
 use Healthy360\Orders\Contracts\BuyerAllergenCheck;
 use Healthy360\Orders\Enums\FulfilmentType;
+use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Enums\PaymentMethod;
 use Healthy360\Orders\Exceptions\PlacementRefused;
 use Healthy360\Orders\Models\Order;
@@ -307,12 +308,13 @@ it('alerts each manager once, with no allergen on the alert', function (): void 
         ->where('user_id', $this->manager->getKey())
         ->get();
 
+    // Sorted because jsonb keeps its own key order. Still every key, value and type.
     expect($alerts)->toHaveCount(1)
-        ->and($alerts->first()->data)->toBe([
-            'order_number' => $order->order_number,
-            'total_minor' => $order->total_minor,
+        ->and(collect($alerts->first()->data)->sortKeys()->all())->toBe([
             'currency_code' => $order->currency_code,
+            'order_number' => $order->order_number,
             'severe' => true,
+            'total_minor' => $order->total_minor,
         ]);
 });
 
@@ -393,6 +395,9 @@ it('clears them when a guest is purged', function (): void {
     declareAllergy($this->account);
 
     $order = app(OrderPlacementService::class)->placeComposed(allergyPlacement($this, ['allergyNote' => 'Coeliac']))->order;
+
+    // An open order would stop the purge.
+    $order->forceFill(['status' => OrderStatus::Fulfilled, 'confirmed_at' => now(), 'fulfilled_at' => now()])->save();
 
     app(GuestDeletionService::class)->purge($this->account);
 

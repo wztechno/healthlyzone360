@@ -7,10 +7,12 @@ namespace Healthy360\Customers\Guest\Jobs;
 use Healthy360\Customers\Enums\CustomerAccountStatus;
 use Healthy360\Customers\Enums\CustomerAccountType;
 use Healthy360\Customers\Guest\Enums\SuppressionSource;
+use Healthy360\Customers\Guest\Results\GuestPurgeReport;
 use Healthy360\Customers\Guest\Services\GuestDeletionService;
 use Healthy360\Customers\Guest\Services\GuestRetentionWindows;
 use Healthy360\Customers\Models\CustomerAccount;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 
@@ -117,29 +119,28 @@ final class ExpireGuestData implements ShouldQueue
      * `anonymised_at IS NULL` is the idempotence guard: a purged account keeps
      * its closed row forever (it is the join target orders need), so without it
      * every run would purge every guest that ever existed, over and over.
+     *
+     * A guest with an open order is left alone and comes up again on a later
+     * run. That row still matches, which is why this walks by id: re-reading the
+     * first chunk would meet the same skipped rows and never finish.
      */
     private function purge(GuestDeletionService $deletions, GuestRetentionWindows $windows): int
     {
         $purged = 0;
-        $cutoff = $windows->purgeCutoff();
 
-        do {
-            /** @var list<CustomerAccount> $batch */
-            $batch = CustomerAccount::query()
-                ->where('account_type', CustomerAccountType::Guest)
-                ->where('status', CustomerAccountStatus::Closed)
-                ->whereNull('anonymised_at')
-                ->whereNotNull('closed_at')
-                ->where('closed_at', '<', $cutoff)
-                ->limit(self::CHUNK)
-                ->get()
-                ->all();
-
-            foreach ($batch as $account) {
-                $deletions->purge($account, SuppressionSource::OptOut);
-                $purged++;
-            }
-        } while (count($batch) === self::CHUNK);
+        CustomerAccount::query()
+            ->where('account_type', CustomerAccountType::Guest)
+            ->where('status', CustomerAccountStatus::Closed)
+            ->whereNull('anonymised_at')
+            ->whereNotNull('closed_at')
+            ->where('closed_at', '<', $windows->purgeCutoff())
+            ->chunkById(self::CHUNK, function (Collection $batch) use ($deletions, &$purged): void {
+                foreach ($batch as $account) {
+                    if ($deletions->purge($account, SuppressionSource::OptOut) instanceof GuestPurgeReport) {
+                        $purged++;
+                    }
+                }
+            });
 
         return $purged;
     }

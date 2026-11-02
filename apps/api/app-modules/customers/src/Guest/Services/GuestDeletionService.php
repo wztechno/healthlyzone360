@@ -186,13 +186,6 @@ final class GuestDeletionService
             return GuestDeletionOutcome::refused();
         }
 
-        // A purge wipes the order's allergies and address, and a kitchen cooking
-        // that order still needs both. The answer is the ordinary refusal, for
-        // the reason every other one here is.
-        if ($this->openOrders->openOrderSummaries((string) $account->getKey()) !== []) {
-            return GuestDeletionOutcome::refused();
-        }
-
         $this->audit->record(
             'guest.deletion_verified',
             subjectType: 'customer_account',
@@ -200,7 +193,13 @@ final class GuestDeletionService
             metadata: ['contact_channel' => $channel->value],
         );
 
-        return GuestDeletionOutcome::purged($this->purge($account));
+        $report = $this->purge($account);
+
+        // An open order is the ordinary refusal, for the reason every other one
+        // here is.
+        return $report instanceof GuestPurgeReport
+            ? GuestDeletionOutcome::purged($report)
+            : GuestDeletionOutcome::refused();
     }
 
     /**
@@ -211,13 +210,24 @@ final class GuestDeletionService
      * runs out. The suppression source differs between them — an expiry is not
      * somebody asking to be forgotten — which is why it is a parameter.
      *
+     * **An open order stops it, whoever is asking.** A purge wipes the order's
+     * allergies and address, and a kitchen cooking that order still needs both,
+     * so the answer is null and nothing is touched. The guard sits here rather
+     * than in a caller so neither caller can miss it.
+     *
      * Order matters. Contacts go first so the cascade takes their passcode
      * challenges with them and the address's courier-number reference is nulled
      * rather than blocking; the dietary profile takes its allergen declarations
      * and food exclusions with it. The account row survives, anonymised.
+     *
+     * @return GuestPurgeReport|null null when an open order left the account alone
      */
-    public function purge(CustomerAccount $account, SuppressionSource $source = SuppressionSource::Deletion): GuestPurgeReport
+    public function purge(CustomerAccount $account, SuppressionSource $source = SuppressionSource::Deletion): ?GuestPurgeReport
     {
+        if ($this->openOrders->openOrderSummaries((string) $account->getKey()) !== []) {
+            return null;
+        }
+
         /** @var Collection<int, ContactPoint> $contacts */
         $contacts = ContactPoint::query()
             ->where('customer_account_id', $account->getKey())

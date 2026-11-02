@@ -5,14 +5,17 @@ declare(strict_types=1);
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Cart\Services\CartService;
 use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
+use Healthy360\Customers\Enums\CustomerAccountStatus;
 use Healthy360\Customers\Enums\CustomerAddressType;
 use Healthy360\Customers\Guest\Enums\GuestSessionGrade;
+use Healthy360\Customers\Guest\Jobs\ExpireGuestData;
 use Healthy360\Customers\Guest\Services\GuestDeletionService;
 use Healthy360\Customers\Guest\Services\GuestSessionService;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Identity\Enums\ContactChannel;
 use Healthy360\Identity\Services\ContactPointRegistry;
+use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
@@ -206,4 +209,33 @@ it('will not purge a guest whose order is still open, even on the right code', f
     expect($outcome->purged)->toBeFalse()
         ->and($guest->account->refresh()->anonymised_at)->toBeNull()
         ->and($order->refresh()->allergy_note)->toBe('Coeliac');
+});
+
+it('leaves a guest with an open order for a later retention sweep', function (): void {
+    $cooking = app(GuestSessionService::class)->start()->account;
+    $finished = app(GuestSessionService::class)->start()->account;
+
+    foreach ([$cooking, $finished] as $account) {
+        $account->forceFill(['status' => CustomerAccountStatus::Closed, 'closed_at' => now()->subYears(2)])->save();
+    }
+
+    $order = Order::factory()->create([
+        'organisation_id' => $this->world->organisation->getKey(),
+        'customer_account_id' => $cooking->getKey(),
+        'sales_channel_id' => $this->world->channel->getKey(),
+        'allergy_note' => 'Coeliac',
+    ]);
+
+    ExpireGuestData::dispatchSync();
+
+    expect($cooking->refresh()->anonymised_at)->toBeNull()
+        ->and($order->refresh()->allergy_note)->toBe('Coeliac')
+        ->and($finished->refresh()->anonymised_at)->not->toBeNull();
+
+    $order->forceFill(['status' => OrderStatus::Fulfilled, 'confirmed_at' => now(), 'fulfilled_at' => now()])->save();
+
+    ExpireGuestData::dispatchSync();
+
+    expect($cooking->refresh()->anonymised_at)->not->toBeNull()
+        ->and($order->refresh()->allergy_note)->toBeNull();
 });
