@@ -102,7 +102,12 @@
         "variant_not_active": "An option you chose is no longer available.",
         "channel_unavailable": "Something in your basket is not offered on that day.",
         "unpriced": "Something in your basket has no price for that day.",
-        "window_not_offered": "The delivery zone for this address does not offer that delivery slot."
+        "window_not_offered": "The delivery zone for this address does not offer that delivery slot.",
+        "kitchen_closed": "This kitchen is not taking orders at the moment.",
+        "window_ended": "That delivery slot has already ended today. Choose a later slot or another day.",
+        "lead_time_not_met": "That delivery slot is too soon for the kitchen to prepare your order. Choose a later slot or another day.",
+        "below_zone_minimum": "This order is below the minimum for delivery to this address.",
+        "item_unavailable_on_date": "Something in your basket is not available on that day."
     },
     "subscriptionRefusal": {
         "plan_unknown": "This plan is no longer offered.",

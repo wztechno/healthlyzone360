@@ -21,6 +21,20 @@ export const CHECKOUT_ADDRESS_MISSING = 'checkout.address_missing';
 export const CHECKOUT_WINDOW_NOT_OFFERED = 'checkout.window_not_offered';
 /** `allergen_conflict` — a meal in the basket crosses the buyer's declared allergies. */
 export const ALLERGEN_CONFLICT_WARNING = 'checkout.allergen_conflict';
+/**
+ * What `OrderTimingRules` and the item calendar refuse, warned about by the preview in the same
+ * words, so the customer hears it before the button. The first three are the schedule's own.
+ */
+export const CHECKOUT_TIMING_WARNINGS = [
+    'checkout.closed',
+    'checkout.date_in_the_past',
+    'checkout.cut_off_passed',
+    'checkout.kitchen_closed',
+    'checkout.window_ended',
+    'checkout.lead_time_not_met',
+    'checkout.below_zone_minimum',
+    'checkout.item_unavailable_on_date',
+] as const;
 /** A picked meal crosses the person's allergies; generation would swap it for a safe one. */
 export const SUBSCRIPTION_ALLERGEN_CONFLICT = 'subscription.allergen_conflict';
 export const SUBSCRIPTION_NO_DELIVERY_DAYS = 'subscription.no_delivery_days';
@@ -31,6 +45,7 @@ const KNOWN: ReadonlySet<string> = new Set([
     CHECKOUT_EMPTY_CART,
     CHECKOUT_ADDRESS_MISSING,
     CHECKOUT_WINDOW_NOT_OFFERED,
+    ...CHECKOUT_TIMING_WARNINGS,
     ALLERGEN_CONFLICT_WARNING,
     SUBSCRIPTION_ALLERGEN_CONFLICT,
     SUBSCRIPTION_NO_DELIVERY_DAYS,

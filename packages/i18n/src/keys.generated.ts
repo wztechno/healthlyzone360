@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9199 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9218 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2354,7 +2354,15 @@ export interface NamespaceKeys {
     | 'validation.tooLong'
     | 'warnings.checkout_address_missing'
     | 'warnings.checkout_allergen_conflict'
+    | 'warnings.checkout_below_zone_minimum'
+    | 'warnings.checkout_closed'
+    | 'warnings.checkout_cut_off_passed'
+    | 'warnings.checkout_date_in_the_past'
     | 'warnings.checkout_empty_cart'
+    | 'warnings.checkout_item_unavailable_on_date'
+    | 'warnings.checkout_kitchen_closed'
+    | 'warnings.checkout_lead_time_not_met'
+    | 'warnings.checkout_window_ended'
     | 'warnings.checkout_window_not_offered'
     | 'warnings.subscription_allergen_conflict'
     | 'warnings.subscription_delivery_day_unavailable'
@@ -2727,6 +2735,7 @@ export interface NamespaceKeys {
     | 'orderRefusal.address_not_owned'
     | 'orderRefusal.agreement_required'
     | 'orderRefusal.area_not_served'
+    | 'orderRefusal.below_zone_minimum'
     | 'orderRefusal.cart_empty'
     | 'orderRefusal.cart_not_open'
     | 'orderRefusal.channel_not_trading'
@@ -2738,12 +2747,16 @@ export interface NamespaceKeys {
     | 'orderRefusal.date_in_the_past'
     | 'orderRefusal.guest_not_verified'
     | 'orderRefusal.item_not_published'
+    | 'orderRefusal.item_unavailable_on_date'
     | 'orderRefusal.item_unknown'
+    | 'orderRefusal.kitchen_closed'
+    | 'orderRefusal.lead_time_not_met'
     | 'orderRefusal.minimum_order_not_met'
     | 'orderRefusal.mixed_delivery_dates'
     | 'orderRefusal.unpriced'
     | 'orderRefusal.variant_not_active'
     | 'orderRefusal.variant_unknown'
+    | 'orderRefusal.window_ended'
     | 'orderRefusal.window_not_offered'
     | 'orderRefusal.zone_suspended'
     | 'subscriptionRefusal.configuration_not_active'
@@ -3551,18 +3564,24 @@ export interface NamespaceKeys {
     | 'desk.refusal.address_not_deliverable'
     | 'desk.refusal.address_required'
     | 'desk.refusal.area_not_served'
+    | 'desk.refusal.below_zone_minimum'
     | 'desk.refusal.branch_closed'
     | 'desk.refusal.channel_not_trading'
     | 'desk.refusal.channel_unavailable'
+    | 'desk.refusal.closed'
     | 'desk.refusal.currency_mismatch'
     | 'desk.refusal.customer_required'
     | 'desk.refusal.cut_off_passed'
     | 'desk.refusal.date_in_the_past'
     | 'desk.refusal.item_not_published'
+    | 'desk.refusal.item_unavailable_on_date'
     | 'desk.refusal.item_unknown'
+    | 'desk.refusal.kitchen_closed'
+    | 'desk.refusal.lead_time_not_met'
     | 'desk.refusal.unpriced'
     | 'desk.refusal.variant_not_active'
     | 'desk.refusal.variant_unknown'
+    | 'desk.refusal.window_ended'
     | 'desk.refusal.window_not_offered'
     | 'desk.refusal.zone_suspended'
     | 'desk.sale.addItem'
@@ -11577,7 +11596,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:validation.tooLong',
   'commerce:warnings.checkout_address_missing',
   'commerce:warnings.checkout_allergen_conflict',
+  'commerce:warnings.checkout_below_zone_minimum',
+  'commerce:warnings.checkout_closed',
+  'commerce:warnings.checkout_cut_off_passed',
+  'commerce:warnings.checkout_date_in_the_past',
   'commerce:warnings.checkout_empty_cart',
+  'commerce:warnings.checkout_item_unavailable_on_date',
+  'commerce:warnings.checkout_kitchen_closed',
+  'commerce:warnings.checkout_lead_time_not_met',
+  'commerce:warnings.checkout_window_ended',
   'commerce:warnings.checkout_window_not_offered',
   'commerce:warnings.subscription_allergen_conflict',
   'commerce:warnings.subscription_delivery_day_unavailable',
@@ -11947,6 +11974,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:orderRefusal.address_not_owned',
   'errors:orderRefusal.agreement_required',
   'errors:orderRefusal.area_not_served',
+  'errors:orderRefusal.below_zone_minimum',
   'errors:orderRefusal.cart_empty',
   'errors:orderRefusal.cart_not_open',
   'errors:orderRefusal.channel_not_trading',
@@ -11958,12 +11986,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:orderRefusal.date_in_the_past',
   'errors:orderRefusal.guest_not_verified',
   'errors:orderRefusal.item_not_published',
+  'errors:orderRefusal.item_unavailable_on_date',
   'errors:orderRefusal.item_unknown',
+  'errors:orderRefusal.kitchen_closed',
+  'errors:orderRefusal.lead_time_not_met',
   'errors:orderRefusal.minimum_order_not_met',
   'errors:orderRefusal.mixed_delivery_dates',
   'errors:orderRefusal.unpriced',
   'errors:orderRefusal.variant_not_active',
   'errors:orderRefusal.variant_unknown',
+  'errors:orderRefusal.window_ended',
   'errors:orderRefusal.window_not_offered',
   'errors:orderRefusal.zone_suspended',
   'errors:subscriptionRefusal.configuration_not_active',
@@ -12768,18 +12800,24 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.refusal.address_not_deliverable',
   'kitchen:desk.refusal.address_required',
   'kitchen:desk.refusal.area_not_served',
+  'kitchen:desk.refusal.below_zone_minimum',
   'kitchen:desk.refusal.branch_closed',
   'kitchen:desk.refusal.channel_not_trading',
   'kitchen:desk.refusal.channel_unavailable',
+  'kitchen:desk.refusal.closed',
   'kitchen:desk.refusal.currency_mismatch',
   'kitchen:desk.refusal.customer_required',
   'kitchen:desk.refusal.cut_off_passed',
   'kitchen:desk.refusal.date_in_the_past',
   'kitchen:desk.refusal.item_not_published',
+  'kitchen:desk.refusal.item_unavailable_on_date',
   'kitchen:desk.refusal.item_unknown',
+  'kitchen:desk.refusal.kitchen_closed',
+  'kitchen:desk.refusal.lead_time_not_met',
   'kitchen:desk.refusal.unpriced',
   'kitchen:desk.refusal.variant_not_active',
   'kitchen:desk.refusal.variant_unknown',
+  'kitchen:desk.refusal.window_ended',
   'kitchen:desk.refusal.window_not_offered',
   'kitchen:desk.refusal.zone_suspended',
   'kitchen:desk.sale.addItem',

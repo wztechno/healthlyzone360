@@ -2103,7 +2103,13 @@
             "channel_unavailable": "That article is not offered at the counter. Publish it to the desk channel first.",
             "channel_not_trading": "The counter is not taking orders at the moment.",
             "unpriced": "That article has no counter price. Add it to a price list the desk uses.",
-            "window_not_offered": "The address’s delivery zone does not offer that slot. Choose another."
+            "window_not_offered": "The address’s delivery zone does not offer that slot. Choose another.",
+            "closed": "The kitchen is closed on that day. Choose another day.",
+            "kitchen_closed": "This kitchen has no open branch, so it cannot take this sale.",
+            "window_ended": "That slot has already ended today. Choose a later slot or another day.",
+            "lead_time_not_met": "That slot is too soon for the kitchen to prepare this order.",
+            "below_zone_minimum": "This order is below the delivery zone’s minimum.",
+            "item_unavailable_on_date": "That article is off or sold out on that day. Choose another day or remove it."
         },
         "columnPhone": "Telephone",
         "columnAgeing": "Ageing",

@@ -40,7 +40,15 @@
         "subscription_no_delivery_days": "No delivery days have been chosen, so this subscription would never deliver.",
         "subscription_delivery_day_unavailable": "This plan does not deliver on one of the days you chose.",
         "subscription_unknown_slot": "That delivery window is not one this kitchen offers.",
-        "checkout_window_not_offered": "The delivery zone for this address does not offer that slot. Choose another."
+        "checkout_window_not_offered": "The delivery zone for this address does not offer that slot. Choose another.",
+        "checkout_closed": "The kitchen is closed on that day. Choose another date.",
+        "checkout_date_in_the_past": "That delivery date has already passed. Choose a later one.",
+        "checkout_cut_off_passed": "The kitchen's cut-off for that day has passed. Choose a later date.",
+        "checkout_kitchen_closed": "This kitchen is not taking orders at the moment.",
+        "checkout_window_ended": "That delivery slot has already ended today. Choose a later slot or another day.",
+        "checkout_lead_time_not_met": "That delivery slot is too soon for the kitchen to prepare your order. Choose a later slot or another day.",
+        "checkout_below_zone_minimum": "This order is below the minimum for delivery to this address. Add more to your basket.",
+        "checkout_item_unavailable_on_date": "Something in your basket is not available on that day. Choose another date or remove it."
     },
     "address": {
         "label": "Name for this address",
