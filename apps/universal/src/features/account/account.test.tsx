@@ -561,10 +561,8 @@ describe('AccountScreen — orders', () => {
         await fireEvent.press(screen.getByTestId(`${row}-open`));
         expect(routerMock.__push).toHaveBeenCalledWith(`/customer/orders/${String(delivered.id)}`);
 
-        // Reorder has no endpoint behind it: it says so and changes nothing.
-        await fireEvent.press(screen.getByTestId(`${row}-reorder`));
-        expect(await screen.findByTestId('prototype-notice')).toHaveTextContent(/Not built yet/);
-        expect(routerMock.__push).toHaveBeenCalledTimes(1);
+        // Reorder has no endpoint behind it, so it is not offered.
+        expect(screen.queryByTestId(`${row}-reorder`)).toBeNull();
     });
 
     it('walks to the next page by the server’s cursor', async () => {

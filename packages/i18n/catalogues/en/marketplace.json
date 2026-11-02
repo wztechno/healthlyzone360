@@ -27,23 +27,22 @@
         "searchPlaceholder": "Meals, ingredients, kitchens",
         "skipToContent": "Skip to content",
         "plannedSuffix": "{{label}} (soon)",
-        "plannedNotice": "{{label}} is not built yet. Nothing was changed.",
+        "plannedNotice": "{{label}} is not available yet. Nothing was changed.",
         "imageCredits": "Image credits"
     },
     "footer": {
-        "about": "An original meal-planning and kitchen marketplace prototype. Every kitchen, meal, plan and professional shown here is synthetic.",
-        "legalPrototype": "No terms, privacy notice or licence has been published for this prototype, so none is linked. Nothing here is an offer, and no order can be placed."
+        "about": "Healthy360 brings healthy kitchens near you together in one place."
     },
     "prototype": {
-        "badge": "Prototype",
-        "notBuilt": "Not built yet — nothing was changed.",
-        "hint": "This control is part of the prototype and will explain what it would have done.",
+        "badge": "Coming soon",
+        "notBuilt": "This is not available yet. Nothing was changed.",
+        "hint": "This is not available yet.",
         "noticeTitle": "Prototype surface",
         "noticeBody": "This page presents how the finished product will work. The data behind it is synthetic and no action taken here reaches a real kitchen, account or payment."
     },
     "medicalDisclaimer": {
         "title": "This is not medical advice",
-        "body": "Figures shown here come from a prototype calculator and a synthetic data set. They are an estimate, and they are not a diagnosis. Speak to a qualified dietitian or doctor before acting on them, particularly if you are managing a health condition, are pregnant, or are feeding a child."
+        "body": "Figures shown here are an estimate, and they are not a diagnosis. Speak to a qualified dietitian or doctor before acting on them, particularly if you are managing a health condition, are pregnant, or are feeding a child."
     },
     "landing": {
         "browseKitchens": "Browse kitchens"
@@ -600,7 +599,8 @@
             "barLabel": "{{star}} stars: no breakdown published",
             "emptyTitle": "No reviews yet",
             "emptyBody": "This kitchen has no written reviews yet."
-        }
+        },
+        "nextOpen": "Closed today · Opens {{day}}"
     },
     "imageCredits": {
         "title": "Image credits",

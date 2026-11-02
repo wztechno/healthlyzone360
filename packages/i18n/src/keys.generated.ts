@@ -7569,7 +7569,6 @@ export interface NamespaceKeys {
     | 'filters.resultCount'
     | 'filters.specialism'
     | 'footer.about'
-    | 'footer.legalPrototype'
     | 'forBusiness.capability.deliverySchedule'
     | 'forBusiness.capability.eligibility'
     | 'forBusiness.capability.leadTime'
@@ -7812,6 +7811,7 @@ export interface NamespaceKeys {
     | 'storefront.menu.emptyTitle'
     | 'storefront.menu.other'
     | 'storefront.menu.shelvesLabel'
+    | 'storefront.nextOpen'
     | 'storefront.openMeal'
     | 'storefront.openToday'
     | 'storefront.order.collectFrom'
@@ -17057,7 +17057,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:filters.resultCount',
   'marketplace:filters.specialism',
   'marketplace:footer.about',
-  'marketplace:footer.legalPrototype',
   'marketplace:forBusiness.capability.deliverySchedule',
   'marketplace:forBusiness.capability.eligibility',
   'marketplace:forBusiness.capability.leadTime',
@@ -17300,6 +17299,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:storefront.menu.emptyTitle',
   'marketplace:storefront.menu.other',
   'marketplace:storefront.menu.shelvesLabel',
+  'marketplace:storefront.nextOpen',
   'marketplace:storefront.openMeal',
   'marketplace:storefront.openToday',
   'marketplace:storefront.order.collectFrom',

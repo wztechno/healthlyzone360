@@ -79,9 +79,7 @@ it('mails in the customer\'s language, right now, and texts the same heading', f
     $account = CustomerAccount::query()->whereKey($this->order->customer_account_id)->firstOrFail();
     $account->forceFill(['preferred_language_code' => 'ar'])->save();
 
-    $sms = Mockery::mock(TwilioSms::class);
-    $this->app->instance(TwilioSms::class, $sms);
-    $sms->shouldReceive('send')->zeroOrMoreTimes();
+    $sms = app(TwilioSms::class);
 
     (new SendCustomerOrderNotice((string) $this->order->getKey(), 'delivered'))->handle(
         app(DatabaseTenantContext::class),

@@ -130,7 +130,7 @@ describe('CustomerOrderScreen', () => {
         // Nobody is driving it yet, so there is no courier to message.
         expect(screen.queryByTestId('customer-order-message')).toBeNull();
         await fireEvent.press(screen.getByTestId('customer-order-help'));
-        expect(await screen.findByTestId('prototype-notice')).toHaveTextContent(/Not built yet/);
+        expect(await screen.findByTestId('prototype-notice')).toHaveTextContent(/not available yet/);
 
         // A guest is told to keep the reference; an account holder has the history instead —
         // at the top of the page, under its own name, with the order as the current crumb.

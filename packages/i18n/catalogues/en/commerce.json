@@ -3,7 +3,7 @@
     "common": {
         "listSeparator": ", ",
         "cancel": "Cancel",
-        "noPayment": "No payment is taken anywhere in this prototype.",
+        "noPayment": "Nothing is charged online. You pay the kitchen directly.",
         "close": "Close"
     },
     "validation": {

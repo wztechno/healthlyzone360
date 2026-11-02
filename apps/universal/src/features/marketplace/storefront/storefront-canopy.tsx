@@ -8,7 +8,13 @@ import { StyleSheet, Text as RNText, View } from 'react-native';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
 import { Eyebrow } from '../../../ui/eyebrow.tsx';
-import { activeBranches, hoursToday, pickupBranches } from '../storefront-facts.ts';
+import { weekdayKey } from '../format.ts';
+import {
+    activeBranches,
+    hoursToday,
+    nextOpenWeekday,
+    pickupBranches,
+} from '../storefront-facts.ts';
 
 import { deliveryMinutesRange, monogram } from './storefront-today.ts';
 
@@ -28,7 +34,7 @@ import { deliveryMinutesRange, monogram } from './storefront-today.ts';
  *
  * 1. **Eyebrow** — "Kitchen · {areas}", from the active branches.
  * 2. **Monogram and name** — the tile is the name's initials on the brand fill.
- * 3. **Pills** — today's published window (or "Closed today"), "Verified kitchen" for a verified
+ * 3. **Pills** — today's published window (or the next day it opens), "Verified kitchen" for a verified
  *    kitchen, and the ways to order: delivery, pickup, plans, each only where offered. Today's
  *    window rather than "open now" — `storefront-facts.ts` says why.
  * 4. **Description** — the kitchen's own, falling back to its tagline.
@@ -49,6 +55,8 @@ export function StorefrontCanopy({ kitchen, testID = 'kitchen-hero' }: Storefron
     const branches = activeBranches(kitchen);
     const areas = [...new Set(branches.map((branch) => branch.area))];
     const today = hoursToday(kitchen);
+    // Add stays live on a closed day, because a basket can name another: so the pill says which.
+    const nextOpen = today === null ? nextOpenWeekday(kitchen) : null;
     const range = deliveryMinutesRange(kitchen);
     const none = t('marketplace:storefront.facts.none');
 
@@ -187,7 +195,11 @@ export function StorefrontCanopy({ kitchen, testID = 'kitchen-hero' }: Storefron
                             className={cx(pillText, 'tabular-nums text-content-on-brand-subtle')}
                         >
                             {today === null
-                                ? t('marketplace:storefront.closedToday')
+                                ? nextOpen === null
+                                    ? t('marketplace:storefront.closedToday')
+                                    : t('marketplace:storefront.nextOpen', {
+                                          day: t(weekdayKey(nextOpen)),
+                                      })
                                 : t('marketplace:storefront.openToday', {
                                       opensAt: today.opensAt,
                                       closesAt: today.closesAt,
