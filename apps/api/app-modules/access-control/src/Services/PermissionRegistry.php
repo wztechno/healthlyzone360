@@ -764,7 +764,7 @@ final class PermissionRegistry
             // lines endpoint is where unit costs are keyed in.
             'kitchen_chef' => [
                 'name_en' => 'Chef',
-                'name_ar' => 'الشيف',
+                'name_ar' => 'رئيس الطهاة',
                 'description_en' => 'Writes recipes and their costs, runs production and stock, and works the kitchen display.',
                 'description_ar' => 'يكتب الوصفات وتكاليفها، ويدير الإنتاج والمخزون، ويعمل على شاشة المطبخ.',
                 'permissions' => [

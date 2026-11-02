@@ -596,7 +596,10 @@ it('seeds exactly the registered permission set', function (): void {
     //
     // P1 Wave A takes it to 60 with `order.prepare_organisation`, the kitchen
     // display's own code, because a cook needs the wall and not the order book.
-    expect(Permission::query()->count())->toBe(60)
+    //
+    // P0 Stage 3 takes it to 62 with `order.settle_cash_organisation` and
+    // `order.approve_refund_organisation`.
+    expect(Permission::query()->count())->toBe(62)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });
