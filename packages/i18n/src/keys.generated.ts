@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9498 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9500 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4616,6 +4616,7 @@ export interface NamespaceKeys {
     | 'ops.costReport.hintMargin'
     | 'ops.costReport.hintRevenue'
     | 'ops.costReport.hintSpend'
+    | 'ops.costReport.marginWithheld'
     | 'ops.costReport.mixCenter'
     | 'ops.costReport.mixMeal'
     | 'ops.costReport.mixOther'
@@ -4633,6 +4634,7 @@ export interface NamespaceKeys {
     | 'ops.costReport.window.flaggedNote'
     | 'ops.costReport.window.kind'
     | 'ops.costReport.window.openLedger'
+    | 'ops.costReport.window.withheldNote'
     | 'ops.customers.addressApartment'
     | 'ops.customers.addressBilling'
     | 'ops.customers.addressBuilding'
@@ -14132,6 +14134,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.hintMargin',
   'kitchen:ops.costReport.hintRevenue',
   'kitchen:ops.costReport.hintSpend',
+  'kitchen:ops.costReport.marginWithheld',
   'kitchen:ops.costReport.mixCenter',
   'kitchen:ops.costReport.mixMeal',
   'kitchen:ops.costReport.mixOther',
@@ -14149,6 +14152,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.window.flaggedNote',
   'kitchen:ops.costReport.window.kind',
   'kitchen:ops.costReport.window.openLedger',
+  'kitchen:ops.costReport.window.withheldNote',
   'kitchen:ops.customers.addressApartment',
   'kitchen:ops.customers.addressBilling',
   'kitchen:ops.customers.addressBuilding',

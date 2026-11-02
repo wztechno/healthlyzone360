@@ -1745,12 +1745,14 @@
                 "kind": "شهر",
                 "flaggedNote": "لهذا الشهر استثناءات استهلاك غير محلولة، لذا فإن تكلفة البضاعة المباعة أقل من حقيقتها بقدر تلك البنود. والهامش يرث النقص نفسه.",
                 "currencyValue": "{{currency}} — عملة واحدة في كل مرة، دون خلط",
-                "openLedger": "فتح سجل المشتريات"
+                "openLedger": "فتح سجل المشتريات",
+                "withheldNote": "لا يُذكر هامش لهذا الشهر لأن تكلفته غير مكتملة: {{lines}} بندًا مبيعًا بلا تكلفة، مثل طبق بوصفة فارغة، و{{exceptions}} استثناءً في المخزون غير محلول، و{{batches}} دفعة تعذّر تقييمها. لا تشمل الإيرادات رسوم التوصيل."
             },
             "columnProductionConsumption": "مستهلك في الإنتاج",
             "columnProductionWaste": "هدر الإنتاج",
             "columnProductionYield": "ناتج الإنتاج",
-            "columnEstimatedMargin": "الهامش التقديري"
+            "columnEstimatedMargin": "الهامش التقديري",
+            "marginWithheld": "الهامش محجوب"
         },
         "exceptions": {
             "title": "نواقص المخزون",

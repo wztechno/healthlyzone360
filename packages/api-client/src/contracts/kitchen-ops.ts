@@ -154,7 +154,10 @@ export interface StockActivityMovement {
 export interface StockActivity {
     readonly movements: readonly StockActivityMovement[];
     /** Waste movements and wasted orders, per currency. */
-    readonly waste: readonly { readonly currencyCode: CurrencyCode; readonly amountMinor: number }[];
+    readonly waste: readonly {
+        readonly currencyCode: CurrencyCode;
+        readonly amountMinor: number;
+    }[];
     /** Waste with no cost to add, so a total is never read as complete when it is not. */
     readonly unvaluedWasteCount: number;
     readonly truncated: boolean;
@@ -1335,8 +1338,9 @@ export interface PurchaseLedgerFilter extends CursorPageRequest {
  * {@link currencyCode}: revenue is stored in minor units server-side and converted to major before
  * it reaches here, so it sits at the same scale as spend and COGS and the client never mixes the two.
  *
- * `grossMarginAmount` is `revenueAmount − cogsAmount`; `grossMarginPercent` is that as a percentage
- * of revenue, or `null` when there was no revenue to divide by. The `meal`/`product`/`other` revenue
+ * `revenueAmount` is the food alone: delivery fees stay out. `grossMarginAmount` is `revenueAmount −
+ * cogsAmount`; `grossMarginPercent` is that as a percentage of revenue, or `null` when there was no
+ * revenue to divide by. Both are `null` when `isMarginWithheld`: the month's cost is incomplete. The `meal`/`product`/`other` revenue
  * split reconciles to the order-line subtotal — `other` collects subscription-plan and any non-meal,
  * non-product lines — and is drawn from the order lines, the one place the meal-versus-product
  * distinction is recorded (a consume movement records the order, not the line's kind, so COGS is not
@@ -1357,12 +1361,16 @@ export interface MonthlyCostReportRow {
     readonly wasteAmount: string | null;
     /** Total wasted quantity this month — the honest note when waste carries no cost. */
     readonly wasteQuantity: string | null;
-    /** Selling revenue — Σ order totals for confirmed/fulfilled orders, converted to major units. */
+    /** Selling revenue — Σ order subtotals for confirmed/fulfilled orders, converted to major units. */
     readonly revenueAmount: string;
-    /** Revenue minus COGS, major units. */
-    readonly grossMarginAmount: string;
-    /** Margin as a percentage of revenue, or `null` when revenue is zero. */
+    /** Revenue minus COGS, major units, or `null` when withheld. */
+    readonly grossMarginAmount: string | null;
+    /** Margin as a percentage of revenue, or `null` when revenue is zero or the margin is withheld. */
     readonly grossMarginPercent: string | null;
+    /** Cost is incomplete, so no margin is stated: the exception, line and batch counts say why. */
+    readonly isMarginWithheld: boolean;
+    /** Sold lines that drew no costed stock, such as a dish on sale with an empty recipe. */
+    readonly uncostedLineCount: number;
     readonly mealRevenueAmount: string;
     readonly productRevenueAmount: string;
     readonly otherRevenueAmount: string;

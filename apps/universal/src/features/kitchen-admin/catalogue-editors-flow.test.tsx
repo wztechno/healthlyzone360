@@ -304,6 +304,8 @@ function costRow(overrides: Partial<MonthlyCostReportRow> = {}): MonthlyCostRepo
         revenueAmount: '2000.00',
         grossMarginAmount: '1200.00',
         grossMarginPercent: '60.0',
+        isMarginWithheld: false,
+        uncostedLineCount: 0,
         mealRevenueAmount: '1500.00',
         productRevenueAmount: '500.00',
         otherRevenueAmount: '0.00',

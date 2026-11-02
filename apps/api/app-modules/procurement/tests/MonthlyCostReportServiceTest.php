@@ -272,6 +272,38 @@ it('excludes a cancelled order from COGS and from revenue', function (): void {
         ->and($row['gross_margin_amount'])->toBe('340.000000');
 });
 
+it('counts food as revenue and leaves the delivery fee out', function (): void {
+    $order = reportOrder($this, OrderStatus::Fulfilled, 2000, '2026-08-10 10:00:00');
+    $order->forceFill(['subtotal_minor' => 1500, 'delivery_fee_minor' => 500])->save();
+
+    $row = rowFor($this->service->forOrganisation($this->orgId), '2026-08', 'USD');
+
+    expect($row['revenue_amount'])->toBe('15.000000');
+});
+
+it('withholds the margin when a sold line has no cost, and says so', function (): void {
+    $order = reportOrder($this, OrderStatus::Fulfilled, 2000, '2026-08-10 10:00:00');
+    reportLine($order, $this->meal, 2000);
+
+    $row = rowFor($this->service->forOrganisation($this->orgId), '2026-08', 'USD');
+
+    expect($row['is_margin_withheld'])->toBeTrue()
+        ->and($row['gross_margin_amount'])->toBeNull()
+        ->and($row['gross_margin_percent'])->toBeNull()
+        ->and($row['uncosted_line_count'])->toBe(1)
+        ->and($row['revenue_amount'])->toBe('20.000000');
+});
+
+it('withholds the margin of a month with an unresolved exception', function (): void {
+    $order = reportOrder($this, OrderStatus::Fulfilled, 2000, '2026-08-10 10:00:00');
+    reportException($this, $order);
+
+    $row = rowFor($this->service->forOrganisation($this->orgId), '2026-08', 'USD');
+
+    expect($row['is_margin_withheld'])->toBeTrue()
+        ->and($row['gross_margin_amount'])->toBeNull();
+});
+
 it('never sums figures across currencies', function (): void {
     // Two receipts in the same month, one USD and one EUR. They must land on two
     // separate rows — there is no exchange rate to add them with.

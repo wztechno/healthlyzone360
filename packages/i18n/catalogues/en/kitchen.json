@@ -1546,12 +1546,14 @@
                 "kind": "Month",
                 "flaggedNote": "This month has unresolved consumption exceptions, so its cost of goods sold is understated by whatever those lines were. The margin inherits the same understatement.",
                 "currencyValue": "{{currency}} — one currency at a time, never mixed",
-                "openLedger": "Open the purchases ledger"
+                "openLedger": "Open the purchases ledger",
+                "withheldNote": "No margin is stated for this month because its cost is incomplete: {{lines}} sold lines with no cost, such as a dish with an empty recipe, {{exceptions}} unresolved stock exceptions and {{batches}} batches nobody could value. Revenue leaves delivery fees out."
             },
             "columnProductionConsumption": "Made with",
             "columnProductionWaste": "Batch waste",
             "columnProductionYield": "Batch yield",
-            "columnEstimatedMargin": "Est. margin"
+            "columnEstimatedMargin": "Est. margin",
+            "marginWithheld": "Margin withheld"
         },
         "exceptions": {
             "title": "Stock gaps",

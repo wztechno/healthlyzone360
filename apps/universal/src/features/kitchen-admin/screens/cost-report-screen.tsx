@@ -51,7 +51,8 @@ import { PeriodScope, periodWindows } from '../catalogue/period-scope.tsx';
  *
  * The tray's two cards — COGS understated, spend incomplete — were taken off on 2026-11-02, the
  * user's call. A month with unresolved consumption exceptions still carries its `Understated` badge
- * in the table, and its record says why.
+ * in the table, and its record says why. A month whose cost is incomplete says so the same way, with
+ * `Margin withheld`: a margin over the costed half would read as a complete one and be too high.
  *
  * ## One currency at a time
  *
@@ -173,6 +174,13 @@ function CostReport() {
                             testID={`kitchen-cost-report-${row.month}-flag`}
                             tone="warning"
                             label={t('kitchen:ops.costReport.flagged')}
+                        />
+                    ) : null}
+                    {row.isMarginWithheld ? (
+                        <Badge
+                            testID={`kitchen-cost-report-${row.month}-withheld`}
+                            tone="warning"
+                            label={t('kitchen:ops.costReport.marginWithheld')}
                         />
                     ) : null}
                 </View>
@@ -329,15 +337,27 @@ function CostReport() {
                 }}
                 title={viewing.month}
                 kind={t('kitchen:ops.costReport.window.kind')}
-                {...(viewing.hasDataQualityFlag
+                {...(viewing.isMarginWithheld
                     ? {
                           status: {
-                              label: t('kitchen:ops.costReport.flagged'),
+                              label: t('kitchen:ops.costReport.marginWithheld'),
                               tone: 'warning' as const,
                           },
-                          note: t('kitchen:ops.costReport.window.flaggedNote'),
+                          note: t('kitchen:ops.costReport.window.withheldNote', {
+                              lines: viewing.uncostedLineCount,
+                              exceptions: viewing.exceptionCount,
+                              batches: viewing.unvaluedBatchCount,
+                          }),
                       }
-                    : {})}
+                    : viewing.hasDataQualityFlag
+                      ? {
+                            status: {
+                                label: t('kitchen:ops.costReport.flagged'),
+                                tone: 'warning' as const,
+                            },
+                            note: t('kitchen:ops.costReport.window.flaggedNote'),
+                        }
+                      : {})}
                 fields={[
                     {
                         key: 'spend',

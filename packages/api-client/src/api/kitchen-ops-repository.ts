@@ -833,6 +833,8 @@ function mapMonthlyCostReportRow(wire: WireMonthlyCostReportRow): MonthlyCostRep
         revenueAmount: wire.revenue_amount,
         grossMarginAmount: wire.gross_margin_amount,
         grossMarginPercent: wire.gross_margin_percent,
+        isMarginWithheld: wire.is_margin_withheld,
+        uncostedLineCount: wire.uncosted_line_count,
         mealRevenueAmount: wire.meal_revenue_amount,
         productRevenueAmount: wire.product_revenue_amount,
         otherRevenueAmount: wire.other_revenue_amount,

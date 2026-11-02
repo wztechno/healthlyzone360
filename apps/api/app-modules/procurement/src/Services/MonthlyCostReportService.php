@@ -38,9 +38,11 @@ use RuntimeException;
  *   `reference_type = order`, bucketed by the movement's `created_at` and grouped
  *   by `cost_currency_code`. Major-unit decimals. A cancelled order's consume is
  *   **excluded** — see below.
- * - **Revenue** = Σ `orders.total_minor` for orders in `confirmed`/`fulfilled`,
- *   bucketed by `confirmed_at` and grouped by `currency_code`. Integer *minor*
- *   units, converted to major for display (see the unit-scale note).
+ * - **Revenue** = Σ `orders.subtotal_minor` for orders in `confirmed`/`fulfilled`,
+ *   bucketed by `confirmed_at` and grouped by `currency_code`. The food alone:
+ *   a delivery fee pays for a driver, and against food cost it would read as
+ *   margin. Integer *minor* units, converted to major for display (see the
+ *   unit-scale note).
  * - **Waste value** = Σ `stock_movements.cost_amount` for `reason = waste` when a
  *   cost is present; the total wasted *quantity* is reported alongside as the
  *   honest note for the (current) common case where waste carries no cost.
@@ -93,6 +95,17 @@ use RuntimeException;
  * Dubai on the last of the month is that month's spend, and the UTC instant would
  * file it in the next one. The two agree for every receipt whose branch runs on
  * UTC and differ only at a month boundary, always in favour of the business date.
+ *
+ * ## A margin is withheld, never published short
+ *
+ * A margin over the costed half of a month reads exactly like a complete one and
+ * is too high. So `gross_margin_amount` and `gross_margin_percent` are null, and
+ * `is_margin_withheld` true, whenever the month's cost is known to be incomplete:
+ * a consumption exception, a sold line that drew no costed stock (a dish on sale
+ * with an empty recipe draws nothing and lands here), or a batch nobody could
+ * value. The counts on the row are the staff explanation. A missing *estimate*
+ * does not withhold it: that only says what was expected, and the line may still
+ * carry a real cost.
  *
  * ## Data quality
  *
@@ -153,8 +166,9 @@ final readonly class MonthlyCostReportService
      *     waste_amount: numeric-string|null,
      *     waste_quantity: numeric-string|null,
      *     revenue_amount: numeric-string,
-     *     gross_margin_amount: numeric-string,
+     *     gross_margin_amount: numeric-string|null,
      *     gross_margin_percent: numeric-string|null,
+     *     is_margin_withheld: bool,
      *     meal_revenue_amount: numeric-string,
      *     product_revenue_amount: numeric-string,
      *     other_revenue_amount: numeric-string,
@@ -169,6 +183,7 @@ final readonly class MonthlyCostReportService
      *     estimated_margin_percent: numeric-string|null,
      *     unestimated_line_count: int,
      *     is_estimate_complete: bool,
+     *     uncosted_line_count: int,
      *     has_data_quality_flag: bool,
      *     exception_count: int,
      *     is_spend_complete: bool,
@@ -197,6 +212,7 @@ final readonly class MonthlyCostReportService
         $productionYield = $this->productionMovementByMonthCurrency($organisationId, 'yield', $from, $to);
         $estimates = $this->estimatedCogsByMonthCurrency($organisationId, $from, $to);
         $unestimated = $this->unestimatedLineCountByMonth($organisationId, $from, $to);
+        $uncosted = $this->uncostedLineCountByMonth($organisationId, $from, $to);
         $unvaluedBatches = $this->production->unvaluedBatchCountByMonth($organisationId, $from, $to);
 
         // Union every (month, currency) key any source produced — a month may
@@ -234,12 +250,18 @@ final readonly class MonthlyCostReportService
             $productCogs = $cogsBuckets['product'] ?? '0';
             $otherCogs = $cogsBuckets['other'] ?? '0';
 
-            $margin = bcsub($revenueAmount, $cogsAmount, self::SCALE);
-            $marginPercent = bccomp($revenueAmount, '0', self::SCALE) > 0
+            $exceptionCount = $exceptions[$month] ?? 0;
+            $unestimatedCount = $unestimated[$month] ?? 0;
+            $uncostedCount = $uncosted[$month] ?? 0;
+            $unvaluedBatches_ = $unvaluedBatches[$month] ?? 0;
+
+            $marginWithheld = $exceptionCount > 0 || $uncostedCount > 0 || $unvaluedBatches_ > 0;
+
+            $margin = $marginWithheld ? null : bcsub($revenueAmount, $cogsAmount, self::SCALE);
+            $marginPercent = $margin !== null && bccomp($revenueAmount, '0', self::SCALE) > 0
                 ? bcmul(bcdiv($margin, $revenueAmount, self::SCALE + self::PERCENT_SCALE), '100', self::PERCENT_SCALE)
                 : null;
 
-            $exceptionCount = $exceptions[$month] ?? 0;
             $quality = $spendQuality[$month] ?? [
                 'unpriced_line_count' => 0,
                 'valuation_pending_line_count' => 0,
@@ -277,7 +299,6 @@ final readonly class MonthlyCostReportService
              * how much is missing rather than leaving the null unexplained.
              */
             $estimatedCogs = $estimates[$month][$currency] ?? null;
-            $unestimatedCount = $unestimated[$month] ?? 0;
             $estimateComplete = $unestimatedCount === 0 && $estimatedCogs !== null;
 
             $estimatedMargin = $estimateComplete && $estimatedCogs !== null
@@ -287,8 +308,6 @@ final readonly class MonthlyCostReportService
             $estimatedMarginPercent = $estimatedMargin !== null && bccomp($revenueAmount, '0', self::SCALE) > 0
                 ? bcmul(bcdiv($estimatedMargin, $revenueAmount, self::SCALE + self::PERCENT_SCALE), '100', self::PERCENT_SCALE)
                 : null;
-
-            $unvaluedBatches_ = $unvaluedBatches[$month] ?? 0;
 
             $rows[] = [
                 'month' => $month,
@@ -300,6 +319,7 @@ final readonly class MonthlyCostReportService
                 'revenue_amount' => $revenueAmount,
                 'gross_margin_amount' => $margin,
                 'gross_margin_percent' => $marginPercent,
+                'is_margin_withheld' => $marginWithheld,
                 'meal_revenue_amount' => $mealRevenue,
                 'product_revenue_amount' => $productRevenue,
                 'other_revenue_amount' => $otherRevenue,
@@ -314,6 +334,7 @@ final readonly class MonthlyCostReportService
                 'estimated_margin_percent' => $estimatedMarginPercent,
                 'unestimated_line_count' => $unestimatedCount,
                 'is_estimate_complete' => $estimateComplete,
+                'uncosted_line_count' => $uncostedCount,
                 'has_data_quality_flag' => $exceptionCount > 0,
                 'exception_count' => $exceptionCount,
                 // The spend side's own completeness (§3.6), kept apart from the
@@ -709,8 +730,56 @@ final readonly class MonthlyCostReportService
     }
 
     /**
-     * Revenue by month and currency: Σ order totals (minor units) for
-     * confirmed/fulfilled orders, anchored on `confirmed_at`.
+     * Sold lines with **no cost at all**, by month: the line drew no costed stock.
+     *
+     * A dish on sale with an empty recipe lands here, and its revenue would
+     * otherwise read as pure margin. A movement written before lines were
+     * attributed carries no `order_line_id`, so it answers for its whole order
+     * rather than leaving an old month looking uncosted. The plan-day line is
+     * excluded: it consumes nothing by design.
+     *
+     * @return array<string, int>
+     */
+    private function uncostedLineCountByMonth(string $organisationId, ?string $from, ?string $to): array
+    {
+        $query = OrderLine::query()
+            ->join('orders', 'orders.id', '=', 'order_lines.order_id')
+            ->join('catalogue_items', 'catalogue_items.id', '=', 'order_lines.catalogue_item_id')
+            ->where('orders.organisation_id', $organisationId)
+            ->whereIn('orders.status', ['confirmed', 'fulfilled'])
+            ->whereNotNull('orders.confirmed_at')
+            ->where('catalogue_items.item_type', '!=', 'subscription_plan')
+            ->whereNotExists(function (QueryBuilder $movement): void {
+                $movement->selectRaw('1')
+                    ->from('stock_movements')
+                    ->where('stock_movements.reason', 'consume')
+                    ->where('stock_movements.reference_type', 'order')
+                    ->whereRaw('stock_movements.reference_id = orders.id::text')
+                    ->whereNotNull('stock_movements.cost_amount')
+                    ->where(function (QueryBuilder $attributed): void {
+                        $attributed->whereColumn('stock_movements.order_line_id', 'order_lines.id')
+                            ->orWhereNull('stock_movements.order_line_id');
+                    });
+            })
+            ->selectRaw("to_char(orders.confirmed_at, 'YYYY-MM') as month")
+            ->selectRaw('COUNT(*) as total')
+            ->groupBy('month');
+
+        $this->boundMonths($query, "to_char(orders.confirmed_at, 'YYYY-MM')", $from, $to);
+
+        $out = [];
+
+        foreach ($query->get() as $row) {
+            $out[(string) $row->getAttribute('month')] = (int) $row->getAttribute('total');
+        }
+
+        return $out;
+    }
+
+    /**
+     * Revenue by month and currency: Σ order subtotals (minor units) for
+     * confirmed/fulfilled orders, anchored on `confirmed_at`. Delivery fees stay
+     * out, as the class docblock says.
      *
      * @return array<string, array<string, numeric-string>>
      */
@@ -722,7 +791,7 @@ final readonly class MonthlyCostReportService
             ->whereNotNull('orders.confirmed_at')
             ->selectRaw("to_char(orders.confirmed_at, 'YYYY-MM') as month")
             ->selectRaw('orders.currency_code as currency')
-            ->selectRaw('SUM(orders.total_minor) as total')
+            ->selectRaw('SUM(orders.subtotal_minor) as total')
             ->groupBy('month', 'currency');
 
         $this->boundMonths($query, "to_char(orders.confirmed_at, 'YYYY-MM')", $from, $to);
