@@ -19,7 +19,7 @@ it('lists what looks like test data, leaves look-alikes out, and changes nothing
     CatalogueWorld::plan($this->tenant, 'Contest Tempura Bowl');
     CatalogueWorld::plan($this->tenant, 'E2E Lean Lunch');
 
-    $before = CatalogueItem::query()->count();
+    $before = CatalogueItem::withoutTenancy()->count();
 
     $this->artisan('kitchen:suspect-records')
         ->expectsOutputToContain('QA Plan A')
@@ -27,8 +27,8 @@ it('lists what looks like test data, leaves look-alikes out, and changes nothing
         ->doesntExpectOutputToContain('Contest Tempura Bowl')
         ->assertSuccessful();
 
-    expect(CatalogueItem::query()->count())->toBe($before)
-        ->and($plan->fresh()->status)->toBe($plan->status);
+    expect(CatalogueItem::withoutTenancy()->count())->toBe($before)
+        ->and(CatalogueItem::withoutTenancy()->find($plan->getKey())->status)->toBe($plan->status);
 });
 
 it('lists items whose Arabic name is only their English one', function (): void {

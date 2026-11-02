@@ -196,12 +196,13 @@ it('queues mail in each recipient\'s locale after commit', function (): void {
 });
 
 it('renders every alert\'s words in both languages', function (StaffAlertType $type, string $locale): void {
-    staffManager($this->organisationId, $locale);
+    $manager = staffManager($this->organisationId, $locale);
     staffMember($this->organisationId, 'organisation_owner', locale: $locale);
 
-    $this->alerts->send($type, $this->organisationId, $this->subjectId, STAFF_ALERT_ORDER);
+    $this->alerts->send($type, $this->organisationId, $this->subjectId, STAFF_ALERT_ORDER, (string) $manager->getKey());
 
-    Mail::assertQueued(NoticeMessage::class, fn (NoticeMessage $mail): bool => str_contains($mail->heading, 'H-1001')
+    // A hand-in is the one heading with no reference: the page it links to names the driver.
+    Mail::assertQueued(NoticeMessage::class, fn (NoticeMessage $mail): bool => ($type === StaffAlertType::ShortHandIn || str_contains($mail->heading, 'H-1001'))
         && ! str_contains($mail->heading, 'notices.')
         && ! str_contains($mail->lines[0], 'notices.'));
 })->with(StaffAlertType::cases())->with(['en', 'ar']);

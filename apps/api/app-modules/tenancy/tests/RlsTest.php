@@ -1051,7 +1051,10 @@ it('still migrates and seeds under the owner role with row-level security enable
     // `organisationTemplateRoleCodes()` in PermissionRegistryTest names the same
     // set, and `DatabaseSeederTest` checks that the seeder wrote exactly the
     // registry's roles; the three together are this pin.
-    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(11)
+    //
+    // AA1 added procurement_manager and finance_manager, and P1 Wave A added
+    // kitchen_driver for the owner's own drivers, which makes twelve.
+    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(12)
         ->and(OrganisationBranch::withoutTenancy()->count())->toBeGreaterThan(2)
         ->and(OrganisationMembership::withoutTenancy()->count())->toBeGreaterThan(2)
         ->and(ConsentDefinition::query()->count())->toBeGreaterThan(1);
