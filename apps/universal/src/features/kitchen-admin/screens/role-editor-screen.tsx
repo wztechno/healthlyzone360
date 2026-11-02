@@ -1,7 +1,8 @@
-import { apiFailure, isDeletableRole, isValidationFailure } from '@healthy360/api-client/contracts';
+import { isDeletableRole, isValidationFailure } from '@healthy360/api-client/contracts';
 import type { ApiFailure } from '@healthy360/api-client/contracts';
 import {
     Button,
+    Callout,
     Cascade,
     Dialog,
     ErrorState,
@@ -260,6 +261,26 @@ function RoleEditor() {
         );
     }
 
+    if (failure?.code === 'resource.not_found' || (failure === null && !isNew && record === undefined)) {
+        return (
+            <Callout
+                testID="kitchen-role-editor-missing"
+                role="alert"
+                tone="warning"
+                title={t('accessAdmin:role.notFoundTitle')}
+                body={t('accessAdmin:role.notFoundBody')}
+                actions={
+                    <Button
+                        testID="kitchen-role-editor-missing-back"
+                        variant="quiet"
+                        label={t('accessAdmin:role.backToList')}
+                        onPress={back.leave}
+                    />
+                }
+            />
+        );
+    }
+
     if (failure !== null) {
         return (
             <ErrorState
@@ -270,15 +291,6 @@ function RoleEditor() {
                     void catalogue.refetch();
                 }}
                 retrying={source.isFetching}
-            />
-        );
-    }
-
-    if (!isNew && record === undefined) {
-        return (
-            <ErrorState
-                testID="kitchen-role-editor-missing"
-                failure={apiFailure('resource.not_found')}
             />
         );
     }

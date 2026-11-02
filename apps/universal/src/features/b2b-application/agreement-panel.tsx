@@ -11,6 +11,7 @@ import {
 } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useState } from 'react';
+import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -81,6 +82,7 @@ export function AgreementPanel({
     testID = 'b2b-agreement',
 }: AgreementPanelProps) {
     const { t } = useTranslation();
+    const formatter = useFormatter();
     const { locale } = useLocale();
 
     const [typedName, setTypedName] = useState('');
@@ -150,7 +152,7 @@ export function AgreementPanel({
                         tone="success"
                         role="status"
                         title={t('b2bApplication:agreement.signedOn', {
-                            date: signed.signedAt,
+                            date: formatter.formatDate(signed.signedAt),
                             name: signed.typedName,
                             role: signed.signatoryTitle,
                         })}

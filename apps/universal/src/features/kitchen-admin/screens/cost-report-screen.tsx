@@ -10,7 +10,7 @@ import {
 } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { Gate } from '../../../access/gate.tsx';
@@ -67,7 +67,8 @@ import { PeriodScope, periodWindows } from '../catalogue/period-scope.tsx';
  * ## The window is in months
  *
  * The Period shortcut offers months (This month, Last month, Last 3 months, This year) and the two
- * day pickers stand for the months they fall in — the query sends `YYYY-MM`. It opens on This month.
+ * day pickers stand for the months they fall in — the query sends `YYYY-MM`. It opens on This month,
+ * or on the latest month with figures when this one has none yet.
  *
  * ## The range and the open month are in the address
  *
@@ -94,6 +95,13 @@ function isMonthOrEmpty(value: string): boolean {
 function isIsoDay(value: unknown): value is string {
     return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
+/** A `YYYY-MM` as the first and last day the range pickers show. */
+function monthWindow(month: string): { from: string; to: string } {
+    const [year, monthNumber] = month.split('-').map(Number);
+    const lastDay = new Date(Date.UTC(year ?? 1970, monthNumber ?? 1, 0)).getUTCDate();
+    return { from: `${month}-01`, to: `${month}-${String(lastDay).padStart(2, '0')}` };
+}
+
 function CostReport() {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -119,6 +127,13 @@ function CostReport() {
     );
     const report = useCostReportQuery(filter);
     const rows = useMemo(() => report.data ?? [], [report.data]);
+    // A new month opens empty. With no range asked for, go to the latest month that has figures.
+    const defaulted = !isIsoDay(params.from) && !isIsoDay(params.to);
+    const history = useCostReportQuery({}, defaulted && report.data?.length === 0);
+    const latestWithData = history.data?.[0]?.month;
+    useEffect(() => {
+        if (latestWithData !== undefined) router.setParams(monthWindow(latestWithData));
+    }, [latestWithData, router]);
     const currencies = useMemo(() => [...new Set(rows.map((row) => row.currencyCode))], [rows]);
     // No currency picker: the report shows the first currency the answer carries.
     const activeCurrency = currencies[0] ?? null;

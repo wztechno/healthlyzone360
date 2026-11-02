@@ -6,6 +6,7 @@ import type {
     ReviewerRequest,
 } from '@healthy360/api-client/contracts';
 import { Badge, Button, Callout, Card, Stack, Text } from '@healthy360/design-system';
+import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -172,13 +173,16 @@ function RequestCard({
     readonly testID: string;
 }) {
     const { t } = useTranslation();
+    const formatter = useFormatter();
 
     return (
         <Callout
             testID={testID}
             tone="warning"
             role="note"
-            title={t('b2bApplication:status.requestAskedOn', { date: request.requestedAt })}
+            title={t('b2bApplication:status.requestAskedOn', {
+                date: formatter.formatDate(request.requestedAt),
+            })}
             body={request.message}
             actions={
                 onOpenStep === undefined ? undefined : (
