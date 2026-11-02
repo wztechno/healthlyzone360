@@ -1,4 +1,3 @@
-import type { TransferResource } from '@healthy360/api-client/contracts';
 import { Button, Callout, Heading, Inline, Stack, Text } from '@healthy360/design-system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +5,7 @@ import { View } from 'react-native';
 
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useListPrint } from '../catalogue/list-print.ts';
+import type { PrintResource } from '../catalogue/list-print.ts';
 import { ListPrintSheet } from '../catalogue/list-print-sheet.tsx';
 import { usePrintSheet } from '../print-sheet.tsx';
 
@@ -19,7 +19,7 @@ import { usePrintSheet } from '../print-sheet.tsx';
  * reason `supply-order-print-screen.tsx` gives: `window.print()` prints the document.
  */
 export interface ListPrintScreenProps {
-    readonly resource: TransferResource;
+    readonly resource: PrintResource;
 }
 
 export function ListPrintScreen({ resource }: ListPrintScreenProps) {

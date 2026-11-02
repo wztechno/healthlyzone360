@@ -18,6 +18,7 @@ export const STAFF_ALERT_TYPES = [
     'no_cash_collected',
     'refund_approval',
     'stock_expiring',
+    'temperature_out_of_range',
     'refund_approved',
     'refund_rejected',
     'short_hand_in',

@@ -341,6 +341,7 @@ use Healthy360\QualityControl\Http\Controllers\QualityCheckHoldController;
 use Healthy360\QualityControl\Http\Controllers\QualityCheckIndexController;
 use Healthy360\QualityControl\Http\Controllers\QualityCheckReleaseController;
 use Healthy360\QualityControl\Http\Controllers\QualityCheckStoreController;
+use Healthy360\QualityControl\Http\Controllers\TemperatureLogController;
 use Healthy360\Recipes\Http\Controllers\RecipeArchiveController;
 use Healthy360\Recipes\Http\Controllers\RecipeCostSnapshotIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeCostSnapshotStoreController;
@@ -1727,6 +1728,23 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             | is refused there until the branch is resolved. The controller then requires
             | the branch by hand — the middleware only resolves one.
             */
+            /*
+            | The temperature log. Read by whoever reads stock. A reading is taken
+            | by whoever stands at the fridge, so the cook's code writes it beside
+            | the storekeeper's; which fridges exist is the storekeeper's.
+            */
+            Route::middleware(['branch.context', 'permission:inventory.view_organisation'])->group(function (): void {
+                Route::get('/quality-control/temperature-log', [TemperatureLogController::class, 'log'])->name('catalogue.quality-control.temperature-log');
+            });
+            Route::middleware(['branch.context', 'permission:order.prepare_organisation,inventory.manage_organisation'])->group(function (): void {
+                Route::post('/quality-control/temperature-readings', [TemperatureLogController::class, 'storeReading'])->name('catalogue.quality-control.temperature-readings.store');
+                Route::post('/quality-control/cooking-temperatures', [TemperatureLogController::class, 'storeCooking'])->name('catalogue.quality-control.cooking-temperatures.store');
+            });
+            Route::middleware(['branch.context', 'permission:inventory.manage_organisation'])->group(function (): void {
+                Route::post('/quality-control/temperature-units', [TemperatureLogController::class, 'storeUnit'])->name('catalogue.quality-control.temperature-units.store');
+                Route::patch('/quality-control/temperature-units/{unit}', [TemperatureLogController::class, 'updateUnit'])->name('catalogue.quality-control.temperature-units.update');
+            });
+
             Route::middleware(['branch.context', 'permission:inventory.manage_organisation', 'throttle:catalogue-import'])->group(function (): void {
                 Route::post('/inventory/counts/imports', StockCountImportController::class)->name('catalogue.inventory.counts.imports.store');
             });

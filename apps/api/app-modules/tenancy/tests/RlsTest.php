@@ -939,13 +939,14 @@ it('protects exactly the fourteen declared tables and no others', function (): v
     //
     // Wave B's `catalogue_item_options` is shaped like `branch_closures`: a menu
     // is public, so only its writes join. Its `order_complaints` is on the plain
-    // organisation policy.
+    // organisation policy, as are the temperature log's three tables.
     expect($protected)->toBe([
         'audit_logs',
         'branch_closures',
         'cash_settlements',
         'catalogue_item_options',
         'consent_grants',
+        'cooking_temperatures',
         'customer_accounts',
         'daily_closes',
         'dish_margins',
@@ -963,6 +964,8 @@ it('protects exactly the fourteen declared tables and no others', function (): v
         'role_permissions',
         'roles',
         'staff_notifications',
+        'temperature_readings',
+        'temperature_units',
     ]);
 });
 

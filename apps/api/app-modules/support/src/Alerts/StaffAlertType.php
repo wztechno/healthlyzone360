@@ -19,6 +19,7 @@ enum StaffAlertType: string
     case NoCashCollected = 'no_cash_collected';
     case RefundApproval = 'refund_approval';
     case StockExpiring = 'stock_expiring';
+    case TemperatureOutOfRange = 'temperature_out_of_range';
     case RefundApproved = 'refund_approved';
     case RefundRejected = 'refund_rejected';
     case ShortHandIn = 'short_hand_in';
@@ -36,7 +37,7 @@ enum StaffAlertType: string
         return match ($this) {
             self::RefundApproved, self::RefundRejected => 'requester',
             self::UnacceptedOwner, self::LateCancel, self::RefundApproval, self::PriceApproval, self::DishBelowTarget => 'owners',
-            self::UnacceptedManager, self::AllergyOrder, self::DeliveryFailed, self::NoCashCollected, self::StockExpiring, self::ShortHandIn, self::ShortClose => 'managers',
+            self::UnacceptedManager, self::AllergyOrder, self::DeliveryFailed, self::NoCashCollected, self::StockExpiring, self::TemperatureOutOfRange, self::ShortHandIn, self::ShortClose => 'managers',
         };
     }
 
@@ -67,6 +68,7 @@ enum StaffAlertType: string
     {
         return match ($this) {
             self::StockExpiring => 'stock',
+            self::TemperatureOutOfRange => 'temperature_reading',
             self::ShortHandIn => 'cash_settlement',
             self::ShortClose => 'daily_close',
             self::PriceApproval => 'goods_receipt',
@@ -82,6 +84,7 @@ enum StaffAlertType: string
     {
         return match ($this) {
             self::StockExpiring => '/kitchen/stock',
+            self::TemperatureOutOfRange => '/kitchen/temperature-logs',
             self::ShortHandIn => '/kitchen/order-desk/settlement',
             self::ShortClose => '/kitchen/order-desk/close',
             self::PriceApproval => '/kitchen/payables',

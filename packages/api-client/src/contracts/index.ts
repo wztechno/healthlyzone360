@@ -1247,3 +1247,13 @@ export type {
     RecordComplaintRequest,
     UpdateComplaintRequest,
 } from './complaints.ts';
+export type {
+    CookingTemperature,
+    RecordCookingTemperatureRequest,
+    RecordTemperatureRequest,
+    TemperatureLog,
+    TemperatureReading,
+    TemperatureSlot,
+    TemperatureUnit,
+    TemperatureUnitDraft,
+} from './temperature-logs.ts';

@@ -2841,6 +2841,10 @@
         "noteZero": "0 صفر حقيقي — راجع الخادم تلك الفترة ولم يجد شيئًا. أما — فتعني أن اليوم لم تصل إجابته، وهذه حقيقة مختلفة لا تُعرض أبدًا على أنها صفر."
     },
     "families": {
+        "temperatureLogs": {
+            "name": "سجل الحرارة",
+            "description": "قراءات البرادات والفريزرات مرتين يومياً، والحرارة الداخلية لكل دفعة."
+        },
         "complaints": {
             "name": "الشكاوى",
             "description": "ما حدث من خطأ في طلب، وكلفته، وكيف انتهى."
@@ -5900,6 +5904,7 @@
             "no_cash_collected": "لم يُحصَّل أي نقد عن الطلب {{number}}",
             "refund_approval": "استرداد على الطلب {{number}} بانتظار موافقتك",
             "stock_expiring": "موعد انتهاء صلاحية يقترب: {{number}}",
+            "temperature_out_of_range": "درجة حرارة خارج النطاق: {{number}}",
             "refund_approved": "تمت الموافقة على استردادك في الطلب {{number}}",
             "refund_rejected": "رُفض استردادك في الطلب {{number}}",
             "short_hand_in": "جاء تسليم نقدي ناقصًا",
@@ -5975,6 +5980,57 @@
             "refunded": "استُرد المبلغ",
             "apologised": "تم الاعتذار",
             "no_action": "بلا إجراء"
+        }
+    },
+    "temperature": {
+        "tabReadings": "البرادات والفريزرات",
+        "tabCooking": "الطهي",
+        "tabUnits": "الوحدات",
+        "month": "الشهر",
+        "record": "سجّل قراءة",
+        "recordBatch": "سجّل حرارة داخلية",
+        "addUnit": "أضف وحدة",
+        "editUnit": "عدّل الوحدة",
+        "print": "اطبع",
+        "printReadings": "حرارة البرادات والفريزرات، {{month}}",
+        "printCooking": "حرارة الطهي الداخلية، {{month}}",
+        "save": "احفظ",
+        "saved": "حُفظت القراءة.",
+        "savedOutOfRange": "حُفظت القراءة. إنها خارج النطاق، لذا نُبّه المدراء.",
+        "celsius": "{{value}}°م",
+        "columnDate": "التاريخ",
+        "columnSlot": "وقت اليوم",
+        "columnUnit": "الوحدة",
+        "columnReading": "القراءة",
+        "columnState": "الحالة",
+        "columnBy": "سجّلها",
+        "columnNote": "ملاحظة",
+        "columnWhen": "وقت التسجيل",
+        "columnBatch": "الدفعة",
+        "columnCore": "الحرارة الداخلية",
+        "fieldKind": "النوع",
+        "fieldRange": "يجب أن تبقى بين",
+        "fieldMin": "الأدنى (°م)",
+        "fieldMax": "الأعلى (°م)",
+        "fieldCelsius": "الحرارة (°م)",
+        "inRange": "ضمن النطاق",
+        "outOfRange": "خارج النطاق",
+        "active": "قيد الاستخدام",
+        "retired": "متوقفة",
+        "loadErrorTitle": "تعذّر تحميل سجل الحرارة",
+        "emptyTitle": "لا قراءات هذا الشهر",
+        "emptyBody": "تؤخذ القراءات مرتين يومياً لكل وحدة وتُكتب مرة واحدة.",
+        "cookingEmptyTitle": "لا حرارة داخلية مسجّلة هذا الشهر",
+        "cookingEmptyBody": "سجّل الحرارة الداخلية للدفعة أثناء طهيها.",
+        "unitsEmptyTitle": "لا وحدات بعد",
+        "unitsEmptyBody": "أضف كل براد وفريزر مع النطاق الذي يجب أن يبقى ضمنه.",
+        "kind": {
+            "fridge": "براد",
+            "freezer": "فريزر"
+        },
+        "slot": {
+            "am": "صباحاً",
+            "pm": "مساءً"
         }
     },
     "serviceTimings": {

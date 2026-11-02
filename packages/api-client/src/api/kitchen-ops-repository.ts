@@ -12,6 +12,13 @@ import {
     SupplierId,
     UserId,
 } from '@healthy360/domain-types';
+import type {
+    RecordCookingTemperatureRequest,
+    RecordTemperatureRequest,
+    TemperatureLog,
+    TemperatureUnitDraft,
+} from '../contracts/temperature-logs.ts';
+import type { TemperatureLog as WireTemperatureLog } from '../generated/types.ts';
 import type { CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
 import type { CursorPage } from '../contracts/pagination.ts';
@@ -2493,6 +2500,84 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
 
         async cancelProductionOrder(productionOrderId: ProductionOrderId, lockVersion: number) {
             return transitionProductionOrder(transport, productionOrderId, 'cancel', lockVersion);
+        },
+
+        async getTemperatureLog(month: string): Promise<TemperatureLog> {
+            const log = await transport.request<WireTemperatureLog>({
+                method: 'GET',
+                path: `/catalogue/quality-control/temperature-log?month=${encodeURIComponent(month)}`,
+            });
+            return {
+                units: log.units.map((unit) => ({
+                    id: unit.id,
+                    name: unit.name,
+                    kind: unit.kind,
+                    minC: unit.min_c,
+                    maxC: unit.max_c,
+                    active: unit.active,
+                })),
+                readings: log.readings.map((row) => ({
+                    id: row.id,
+                    unitId: row.temperature_unit_id,
+                    unitName: row.unit_name,
+                    readingDate: row.reading_date,
+                    slot: row.slot,
+                    celsius: row.celsius,
+                    outOfRange: row.out_of_range,
+                    note: row.note,
+                    recordedByName: row.recorded_by_name,
+                })),
+                cooking: log.cooking.map((row) => ({
+                    id: row.id,
+                    batchLabel: row.batch_label,
+                    recipe: row.recipe,
+                    celsius: row.celsius,
+                    note: row.note,
+                    recordedByName: row.recorded_by_name,
+                    recordedAt: row.recorded_at as TemperatureLog['cooking'][number]['recordedAt'],
+                })),
+            };
+        },
+
+        async recordTemperature(request: RecordTemperatureRequest) {
+            const payload = await transport.request<{
+                readonly reading: { readonly out_of_range: boolean };
+            }>({
+                method: 'POST',
+                path: '/catalogue/quality-control/temperature-readings',
+                body: {
+                    temperature_unit_id: request.unitId,
+                    slot: request.slot,
+                    celsius: request.celsius,
+                    note: request.note,
+                },
+            });
+            return { outOfRange: payload.reading.out_of_range };
+        },
+
+        async recordCookingTemperature(request: RecordCookingTemperatureRequest): Promise<void> {
+            await transport.request({
+                method: 'POST',
+                path: '/catalogue/quality-control/cooking-temperatures',
+                body: { production_order_id: request.productionOrderId, celsius: request.celsius },
+            });
+        },
+
+        async saveTemperatureUnit(draft: TemperatureUnitDraft): Promise<void> {
+            await transport.request({
+                method: draft.id === null ? 'POST' : 'PATCH',
+                path:
+                    draft.id === null
+                        ? '/catalogue/quality-control/temperature-units'
+                        : `/catalogue/quality-control/temperature-units/${encodeURIComponent(draft.id)}`,
+                body: {
+                    name: draft.name,
+                    kind: draft.kind,
+                    min_c: draft.minC,
+                    max_c: draft.maxC,
+                    active: draft.active,
+                },
+            });
         },
 
         async listQualityChecks(): Promise<readonly QualityCheck[]> {

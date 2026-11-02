@@ -68,6 +68,7 @@ export { ProductionDeskScreen } from './production-desk-screen.tsx';
 export { PurchasesLedgerScreen } from './purchases-ledger-screen.tsx';
 export { ComplaintsScreen } from './complaints-screen.tsx';
 export { QualityControlScreen } from './quality-control-screen.tsx';
+export { TemperatureLogsScreen } from './temperature-logs-screen.tsx';
 export { QuotationsScreen } from './quotations-screen.tsx';
 export { ReceiveDeliveryScreen } from './receive-delivery-screen.tsx';
 export { RecipesScreen } from './recipes-screen.tsx';

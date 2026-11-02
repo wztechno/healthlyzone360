@@ -1,4 +1,10 @@
 import type {
+    RecordCookingTemperatureRequest,
+    RecordTemperatureRequest,
+    TemperatureLog,
+    TemperatureUnitDraft,
+} from './temperature-logs.ts';
+import type {
     BranchId,
     CurrencyCode,
     GoodsReceiptId,
@@ -2691,6 +2697,10 @@ export interface KitchenOpsRepository {
     ): Promise<ProductionOrderDetail>;
 
     /** The most recent fifty checks, newest first, over both allow-listed subjects. */
+    getTemperatureLog(month: string): Promise<TemperatureLog>;
+    recordTemperature(request: RecordTemperatureRequest): Promise<{ readonly outOfRange: boolean }>;
+    recordCookingTemperature(request: RecordCookingTemperatureRequest): Promise<void>;
+    saveTemperatureUnit(draft: TemperatureUnitDraft): Promise<void>;
     listQualityChecks(): Promise<readonly QualityCheck[]>;
     createQualityCheck(request: CreateQualityCheckRequest): Promise<QualityCheckResult>;
     holdQualityCheck(qualityCheckId: QualityCheckId): Promise<QualityCheckResult>;

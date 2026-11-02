@@ -570,6 +570,10 @@ export const queryKeys = {
         inventoryValue: () => ['kitchenOps', 'inventory-value'] as const,
         pendingProductionValuations: () => ['kitchenOps', 'pending-production-valuations'] as const,
         qualityChecks: () => ['kitchenOps', 'quality-checks'] as const,
+        temperatureLog: (month?: string) =>
+            month === undefined
+                ? (['kitchenOps', 'temperature-log'] as const)
+                : (['kitchenOps', 'temperature-log', month] as const),
     },
 
     /**

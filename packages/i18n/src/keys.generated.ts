@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9707 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9755 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3037,6 +3037,7 @@ export interface NamespaceKeys {
     | 'alerts.type.short_close'
     | 'alerts.type.short_hand_in'
     | 'alerts.type.stock_expiring'
+    | 'alerts.type.temperature_out_of_range'
     | 'alerts.type.unaccepted_manager'
     | 'alerts.type.unaccepted_owner'
     | 'alerts.unreadDetail'
@@ -4078,6 +4079,8 @@ export interface NamespaceKeys {
     | 'families.supplyOrders.name'
     | 'families.team.description'
     | 'families.team.name'
+    | 'families.temperatureLogs.description'
+    | 'families.temperatureLogs.name'
     | 'families.wholesale.description'
     | 'families.wholesale.name'
     | 'fields.amountPlaceholder'
@@ -7285,6 +7288,51 @@ export interface NamespaceKeys {
     | 'stockDuplicates.reason.not_a_copy'
     | 'stockDuplicates.reason.open_work'
     | 'stockDuplicates.shelf'
+    | 'temperature.active'
+    | 'temperature.addUnit'
+    | 'temperature.celsius'
+    | 'temperature.columnBatch'
+    | 'temperature.columnBy'
+    | 'temperature.columnCore'
+    | 'temperature.columnDate'
+    | 'temperature.columnNote'
+    | 'temperature.columnReading'
+    | 'temperature.columnSlot'
+    | 'temperature.columnState'
+    | 'temperature.columnUnit'
+    | 'temperature.columnWhen'
+    | 'temperature.cookingEmptyBody'
+    | 'temperature.cookingEmptyTitle'
+    | 'temperature.editUnit'
+    | 'temperature.emptyBody'
+    | 'temperature.emptyTitle'
+    | 'temperature.fieldCelsius'
+    | 'temperature.fieldKind'
+    | 'temperature.fieldMax'
+    | 'temperature.fieldMin'
+    | 'temperature.fieldRange'
+    | 'temperature.inRange'
+    | 'temperature.kind.freezer'
+    | 'temperature.kind.fridge'
+    | 'temperature.loadErrorTitle'
+    | 'temperature.month'
+    | 'temperature.outOfRange'
+    | 'temperature.print'
+    | 'temperature.printCooking'
+    | 'temperature.printReadings'
+    | 'temperature.record'
+    | 'temperature.recordBatch'
+    | 'temperature.retired'
+    | 'temperature.save'
+    | 'temperature.saved'
+    | 'temperature.savedOutOfRange'
+    | 'temperature.slot.am'
+    | 'temperature.slot.pm'
+    | 'temperature.tabCooking'
+    | 'temperature.tabReadings'
+    | 'temperature.tabUnits'
+    | 'temperature.unitsEmptyBody'
+    | 'temperature.unitsEmptyTitle'
     | 'time.formatHint'
     | 'time.placeholder'
     | 'title'
@@ -12762,6 +12810,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:alerts.type.short_close',
   'kitchen:alerts.type.short_hand_in',
   'kitchen:alerts.type.stock_expiring',
+  'kitchen:alerts.type.temperature_out_of_range',
   'kitchen:alerts.type.unaccepted_manager',
   'kitchen:alerts.type.unaccepted_owner',
   'kitchen:alerts.unreadDetail',
@@ -13803,6 +13852,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.supplyOrders.name',
   'kitchen:families.team.description',
   'kitchen:families.team.name',
+  'kitchen:families.temperatureLogs.description',
+  'kitchen:families.temperatureLogs.name',
   'kitchen:families.wholesale.description',
   'kitchen:families.wholesale.name',
   'kitchen:fields.amountPlaceholder',
@@ -17010,6 +17061,51 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:stockDuplicates.reason.not_a_copy',
   'kitchen:stockDuplicates.reason.open_work',
   'kitchen:stockDuplicates.shelf',
+  'kitchen:temperature.active',
+  'kitchen:temperature.addUnit',
+  'kitchen:temperature.celsius',
+  'kitchen:temperature.columnBatch',
+  'kitchen:temperature.columnBy',
+  'kitchen:temperature.columnCore',
+  'kitchen:temperature.columnDate',
+  'kitchen:temperature.columnNote',
+  'kitchen:temperature.columnReading',
+  'kitchen:temperature.columnSlot',
+  'kitchen:temperature.columnState',
+  'kitchen:temperature.columnUnit',
+  'kitchen:temperature.columnWhen',
+  'kitchen:temperature.cookingEmptyBody',
+  'kitchen:temperature.cookingEmptyTitle',
+  'kitchen:temperature.editUnit',
+  'kitchen:temperature.emptyBody',
+  'kitchen:temperature.emptyTitle',
+  'kitchen:temperature.fieldCelsius',
+  'kitchen:temperature.fieldKind',
+  'kitchen:temperature.fieldMax',
+  'kitchen:temperature.fieldMin',
+  'kitchen:temperature.fieldRange',
+  'kitchen:temperature.inRange',
+  'kitchen:temperature.kind.freezer',
+  'kitchen:temperature.kind.fridge',
+  'kitchen:temperature.loadErrorTitle',
+  'kitchen:temperature.month',
+  'kitchen:temperature.outOfRange',
+  'kitchen:temperature.print',
+  'kitchen:temperature.printCooking',
+  'kitchen:temperature.printReadings',
+  'kitchen:temperature.record',
+  'kitchen:temperature.recordBatch',
+  'kitchen:temperature.retired',
+  'kitchen:temperature.save',
+  'kitchen:temperature.saved',
+  'kitchen:temperature.savedOutOfRange',
+  'kitchen:temperature.slot.am',
+  'kitchen:temperature.slot.pm',
+  'kitchen:temperature.tabCooking',
+  'kitchen:temperature.tabReadings',
+  'kitchen:temperature.tabUnits',
+  'kitchen:temperature.unitsEmptyBody',
+  'kitchen:temperature.unitsEmptyTitle',
   'kitchen:time.formatHint',
   'kitchen:time.placeholder',
   'kitchen:title',

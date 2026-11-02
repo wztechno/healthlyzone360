@@ -161,6 +161,10 @@ return [
             'heading' => ':number has fallen below your margin target',
             'line' => 'Its cost has moved. Check the price or the recipe.',
         ],
+        'temperature_out_of_range' => [
+            'heading' => 'Temperature out of range: :number',
+            'line' => 'Check the unit and move the food if you need to. The reading is on the temperature log.',
+        ],
         'stock_expiring' => [
             'heading' => 'Use by date coming up: :number',
             'line' => 'Check the shelf. Use it first, or record it as waste once the date passes.',

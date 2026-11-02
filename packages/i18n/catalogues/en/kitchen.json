@@ -2550,6 +2550,10 @@
         "noteZero": "0 is a true zero — the server walked that slot and found nothing. — means the day was never answered, which is a different fact and is never shown as a zero."
     },
     "families": {
+        "temperatureLogs": {
+            "name": "Temperature log",
+            "description": "Fridge and freezer readings twice a day, and each batch’s cooking core temperature."
+        },
         "complaints": {
             "name": "Complaints",
             "description": "What went wrong with an order, what it cost and how it ended."
@@ -5213,6 +5217,7 @@
             "no_cash_collected": "No cash was collected for order {{number}}",
             "refund_approval": "A refund on order {{number}} needs your approval",
             "stock_expiring": "Use by date coming up: {{number}}",
+            "temperature_out_of_range": "Temperature out of range: {{number}}",
             "refund_approved": "Your refund on order {{number}} was approved",
             "refund_rejected": "Your refund on order {{number}} was rejected",
             "short_hand_in": "A cash hand-in came up short",
@@ -5288,6 +5293,57 @@
             "refunded": "Refunded",
             "apologised": "Apologised",
             "no_action": "No action"
+        }
+    },
+    "temperature": {
+        "tabReadings": "Fridges and freezers",
+        "tabCooking": "Cooking",
+        "tabUnits": "Units",
+        "month": "Month",
+        "record": "Record a reading",
+        "recordBatch": "Record a core temperature",
+        "addUnit": "Add a unit",
+        "editUnit": "Edit the unit",
+        "print": "Print",
+        "printReadings": "Fridge and freezer temperatures, {{month}}",
+        "printCooking": "Cooking core temperatures, {{month}}",
+        "save": "Save",
+        "saved": "Reading saved.",
+        "savedOutOfRange": "Reading saved. It is out of range, so the managers have been alerted.",
+        "celsius": "{{value}}°C",
+        "columnDate": "Date",
+        "columnSlot": "Time of day",
+        "columnUnit": "Unit",
+        "columnReading": "Reading",
+        "columnState": "State",
+        "columnBy": "Recorded by",
+        "columnNote": "Note",
+        "columnWhen": "Recorded at",
+        "columnBatch": "Batch",
+        "columnCore": "Core temperature",
+        "fieldKind": "Kind",
+        "fieldRange": "Should hold",
+        "fieldMin": "Lowest (°C)",
+        "fieldMax": "Highest (°C)",
+        "fieldCelsius": "Temperature (°C)",
+        "inRange": "In range",
+        "outOfRange": "Out of range",
+        "active": "In use",
+        "retired": "Retired",
+        "loadErrorTitle": "The temperature log could not be loaded",
+        "emptyTitle": "No readings this month",
+        "emptyBody": "Readings are taken twice a day, per unit, and written once.",
+        "cookingEmptyTitle": "No core temperatures this month",
+        "cookingEmptyBody": "Record the core temperature of a batch as it cooks.",
+        "unitsEmptyTitle": "No units yet",
+        "unitsEmptyBody": "Add each fridge and freezer with the range it should hold.",
+        "kind": {
+            "fridge": "Fridge",
+            "freezer": "Freezer"
+        },
+        "slot": {
+            "am": "Morning",
+            "pm": "Evening"
         }
     },
     "serviceTimings": {

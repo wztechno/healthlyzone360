@@ -36,6 +36,7 @@ const ROW_ICONS: Readonly<Record<StaffAlertType, IconName>> = {
     no_cash_collected: 'banknote',
     refund_approval: 'banknote',
     stock_expiring: 'clock',
+    temperature_out_of_range: 'alert',
     refund_approved: 'banknote',
     refund_rejected: 'banknote',
     short_hand_in: 'banknote',
@@ -47,6 +48,7 @@ const ROW_ICONS: Readonly<Record<StaffAlertType, IconName>> = {
 /** Where an alert about something other than an order opens. */
 const PAGES: Partial<Readonly<Record<StaffAlertType, string>>> = {
     stock_expiring: '/kitchen/stock',
+    temperature_out_of_range: '/kitchen/temperature-logs',
     short_hand_in: '/kitchen/order-desk/settlement',
     short_close: '/kitchen/order-desk/close',
     price_approval: '/kitchen/payables',

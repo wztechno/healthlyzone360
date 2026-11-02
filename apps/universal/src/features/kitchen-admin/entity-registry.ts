@@ -902,6 +902,17 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: null,
     },
     {
+        key: 'temperatureLogs',
+        kind: 'managed',
+        group: 'operations',
+        nameKey: 'kitchen:families.temperatureLogs.name',
+        descriptionKey: 'kitchen:families.temperatureLogs.description',
+        icon: 'badgeCheck',
+        href: '/kitchen/temperature-logs',
+        permission: INVENTORY_VIEW_PERMISSION,
+        managePermission: INVENTORY_MANAGE_PERMISSION,
+    },
+    {
         key: 'complaints',
         kind: 'managed',
         group: 'operations',
