@@ -53,6 +53,7 @@ import {
     durationRequest,
     matrixBands,
     matrixRows,
+    unsoldCellCount,
     toggleCell,
     variantDraft,
     variantErrors,
@@ -733,6 +734,21 @@ describe('the matrix, as a pure model', () => {
         // Declared rows keep their authored order; the undeclared one follows, and is marked.
         expect(drawn[0]?.combination?.code).toBe('M3S1');
         expect(drawn[2]?.combination).toBeNull();
+    });
+
+    it('counts the cells nobody can buy', () => {
+        const drawn = matrixRows(rows, []);
+        const band = { key: '1200-1500', min: 1200, max: 1500, isDeclaredOnly: false };
+        const sold = variant({
+            key: 'x',
+            mealsPerDay: 3,
+            snacksPerDay: 1,
+            energyMin: 1200,
+            energyMax: 1500,
+        });
+
+        expect(unsoldCellCount(drawn, [band], [sold])).toBe(1);
+        expect(unsoldCellCount(drawn, [band], [])).toBe(2);
     });
 
     it('switches an empty cell on with the row’s servings and the column’s band', () => {

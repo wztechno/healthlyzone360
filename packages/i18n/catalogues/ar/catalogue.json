@@ -723,5 +723,13 @@
             "g": "غ",
             "mg": "ملغ"
         }
+    },
+    "dishOptions": {
+        "portion": "الحصة",
+        "portionPrice": "{{name}} · {{price}}",
+        "noPreference": "بلا تفضيل",
+        "leaveOut": "بدون {{name}}",
+        "chosen": "{{group}}: {{name}}",
+        "separator": " · "
     }
 }

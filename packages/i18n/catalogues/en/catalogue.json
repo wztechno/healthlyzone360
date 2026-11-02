@@ -631,5 +631,13 @@
             "g": "g",
             "mg": "mg"
         }
+    },
+    "dishOptions": {
+        "portion": "Portion",
+        "portionPrice": "{{name}} · {{price}}",
+        "noPreference": "No preference",
+        "leaveOut": "No {{name}}",
+        "chosen": "{{group}}: {{name}}",
+        "separator": " · "
     }
 }

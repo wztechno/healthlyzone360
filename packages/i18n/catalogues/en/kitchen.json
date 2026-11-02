@@ -2341,6 +2341,7 @@
             "item_unknown": "That article is no longer in the catalogue.",
             "item_not_published": "That article is not published, so it cannot be sold.",
             "item_not_assessed": "Nobody has assessed that article for allergens, so it cannot be sold. Assess it in the catalogue first.",
+            "option_unknown": "An option chosen on this line is no longer offered. Open the line and choose again.",
             "quality_hold": "All that is left of this article is on quality hold. Release the check or choose something else.",
             "variant_unknown": "That pack no longer exists.",
             "variant_not_active": "That pack is not available.",
@@ -4194,7 +4195,10 @@
         "savePlan": "Save the plan",
         "addVariant": "Add a configuration",
         "oneOffExplainer": "A one-off is a single delivery, so it has no day count at all — not zero, none.",
-        "searchPlaceholder": "Search plans by name"
+        "searchPlaceholder": "Search plans by name",
+        "matrixUnsold_one": "{{count}} combination isn't on sale",
+        "matrixUnsold_other": "{{count}} combinations aren't on sale",
+        "matrixUnsoldBody": "A customer can't buy an empty cell. Add it, or leave it empty if you don't sell that size."
     },
     "time": {
         "formatHint": "24-hour clock, HH:mm — for example 08:00 or 18:30.",
@@ -5137,6 +5141,26 @@
             "price_approval": "A delivery from {{number}} needs its price approved",
             "dish_below_target": "{{number}} has fallen below your margin target"
         }
+    },
+    "dishOptions": {
+        "title": "Dish options",
+        "aside": "Free changes a customer can make. Portions are the dish’s packs. Allergens stay as they are.",
+        "kind": "Kind",
+        "kindRemove": "Leave out",
+        "kindChoice": "Choice",
+        "groupEn": "Group",
+        "groupAr": "Group in Arabic",
+        "nameEn": "Name",
+        "nameAr": "Name in Arabic",
+        "removeRow": "Remove this option",
+        "add": "Add an option",
+        "save": "Save options",
+        "saved": "Dish options saved.",
+        "lineAction": "Options and note for {{name}}",
+        "drawerTitle": "Options and note",
+        "apply": "Apply",
+        "noteLabel": "Note for the kitchen",
+        "lineNote": "Note: {{note}}"
     },
     "serviceTimings": {
         "title": "Service timings",

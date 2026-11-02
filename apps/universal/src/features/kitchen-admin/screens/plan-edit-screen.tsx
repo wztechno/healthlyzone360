@@ -72,6 +72,7 @@ import {
     emptyDuration,
     matrixBands,
     matrixRows,
+    unsoldCellCount,
     variantDraft,
     variantErrors,
     variantRequest,
@@ -500,6 +501,11 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
     const rows = useMemo(
         () => matrixRows(combinations, soldVariants),
         [combinations, soldVariants],
+    );
+
+    const unsoldCells = useMemo(
+        () => unsoldCellCount(rows, bands, soldVariants),
+        [rows, bands, soldVariants],
     );
 
     const lists = priceListsFromPages(priceLists.data?.pages);
@@ -1518,6 +1524,16 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                             nativeID={PLAN_STEP_SECTIONS.matrix}
                             title={t('kitchen:plans.tabMatrix')}
                         >
+                            {unsoldCells === 0 ? null : (
+                                <Callout
+                                    testID="kitchen-plan-matrix-unsold"
+                                    tone="warning"
+                                    icon="warning"
+                                    role="status"
+                                    title={t('kitchen:plans.matrixUnsold', { count: unsoldCells })}
+                                    body={t('kitchen:plans.matrixUnsoldBody')}
+                                />
+                            )}
                             <PlanMatrixGrid
                                 testID="kitchen-plan-matrix-grid"
                                 rows={rows}

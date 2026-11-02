@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9565 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9593 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1536,6 +1536,12 @@ export interface NamespaceKeys {
     | 'diet.suitabilityBody'
     | 'diet.suitabilityTitle'
     | 'diet.title'
+    | 'dishOptions.chosen'
+    | 'dishOptions.leaveOut'
+    | 'dishOptions.noPreference'
+    | 'dishOptions.portion'
+    | 'dishOptions.portionPrice'
+    | 'dishOptions.separator'
     | 'facts.amount'
     | 'facts.basisLabel'
     | 'facts.calculatedAt'
@@ -2768,6 +2774,7 @@ export interface NamespaceKeys {
     | 'orderRefusal.lead_time_not_met'
     | 'orderRefusal.minimum_order_not_met'
     | 'orderRefusal.mixed_delivery_dates'
+    | 'orderRefusal.option_unknown'
     | 'orderRefusal.quality_hold'
     | 'orderRefusal.unpriced'
     | 'orderRefusal.variant_not_active'
@@ -3659,6 +3666,7 @@ export interface NamespaceKeys {
     | 'desk.refusal.kitchen_not_open'
     | 'desk.refusal.kitchen_paused'
     | 'desk.refusal.lead_time_not_met'
+    | 'desk.refusal.option_unknown'
     | 'desk.refusal.quality_hold'
     | 'desk.refusal.unpriced'
     | 'desk.refusal.variant_not_active'
@@ -3820,6 +3828,24 @@ export interface NamespaceKeys {
     | 'desk.window.to'
     | 'desk.window.today'
     | 'desk.windowLabel'
+    | 'dishOptions.add'
+    | 'dishOptions.apply'
+    | 'dishOptions.aside'
+    | 'dishOptions.drawerTitle'
+    | 'dishOptions.groupAr'
+    | 'dishOptions.groupEn'
+    | 'dishOptions.kind'
+    | 'dishOptions.kindChoice'
+    | 'dishOptions.kindRemove'
+    | 'dishOptions.lineAction'
+    | 'dishOptions.lineNote'
+    | 'dishOptions.nameAr'
+    | 'dishOptions.nameEn'
+    | 'dishOptions.noteLabel'
+    | 'dishOptions.removeRow'
+    | 'dishOptions.save'
+    | 'dishOptions.saved'
+    | 'dishOptions.title'
     | 'dressings.create'
     | 'dressings.kindSaladDressing'
     | 'dressings.title'
@@ -6266,6 +6292,8 @@ export interface NamespaceKeys {
     | 'plans.matrixEmpty'
     | 'plans.matrixRowHeader'
     | 'plans.matrixSaveError'
+    | 'plans.matrixUnsold'
+    | 'plans.matrixUnsoldBody'
     | 'plans.mealsPerDayLabel'
     | 'plans.mealsPerDayPlaceholder'
     | 'plans.nameRequired'
@@ -11126,6 +11154,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:diet.suitabilityBody',
   'catalogue:diet.suitabilityTitle',
   'catalogue:diet.title',
+  'catalogue:dishOptions.chosen',
+  'catalogue:dishOptions.leaveOut',
+  'catalogue:dishOptions.noPreference',
+  'catalogue:dishOptions.portion',
+  'catalogue:dishOptions.portionPrice',
+  'catalogue:dishOptions.separator',
   'catalogue:facts.amount',
   'catalogue:facts.basisLabel',
   'catalogue:facts.calculatedAt',
@@ -12354,6 +12388,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:orderRefusal.lead_time_not_met',
   'errors:orderRefusal.minimum_order_not_met',
   'errors:orderRefusal.mixed_delivery_dates',
+  'errors:orderRefusal.option_unknown',
   'errors:orderRefusal.quality_hold',
   'errors:orderRefusal.unpriced',
   'errors:orderRefusal.variant_not_active',
@@ -13242,6 +13277,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.refusal.kitchen_not_open',
   'kitchen:desk.refusal.kitchen_paused',
   'kitchen:desk.refusal.lead_time_not_met',
+  'kitchen:desk.refusal.option_unknown',
   'kitchen:desk.refusal.quality_hold',
   'kitchen:desk.refusal.unpriced',
   'kitchen:desk.refusal.variant_not_active',
@@ -13403,6 +13439,24 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.window.to',
   'kitchen:desk.window.today',
   'kitchen:desk.windowLabel',
+  'kitchen:dishOptions.add',
+  'kitchen:dishOptions.apply',
+  'kitchen:dishOptions.aside',
+  'kitchen:dishOptions.drawerTitle',
+  'kitchen:dishOptions.groupAr',
+  'kitchen:dishOptions.groupEn',
+  'kitchen:dishOptions.kind',
+  'kitchen:dishOptions.kindChoice',
+  'kitchen:dishOptions.kindRemove',
+  'kitchen:dishOptions.lineAction',
+  'kitchen:dishOptions.lineNote',
+  'kitchen:dishOptions.nameAr',
+  'kitchen:dishOptions.nameEn',
+  'kitchen:dishOptions.noteLabel',
+  'kitchen:dishOptions.removeRow',
+  'kitchen:dishOptions.save',
+  'kitchen:dishOptions.saved',
+  'kitchen:dishOptions.title',
   'kitchen:dressings.create',
   'kitchen:dressings.kindSaladDressing',
   'kitchen:dressings.title',
@@ -15849,6 +15903,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.matrixEmpty',
   'kitchen:plans.matrixRowHeader',
   'kitchen:plans.matrixSaveError',
+  'kitchen:plans.matrixUnsold',
+  'kitchen:plans.matrixUnsoldBody',
   'kitchen:plans.mealsPerDayLabel',
   'kitchen:plans.mealsPerDayPlaceholder',
   'kitchen:plans.nameRequired',

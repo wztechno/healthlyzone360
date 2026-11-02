@@ -631,5 +631,13 @@
       "g": "[[ĝ ā]]",
       "mg": "[[ɱĝ ā]]"
     }
+  },
+  "dishOptions": {
+    "portion": "[[Þóŕţíóñ āēī]]",
+    "portionPrice": "[[{{name}} · {{price}} āēīōūāēī]]",
+    "noPreference": "[[Ñó þŕéƒéŕéñçé āēīōūā]]",
+    "leaveOut": "[[Ñó {{name}} āēīōū]]",
+    "chosen": "[[{{group}}: {{name}} āēīōūāēī]]",
+    "separator": "[[ ·  āē]]"
   }
 }
