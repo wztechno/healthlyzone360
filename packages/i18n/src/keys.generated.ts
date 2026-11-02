@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9519 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9523 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -6627,6 +6627,7 @@ export interface NamespaceKeys {
     | 'recipes.archiveFailed'
     | 'recipes.archiveTitle'
     | 'recipes.archivedToast'
+    | 'recipes.backOnTodayToast'
     | 'recipes.backToCurrentVersion'
     | 'recipes.backToList'
     | 'recipes.caption'
@@ -6729,6 +6730,7 @@ export interface NamespaceKeys {
     | 'recipes.notFormulated'
     | 'recipes.notFoundBody'
     | 'recipes.notFoundTitle'
+    | 'recipes.offTodayToast'
     | 'recipes.openIngredient'
     | 'recipes.optional'
     | 'recipes.outputCount'
@@ -7877,6 +7879,8 @@ export interface NamespaceKeys {
     | 'storefront.order.readyIn'
     | 'storefront.order.seePlans'
     | 'storefront.order.start'
+    | 'storefront.pausedBody'
+    | 'storefront.pausedTitle'
     | 'storefront.plans.choose'
     | 'storefront.plans.chooseLabel'
     | 'storefront.plans.empty'
@@ -16164,6 +16168,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.archiveFailed',
   'kitchen:recipes.archiveTitle',
   'kitchen:recipes.archivedToast',
+  'kitchen:recipes.backOnTodayToast',
   'kitchen:recipes.backToCurrentVersion',
   'kitchen:recipes.backToList',
   'kitchen:recipes.caption',
@@ -16266,6 +16271,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.notFormulated',
   'kitchen:recipes.notFoundBody',
   'kitchen:recipes.notFoundTitle',
+  'kitchen:recipes.offTodayToast',
   'kitchen:recipes.openIngredient',
   'kitchen:recipes.optional',
   'kitchen:recipes.outputCount',
@@ -17413,6 +17419,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:storefront.order.readyIn',
   'marketplace:storefront.order.seePlans',
   'marketplace:storefront.order.start',
+  'marketplace:storefront.pausedBody',
+  'marketplace:storefront.pausedTitle',
   'marketplace:storefront.plans.choose',
   'marketplace:storefront.plans.chooseLabel',
   'marketplace:storefront.plans.empty',

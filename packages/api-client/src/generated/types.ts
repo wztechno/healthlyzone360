@@ -4164,6 +4164,10 @@ export type MarketplaceBranch = {
 };
 
 export type MarketplaceKitchen = {
+    /**
+     * On the single kitchen read only. When the kitchen's timed pause on new orders ends; null when it is taking orders.
+     */
+    paused_until?: string | null;
     id: Uuid;
     /**
      * The registered organisation name. Not localised — a business name is not translated.
@@ -7563,9 +7567,13 @@ export type MonthlyCostReportRow = {
      */
     waste_quantity: string | null;
     /**
-     * Selling revenue — Σ order subtotals for confirmed/fulfilled orders, delivery fees left out, converted from minor to major units.
+     * Selling revenue — Σ order subtotals for confirmed/fulfilled orders, delivery fees left out, less `refunds_amount`, converted from minor to major units.
      */
     revenue_amount: string;
+    /**
+     * Refunds that completed this month, major units, each order's counted up to its food subtotal. Already taken off `revenue_amount`.
+     */
+    refunds_amount: string;
     /**
      * Revenue minus COGS, major units; null when `is_margin_withheld`.
      */
@@ -9649,7 +9657,7 @@ export type KitchenCustomerDetail = KitchenCustomer & {
     company: KitchenCustomerCompany | null;
 };
 
-export type StaffNotificationType = 'unaccepted_manager' | 'unaccepted_owner' | 'allergy_order' | 'late_cancel' | 'delivery_failed' | 'no_cash_collected' | 'refund_approval' | 'stock_expiring';
+export type StaffNotificationType = 'unaccepted_manager' | 'unaccepted_owner' | 'allergy_order' | 'late_cancel' | 'delivery_failed' | 'no_cash_collected' | 'refund_approval' | 'stock_expiring' | 'refund_approved' | 'refund_rejected' | 'short_hand_in' | 'short_close' | 'price_approval' | 'dish_below_target';
 
 export type StaffNotification = {
     id: Uuid;

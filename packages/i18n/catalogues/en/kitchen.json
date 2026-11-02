@@ -3456,7 +3456,9 @@
         "savedAllToast": "All changes saved.",
         "allSavedBadge": "All saved",
         "listingNotSavedToast": "The Selling tab was not saved. It shows what to fix.",
-        "swappedToCopyToast": "This recipe now uses your kitchen’s copy of the ingredient. Save to keep it."
+        "swappedToCopyToast": "This recipe now uses your kitchen’s copy of the ingredient. Save to keep it.",
+        "offTodayToast": "Off the menu for today.",
+        "backOnTodayToast": "Back on the menu today."
     },
     "publish": {
         "action": "Publish",

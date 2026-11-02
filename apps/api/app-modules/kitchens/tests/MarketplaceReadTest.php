@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Kitchens\Models\KitchenServiceSettings;
 use Healthy360\Organisations\Enums\OrganisationStatus;
 use Healthy360\Organisations\Models\Organisation;
 use Tests\SeedDatabaseOnce;
@@ -66,6 +67,17 @@ it('reads one kitchen by slug', function (): void {
         ->assertOk()
         ->assertJsonPath('data.slug', 'verdant-kitchen')
         ->assertJsonPath('meta.locale', 'en');
+});
+
+it('tells the storefront when a timed pause ends, and nothing once it has', function (): void {
+    $kitchenId = Organisation::query()->where('slug', 'verdant-kitchen')->value('id');
+    $settings = KitchenServiceSettings::withoutTenancy()->firstOrCreate(['organisation_id' => $kitchenId]);
+
+    $settings->update(['paused_until' => now()->addHour()]);
+    expect($this->getJson('/api/v1/marketplace/kitchens/verdant-kitchen')->assertOk()->json('data.paused_until'))->not->toBeNull();
+
+    $settings->update(['paused_until' => now()->subMinute()]);
+    $this->getJson('/api/v1/marketplace/kitchens/verdant-kitchen')->assertOk()->assertJsonPath('data.paused_until', null);
 });
 
 it('lists published products beside meals and filters by item type', function (): void {

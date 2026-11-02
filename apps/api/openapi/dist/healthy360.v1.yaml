@@ -34756,6 +34756,12 @@ components:
         - image_placeholder_id
         - is_verified
       properties:
+        paused_until:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: On the single kitchen read only. When the kitchen's timed pause on new orders ends; null when it is taking orders.
         id:
           $ref: '#/components/schemas/Uuid'
         name:
@@ -40482,6 +40488,7 @@ components:
         - waste_amount
         - waste_quantity
         - revenue_amount
+        - refunds_amount
         - gross_margin_amount
         - gross_margin_percent
         - is_margin_withheld
@@ -40556,7 +40563,10 @@ components:
           description: Total wasted quantity this month, the honest note when waste carries no cost.
         revenue_amount:
           type: string
-          description: Selling revenue — Σ order subtotals for confirmed/fulfilled orders, delivery fees left out, converted from minor to major units.
+          description: Selling revenue — Σ order subtotals for confirmed/fulfilled orders, delivery fees left out, less `refunds_amount`, converted from minor to major units.
+        refunds_amount:
+          type: string
+          description: Refunds that completed this month, major units, each order's counted up to its food subtotal. Already taken off `revenue_amount`.
         gross_margin_amount:
           type:
             - string
@@ -44137,6 +44147,12 @@ components:
         - no_cash_collected
         - refund_approval
         - stock_expiring
+        - refund_approved
+        - refund_rejected
+        - short_hand_in
+        - short_close
+        - price_approval
+        - dish_below_target
     StaffNotification:
       type: object
       required:

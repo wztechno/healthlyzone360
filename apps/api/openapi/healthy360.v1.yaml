@@ -32938,6 +32938,10 @@ components:
       type: object
       required: [id, name, slug, tagline, description, country_code, cuisines, diet_classifications, channels, branches, delivery_windows, rating, rating_count, image_placeholder_id, is_verified]
       properties:
+        paused_until:
+          type: ['string', 'null']
+          format: date-time
+          description: On the single kitchen read only. When the kitchen's timed pause on new orders ends; null when it is taking orders.
         id:
           $ref: '#/components/schemas/Uuid'
         name:

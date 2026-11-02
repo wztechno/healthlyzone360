@@ -273,6 +273,7 @@ export function mapKitchen(wire: WireKitchen): Kitchen {
         ratingCount: wire.rating_count,
         imagePlaceholderId: wire.image_placeholder_id,
         isVerified: wire.is_verified,
+        ...(wire.paused_until === undefined ? {} : { pausedUntil: wire.paused_until }),
     };
 }
 

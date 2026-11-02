@@ -118,6 +118,8 @@ export interface Kitchen {
     /** Generated placeholder identifier — never a remote image URL. */
     readonly imagePlaceholderId: string;
     readonly isVerified: boolean;
+    /** When a timed pause on new orders ends. Only the single kitchen read carries it. */
+    readonly pausedUntil?: string | null | undefined;
 }
 
 export interface MealAvailability {

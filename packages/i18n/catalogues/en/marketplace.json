@@ -602,7 +602,9 @@
             "emptyTitle": "No reviews yet",
             "emptyBody": "This kitchen has no written reviews yet."
         },
-        "nextOpen": "Closed today · Opens {{day}}"
+        "nextOpen": "Closed today · Opens {{day}}",
+        "pausedTitle": "This kitchen has paused new orders",
+        "pausedBody": "You can browse the menu now and order again from {{time}}."
     },
     "imageCredits": {
         "title": "Image credits",

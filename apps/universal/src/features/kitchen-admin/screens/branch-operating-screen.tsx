@@ -15,7 +15,7 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, View } from 'react-native';
 
@@ -189,6 +189,7 @@ function BranchOperatingEditor() {
     const [days, setDays] = useState<readonly OperatingDayDraft[]>([]);
     const [daysKey, setDaysKey] = useState<string | null>(null);
     const [dirty, setDirty] = useState(false);
+    const [timingsDirty, setTimingsDirty] = useState(false);
     const [announcement, setAnnouncement] = useState('');
     const [addingBranch, setAddingBranch] = useState(false);
     /*
@@ -295,8 +296,10 @@ function BranchOperatingEditor() {
         );
     }
 
+    // Only a first load. A background refetch that fails keeps the week it has, and whatever is
+    // typed in this page's forms with it.
     const loadFailure = toFailure(record.error);
-    if (loadFailure !== null) {
+    if (loadFailure !== null && data === undefined) {
         return (
             <Cascade space="md" testID="kitchen-branch-hours-screen">
                 <ErrorState
@@ -354,7 +357,7 @@ function BranchOperatingEditor() {
             <RecordFormOpening
                 testID="kitchen-branch-hours-screen"
                 title={title}
-                dirty={guard.isDirty}
+                dirty={guard.isDirty || timingsDirty}
                 badges={
                     <Badge
                         variant="label"
@@ -452,7 +455,7 @@ function BranchOperatingEditor() {
 
                     <BranchClosuresSection canManage={canManage} />
 
-                    {canManage ? <ServiceTimingsSection /> : null}
+                    {canManage ? <ServiceTimingsSection onDirtyChange={setTimingsDirty} /> : null}
                 </View>
 
                 {/*
@@ -629,7 +632,12 @@ function NewBranchDialog({
 }
 
 /** The kitchen's service timings. See the note on the screen for why they save on their own. */
-function ServiceTimingsSection() {
+function ServiceTimingsSection({
+    onDirtyChange,
+}: {
+    /** The page's one unsaved marker covers this form too. */
+    readonly onDirtyChange: (dirty: boolean) => void;
+}) {
     const { t } = useTranslation();
     const toast = useToast();
     const settings = useKitchenServiceSettingsQuery();
@@ -637,9 +645,13 @@ function ServiceTimingsSection() {
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
     /** Only what has been typed, as typed: a field may be empty on its way to a new number. */
     const [edits, setEdits] = useState<Partial<Record<ServiceTimingKey, string>>>({});
+    const dirty = Object.keys(edits).length > 0;
+    useEffect(() => {
+        onDirtyChange(dirty);
+    }, [dirty, onDirtyChange]);
 
     const loadFailure = toFailure(settings.error);
-    if (loadFailure !== null) {
+    if (loadFailure !== null && settings.data === undefined) {
         return (
             <ErrorState
                 testID="kitchen-service-timings-load-error"
@@ -672,7 +684,6 @@ function ServiceTimingsSection() {
         edits.refundApprovalAboveMinor ?? String(stored.refundApprovalAboveMinor / 100);
     /** Left empty, the kitchen has no limit. */
     const windowLimit = edits.ordersPerWindow ?? String(stored.ordersPerWindow ?? '');
-    const dirty = Object.keys(edits).length > 0;
     const complete = SERVICE_TIMINGS.every(({ key }) => shown(key) !== '') && refundLimit !== '';
 
     const saveFailure = toFailure(save.error);

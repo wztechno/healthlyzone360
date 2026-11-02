@@ -2725,6 +2725,7 @@ export const zMarketplaceDeliveryWindow = z.object({
 });
 
 export const zMarketplaceKitchen = z.object({
+    paused_until: z.iso.datetime({ offset: true }).nullish(),
     id: zUuid,
     name: z.string(),
     slug: z.string(),
@@ -5008,6 +5009,7 @@ export const zMonthlyCostReportRow = z.object({
     waste_amount: z.string().nullable(),
     waste_quantity: z.string().nullable(),
     revenue_amount: z.string(),
+    refunds_amount: z.string(),
     gross_margin_amount: z.string().nullable(),
     gross_margin_percent: z.string().nullable(),
     is_margin_withheld: z.boolean(),
@@ -6222,7 +6224,13 @@ export const zStaffNotificationType = z.enum([
     'delivery_failed',
     'no_cash_collected',
     'refund_approval',
-    'stock_expiring'
+    'stock_expiring',
+    'refund_approved',
+    'refund_rejected',
+    'short_hand_in',
+    'short_close',
+    'price_approval',
+    'dish_below_target'
 ]);
 
 export const zStaffNotification = z.object({
