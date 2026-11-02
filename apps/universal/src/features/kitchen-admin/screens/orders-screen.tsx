@@ -85,6 +85,7 @@ import {
     ORDER_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { humaniseCode } from '../format.ts';
+import { OrderRefundsSection } from '../order-refunds-section.tsx';
 import {
     canCancelKitchenOrder,
     canConfirmKitchenOrder,
@@ -1097,6 +1098,14 @@ function OrderRecord({
                     retrying={detail.isFetching}
                 />
             ),
+        });
+    }
+
+    if (order !== null && canSupervise) {
+        sections.push({
+            key: 'refunds',
+            title: t('kitchen:ops.orders.refunds.heading'),
+            content: <OrderRefundsSection order={order} />,
         });
     }
 

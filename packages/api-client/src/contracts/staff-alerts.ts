@@ -16,6 +16,7 @@ export const STAFF_ALERT_TYPES = [
     'late_cancel',
     'delivery_failed',
     'no_cash_collected',
+    'refund_approval',
 ] as const;
 export type StaffAlertType = (typeof STAFF_ALERT_TYPES)[number];
 
@@ -36,12 +37,14 @@ export interface StaffAlertList {
     readonly unreadCount: number;
 }
 
-/** One kitchen's timings, in whole minutes. */
+/** One kitchen's timings, in whole minutes, and its refund limit. */
 export interface KitchenServiceSettings {
     readonly orderLeadMinutes: number;
     readonly alarmAfterMinutes: number;
     readonly managerAlertAfterMinutes: number;
     readonly ownerAlertAfterMinutes: number;
+    /** Refunds on one order above this, in minor units, wait for the owner. */
+    readonly refundApprovalAboveMinor: number;
 }
 
 export interface StaffAlertsRepository {

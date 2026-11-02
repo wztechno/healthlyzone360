@@ -586,6 +586,7 @@ export const queryKeys = {
         all: () => ['kitchenOrders'] as const,
         list: (filter?: QueryScope) => ['kitchenOrders', 'list', scope(filter)] as const,
         order: (orderId: OrderId) => ['kitchenOrders', 'order', orderId] as const,
+        refunds: (orderId: OrderId) => ['kitchenOrders', 'refunds', orderId] as const,
         display: () => ['kitchenOrders', 'display'] as const,
     },
 

@@ -5694,6 +5694,48 @@ export const zCustomerOrderEnvelope = z.object({
     meta: zMeta
 });
 
+export const zOrderRefundKind = z.enum(['refund', 'receipt_correction']);
+
+export const zOrderRefundStatus = z.enum([
+    'pending_approval',
+    'completed',
+    'rejected'
+]);
+
+export const zStoreOrderRefundRequest = z.object({
+    kind: zOrderRefundKind,
+    method: zPaymentMethod,
+    amount_minor: z.int().gte(1),
+    reason: z.string().min(1).max(300)
+});
+
+export const zOrderRefund = z.object({
+    id: zUuid,
+    kind: zOrderRefundKind,
+    status: zOrderRefundStatus,
+    method: zPaymentMethod,
+    amount_minor: z.int().gte(1),
+    currency_code: z.string(),
+    reason: z.string(),
+    requested_by_name: z.string().nullable(),
+    requested_at: z.iso.datetime({ offset: true }),
+    decided_by_name: z.string().nullable(),
+    decided_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zOrderRefundLedgerEnvelope = z.object({
+    data: z.object({
+        received_minor: z.int(),
+        refunded_minor: z.int(),
+        corrected_minor: z.int(),
+        pending_minor: z.int(),
+        refundable_minor: z.int(),
+        window_closes_at: z.iso.datetime({ offset: true }).nullable(),
+        entries: z.array(zOrderRefund)
+    }),
+    meta: zMeta
+});
+
 /**
  * One statement that money arrived against an order.
  *
@@ -6125,7 +6167,8 @@ export const zStaffNotificationType = z.enum([
     'allergy_order',
     'late_cancel',
     'delivery_failed',
-    'no_cash_collected'
+    'no_cash_collected',
+    'refund_approval'
 ]);
 
 export const zStaffNotification = z.object({
@@ -6150,7 +6193,8 @@ export const zKitchenServiceSettings = z.object({
     order_lead_minutes: z.int().gte(0).lte(10080),
     alarm_after_minutes: z.int().gte(1).lte(10080),
     manager_alert_after_minutes: z.int().gte(1).lte(10080),
-    owner_alert_after_minutes: z.int().gte(1).lte(10080)
+    owner_alert_after_minutes: z.int().gte(1).lte(10080),
+    refund_approval_above_minor: z.int().gte(0)
 });
 
 export const zKitchenServiceSettingsEnvelope = z.object({
@@ -6205,6 +6249,22 @@ export const zOrderDeskCustomer = z.object({
         'import'
     ]),
     has_orders_with_org: z.boolean()
+});
+
+export const zOrderDeskCustomerAllergiesEnvelope = z.object({
+    data: z.object({
+        declared: z.boolean(),
+        declares_no_allergens: z.boolean(),
+        allergens: z.array(z.object({
+            allergen_code: z.string(),
+            severity: z.enum([
+                'avoidance',
+                'intolerance',
+                'allergy',
+                'anaphylaxis'
+            ])
+        }))
+    })
 });
 
 export const zOrderDeskCustomersEnvelope = z.object({
@@ -14551,6 +14611,67 @@ export const zFailKitchenOrderDeliveryPath = z.object({
  */
 export const zFailKitchenOrderDeliveryResponse = zKitchenOrderEnvelope;
 
+export const zGetOrderRefundsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderRefundsPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order's refund ledger.
+ */
+export const zGetOrderRefundsResponse = zOrderRefundLedgerEnvelope;
+
+export const zStoreOrderRefundBody = zStoreOrderRefundRequest;
+
+export const zStoreOrderRefundHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Idempotency-Key': z.string().max(255).optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zStoreOrderRefundPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order's refund ledger, with the new entry in it.
+ */
+export const zStoreOrderRefundResponse = zOrderRefundLedgerEnvelope;
+
+export const zApproveOrderRefundHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zApproveOrderRefundPath = z.object({
+    order: zUuid,
+    refund: zUuid
+});
+
+/**
+ * The order's refund ledger.
+ */
+export const zApproveOrderRefundResponse = zOrderRefundLedgerEnvelope;
+
+export const zRejectOrderRefundHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRejectOrderRefundPath = z.object({
+    order: zUuid,
+    refund: zUuid
+});
+
+/**
+ * The order's refund ledger.
+ */
+export const zRejectOrderRefundResponse = zOrderRefundLedgerEnvelope;
+
 export const zRedeliverKitchenOrderBody = zRedeliverOrderRequest;
 
 export const zRedeliverKitchenOrderHeaders = z.object({
@@ -14823,6 +14944,20 @@ export const zUpdateOrderDeskCustomerPath = z.object({
  * The customer as the desk now sees them, and anybody else on the new number.
  */
 export const zUpdateOrderDeskCustomerResponse = zOrderDeskCustomerEnvelope;
+
+export const zGetOrderDeskCustomerAllergiesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderDeskCustomerAllergiesPath = z.object({
+    account: zUuid
+});
+
+/**
+ * The declaration.
+ */
+export const zGetOrderDeskCustomerAllergiesResponse = zOrderDeskCustomerAllergiesEnvelope;
 
 export const zAddOrderDeskCustomerAddressBody = zAddOrderDeskCustomerAddressRequest;
 

@@ -101,6 +101,9 @@ export const ORDER_CREATE_ON_BEHALF_PERMISSION = 'order.create_on_behalf_organis
  */
 export const ORDER_SUPERVISE_PERMISSION = 'order.supervise_organisation';
 
+/** The owner's answer to a refund above the kitchen's limit. */
+export const ORDER_APPROVE_REFUND_PERMISSION = 'order.approve_refund_organisation';
+
 /**
  * The kitchen display alone: read the wall, press Start, press Ready. Held by the chef and the cook,
  * who read no order book, and the server takes the money off what it sends them.

@@ -34,6 +34,7 @@ const ROW_ICONS: Readonly<Record<StaffAlertType, IconName>> = {
     late_cancel: 'ban',
     delivery_failed: 'truck',
     no_cash_collected: 'banknote',
+    refund_approval: 'banknote',
 };
 
 const WHEN: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };

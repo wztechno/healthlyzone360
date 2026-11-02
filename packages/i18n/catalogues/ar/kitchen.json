@@ -310,6 +310,44 @@
                 "dateLabel": "اليوم الجديد",
                 "keepDate": "الإبقاء على اليوم نفسه",
                 "keepWindow": "الإبقاء على النافذة نفسها"
+            },
+            "refunds": {
+                "heading": "الاسترداد",
+                "received": "المبلغ المستلم",
+                "refunded": "المبلغ المسترد",
+                "corrected": "صُحّح كخطأ",
+                "pending": "بانتظار المالك",
+                "refundable": "الممكن استرداده",
+                "open": "استرداد أو تصحيح",
+                "approve": "موافقة",
+                "reject": "رفض",
+                "confirm": "تسجيل",
+                "dialogTitle": "استرداد أو تصحيح الطلب {{number}}",
+                "dialogBody": "يضيف هذا قيداً ويُبقي الإيصالات كما هي. إنه يسجّل المبلغ ولا يرسله.",
+                "kind": {
+                    "refund": "استرداد",
+                    "receipt_correction": "تصحيح إيصال"
+                },
+                "kindHint": {
+                    "refund": "أُعيد المال إلى الزبون. يبقى الطلب مدفوعاً.",
+                    "receipt_correction": "كان الإيصال خطأ ولم يصل المال. يعود المبلغ إلى المستحق."
+                },
+                "status": {
+                    "pending_approval": "بانتظار المالك",
+                    "completed": "تم",
+                    "rejected": "مرفوض"
+                },
+                "methodLabel": "طريقة الإعادة",
+                "amountLabel": "المبلغ ({{currency}})",
+                "amountHint": "حتى {{refundable}}.",
+                "amountInvalid": "أدخل مبلغاً لا يتجاوز الممكن استرداده.",
+                "reasonLabel": "السبب",
+                "windowClosed": "يُغلق الاسترداد بعد 7 أيام من آخر دفعة.",
+                "recordedToast": "تم التسجيل.",
+                "waitingToast": "أُرسل إلى المالك للموافقة.",
+                "approvedToast": "تمت الموافقة على الاسترداد.",
+                "rejectedToast": "رُفض الاسترداد.",
+                "saveError": "لم يُسجَّل هذا."
             }
         },
         "quotations": {
@@ -5532,7 +5570,8 @@
             "severe_allergy": "الطلب الجديد {{number}} يتضمن حساسية شديدة",
             "late_cancel": "أُلغي الطلب {{number}} بعد بدء الطهي",
             "delivery_failed": "فشل توصيل الطلب {{number}}",
-            "no_cash_collected": "لم يُحصَّل أي نقد عن الطلب {{number}}"
+            "no_cash_collected": "لم يُحصَّل أي نقد عن الطلب {{number}}",
+            "refund_approval": "استرداد على الطلب {{number}} بانتظار موافقتك"
         }
     },
     "serviceTimings": {
@@ -5550,7 +5589,10 @@
         "managerLabel": "تنبيه المدراء بعد",
         "managerHint": "يجب أن يكون أقل من تنبيه المالك.",
         "ownerLabel": "تنبيه المالك بعد",
-        "ownerHint": "المدة التي ينتظرها الطلب قبل إبلاغ المالك."
+        "ownerHint": "المدة التي ينتظرها الطلب قبل إبلاغ المالك.",
+        "refundLabel": "يوافق المالك على الاسترداد فوق",
+        "refundHint": "يُحتسب كل ما استُرد على الطلب الواحد. يسترد المديرون حتى هذا المبلغ بأنفسهم.",
+        "refundUnit": "دولار"
     },
     "allergy": {
         "title": "حساسية في هذا الطلب",

@@ -12,7 +12,7 @@ use Healthy360\Tenancy\Concerns\BelongsToOrganisation;
 use Healthy360\Tenancy\Contracts\OrganisationScoped;
 
 /**
- * One kitchen's service timings, in minutes. Read it through
+ * One kitchen's service timings, in minutes, and its refund limit. Read it through
  * `KitchenServiceSettingsLookup`, which creates the row on first read.
  *
  * The defaults live here and nowhere else: the columns have none.
@@ -23,10 +23,11 @@ use Healthy360\Tenancy\Contracts\OrganisationScoped;
  * @property int $alarm_after_minutes
  * @property int $manager_alert_after_minutes
  * @property int $owner_alert_after_minutes
+ * @property int $refund_approval_above_minor
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-#[Classified(DataClassification::Internal, 'order_lead_minutes', 'alarm_after_minutes', 'manager_alert_after_minutes', 'owner_alert_after_minutes')]
+#[Classified(DataClassification::Internal, 'order_lead_minutes', 'alarm_after_minutes', 'manager_alert_after_minutes', 'owner_alert_after_minutes', 'refund_approval_above_minor')]
 class KitchenServiceSettings extends BaseModel implements OrganisationScoped
 {
     use BelongsToOrganisation;
@@ -41,6 +42,7 @@ class KitchenServiceSettings extends BaseModel implements OrganisationScoped
         'alarm_after_minutes' => 5,
         'manager_alert_after_minutes' => 10,
         'owner_alert_after_minutes' => 20,
+        'refund_approval_above_minor' => 5000,
     ];
 
     /**
@@ -53,6 +55,7 @@ class KitchenServiceSettings extends BaseModel implements OrganisationScoped
             'alarm_after_minutes' => 'integer',
             'manager_alert_after_minutes' => 'integer',
             'owner_alert_after_minutes' => 'integer',
+            'refund_approval_above_minor' => 'integer',
         ];
     }
 }

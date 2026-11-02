@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9319 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9353 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3006,6 +3006,7 @@ export interface NamespaceKeys {
     | 'alerts.type.delivery_failed'
     | 'alerts.type.late_cancel'
     | 'alerts.type.no_cash_collected'
+    | 'alerts.type.refund_approval'
     | 'alerts.type.severe_allergy'
     | 'alerts.type.unaccepted_manager'
     | 'alerts.type.unaccepted_owner'
@@ -4855,6 +4856,36 @@ export interface NamespaceKeys {
     | 'ops.orders.reason.kitchenUnableToFulfil'
     | 'ops.orders.redeliver'
     | 'ops.orders.redeliveredToast'
+    | 'ops.orders.refunds.amountHint'
+    | 'ops.orders.refunds.amountInvalid'
+    | 'ops.orders.refunds.amountLabel'
+    | 'ops.orders.refunds.approve'
+    | 'ops.orders.refunds.approvedToast'
+    | 'ops.orders.refunds.confirm'
+    | 'ops.orders.refunds.corrected'
+    | 'ops.orders.refunds.dialogBody'
+    | 'ops.orders.refunds.dialogTitle'
+    | 'ops.orders.refunds.heading'
+    | 'ops.orders.refunds.kind.receipt_correction'
+    | 'ops.orders.refunds.kind.refund'
+    | 'ops.orders.refunds.kindHint.receipt_correction'
+    | 'ops.orders.refunds.kindHint.refund'
+    | 'ops.orders.refunds.methodLabel'
+    | 'ops.orders.refunds.open'
+    | 'ops.orders.refunds.pending'
+    | 'ops.orders.refunds.reasonLabel'
+    | 'ops.orders.refunds.received'
+    | 'ops.orders.refunds.recordedToast'
+    | 'ops.orders.refunds.refundable'
+    | 'ops.orders.refunds.refunded'
+    | 'ops.orders.refunds.reject'
+    | 'ops.orders.refunds.rejectedToast'
+    | 'ops.orders.refunds.saveError'
+    | 'ops.orders.refunds.status.completed'
+    | 'ops.orders.refunds.status.pending_approval'
+    | 'ops.orders.refunds.status.rejected'
+    | 'ops.orders.refunds.waitingToast'
+    | 'ops.orders.refunds.windowClosed'
     | 'ops.orders.saveFailed'
     | 'ops.orders.searchHint'
     | 'ops.orders.searchLabel'
@@ -6873,6 +6904,9 @@ export interface NamespaceKeys {
     | 'serviceTimings.managerLabel'
     | 'serviceTimings.ownerHint'
     | 'serviceTimings.ownerLabel'
+    | 'serviceTimings.refundHint'
+    | 'serviceTimings.refundLabel'
+    | 'serviceTimings.refundUnit'
     | 'serviceTimings.save'
     | 'serviceTimings.saveError'
     | 'serviceTimings.savedToast'
@@ -12343,6 +12377,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:alerts.type.delivery_failed',
   'kitchen:alerts.type.late_cancel',
   'kitchen:alerts.type.no_cash_collected',
+  'kitchen:alerts.type.refund_approval',
   'kitchen:alerts.type.severe_allergy',
   'kitchen:alerts.type.unaccepted_manager',
   'kitchen:alerts.type.unaccepted_owner',
@@ -14192,6 +14227,36 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.reason.kitchenUnableToFulfil',
   'kitchen:ops.orders.redeliver',
   'kitchen:ops.orders.redeliveredToast',
+  'kitchen:ops.orders.refunds.amountHint',
+  'kitchen:ops.orders.refunds.amountInvalid',
+  'kitchen:ops.orders.refunds.amountLabel',
+  'kitchen:ops.orders.refunds.approve',
+  'kitchen:ops.orders.refunds.approvedToast',
+  'kitchen:ops.orders.refunds.confirm',
+  'kitchen:ops.orders.refunds.corrected',
+  'kitchen:ops.orders.refunds.dialogBody',
+  'kitchen:ops.orders.refunds.dialogTitle',
+  'kitchen:ops.orders.refunds.heading',
+  'kitchen:ops.orders.refunds.kind.receipt_correction',
+  'kitchen:ops.orders.refunds.kind.refund',
+  'kitchen:ops.orders.refunds.kindHint.receipt_correction',
+  'kitchen:ops.orders.refunds.kindHint.refund',
+  'kitchen:ops.orders.refunds.methodLabel',
+  'kitchen:ops.orders.refunds.open',
+  'kitchen:ops.orders.refunds.pending',
+  'kitchen:ops.orders.refunds.reasonLabel',
+  'kitchen:ops.orders.refunds.received',
+  'kitchen:ops.orders.refunds.recordedToast',
+  'kitchen:ops.orders.refunds.refundable',
+  'kitchen:ops.orders.refunds.refunded',
+  'kitchen:ops.orders.refunds.reject',
+  'kitchen:ops.orders.refunds.rejectedToast',
+  'kitchen:ops.orders.refunds.saveError',
+  'kitchen:ops.orders.refunds.status.completed',
+  'kitchen:ops.orders.refunds.status.pending_approval',
+  'kitchen:ops.orders.refunds.status.rejected',
+  'kitchen:ops.orders.refunds.waitingToast',
+  'kitchen:ops.orders.refunds.windowClosed',
   'kitchen:ops.orders.saveFailed',
   'kitchen:ops.orders.searchHint',
   'kitchen:ops.orders.searchLabel',
@@ -16210,6 +16275,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:serviceTimings.managerLabel',
   'kitchen:serviceTimings.ownerHint',
   'kitchen:serviceTimings.ownerLabel',
+  'kitchen:serviceTimings.refundHint',
+  'kitchen:serviceTimings.refundLabel',
+  'kitchen:serviceTimings.refundUnit',
   'kitchen:serviceTimings.save',
   'kitchen:serviceTimings.saveError',
   'kitchen:serviceTimings.savedToast',

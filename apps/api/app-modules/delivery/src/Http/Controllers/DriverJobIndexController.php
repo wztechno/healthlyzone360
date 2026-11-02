@@ -103,7 +103,8 @@ use Illuminate\Support\Facades\DB;
  *
  * ## What the driver has to collect
  *
- * `amount_due_minor` is the order's total less its receipts, never below zero. It
+ * `amount_due_minor` is the order's total less its receipts, with any receipt
+ * corrected as a mistake counted back in, never below zero. It
  * is worked out in the sheet's own statement, so a long run sheet costs no extra
  * reads, and `order_payment_receipts` is read as a table for the reason `orders`
  * is. The driver needs it at the door, and what they say they took is what
@@ -189,6 +190,12 @@ final class DriverJobIndexController
             select sum(receipts.amount_minor)
             from order_payment_receipts as receipts
             where receipts.order_id = orders.id
+        ), 0) + coalesce((
+            select sum(corrections.amount_minor)
+            from order_refunds as corrections
+            where corrections.order_id = orders.id
+              and corrections.kind = 'receipt_correction'
+              and corrections.status = 'completed'
         ), 0), 0) as amount_due_minor
         SQL;
 

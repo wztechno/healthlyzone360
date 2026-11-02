@@ -65,6 +65,7 @@ export function createApiStaffAlertsRepository(transport: Transport): StaffAlert
                         alarm_after_minutes: settings.alarmAfterMinutes,
                         manager_alert_after_minutes: settings.managerAlertAfterMinutes,
                         owner_alert_after_minutes: settings.ownerAlertAfterMinutes,
+                        refund_approval_above_minor: settings.refundApprovalAboveMinor,
                     },
                 }),
             );
@@ -90,5 +91,6 @@ function mapServiceSettings(wire: WireKitchenServiceSettings): KitchenServiceSet
         alarmAfterMinutes: wire.alarm_after_minutes,
         managerAlertAfterMinutes: wire.manager_alert_after_minutes,
         ownerAlertAfterMinutes: wire.owner_alert_after_minutes,
+        refundApprovalAboveMinor: wire.refund_approval_above_minor,
     };
 }

@@ -1212,7 +1212,7 @@ final readonly class OrderPlacementService
             $reasons = [...$reasons, ...$this->agreementReasons($account, $channel, $subtotal, $effectiveDate ?? $now)];
 
             // Read after the lock: a receipt written a moment ago counts.
-            $paid = (int) $locked->paymentReceipts()->sum('amount_minor');
+            $paid = $locked->receivedMinor();
 
             if ($total < $paid) {
                 $reasons[] = [

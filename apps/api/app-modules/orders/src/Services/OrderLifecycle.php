@@ -255,7 +255,7 @@ final readonly class OrderLifecycle
             return;
         }
 
-        $outstanding = $order->total_minor - (int) $order->paymentReceipts()->sum('amount_minor');
+        $outstanding = $order->total_minor - $order->receivedMinor();
 
         if ($outstanding <= 0) {
             return;

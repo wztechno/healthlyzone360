@@ -13,7 +13,7 @@ use Healthy360\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 
 /**
- * PUT /api/v1/catalogue/kitchen-service-settings — replaces all four timings.
+ * PUT /api/v1/catalogue/kitchen-service-settings — replaces the timings and the refund limit.
  *
  * No `If-Match`, for the reason `BranchOperatingReplaceController` gives: the
  * values arrive together, the row carries no `lock_version`, and there is no half

@@ -6,11 +6,12 @@ import {
     PriceListId,
     isCurrencyCode,
 } from '@healthy360/domain-types';
-import type { CurrencyCode } from '@healthy360/domain-types';
+import type { CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
 import type {
     CancelKitchenOrderRequest,
     CloseFailedDeliveryRequest,
+    DecideOrderRefundRequest,
     FailKitchenOrderDeliveryRequest,
     HandToCourierRequest,
     KitchenDisplay,
@@ -23,6 +24,8 @@ import type {
     KitchenOrderPaymentSummary,
     KitchenOrdersRepository,
     KitchenOrderTransitionRequest,
+    OrderRefundLedger,
+    RecordOrderRefundRequest,
     RecordedKitchenOrderPayment,
     RecordKitchenOrderPaymentRequest,
     RedeliverKitchenOrderRequest,
@@ -33,6 +36,7 @@ import type {
     KitchenOrderDelivery as WireKitchenOrderDelivery,
     KitchenOrderLine as WireKitchenOrderLine,
     OrderPaymentReceipt as WireOrderPaymentReceipt,
+    OrderRefundLedgerEnvelope,
     OrderPaymentSummary as WireOrderPaymentSummary,
     PaginationMeta,
     StorePaymentReceiptRequest,
@@ -200,6 +204,29 @@ export function mapKitchenOrder(wire: WireKitchenOrder): KitchenOrder {
                           source: meal.source,
                       })),
                   },
+    };
+}
+
+function mapRefundLedger(wire: OrderRefundLedgerEnvelope['data']): OrderRefundLedger {
+    return {
+        receivedMinor: wire.received_minor,
+        refundedMinor: wire.refunded_minor,
+        correctedMinor: wire.corrected_minor,
+        pendingMinor: wire.pending_minor,
+        refundableMinor: wire.refundable_minor,
+        windowClosesAt: wire.window_closes_at as IsoDateTime | null,
+        entries: wire.entries.map((entry) => ({
+            id: entry.id,
+            kind: entry.kind,
+            status: entry.status,
+            method: entry.method,
+            amountMinor: entry.amount_minor,
+            reason: entry.reason,
+            requestedByName: entry.requested_by_name,
+            requestedAt: entry.requested_at as IsoDateTime,
+            decidedByName: entry.decided_by_name,
+            decidedAt: entry.decided_at as IsoDateTime | null,
+        })),
     };
 }
 
@@ -385,6 +412,43 @@ export function createApiKitchenOrdersRepository(transport: Transport): KitchenO
                 'close-failed',
                 { disposition: request.disposition },
                 request.lockVersion,
+            );
+        },
+
+        async getRefunds(orderId: OrderId): Promise<OrderRefundLedger> {
+            return mapRefundLedger(
+                await transport.request<OrderRefundLedgerEnvelope['data']>({
+                    method: 'GET',
+                    path: `/catalogue/orders/${encodeURIComponent(String(orderId))}/refunds`,
+                }),
+            );
+        },
+
+        async recordRefund(request: RecordOrderRefundRequest): Promise<OrderRefundLedger> {
+            return mapRefundLedger(
+                await transport.request<OrderRefundLedgerEnvelope['data']>({
+                    method: 'POST',
+                    path: `/catalogue/orders/${encodeURIComponent(String(request.orderId))}/refunds`,
+                    headers: { 'Idempotency-Key': generateRequestId() },
+                    body: {
+                        kind: request.kind,
+                        method: request.method,
+                        amount_minor: request.amountMinor,
+                        reason: request.reason,
+                    },
+                }),
+            );
+        },
+
+        async decideRefund(request: DecideOrderRefundRequest): Promise<OrderRefundLedger> {
+            const order = encodeURIComponent(String(request.orderId));
+            const refund = encodeURIComponent(request.refundId);
+
+            return mapRefundLedger(
+                await transport.request<OrderRefundLedgerEnvelope['data']>({
+                    method: 'POST',
+                    path: `/catalogue/orders/${order}/refunds/${refund}/${request.approved ? 'approve' : 'reject'}`,
+                }),
             );
         },
 

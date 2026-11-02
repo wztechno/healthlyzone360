@@ -1787,6 +1787,7 @@ describe('the kitchen service timings', () => {
         alarmAfterMinutes: 5,
         managerAlertAfterMinutes: 10,
         ownerAlertAfterMinutes: 20,
+        refundApprovalAboveMinor: 5000,
     };
 
     it('reads the four timings and saves a changed one with the rest', async () => {

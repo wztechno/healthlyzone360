@@ -107,5 +107,9 @@ return [
             'heading' => 'No cash was collected for order :number',
             'line' => 'The driver delivered it without collecting any cash. Follow it up with the driver.',
         ],
+        'refund_approval' => [
+            'heading' => 'A refund on order :number needs your approval',
+            'line' => 'It is above your kitchen limit. Open the order to approve or reject it.',
+        ],
     ],
 ];

@@ -624,7 +624,13 @@ export type {
     KitchenOrderStatus,
     KitchenOrderTransitionRequest,
     RecordedKitchenOrderPayment,
+    DecideOrderRefundRequest,
+    OrderRefund,
+    OrderRefundKind,
+    OrderRefundLedger,
+    OrderRefundStatus,
     RecordKitchenOrderPaymentRequest,
+    RecordOrderRefundRequest,
 } from './kitchen-orders.ts';
 
 export {

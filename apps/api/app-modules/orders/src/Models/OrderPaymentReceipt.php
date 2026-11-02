@@ -31,8 +31,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * row at all.
  *
  * **Append-only by convention**: no update path, no delete path, and no
- * negative amount. Money arriving is not an event that un-happens, and giving
- * it back is the payments module's act in the payments module's table.
+ * negative amount. Money arriving is not an event that un-happens. Giving it
+ * back, or saying a receipt was a mistake, is an entry on `OrderRefund`.
  *
  * **Deliberately not `OrganisationScoped`**, matching `Order` and `OrderLine`
  * rather than `PaymentIntent`. A receipt is never queried on its own: every

@@ -556,14 +556,20 @@ function ServiceTimingsSection() {
     }
 
     const shown = (key: ServiceTimingKey) => edits[key] ?? String(stored[key]);
+    /** Typed in whole dollars, kept in cents. */
+    const refundLimit =
+        edits.refundApprovalAboveMinor ?? String(stored.refundApprovalAboveMinor / 100);
     const dirty = Object.keys(edits).length > 0;
-    const complete = SERVICE_TIMINGS.every(({ key }) => shown(key) !== '');
+    const complete = SERVICE_TIMINGS.every(({ key }) => shown(key) !== '') && refundLimit !== '';
 
     const saveFailure = toFailure(save.error);
     const server = serverFieldErrors(
         saveFailure,
         Object.fromEntries(
-            SERVICE_TIMINGS.map(({ copy, server: field }) => [
+            [
+                ...SERVICE_TIMINGS,
+                { copy: 'refund', server: 'refund_approval_above_minor' },
+            ].map(({ copy, server: field }) => [
                 field,
                 {
                     label: t(`kitchen:serviceTimings.${copy}Label`),
@@ -580,6 +586,7 @@ function ServiceTimingsSection() {
                 alarmAfterMinutes: Number(shown('alarmAfterMinutes')),
                 managerAlertAfterMinutes: Number(shown('managerAlertAfterMinutes')),
                 ownerAlertAfterMinutes: Number(shown('ownerAlertAfterMinutes')),
+                refundApprovalAboveMinor: Number(refundLimit) * 100,
             },
             {
                 onSuccess: () => {
@@ -647,6 +654,30 @@ function ServiceTimingsSection() {
                             }}
                         />
                     ))}
+                    <TextInputField
+                        testID="kitchen-service-timings-refund"
+                        id="kitchen-service-timings-refund"
+                        label={t('kitchen:serviceTimings.refundLabel')}
+                        hint={t('kitchen:serviceTimings.refundHint')}
+                        size="sm"
+                        inputMode="numeric"
+                        autoCorrect={false}
+                        required
+                        trailing={
+                            <Text variant="caption" tone="secondary">
+                                {t('kitchen:serviceTimings.refundUnit')}
+                            </Text>
+                        }
+                        value={refundLimit}
+                        {...server.flag('refund_approval_above_minor')}
+                        onChangeText={(next) => {
+                            setEdits({
+                                ...edits,
+                                refundApprovalAboveMinor: next.replace(/[^0-9]/gu, ''),
+                            });
+                            guard.markDirty();
+                        }}
+                    />
                 </FormGrid>
             </FormSection>
             <EditorGuardDialogs guard={guard} testID="kitchen-service-timings" />

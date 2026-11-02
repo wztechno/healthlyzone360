@@ -13378,7 +13378,7 @@ paths:
         second press, or a press on a ready, fulfilled or cancelled order, is
         `409`.
 
-        Requires `order.manage_organisation`.
+        Requires `order.manage_organisation` or `order.prepare_organisation`.
       parameters:
         - $ref: '#/components/parameters/OrderPath'
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -13422,7 +13422,7 @@ paths:
         `/fulfil`. Reachable from `confirmed` only, once — a second press is
         `409`.
 
-        Requires `order.manage_organisation`.
+        Requires `order.manage_organisation` or `order.prepare_organisation`.
       parameters:
         - $ref: '#/components/parameters/OrderPath'
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -13631,6 +13631,172 @@ paths:
           $ref: '#/components/responses/ResourceConflict'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/orders/{order}/refunds:
+    get:
+      operationId: getOrderRefunds
+      tags:
+        - Kitchen orders
+      summary: An order's refund ledger and where it stands
+      description: |
+        Every entry, newest first, with what the receipts say arrived and how
+        much can still be taken back. Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The order's refund ledger.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderRefundLedgerEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: storeOrderRefund
+      tags:
+        - Kitchen orders
+      summary: Refund money, or correct a mistaken receipt
+      description: |
+        Writes an entry and never touches a receipt. A `refund` leaves the order
+        paid. A `receipt_correction` says the money never arrived, so the balance
+        comes back as outstanding. Both are capped together at the order's
+        receipts, refused as `409 payment.refund_exceeds_capture`.
+
+        Refused as `409 resource.conflict` once seven days have passed since the
+        order's latest receipt. An entry taking this order's refunds above the
+        kitchen's `refund_approval_above_minor` waits as `pending_approval` and
+        alerts the owner, unless the caller holds
+        `order.approve_refund_organisation`. Audited as `order.refund_requested`
+        or `order.refund_completed`. Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreOrderRefundRequest'
+      responses:
+        '201':
+          description: The order's refund ledger, with the new entry in it.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderRefundLedgerEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/orders/{order}/refunds/{refund}/approve:
+    post:
+      operationId: approveOrderRefund
+      tags:
+        - Kitchen orders
+      summary: Approve a refund that waited for the owner
+      description: |
+        Audited as `order.refund_completed`. `409` once decided. Requires
+        `order.approve_refund_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - name: refund
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The order's refund ledger.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderRefundLedgerEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/orders/{order}/refunds/{refund}/reject:
+    post:
+      operationId: rejectOrderRefund
+      tags:
+        - Kitchen orders
+      summary: Reject a refund that waited for the owner
+      description: |
+        The entry stays on the ledger as `rejected` and takes no money. Audited
+        as `order.refund_rejected`. `409` once decided. Requires
+        `order.approve_refund_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - name: refund
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The order's refund ledger.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderRefundLedgerEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /catalogue/orders/{order}/delivery/redeliver:
@@ -14515,7 +14681,10 @@ paths:
         `alarm_after_minutes`. An order for a later day has no figure until that
         day, and its count then starts at the start of that day.
 
-        Requires `order.view_organisation`.
+        Requires `order.view_organisation` or `order.prepare_organisation`. A
+        caller with only the second reads the wall without the order book: every
+        money figure is `0`, price list references and the street address are
+        null, and the allergy block is untouched.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -14731,20 +14900,25 @@ paths:
         carries behind the same code. A search revealing more than the queue
         would make the queue's gating pointless.
 
-        ## Scope: two arms, and the application is the whole control
+        ## Scope: four arms, and the application is most of the control
 
-        An account is returned only when **either** this organisation holds at
-        least one order against it, **or** its origin is `staff` and it was
-        created by a user holding an **active** membership of this organisation.
+        An account is returned only when this organisation holds an order or a
+        subscription against it, **or** its origin is `staff` and it was created
+        by a user holding an **active** membership of this organisation, **or**
+        a query of its exact E.164 number linked it to this kitchen.
 
-        There is no third arm and no database predicate doing this work. A
-        `customer_accounts` row carries no organisation — the same person orders
+        That last arm is how a registered customer's first call reaches the desk.
+        Nothing searches consumers by name: a number the caller read out is the
+        only door, and the link it writes is audited.
+
+        A `customer_accounts` row carries no organisation — the same person orders
         from four kitchens with one account — and a staff-provisioned account has
         neither a user nor an organisation, which is the shape the row-level
         security policy admits to every kitchen session. The scoping rule, the
         permission code, and the fact that an account identifier is otherwise
-        unobtainable are the entire isolation story, and the schema migration
-        that made such rows possible states that rather than implying otherwise.
+        unobtainable are the isolation story for those rows, and the schema
+        migration that made them possible states that rather than implying
+        otherwise.
 
         A consequence worth naming: a member of staff who works at two kitchens
         holds an active membership of both, so a caller they wrote down at one is
@@ -14970,6 +15144,46 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/customers/{account}/allergies:
+    get:
+      operationId: getOrderDeskCustomerAllergies
+      tags:
+        - Order desk
+      summary: What the chosen customer has declared
+      description: |
+        Read once a customer is chosen, so the agent can say it back before any
+        dish is added. Special-category data: the read states its purpose
+        (`order_fulfilment`) and is recorded. Codes and severities only, never
+        the customer's free text.
+
+        Outside the desk's rule answers `404`, as the desk's other customer
+        operations do.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: account
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The declaration.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskCustomerAllergiesEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /catalogue/order-desk/customers/{account}/addresses:
@@ -41675,6 +41889,124 @@ components:
               $ref: '#/components/schemas/KitchenOrder'
         meta:
           $ref: '#/components/schemas/Meta'
+    OrderRefundKind:
+      type: string
+      enum:
+        - refund
+        - receipt_correction
+    OrderRefundStatus:
+      type: string
+      enum:
+        - pending_approval
+        - completed
+        - rejected
+    StoreOrderRefundRequest:
+      type: object
+      required:
+        - kind
+        - method
+        - amount_minor
+        - reason
+      properties:
+        kind:
+          $ref: '#/components/schemas/OrderRefundKind'
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        amount_minor:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
+      additionalProperties: false
+    OrderRefund:
+      type: object
+      required:
+        - id
+        - kind
+        - status
+        - method
+        - amount_minor
+        - currency_code
+        - reason
+        - requested_by_name
+        - requested_at
+        - decided_by_name
+        - decided_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          $ref: '#/components/schemas/OrderRefundKind'
+        status:
+          $ref: '#/components/schemas/OrderRefundStatus'
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        amount_minor:
+          type: integer
+          minimum: 1
+        currency_code:
+          type: string
+        reason:
+          type: string
+        requested_by_name:
+          type:
+            - string
+            - 'null'
+        requested_at:
+          type: string
+          format: date-time
+        decided_by_name:
+          type:
+            - string
+            - 'null'
+        decided_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    OrderRefundLedgerEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - received_minor
+            - refunded_minor
+            - corrected_minor
+            - pending_minor
+            - refundable_minor
+            - window_closes_at
+            - entries
+          properties:
+            received_minor:
+              type: integer
+              description: The receipts as written.
+            refunded_minor:
+              type: integer
+            corrected_minor:
+              type: integer
+            pending_minor:
+              type: integer
+              description: Waiting for the owner, and already counted against the cap.
+            refundable_minor:
+              type: integer
+            window_closes_at:
+              type:
+                - string
+                - 'null'
+              format: date-time
+              description: Seven days after the latest receipt. Null with no receipts.
+            entries:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderRefund'
+        meta:
+          $ref: '#/components/schemas/Meta'
     StorePaymentReceiptRequest:
       type: object
       required:
@@ -42991,6 +43323,7 @@ components:
         - late_cancel
         - delivery_failed
         - no_cash_collected
+        - refund_approval
     StaffNotification:
       type: object
       required:
@@ -43052,6 +43385,7 @@ components:
         - alarm_after_minutes
         - manager_alert_after_minutes
         - owner_alert_after_minutes
+        - refund_approval_above_minor
       properties:
         order_lead_minutes:
           type: integer
@@ -43069,6 +43403,10 @@ components:
           type: integer
           minimum: 1
           maximum: 10080
+        refund_approval_above_minor:
+          type: integer
+          minimum: 0
+          description: Refunds on one order above this, in minor units, need the owner.
     KitchenDisplayEnvelope:
       type: object
       required:
@@ -43218,6 +43556,40 @@ components:
             first arm of the scoping rule restated as a fact: a `false` here
             means the row is visible on the second arm alone, because somebody
             who works at this kitchen wrote them down.
+    OrderDeskCustomerAllergiesEnvelope:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - declared
+            - declares_no_allergens
+            - allergens
+          properties:
+            declared:
+              type: boolean
+              description: False when nobody has ever asked, which is not the same as no allergens.
+            declares_no_allergens:
+              type: boolean
+            allergens:
+              type: array
+              items:
+                type: object
+                required:
+                  - allergen_code
+                  - severity
+                properties:
+                  allergen_code:
+                    type: string
+                  severity:
+                    type: string
+                    enum:
+                      - avoidance
+                      - intolerance
+                      - allergy
+                      - anaphylaxis
     OrderDeskCustomersEnvelope:
       type: object
       required:

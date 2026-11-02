@@ -14,6 +14,8 @@ use Healthy360\Orders\Database\Factories\OrderFactory;
 use Healthy360\Orders\Enums\CancellationDisposition;
 use Healthy360\Orders\Enums\CancellationReason;
 use Healthy360\Orders\Enums\FulfilmentType;
+use Healthy360\Orders\Enums\OrderRefundKind;
+use Healthy360\Orders\Enums\OrderRefundStatus;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Enums\PaymentMethod;
 use Healthy360\Organisations\Models\Organisation;
@@ -25,6 +27,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 /**
  * What one customer bought from one kitchen.
@@ -174,6 +177,21 @@ class Order extends BaseModel
     public function paymentReceipts(): HasMany
     {
         return $this->hasMany(OrderPaymentReceipt::class);
+    }
+
+    /**
+     * What this order has really received: its receipts, less any corrected as a
+     * mistake. A refund does not come off, because that money did arrive and the
+     * order stays settled. `order_refunds` is read as a table for the reason
+     * `OrderPaymentReceipt` gives for having no ambient scope.
+     */
+    public function receivedMinor(): int
+    {
+        return (int) $this->paymentReceipts()->sum('amount_minor') - (int) DB::table('order_refunds')
+            ->where('order_id', $this->getKey())
+            ->where('kind', OrderRefundKind::ReceiptCorrection->value)
+            ->where('status', OrderRefundStatus::Completed->value)
+            ->sum('amount_minor');
     }
 
     /**

@@ -17,6 +17,7 @@ enum StaffAlertType: string
     case LateCancel = 'late_cancel';
     case DeliveryFailed = 'delivery_failed';
     case NoCashCollected = 'no_cash_collected';
+    case RefundApproval = 'refund_approval';
 
     /**
      * @return 'managers'|'owners'
@@ -24,7 +25,7 @@ enum StaffAlertType: string
     public function audience(): string
     {
         return match ($this) {
-            self::UnacceptedOwner, self::LateCancel => 'owners',
+            self::UnacceptedOwner, self::LateCancel, self::RefundApproval => 'owners',
             self::UnacceptedManager, self::AllergyOrder, self::DeliveryFailed, self::NoCashCollected => 'managers',
         };
     }
@@ -37,10 +38,10 @@ enum StaffAlertType: string
     /**
      * Whether a second alert about the same order is news rather than a repeat. A
      * re-delivered order can fail again, and managers must hear that as they did
-     * the first time.
+     * the first time. A second refund on one order needs its own approval.
      */
     public function repeats(): bool
     {
-        return $this === self::DeliveryFailed;
+        return $this === self::DeliveryFailed || $this === self::RefundApproval;
     }
 }

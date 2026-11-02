@@ -12,7 +12,8 @@ use Illuminate\Foundation\Http\FormRequest;
  * The lead may be nothing, for a kitchen that takes an order up to the moment a
  * window opens; an alarm at zero minutes would ring for every order placed.
  * Managers hear before the owner, or the escalation is not one. A week is the
- * ceiling: past that, a typing mistake has silenced the alert.
+ * ceiling: past that, a typing mistake has silenced the alert. A refund limit of
+ * nothing sends every refund to the owner.
  */
 class UpdateKitchenServiceSettingsRequest extends FormRequest
 {
@@ -35,6 +36,7 @@ class UpdateKitchenServiceSettingsRequest extends FormRequest
             'alarm_after_minutes' => ['required', 'integer', 'min:1', $max],
             'manager_alert_after_minutes' => ['required', 'integer', 'min:1', $max, 'lt:owner_alert_after_minutes'],
             'owner_alert_after_minutes' => ['required', 'integer', 'min:1', $max],
+            'refund_approval_above_minor' => ['required', 'integer', 'min:0'],
         ];
     }
 }

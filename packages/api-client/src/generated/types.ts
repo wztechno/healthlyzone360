@@ -8719,6 +8719,53 @@ export type KitchenOrderEnvelope = {
     meta: Meta;
 };
 
+export type OrderRefundKind = 'refund' | 'receipt_correction';
+
+export type OrderRefundStatus = 'pending_approval' | 'completed' | 'rejected';
+
+export type StoreOrderRefundRequest = {
+    kind: OrderRefundKind;
+    method: PaymentMethod;
+    amount_minor: number;
+    reason: string;
+};
+
+export type OrderRefund = {
+    id: Uuid;
+    kind: OrderRefundKind;
+    status: OrderRefundStatus;
+    method: PaymentMethod;
+    amount_minor: number;
+    currency_code: string;
+    reason: string;
+    requested_by_name: string | null;
+    requested_at: string;
+    decided_by_name: string | null;
+    decided_at: string | null;
+};
+
+export type OrderRefundLedgerEnvelope = {
+    data: {
+        /**
+         * The receipts as written.
+         */
+        received_minor: number;
+        refunded_minor: number;
+        corrected_minor: number;
+        /**
+         * Waiting for the owner, and already counted against the cap.
+         */
+        pending_minor: number;
+        refundable_minor: number;
+        /**
+         * Seven days after the latest receipt. Null with no receipts.
+         */
+        window_closes_at: string | null;
+        entries: Array<OrderRefund>;
+    };
+    meta: Meta;
+};
+
 /**
  * One statement that money arrived against an order.
  *
@@ -9537,7 +9584,7 @@ export type KitchenCustomerDetail = KitchenCustomer & {
     company: KitchenCustomerCompany | null;
 };
 
-export type StaffNotificationType = 'unaccepted_manager' | 'unaccepted_owner' | 'allergy_order' | 'late_cancel' | 'delivery_failed' | 'no_cash_collected';
+export type StaffNotificationType = 'unaccepted_manager' | 'unaccepted_owner' | 'allergy_order' | 'late_cancel' | 'delivery_failed' | 'no_cash_collected' | 'refund_approval';
 
 export type StaffNotification = {
     id: Uuid;
@@ -9565,6 +9612,10 @@ export type KitchenServiceSettings = {
     alarm_after_minutes: number;
     manager_alert_after_minutes: number;
     owner_alert_after_minutes: number;
+    /**
+     * Refunds on one order above this, in minor units, need the owner.
+     */
+    refund_approval_above_minor: number;
 };
 
 export type KitchenDisplayEnvelope = {
@@ -9667,6 +9718,20 @@ export type OrderDeskCustomer = {
      *
      */
     has_orders_with_org: boolean;
+};
+
+export type OrderDeskCustomerAllergiesEnvelope = {
+    data: {
+        /**
+         * False when nobody has ever asked, which is not the same as no allergens.
+         */
+        declared: boolean;
+        declares_no_allergens: boolean;
+        allergens: Array<{
+            allergen_code: string;
+            severity: 'avoidance' | 'intolerance' | 'allergy' | 'anaphylaxis';
+        }>;
+    };
 };
 
 export type OrderDeskCustomersEnvelope = {
@@ -32250,6 +32315,327 @@ export type FailKitchenOrderDeliveryResponses = {
 
 export type FailKitchenOrderDeliveryResponse = FailKitchenOrderDeliveryResponses[keyof FailKitchenOrderDeliveryResponses];
 
+export type GetOrderRefundsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/orders/{order}/refunds';
+};
+
+export type GetOrderRefundsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderRefundsError = GetOrderRefundsErrors[keyof GetOrderRefundsErrors];
+
+export type GetOrderRefundsResponses = {
+    /**
+     * The order's refund ledger.
+     */
+    200: OrderRefundLedgerEnvelope;
+};
+
+export type GetOrderRefundsResponse = GetOrderRefundsResponses[keyof GetOrderRefundsResponses];
+
+export type StoreOrderRefundData = {
+    body: StoreOrderRefundRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * A client-chosen key that makes this command safe to retry (§4.14). The
+         * same key with the same request body replays the original envelope,
+         * status included, and carries `Idempotency-Replayed: true`. The same key
+         * with a *different* body is **409** `request.idempotency_key_reused` —
+         * the caller has reused a key that already means something else.
+         *
+         * Keys are scoped per endpoint and per caller and are honoured for
+         * twenty-four hours. The client attaches one deliberately; it is never
+         * inferred server-side.
+         *
+         */
+        'Idempotency-Key'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/orders/{order}/refunds';
+};
+
+export type StoreOrderRefundErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type StoreOrderRefundError = StoreOrderRefundErrors[keyof StoreOrderRefundErrors];
+
+export type StoreOrderRefundResponses = {
+    /**
+     * The order's refund ledger, with the new entry in it.
+     */
+    201: OrderRefundLedgerEnvelope;
+};
+
+export type StoreOrderRefundResponse = StoreOrderRefundResponses[keyof StoreOrderRefundResponses];
+
+export type ApproveOrderRefundData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+        refund: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/orders/{order}/refunds/{refund}/approve';
+};
+
+export type ApproveOrderRefundErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ApproveOrderRefundError = ApproveOrderRefundErrors[keyof ApproveOrderRefundErrors];
+
+export type ApproveOrderRefundResponses = {
+    /**
+     * The order's refund ledger.
+     */
+    200: OrderRefundLedgerEnvelope;
+};
+
+export type ApproveOrderRefundResponse = ApproveOrderRefundResponses[keyof ApproveOrderRefundResponses];
+
+export type RejectOrderRefundData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+        refund: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/orders/{order}/refunds/{refund}/reject';
+};
+
+export type RejectOrderRefundErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RejectOrderRefundError = RejectOrderRefundErrors[keyof RejectOrderRefundErrors];
+
+export type RejectOrderRefundResponses = {
+    /**
+     * The order's refund ledger.
+     */
+    200: OrderRefundLedgerEnvelope;
+};
+
+export type RejectOrderRefundResponse = RejectOrderRefundResponses[keyof RejectOrderRefundResponses];
+
 export type RedeliverKitchenOrderData = {
     body?: RedeliverOrderRequest;
     headers: {
@@ -33597,6 +33983,63 @@ export type UpdateOrderDeskCustomerResponses = {
 };
 
 export type UpdateOrderDeskCustomerResponse = UpdateOrderDeskCustomerResponses[keyof UpdateOrderDeskCustomerResponses];
+
+export type GetOrderDeskCustomerAllergiesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        account: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/order-desk/customers/{account}/allergies';
+};
+
+export type GetOrderDeskCustomerAllergiesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderDeskCustomerAllergiesError = GetOrderDeskCustomerAllergiesErrors[keyof GetOrderDeskCustomerAllergiesErrors];
+
+export type GetOrderDeskCustomerAllergiesResponses = {
+    /**
+     * The declaration.
+     */
+    200: OrderDeskCustomerAllergiesEnvelope;
+};
+
+export type GetOrderDeskCustomerAllergiesResponse = GetOrderDeskCustomerAllergiesResponses[keyof GetOrderDeskCustomerAllergiesResponses];
 
 export type AddOrderDeskCustomerAddressData = {
     body: AddOrderDeskCustomerAddressRequest;

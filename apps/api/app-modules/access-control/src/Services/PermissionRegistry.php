@@ -284,6 +284,11 @@ final class PermissionRegistry
             // kitchen may reasonably want the first without the second.
             'customer.create_on_behalf_organisation' => ['domain' => 'customer', 'description' => 'Open a customer account at the order desk and record its contact details and delivery addresses'],
 
+            // P0 Stage 3. A manager refunds; above the kitchen's limit the owner
+            // decides, and the owner alone, so this code stops short of the
+            // administrator too.
+            'order.approve_refund_organisation' => ['domain' => 'order', 'description' => "Approve or reject a refund above the kitchen's limit"],
+
             // P0 Stage 1. A fifth order code, and the one that sits above the
             // others. `order.manage_organisation` is the desk's: it moves an
             // order nobody has started on. Once food is being cooked, cancelling
@@ -571,7 +576,7 @@ final class PermissionRegistry
                 'name_ar' => 'مدير المنشأة',
                 'description_en' => 'Runs everything for the owner, except the legal details of the business.',
                 'description_ar' => 'يدير كل شيء نيابة عن المالك، باستثناء البيانات القانونية للنشاط التجاري.',
-                'permissions' => array_values(array_diff($all, ['organisation.update_current'])),
+                'permissions' => array_values(array_diff($all, ['organisation.update_current', 'order.approve_refund_organisation'])),
             ],
             'branch_manager' => [
                 'name_en' => 'Branch manager',

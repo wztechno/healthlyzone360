@@ -4,17 +4,21 @@ declare(strict_types=1);
 
 namespace Healthy360\Orders\Presenters;
 
+use Carbon\CarbonImmutable;
 use Healthy360\Audit\Enums\PurposeOfUse;
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Orders\Contracts\OrderPlanDays;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
 use Healthy360\Orders\Models\OrderPaymentReceipt;
+use Healthy360\Orders\Models\OrderRefund;
 use Healthy360\Orders\Services\OrderAmendability;
 use Healthy360\Orders\Services\OrderWindowNames;
 use Healthy360\Orders\Services\PriceOverride;
 use Healthy360\Support\Enums\DataClassification;
 use Healthy360\Tenancy\TenantContext;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The two wire shapes of an order, built separately on purpose.
@@ -584,6 +588,40 @@ final class OrderPresenter
             'method' => $order->payment_method->value,
             'received_minor' => $receivedMinor,
             'receipted' => $receivedMinor >= $order->total_minor,
+        ];
+    }
+
+    /**
+     * An order's refund ledger and where it stands. A name is null for a person
+     * with no profile yet.
+     *
+     * @param  array{received_minor: int, refunded_minor: int, corrected_minor: int, pending_minor: int, refundable_minor: int, window_closes_at: CarbonImmutable|null}  $position
+     * @param  EloquentCollection<int, OrderRefund>  $entries
+     * @return array<string, mixed>
+     */
+    public function refundLedger(array $position, EloquentCollection $entries): array
+    {
+        $names = DB::table('user_profiles')
+            ->whereIn('user_id', $entries->pluck('requested_by')->merge($entries->pluck('decided_by'))->filter()->unique()->values())
+            ->selectRaw("user_id, nullif(trim(coalesce(given_name, '') || ' ' || coalesce(family_name, '')), '') as name")
+            ->pluck('name', 'user_id');
+
+        return [
+            ...$position,
+            'window_closes_at' => $position['window_closes_at']?->toIso8601String(),
+            'entries' => $entries->map(fn (OrderRefund $entry): array => [
+                'id' => (string) $entry->getKey(),
+                'kind' => $entry->kind->value,
+                'status' => $entry->status->value,
+                'method' => $entry->method->value,
+                'amount_minor' => $entry->amount_minor,
+                'currency_code' => $entry->currency_code,
+                'reason' => $entry->reason,
+                'requested_by_name' => $names[$entry->requested_by] ?? null,
+                'requested_at' => $entry->requested_at->toIso8601String(),
+                'decided_by_name' => $entry->decided_by === null ? null : ($names[$entry->decided_by] ?? null),
+                'decided_at' => $entry->decided_at?->toIso8601String(),
+            ])->values()->all(),
         ];
     }
 

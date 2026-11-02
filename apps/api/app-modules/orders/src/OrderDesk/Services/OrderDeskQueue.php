@@ -9,6 +9,8 @@ use DateTimeZone;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Delivery\Models\DeliveryJob;
 use Healthy360\Orders\Enums\FulfilmentType;
+use Healthy360\Orders\Enums\OrderRefundKind;
+use Healthy360\Orders\Enums\OrderRefundStatus;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\OrderDesk\Enums\OrderDeskWindow;
@@ -545,6 +547,20 @@ final class OrderDeskQueue
 
         foreach ($rows as $row) {
             $received[(string) $row->order_id] = (int) $row->received_minor;
+        }
+
+        // A corrected receipt was never money. See `Order::receivedMinor()`.
+        $corrections = DB::table('order_refunds')
+            ->select('order_id')
+            ->selectRaw('sum(amount_minor) as corrected_minor')
+            ->whereIn('order_id', $orderIds)
+            ->where('kind', OrderRefundKind::ReceiptCorrection->value)
+            ->where('status', OrderRefundStatus::Completed->value)
+            ->groupBy('order_id')
+            ->get();
+
+        foreach ($corrections as $row) {
+            $received[(string) $row->order_id] -= (int) $row->corrected_minor;
         }
 
         return $received;

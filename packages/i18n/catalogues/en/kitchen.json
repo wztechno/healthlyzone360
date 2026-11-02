@@ -286,6 +286,44 @@
                 "dateLabel": "New day",
                 "keepDate": "Keep the same day",
                 "keepWindow": "Keep the same window"
+            },
+            "refunds": {
+                "heading": "Refunds",
+                "received": "Received",
+                "refunded": "Refunded",
+                "corrected": "Corrected as a mistake",
+                "pending": "Waiting for the owner",
+                "refundable": "Can still be refunded",
+                "open": "Refund or correct",
+                "approve": "Approve",
+                "reject": "Reject",
+                "confirm": "Record it",
+                "dialogTitle": "Refund or correct order {{number}}",
+                "dialogBody": "This adds an entry and keeps the receipts as they are. It records the money and does not send it.",
+                "kind": {
+                    "refund": "Refund",
+                    "receipt_correction": "Receipt correction"
+                },
+                "kindHint": {
+                    "refund": "Money went back to the customer. The order stays paid.",
+                    "receipt_correction": "The receipt was a mistake and the money never arrived. The amount goes back to outstanding."
+                },
+                "status": {
+                    "pending_approval": "Waiting for owner",
+                    "completed": "Done",
+                    "rejected": "Rejected"
+                },
+                "methodLabel": "How it went back",
+                "amountLabel": "Amount ({{currency}})",
+                "amountHint": "Up to {{refundable}}.",
+                "amountInvalid": "Enter an amount up to what can still be refunded.",
+                "reasonLabel": "Reason",
+                "windowClosed": "Refunds close 7 days after the last payment.",
+                "recordedToast": "Recorded.",
+                "waitingToast": "Sent to the owner for approval.",
+                "approvedToast": "Refund approved.",
+                "rejectedToast": "Refund rejected.",
+                "saveError": "This was not recorded."
             }
         },
         "quotations": {
@@ -4857,7 +4895,8 @@
             "severe_allergy": "New order {{number}} has a severe allergy on it",
             "late_cancel": "Order {{number}} was cancelled after cooking started",
             "delivery_failed": "Delivery failed for order {{number}}",
-            "no_cash_collected": "No cash was collected for order {{number}}"
+            "no_cash_collected": "No cash was collected for order {{number}}",
+            "refund_approval": "A refund on order {{number}} needs your approval"
         }
     },
     "serviceTimings": {
@@ -4875,7 +4914,10 @@
         "managerLabel": "Alert managers after",
         "managerHint": "Must be less than the owner alert.",
         "ownerLabel": "Alert owner after",
-        "ownerHint": "How long an order waits before the owner is told."
+        "ownerHint": "How long an order waits before the owner is told.",
+        "refundLabel": "Owner approves refunds above",
+        "refundHint": "Counts everything refunded on one order. Managers refund up to this on their own.",
+        "refundUnit": "USD"
     },
     "allergy": {
         "title": "Allergy on this order",

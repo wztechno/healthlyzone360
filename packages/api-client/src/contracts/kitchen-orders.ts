@@ -497,6 +497,51 @@ export interface RecordKitchenOrderPaymentRequest extends KitchenOrderTransition
     readonly notes?: string | undefined;
 }
 
+export type OrderRefundKind = 'refund' | 'receipt_correction';
+export type OrderRefundStatus = 'pending_approval' | 'completed' | 'rejected';
+
+/** One entry on an order's refund ledger. Added, never edited, and a receipt is never touched. */
+export interface OrderRefund {
+    readonly id: string;
+    readonly kind: OrderRefundKind;
+    readonly status: OrderRefundStatus;
+    readonly method: KitchenOrderPaymentMethod;
+    readonly amountMinor: number;
+    readonly reason: string;
+    readonly requestedByName: string | null;
+    readonly requestedAt: IsoDateTime;
+    readonly decidedByName: string | null;
+    readonly decidedAt: IsoDateTime | null;
+}
+
+export interface OrderRefundLedger {
+    /** The receipts as written. */
+    readonly receivedMinor: number;
+    readonly refundedMinor: number;
+    readonly correctedMinor: number;
+    /** Waiting for the owner, and already counted against the cap. */
+    readonly pendingMinor: number;
+    readonly refundableMinor: number;
+    /** Seven days after the latest receipt; `null` with no receipts. */
+    readonly windowClosesAt: IsoDateTime | null;
+    /** Newest first. */
+    readonly entries: readonly OrderRefund[];
+}
+
+export interface RecordOrderRefundRequest {
+    readonly orderId: OrderId;
+    readonly kind: OrderRefundKind;
+    readonly method: KitchenOrderPaymentMethod;
+    readonly amountMinor: number;
+    readonly reason: string;
+}
+
+export interface DecideOrderRefundRequest {
+    readonly orderId: OrderId;
+    readonly refundId: string;
+    readonly approved: boolean;
+}
+
 export interface KitchenOrdersRepository {
     /** Newest first, keyset-paged. Every filter is optional; none of them is a client-side sieve. */
     listOrders(filters?: KitchenOrderFilters): Promise<KitchenOrderPage>;
@@ -587,4 +632,12 @@ export interface KitchenOrdersRepository {
      * and a deliberate second attempt records a second payment rather than replaying the first.
      */
     recordPayment(request: RecordKitchenOrderPaymentRequest): Promise<RecordedKitchenOrderPayment>;
+
+    getRefunds(orderId: OrderId): Promise<OrderRefundLedger>;
+
+    /** `409 payment.refund_exceeds_capture` past the receipts; `409 resource.conflict` past seven days. */
+    recordRefund(request: RecordOrderRefundRequest): Promise<OrderRefundLedger>;
+
+    /** The owner's answer to an entry that waited. */
+    decideRefund(request: DecideOrderRefundRequest): Promise<OrderRefundLedger>;
 }

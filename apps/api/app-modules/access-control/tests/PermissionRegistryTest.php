@@ -187,7 +187,7 @@ it('separates the administrator from the owner by the identity of the business',
     $admin = $templates['organisation_admin']['permissions'];
 
     expect($admin)->not->toEqualCanonicalizing($owner)
-        ->and(array_values(array_diff($owner, $admin)))->toBe(['organisation.update_current'])
+        ->and(array_values(array_diff($owner, $admin)))->toEqualCanonicalizing(['organisation.update_current', 'order.approve_refund_organisation'])
         ->and(array_diff($admin, $owner))->toBe([])
         ->and($admin)->toContain('role.manage_organisation');
 });
@@ -315,7 +315,7 @@ function templateRolesHolding(string $code): array
 it('grants each template role the expected number of codes', function (string $role, int $expectedGrants): void {
     expect(PermissionRegistry::templateRoles()[$role]['permissions'])->toHaveCount($expectedGrants);
 })->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 48],
+    'organisation owner grants every organisation permission' => ['organisation_owner', 49],
     // The same count either way, which is why this row stayed green through AA1 while
     // its name stopped being true: the console swapped `role.manage_organisation`
     // in and `organisation.update_current` out, one for one. The count is the
@@ -349,6 +349,10 @@ it('grants each template role the expected number of codes', function (string $r
     'finance manager reads every number and can change exactly one, the unit cost of a recipe line' => ['finance_manager', 12],
     'driver signs in and sees their own account, and the run sheet does the rest' => ['kitchen_driver', 7],
 ]);
+
+it('gives refund approval to the owner and to nobody else', function (): void {
+    expect(templateRolesHolding('order.approve_refund_organisation'))->toBe(['organisation_owner']);
+});
 
 it('gives order supervision to the owner, the administrator and both managers and to nobody else', function (): void {
     expect(templateRolesHolding('order.supervise_organisation'))->toEqualCanonicalizing([

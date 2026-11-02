@@ -63,7 +63,7 @@ final class DeliveredOrderFulfilment implements DeliveredOrderHandover
             return;
         }
 
-        $outstanding = max(0, $order->total_minor - (int) $order->paymentReceipts()->sum('amount_minor'));
+        $outstanding = max(0, $order->total_minor - $order->receivedMinor());
         $collected = $this->refuseAmount($collectedMinor, $outstanding, $note);
 
         $this->lifecycle->fulfil($order);

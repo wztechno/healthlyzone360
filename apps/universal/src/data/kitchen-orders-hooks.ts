@@ -11,6 +11,9 @@ import type {
     RecordKitchenOrderPaymentRequest,
     RecordedKitchenOrderPayment,
     RedeliverKitchenOrderRequest,
+    DecideOrderRefundRequest,
+    OrderRefundLedger,
+    RecordOrderRefundRequest,
 } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -350,6 +353,59 @@ export function useCancelOrderMutation(): UseMutationResult<
  * retry would also risk a second receipt against a fresh idempotency key, which is money written down
  * twice.
  */
+export function useOrderRefundsQuery(orderId: OrderId): UseQueryResult<OrderRefundLedger> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOrders.refunds(orderId),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOrders.getRefunds(orderId);
+        },
+    });
+}
+
+/** No retry: a silent second attempt would be a second refund under a fresh idempotency key. */
+export function useRecordOrderRefundMutation(): UseMutationResult<
+    OrderRefundLedger,
+    unknown,
+    RecordOrderRefundRequest
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (request: RecordOrderRefundRequest) =>
+            repositories.kitchenOrders.recordRefund(request),
+        onSuccess: (ledger, request) => {
+            queryClient.setQueryData(queryKeys.kitchenOrders.refunds(request.orderId), ledger);
+            // A correction moves the desk row's received figure.
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
+        },
+    });
+}
+
+export function useDecideOrderRefundMutation(): UseMutationResult<
+    OrderRefundLedger,
+    unknown,
+    DecideOrderRefundRequest
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (request: DecideOrderRefundRequest) =>
+            repositories.kitchenOrders.decideRefund(request),
+        onSuccess: (ledger, request) => {
+            queryClient.setQueryData(queryKeys.kitchenOrders.refunds(request.orderId), ledger);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
+        },
+    });
+}
+
 export function useRecordOrderPaymentMutation(): UseMutationResult<
     RecordedKitchenOrderPayment,
     unknown,

@@ -58,8 +58,7 @@ use Illuminate\Support\Facades\DB;
  * that no longer exists commercially: the kitchen is not cooking it, the
  * customer is not paying for it, and a receipt against it would put a figure
  * into the day's takings that reconciles against nothing. If a cancelled order
- * really was paid for, what happened is a refund, and refunds are the payments
- * module's act in the payments module's table.
+ * really was paid for, what happened is a refund, on `OrderRefundController`.
  *
  * The shape is the house answer for an illegal-state write, borrowed from the
  * two places that already give it — `ApplicationService` and `QuotationService`
@@ -251,9 +250,7 @@ final class OrderPaymentReceiptStoreController
      */
     private function receivedMinor(Order $order): int
     {
-        return (int) OrderPaymentReceipt::query()
-            ->where('order_id', $order->getKey())
-            ->sum('amount_minor');
+        return $order->receivedMinor();
     }
 
     /**
