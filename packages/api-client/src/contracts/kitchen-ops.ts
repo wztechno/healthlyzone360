@@ -251,6 +251,8 @@ export interface Supplier {
     readonly paymentTerms: string | null;
     /** Days between issuing an order and expecting it, 0–365. `0` is a same-morning market run. */
     readonly leadTimeDays: number | null;
+    /** Days after the invoice a delivery falls due. `null` works out no due date. */
+    readonly paymentDueDays?: number | null | undefined;
     readonly notes: string | null;
     /**
      * When the supplier was archived, or `null` for a live one.
@@ -862,6 +864,7 @@ export interface CreateSupplierRequest {
     readonly address?: string | null | undefined;
     readonly paymentTerms?: string | null | undefined;
     readonly leadTimeDays?: number | null | undefined;
+    readonly paymentDueDays?: number | null | undefined;
     readonly notes?: string | null | undefined;
 }
 
@@ -883,7 +886,48 @@ export interface UpdateSupplierRequest {
     readonly address?: string | null | undefined;
     readonly paymentTerms?: string | null | undefined;
     readonly leadTimeDays?: number | null | undefined;
+    readonly paymentDueDays?: number | null | undefined;
     readonly notes?: string | null | undefined;
+}
+
+/**
+ * A delivery's price against the one before it, as it stood when the line was priced.
+ * Major-unit decimal strings.
+ */
+export interface PayablePriceRise {
+    readonly nameEn: string | null;
+    readonly lastUnitPriceAmount: string;
+    readonly unitPriceAmount: string;
+    readonly priceVariancePercent: string;
+}
+
+/** One delivery's money: what it comes to, when it falls due, and what holds it back. */
+export interface Payable {
+    readonly id: string;
+    readonly supplierName: LocalisedText;
+    readonly documentRef: string | null;
+    readonly supplierInvoiceRef: string | null;
+    readonly receivedOn: string | null;
+    readonly dueOn: string | null;
+    readonly isOverdue: boolean;
+    readonly paymentStatus: 'unpaid' | 'paid' | 'not_tracked';
+    readonly paidAt: IsoDateTime | null;
+    readonly paidReference: string | null;
+    readonly priceApprovalStatus: 'pending' | 'approved' | null;
+    /** Major units, or `null` while a line has no price. */
+    readonly amount: string | null;
+    readonly currencyCode: string | null;
+    readonly priceRises: readonly PayablePriceRise[];
+}
+
+export interface Payables {
+    /** Today on the kitchen's clock, which `isOverdue` was read against. */
+    readonly today: string;
+    /** What is owed, per currency. Never added across two. */
+    readonly totals: readonly { readonly currencyCode: string; readonly amount: string }[];
+    readonly unpaid: readonly Payable[];
+    /** The last thirty, newest first. */
+    readonly paid: readonly Payable[];
 }
 
 /** One contact in a replace request. `id` names an existing contact to update; omit it to create. */
@@ -2444,6 +2488,11 @@ export interface KitchenOpsRepository {
      * kitchen's trading months are few, so the bounded range is answered whole.
      */
     listCostReport(filter?: MonthlyCostReportFilter): Promise<readonly MonthlyCostReportRow[]>;
+    getPayables(): Promise<Payables>;
+    approvePayablePrice(receiptId: string): Promise<Payables>;
+    /** Writes down a payment made by hand. Nothing here sends money. */
+    payPayable(receiptId: string, reference: string | null): Promise<Payables>;
+    setPayableDueDate(receiptId: string, dueOn: string | null): Promise<Payables>;
     /**
      * Order volume over a range of days against the equal range before it — totals, a day series,
      * the channel split and the top items. Counts only, no money: needs `order.view_organisation`.

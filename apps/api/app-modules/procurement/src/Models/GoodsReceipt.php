@@ -50,6 +50,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property numeric-string|null $delivery_amount
  * @property numeric-string|null $other_charges_amount
  * @property numeric-string|null $invoice_total_amount
+ * @property CarbonImmutable|null $due_on
+ * @property string $payment_status unpaid|paid|not_tracked
+ * @property CarbonImmutable|null $paid_at
+ * @property string|null $paid_by
+ * @property string|null $paid_reference
+ * @property string|null $price_approval_status null when nothing needed it, or pending|approved
+ * @property string|null $price_approved_by
+ * @property CarbonImmutable|null $price_approved_at
  * @property CarbonImmutable|null $created_at
  * @property-read Collection<int, GoodsReceiptLine> $lines
  * @property-read Supplier|null $supplier
@@ -69,6 +77,9 @@ class GoodsReceipt extends BaseModel implements OrganisationScoped
             // that.
             'received_on' => 'immutable_date',
             'invoice_date' => 'immutable_date',
+            'due_on' => 'immutable_date',
+            'paid_at' => 'immutable_datetime',
+            'price_approved_at' => 'immutable_datetime',
             'discount_amount' => 'decimal:6',
             'tax_amount' => 'decimal:6',
             'delivery_amount' => 'decimal:6',

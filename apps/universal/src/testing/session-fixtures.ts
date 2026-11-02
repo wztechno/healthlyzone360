@@ -155,6 +155,7 @@ export const ORGANISATION_OWNER_PERMISSIONS: readonly string[] = [
     'order.prepare_organisation',
     'order.settle_cash_organisation',
     'order.approve_refund_organisation',
+    'inventory.approve_payables_organisation',
     'b2b_quotation.view_organisation',
     'b2b_quotation.quote_organisation',
     'inventory.view_organisation',

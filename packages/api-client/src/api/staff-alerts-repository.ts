@@ -67,6 +67,8 @@ export function createApiStaffAlertsRepository(transport: Transport): StaffAlert
                         owner_alert_after_minutes: settings.ownerAlertAfterMinutes,
                         orders_per_window: settings.ordersPerWindow,
                         refund_approval_above_minor: settings.refundApprovalAboveMinor,
+                        price_approval_above_percent: settings.priceApprovalAbovePercent,
+                        dish_margin_target_percent: settings.dishMarginTargetPercent,
                     },
                 }),
             );
@@ -114,5 +116,7 @@ function mapServiceSettings(wire: WireKitchenServiceSettings): KitchenServiceSet
         ordersPerWindow: wire.orders_per_window ?? null,
         pausedUntil: wire.paused_until ?? null,
         refundApprovalAboveMinor: wire.refund_approval_above_minor,
+        priceApprovalAbovePercent: wire.price_approval_above_percent ?? null,
+        dishMarginTargetPercent: wire.dish_margin_target_percent ?? null,
     };
 }

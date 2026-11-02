@@ -24,6 +24,8 @@ use Healthy360\Tenancy\Contracts\OrganisationScoped;
  * @property int $manager_alert_after_minutes
  * @property int $owner_alert_after_minutes
  * @property int $refund_approval_above_minor
+ * @property int|null $price_approval_above_percent a delivery priced this far above the last price needs approval; null turns approvals off
+ * @property int|null $dish_margin_target_percent the margin a dish should clear; null turns the alert off
  * @property int|null $orders_per_window the most orders one window takes on one day; null means no limit
  * @property CarbonImmutable|null $paused_until new customer orders are refused until then
  * @property string|null $paused_by
@@ -31,7 +33,7 @@ use Healthy360\Tenancy\Contracts\OrganisationScoped;
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-#[Classified(DataClassification::Internal, 'order_lead_minutes', 'alarm_after_minutes', 'manager_alert_after_minutes', 'owner_alert_after_minutes', 'refund_approval_above_minor', 'orders_per_window', 'paused_until', 'paused_by', 'not_open_yet')]
+#[Classified(DataClassification::Internal, 'order_lead_minutes', 'alarm_after_minutes', 'manager_alert_after_minutes', 'owner_alert_after_minutes', 'refund_approval_above_minor', 'price_approval_above_percent', 'dish_margin_target_percent', 'orders_per_window', 'paused_until', 'paused_by', 'not_open_yet')]
 class KitchenServiceSettings extends BaseModel implements OrganisationScoped
 {
     use BelongsToOrganisation;
@@ -60,6 +62,8 @@ class KitchenServiceSettings extends BaseModel implements OrganisationScoped
             'manager_alert_after_minutes' => 'integer',
             'owner_alert_after_minutes' => 'integer',
             'refund_approval_above_minor' => 'integer',
+            'price_approval_above_percent' => 'integer',
+            'dish_margin_target_percent' => 'integer',
             'orders_per_window' => 'integer',
             'paused_until' => 'datetime',
             'not_open_yet' => 'boolean',

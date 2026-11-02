@@ -128,7 +128,7 @@ final readonly class DailyCloses
             $shift = $this->shift($organisationId, $currencyCode, $timezone);
             $figures = $this->figures($organisationId, $currencyCode, $shift['opened_at'], $now);
 
-            if (array_sum($figures) === 0 && $figures['cash_refunds_minor'] === 0) {
+            if (array_sum($figures) === 0) {
                 throw new ApiException(ErrorCode::ResourceConflict, 'No cash has moved since the last close. Reload and try again.');
             }
 

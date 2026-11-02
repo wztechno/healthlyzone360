@@ -148,6 +148,9 @@ export const B2B_QUOTATION_QUOTE_PERMISSION = 'b2b_quotation.quote_organisation'
  */
 export const INVENTORY_VIEW_COSTS_PERMISSION = 'inventory.view_costs_organisation';
 
+/** Agreeing to a delivery's price rise, and saying a supplier's invoice was paid. */
+export const INVENTORY_APPROVE_PAYABLES_PERMISSION = 'inventory.approve_payables_organisation';
+
 /**
  * The plain inventory read/write pair (INV1.0). The consumption-exception review surface (INV1.5)
  * gates on these — reading the queue is `inventory.view_organisation`, and settling or retrying an
@@ -807,6 +810,18 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // The one card in the workspace gated on the cost permission (INV1.1): the ledger *is* the
         // valuation, so a person without `inventory.view_costs_organisation` never sees the card and
         // the screen behind it refuses. There is nothing to write from a ledger.
+        permission: INVENTORY_VIEW_COSTS_PERMISSION,
+        managePermission: null,
+    },
+    {
+        key: 'payables',
+        kind: 'workbench',
+        group: 'operations',
+        nameKey: 'kitchen:families.payables.name',
+        descriptionKey: 'kitchen:families.payables.description',
+        icon: 'banknote',
+        href: '/kitchen/payables',
+        // Rows of money, so the cost code reads them. Its acts ask their own code on the page.
         permission: INVENTORY_VIEW_COSTS_PERMISSION,
         managePermission: null,
     },

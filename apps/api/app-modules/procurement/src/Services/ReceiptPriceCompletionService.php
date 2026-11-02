@@ -84,6 +84,7 @@ final readonly class ReceiptPriceCompletionService
         private ReceiptLineCosting $lineCosting,
         private AuditRecorder $audit,
         private TenantContext $context,
+        private ReceiptPriceControl $priceControl,
     ) {}
 
     /**
@@ -165,6 +166,8 @@ final readonly class ReceiptPriceCompletionService
                     $pendingCount++;
                 }
             }
+
+            $this->priceControl->review($receipt);
 
             $receipt->cost_status = $this->costStatus($receipt);
             $receipt->save();

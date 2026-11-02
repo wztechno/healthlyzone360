@@ -37,6 +37,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property numeric-string|null $unit_price_amount major currency units per unit_id (INV1.1)
  * @property numeric-string|null $line_total_amount major currency units (INV1.1)
  * @property string|null $cost_currency_code
+ * @property numeric-string|null $last_unit_price_amount the last price paid, when this line was priced
+ * @property numeric-string|null $price_variance_percent this price against it; null when they cannot be compared
  * @property CarbonImmutable|null $costed_at null means the costing path has not run for this line (§3.6)
  * @property bool $valuation_pending_fx
  * @property string|null $gtin the product scanned at receiving, fourteen digits
@@ -55,6 +57,8 @@ class GoodsReceiptLine extends BaseModel
             'quantity' => 'decimal:4',
             'unit_price_amount' => 'decimal:6',
             'line_total_amount' => 'decimal:6',
+            'last_unit_price_amount' => 'decimal:6',
+            'price_variance_percent' => 'decimal:2',
             'costed_at' => 'immutable_datetime',
             'valuation_pending_fx' => 'boolean',
             'expires_on' => 'immutable_date',

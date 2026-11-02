@@ -599,7 +599,9 @@ it('seeds exactly the registered permission set', function (): void {
     //
     // P0 Stage 3 takes it to 62 with `order.settle_cash_organisation` and
     // `order.approve_refund_organisation`.
-    expect(Permission::query()->count())->toBe(62)
+    //
+    // P1 Wave C adds one with `inventory.approve_payables_organisation`.
+    expect(Permission::query()->count())->toBe(63)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });

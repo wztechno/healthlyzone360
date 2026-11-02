@@ -347,7 +347,7 @@ it('grants each template role the expected number of codes', function (string $r
     // Eight since the recipe book: `recipe.view_organisation`, so the buyer keeps
     // the meal, sauce, dressing and frozen-meal lists that merged into it.
     'purchasing manager spends the kitchen money without seeing what it charges, and reads the recipe book' => ['procurement_manager', 8],
-    'finance manager reads every number and can change exactly one, the unit cost of a recipe line' => ['finance_manager', 12],
+    'finance manager reads every number and can change exactly one, the unit cost of a recipe line' => ['finance_manager', 13],
     'driver signs in and sees their own account, and the run sheet does the rest' => ['kitchen_driver', 7],
 ]);
 

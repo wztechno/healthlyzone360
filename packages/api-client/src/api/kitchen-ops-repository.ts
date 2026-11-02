@@ -112,6 +112,8 @@ import type {
     UpdateSupplierRequest,
     UpsertSupplierLinkRequest,
     StockActivity,
+    Payable,
+    Payables,
 } from '../contracts/kitchen-ops.ts';
 import type {
     KitchenActivityEnvelope,
@@ -157,6 +159,8 @@ import type {
     SupplierOption as WireSupplierOption,
     SupplierRef as WireSupplierRef,
     UnpricedReceipt as WireUnpricedReceipt,
+    Payable as WirePayable,
+    PayablesEnvelope,
 } from '../generated/types.ts';
 import type { Transport } from './transport.ts';
 
@@ -237,6 +241,42 @@ function mapStockMovement(wire: WireStockMovement): StockMovement {
  * and a form bound to `null` would render "null" in the Arabic box the first time somebody typed
  * into it. Empty is what "not translated yet" looks like everywhere else in this workspace.
  */
+function mapPayable(wire: WirePayable): Payable {
+    return {
+        id: wire.id,
+        supplierName: { en: wire.supplier_name_en ?? '', ar: wire.supplier_name_ar ?? '' },
+        documentRef: wire.document_ref,
+        supplierInvoiceRef: wire.supplier_invoice_ref,
+        receivedOn: wire.received_on,
+        dueOn: wire.due_on,
+        isOverdue: wire.is_overdue,
+        paymentStatus: wire.payment_status,
+        paidAt: wire.paid_at as IsoDateTime | null,
+        paidReference: wire.paid_reference,
+        priceApprovalStatus: wire.price_approval_status as Payable['priceApprovalStatus'],
+        amount: wire.amount,
+        currencyCode: wire.currency_code,
+        priceRises: wire.price_rises.map((rise) => ({
+            nameEn: rise.name_en,
+            lastUnitPriceAmount: rise.last_unit_price_amount,
+            unitPriceAmount: rise.unit_price_amount,
+            priceVariancePercent: rise.price_variance_percent,
+        })),
+    };
+}
+
+function mapPayables(wire: PayablesEnvelope['data']): Payables {
+    return {
+        today: wire.today,
+        totals: wire.totals.map((total) => ({
+            currencyCode: total.currency_code,
+            amount: total.amount,
+        })),
+        unpaid: wire.unpaid.map(mapPayable),
+        paid: wire.paid.map(mapPayable),
+    };
+}
+
 function mapSupplier(wire: WireSupplier): Supplier {
     return {
         id: SupplierId.unsafe(wire.id),
@@ -248,6 +288,7 @@ function mapSupplier(wire: WireSupplier): Supplier {
         address: wire.address,
         paymentTerms: wire.payment_terms,
         leadTimeDays: wire.lead_time_days,
+        paymentDueDays: wire.payment_due_days,
         notes: wire.notes,
         archivedAt: wire.archived_at,
         contactCount: wire.contact_count,
@@ -550,6 +591,9 @@ function wireSupplierFields(
         ...(request.address === undefined ? {} : { address: request.address }),
         ...(request.paymentTerms === undefined ? {} : { payment_terms: request.paymentTerms }),
         ...(request.leadTimeDays === undefined ? {} : { lead_time_days: request.leadTimeDays }),
+        ...(request.paymentDueDays === undefined
+            ? {}
+            : { payment_due_days: request.paymentDueDays }),
         ...(request.notes === undefined ? {} : { notes: request.notes }),
     };
 }
@@ -1979,6 +2023,44 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                 to: envelope.data.to,
                 periods: envelope.data.periods.map(mapSpendSummaryPeriod),
             };
+        },
+
+        async getPayables(): Promise<Payables> {
+            return mapPayables(
+                await transport.request<PayablesEnvelope['data']>({
+                    method: 'GET',
+                    path: '/catalogue/procurement/payables',
+                }),
+            );
+        },
+
+        async approvePayablePrice(receiptId: string): Promise<Payables> {
+            return mapPayables(
+                await transport.request<PayablesEnvelope['data']>({
+                    method: 'POST',
+                    path: `/catalogue/procurement/payables/${encodeURIComponent(receiptId)}/approve-price`,
+                }),
+            );
+        },
+
+        async payPayable(receiptId: string, reference: string | null): Promise<Payables> {
+            return mapPayables(
+                await transport.request<PayablesEnvelope['data']>({
+                    method: 'POST',
+                    path: `/catalogue/procurement/payables/${encodeURIComponent(receiptId)}/pay`,
+                    body: { reference },
+                }),
+            );
+        },
+
+        async setPayableDueDate(receiptId: string, dueOn: string | null): Promise<Payables> {
+            return mapPayables(
+                await transport.request<PayablesEnvelope['data']>({
+                    method: 'PUT',
+                    path: `/catalogue/procurement/payables/${encodeURIComponent(receiptId)}/due-date`,
+                    body: { due_on: dueOn },
+                }),
+            );
         },
 
         async listCostReport(

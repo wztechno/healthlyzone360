@@ -1790,6 +1790,8 @@ describe('the kitchen service timings', () => {
         managerAlertAfterMinutes: 10,
         ownerAlertAfterMinutes: 20,
         refundApprovalAboveMinor: 5000,
+        priceApprovalAbovePercent: null,
+        dishMarginTargetPercent: null,
     };
 
     it('reads the four timings and saves a changed one with the rest', async () => {

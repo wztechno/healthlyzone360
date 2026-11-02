@@ -303,6 +303,7 @@ use Healthy360\Procurement\Http\Controllers\InventoryValueReportController;
 use Healthy360\Procurement\Http\Controllers\ItemLatestPurchaseIndexController;
 use Healthy360\Procurement\Http\Controllers\MonthlyCostReportController;
 use Healthy360\Procurement\Http\Controllers\OrderProposalController;
+use Healthy360\Procurement\Http\Controllers\PayableController;
 use Healthy360\Procurement\Http\Controllers\ProcurementReferenceController;
 use Healthy360\Procurement\Http\Controllers\ProcurementSpendSummaryController;
 use Healthy360\Procurement\Http\Controllers\PurchaseOrderCancelController;
@@ -1913,6 +1914,18 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 */
                 Route::get('/procurement/unpriced-receipts', UnpricedReceiptIndexController::class)->name('catalogue.procurement.unpriced-receipts.index');
                 Route::post('/procurement/goods-receipts/{goodsReceipt}/complete-prices', ReceiptPriceCompletionController::class)->name('catalogue.procurement.goods-receipts.complete-prices');
+
+                // What is owed for deliveries. Reading is the money code; acting on
+                // a row is the code the owner and finance hold.
+                Route::get('/procurement/payables', [PayableController::class, 'index'])->name('catalogue.procurement.payables.index');
+                Route::middleware('permission:inventory.approve_payables_organisation')->group(function (): void {
+                    Route::post('/procurement/payables/{goodsReceipt}/approve-price', [PayableController::class, 'approvePrice'])
+                        ->whereUuid('goodsReceipt')->name('catalogue.procurement.payables.approve-price');
+                    Route::post('/procurement/payables/{goodsReceipt}/pay', [PayableController::class, 'pay'])
+                        ->whereUuid('goodsReceipt')->name('catalogue.procurement.payables.pay');
+                    Route::put('/procurement/payables/{goodsReceipt}/due-date', [PayableController::class, 'setDueDate'])
+                        ->whereUuid('goodsReceipt')->name('catalogue.procurement.payables.due-date');
+                });
 
                 /*
                 | The weekly and monthly purchase check (SUP6, §3.7) — the same

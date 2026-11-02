@@ -31,6 +31,7 @@ import type {
     KitchenAnalyticsReport,
     MonthlyCostReportFilter,
     MonthlyCostReportRow,
+    Payables,
     OrderProposal,
     PostGoodsReceiptRequest,
     ProcurementReference,
@@ -1011,6 +1012,66 @@ export function useSpendSummaryQuery(
  * Behind `inventory.view_costs_organisation` on the server, so a caller without that code gets a
  * failure rather than the kitchen's economics; the screen gates its card on the same permission.
  */
+export function usePayablesQuery(): UseQueryResult<Payables> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.payables(),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.getPayables();
+        },
+    });
+}
+
+/** Each act answers with the whole list, which replaces the cached one. */
+function usePayablesAct<Input>(
+    act: (input: Input) => Promise<Payables>,
+): UseMutationResult<Payables, unknown, Input> {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: act,
+        onSuccess: (payables) => {
+            queryClient.setQueryData(queryKeys.kitchenOps.payables(), payables);
+        },
+    });
+}
+
+export function useApprovePayablePriceMutation(): UseMutationResult<Payables, unknown, string> {
+    const repositories = useRepositories();
+
+    return usePayablesAct((receiptId: string) =>
+        repositories.kitchenOps.approvePayablePrice(receiptId),
+    );
+}
+
+export function usePayPayableMutation(): UseMutationResult<
+    Payables,
+    unknown,
+    { readonly receiptId: string; readonly reference: string | null }
+> {
+    const repositories = useRepositories();
+
+    return usePayablesAct(({ receiptId, reference }) =>
+        repositories.kitchenOps.payPayable(receiptId, reference),
+    );
+}
+
+export function useSetPayableDueDateMutation(): UseMutationResult<
+    Payables,
+    unknown,
+    { readonly receiptId: string; readonly dueOn: string | null }
+> {
+    const repositories = useRepositories();
+
+    return usePayablesAct(({ receiptId, dueOn }) =>
+        repositories.kitchenOps.setPayableDueDate(receiptId, dueOn),
+    );
+}
+
 export function useCostReportQuery(
     filter: MonthlyCostReportFilter = {},
     enabled = true,

@@ -11629,6 +11629,176 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/procurement/payables:
+    get:
+      operationId: getProcurementPayables
+      tags: [Procurement]
+      summary: What is owed for deliveries
+      description: |
+        Unpaid deliveries, oldest due first, with any price waiting for approval,
+        and the last thirty paid. A delivery from before payables existed and a
+        direct purchase are not listed. Requires `inventory.view_costs_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The list.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayablesEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/payables/{goodsReceipt}/approve-price:
+    post:
+      operationId: approveProcurementPayablePrice
+      tags: [Procurement]
+      summary: Agree to a delivery's price rise
+      description: |
+        `409` unless a price is waiting. Audited as `procurement.price_approved`.
+        Requires `inventory.approve_payables_organisation`.
+      parameters:
+        - name: goodsReceipt
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The list after the change.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayablesEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/payables/{goodsReceipt}/pay:
+    post:
+      operationId: payProcurementPayable
+      tags: [Procurement]
+      summary: Write down that a delivery was paid
+      description: |
+        Records a payment made by hand; nothing here sends money. `409` while a
+        price waits, while a line has no price, or when already paid. Audited as
+        `procurement.payable_paid`. Requires `inventory.approve_payables_organisation`.
+      parameters:
+        - name: goodsReceipt
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reference:
+                  type: [string, 'null']
+                  maxLength: 120
+      responses:
+        '200':
+          description: The list after the change.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayablesEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/procurement/payables/{goodsReceipt}/due-date:
+    put:
+      operationId: setProcurementPayableDueDate
+      tags: [Procurement]
+      summary: Move a delivery's due date
+      description: |
+        Null clears it. Audited as `procurement.payable_due_changed`.
+        Requires `inventory.approve_payables_organisation`.
+      parameters:
+        - name: goodsReceipt
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [due_on]
+              properties:
+                due_on:
+                  type: [string, 'null']
+                  format: date
+      responses:
+        '200':
+          description: The list after the change.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayablesEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/procurement/unpriced-receipts:
     get:
       operationId: listUnpricedReceipts
@@ -35418,6 +35588,7 @@ components:
         - address
         - payment_terms
         - lead_time_days
+        - payment_due_days
         - notes
         - archived_at
         - contact_count
@@ -35463,6 +35634,11 @@ components:
           minimum: 0
           maximum: 365
           description: Days between issuing an order and expecting it. 0 is a same-morning market run.
+        payment_due_days:
+          type: ['integer', 'null']
+          minimum: 0
+          maximum: 365
+          description: Days after the invoice a delivery falls due. Null works out no due date.
         notes:
           type: ['string', 'null']
         archived_at:
@@ -36559,6 +36735,11 @@ components:
           type: ['integer', 'null']
           minimum: 0
           maximum: 365
+        payment_due_days:
+          type: ['integer', 'null']
+          minimum: 0
+          maximum: 365
+          description: Days after the invoice a delivery falls due. Null works out no due date.
         notes:
           type: ['string', 'null']
           maxLength: 2000
@@ -36613,6 +36794,11 @@ components:
           type: ['integer', 'null']
           minimum: 0
           maximum: 365
+        payment_due_days:
+          type: ['integer', 'null']
+          minimum: 0
+          maximum: 365
+          description: Days after the invoice a delivery falls due. Null works out no due date.
         notes:
           type: ['string', 'null']
           maxLength: 2000
@@ -41103,6 +41289,16 @@ components:
           type: integer
           minimum: 0
           description: Refunds on one order above this, in minor units, need the owner.
+        price_approval_above_percent:
+          type: [integer, 'null']
+          minimum: 0
+          maximum: 1000
+          description: A delivery priced this far above the last price needs approval. Null turns approvals off.
+        dish_margin_target_percent:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 99
+          description: The margin a dish should clear. Null turns the alert off.
         orders_per_window:
           type: [integer, 'null']
           minimum: 1
@@ -41886,6 +42082,94 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CourierCashRun'
+
+    PayablePriceRise:
+      type: object
+      required: [name_en, last_unit_price_amount, unit_price_amount, price_variance_percent]
+      properties:
+        name_en:
+          type: [string, 'null']
+        last_unit_price_amount:
+          type: string
+        unit_price_amount:
+          type: string
+        price_variance_percent:
+          type: string
+
+    Payable:
+      type: object
+      required: [id, supplier_name_en, supplier_name_ar, document_ref, supplier_invoice_ref, received_on, due_on, is_overdue, payment_status, paid_at, paid_reference, price_approval_status, amount, currency_code, price_rises]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        supplier_name_en:
+          type: [string, 'null']
+        supplier_name_ar:
+          type: [string, 'null']
+        document_ref:
+          type: [string, 'null']
+        supplier_invoice_ref:
+          type: [string, 'null']
+        received_on:
+          type: [string, 'null']
+          format: date
+        due_on:
+          type: [string, 'null']
+          format: date
+        is_overdue:
+          type: boolean
+        payment_status:
+          type: string
+          enum: [unpaid, paid, not_tracked]
+        paid_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        paid_reference:
+          type: [string, 'null']
+        price_approval_status:
+          type: [string, 'null']
+          enum: [pending, approved, null]
+        amount:
+          type: [string, 'null']
+          description: Major units. Null while a line has no price.
+        currency_code:
+          type: [string, 'null']
+        price_rises:
+          type: array
+          items:
+            $ref: '#/components/schemas/PayablePriceRise'
+
+    PayablesEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [today, totals, unpaid, paid]
+          properties:
+            today:
+              type: string
+              format: date
+            totals:
+              type: array
+              items:
+                type: object
+                required: [currency_code, amount]
+                properties:
+                  currency_code:
+                    type: string
+                  amount:
+                    type: string
+            unpaid:
+              type: array
+              items:
+                $ref: '#/components/schemas/Payable'
+            paid:
+              type: array
+              items:
+                $ref: '#/components/schemas/Payable'
 
     OpenDailyClose:
       type: object

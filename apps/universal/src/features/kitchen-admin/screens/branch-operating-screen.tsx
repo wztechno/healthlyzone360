@@ -684,6 +684,9 @@ function ServiceTimingsSection({
         edits.refundApprovalAboveMinor ?? String(stored.refundApprovalAboveMinor / 100);
     /** Left empty, the kitchen has no limit. */
     const windowLimit = edits.ordersPerWindow ?? String(stored.ordersPerWindow ?? '');
+    /** Whole percentages. Left empty, the check is off. */
+    const priceLimit = edits.priceApprovalAbovePercent ?? String(stored.priceApprovalAbovePercent ?? '');
+    const marginTarget = edits.dishMarginTargetPercent ?? String(stored.dishMarginTargetPercent ?? '');
     const complete = SERVICE_TIMINGS.every(({ key }) => shown(key) !== '') && refundLimit !== '';
 
     const saveFailure = toFailure(save.error);
@@ -694,6 +697,8 @@ function ServiceTimingsSection({
                 ...SERVICE_TIMINGS,
                 { copy: 'refund', server: 'refund_approval_above_minor' },
                 { copy: 'capacity', server: 'orders_per_window' },
+                { copy: 'priceLimit', server: 'price_approval_above_percent' },
+                { copy: 'marginTarget', server: 'dish_margin_target_percent' },
             ].map(({ copy, server: field }) => [
                 field,
                 {
@@ -713,6 +718,8 @@ function ServiceTimingsSection({
                 ownerAlertAfterMinutes: Number(shown('ownerAlertAfterMinutes')),
                 refundApprovalAboveMinor: Number(refundLimit) * 100,
                 ordersPerWindow: windowLimit === '' ? null : Number(windowLimit),
+                priceApprovalAbovePercent: priceLimit === '' ? null : Number(priceLimit),
+                dishMarginTargetPercent: marginTarget === '' ? null : Number(marginTarget),
             },
             {
                 onSuccess: () => {
@@ -821,6 +828,52 @@ function ServiceTimingsSection({
                         {...server.flag('orders_per_window')}
                         onChangeText={(next) => {
                             setEdits({ ...edits, ordersPerWindow: next.replace(/[^0-9]/gu, '') });
+                            guard.markDirty();
+                        }}
+                    />
+                    <TextInputField
+                        testID="kitchen-service-timings-priceLimit"
+                        id="kitchen-service-timings-priceLimit"
+                        label={t('kitchen:serviceTimings.priceLimitLabel')}
+                        hint={t('kitchen:serviceTimings.priceLimitHint')}
+                        size="sm"
+                        inputMode="numeric"
+                        autoCorrect={false}
+                        trailing={
+                            <Text variant="caption" tone="secondary">
+                                {t('kitchen:serviceTimings.percentUnit')}
+                            </Text>
+                        }
+                        value={priceLimit}
+                        {...server.flag('price_approval_above_percent')}
+                        onChangeText={(next) => {
+                            setEdits({
+                                ...edits,
+                                priceApprovalAbovePercent: next.replace(/[^0-9]/gu, ''),
+                            });
+                            guard.markDirty();
+                        }}
+                    />
+                    <TextInputField
+                        testID="kitchen-service-timings-marginTarget"
+                        id="kitchen-service-timings-marginTarget"
+                        label={t('kitchen:serviceTimings.marginTargetLabel')}
+                        hint={t('kitchen:serviceTimings.marginTargetHint')}
+                        size="sm"
+                        inputMode="numeric"
+                        autoCorrect={false}
+                        trailing={
+                            <Text variant="caption" tone="secondary">
+                                {t('kitchen:serviceTimings.percentUnit')}
+                            </Text>
+                        }
+                        value={marginTarget}
+                        {...server.flag('dish_margin_target_percent')}
+                        onChangeText={(next) => {
+                            setEdits({
+                                ...edits,
+                                dishMarginTargetPercent: next.replace(/[^0-9]/gu, ''),
+                            });
                             guard.markDirty();
                         }}
                     />

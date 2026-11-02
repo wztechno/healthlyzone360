@@ -344,6 +344,10 @@ final class PermissionRegistry
             // valuation and COGS that INV1.1 and INV1.2 add all sit behind this.
             'inventory.view_costs_organisation' => ['domain' => 'inventory', 'description' => 'View inventory costs: purchase prices, stock valuation and cost of goods sold'],
 
+            // P1 Wave C. Receiving and pricing a delivery stay where they were; agreeing
+            // to a price rise and saying an invoice was paid are the money side's.
+            'inventory.approve_payables_organisation' => ['domain' => 'inventory', 'description' => 'Approve a delivery price above the limit and mark supplier invoices paid'],
+
             // SUP3. A fourth inventory code, and the split is between recording
             // what arrived and deciding what to spend. `manage` is the receiving
             // clerk's authority — stock came off a van, book it — and every
@@ -1072,6 +1076,7 @@ final class PermissionRegistry
 
                     'inventory.view_organisation',
                     'inventory.view_costs_organisation',
+                    'inventory.approve_payables_organisation',
 
                     'audit.view_organisation',
                 ],

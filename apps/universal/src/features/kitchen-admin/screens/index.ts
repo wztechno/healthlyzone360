@@ -44,6 +44,7 @@ export { OrderDeskCalendarScreen } from './order-desk-calendar-screen.tsx';
 export { OrderDeskCashReportScreen } from './order-desk-cash-report-screen.tsx';
 export { OrderDeskSettlementScreen } from './order-desk-settlement-screen.tsx';
 export { OrderDeskCloseScreen } from './order-desk-close-screen.tsx';
+export { PayablesScreen } from './payables-screen.tsx';
 export { ActivityScreen } from './activity-screen.tsx';
 export { OrderDeskSaleScreen } from './order-desk-sale-screen.tsx';
 export { OrderDeskRequirementsScreen } from './order-desk-requirements-screen.tsx';

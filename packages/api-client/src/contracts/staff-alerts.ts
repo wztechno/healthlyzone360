@@ -52,6 +52,10 @@ export interface KitchenServiceSettings {
     readonly ownerAlertAfterMinutes: number;
     /** Refunds on one order above this, in minor units, wait for the owner. */
     readonly refundApprovalAboveMinor: number;
+    /** A delivery priced this far above the last price needs approval. `null` turns approvals off. */
+    readonly priceApprovalAbovePercent: number | null;
+    /** The margin a dish should clear. `null` turns the alert off. */
+    readonly dishMarginTargetPercent: number | null;
     /** The most orders one window takes on one day. `null` means no limit. */
     readonly ordersPerWindow: number | null;
     /** New customer orders are refused until then. Read here, set through `pauseKitchen`. */
