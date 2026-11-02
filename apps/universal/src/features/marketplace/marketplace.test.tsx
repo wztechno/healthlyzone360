@@ -2168,6 +2168,52 @@ describe('the shop’s staff view', () => {
     });
 });
 
+describe('the customer area while the router reports the bare area', () => {
+    /*
+     * What a reload does. The gate holds the area's navigator back until the session is known, and
+     * until it mounts the router reads `/customer` with no params, though the address was deeper.
+     */
+    const restoring = () => {
+        routerMock.__set({ pathname: '/customer', params: {} });
+    };
+
+    it.each(['/customer/account', '/customer/checkout', '/customer/orders/order-1'])(
+        'keeps %s on a reload',
+        async (pathname) => {
+            routerMock.__set({ pathname });
+            await renderStubScreen(<CustomerLayout />, { session: CONSUMER_SESSION });
+
+            await act(async () => {
+                restoring();
+            });
+
+            await screen.findByTestId('marketplace-shell');
+            expect(routerMock.__redirect).not.toHaveBeenCalledWith('/discover');
+        },
+    );
+
+    it('keeps a business buyer on the wholesale checkout on a reload', async () => {
+        routerMock.__set({ pathname: '/customer/checkout', params: { channel: 'wholesale' } });
+        await renderStubScreen(<CustomerLayout />, { session: BUSINESS_BUYER_SESSION });
+
+        await act(async () => {
+            restoring();
+        });
+
+        await screen.findByTestId('marketplace-workspaces-button');
+        expect(routerMock.__redirect).not.toHaveBeenCalledWith('/discover');
+    });
+
+    it('still forwards the bare link itself', async () => {
+        routerMock.__set({ pathname: '/customer' });
+        await renderStubScreen(<CustomerLayout />, { session: CONSUMER_SESSION });
+
+        await waitFor(() => {
+            expect(routerMock.__redirect).toHaveBeenCalledWith('/discover');
+        });
+    });
+});
+
 describe('the customer area for a view-only shopper', () => {
     it('sends a business buyer from the basket back to the shop', async () => {
         routerMock.__set({ pathname: '/customer/cart' });

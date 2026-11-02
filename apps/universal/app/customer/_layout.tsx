@@ -1,4 +1,5 @@
 import { Redirect, Slot, useGlobalSearchParams, usePathname } from 'expo-router';
+import { useState } from 'react';
 
 import { B2B_CART_CHANNEL_CODE } from '../../src/data/business-hooks.ts';
 import { isPathAvailable } from '../../src/features/availability.ts';
@@ -32,10 +33,28 @@ function isWholesaleCheckoutPath(pathname: string, channel: string | undefined):
  * The bare `/customer` forwards to `/discover` here too, ahead of the gate. `customer/index.tsx`
  * says the same, but it renders inside `ConsumerShell`, whose gate sent a signed-out visitor with an
  * old link to sign-in before the index ever mounted — the one home is for everybody.
+ *
+ * ## The router reports the bare area while the session restores
+ *
+ * Loading or refreshing `/customer/account` used to end on `/discover`, for all of the area's links.
+ * The gate holds `<Slot />` back until the session is known, and the root state drops the nested
+ * state of a route whose navigator has not mounted (`useOnGetState`), so for that stretch
+ * `usePathname()` reads `/customer` and its params are gone. The nested state itself survives, so
+ * the page comes back once the gate opens: every other area recovers unnoticed. Only this layout
+ * acts on the pathname meanwhile.
+ *
+ * So a bare `/customer` is read as the address this layout arrived on. If that was bare too, it
+ * really is the bare link. If not, either the gate is still closed, or somebody navigated here in
+ * the app, where `customer/index.tsx` forwards them. The channel is lost the same way, and a
+ * business buyer refreshing the wholesale checkout needs it.
  */
 export default function CustomerLayout() {
-    const pathname = usePathname();
-    const { channel } = useGlobalSearchParams<{ channel?: string }>();
+    const reportedPathname = usePathname();
+    const { channel: reportedChannel } = useGlobalSearchParams<{ channel?: string }>();
+    const [arrival] = useState({ pathname: reportedPathname, channel: reportedChannel });
+    const bare = reportedPathname === '/customer' || reportedPathname === '/customer/';
+    const pathname = bare ? arrival.pathname : reportedPathname;
+    const channel = bare ? arrival.channel : reportedChannel;
     const { me } = useSession();
     // Staff and business buyers view the shop and own nothing in it — no basket, account, orders or
     // subscriptions — so every page here sends them back to the shop's home (`shop-view-only.tsx`).
