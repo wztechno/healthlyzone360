@@ -46,7 +46,7 @@ const MEMBERSHIP_TONE: Readonly<Record<MembershipStatus, BadgeTone>> = {
  * │ (LH)  Layla Haddad                                           │
  * │       layla@example.com   ● Email verified                   │
  * └──────────────────────────────────────────────────────────────┘
- * Account               — name, email, language, time zone, since
+ * Account               — name, email, language, since
  * Sign-in and security  — password, two-factor, devices
  * Current context       — organisation, branch, roles; permissions folded
  * Your organisations    — one row each, the current one marked
@@ -158,24 +158,19 @@ export function ProfileScreen() {
                             value: language,
                             testID: 'profile-locale',
                         },
-                        {
-                            key: 'time-zone',
-                            label: t('auth:profile.timeZone'),
-                            value: profile.timeZone ?? t('auth:profile.none'),
-                            testID: 'profile-time-zone',
-                        },
-                        {
-                            key: 'member-since',
-                            label: t('auth:profile.memberSince'),
-                            // `GET /api/v1/me` does not expose an account creation date, so in `api`
-                            // mode this arrives empty. Formatting it anyway would print "Invalid
-                            // Date" at people; "none" is the truth (recorded as a backend follow-up).
-                            value:
-                                user.createdAt === ''
-                                    ? t('auth:profile.none')
-                                    : formatter.formatDate(user.createdAt),
-                            testID: 'profile-member-since',
-                        },
+                        // `GET /api/v1/me` carries no creation date yet, so this row waits for one.
+                        // The stored time zone stays off the page: it is UTC for almost everybody,
+                        // nobody can change it here, and no screen reads it.
+                        ...(user.createdAt === ''
+                            ? []
+                            : [
+                                  {
+                                      key: 'member-since',
+                                      label: t('auth:profile.memberSince'),
+                                      value: formatter.formatDate(user.createdAt),
+                                      testID: 'profile-member-since',
+                                  },
+                              ]),
                     ]}
                 />
             </Card>

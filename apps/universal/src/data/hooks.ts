@@ -280,6 +280,28 @@ export function useConfirmPasswordMutation(): UseMutationResult<
     });
 }
 
+/**
+ * Every session but this one, as one press. It is the same `DELETE` per session rather than a new
+ * endpoint: a step-up refusal comes back on the first, and a retry only finds what is left.
+ */
+export function useRevokeOtherDevicesMutation(): UseMutationResult<
+    void,
+    unknown,
+    readonly DeviceId[]
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (deviceIds: readonly DeviceId[]) => {
+            await Promise.all(deviceIds.map((id) => repositories.devices.revoke(id)));
+        },
+        onSettled: async () => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.devices() });
+        },
+    });
+}
+
 export function useRevokeDeviceMutation(): UseMutationResult<void, unknown, DeviceId> {
     const repositories = useRepositories();
     const queryClient = useQueryClient();

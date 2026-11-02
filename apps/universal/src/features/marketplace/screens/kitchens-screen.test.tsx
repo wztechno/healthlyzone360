@@ -579,6 +579,12 @@ describe('kitchen-finder', () => {
         expect(narrowByDiets([ALPHA, BRAVO, CHARLIE], ['high_protein', 'vegan'])).toEqual([BRAVO]);
     });
 
+    it('drops Top rated from a directory nobody has rated', () => {
+        expect(parseKitchenSort(undefined, [], false)).toBe('name');
+        expect(parseKitchenSort('rating', [], false)).toBe('name');
+        expect(parseKitchenSort('rating', [], true)).toBe('rating');
+    });
+
     it('offers best match only to a profile, and reads only known diet codes from it', () => {
         expect(parseKitchenSort(undefined)).toBe('rating');
         expect(parseKitchenSort('match')).toBe('rating');

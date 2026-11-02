@@ -1309,7 +1309,6 @@
             "sheetTitle": "Technical sheet",
             "sheetSubtitle": "What this batch stood on when it was confirmed. It does not move when a price is published or the recipe is edited.",
             "sheetBasisHeading": "What it stood on",
-            "sheetVersionLabel": "Recipe version",
             "sheetPublicationLabel": "Price week",
             "sheetPublicationNone": "No weekly prices were standing.",
             "sheetNutritionHeading": "Nutrition",
@@ -1395,7 +1394,8 @@
             "expiryFromRecipe": "Made on plus {{days}}, from the recipe's shelf life.",
             "scanLabel": "Scan or type a lot",
             "scanNoMatch": "No batch carries that code",
-            "recipeNoOutput": "{{name}} makes no produced item, so a batch has nothing to put on the shelf. Set what it produces in the recipe editor first."
+            "recipeNoOutput": "{{name}} makes no produced item, so a batch has nothing to put on the shelf. Set what it produces in the recipe editor first.",
+            "sheetPublicationSet": "Weekly prices were standing."
         },
         "qc": {
             "title": "Quality control",

@@ -331,16 +331,27 @@ export function HomePopular({ testID, meals, onAdd }: HomePopularProps) {
         return diet === undefined ? meal.kitchenName : t(`marketplace:diets.${diet}`);
     };
 
+    // "Top rated" over meals nobody has rated would be a claim with nothing behind it.
+    const rated = meals.popular.some((meal) => meal.rating !== null);
+
     return (
         <View testID={`${testID}-popular`} className="mt-11 flex-col">
             <HomeSectionHeader
                 testID={`${testID}-popular-header`}
-                title={t('marketplace:discover.popularTitle')}
-                trailing={
-                    <Eyebrow testID={`${testID}-popular-header-meta`}>
-                        {t('marketplace:discover.popularMeta')}
-                    </Eyebrow>
-                }
+                title={t(
+                    rated
+                        ? 'marketplace:discover.popularTitle'
+                        : 'marketplace:discover.popularTitleUnrated',
+                )}
+                {...(rated
+                    ? {
+                          trailing: (
+                              <Eyebrow testID={`${testID}-popular-header-meta`}>
+                                  {t('marketplace:discover.popularMeta')}
+                              </Eyebrow>
+                          ),
+                      }
+                    : {})}
             />
             <View className="mt-5">
                 {meals.query.isPending ? (
@@ -507,7 +518,11 @@ export function HomeClosing({ testID, meals, offer }: HomeClosingProps) {
                 >
                     <Eyebrow testID={`${testID}-rail-title`}>
                         {rail.orderedName === null
-                            ? t('marketplace:discover.railTitle')
+                            ? t(
+                                  rail.meals.some((meal) => meal.rating !== null)
+                                      ? 'marketplace:discover.railTitle'
+                                      : 'marketplace:discover.railTitleUnrated',
+                              )
                             : t('marketplace:discover.becauseYouOrdered', {
                                   meal: rail.orderedName,
                               })}

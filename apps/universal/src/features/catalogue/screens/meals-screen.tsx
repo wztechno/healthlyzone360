@@ -280,6 +280,7 @@ export function MealsScreen() {
                     kitchens={kitchenItems}
                     currency={PRICE_CURRENCY}
                     sort={sort}
+                    hasRatings={fetched.some((meal) => meal.rating !== null)}
                     onSort={(next) => {
                         filters.select('sort', next === 'relevance' ? null : next);
                     }}

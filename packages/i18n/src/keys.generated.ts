@@ -5280,11 +5280,11 @@ export interface NamespaceKeys {
     | 'ops.production.sheetNutritionHeading'
     | 'ops.production.sheetPublicationLabel'
     | 'ops.production.sheetPublicationNone'
+    | 'ops.production.sheetPublicationSet'
     | 'ops.production.sheetSubtitle'
     | 'ops.production.sheetTitle'
     | 'ops.production.sheetUnconfirmedBody'
     | 'ops.production.sheetUnconfirmedTitle'
-    | 'ops.production.sheetVersionLabel'
     | 'ops.production.shortNone'
     | 'ops.production.shortSome'
     | 'ops.production.start'
@@ -14810,11 +14810,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.sheetNutritionHeading',
   'kitchen:ops.production.sheetPublicationLabel',
   'kitchen:ops.production.sheetPublicationNone',
+  'kitchen:ops.production.sheetPublicationSet',
   'kitchen:ops.production.sheetSubtitle',
   'kitchen:ops.production.sheetTitle',
   'kitchen:ops.production.sheetUnconfirmedBody',
   'kitchen:ops.production.sheetUnconfirmedTitle',
-  'kitchen:ops.production.sheetVersionLabel',
   'kitchen:ops.production.shortNone',
   'kitchen:ops.production.shortSome',
   'kitchen:ops.production.start',

@@ -99,7 +99,9 @@
         "offerFallbackTitle": "ابنِ أسبوعك من مطابخ المتجر",
         "offerFallbackBody": "املأ أسبوعك من أي مطبخ في المتجر. كل طبق يحمل طاقته وبروتينه، فيكتمل حساب الأسبوع قبل أن تطلب.",
         "offerFallbackAction": "ابدأ أسبوعًا",
-        "becauseYouOrdered": "لأنك طلبت {{meal}}"
+        "becauseYouOrdered": "لأنك طلبت {{meal}}",
+        "popularTitleUnrated": "على القائمة اليوم",
+        "railTitleUnrated": "أطباق أخرى لتجربتها"
     },
     "kitchens": {
         "title": "المطابخ",

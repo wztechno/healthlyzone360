@@ -83,7 +83,9 @@
         "offerFallbackTitle": "Build a week from the kitchens on the marketplace",
         "offerFallbackBody": "Fill a week from any kitchen on the marketplace. Every dish carries its energy and protein, so the week adds up before you order.",
         "offerFallbackAction": "Start a week",
-        "becauseYouOrdered": "Because you ordered {{meal}}"
+        "becauseYouOrdered": "Because you ordered {{meal}}",
+        "popularTitleUnrated": "On the menu today",
+        "railTitleUnrated": "More to try"
     },
     "kitchens": {
         "title": "Kitchens",
