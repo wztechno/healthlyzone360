@@ -667,13 +667,16 @@ describe('KitchenProfileScreen', () => {
     }
 
     it('reads a kitchen by its slug rather than loading forever', async () => {
+        const bySlug = jest.fn(async () => Promise.resolve(VERDANT));
+
         await renderStubScreen(<KitchenProfileScreen kitchenId="verdant-kitchen" />, {
-            repositories: { marketplace: { getKitchen, listMeals } },
+            repositories: { marketplace: { getKitchen: bySlug, listMeals } },
         });
 
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-hero-title')).toHaveTextContent('Verdant Kitchen');
         });
+        expect(bySlug).toHaveBeenCalledWith('verdant-kitchen');
     });
 
     it('says when a timed pause ends, and says nothing when there is none', async () => {
