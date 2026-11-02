@@ -204,6 +204,8 @@ final readonly class DishMargins
      */
     private function dropStale(Collection $existing, array $kept): void
     {
-        $existing->except($kept)->each(static fn (DishMargin $row): ?bool => $row->delete());
+        // toBase(): an Eloquent collection's except() reads model keys, and would
+        // match none of these and delete every row.
+        $existing->toBase()->except($kept)->each(static fn (DishMargin $row): ?bool => $row->delete());
     }
 }

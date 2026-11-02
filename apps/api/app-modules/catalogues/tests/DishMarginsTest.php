@@ -43,6 +43,7 @@ beforeEach(function (): void {
     $this->withoutDefer();
 
     $this->tenant = PricingWorld::kitchen('margins@kitchen.test', ['recipe.view_costs_organisation']);
+    $this->tenant->role->forceFill(['code' => 'organisation_owner'])->save();
     $this->orgId = (string) $this->tenant->organisation->getKey();
     $this->actingAs($this->tenant->user);
 
