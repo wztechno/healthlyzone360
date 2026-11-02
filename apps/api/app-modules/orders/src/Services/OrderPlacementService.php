@@ -34,6 +34,8 @@ use Healthy360\Orders\Models\OrderLine;
 use Healthy360\Organisations\Services\OrganisationTradingGuard;
 use Healthy360\Pricing\Contracts\BuyerAgreementLookup;
 use Healthy360\ReferenceData\Models\DeliveryArea;
+use Healthy360\Support\Alerts\StaffAlerts;
+use Healthy360\Support\Alerts\StaffAlertType;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\TenantContext;
@@ -171,6 +173,17 @@ use Illuminate\Support\Facades\DB;
  * composed caller places on a private channel — a corporate standing order is
  * the obvious one — the alternative would be a wholesale order placed without a
  * minimum-order check, discovered in a reconciliation months later.
+ *
+ * ## Allergies reach the cook
+ *
+ * `persist()` snapshots every allergy the buyer declared onto the order, so a
+ * customer, desk, subscription or quotation order all carry it and a walk-in can
+ * carry a note. A conflict with what was declared is refused until acknowledged:
+ * always online, and on the composed path only when staff placed it. Generation
+ * has already chosen safe meals, and a quotation was agreed in writing.
+ *
+ * Managers are alerted once for any order with a snapshot or a note, except
+ * subscription generation, whose orders would alert every day.
  */
 final readonly class OrderPlacementService
 {
@@ -193,6 +206,7 @@ final readonly class OrderPlacementService
         private BuyerAllergenCheck $allergenCheck,
         private OrderStockConsumption $stock,
         private OrderAmendability $amendability,
+        private StaffAlerts $alerts,
     ) {}
 
     /**
@@ -294,6 +308,8 @@ final readonly class OrderPlacementService
             'fulfilment_type' => $placement->fulfilmentType->value,
             'placed_on_behalf_by' => $placement->placedOnBehalfBy,
             'payment_method' => $placement->paymentMethod->value,
+            'allergy_note' => $placement->allergyNote,
+            'allergen_conflicts_acknowledged' => $placement->allergenConflictsAcknowledged,
             'lines' => (string) json_encode(array_map(
                 static fn (ComposedLine $line): array => [
                     $line->catalogueItemId,
@@ -379,6 +395,16 @@ final readonly class OrderPlacementService
             $reasons = [...$reasons, ...$this->eligibility->outstanding($account)];
         }
 
+        // The other half of having a person at the desk: the same check the
+        // customer's own checkout meets, cleared by the cashier saying the
+        // customer was told.
+        if ($placement->placedOnBehalfBy !== null && $account !== null && ! $placement->allergenConflictsAcknowledged) {
+            $reasons = [...$reasons, ...$this->allergenReasons($account, array_map(
+                static fn (ComposedLine $line): string => $line->catalogueItemId,
+                $placement->lines,
+            ))];
+        }
+
         $effectiveDate = $placement->requestedDate;
         $zone = null;
 
@@ -455,6 +481,10 @@ final readonly class OrderPlacementService
             placedOnBehalfBy: $placement->placedOnBehalfBy,
             b2bAgreementId: $agreement['agreement_id'] ?? null,
             priceListId: $agreement['price_list_id'] ?? null,
+            allergyNote: $placement->allergyNote,
+            allergenConflictsAcknowledged: $placement->allergenConflictsAcknowledged,
+            // False only for subscription generation, which would alert daily.
+            alertsManagers: $placement->enforceWindowOffer,
         );
 
         $this->audit->record(
@@ -612,15 +642,10 @@ final readonly class OrderPlacementService
         // Read at placement, not trusted from the preview: allergies changed
         // on another device since the basket was filled are caught here.
         if (! $allergenConflictsAcknowledged) {
-            foreach ($this->allergenCheck->conflicts($account, array_map(static fn (CartItem $line): string => $line->catalogue_item_id, $lines)) as $conflict) {
-                // `cause` carries the rule's own word for it, since `reason` names the refusal.
-                $reasons[] = [
-                    'reason' => 'allergen_conflict',
-                    'catalogue_item_id' => $conflict['catalogue_item_id'],
-                    'cause' => $conflict['reason'],
-                    'allergen_codes' => $conflict['allergen_codes'],
-                ];
-            }
+            $reasons = [...$reasons, ...$this->allergenReasons($account, array_map(
+                static fn (CartItem $line): string => $line->catalogue_item_id,
+                $lines,
+            ))];
         }
 
         $effectiveDate = $this->effectiveDate($lines, $requestedDate, $reasons);
@@ -691,6 +716,7 @@ final readonly class OrderPlacementService
             paymentMethod: PaymentMethod::CashOnDelivery,
             b2bAgreementId: $agreement['agreement_id'] ?? null,
             priceListId: $agreement['price_list_id'] ?? null,
+            allergenConflictsAcknowledged: $allergenConflictsAcknowledged,
             // Same transaction, deliberately. An order beside a still-open
             // basket is how a customer orders the same food twice.
             within: fn (Order $order): mixed => $this->carts->markConverted($cart, (string) $order->getKey()),
@@ -753,6 +779,10 @@ final readonly class OrderPlacementService
      * basket path uses it to mark the cart converted; the composed path passes
      * nothing, because there is no basket to convert.
      *
+     * **The allergy snapshot is here so no path can miss it**, and it follows the
+     * lines because it names the ones each allergy conflicts with. `StaffAlerts`
+     * is safe inside this transaction: it cannot refuse the order it is about.
+     *
      * @param  CustomerAccount|null  $account  null only on a counter sale for somebody the desk did not name
      * @param  CustomerAddress|null  $address  null for pickup and counter; the whole snapshot block turns on it
      * @param  list<array<string, mixed>>  $snapshots
@@ -776,6 +806,9 @@ final readonly class OrderPlacementService
         ?callable $within = null,
         ?string $b2bAgreementId = null,
         ?string $priceListId = null,
+        ?string $allergyNote = null,
+        bool $allergenConflictsAcknowledged = false,
+        bool $alertsManagers = true,
     ): Order {
         $subtotal = array_sum(array_map(static fn (array $line): int => $line['line_total_minor'], $snapshots));
         $fee = $zone instanceof DeliveryZone ? $zone->delivery_fee_minor : null;
@@ -784,6 +817,7 @@ final readonly class OrderPlacementService
             $account, $address, $organisationId, $salesChannelId, $branchId, $currencyCode,
             $snapshots, $zone, $fee, $subtotal, $deliveryWindowCode, $effectiveDate, $now, $within,
             $b2bAgreementId, $priceListId, $fulfilmentType, $paymentMethod, $placedOnBehalfBy,
+            $allergyNote, $allergenConflictsAcknowledged, $alertsManagers,
         ): Order {
             $order = new Order;
             $order->order_number = $this->numbers->next();
@@ -815,19 +849,113 @@ final readonly class OrderPlacementService
             $order->price_list_id = $priceListId;
             $order->placed_at = $now;
             $order->created_by = $this->context->userId();
+            $order->allergy_note = $allergyNote;
             $order->lock_version = 0;
             $order->save();
 
-            foreach ($snapshots as $snapshot) {
-                $this->writeLine($order, $snapshot);
-            }
+            $lines = array_map(fn (array $snapshot): OrderLine => $this->writeLine($order, $snapshot), $snapshots);
+
+            $this->snapshotAllergy($order, $account, $lines, $allergenConflictsAcknowledged, $placedOnBehalfBy, $now);
+            $order->save();
 
             if ($within !== null) {
                 $within($order);
             }
 
+            if ($alertsManagers) {
+                $this->alertAllergy($order);
+            }
+
             return $order;
         });
+    }
+
+    /**
+     * `allergen_conflict`, one per conflicting meal.
+     *
+     * Read at placement, not trusted from a preview: allergies changed on another
+     * device since the basket was filled are caught here. `cause` carries the
+     * rule's own word for it, since `reason` names the refusal.
+     *
+     * @param  list<string>  $catalogueItemIds
+     * @return list<array<string, mixed>>
+     */
+    private function allergenReasons(CustomerAccount $account, array $catalogueItemIds): array
+    {
+        return array_map(static fn (array $conflict): array => [
+            'reason' => 'allergen_conflict',
+            'catalogue_item_id' => $conflict['catalogue_item_id'],
+            'cause' => $conflict['reason'],
+            'allergen_codes' => $conflict['allergen_codes'],
+        ], $this->allergenCheck->conflicts($account, $catalogueItemIds));
+    }
+
+    /**
+     * Copy the buyer's declared allergies onto the order, each with the lines it
+     * conflicts with, and record who accepted a conflict.
+     *
+     * Every allergy, not only conflicts: the cook should know about a severe one
+     * even when the check found no match. An `unassessed` meal conflicts with all
+     * of them, because nothing says what it holds. An `excluded` one names no
+     * allergy, so it reaches only the acknowledgement.
+     *
+     * Asked only when there is something to find, so a customer who declared
+     * nothing costs subscription generation no per-line check.
+     *
+     * @param  list<OrderLine>  $lines
+     * @param  string|null  $acknowledgedBy  the cashier; null when the customer acknowledged it
+     */
+    private function snapshotAllergy(
+        Order $order,
+        ?CustomerAccount $account,
+        array $lines,
+        bool $acknowledged,
+        ?string $acknowledgedBy,
+        CarbonImmutable $now,
+    ): void {
+        $declared = $account === null ? [] : $this->allergenCheck->declared($account);
+
+        $conflicts = $account !== null && ($declared !== [] || $acknowledged)
+            ? $this->allergenCheck->conflicts($account, array_map(static fn (OrderLine $line): string => $line->catalogue_item_id, $lines))
+            : [];
+
+        $order->allergy_snapshot = $declared === [] ? null : array_map(static function (array $allergy) use ($conflicts, $lines): array {
+            $itemIds = [];
+
+            foreach ($conflicts as $conflict) {
+                if ($conflict['reason'] === 'unassessed' || in_array($allergy['allergen_code'], $conflict['allergen_codes'], true)) {
+                    $itemIds[] = $conflict['catalogue_item_id'];
+                }
+            }
+
+            return [...$allergy, 'conflicts_with_line' => array_values(array_map(
+                static fn (OrderLine $line): string => (string) $line->getKey(),
+                array_filter($lines, static fn (OrderLine $line): bool => in_array($line->catalogue_item_id, $itemIds, true)),
+            ))];
+        }, $declared);
+
+        $accepted = $acknowledged && $conflicts !== [];
+
+        $order->allergy_acknowledged_at = $accepted ? $now : null;
+        $order->allergy_acknowledged_by = $accepted ? $acknowledgedBy : null;
+    }
+
+    /**
+     * Tell the managers about an order with an allergy on it. The allergens stay
+     * off the alert, which outlives the customer; the link shows the rest.
+     */
+    private function alertAllergy(Order $order): void
+    {
+        if ($order->allergy_snapshot === null && $order->allergy_note === null) {
+            return;
+        }
+
+        $this->alerts->send(StaffAlertType::AllergyOrder, $order->organisation_id, (string) $order->getKey(), [
+            'order_number' => $order->order_number,
+            'total_minor' => $order->total_minor,
+            'currency_code' => $order->currency_code,
+            'severe' => $order->hasSevereAllergy(),
+        ]);
     }
 
     /**
@@ -910,6 +1038,10 @@ final readonly class OrderPlacementService
      *    address; the window gate for a new address or slot; the schedule gate
      *    for a new day or slot. An edit to a quantity must not be refused because
      *    the slot it already holds has since closed.
+     *  * **The allergens are re-checked whatever changed**, against the customer's
+     *    declarations as they stand now, and the snapshot is refreshed with them.
+     *    An earlier acknowledgement covered a different basket, so a conflict that
+     *    remains is refused until acknowledged again.
      *  * **The cut-off is staff's to override**, and only the cut-off: a day in
      *    the past or a day the branch is closed is still refused. Overriding it
      *    is recorded on the audit row.
@@ -1053,6 +1185,13 @@ final readonly class OrderPlacementService
             $reasons = [...$reasons, ...$refused];
         }
 
+        if ($account !== null && ! $draft->allergenConflictsAcknowledged) {
+            $reasons = [...$reasons, ...$this->allergenReasons($account, array_map(
+                static fn (ComposedLine $line): string => $line->catalogueItemId,
+                $draft->lines,
+            ))];
+        }
+
         $channel = SalesChannel::withoutTenancy()->whereKey($locked->sales_channel_id)->first();
 
         // A line the order already holds for this day keeps its place. The
@@ -1168,8 +1307,23 @@ final readonly class OrderPlacementService
             $this->destinationColumns($locked, $address, $zone);
         }
 
+        if ($draft->allergyNote !== null) {
+            $locked->allergy_note = $draft->allergyNote === '' ? null : $draft->allergyNote;
+        }
+
+        $this->snapshotAllergy(
+            $locked,
+            $account,
+            $locked->lines()->get()->all(),
+            $draft->allergenConflictsAcknowledged,
+            $this->context->userId(),
+            $now,
+        );
+
         $locked->lock_version = $ifMatch + 1;
         $locked->save();
+
+        $this->alertAllergy($locked);
 
         // No key may contain "code": the audit redactor matches by substring
         // and would blank `window_code` — hence `window`.

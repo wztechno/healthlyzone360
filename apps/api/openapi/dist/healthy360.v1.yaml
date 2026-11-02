@@ -40958,6 +40958,7 @@ components:
         - placed_on_behalf_by
         - lock_version
         - amendable
+        - allergy
         - line_count
         - lines
         - plan_day
@@ -41083,6 +41084,11 @@ components:
         lock_version:
           type: integer
           minimum: 0
+        allergy:
+          oneOf:
+            - $ref: '#/components/schemas/KitchenOrderAllergy'
+            - type: 'null'
+          description: Null when nothing was declared and nothing noted.
         amendable:
           type: boolean
           description: |
@@ -41372,6 +41378,69 @@ components:
           additionalProperties: false
         meta:
           $ref: '#/components/schemas/Meta'
+    KitchenOrderAllergy:
+      type: object
+      required:
+        - severe
+        - items
+        - note
+        - acknowledged_at
+      description: |
+        What the kitchen must know about who is eating. Health data: reading it
+        is recorded with a purpose of use. Served to whoever may open the order,
+        and never on a customer or guest shape.
+      properties:
+        severe:
+          type: boolean
+          description: Any declared allergy has the severity `anaphylaxis`.
+        items:
+          type: array
+          description: |
+            Every allergy declared at placement, conflicting with anything or
+            not. Empty for a walk-in with only a note. Refreshed when the order
+            is edited.
+          items:
+            $ref: '#/components/schemas/KitchenOrderAllergyItem'
+        note:
+          type:
+            - string
+            - 'null'
+          description: Free text taken at the desk.
+        acknowledged_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: When a conflict was seen and the order went ahead anyway.
+      additionalProperties: false
+    KitchenOrderAllergyItem:
+      type: object
+      required:
+        - allergen_code
+        - severity
+        - notes
+        - conflicts_with_line
+      properties:
+        allergen_code:
+          type: string
+        severity:
+          type: string
+          enum:
+            - avoidance
+            - intolerance
+            - allergy
+            - anaphylaxis
+        notes:
+          type:
+            - string
+            - 'null'
+          description: The customer's own words.
+        conflicts_with_line:
+          type: array
+          description: The ids of this order's lines that conflict with this allergy.
+          items:
+            $ref: '#/components/schemas/Uuid'
+      additionalProperties: false
     OrderDeskWindow:
       type: string
       enum:
@@ -41775,6 +41844,18 @@ components:
             A new intended method. It must suit how the order leaves —
             `cash_on_delivery` on a delivery, `cash_at_counter` otherwise, `wish`
             on either — or `422` on this field.
+        allergy_note:
+          type:
+            - string
+            - 'null'
+          maxLength: 500
+          description: A new allergy note. Absent keeps the stored one; empty or null clears it.
+        acknowledge_allergen_conflicts:
+          type: boolean
+          description: |
+            The customer was told about the basket's allergen conflicts. Every
+            edit re-checks them, so without this a conflict that remains is
+            refused `allergen_conflict`, whatever an earlier edit acknowledged.
     QuoteOrderDeskRequest:
       allOf:
         - $ref: '#/components/schemas/OrderDeskSaleBase'
@@ -41818,6 +41899,19 @@ components:
                 member of this organisation, the rule `POST /delivery/jobs/{job}/
                 assign` applies. Requires `order.manage_organisation`. Omit it to
                 leave the run in the unassigned pool.
+            allergy_note:
+              type:
+                - string
+                - 'null'
+              maxLength: 500
+              description: Any allergy the customer mentioned. How a walk-in with no profile is covered.
+            acknowledge_allergen_conflicts:
+              type: boolean
+              description: |
+                The customer was told about the basket's allergen conflicts
+                (`allergen_conflicts` on the quote). Absent or false, a named
+                customer's conflict is refused `allergen_conflict`. The caller
+                is recorded as who acknowledged it.
           additionalProperties: false
           description: |
             The quote's body plus two fields, and the two do different jobs.
@@ -42013,6 +42107,7 @@ components:
         - refusals
         - quotable
         - offered_window_codes
+        - allergen_conflicts
       description: |
         What this basket would come to, and everything standing in the way of it.
 
@@ -42076,6 +42171,15 @@ components:
             codes that zone offers, in display order — the desk's slot picker
             shows only these. Null otherwise (pickup, counter, no address, an
             unserved area).
+        allergen_conflicts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AllergenConflict'
+          description: |
+            The basket's meals that clash with the named customer's declared
+            allergies, one per meal. **Not a refusal and no part of `quotable`:**
+            the sale goes ahead once the agent says the customer was told
+            (`acknowledge_allergen_conflicts`).
       additionalProperties: false
     OrderDeskQuoteEnvelope:
       type: object

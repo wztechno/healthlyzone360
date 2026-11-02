@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Healthy360\Subscriptions\Services;
 
 use Healthy360\Customers\Models\CustomerAccount;
+use Healthy360\Customers\Models\CustomerAllergenDeclaration;
+use Healthy360\Customers\Models\CustomerDietaryProfile;
 use Healthy360\Orders\Contracts\BuyerAllergenCheck;
 use Healthy360\Subscriptions\Contracts\MealSafety;
 
@@ -46,5 +48,36 @@ final readonly class BuyerAllergenCheckAdapter implements BuyerAllergenCheck
         }
 
         return $conflicts;
+    }
+
+    /**
+     * Read directly rather than through `DietaryProfileReader`, for the reason
+     * `MealSafetyService` gives: this is the platform feeding the customer on
+     * their own instruction. What staff later read of the copy is recorded by
+     * `OrderPresenter`.
+     *
+     * @return list<array{allergen_code: string, severity: string, notes: string|null}>
+     */
+    public function declared(CustomerAccount $account): array
+    {
+        $profileId = CustomerDietaryProfile::query()
+            ->where('customer_account_id', $account->getKey())
+            ->value('id');
+
+        if ($profileId === null) {
+            return [];
+        }
+
+        return CustomerAllergenDeclaration::query()
+            ->where('customer_dietary_profile_id', $profileId)
+            ->orderBy('allergen_code')
+            ->get()
+            ->map(static fn (CustomerAllergenDeclaration $declaration): array => [
+                'allergen_code' => $declaration->allergen_code,
+                'severity' => $declaration->severity->value,
+                'notes' => $declaration->notes,
+            ])
+            ->values()
+            ->all();
     }
 }

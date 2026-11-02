@@ -24,4 +24,12 @@ final class NullBuyerAllergenCheck implements BuyerAllergenCheck
     {
         return [];
     }
+
+    /**
+     * @return list<array{allergen_code: string, severity: string, notes: string|null}>
+     */
+    public function declared(CustomerAccount $account): array
+    {
+        return [];
+    }
 }

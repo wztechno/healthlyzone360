@@ -7,6 +7,7 @@ namespace Healthy360\Orders\Models;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Customers\Enums\AllergenSeverity;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Orders\Database\Factories\OrderFactory;
@@ -43,6 +44,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * The amounts are `Internal`, not `Confidential`. What a customer was charged
  * is printed on their own receipt; what the food cost the kitchen is the
  * confidential figure, and no column here carries it.
+ *
+ * The allergy columns are `SpecialCategory`: health data, so a staff read records
+ * a purpose of use (`OrderPresenter::kitchen()`) and closing an account clears
+ * them (`OrderSnapshotRedaction`).
  *
  * @property string $id
  * @property string $order_number
@@ -83,6 +88,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CancellationReason|null $cancellation_reason
  * @property string|null $created_by
  * @property string|null $placed_on_behalf_by
+ * @property list<array{allergen_code: string, severity: string, notes: string|null, conflicts_with_line: list<string>}>|null $allergy_snapshot every allergy declared at placement; null when none was
+ * @property string|null $allergy_note free text taken at the desk
+ * @property CarbonImmutable|null $allergy_acknowledged_at
+ * @property string|null $allergy_acknowledged_by the cashier; null when the customer acknowledged it
  * @property int $lock_version
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
@@ -93,6 +102,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Classified(DataClassification::Confidential, 'delivery_label', 'delivery_line_one', 'delivery_line_two', 'delivery_city', 'delivery_building', 'delivery_floor', 'delivery_apartment', 'delivery_directions')]
 #[Classified(DataClassification::Internal, 'order_number', 'subtotal_minor', 'delivery_fee_minor', 'total_minor', 'status', 'fulfilment_type', 'delivery_window_code', 'requested_delivery_date')]
 #[Classified(DataClassification::Public, 'delivery_area_name_en', 'delivery_area_name_ar')]
+#[Classified(DataClassification::SpecialCategory, 'allergy_snapshot', 'allergy_note', 'allergy_acknowledged_at', 'allergy_acknowledged_by')]
 class Order extends BaseModel
 {
     /** @use HasFactory<OrderFactory> */
@@ -138,6 +148,8 @@ class Order extends BaseModel
             'ready_at' => 'immutable_datetime',
             'fulfilled_at' => 'immutable_datetime',
             'cancelled_at' => 'immutable_datetime',
+            'allergy_snapshot' => 'array',
+            'allergy_acknowledged_at' => 'immutable_datetime',
             'lock_version' => 'integer',
         ];
     }
@@ -231,5 +243,19 @@ class Order extends BaseModel
     public function isOpen(): bool
     {
         return $this->status->isOpen();
+    }
+
+    /**
+     * Whether anybody on this order described a reaction as life-threatening.
+     */
+    public function hasSevereAllergy(): bool
+    {
+        foreach ($this->allergy_snapshot ?? [] as $allergy) {
+            if ($allergy['severity'] === AllergenSeverity::Anaphylaxis->value) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -8599,6 +8599,10 @@ export type KitchenOrder = {
     placed_on_behalf_by: string | null;
     lock_version: number;
     /**
+     * Null when nothing was declared and nothing noted.
+     */
+    allergy: KitchenOrderAllergy | null;
+    /**
      * Whether the Order Desk may still edit this order
      * (`PATCH /catalogue/order-desk/orders/{order}`): `placed` or
      * `confirmed`, not started, not ready, sold through the desk or the web
@@ -8775,6 +8779,47 @@ export type OrderPaymentReceiptEnvelope = {
         payment: OrderPaymentSummary;
     };
     meta: Meta;
+};
+
+/**
+ * What the kitchen must know about who is eating. Health data: reading it
+ * is recorded with a purpose of use. Served to whoever may open the order,
+ * and never on a customer or guest shape.
+ *
+ */
+export type KitchenOrderAllergy = {
+    /**
+     * Any declared allergy has the severity `anaphylaxis`.
+     */
+    severe: boolean;
+    /**
+     * Every allergy declared at placement, conflicting with anything or
+     * not. Empty for a walk-in with only a note. Refreshed when the order
+     * is edited.
+     *
+     */
+    items: Array<KitchenOrderAllergyItem>;
+    /**
+     * Free text taken at the desk.
+     */
+    note: string | null;
+    /**
+     * When a conflict was seen and the order went ahead anyway.
+     */
+    acknowledged_at: string | null;
+};
+
+export type KitchenOrderAllergyItem = {
+    allergen_code: string;
+    severity: 'avoidance' | 'intolerance' | 'allergy' | 'anaphylaxis';
+    /**
+     * The customer's own words.
+     */
+    notes: string | null;
+    /**
+     * The ids of this order's lines that conflict with this allergy.
+     */
+    conflicts_with_line: Array<Uuid>;
 };
 
 /**
@@ -9069,6 +9114,17 @@ export type AmendOrderDeskOrderRequest = {
      *
      */
     payment_method?: PaymentMethod | null;
+    /**
+     * A new allergy note. Absent keeps the stored one; empty or null clears it.
+     */
+    allergy_note?: string | null;
+    /**
+     * The customer was told about the basket's allergen conflicts. Every
+     * edit re-checks them, so without this a conflict that remains is
+     * refused `allergen_conflict`, whatever an earlier edit acknowledged.
+     *
+     */
+    acknowledge_allergen_conflicts?: boolean;
 };
 
 export type QuoteOrderDeskRequest = OrderDeskSaleBase & {
@@ -9098,6 +9154,18 @@ export type PlaceOrderDeskRequest = OrderDeskSaleBase & {
      *
      */
     driver_user_id?: Uuid | null;
+    /**
+     * Any allergy the customer mentioned. How a walk-in with no profile is covered.
+     */
+    allergy_note?: string | null;
+    /**
+     * The customer was told about the basket's allergen conflicts
+     * (`allergen_conflicts` on the quote). Absent or false, a named
+     * customer's conflict is refused `allergen_conflict`. The caller
+     * is recorded as who acknowledged it.
+     *
+     */
+    acknowledge_allergen_conflicts?: boolean;
 };
 
 /**
@@ -9279,6 +9347,14 @@ export type OrderDeskQuote = {
      *
      */
     offered_window_codes: Array<string> | null;
+    /**
+     * The basket's meals that clash with the named customer's declared
+     * allergies, one per meal. **Not a refusal and no part of `quotable`:**
+     * the sale goes ahead once the agent says the customer was told
+     * (`acknowledge_allergen_conflicts`).
+     *
+     */
+    allergen_conflicts: Array<AllergenConflict>;
 };
 
 export type OrderDeskQuoteEnvelope = {

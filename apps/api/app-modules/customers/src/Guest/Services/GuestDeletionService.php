@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Customers\Guest\Services;
 
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Customers\Closure\Contracts\OrderAnonymisation;
 use Healthy360\Customers\Enums\CustomerAccountStatus;
 use Healthy360\Customers\Enums\CustomerAccountType;
 use Healthy360\Customers\Guest\Enums\SuppressionSource;
@@ -74,11 +75,12 @@ use Throwable;
  * without it the next import silently re-adds the person who asked to be
  * forgotten.
  *
- * **Orders are deliberately not touched.** A guest order is a commercial and tax
- * record with a statutory retention of its own, and the plan's position is that
- * the order keeps its area and city while the identifying columns go. That
- * redaction belongs to the orders module, which may not exist in this tree yet —
- * hence the table-existence guard and the seam below.
+ * **Orders survive, redacted.** A guest order is a commercial and tax record with
+ * a statutory retention of its own, and the plan's position is that the order
+ * keeps its area and city while the identifying columns go. That redaction
+ * belongs to the orders module, through the `OrderAnonymisation` port a closure
+ * uses. It became necessary when orders began carrying a copy of the allergies
+ * this method deletes.
  */
 final class GuestDeletionService
 {
@@ -89,6 +91,7 @@ final class GuestDeletionService
         private readonly MarketingSuppressionRegistry $suppressions,
         private readonly GuestSessionService $sessions,
         private readonly AuditRecorder $audit,
+        private readonly OrderAnonymisation $orders,
     ) {}
 
     /**
@@ -238,6 +241,9 @@ final class GuestDeletionService
                 ->where('customer_account_id', $account->getKey())
                 ->delete();
 
+            // The order's own copy of those allergies, and its address.
+            $this->orders->anonymiseFor((string) $account->getKey());
+
             $sessionsDeleted = GuestSession::query()
                 ->where('customer_account_id', $account->getKey())
                 ->delete();
@@ -282,24 +288,10 @@ final class GuestDeletionService
     }
 
     /**
-     * How many order records this purge deliberately left alone.
+     * How many order records this purge kept, redacted.
      *
-     * **Seam for the integrator (C1 / orders).** A guest order is a commercial
-     * and tax record: the plan's position is that the row survives with its
-     * delivery *area* and *city* — which is what tax is computed on — while the
-     * columns that name a person are redacted by the module that owns them.
-     * That redaction cannot live here without Customers taking a dependency on
-     * Orders and inverting the module graph.
-     *
-     * So this counts and returns, guarded by a table-existence check because the
-     * orders module may not be in the tree yet. When it is, the integrator
-     * should hang a listener or a registry port off `guest.purged` — the same
-     * shape `CatalogueIngredientUsageRegistry` uses for the reverse direction —
-     * and this method becomes its call site.
-     *
-     * @todo C1/integrator: replace the count with a GuestDataPurgeParticipant
-     *       port that the orders module implements, so redaction happens inside
-     *       the same transaction as the rest of the purge.
+     * Guarded by a table-existence check because the orders module may not be in
+     * the tree.
      */
     private function retainedOrderCount(CustomerAccount $account): int
     {

@@ -43,6 +43,10 @@ use Illuminate\Support\Facades\DB;
  * still a join key back to a hash and there is nothing left for it to be
  * useful for.
  *
+ * **The four allergy columns go too**, for a harder reason than an address: they
+ * are health data, the snapshot carries the customer's own notes, and the books
+ * have no use for any of it.
+ *
  * **The marker is conditional now, and that is a constraint rather than a
  * preference.** `delivery_line_one` was NOT NULL when this was written, so it
  * was overwritten with a placeholder rather than emptied: a reader looking at a
@@ -123,6 +127,10 @@ final readonly class OrderSnapshotRedaction implements OrderAnonymisation
                     ->orWhereNotNull('delivery_apartment')
                     ->orWhereNotNull('delivery_directions')
                     ->orWhereNotNull('delivery_contact_point_id')
+                    ->orWhereNotNull('allergy_snapshot')
+                    ->orWhereNotNull('allergy_note')
+                    ->orWhereNotNull('allergy_acknowledged_at')
+                    ->orWhereNotNull('allergy_acknowledged_by')
                     ->orWhere('delivery_line_one', '!=', self::REDACTED);
             })
             ->update([
@@ -134,6 +142,10 @@ final readonly class OrderSnapshotRedaction implements OrderAnonymisation
                 'delivery_apartment' => null,
                 'delivery_directions' => null,
                 'delivery_contact_point_id' => null,
+                'allergy_snapshot' => null,
+                'allergy_note' => null,
+                'allergy_acknowledged_at' => null,
+                'allergy_acknowledged_by' => null,
                 'updated_at' => now(),
             ]);
     }

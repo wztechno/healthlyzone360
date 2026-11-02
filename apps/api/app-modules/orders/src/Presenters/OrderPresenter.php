@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Healthy360\Orders\Presenters;
 
+use Healthy360\Audit\Enums\PurposeOfUse;
+use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Orders\Contracts\OrderPlanDays;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
@@ -11,6 +13,8 @@ use Healthy360\Orders\Models\OrderPaymentReceipt;
 use Healthy360\Orders\Services\OrderAmendability;
 use Healthy360\Orders\Services\OrderWindowNames;
 use Healthy360\Orders\Services\PriceOverride;
+use Healthy360\Support\Enums\DataClassification;
+use Healthy360\Tenancy\TenantContext;
 
 /**
  * The two wire shapes of an order, built separately on purpose.
@@ -60,6 +64,8 @@ use Healthy360\Orders\Services\PriceOverride;
  *   was made, which route to market took the money, and which slice of the
  *   delivery map the address fell into. All three are the kitchen's operating
  *   arrangements; none of them changes anything the customer can do.
+ * * **`allergy`** — what they declared is already theirs on their own profile,
+ *   and the note and the acknowledgement are the kitchen's working record.
  *
  * The **amounts are shown to both**, and that is not an oversight either.
  * `Order` classifies them `Internal` rather than `Confidential` because what
@@ -95,6 +101,8 @@ final class OrderPresenter
         private readonly OrderWindowNames $windows,
         private readonly OrderAmendability $amendability,
         private readonly OrderPlanDays $plans,
+        private readonly AuditRecorder $audit,
+        private readonly TenantContext $context,
     ) {}
 
     /**
@@ -252,6 +260,10 @@ final class OrderPresenter
      * still edit this order. A list passes it in, worked out for the whole page
      * at once; a single order leaves it null and it is asked here.
      *
+     * `allergy` is served to anyone who may open the order, because the cook is
+     * the audience it was written for. It is `SpecialCategory`, so `allergy()`
+     * records the read.
+     *
      * @param  iterable<int, OrderLine>  $lines
      * @param  array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null}|null  $run  the order's delivery run, from `OrderDeliveryRuns`
      * @return array{
@@ -301,6 +313,7 @@ final class OrderPresenter
      *     placed_on_behalf_by: string|null,
      *     lock_version: int,
      *     amendable: bool,
+     *     allergy: array{severe: bool, items: list<array{allergen_code: string, severity: string, notes: string|null, conflicts_with_line: list<string>}>, note: string|null, acknowledged_at: string|null}|null,
      *     line_count: int,
      *     lines: list<array{
      *         id: string,
@@ -404,11 +417,45 @@ final class OrderPresenter
             // Whether the Order Desk may still edit it. The server decides, so
             // the button and the edit it leads to cannot disagree.
             'amendable' => $amendable,
+            'allergy' => $this->allergy($order),
             'line_count' => count($presented),
             'lines' => $presented,
             'plan_day' => $this->planDay((string) $order->getKey(), $held),
             'created_at' => $order->created_at?->toIso8601String(),
             'updated_at' => $order->updated_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * What the kitchen must know about who is eating, or null when nothing was
+     * declared and nothing noted.
+     *
+     * Health data read by staff: `requiresPurposeOfUse()` asks for an access event
+     * stating why, and it is daily rather than per read because this shape is what
+     * the kitchen display polls.
+     *
+     * @return array{severe: bool, items: list<array{allergen_code: string, severity: string, notes: string|null, conflicts_with_line: list<string>}>, note: string|null, acknowledged_at: string|null}|null
+     */
+    private function allergy(Order $order): ?array
+    {
+        if ($order->allergy_snapshot === null && $order->allergy_note === null) {
+            return null;
+        }
+
+        $this->audit->recordAccessDaily(
+            'order.allergy_read',
+            PurposeOfUse::OrderFulfilment,
+            DataClassification::SpecialCategory,
+            $this->context->userId(),
+            'order',
+            (string) $order->getKey(),
+        );
+
+        return [
+            'severe' => $order->hasSevereAllergy(),
+            'items' => $order->allergy_snapshot ?? [],
+            'note' => $order->allergy_note,
+            'acknowledged_at' => $order->allergy_acknowledged_at?->toIso8601String(),
         ];
     }
 

@@ -9,6 +9,7 @@ use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Support\Correlation\CorrelationContext;
 use Healthy360\Support\Enums\DataClassification;
 use Healthy360\Tenancy\TenantContext;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * The single write path for audit events (safe audit-event contract,
@@ -96,6 +97,35 @@ final class AuditRecorder
             ['classification' => $classification->value] + $metadata,
             $purposeOfUse->value,
         );
+    }
+
+    /**
+     * `recordAccess()` at most once a day per reader and subject.
+     *
+     * For a screen that polls. The kitchen display reads every order on its
+     * board four times a minute, and a row per poll would bury the reads the
+     * trail exists to surface; who read this, and on which day, is what it needs.
+     *
+     * ponytail: the key is claimed before the write, so a failed write leaves
+     * that day's read unrecorded. Move this to a unique index if the trail is
+     * ever relied on as a complete count.
+     *
+     * @param  array<string, scalar|list<scalar>|null>  $metadata
+     */
+    public function recordAccessDaily(
+        string $action,
+        PurposeOfUse $purposeOfUse,
+        DataClassification $classification,
+        ?string $actorUserId,
+        string $subjectType,
+        string $subjectId,
+        array $metadata = [],
+    ): void {
+        $key = 'audit-access:'.implode(':', [$action, $actorUserId, $subjectType, $subjectId, now()->toDateString()]);
+
+        if (Cache::add($key, true, now()->addDay())) {
+            $this->recordAccess($action, $purposeOfUse, $classification, $actorUserId, $subjectType, $subjectId, $metadata);
+        }
     }
 
     /**

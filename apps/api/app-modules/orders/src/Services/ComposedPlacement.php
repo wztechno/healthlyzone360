@@ -94,6 +94,12 @@ use Healthy360\Orders\Enums\PaymentMethod;
  * not borrow the first: a quotation naming a slot its zone does not run is still
  * refused `window_not_offered`. Both are read through `keepsAgreedDay()`.
  *
+ * ## `allergyNote` and `allergenConflictsAcknowledged`
+ *
+ * What the desk adds about who is eating. The note is how a walk-in with no
+ * profile is covered. The acknowledgement says the customer was told about a
+ * conflict with what they declared, and `placedOnBehalfBy` is who said so.
+ *
  * `requestedDate` is effectively required for a composed placement: a
  * subscription delivery is for one named day, and the branch cut-off cannot be
  * asked about a day nobody named. It is nullable only because the type mirrors
@@ -108,6 +114,7 @@ final readonly class ComposedPlacement
      * @param  string|null  $placedOnBehalfBy  the staff `users` id; non-null IS the staff marker
      * @param  bool  $enforceWindowOffer  false only for subscription generation
      * @param  bool  $agreedInWriting  true only for an accepted quotation
+     * @param  bool  $allergenConflictsAcknowledged  the desk told the customer about the basket's allergen conflicts
      */
     public function __construct(
         public ?CustomerAccount $account,
@@ -124,6 +131,8 @@ final readonly class ComposedPlacement
         public PaymentMethod $paymentMethod = PaymentMethod::CashOnDelivery,
         public bool $enforceWindowOffer = true,
         public bool $agreedInWriting = false,
+        public ?string $allergyNote = null,
+        public bool $allergenConflictsAcknowledged = false,
     ) {}
 
     /**

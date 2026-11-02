@@ -119,6 +119,10 @@ class PlaceOrderDeskRequest extends FormRequest
             'customer_address_id' => ['nullable', 'uuid'],
             'requested_delivery_date' => ['nullable', 'date_format:Y-m-d'],
             'delivery_window_code' => ['nullable', 'string', 'max:40'],
+            // How a walk-in with no profile is covered, and the cashier saying
+            // the customer was told about a conflict with their allergies.
+            'allergy_note' => ['nullable', 'string', 'max:500'],
+            'acknowledge_allergen_conflicts' => ['sometimes', 'boolean'],
             // The driver to hand the run to, on a delivery only: a pickup or a
             // counter sale has nowhere to be driven to, so naming one is a
             // belief about the order that is not true of it. Who may be named
@@ -198,7 +202,9 @@ class PlaceOrderDeskRequest extends FormRequest
      *     customer_address_id: string|null,
      *     requested_delivery_date: string|null,
      *     delivery_window_code: string|null,
-     *     driver_user_id: string|null
+     *     driver_user_id: string|null,
+     *     allergy_note: string|null,
+     *     acknowledge_allergen_conflicts: bool
      * }
      */
     public function payload(): array
@@ -228,6 +234,8 @@ class PlaceOrderDeskRequest extends FormRequest
             'requested_delivery_date' => $this->stated($validated['requested_delivery_date'] ?? null),
             'delivery_window_code' => $this->stated($validated['delivery_window_code'] ?? null),
             'driver_user_id' => $this->stated($validated['driver_user_id'] ?? null),
+            'allergy_note' => $this->stated($validated['allergy_note'] ?? null),
+            'acknowledge_allergen_conflicts' => (bool) ($validated['acknowledge_allergen_conflicts'] ?? false),
         ];
     }
 

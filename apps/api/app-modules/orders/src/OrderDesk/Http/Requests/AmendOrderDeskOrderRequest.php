@@ -46,6 +46,8 @@ class AmendOrderDeskOrderRequest extends FormRequest
             'requested_delivery_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today'],
             'delivery_window_code' => ['nullable', 'string', 'max:40'],
             'payment_method' => ['nullable', new Enum(PaymentMethod::class)],
+            'allergy_note' => ['nullable', 'string', 'max:500'],
+            'acknowledge_allergen_conflicts' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -55,7 +57,9 @@ class AmendOrderDeskOrderRequest extends FormRequest
      *     customer_address_id: string|null,
      *     requested_delivery_date: string|null,
      *     delivery_window_code: string|null,
-     *     payment_method: string|null
+     *     payment_method: string|null,
+     *     allergy_note: string|null,
+     *     acknowledge_allergen_conflicts: bool
      * }
      */
     public function payload(): array
@@ -81,6 +85,11 @@ class AmendOrderDeskOrderRequest extends FormRequest
             'requested_delivery_date' => $this->stated($validated['requested_delivery_date'] ?? null),
             'delivery_window_code' => $this->stated($validated['delivery_window_code'] ?? null),
             'payment_method' => $this->stated($validated['payment_method'] ?? null),
+            // Absent keeps the stored note; sent empty clears it.
+            'allergy_note' => array_key_exists('allergy_note', $validated)
+                ? ($this->stated($validated['allergy_note']) ?? '')
+                : null,
+            'acknowledge_allergen_conflicts' => (bool) ($validated['acknowledge_allergen_conflicts'] ?? false),
         ];
     }
 

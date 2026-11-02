@@ -71,8 +71,9 @@ use Healthy360\Orders\Presenters\OrderPresenter;
  * `due_at` already computed.
  *
  * **What is deliberately not here.** No address beyond the delivery snapshot
- * the order book already serves, no email, no allergen declaration, no account
- * identifier the desk could pivot on, and no order history. A name and a number
+ * the order book already serves, no email, no allergen declaration beyond the
+ * order's own `allergy` snapshot, no account identifier the desk could pivot on,
+ * and no order history. A name and a number
  * is the least somebody can be called back on, and the permission is named for
  * exactly that much.
  *
@@ -193,6 +194,7 @@ final class OrderDeskPresenter
      *     placed_on_behalf_by: string|null,
      *     lock_version: int,
      *     amendable: bool,
+     *     allergy: array{severe: bool, items: list<array{allergen_code: string, severity: string, notes: string|null, conflicts_with_line: list<string>}>, note: string|null, acknowledged_at: string|null}|null,
      *     line_count: int,
      *     lines: list<array{
      *         id: string,

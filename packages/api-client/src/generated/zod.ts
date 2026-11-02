@@ -5750,6 +5750,31 @@ export const zOrderPaymentReceiptEnvelope = z.object({
     meta: zMeta
 });
 
+export const zKitchenOrderAllergyItem = z.object({
+    allergen_code: z.string(),
+    severity: z.enum([
+        'avoidance',
+        'intolerance',
+        'allergy',
+        'anaphylaxis'
+    ]),
+    notes: z.string().nullable(),
+    conflicts_with_line: z.array(zUuid)
+});
+
+/**
+ * What the kitchen must know about who is eating. Health data: reading it
+ * is recorded with a purpose of use. Served to whoever may open the order,
+ * and never on a customer or guest shape.
+ *
+ */
+export const zKitchenOrderAllergy = z.object({
+    severe: z.boolean(),
+    items: z.array(zKitchenOrderAllergyItem),
+    note: z.string().nullable(),
+    acknowledged_at: z.iso.datetime({ offset: true }).nullable()
+});
+
 /**
  * Which slice of the open book the desk is looking at — four questions
  * somebody at a desk actually asks, rather than a date range that could
@@ -5852,7 +5877,9 @@ export const zAmendOrderDeskOrderRequest = z.object({
     customer_address_id: zUuid.nullish(),
     requested_delivery_date: z.iso.date().nullish(),
     delivery_window_code: z.string().max(40).nullish(),
-    payment_method: zPaymentMethod.nullish()
+    payment_method: zPaymentMethod.nullish(),
+    allergy_note: z.string().max(500).nullish(),
+    acknowledge_allergen_conflicts: z.boolean().optional()
 });
 
 export const zQuoteOrderDeskRequest = zOrderDeskSaleBase.and(z.object({
@@ -5893,7 +5920,9 @@ export const zOrderDeskCounterPayment = z.object({
 export const zPlaceOrderDeskRequest = zOrderDeskSaleBase.and(z.object({
     payment_method: zPaymentMethod,
     payment: zOrderDeskCounterPayment.optional(),
-    driver_user_id: zUuid.nullish()
+    driver_user_id: zUuid.nullish(),
+    allergy_note: z.string().max(500).nullish(),
+    acknowledge_allergen_conflicts: z.boolean().optional()
 }));
 
 /**
@@ -5955,7 +5984,8 @@ export const zOrderDeskQuote = z.object({
     currency_code: z.string().length(3),
     refusals: z.array(zOrderDeskQuoteRefusal),
     quotable: z.boolean(),
-    offered_window_codes: z.array(z.string()).nullable()
+    offered_window_codes: z.array(z.string()).nullable(),
+    allergen_conflicts: z.array(zAllergenConflict)
 });
 
 export const zOrderDeskQuoteEnvelope = z.object({
@@ -8826,6 +8856,7 @@ export const zKitchenOrder = z.object({
     created_by: z.uuid().nullable(),
     placed_on_behalf_by: z.uuid().nullable(),
     lock_version: z.int().gte(0),
+    allergy: zKitchenOrderAllergy.nullable(),
     amendable: z.boolean(),
     line_count: z.int().gte(0),
     lines: z.array(zKitchenOrderLine),

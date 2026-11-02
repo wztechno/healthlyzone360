@@ -39,4 +39,16 @@ interface BuyerAllergenCheck
      * @return list<array{catalogue_item_id: string, reason: string, allergen_codes: list<string>}>
      */
     public function conflicts(CustomerAccount $account, array $catalogueItemIds): array;
+
+    /**
+     * Every allergy this customer has declared, conflicting with anything or not.
+     *
+     * What an order snapshots: the cook should know about a severe allergy even
+     * when the check found no match. `notes` is the customer's own wording,
+     * served to the kitchen because the audit's failing case was a note saying
+     * exactly how dangerous a dish would be.
+     *
+     * @return list<array{allergen_code: string, severity: string, notes: string|null}>
+     */
+    public function declared(CustomerAccount $account): array;
 }

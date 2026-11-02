@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Healthy360\Orders\OrderDesk\Services;
 
 use Carbon\CarbonImmutable;
+use Healthy360\Audit\Enums\PurposeOfUse;
+use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Cart\Services\ChannelCurrency;
 use Healthy360\Cart\Services\LineProbe;
 use Healthy360\Catalogues\Models\CatalogueItem;
@@ -15,12 +17,15 @@ use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Services\ZoneResolver;
 use Healthy360\Delivery\Services\ZoneWindowService;
+use Healthy360\Orders\Contracts\BuyerAllergenCheck;
 use Healthy360\Orders\Contracts\HeldStockLookup;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Services\ComposedLine;
 use Healthy360\Orders\Services\OrderTimingRules;
 use Healthy360\Orders\Services\SellerContext;
+use Healthy360\Support\Enums\DataClassification;
+use Healthy360\Tenancy\TenantContext;
 
 /**
  * What a desk sale would cost, and everything standing in the way of it.
@@ -85,6 +90,14 @@ use Healthy360\Orders\Services\SellerContext;
  * delivery, and `OrderTimingRules` on a delivery or a pickup, which is the same
  * call `composeNow()` makes. Those are the three families the agent can do
  * something about.
+ *
+ * ## Allergen conflicts are not refusals
+ *
+ * A refusal means the sale cannot go ahead as it stands, and `quotable` says so.
+ * A conflict can: the agent tells the customer, ticks the box and sells it. So
+ * `allergen_conflicts` sits beside `refusals`, in the shape the checkout preview
+ * uses, and leaves `quotable` alone. It names a customer's allergens to staff, so
+ * the read is recorded.
  */
 final readonly class DeskQuote
 {
@@ -97,6 +110,9 @@ final readonly class DeskQuote
         private OrderTimingRules $timing,
         private SellerContext $seller,
         private HeldStockLookup $held,
+        private BuyerAllergenCheck $allergenCheck,
+        private AuditRecorder $audit,
+        private TenantContext $context,
     ) {}
 
     /**
@@ -124,7 +140,8 @@ final readonly class DeskQuote
      *     currency_code: string,
      *     refusals: list<array<string, mixed>>,
      *     quotable: bool,
-     *     offered_window_codes: list<string>|null
+     *     offered_window_codes: list<string>|null,
+     *     allergen_conflicts: list<array{catalogue_item_id: string, reason: string, allergen_codes: list<string>}>
      * }
      */
     public function for(
@@ -155,7 +172,8 @@ final readonly class DeskQuote
      *     currency_code: string,
      *     refusals: list<array<string, mixed>>,
      *     quotable: bool,
-     *     offered_window_codes: list<string>|null
+     *     offered_window_codes: list<string>|null,
+     *     allergen_conflicts: list<array{catalogue_item_id: string, reason: string, allergen_codes: list<string>}>
      * }
      */
     private function quoteNow(
@@ -321,7 +339,34 @@ final readonly class DeskQuote
             'quotable' => $refusals === [] && ! $lineRefused,
             // Null unless a delivery address resolved to a serving zone.
             'offered_window_codes' => $offeredWindowCodes,
+            'allergen_conflicts' => $this->allergenConflicts($account, $quoted),
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $quoted
+     * @return list<array{catalogue_item_id: string, reason: string, allergen_codes: list<string>}>
+     */
+    private function allergenConflicts(?CustomerAccount $account, array $quoted): array
+    {
+        if (! $account instanceof CustomerAccount) {
+            return [];
+        }
+
+        $conflicts = $this->allergenCheck->conflicts($account, array_column($quoted, 'catalogue_item_id'));
+
+        if ($conflicts !== []) {
+            $this->audit->recordAccessDaily(
+                'customer.allergen_conflicts_read',
+                PurposeOfUse::OrderFulfilment,
+                DataClassification::SpecialCategory,
+                $this->context->userId(),
+                'customer_account',
+                (string) $account->getKey(),
+            );
+        }
+
+        return $conflicts;
     }
 
     /**

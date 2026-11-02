@@ -160,6 +160,8 @@ final readonly class CounterSale
                     fulfilmentType: FulfilmentType::Counter,
                     placedOnBehalfBy: $draft->placedOnBehalfBy,
                     paymentMethod: $draft->paymentMethod,
+                    allergyNote: $draft->allergyNote,
+                    allergenConflictsAcknowledged: $draft->allergenConflictsAcknowledged,
                 ),
                 $draft->idempotencyKey,
             );
