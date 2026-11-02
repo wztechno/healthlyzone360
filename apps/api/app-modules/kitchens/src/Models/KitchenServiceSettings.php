@@ -41,7 +41,7 @@ class KitchenServiceSettings extends BaseModel implements OrganisationScoped
     protected $table = 'kitchen_service_settings';
 
     /**
-     * @var array<string, int>
+     * @var array<string, int|bool>
      */
     protected $attributes = [
         'order_lead_minutes' => 120,
@@ -49,6 +49,7 @@ class KitchenServiceSettings extends BaseModel implements OrganisationScoped
         'manager_alert_after_minutes' => 10,
         'owner_alert_after_minutes' => 20,
         'refund_approval_above_minor' => 5000,
+        'not_open_yet' => false,
     ];
 
     /**
