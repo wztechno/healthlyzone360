@@ -166,6 +166,8 @@ final readonly class SubscriptionService
                 '1',
                 $now,
                 $quote->currencyCode,
+                // Buying a plan sells no one day; generation never asks the calendar either.
+                enforceCalendar: false,
             );
 
             foreach ($probe->refusals as $refusal) {

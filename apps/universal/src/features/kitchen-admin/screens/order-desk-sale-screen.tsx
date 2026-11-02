@@ -300,6 +300,11 @@ function Sale() {
      * is this screen's to remember, and the ticket offers no payment until it is.
      */
     const [kindChosen, setKindChosen] = useState(false);
+    /**
+     * The schedule's day, for a new sale's quote. Held here because the schedule is worked out from
+     * the quote's own offered slots, and kept in step during render below.
+     */
+    const [quotedDay, setQuotedDay] = useState<string | null>(null);
     const [section, setSection] = useState<MenuSection>('meals');
     const [query, setQuery] = useState('');
     /** The counter sale just rung up, said on the ticket until the next tap starts another. */
@@ -409,6 +414,11 @@ function Sale() {
             ...(state.customerAddressId === null
                 ? {}
                 : { customerAddressId: state.customerAddressId }),
+            // A new sale is asked about the day it will be placed for: the calendar and the
+            // kitchen's hours answer for that day, not for today.
+            ...(editOrderId === null && quotedDay !== null
+                ? { requestedDeliveryDate: quotedDay }
+                : {}),
             // An edit is quoted on the order's own channel and on the day and slot the save will
             // keep or send, so the total read out is the total saved.
             ...(editOrderId === null
@@ -431,6 +441,7 @@ function Sale() {
         state.requestedDeliveryDate,
         state.deliveryWindowCode,
         editOrderId,
+        quotedDay,
     ]);
 
     const quotedRequest = useDebouncedValue(saleRequest, QUOTE_DEBOUNCE_MS);
@@ -468,6 +479,10 @@ function Sale() {
                 requestedDeliveryDate: state.requestedDeliveryDate ?? today,
                 deliveryWindowCode: state.deliveryWindowCode,
             };
+    // Null until the agent says how it leaves: the menu is a counter tariff until then.
+    const saleDay = isEditing || kindChosen ? (schedule?.requestedDeliveryDate ?? null) : null;
+    const newSaleDay = isEditing ? null : saleDay;
+    if (newSaleDay !== quotedDay) setQuotedDay(newSaleDay);
 
     /**
      * Save an edit. The basket is sent whole; the day, the slot and the method only when the agent
@@ -858,6 +873,7 @@ function Sale() {
                         query={query}
                         customerAccountId={state.customerAccountId}
                         amendingOrderId={editOrderId === null ? null : String(editOrderId)}
+                        saleDay={saleDay}
                         lines={state.lines}
                         onAdd={(tile) => {
                             update({
@@ -1131,6 +1147,7 @@ function MenuGrid({
     query,
     customerAccountId,
     amendingOrderId,
+    saleDay,
     lines,
     onAdd,
 }: {
@@ -1143,6 +1160,8 @@ function MenuGrid({
     readonly customerAccountId: string | null;
     /** On an edit, the shelf is priced on that order's channel — a web-shop order's, say. */
     readonly amendingOrderId: string | null;
+    /** The day the sale is for, so a dish off today can still be sold for tomorrow. */
+    readonly saleDay: string | null;
     readonly lines: readonly BasketLine[];
     readonly onAdd: (tile: MenuTile) => void;
 }) {
@@ -1214,8 +1233,9 @@ function MenuGrid({
                       })),
                       ...(customerAccountId === null ? {} : { customerAccountId }),
                       ...(amendingOrderId === null ? {} : { amendingOrderId }),
+                      ...(saleDay === null ? {} : { requestedDeliveryDate: saleDay }),
                   },
-        [tiles, customerAccountId, amendingOrderId],
+        [tiles, customerAccountId, amendingOrderId, saleDay],
     );
     const shelf = useOrderDeskQuoteQuery(shelfRequest);
     const shelfById = useMemo(() => {

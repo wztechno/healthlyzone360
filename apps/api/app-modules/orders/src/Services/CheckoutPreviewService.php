@@ -19,7 +19,9 @@ use Healthy360\Orders\Contracts\BuyerAllergenCheck;
 
 /**
  * "What would this basket cost, right now, delivered where?" — a query that
- * reserves nothing, charges nothing and writes no row.
+ * reserves nothing and charges nothing. The one row it can write is the
+ * kitchen's default service settings, created by `KitchenServiceSettingsLookup`
+ * the first time a lead time is asked for.
  *
  * **The same two engines `OrderPlacementService` runs at placement**, run here
  * for a preview instead: `LineProbe` reprices every line exactly as it would
@@ -84,7 +86,11 @@ final readonly class CheckoutPreviewService
 
                 $warnings = $lines === [] ? ['cart_empty'] : [];
 
-                [$subtotal, $lineWarnings] = $this->pricedSubtotal($cart, $lines, $requestedDate);
+                // The one day placement would use for the whole basket.
+                /** @var CarbonImmutable|null $day */
+                $day = $requestedDate ?? collect($lines)->pluck('delivery_date')->filter()->first();
+
+                [$subtotal, $lineWarnings] = $this->pricedSubtotal($cart, $lines, $day);
                 $warnings = [...$warnings, ...$lineWarnings];
 
                 [$fee, $zoneWarnings, $zone] = $this->deliveryFee($cart, $address);
@@ -110,9 +116,6 @@ final readonly class CheckoutPreviewService
                 if ($lines !== []) {
                     // The same rules on the same day placement would ask about,
                     // with a subtotal only when every line priced, as there.
-                    /** @var CarbonImmutable|null $day */
-                    $day = $requestedDate ?? collect($lines)->pluck('delivery_date')->filter()->first();
-
                     $refusals = [
                         ...$this->timing->refusals(
                             $cart->organisation_id,
@@ -158,7 +161,7 @@ final readonly class CheckoutPreviewService
      * @param  list<CartItem>  $lines
      * @return array{0: int, 1: list<string>}
      */
-    private function pricedSubtotal(Cart $cart, array $lines, ?CarbonImmutable $requestedDate): array
+    private function pricedSubtotal(Cart $cart, array $lines, ?CarbonImmutable $day): array
     {
         if ($lines === []) {
             return [0, []];
@@ -181,9 +184,12 @@ final readonly class CheckoutPreviewService
                 $line->catalogue_item_id,
                 $line->catalogue_item_variant_id,
                 $line->quantity,
-                $requestedDate ?? $line->delivery_date,
+                $day,
                 $cart->currency_code,
                 $buyer,
+                // A basket with no day yet is still priced whole: the calendar
+                // answers once a day is chosen.
+                enforceCalendar: $day !== null,
             );
 
             if (! $result->isOrderable()) {

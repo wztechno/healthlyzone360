@@ -21,8 +21,8 @@ use Healthy360\Organisations\Models\OrganisationBranch;
  * exactly what the caller stated, because the kitchen display and the stock
  * deduction both read a null there as "organisation-wide".
  *
- * An empty answer is a kitchen with no active branch, which `OrderTimingRules`
- * refuses as `kitchen_closed`.
+ * An empty answer is a kitchen with no active branch, or a named branch that has
+ * closed, which `OrderTimingRules` refuses as `kitchen_closed`.
  */
 final readonly class ServingBranches
 {
@@ -31,17 +31,12 @@ final readonly class ServingBranches
      */
     public function for(string $organisationId, ?string $branchId, ?DeliveryZone $zone): array
     {
-        if ($branchId !== null) {
-            return [$branchId];
-        }
-
-        if ($zone instanceof DeliveryZone && $zone->branch_id !== null) {
-            return [$zone->branch_id];
-        }
+        $named = $branchId ?? $zone?->branch_id;
 
         return OrganisationBranch::withoutTenancy()
             ->where('organisation_id', $organisationId)
             ->where('status', BranchStatus::Active->value)
+            ->when($named !== null, static fn ($query) => $query->whereKey($named))
             ->orderBy('created_at')
             ->orderBy('id')
             ->pluck('id')

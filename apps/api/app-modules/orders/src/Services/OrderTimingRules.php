@@ -29,8 +29,9 @@ use Healthy360\Orders\Contracts\OrderSchedulingLookup;
  *
  * **A branch answers for itself.** Each is tested on its own clock, and the order
  * is refused only when every serving branch refuses it, reporting the first
- * branch's first refusal. A day is a date on a wall in that branch's town: the
- * time rules only ever apply when the date asked for is that branch's today.
+ * branch's first refusal. A day is a date on a wall in that branch's town: a
+ * window can only have ended on that branch's today, while a lead time reaches
+ * any day, because an early window tomorrow can already be too soon tonight.
  *
  * **A window with no hours has no time rules.** Somebody named it before deciding
  * them, and `DeliveryWindow` allows that.
@@ -150,21 +151,21 @@ final readonly class OrderTimingRules
             return $refusal;
         }
 
-        if ($window?->starts_at === null || $window->ends_at === null || $day->toDateString() !== $local->toDateString()) {
+        if ($window?->starts_at === null || $window->ends_at === null) {
             return null;
         }
 
         // Instants rather than clock faces: a lead time can run past midnight,
         // and "01:00" sorts before "09:00" whichever day it is on.
-        $today = $local->toDateString();
-        $startsAt = CarbonImmutable::parse("{$today} {$window->starts_at}", $timezone);
-        $endsAt = CarbonImmutable::parse("{$today} {$window->ends_at}", $timezone);
+        $requested = $day->toDateString();
+        $startsAt = CarbonImmutable::parse("{$requested} {$window->starts_at}", $timezone);
+        $endsAt = CarbonImmutable::parse("{$requested} {$window->ends_at}", $timezone);
 
-        if ($local->greaterThanOrEqualTo($endsAt)) {
+        if ($requested === $local->toDateString() && $local->greaterThanOrEqualTo($endsAt)) {
             return [
                 'reason' => 'window_ended',
                 'branch_id' => $branchId,
-                'requested_date' => $today,
+                'requested_date' => $requested,
                 'delivery_window_code' => $window->code,
                 'ends_at' => $window->ends_at,
             ];
@@ -184,7 +185,7 @@ final readonly class OrderTimingRules
         return [
             'reason' => 'lead_time_not_met',
             'branch_id' => $branchId,
-            'requested_date' => $today,
+            'requested_date' => $requested,
             'delivery_window_code' => $window->code,
             'lead_minutes' => $minutes,
             'earliest_at' => $earliest->toIso8601String(),

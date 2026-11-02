@@ -1447,7 +1447,9 @@ final readonly class OrderPlacementService
                 $on,
                 $placement->currencyCode,
                 $placement->account,
-                enforceCalendar: ! $placement->keepsAgreedDay() && ! in_array($line->catalogueItemId, $heldItemIds, true),
+                enforceCalendar: ! $placement->keepsAgreedDay()
+                    && ($on !== null || $placement->fulfilmentType === FulfilmentType::Counter)
+                    && ! in_array($line->catalogueItemId, $heldItemIds, true),
             );
 
             // A grandfathered line answers price and currency itself. A

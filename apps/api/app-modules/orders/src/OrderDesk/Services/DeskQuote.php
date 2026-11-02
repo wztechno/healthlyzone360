@@ -313,7 +313,11 @@ final readonly class DeskQuote
             ? $amending->lines()->pluck('catalogue_item_id')->all()
             : [];
 
-        [$quoted, $lineRefused] = $this->lines($channel, $lines, $currencyCode, $requestedDate, $account, $branchId, $heldItemIds);
+        // A counter sale is for now. Anything else with no day yet has no day
+        // for the calendar to rule out, and "today" would be a guess.
+        $asksCalendar = $requestedDate instanceof CarbonImmutable || $fulfilmentType === FulfilmentType::Counter;
+
+        [$quoted, $lineRefused] = $this->lines($channel, $lines, $currencyCode, $requestedDate, $account, $branchId, $asksCalendar, $heldItemIds);
 
         $subtotal = 0;
 
@@ -389,6 +393,7 @@ final readonly class DeskQuote
         ?CarbonImmutable $on,
         ?CustomerAccount $account,
         ?string $branchId,
+        bool $asksCalendar,
         array $heldItemIds,
     ): array {
         $quoted = [];
@@ -403,7 +408,7 @@ final readonly class DeskQuote
                 $on,
                 $currencyCode,
                 $account,
-                enforceCalendar: ! in_array($line->catalogueItemId, $heldItemIds, true),
+                enforceCalendar: $asksCalendar && ! in_array($line->catalogueItemId, $heldItemIds, true),
             );
 
             $item = $result->item;

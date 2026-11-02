@@ -278,12 +278,37 @@ it('reads the lead time from the kitchen\'s own settings', function (): void {
     expect($this->placement->place(impossibleCart($this->world), $this->world->customer->address, 'brunch', $this->today)->order->exists)->toBeTrue();
 });
 
-it('only applies the time rules to today', function (): void {
+it('only ends a window on today', function (): void {
     impossibleWindow($this->world, 'breakfast', '06:00:00', '07:30:00');
 
     $order = $this->placement->place(impossibleCart($this->world), $this->world->customer->address, 'breakfast', $this->today->addDay())->order;
 
     expect($order->delivery_window_code)->toBe('breakfast');
+});
+
+it('holds tomorrow\'s early window to the lead time too', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-11-03 21:00:00', 'Asia/Beirut'));
+
+    impossibleWindow($this->world, 'early', '07:00:00', '09:00:00');
+
+    $settings = app(KitchenServiceSettingsLookup::class)->for((string) $this->world->organisation->getKey());
+    $settings->order_lead_minutes = 720;
+    $settings->save();
+
+    $cart = impossibleCart($this->world);
+    $tomorrow = $this->today->addDay();
+
+    $reasons = impossibleRefusals(fn () => $this->placement->place($cart, $this->world->customer->address, 'early', $tomorrow));
+
+    expect(collect($reasons)->firstWhere('reason', 'lead_time_not_met'))->toMatchArray([
+        'requested_date' => '2026-11-04',
+        'earliest_at' => '2026-11-04T09:00:00+02:00',
+    ]);
+
+    $settings->order_lead_minutes = 120;
+    $settings->save();
+
+    expect($this->placement->place($cart, $this->world->customer->address, 'early', $tomorrow)->order->exists)->toBeTrue();
 });
 
 it('skips the time rules for a window with no hours', function (): void {
@@ -349,6 +374,15 @@ describe('the calendar', function (): void {
         impossibleCalendarDay($this->world, '2026-11-05', ['is_available' => false]);
 
         expect($this->placement->place(impossibleCart($this->world), $this->world->customer->address, null, $this->today)->order->exists)->toBeTrue();
+    });
+
+    it('prices an undated preview whole, because no day has been chosen yet', function (): void {
+        impossibleCalendarDay($this->world, '2026-11-03', ['is_available' => false]);
+
+        $preview = app(CheckoutPreviewService::class)->preview(impossibleCart($this->world), $this->world->customer->address);
+
+        expect($preview->subtotalMinor)->toBe(2500)
+            ->and($preview->warnings)->not->toContain('item_unavailable_on_date');
     });
 
     it('refuses a dated basket line, and leaves an undated one for placement to judge', function (): void {
@@ -431,7 +465,8 @@ describe('several branches', function (): void {
 
         expect($branches->for($organisationId, $first, $zone))->toBe([$first])
             ->and($branches->for($organisationId, null, $zone))->toBe([(string) $second->getKey()])
-            ->and($branches->for($organisationId, null, $this->world->zone))->toBe([$first, (string) $second->getKey()]);
+            ->and($branches->for($organisationId, null, $this->world->zone))->toBe([$first, (string) $second->getKey()])
+            ->and($branches->for($organisationId, (string) $closed->getKey(), null))->toBe([]);
     });
 });
 
@@ -554,6 +589,50 @@ describe('the desk', function (): void {
         ]))->order;
 
         expect($order->fulfilment_type)->toBe(FulfilmentType::Counter);
+    });
+
+    it('holds a counter sale to the calendar, though it skips the schedule', function (): void {
+        impossibleCalendarDay($this->world, '2026-11-03', ['is_available' => false]);
+
+        $reasons = impossibleRefusals(fn () => $this->placement->placeComposed(impossibleComposed($this->world, [
+            'account' => null,
+            'address' => null,
+            'fulfilmentType' => FulfilmentType::Counter,
+            'placedOnBehalfBy' => (string) $this->agent->getKey(),
+            'paymentMethod' => PaymentMethod::CashAtCounter,
+        ])));
+
+        expect(array_column($reasons, 'reason'))->toBe(['item_unavailable_on_date']);
+    });
+
+    it('asks the calendar about a named day or a counter sale, never a dateless delivery', function (): void {
+        impossibleCalendarDay($this->world, '2026-11-03', ['is_available' => false]);
+
+        $this->actingAs($this->agent);
+
+        $body = [
+            'fulfilment_type' => 'delivery',
+            'customer_account_id' => (string) $this->world->customer->account->getKey(),
+            'customer_address_id' => (string) $this->world->customer->address->getKey(),
+            'lines' => [['catalogue_item_id' => (string) $this->world->meal->getKey(), 'quantity' => 1]],
+        ];
+
+        $this->postJson('/api/v1/catalogue/order-desk/quote', $body, DeskWorld::headers($this->world))
+            ->assertOk()
+            ->assertJsonPath('data.quote.lines.0.refusals', [])
+            ->assertJsonPath('data.quote.quotable', true);
+
+        $this->postJson('/api/v1/catalogue/order-desk/quote', $body + ['requested_delivery_date' => '2026-11-03'], DeskWorld::headers($this->world))
+            ->assertOk()
+            ->assertJsonPath('data.quote.lines.0.refusals.0.reason', 'item_unavailable_on_date')
+            ->assertJsonPath('data.quote.quotable', false);
+
+        $this->postJson('/api/v1/catalogue/order-desk/quote', [
+            'fulfilment_type' => 'counter',
+            'lines' => $body['lines'],
+        ], DeskWorld::headers($this->world))
+            ->assertOk()
+            ->assertJsonPath('data.quote.lines.0.refusals.0.reason', 'item_unavailable_on_date');
     });
 
     it('quotes what the sale would be refused for, and nothing the sale is not', function (): void {
