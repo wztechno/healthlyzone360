@@ -16,6 +16,8 @@ import type { CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
 import type { CursorPage } from '../contracts/pagination.ts';
 import type {
+    ActivityPage,
+    ActivityWindow,
     CompleteProductionOrderRequest,
     ConsumptionException,
     ConsumptionExceptionFilter,
@@ -109,6 +111,7 @@ import type {
     UpdatePurchaseOrderRequest,
     UpdateSupplierRequest,
     UpsertSupplierLinkRequest,
+    StockActivity,
 } from '../contracts/kitchen-ops.ts';
 import type {
     KitchenActivityEnvelope,

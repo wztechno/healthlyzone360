@@ -1,12 +1,15 @@
 import { mapAllergenConflict } from './cart-repository.ts';
-import type { CurrencyCode } from '@healthy360/domain-types';
+import type { CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
 import type {
     AssignedDeliveryJob,
+    CashRun,
+    CashSettlementRecord,
     OrderDeskCalendarCounts,
     OrderDeskCalendarDay,
     OrderDeskCalendarMeta,
     OrderDeskCalendarWindow,
+    OrderDeskCashReportAdjustment,
     OrderDeskCashReportMeta,
     OrderDeskCashReportRow,
     OrderDeskCashReportTotal,
@@ -25,6 +28,7 @@ import type {
     OrderDeskRefusal,
     OrderDeskRequirement,
     OrderDeskRequirementsMeta,
+    OrderDeskSettlements,
     OrderDeskShortfallCount,
     WeeklyStockCheck,
 } from '../contracts/order-desk.ts';

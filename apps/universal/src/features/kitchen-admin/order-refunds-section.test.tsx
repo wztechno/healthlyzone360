@@ -8,7 +8,7 @@ import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { OrderRefundsSection } from './order-refunds-section.tsx';
 
 const ORDER = {
-    id: OrderId('order-0001'),
+    id: OrderId.unsafe('order-0001'),
     orderNumber: 'HZ-1001',
     currencyCode: 'USD',
     paymentMethod: 'cash_on_delivery',

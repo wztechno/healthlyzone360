@@ -1,5 +1,6 @@
 import type {
     BranchId,
+    CurrencyCode,
     GoodsReceiptId,
     IngredientId,
     IsoDateTime,
