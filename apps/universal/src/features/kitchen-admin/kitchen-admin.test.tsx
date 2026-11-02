@@ -1160,7 +1160,7 @@ describe('the ingredient editor', () => {
         expect(screen.queryByTestId('kitchen-ingredient-tray-blocked')).toBeNull();
     });
 
-    it('forks a platform-library record on arrival and lands on the copy', async () => {
+    it('writes nothing when a platform-library record is opened, and copies it on the button', async () => {
         const record = platformIngredient(5, { meta: meta({ status: 'published' }) });
         const copy = ingredient(6, { name: record.name });
 
@@ -1178,7 +1178,16 @@ describe('the ingredient editor', () => {
             },
         );
 
-        // Opening the row to edit it is the request: nobody presses "Edit for this kitchen".
+        // Looking is not asking: the copy and its stock row used to appear here.
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-ingredient-fork');
+            expect(repositories.kitchenAdmin.forkIngredient).not.toHaveBeenCalled();
+
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-ingredient-fork'));
+            });
+        });
+
         await waitFor(
             () => {
                 expect(routerMock.__replace).toHaveBeenCalledWith(
@@ -1189,7 +1198,6 @@ describe('the ingredient editor', () => {
         );
         expect(repositories.kitchenAdmin.forkIngredient).toHaveBeenCalledTimes(1);
         expect(repositories.kitchenAdmin.forkIngredient).toHaveBeenCalledWith(record.id);
-        expect(screen.queryByTestId('kitchen-ingredient-platform-library')).toBeNull();
     });
 
     it('keeps a platform-library record read-only when the fork fails, and offers it again', async () => {
@@ -1212,6 +1220,10 @@ describe('the ingredient editor', () => {
 
         // Both said in the issue tray, docked beside the page at a desk's width.
         await withDeskWidth(async () => {
+            await untilVisible('kitchen-ingredient-fork');
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-ingredient-fork'));
+            });
             await untilVisible('kitchen-ingredient-fork-error');
             expect(screen.getByTestId('kitchen-ingredient-platform-library')).toBeTruthy();
             // The retry is the card's own action.
@@ -1225,7 +1237,7 @@ describe('the ingredient editor', () => {
          *
          * Composition and allergens are read-only for every record (§6.2), so there is no writable
          * path on a platform row at all: copying it into this kitchen is the one thing that can
-         * happen next, and when the automatic copy fails the card's button is how it happens.
+         * happen next, and the card's button is how it happens.
          */
         await openIngredientStep('allergens');
         // The determination is still *shown*, as a chip on the read-only panel — read-only is not

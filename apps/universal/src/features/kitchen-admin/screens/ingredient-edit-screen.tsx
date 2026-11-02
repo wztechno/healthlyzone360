@@ -1477,21 +1477,10 @@ function IngredientEditor({
     };
 
     /*
-     * Opening a library row to edit it *is* asking for the kitchen's copy, so the fork fires on
-     * arrival instead of waiting behind the notice's button. The page holds its skeleton meanwhile —
-     * a read-only form flashed on the way to an editable one reads as a refusal. The notice is left
-     * for a fork that failed, where its button is the retry, and for a reader who cannot fork.
-     *
-     * Once per row, not per render: the ref keeps StrictMode's second effect and every re-render from
-     * posting again, and a failure is retried by the button rather than by a loop.
+     * Opening a library row only reads it. It used to fork on arrival, so every look at a shared
+     * ingredient left a kitchen copy and an empty stock row behind. The copy is now the notice's
+     * button, pressed on purpose; packaging shares this screen and so the rule.
      */
-    const autoFork = platformNotice && canManage && !fork.isError;
-    const forkedRow = useRef<IngredientId | null>(null);
-    useEffect(() => {
-        if (!autoFork || data === undefined || forkedRow.current === data.id) return;
-        forkedRow.current = data.id;
-        forkForKitchen();
-    });
 
     const nameMissing = details.name.en.trim() === '';
     const categoryMissing = details.categoryCode.trim() === '';
@@ -1968,7 +1957,7 @@ function IngredientEditor({
         );
     }
 
-    if (!isCreating && (record.isPending || autoFork)) {
+    if (!isCreating && record.isPending) {
         return (
             <FormSkeleton
                 testID="kitchen-ingredient-editor-loading"

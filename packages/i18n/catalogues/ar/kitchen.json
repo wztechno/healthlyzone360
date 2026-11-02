@@ -3058,7 +3058,7 @@
         "metaSeparator": " · ",
         "cancel": "إلغاء",
         "save": "حفظ",
-        "forkAction": "تعديل لهذا المطبخ",
+        "forkAction": "حفظ نسخة لهذا المطبخ",
         "forkedToast": "أصبح {{name}} ملكًا لهذا المطبخ. يمكنك تعديله الآن.",
         "forkError": "تعذّر إنشاء النسخة",
         "stepsLabel": "خطوات النموذج",

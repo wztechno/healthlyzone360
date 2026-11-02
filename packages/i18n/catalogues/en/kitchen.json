@@ -2739,7 +2739,7 @@
         "metaSeparator": " · ",
         "cancel": "Cancel",
         "save": "Save",
-        "forkAction": "Edit for this kitchen",
+        "forkAction": "Save a copy for this kitchen",
         "forkedToast": "{{name}} is now this kitchen’s own. Edit it freely.",
         "forkError": "That copy could not be made",
         "stepsLabel": "Form steps",
