@@ -46,7 +46,7 @@ beforeEach(function (): void {
     ]);
 });
 
-function holdRole(object $test, Role $role): void
+function holdKitchenRole(object $test, Role $role): void
 {
     MembershipRole::withoutTenancy()->create([
         'organisation_id' => $test->kitchen->getKey(),
@@ -63,7 +63,7 @@ function ownersAsTheOperator(object $test): array
 }
 
 it('finds an owner on the kitchen’s own copy of the role', function (): void {
-    holdRole($this, Role::withoutTenancy()
+    holdKitchenRole($this, Role::withoutTenancy()
         ->where('organisation_id', $this->kitchen->getKey())
         ->where('code', 'organisation_owner')
         ->sole());
@@ -72,7 +72,7 @@ it('finds an owner on the kitchen’s own copy of the role', function (): void {
 });
 
 it('finds an owner the role split moved onto a standard copy', function (): void {
-    holdRole($this, Role::factory()->create([
+    holdKitchenRole($this, Role::factory()->create([
         'organisation_id' => $this->kitchen->getKey(),
         'code' => 'organisation_owner_standard',
         'is_system' => false,
@@ -82,7 +82,7 @@ it('finds an owner the role split moved onto a standard copy', function (): void
 });
 
 it('does not take a lookalike role for an owner', function (): void {
-    holdRole($this, Role::factory()->create([
+    holdKitchenRole($this, Role::factory()->create([
         'organisation_id' => $this->kitchen->getKey(),
         'code' => 'organisation_owner_assistant',
         'is_system' => false,
