@@ -75,12 +75,12 @@ it('falls back to the user and then to the address when no organisation is activ
     expect(limitFor('catalogue-import', $anonymous)->key)->toBe('ip:203.0.113.7');
 });
 
-it('keeps the baseline api limiter at sixty a minute', function (): void {
+it('keeps the baseline api limiter at six hundred a minute', function (): void {
     // Guarded here beside the new one so that a change to either is a change
     // somebody had to make deliberately.
     $limit = limitFor('api', Request::create('/api/v1/me', 'GET', server: ['REMOTE_ADDR' => '203.0.113.7']));
 
-    expect($limit->maxAttempts)->toBe(60)
+    expect($limit->maxAttempts)->toBe(600)
         ->and($limit->decaySeconds)->toBe(60)
         ->and($limit->key)->toBe('203.0.113.7');
 });

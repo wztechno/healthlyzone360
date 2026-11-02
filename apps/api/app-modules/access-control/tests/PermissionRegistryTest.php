@@ -242,9 +242,10 @@ it('lets the buyer spend the kitchen\'s money without seeing what it charges', f
 });
 
 it('gives finance every number and no way to change one', function (): void {
-    // Almost entirely reads, and the single exception is the point:
+    // Almost entirely reads, and the two exceptions are the point:
     // `recipe.view_costs_organisation` gates the read *and* the write of line
-    // unit costs by design (K1.3), and finance is who knows what a thing cost.
+    // unit costs by design (K1.3), and finance is who knows what a thing cost;
+    // `inventory.approve_payables_organisation` is finance paying the supplier.
     $finance = PermissionRegistry::templateRoles()['finance_manager']['permissions'];
 
     expect($finance)->toEqualCanonicalizing([
@@ -259,6 +260,7 @@ it('gives finance every number and no way to change one', function (): void {
         'b2b_quotation.view_organisation',
         'inventory.view_organisation',
         'inventory.view_costs_organisation',
+        'inventory.approve_payables_organisation',
         'audit.view_organisation',
     ]);
 
@@ -316,13 +318,13 @@ function templateRolesHolding(string $code): array
 it('grants each template role the expected number of codes', function (string $role, int $expectedGrants): void {
     expect(PermissionRegistry::templateRoles()[$role]['permissions'])->toHaveCount($expectedGrants);
 })->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 50],
+    'organisation owner grants every organisation permission' => ['organisation_owner', 51],
     // The same count either way, which is why this row stayed green through AA1 while
     // its name stopped being true: the console swapped `role.manage_organisation`
     // in and `organisation.update_current` out, one for one. The count is the
     // weakest half of the pin; `separates the administrator from the owner`
     // above names which code is missing.
-    'organisation administrator runs everything except the legal identity of the business' => ['organisation_admin', 48],
+    'organisation administrator runs everything except the legal identity of the business' => ['organisation_admin', 49],
     'branch manager runs the service: its branch, the wall, the order book, the counter and the reads they stand on' => ['branch_manager', 15],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
     'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book, runs inventory including its costs, orders its supplies and holds the order desk in full' => ['kitchen_manager', 34],
