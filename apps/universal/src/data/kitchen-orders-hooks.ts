@@ -14,6 +14,9 @@ import type {
     DecideOrderRefundRequest,
     OrderRefundLedger,
     RecordOrderRefundRequest,
+    OrderComplaint,
+    RecordComplaintRequest,
+    UpdateComplaintRequest,
 } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -421,6 +424,76 @@ export function useRecordOrderPaymentMutation(): UseMutationResult<
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
             void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
+        },
+    });
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * Complaints
+ * ---------------------------------------------------------------------------------------------- */
+
+export function useOrderComplaintsQuery(): UseQueryResult<readonly OrderComplaint[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOrders.complaints(),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOrders.listComplaints();
+        },
+    });
+}
+
+export function useRecordComplaintMutation(): UseMutationResult<
+    OrderComplaint,
+    unknown,
+    RecordComplaintRequest
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (request) => repositories.kitchenOrders.recordComplaint(request),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.kitchenOrders.complaints(),
+            });
+        },
+    });
+}
+
+export function useUpdateComplaintMutation(): UseMutationResult<
+    OrderComplaint,
+    unknown,
+    UpdateComplaintRequest
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (request) => repositories.kitchenOrders.updateComplaint(request),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.kitchenOrders.complaints(),
+            });
+        },
+    });
+}
+
+/** No retry: a silent second attempt is refused, but only after somebody read the error. */
+export function useRemakeComplaintMutation(): UseMutationResult<OrderComplaint, unknown, string> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (complaintId) => repositories.kitchenOrders.remakeComplaint(complaintId),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
         },
     });
 }

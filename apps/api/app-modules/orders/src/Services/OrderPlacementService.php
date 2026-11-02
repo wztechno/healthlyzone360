@@ -493,6 +493,7 @@ final readonly class OrderPlacementService
             // A subscription day and an accepted quotation were settled earlier:
             // the calendar is not asked about them, so it is not charged for them.
             countsPortions: ! $placement->keepsAgreedDay(),
+            waivesDeliveryFee: $placement->waivesDeliveryFee,
         );
 
         $this->audit->record(
@@ -823,9 +824,14 @@ final readonly class OrderPlacementService
         bool $allergenConflictsAcknowledged = false,
         bool $alertsManagers = true,
         bool $countsPortions = true,
+        bool $waivesDeliveryFee = false,
     ): Order {
         $subtotal = array_sum(array_map(static fn (array $line): int => $line['line_total_minor'], $snapshots));
         $fee = $zone instanceof DeliveryZone ? $zone->delivery_fee_minor : null;
+
+        if ($waivesDeliveryFee && $fee !== null) {
+            $fee = 0;
+        }
 
         return DB::transaction(function () use (
             $account, $address, $organisationId, $salesChannelId, $branchId, $currencyCode,

@@ -9,6 +9,11 @@ import type {
 } from '@healthy360/domain-types';
 
 import type { MealChoiceSource } from './commerce.ts';
+import type {
+    OrderComplaint,
+    RecordComplaintRequest,
+    UpdateComplaintRequest,
+} from './complaints.ts';
 import type { DishOption } from './dish-options.ts';
 import type {
     DeliveryFailureReason,
@@ -640,6 +645,11 @@ export interface KitchenOrdersRepository {
     recordPayment(request: RecordKitchenOrderPaymentRequest): Promise<RecordedKitchenOrderPayment>;
 
     getRefunds(orderId: OrderId): Promise<OrderRefundLedger>;
+    listComplaints(): Promise<readonly OrderComplaint[]>;
+    recordComplaint(request: RecordComplaintRequest): Promise<OrderComplaint>;
+    updateComplaint(request: UpdateComplaintRequest): Promise<OrderComplaint>;
+    /** Places the zero-priced order that puts it right, and closes the complaint. */
+    remakeComplaint(complaintId: string): Promise<OrderComplaint>;
 
     /** `409 payment.refund_exceeds_capture` past the receipts; `409 resource.conflict` past seven days. */
     recordRefund(request: RecordOrderRefundRequest): Promise<OrderRefundLedger>;

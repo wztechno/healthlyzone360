@@ -535,6 +535,7 @@ export const queryKeys = {
         spendSummary: (filter: object = {}) => ['kitchenOps', 'spend-summary', filter] as const,
         costReport: (filter: object = {}) => ['kitchenOps', 'cost-report', filter] as const,
         payables: () => ['kitchenOps', 'payables'] as const,
+        dishMargins: () => ['kitchenOps', 'dish-margins'] as const,
         analytics: (from: string, to: string) => ['kitchenOps', 'analytics', from, to] as const,
         consumptionExceptions: (filter: object = {}) =>
             ['kitchenOps', 'consumption-exceptions', filter] as const,
@@ -594,6 +595,7 @@ export const queryKeys = {
         list: (filter?: QueryScope) => ['kitchenOrders', 'list', scope(filter)] as const,
         order: (orderId: OrderId) => ['kitchenOrders', 'order', orderId] as const,
         refunds: (orderId: OrderId) => ['kitchenOrders', 'refunds', orderId] as const,
+        complaints: () => ['kitchenOrders', 'complaints'] as const,
         display: () => ['kitchenOrders', 'display'] as const,
     },
 

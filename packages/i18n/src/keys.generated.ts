@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9639 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9707 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3478,6 +3478,49 @@ export interface NamespaceKeys {
     | 'common.saving'
     | 'common.undo'
     | 'common.yes'
+    | 'complaints.cause.foreign_object'
+    | 'complaints.cause.late'
+    | 'complaints.cause.missing_item'
+    | 'complaints.cause.other'
+    | 'complaints.cause.quality'
+    | 'complaints.cause.wrong_item'
+    | 'complaints.close'
+    | 'complaints.closeConfirm'
+    | 'complaints.closeTitle'
+    | 'complaints.columnCause'
+    | 'complaints.columnCost'
+    | 'complaints.columnOrder'
+    | 'complaints.columnState'
+    | 'complaints.costHint'
+    | 'complaints.emptyBody'
+    | 'complaints.emptyTitle'
+    | 'complaints.fieldDescription'
+    | 'complaints.fieldOpened'
+    | 'complaints.fieldOutcome'
+    | 'complaints.fieldRefund'
+    | 'complaints.fieldRemake'
+    | 'complaints.figureAll'
+    | 'complaints.figureClosedAction'
+    | 'complaints.figureOpenAction'
+    | 'complaints.loadErrorTitle'
+    | 'complaints.mix'
+    | 'complaints.openOrder'
+    | 'complaints.openRecord'
+    | 'complaints.outcome.apologised'
+    | 'complaints.outcome.no_action'
+    | 'complaints.outcome.refunded'
+    | 'complaints.outcome.remade'
+    | 'complaints.record'
+    | 'complaints.recordConfirm'
+    | 'complaints.recordTitle'
+    | 'complaints.recordedToast'
+    | 'complaints.remadeToast'
+    | 'complaints.remake'
+    | 'complaints.searchPlaceholder'
+    | 'complaints.sectionTitle'
+    | 'complaints.stateClosed'
+    | 'complaints.stateOpen'
+    | 'complaints.viewKind'
     | 'composition.description'
     | 'composition.fromDatabase'
     | 'composition.per100g'
@@ -3964,6 +4007,8 @@ export interface NamespaceKeys {
     | 'families.batch.name'
     | 'families.branchOperating.description'
     | 'families.branchOperating.name'
+    | 'families.complaints.description'
+    | 'families.complaints.name'
     | 'families.consumptionExceptions.description'
     | 'families.consumptionExceptions.name'
     | 'families.costReport.description'
@@ -3974,6 +4019,8 @@ export interface NamespaceKeys {
     | 'families.deliveryWindows.name'
     | 'families.deliveryZones.description'
     | 'families.deliveryZones.name'
+    | 'families.dishMargins.description'
+    | 'families.dishMargins.name'
     | 'families.ingredients.description'
     | 'families.ingredients.name'
     | 'families.orderCalendar.description'
@@ -4786,6 +4833,27 @@ export interface NamespaceKeys {
     | 'ops.dailyClose.signOff'
     | 'ops.dailyClose.signedOff'
     | 'ops.dailyClose.signedOffToast'
+    | 'ops.dishMargins.asOf'
+    | 'ops.dishMargins.belowTarget'
+    | 'ops.dishMargins.channel.b2b'
+    | 'ops.dishMargins.channel.b2c'
+    | 'ops.dishMargins.columnChannel'
+    | 'ops.dishMargins.columnCost'
+    | 'ops.dishMargins.columnDish'
+    | 'ops.dishMargins.columnMargin'
+    | 'ops.dishMargins.columnPrice'
+    | 'ops.dishMargins.columnStatus'
+    | 'ops.dishMargins.empty'
+    | 'ops.dishMargins.heading'
+    | 'ops.dishMargins.loadErrorTitle'
+    | 'ops.dishMargins.marginValue'
+    | 'ops.dishMargins.noTarget'
+    | 'ops.dishMargins.onTarget'
+    | 'ops.dishMargins.targetNote'
+    | 'ops.dishMargins.withheld.cost_incomplete'
+    | 'ops.dishMargins.withheld.currency_mismatch'
+    | 'ops.dishMargins.withheld.no_price'
+    | 'ops.dishMargins.withheld.no_recipe'
     | 'ops.exceptions.actionFailedToast'
     | 'ops.exceptions.chip'
     | 'ops.exceptions.clearBadge'
@@ -13135,6 +13203,49 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:common.saving',
   'kitchen:common.undo',
   'kitchen:common.yes',
+  'kitchen:complaints.cause.foreign_object',
+  'kitchen:complaints.cause.late',
+  'kitchen:complaints.cause.missing_item',
+  'kitchen:complaints.cause.other',
+  'kitchen:complaints.cause.quality',
+  'kitchen:complaints.cause.wrong_item',
+  'kitchen:complaints.close',
+  'kitchen:complaints.closeConfirm',
+  'kitchen:complaints.closeTitle',
+  'kitchen:complaints.columnCause',
+  'kitchen:complaints.columnCost',
+  'kitchen:complaints.columnOrder',
+  'kitchen:complaints.columnState',
+  'kitchen:complaints.costHint',
+  'kitchen:complaints.emptyBody',
+  'kitchen:complaints.emptyTitle',
+  'kitchen:complaints.fieldDescription',
+  'kitchen:complaints.fieldOpened',
+  'kitchen:complaints.fieldOutcome',
+  'kitchen:complaints.fieldRefund',
+  'kitchen:complaints.fieldRemake',
+  'kitchen:complaints.figureAll',
+  'kitchen:complaints.figureClosedAction',
+  'kitchen:complaints.figureOpenAction',
+  'kitchen:complaints.loadErrorTitle',
+  'kitchen:complaints.mix',
+  'kitchen:complaints.openOrder',
+  'kitchen:complaints.openRecord',
+  'kitchen:complaints.outcome.apologised',
+  'kitchen:complaints.outcome.no_action',
+  'kitchen:complaints.outcome.refunded',
+  'kitchen:complaints.outcome.remade',
+  'kitchen:complaints.record',
+  'kitchen:complaints.recordConfirm',
+  'kitchen:complaints.recordTitle',
+  'kitchen:complaints.recordedToast',
+  'kitchen:complaints.remadeToast',
+  'kitchen:complaints.remake',
+  'kitchen:complaints.searchPlaceholder',
+  'kitchen:complaints.sectionTitle',
+  'kitchen:complaints.stateClosed',
+  'kitchen:complaints.stateOpen',
+  'kitchen:complaints.viewKind',
   'kitchen:composition.description',
   'kitchen:composition.fromDatabase',
   'kitchen:composition.per100g',
@@ -13621,6 +13732,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.batch.name',
   'kitchen:families.branchOperating.description',
   'kitchen:families.branchOperating.name',
+  'kitchen:families.complaints.description',
+  'kitchen:families.complaints.name',
   'kitchen:families.consumptionExceptions.description',
   'kitchen:families.consumptionExceptions.name',
   'kitchen:families.costReport.description',
@@ -13631,6 +13744,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.deliveryWindows.name',
   'kitchen:families.deliveryZones.description',
   'kitchen:families.deliveryZones.name',
+  'kitchen:families.dishMargins.description',
+  'kitchen:families.dishMargins.name',
   'kitchen:families.ingredients.description',
   'kitchen:families.ingredients.name',
   'kitchen:families.orderCalendar.description',
@@ -14443,6 +14558,27 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.dailyClose.signOff',
   'kitchen:ops.dailyClose.signedOff',
   'kitchen:ops.dailyClose.signedOffToast',
+  'kitchen:ops.dishMargins.asOf',
+  'kitchen:ops.dishMargins.belowTarget',
+  'kitchen:ops.dishMargins.channel.b2b',
+  'kitchen:ops.dishMargins.channel.b2c',
+  'kitchen:ops.dishMargins.columnChannel',
+  'kitchen:ops.dishMargins.columnCost',
+  'kitchen:ops.dishMargins.columnDish',
+  'kitchen:ops.dishMargins.columnMargin',
+  'kitchen:ops.dishMargins.columnPrice',
+  'kitchen:ops.dishMargins.columnStatus',
+  'kitchen:ops.dishMargins.empty',
+  'kitchen:ops.dishMargins.heading',
+  'kitchen:ops.dishMargins.loadErrorTitle',
+  'kitchen:ops.dishMargins.marginValue',
+  'kitchen:ops.dishMargins.noTarget',
+  'kitchen:ops.dishMargins.onTarget',
+  'kitchen:ops.dishMargins.targetNote',
+  'kitchen:ops.dishMargins.withheld.cost_incomplete',
+  'kitchen:ops.dishMargins.withheld.currency_mismatch',
+  'kitchen:ops.dishMargins.withheld.no_price',
+  'kitchen:ops.dishMargins.withheld.no_recipe',
   'kitchen:ops.exceptions.actionFailedToast',
   'kitchen:ops.exceptions.chip',
   'kitchen:ops.exceptions.clearBadge',

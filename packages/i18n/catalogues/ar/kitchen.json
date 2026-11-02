@@ -2241,6 +2241,33 @@
             "paidToast": "سُجّلت التوريدة كمدفوعة.",
             "dueToast": "تم حفظ تاريخ الاستحقاق.",
             "saveError": "لم يتم الحفظ."
+        },
+        "dishMargins": {
+            "heading": "الأطباق المعروضة للبيع",
+            "empty": "تُحتسب الهوامش ليلاً. ستظهر هنا بعد التشغيل التالي.",
+            "loadErrorTitle": "تعذّر تحميل هوامش الأطباق.",
+            "asOf": "حتى {{when}}.",
+            "targetNote": "الهامش المستهدف: {{percent}}٪.",
+            "noTarget": "لم يُحدَّد هدف. حدّده في مواعيد الخدمة ضمن تشغيل الفرع.",
+            "columnDish": "الطبق",
+            "columnChannel": "يُباع إلى",
+            "columnPrice": "السعر",
+            "columnCost": "التكلفة",
+            "columnMargin": "الهامش",
+            "columnStatus": "الحالة",
+            "channel": {
+                "b2c": "الزبائن",
+                "b2b": "الشركات"
+            },
+            "belowTarget": "دون الهدف",
+            "onTarget": "ضمن الهدف",
+            "marginValue": "{{percent}}٪",
+            "withheld": {
+                "no_recipe": "محجوب: لا وصفة منشورة",
+                "no_price": "محجوب: لا سعر معلن",
+                "cost_incomplete": "محجوب: التكلفة غير مكتملة",
+                "currency_mismatch": "محجوب: عملتان مختلفتان"
+            }
         }
     },
     "kds": {
@@ -2814,6 +2841,10 @@
         "noteZero": "0 صفر حقيقي — راجع الخادم تلك الفترة ولم يجد شيئًا. أما — فتعني أن اليوم لم تصل إجابته، وهذه حقيقة مختلفة لا تُعرض أبدًا على أنها صفر."
     },
     "families": {
+        "complaints": {
+            "name": "الشكاوى",
+            "description": "ما حدث من خطأ في طلب، وكلفته، وكيف انتهى."
+        },
         "customers": {
             "name": "العملاء",
             "description": "من يشتري من هذا المطبخ — أفراد وشركات وزوّار — مع بيانات تواصلهم وعناوينهم، للرجوع إليها."
@@ -2970,6 +3001,10 @@
         "payables": {
             "name": "المستحقات للموردين",
             "description": "ما هو مستحق عن التوريدات، ومواعيد استحقاقه، والأسعار بانتظار الموافقة."
+        },
+        "dishMargins": {
+            "name": "هوامش الأطباق",
+            "description": "ما يربحه كل طبق بتكاليف اليوم مقارنة بهدفك."
         }
     },
     "analytics": {
@@ -5892,6 +5927,55 @@
         "apply": "تطبيق",
         "noteLabel": "ملاحظة للمطبخ",
         "lineNote": "ملاحظة: {{note}}"
+    },
+    "complaints": {
+        "sectionTitle": "شكوى",
+        "record": "سجّل شكوى",
+        "recordTitle": "شكوى على الطلب {{number}}",
+        "recordConfirm": "احفظ الشكوى",
+        "recordedToast": "سُجّلت الشكوى.",
+        "openRecord": "افتح",
+        "viewKind": "شكوى",
+        "figureAll": "كل الشكاوى",
+        "figureOpenAction": "اعرض الشكاوى المفتوحة",
+        "figureClosedAction": "اعرض الشكاوى المغلقة",
+        "mix": "{{open}} مفتوحة، {{closed}} مغلقة",
+        "stateOpen": "مفتوحة",
+        "stateClosed": "مغلقة",
+        "columnOrder": "الطلب",
+        "columnCause": "السبب",
+        "columnCost": "الكلفة على المطبخ",
+        "columnState": "الحالة",
+        "costHint": "أفضل تقدير لديك. يمكن تغييره حتى إغلاق الشكوى.",
+        "fieldOpened": "تاريخ الفتح",
+        "fieldDescription": "ماذا حدث",
+        "fieldRemake": "أُعيد تحضيره بالطلب",
+        "fieldOutcome": "النتيجة",
+        "fieldRefund": "الاسترداد",
+        "searchPlaceholder": "ابحث بالطلب أو بما حدث",
+        "loadErrorTitle": "تعذّر تحميل الشكاوى",
+        "emptyTitle": "لا شكاوى",
+        "emptyBody": "تُسجَّل الشكوى من صفحة الطلب.",
+        "openOrder": "افتح الطلب",
+        "close": "أغلق الشكوى",
+        "closeTitle": "أغلق الشكوى",
+        "closeConfirm": "أغلقها",
+        "remake": "أعد التحضير مجاناً",
+        "remadeToast": "طُلبت إعادة التحضير: الطلب {{number}}.",
+        "cause": {
+            "wrong_item": "صنف خاطئ",
+            "missing_item": "صنف ناقص",
+            "quality": "جودة الطعام",
+            "late": "تأخير",
+            "foreign_object": "جسم غريب",
+            "other": "غير ذلك"
+        },
+        "outcome": {
+            "remade": "أُعيد تحضيره",
+            "refunded": "استُرد المبلغ",
+            "apologised": "تم الاعتذار",
+            "no_action": "بلا إجراء"
+        }
     },
     "serviceTimings": {
         "title": "مواعيد الخدمة",

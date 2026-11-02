@@ -116,6 +116,7 @@ final readonly class ComposedPlacement
      * @param  bool  $enforceWindowOffer  false only for subscription generation
      * @param  bool  $agreedInWriting  true only for an accepted quotation
      * @param  bool  $allergenConflictsAcknowledged  the desk told the customer about the basket's allergen conflicts
+     * @param  bool  $waivesDeliveryFee  true only for a remake: the customer already paid to have it brought once
      */
     public function __construct(
         public ?CustomerAccount $account,
@@ -134,6 +135,7 @@ final readonly class ComposedPlacement
         public bool $agreedInWriting = false,
         public ?string $allergyNote = null,
         public bool $allergenConflictsAcknowledged = false,
+        public bool $waivesDeliveryFee = false,
     ) {}
 
     /**

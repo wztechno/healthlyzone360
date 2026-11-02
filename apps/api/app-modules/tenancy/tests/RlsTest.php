@@ -934,10 +934,12 @@ it('protects exactly the fourteen declared tables and no others', function (): v
     // `branch_opening_hours` is: a closure is a public fact about a place, read
     // from carts with no organisation declared.
     //
-    // P1 Wave C's `daily_closes` joins on the plain organisation policy.
+    // P1 Wave C's `daily_closes` and `dish_margins` join on the plain organisation
+    // policy.
     //
     // Wave B's `catalogue_item_options` is shaped like `branch_closures`: a menu
-    // is public, so only its writes join.
+    // is public, so only its writes join. Its `order_complaints` is on the plain
+    // organisation policy.
     expect($protected)->toBe([
         'audit_logs',
         'branch_closures',
@@ -946,9 +948,11 @@ it('protects exactly the fourteen declared tables and no others', function (): v
         'consent_grants',
         'customer_accounts',
         'daily_closes',
+        'dish_margins',
         'feature_entitlements',
         'kitchen_customer_links',
         'kitchen_service_settings',
+        'order_complaints',
         'order_refunds',
         'organisation_branches',
         'organisation_memberships',

@@ -9,6 +9,11 @@ import {
 import type { CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
 import type {
+    OrderComplaint,
+    RecordComplaintRequest,
+    UpdateComplaintRequest,
+} from '../contracts/complaints.ts';
+import type {
     CancelKitchenOrderRequest,
     CloseFailedDeliveryRequest,
     DecideOrderRefundRequest,
@@ -35,6 +40,7 @@ import type {
     KitchenOrder as WireKitchenOrder,
     KitchenOrderDelivery as WireKitchenOrderDelivery,
     KitchenOrderLine as WireKitchenOrderLine,
+    OrderComplaint as WireOrderComplaint,
     OrderPaymentReceipt as WireOrderPaymentReceipt,
     OrderRefundLedgerEnvelope,
     OrderPaymentSummary as WireOrderPaymentSummary,
@@ -113,6 +119,24 @@ function mapLine(wire: WireKitchenOrderLine): KitchenOrderLine {
         note: wire.note,
         priceListId: wire.price_list_id === null ? null : PriceListId.unsafe(wire.price_list_id),
         priceListItemId: wire.price_list_item_id,
+    };
+}
+
+function mapComplaint(wire: WireOrderComplaint): OrderComplaint {
+    return {
+        id: wire.id,
+        orderId: OrderId.unsafe(wire.order_id),
+        orderNumber: wire.order_number,
+        cause: wire.cause,
+        description: wire.description,
+        costMinor: wire.cost_minor,
+        currencyCode: currencyOf(wire.currency_code),
+        outcome: wire.outcome ?? null,
+        remakeOrderId: wire.remake_order_id === null ? null : OrderId.unsafe(wire.remake_order_id),
+        remakeOrderNumber: wire.remake_order_number,
+        orderRefundId: wire.order_refund_id,
+        createdAt: wire.created_at as OrderComplaint['createdAt'],
+        closedAt: wire.closed_at as OrderComplaint['closedAt'],
     };
 }
 
@@ -419,6 +443,49 @@ export function createApiKitchenOrdersRepository(transport: Transport): KitchenO
                 { disposition: request.disposition },
                 request.lockVersion,
             );
+        },
+
+        async listComplaints(): Promise<readonly OrderComplaint[]> {
+            const payload = await transport.request<{
+                readonly complaints: readonly WireOrderComplaint[];
+            }>({ method: 'GET', path: '/catalogue/complaints' });
+            return payload.complaints.map(mapComplaint);
+        },
+
+        async recordComplaint(request: RecordComplaintRequest): Promise<OrderComplaint> {
+            const payload = await transport.request<{ readonly complaint: WireOrderComplaint }>({
+                method: 'POST',
+                path: `/catalogue/orders/${encodeURIComponent(String(request.orderId))}/complaints`,
+                body: {
+                    cause: request.cause,
+                    description: request.description,
+                    cost_minor: request.costMinor,
+                },
+            });
+            return mapComplaint(payload.complaint);
+        },
+
+        async updateComplaint(request: UpdateComplaintRequest): Promise<OrderComplaint> {
+            const payload = await transport.request<{ readonly complaint: WireOrderComplaint }>({
+                method: 'PATCH',
+                path: `/catalogue/complaints/${encodeURIComponent(request.complaintId)}`,
+                body: {
+                    ...(request.costMinor === undefined ? {} : { cost_minor: request.costMinor }),
+                    ...(request.outcome === undefined ? {} : { outcome: request.outcome }),
+                    ...(request.orderRefundId === undefined
+                        ? {}
+                        : { order_refund_id: request.orderRefundId }),
+                },
+            });
+            return mapComplaint(payload.complaint);
+        },
+
+        async remakeComplaint(complaintId: string): Promise<OrderComplaint> {
+            const payload = await transport.request<{ readonly complaint: WireOrderComplaint }>({
+                method: 'POST',
+                path: `/catalogue/complaints/${encodeURIComponent(complaintId)}/remake`,
+            });
+            return mapComplaint(payload.complaint);
         },
 
         async getRefunds(orderId: OrderId): Promise<OrderRefundLedger> {

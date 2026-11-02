@@ -48,6 +48,9 @@ final readonly class PriceOverride
      */
     public const string QUOTATION = 'quotation';
 
+    /** Food replacing what the kitchen got wrong, at no charge. */
+    public const string REMAKE = 'remake';
+
     public function __construct(
         public int $unitPriceMinor,
         public string $currencyCode,

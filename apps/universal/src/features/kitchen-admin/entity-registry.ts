@@ -456,6 +456,18 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: null,
     },
     {
+        key: 'dish-margins',
+        kind: 'workbench',
+        group: 'workbench',
+        nameKey: 'kitchen:families.dishMargins.name',
+        descriptionKey: 'kitchen:families.dishMargins.description',
+        icon: 'calculator',
+        href: '/kitchen/dish-margins',
+        // What a dish costs, so the code that opens a recipe's money. Nothing is written here.
+        permission: RECIPE_VIEW_COSTS_PERMISSION,
+        managePermission: null,
+    },
+    {
         key: 'cost-report',
         kind: 'workbench',
         group: 'workbench',
@@ -888,6 +900,17 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // Nothing is written from a register. Every edge a batch has — confirm, start, complete,
         // abandon, call off — lives on the batch itself, which holds the lock version.
         managePermission: null,
+    },
+    {
+        key: 'complaints',
+        kind: 'managed',
+        group: 'operations',
+        nameKey: 'kitchen:families.complaints.name',
+        descriptionKey: 'kitchen:families.complaints.description',
+        icon: 'alert',
+        href: '/kitchen/complaints',
+        permission: ORDER_SUPERVISE_PERMISSION,
+        managePermission: ORDER_SUPERVISE_PERMISSION,
     },
     {
         key: 'qc',

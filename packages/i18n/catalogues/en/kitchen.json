@@ -1986,6 +1986,33 @@
             "paidToast": "The delivery was marked paid.",
             "dueToast": "The due date was saved.",
             "saveError": "That was not saved."
+        },
+        "dishMargins": {
+            "heading": "Dishes on sale",
+            "empty": "Margins are worked out overnight. They will appear here after the next run.",
+            "loadErrorTitle": "The dish margins could not be loaded.",
+            "asOf": "As of {{when}}.",
+            "targetNote": "Target margin: {{percent}}%.",
+            "noTarget": "No target is set. Set one in the service timings on branch operating.",
+            "columnDish": "Dish",
+            "columnChannel": "Sold to",
+            "columnPrice": "Price",
+            "columnCost": "Cost",
+            "columnMargin": "Margin",
+            "columnStatus": "Status",
+            "channel": {
+                "b2c": "Diners",
+                "b2b": "Business"
+            },
+            "belowTarget": "Below target",
+            "onTarget": "On target",
+            "marginValue": "{{percent}}%",
+            "withheld": {
+                "no_recipe": "Withheld: no published recipe",
+                "no_price": "Withheld: no list price",
+                "cost_incomplete": "Withheld: cost incomplete",
+                "currency_mismatch": "Withheld: two currencies"
+            }
         }
     },
     "kds": {
@@ -2523,6 +2550,10 @@
         "noteZero": "0 is a true zero — the server walked that slot and found nothing. — means the day was never answered, which is a different fact and is never shown as a zero."
     },
     "families": {
+        "complaints": {
+            "name": "Complaints",
+            "description": "What went wrong with an order, what it cost and how it ended."
+        },
         "customers": {
             "name": "Customers",
             "description": "Who this kitchen sells to — consumers, businesses and guests — with their contacts and addresses, for reference."
@@ -2679,6 +2710,10 @@
         "payables": {
             "name": "Payables",
             "description": "What is owed for deliveries, when it falls due, and prices waiting for approval."
+        },
+        "dishMargins": {
+            "name": "Dish margins",
+            "description": "What each dish earns at today's costs, against your target."
         }
     },
     "analytics": {
@@ -5205,6 +5240,55 @@
         "apply": "Apply",
         "noteLabel": "Note for the kitchen",
         "lineNote": "Note: {{note}}"
+    },
+    "complaints": {
+        "sectionTitle": "Complaint",
+        "record": "Record a complaint",
+        "recordTitle": "Complaint on order {{number}}",
+        "recordConfirm": "Save complaint",
+        "recordedToast": "Complaint recorded.",
+        "openRecord": "Open",
+        "viewKind": "Complaint",
+        "figureAll": "All complaints",
+        "figureOpenAction": "Show open complaints",
+        "figureClosedAction": "Show closed complaints",
+        "mix": "{{open}} open, {{closed}} closed",
+        "stateOpen": "Open",
+        "stateClosed": "Closed",
+        "columnOrder": "Order",
+        "columnCause": "Cause",
+        "columnCost": "Cost to the kitchen",
+        "columnState": "State",
+        "costHint": "Your best figure. It can change until the complaint is closed.",
+        "fieldOpened": "Opened",
+        "fieldDescription": "What happened",
+        "fieldRemake": "Remade as",
+        "fieldOutcome": "Outcome",
+        "fieldRefund": "Refund",
+        "searchPlaceholder": "Search by order or what happened",
+        "loadErrorTitle": "Complaints could not be loaded",
+        "emptyTitle": "No complaints",
+        "emptyBody": "A complaint is recorded from its order’s page.",
+        "openOrder": "Open the order",
+        "close": "Close the complaint",
+        "closeTitle": "Close the complaint",
+        "closeConfirm": "Close it",
+        "remake": "Remake at no charge",
+        "remadeToast": "Remake placed: order {{number}}.",
+        "cause": {
+            "wrong_item": "Wrong item",
+            "missing_item": "Missing item",
+            "quality": "Food quality",
+            "late": "Late",
+            "foreign_object": "Foreign object",
+            "other": "Other"
+        },
+        "outcome": {
+            "remade": "Remade",
+            "refunded": "Refunded",
+            "apologised": "Apologised",
+            "no_action": "No action"
+        }
     },
     "serviceTimings": {
         "title": "Service timings",

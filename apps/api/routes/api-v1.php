@@ -94,6 +94,7 @@ use Healthy360\Catalogues\Http\Controllers\CatalogueItemChannelReplaceController
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemOptionController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemDietClassificationReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemIndexController;
+use Healthy360\Catalogues\Http\Controllers\DishMarginIndexController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemIngredientReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemPublishController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemReadinessController;
@@ -253,6 +254,7 @@ use Healthy360\Orders\Http\Controllers\KitchenOrderStartController;
 use Healthy360\Orders\Http\Controllers\MyOrderIndexController;
 use Healthy360\Orders\Http\Controllers\MyOrderShowController;
 use Healthy360\Orders\Http\Controllers\OrderPaymentReceiptStoreController;
+use Healthy360\Orders\Http\Controllers\OrderComplaintController;
 use Healthy360\Orders\Http\Controllers\OrderRefundController;
 use Healthy360\Orders\Http\Controllers\OrderStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\KitchenCustomerIndexController;
@@ -1268,6 +1270,9 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             |
             */
             Route::middleware('permission:recipe.view_costs_organisation')->group(function (): void {
+                Route::get('/reports/dish-margins', DishMarginIndexController::class)
+                    ->name('catalogue.reports.dish-margins');
+
                 Route::get('/recipes/{recipe}/versions/{version}/technical-sheet', RecipeTechnicalSheetController::class)
                     ->name('catalogue.recipes.versions.technical-sheet');
 
@@ -2188,6 +2193,16 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/orders/{order}/delivery/close-failed', [KitchenOrderDeliveryController::class, 'closeFailed'])
                     ->middleware('precondition')
                     ->name('catalogue.orders.delivery.close-failed');
+
+                // What went wrong with an order, and putting it right.
+                Route::get('/complaints', [OrderComplaintController::class, 'index'])
+                    ->name('catalogue.complaints.index');
+                Route::post('/orders/{order}/complaints', [OrderComplaintController::class, 'store'])
+                    ->name('catalogue.orders.complaints.store');
+                Route::patch('/complaints/{complaint}', [OrderComplaintController::class, 'update'])
+                    ->name('catalogue.complaints.update');
+                Route::post('/complaints/{complaint}/remake', [OrderComplaintController::class, 'remake'])
+                    ->name('catalogue.complaints.remake');
 
                 // Money going back. A manager's act, and above the kitchen's
                 // limit it waits for the owner.

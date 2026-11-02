@@ -508,6 +508,8 @@ export type {
     KitchenAnalyticsReport,
     KitchenAnalyticsTotals,
     MonthlyCostReportFilter,
+    DishMargin,
+    DishMargins,
     MonthlyCostReportRow,
     Payable,
     PayablePriceRise,
@@ -1237,3 +1239,11 @@ export interface Repositories {
     readonly accessAdmin: AccessAdminRepository;
 }
 export type * from './dish-options.ts';
+export { COMPLAINT_CAUSES, COMPLAINT_OUTCOMES } from './complaints.ts';
+export type {
+    ComplaintCause,
+    ComplaintOutcome,
+    OrderComplaint,
+    RecordComplaintRequest,
+    UpdateComplaintRequest,
+} from './complaints.ts';

@@ -5631,6 +5631,195 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/complaints:
+    get:
+      operationId: listOrderComplaints
+      tags: [Kitchen orders]
+      summary: The kitchen's recent complaints
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+      responses:
+        '200':
+          description: Newest first, capped at 200.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [complaints]
+                    properties:
+                      complaints:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OrderComplaint'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/orders/{order}/complaints:
+    post:
+      operationId: recordOrderComplaint
+      tags: [Kitchen orders]
+      summary: Record what went wrong with an order
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: order
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cause]
+              properties:
+                cause:
+                  $ref: '#/components/schemas/OrderComplaintCause'
+                description:
+                  type: ['string', 'null']
+                  maxLength: 500
+                cost_minor:
+                  type: ['integer', 'null']
+                  minimum: 0
+              additionalProperties: false
+      responses:
+        '201':
+          description: The complaint.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [complaint]
+                    properties:
+                      complaint:
+                        $ref: '#/components/schemas/OrderComplaint'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/complaints/{complaint}:
+    patch:
+      operationId: updateOrderComplaint
+      tags: [Kitchen orders]
+      summary: Change a complaint, or close it with an outcome
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: complaint
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cause:
+                  $ref: '#/components/schemas/OrderComplaintCause'
+                description:
+                  type: ['string', 'null']
+                  maxLength: 500
+                cost_minor:
+                  type: integer
+                  minimum: 0
+                outcome:
+                  type: ['string', 'null']
+                  enum: [refunded, apologised, no_action, null]
+                order_refund_id:
+                  type: ['string', 'null']
+                  format: uuid
+              additionalProperties: false
+      responses:
+        '200':
+          description: The complaint.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [complaint]
+                    properties:
+                      complaint:
+                        $ref: '#/components/schemas/OrderComplaint'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/complaints/{complaint}/remake:
+    post:
+      operationId: remakeOrderComplaint
+      tags: [Kitchen orders]
+      summary: Place the zero-priced order that puts it right
+      description: |
+        Goes through the desk's placement, so it reaches the kitchen and the stock
+        as any order does. Once per complaint.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: complaint
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      responses:
+        '200':
+          description: The complaint, closed as remade.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [complaint]
+                    properties:
+                      complaint:
+                        $ref: '#/components/schemas/OrderComplaint'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/items/{item}/options:
     parameters:
       - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -11626,6 +11815,36 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/reports/dish-margins:
+    get:
+      operationId: getDishMargins
+      tags: [Reports]
+      summary: What each dish on sale earns, lowest first
+      description: |
+        As of the last overnight run. The margin is withheld, with a reason, when
+        there is no published recipe, no list price, an incomplete cost, or a price
+        and a cost in two currencies. `is_below_target` reads the target as it
+        stands now. Requires `recipe.view_costs_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The dishes.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DishMarginsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -33562,6 +33781,53 @@ components:
           $ref: '#/components/schemas/MarketplaceNutritionCalculation'
       additionalProperties: false
 
+    OrderComplaintCause:
+      type: string
+      enum: [wrong_item, missing_item, quality, late, foreign_object, other]
+
+    OrderComplaint:
+      type: object
+      required:
+        [id, order_id, order_number, cause, description, cost_minor, currency_code,
+         outcome, remake_order_id, remake_order_number, order_refund_id, created_at,
+         closed_at]
+      description: |
+        What went wrong with an order, what it cost and how it ended. `outcome`
+        is null while it is open.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        order_id:
+          $ref: '#/components/schemas/Uuid'
+        order_number:
+          type: ['string', 'null']
+        cause:
+          $ref: '#/components/schemas/OrderComplaintCause'
+        description:
+          type: ['string', 'null']
+        cost_minor:
+          type: integer
+        currency_code:
+          type: string
+        outcome:
+          type: ['string', 'null']
+          enum: [remade, refunded, apologised, no_action, null]
+        remake_order_id:
+          type: ['string', 'null']
+          format: uuid
+        remake_order_number:
+          type: ['string', 'null']
+        order_refund_id:
+          type: ['string', 'null']
+          format: uuid
+        created_at:
+          type: ['string', 'null']
+          format: date-time
+        closed_at:
+          type: ['string', 'null']
+          format: date-time
+      additionalProperties: false
+
     DishOption:
       type: object
       required: [id, kind, group_en, group_ar, name_en, name_ar]
@@ -42082,6 +42348,55 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CourierCashRun'
+
+    DishMargin:
+      type: object
+      required: [id, catalogue_item_id, name_en, name_ar, channel, price_amount, cost_amount, currency_code, margin_percent, withheld_reason, is_below_target]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        catalogue_item_id:
+          $ref: '#/components/schemas/Uuid'
+        name_en:
+          type: string
+        name_ar:
+          type: [string, 'null']
+        channel:
+          type: string
+          enum: [b2c, b2b]
+        price_amount:
+          type: [string, 'null']
+        cost_amount:
+          type: [string, 'null']
+        currency_code:
+          type: [string, 'null']
+        margin_percent:
+          type: [string, 'null']
+        withheld_reason:
+          type: [string, 'null']
+          enum: [no_recipe, no_price, cost_incomplete, currency_mismatch, null]
+        is_below_target:
+          type: boolean
+
+    DishMarginsEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [target_percent, computed_at, dishes]
+          properties:
+            target_percent:
+              type: [integer, 'null']
+            computed_at:
+              type:
+                - string
+                - 'null'
+              format: date-time
+            dishes:
+              type: array
+              items:
+                $ref: '#/components/schemas/DishMargin'
 
     PayablePriceRise:
       type: object
