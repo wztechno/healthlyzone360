@@ -12,6 +12,7 @@ use Healthy360\Customers\Guest\Jobs\ExpireGuestData;
 use Healthy360\Customers\Guest\Jobs\PurgeExpiredGuestSessions;
 use Healthy360\Customers\Jobs\PurgeAbandonedProvisionalAccounts;
 use Healthy360\Inventory\Jobs\RetryOpenConsumptionExceptions;
+use Healthy360\Orders\Jobs\EscalateUnacceptedOrders;
 use Healthy360\Procurement\Jobs\PublishWeeklyIngredientPrices;
 use Healthy360\Subscriptions\Jobs\GenerateSubscriptionDeliveries;
 use Healthy360\Support\Http\Middleware\EnforceIdempotency;
@@ -362,5 +363,15 @@ Schedule::command('inventory:check-stock-sufficiency')
 Schedule::job(new RetryOpenConsumptionExceptions)
     ->everyFiveMinutes()
     ->name('inventory:retry-stock-gaps')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+/*
+| Chase an order nobody has accepted. Every minute, because the limits are in
+| minutes; the alert's unique index makes the repeats safe.
+*/
+Schedule::job(new EscalateUnacceptedOrders)
+    ->everyMinute()
+    ->name('orders:escalate-unaccepted')
     ->withoutOverlapping()
     ->onOneServer();
