@@ -412,5 +412,12 @@
         "order.settle_cash_organisation": {
             "name": "تسجيل النقد الذي يسلّمه السائقون وشركات التوصيل"
         }
+    },
+    "permissions": {
+        "inventory": {
+            "approve_payables_organisation": {
+                "name": "الموافقة على أسعار التوريد وتسجيل الفواتير كمدفوعة"
+            }
+        }
     }
 }

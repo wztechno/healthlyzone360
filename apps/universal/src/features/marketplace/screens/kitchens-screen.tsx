@@ -357,10 +357,12 @@ export function KitchensScreen() {
                             label={t('marketplace:kitchens.finder.sortFieldLabel')}
                             labelHidden
                             value={sort}
-                            options={availableKitchenSorts(profileDiets, hasRatings).map((option) => ({
-                                value: option,
-                                label: t(`marketplace:kitchens.finder.sort.${option}`),
-                            }))}
+                            options={availableKitchenSorts(profileDiets, hasRatings).map(
+                                (option) => ({
+                                    value: option,
+                                    label: t(`marketplace:kitchens.finder.sort.${option}`),
+                                }),
+                            )}
                             onChange={(next) => {
                                 sorting.select('sort', next === defaultSort ? null : next);
                             }}

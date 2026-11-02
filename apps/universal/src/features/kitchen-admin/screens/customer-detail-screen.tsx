@@ -261,7 +261,12 @@ function CustomerOrders({ customerAccountId }: { readonly customerAccountId: str
     }
 
     if (orders.data === undefined) {
-        return <TableSkeleton testID="kitchen-customer-orders-loading" partTestID="kitchen-customer-orders" />;
+        return (
+            <TableSkeleton
+                testID="kitchen-customer-orders-loading"
+                partTestID="kitchen-customer-orders"
+            />
+        );
     }
 
     if (orders.data.items.length === 0) {

@@ -153,7 +153,8 @@ function ReturningRedirect({ href }: { readonly href: string }) {
     const params = useGlobalSearchParams();
     const carried = params[RETURN_TO_PARAM];
     const returnTo =
-        safeReturnTo(arrival ?? here) ?? safeReturnTo(Array.isArray(carried) ? carried[0] : carried);
+        safeReturnTo(arrival ?? here) ??
+        safeReturnTo(Array.isArray(carried) ? carried[0] : carried);
     return <Redirect href={withReturnTo(href, returnTo) as never} />;
 }
 

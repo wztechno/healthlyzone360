@@ -58,7 +58,7 @@ export default function CustomerLayout() {
         channel: reportedChannel,
         href: reportedHref,
     });
-    const bare =reportedPathname === '/customer' || reportedPathname === '/customer/';
+    const bare = reportedPathname === '/customer' || reportedPathname === '/customer/';
     const pathname = bare ? arrival.pathname : reportedPathname;
     const channel = bare ? arrival.channel : reportedChannel;
     const { me } = useSession();

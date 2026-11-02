@@ -88,8 +88,10 @@ export function KitchenProfileScreen({ kitchenId }: KitchenProfileScreenProps) {
     // The open tab and shelf, for a meal's "{Kitchen}" crumb to come back to (browse-05).
     useRememberQuery();
 
-    const parsed = kitchenId === undefined ? null : KitchenId.safeParse(kitchenId);
-    const query = useKitchenQuery(parsed);
+    // An id or a slug: the server takes either, and refusing the slug here left the page loading.
+    const requested =
+        kitchenId === undefined || kitchenId === '' ? null : KitchenId.unsafe(kitchenId);
+    const query = useKitchenQuery(requested);
     const kitchen = query.data;
 
     return (

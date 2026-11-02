@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9593 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9639 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -204,6 +204,7 @@ export interface NamespaceKeys {
     | 'pages.unmappedCount'
     | 'pages.unmappedHeading'
     | 'pages.unmappedHint'
+    | 'permissions.inventory.approve_payables_organisation.name'
     | 'role.back'
     | 'role.backToList'
     | 'role.cancel'
@@ -3991,6 +3992,8 @@ export interface NamespaceKeys {
     | 'families.orders.name'
     | 'families.packaging.description'
     | 'families.packaging.name'
+    | 'families.payables.description'
+    | 'families.payables.name'
     | 'families.plans.description'
     | 'families.plans.name'
     | 'families.priceLists.description'
@@ -5069,6 +5072,42 @@ export interface NamespaceKeys {
     | 'ops.orders.viewKind'
     | 'ops.orders.viewPlacedNote'
     | 'ops.orders.withCourier'
+    | 'ops.payables.approve'
+    | 'ops.payables.approvedToast'
+    | 'ops.payables.columnAction'
+    | 'ops.payables.columnAmount'
+    | 'ops.payables.columnDue'
+    | 'ops.payables.columnPaid'
+    | 'ops.payables.columnPrice'
+    | 'ops.payables.columnReceived'
+    | 'ops.payables.columnReference'
+    | 'ops.payables.columnSupplier'
+    | 'ops.payables.confirmPay'
+    | 'ops.payables.directPurchase'
+    | 'ops.payables.dueLabel'
+    | 'ops.payables.dueToast'
+    | 'ops.payables.loadErrorTitle'
+    | 'ops.payables.noDueDate'
+    | 'ops.payables.overdue'
+    | 'ops.payables.owedEmpty'
+    | 'ops.payables.owedHeading'
+    | 'ops.payables.paidEmpty'
+    | 'ops.payables.paidHeading'
+    | 'ops.payables.paidToast'
+    | 'ops.payables.pay'
+    | 'ops.payables.payBody'
+    | 'ops.payables.payTitle'
+    | 'ops.payables.priceApproved'
+    | 'ops.payables.priceMissing'
+    | 'ops.payables.priceRise'
+    | 'ops.payables.priceWaiting'
+    | 'ops.payables.referenceLabel'
+    | 'ops.payables.review'
+    | 'ops.payables.reviewBody'
+    | 'ops.payables.reviewLine'
+    | 'ops.payables.reviewTitle'
+    | 'ops.payables.saveError'
+    | 'ops.payables.totalsLabel'
     | 'ops.procurement.addLine'
     | 'ops.procurement.arrivalSection'
     | 'ops.procurement.awaitingAll'
@@ -5886,6 +5925,7 @@ export interface NamespaceKeys {
     | 'ops.suppliers.fieldLeadTime'
     | 'ops.suppliers.fieldName'
     | 'ops.suppliers.fieldNotes'
+    | 'ops.suppliers.fieldPaymentDueDays'
     | 'ops.suppliers.fieldPaymentTerms'
     | 'ops.suppliers.fieldPhone'
     | 'ops.suppliers.filteredEmptyBody'
@@ -5920,6 +5960,7 @@ export interface NamespaceKeys {
     | 'ops.suppliers.notFoundBody'
     | 'ops.suppliers.notFoundTitle'
     | 'ops.suppliers.notesPlaceholder'
+    | 'ops.suppliers.paymentDueDaysPlaceholder'
     | 'ops.suppliers.paymentTermsPlaceholder'
     | 'ops.suppliers.phonePlaceholder'
     | 'ops.suppliers.pickItem'
@@ -7107,8 +7148,13 @@ export interface NamespaceKeys {
     | 'serviceTimings.loadErrorTitle'
     | 'serviceTimings.managerHint'
     | 'serviceTimings.managerLabel'
+    | 'serviceTimings.marginTargetHint'
+    | 'serviceTimings.marginTargetLabel'
     | 'serviceTimings.ownerHint'
     | 'serviceTimings.ownerLabel'
+    | 'serviceTimings.percentUnit'
+    | 'serviceTimings.priceLimitHint'
+    | 'serviceTimings.priceLimitLabel'
     | 'serviceTimings.refundHint'
     | 'serviceTimings.refundLabel'
     | 'serviceTimings.refundUnit'
@@ -9827,6 +9873,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:pages.unmappedCount',
   'accessAdmin:pages.unmappedHeading',
   'accessAdmin:pages.unmappedHint',
+  'accessAdmin:permissions.inventory.approve_payables_organisation.name',
   'accessAdmin:role.back',
   'accessAdmin:role.backToList',
   'accessAdmin:role.cancel',
@@ -13602,6 +13649,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.orders.name',
   'kitchen:families.packaging.description',
   'kitchen:families.packaging.name',
+  'kitchen:families.payables.description',
+  'kitchen:families.payables.name',
   'kitchen:families.plans.description',
   'kitchen:families.plans.name',
   'kitchen:families.priceLists.description',
@@ -14680,6 +14729,42 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.viewKind',
   'kitchen:ops.orders.viewPlacedNote',
   'kitchen:ops.orders.withCourier',
+  'kitchen:ops.payables.approve',
+  'kitchen:ops.payables.approvedToast',
+  'kitchen:ops.payables.columnAction',
+  'kitchen:ops.payables.columnAmount',
+  'kitchen:ops.payables.columnDue',
+  'kitchen:ops.payables.columnPaid',
+  'kitchen:ops.payables.columnPrice',
+  'kitchen:ops.payables.columnReceived',
+  'kitchen:ops.payables.columnReference',
+  'kitchen:ops.payables.columnSupplier',
+  'kitchen:ops.payables.confirmPay',
+  'kitchen:ops.payables.directPurchase',
+  'kitchen:ops.payables.dueLabel',
+  'kitchen:ops.payables.dueToast',
+  'kitchen:ops.payables.loadErrorTitle',
+  'kitchen:ops.payables.noDueDate',
+  'kitchen:ops.payables.overdue',
+  'kitchen:ops.payables.owedEmpty',
+  'kitchen:ops.payables.owedHeading',
+  'kitchen:ops.payables.paidEmpty',
+  'kitchen:ops.payables.paidHeading',
+  'kitchen:ops.payables.paidToast',
+  'kitchen:ops.payables.pay',
+  'kitchen:ops.payables.payBody',
+  'kitchen:ops.payables.payTitle',
+  'kitchen:ops.payables.priceApproved',
+  'kitchen:ops.payables.priceMissing',
+  'kitchen:ops.payables.priceRise',
+  'kitchen:ops.payables.priceWaiting',
+  'kitchen:ops.payables.referenceLabel',
+  'kitchen:ops.payables.review',
+  'kitchen:ops.payables.reviewBody',
+  'kitchen:ops.payables.reviewLine',
+  'kitchen:ops.payables.reviewTitle',
+  'kitchen:ops.payables.saveError',
+  'kitchen:ops.payables.totalsLabel',
   'kitchen:ops.procurement.addLine',
   'kitchen:ops.procurement.arrivalSection',
   'kitchen:ops.procurement.awaitingAll',
@@ -15497,6 +15582,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.fieldLeadTime',
   'kitchen:ops.suppliers.fieldName',
   'kitchen:ops.suppliers.fieldNotes',
+  'kitchen:ops.suppliers.fieldPaymentDueDays',
   'kitchen:ops.suppliers.fieldPaymentTerms',
   'kitchen:ops.suppliers.fieldPhone',
   'kitchen:ops.suppliers.filteredEmptyBody',
@@ -15531,6 +15617,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.notFoundBody',
   'kitchen:ops.suppliers.notFoundTitle',
   'kitchen:ops.suppliers.notesPlaceholder',
+  'kitchen:ops.suppliers.paymentDueDaysPlaceholder',
   'kitchen:ops.suppliers.paymentTermsPlaceholder',
   'kitchen:ops.suppliers.phonePlaceholder',
   'kitchen:ops.suppliers.pickItem',
@@ -16718,8 +16805,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:serviceTimings.loadErrorTitle',
   'kitchen:serviceTimings.managerHint',
   'kitchen:serviceTimings.managerLabel',
+  'kitchen:serviceTimings.marginTargetHint',
+  'kitchen:serviceTimings.marginTargetLabel',
   'kitchen:serviceTimings.ownerHint',
   'kitchen:serviceTimings.ownerLabel',
+  'kitchen:serviceTimings.percentUnit',
+  'kitchen:serviceTimings.priceLimitHint',
+  'kitchen:serviceTimings.priceLimitLabel',
   'kitchen:serviceTimings.refundHint',
   'kitchen:serviceTimings.refundLabel',
   'kitchen:serviceTimings.refundUnit',

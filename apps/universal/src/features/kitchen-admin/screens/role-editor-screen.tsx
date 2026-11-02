@@ -261,7 +261,10 @@ function RoleEditor() {
         );
     }
 
-    if (failure?.code === 'resource.not_found' || (failure === null && !isNew && record === undefined)) {
+    if (
+        failure?.code === 'resource.not_found' ||
+        (failure === null && !isNew && record === undefined)
+    ) {
         return (
             <Callout
                 testID="kitchen-role-editor-missing"

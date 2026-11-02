@@ -666,6 +666,31 @@ describe('KitchenProfileScreen', () => {
         }));
     }
 
+    it('reads a kitchen by its slug rather than loading forever', async () => {
+        await renderStubScreen(<KitchenProfileScreen kitchenId="verdant-kitchen" />, {
+            repositories: { marketplace: { getKitchen, listMeals } },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-hero-title')).toHaveTextContent('Verdant Kitchen');
+        });
+    });
+
+    it('says when a timed pause ends, and says nothing when there is none', async () => {
+        await renderStubScreen(<KitchenProfileScreen kitchenId={String(VERDANT.id)} />, {
+            repositories: {
+                marketplace: {
+                    getKitchen: async () => ({ ...VERDANT, pausedUntil: '2026-11-03T15:00:00Z' }),
+                    listMeals,
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-paused')).toBeTruthy();
+        });
+    });
+
     it('opens on the canopy hero, the standing facts and the order panel', async () => {
         await renderStubScreen(<KitchenProfileScreen kitchenId={String(VERDANT.id)} />, {
             repositories: { marketplace: { getKitchen, listMeals } },

@@ -895,7 +895,7 @@ describe('the batch technical sheet', () => {
             expect(screen.getByTestId('kitchen-production-batch-sheet-basis')).toBeTruthy();
         });
         expect(screen.getByTestId('kitchen-production-batch-sheet-publication')).toHaveTextContent(
-            'kitchen:ops.production.sheetPublicationSet',
+            'Weekly prices were standing.',
         );
         // A withheld nutrient stays withheld. Zero would say the food contains none of it.
         expect(

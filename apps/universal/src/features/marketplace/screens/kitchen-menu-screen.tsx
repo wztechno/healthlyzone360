@@ -74,8 +74,12 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
     const filters = useMarketplaceFilters(GROUP_KEYS);
     useRememberQuery();
 
-    const parsed = kitchenId === undefined ? null : KitchenId.safeParse(kitchenId);
-    const kitchen = useKitchenQuery(parsed);
+    // An id or a slug: the server takes either. The menu filter needs the id the kitchen answers with.
+    const requested =
+        kitchenId === undefined || kitchenId === '' ? null : KitchenId.unsafe(kitchenId);
+    const kitchen = useKitchenQuery(requested);
+    const parsed =
+        kitchen.data?.id ?? (kitchenId === undefined ? null : KitchenId.safeParse(kitchenId));
 
     const { query: searchTerm, selected: selectedFilters } = filters;
     const filter = useMemo<MealFilter | undefined>(() => {
