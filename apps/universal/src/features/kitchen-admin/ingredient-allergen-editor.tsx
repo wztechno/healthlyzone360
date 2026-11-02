@@ -8,9 +8,9 @@ import type {
 import {
     Button,
     Callout,
+    Checkbox,
     FormGrid,
     Inline,
-    Select,
     Stack,
     Text,
     TextInputField,
@@ -78,6 +78,9 @@ export function IngredientAllergenEditor({
     const [supplierEvidence, setSupplierEvidence] = useState('');
     // The classes the last save sent, in order: `mappings.2.…` in a refusal is the third of these.
     const [sentCodes, setSentCodes] = useState<readonly string[]>([]);
+    // A barcode found the product and it declares nothing: the fourteen boxes fold into one ticked
+    // "no allergens" box, as on the new-ingredient form. Unticking it brings them back.
+    const [nothingDeclared, setNothingDeclared] = useState(false);
     const needsSupplier = ingredient.allergens.some(
         (mapping) =>
             mapping.verification === 'requires_supplier_confirmation' &&
@@ -96,18 +99,20 @@ export function IngredientAllergenEditor({
         chosen.length !== stored.size ||
         chosen.some(([code, choice]) => stored.get(code)?.containment !== choice);
     const assessed = ingredient.allergens.length > 0 || ingredient.allergensAssessedClear === true;
+    // Allergens found for the kitchen — by the master list or the reference lookup — are the
+    // record; the boxes would only offer to undo it.
+    const fromLookup = ingredient.allergens.some(
+        (mapping) =>
+            mapping.lookupSource != null ||
+            mapping.source === 'master_list' ||
+            mapping.source === 'inferred',
+    );
 
     useEffect(() => {
         onDirtyChange?.(dirty);
     }, [dirty, onDirtyChange]);
     // A remount (the record moved on) starts clean; say so as this one goes.
     useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
-
-    const options = [
-        { value: 'none' as const, label: t('kitchen:allergens.none') },
-        { value: 'may_contain' as const, label: t('kitchen:containment.mayContain') },
-        { value: 'contains' as const, label: t('kitchen:containment.contains') },
-    ];
 
     const onSave = () => {
         const mappings: IngredientAllergenMapping[] = [];
@@ -189,6 +194,7 @@ export function IngredientAllergenEditor({
                     disabled={
                         dirty || save.isPending || confirm.isPending || importReference.isPending
                     }
+                    onNothingDeclared={() => setNothingDeclared(true)}
                 />
             ) : null}
             {selection === undefined ? null : (
@@ -337,26 +343,41 @@ export function IngredientAllergenEditor({
                     }
                 />
             )}
-            <FormGrid testID="kitchen-ingredient-mapping-grid">
-                {active.map((entry) => {
-                    const code = String(entry.code);
-                    return (
-                        <Select
-                            key={code}
-                            testID={`kitchen-ingredient-mapping-${code}`}
-                            id={`kitchen-ingredient-mapping-${code}`}
-                            size="sm"
-                            label={displayName(entry.name, locale).value}
-                            options={options}
-                            value={draft.get(code) ?? 'none'}
-                            {...mappingFlag(code)}
-                            onChange={(next) => {
-                                setDraft((current) => new Map(current).set(code, next));
-                            }}
-                        />
-                    );
-                })}
-            </FormGrid>
+            {fromLookup ? null : nothingDeclared && chosen.length === 0 ? (
+                <Checkbox
+                    testID="kitchen-ingredient-mapping-none"
+                    label={t('kitchen:allergens.createNone')}
+                    checked
+                    onChange={() => setNothingDeclared(false)}
+                />
+            ) : (
+                <FormGrid testID="kitchen-ingredient-mapping-grid">
+                    {active.map((entry) => {
+                        const code = String(entry.code);
+                        const choice = draft.get(code) ?? 'none';
+                        return (
+                            <Checkbox
+                                key={code}
+                                testID={`kitchen-ingredient-mapping-${code}`}
+                                id={`kitchen-ingredient-mapping-${code}`}
+                                label={displayName(entry.name, locale).value}
+                                checked={choice !== 'none'}
+                                // A stored "may contain" stays one while it is ticked.
+                                {...(choice === 'may_contain'
+                                    ? { description: t('kitchen:containment.mayContain') }
+                                    : {})}
+                                {...mappingFlag(code)}
+                                onChange={(checked) => {
+                                    const kept = stored.get(code)?.containment ?? 'contains';
+                                    setDraft((current) =>
+                                        new Map(current).set(code, checked ? kept : 'none'),
+                                    );
+                                }}
+                            />
+                        );
+                    })}
+                </FormGrid>
+            )}
 
             {failure === null ? null : (
                 <Callout
@@ -367,26 +388,28 @@ export function IngredientAllergenEditor({
                 />
             )}
 
-            <Inline justify="end">
-                <Button
-                    testID="kitchen-ingredient-mapping-save"
-                    variant="primary"
-                    size="sm"
-                    loading={save.isPending}
-                    disabled={
-                        save.isPending ||
-                        importReference.isPending ||
-                        confirm.isPending ||
-                        (!dirty && assessed)
-                    }
-                    label={
-                        chosen.length === 0
-                            ? t('kitchen:allergens.confirmNone')
-                            : t('kitchen:allergens.save')
-                    }
-                    onPress={onSave}
-                />
-            </Inline>
+            {fromLookup ? null : (
+                <Inline justify="end">
+                    <Button
+                        testID="kitchen-ingredient-mapping-save"
+                        variant="primary"
+                        size="sm"
+                        loading={save.isPending}
+                        disabled={
+                            save.isPending ||
+                            importReference.isPending ||
+                            confirm.isPending ||
+                            (!dirty && assessed)
+                        }
+                        label={
+                            chosen.length === 0
+                                ? t('kitchen:allergens.confirmNone')
+                                : t('kitchen:allergens.save')
+                        }
+                        onPress={onSave}
+                    />
+                </Inline>
+            )}
         </Stack>
     );
 }

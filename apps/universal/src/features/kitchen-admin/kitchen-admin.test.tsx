@@ -2446,13 +2446,9 @@ describe('composition and allergens', () => {
             },
         });
 
-        await untilVisible('kitchen-ingredient-mapping-milk-trigger');
+        await untilVisible('kitchen-ingredient-mapping-milk-control');
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-milk-trigger'));
-        });
-        await untilVisible('kitchen-ingredient-mapping-milk-option-contains');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-milk-option-contains'));
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-milk-control'));
         });
 
         // The page counts it as unsaved…
@@ -2464,6 +2460,71 @@ describe('composition and allergens', () => {
         // …and the record Save, which would remount the allergen editor, does not run: it says why.
         await untilVisible('kitchen-ingredient-tray-blocked');
         expect(updateIngredient).not.toHaveBeenCalled();
+    });
+
+    it('records a ticked allergen box as "contains"', async () => {
+        const record = ingredient(11, { allergens: [] });
+        const writes: unknown[] = [];
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => [record]),
+                    getIngredient: async () => record,
+                    setIngredientAllergens: async (_id, request) => {
+                        writes.push(request.mappings.map((m) => [m.allergenCode, m.containment]));
+                        return record;
+                    },
+                },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-mapping-milk-control');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-milk-control'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-save'));
+        });
+
+        await waitFor(() => {
+            expect(writes).toEqual([[['milk', 'contains']]]);
+        });
+    });
+
+    it('hides the allergen boxes once the reference lookup found the allergens', async () => {
+        const record = ingredient(12, {
+            allergens: [mapping('milk', { lookupSource: { source_hash: 'abc', ref: 'off:1' } })],
+        });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: { ...editorReads(() => [record]), getIngredient: async () => record },
+            },
+        });
+
+        await untilVisible('ingredient-allergen-recorded-milk');
+        expect(screen.queryByTestId('kitchen-ingredient-mapping-grid')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ingredient-mapping-save')).toBeNull();
+    });
+
+    it('hides the allergen boxes once the master list brought the allergens in', async () => {
+        const record = ingredient(13, {
+            allergens: [mapping('gluten', { source: 'master_list' })],
+        });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: { ...editorReads(() => [record]), getIngredient: async () => record },
+            },
+        });
+
+        await untilVisible('ingredient-allergen-recorded-gluten');
+        expect(screen.queryByTestId('kitchen-ingredient-mapping-grid')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ingredient-mapping-save')).toBeNull();
     });
 
     it('renders the quarantine a write elsewhere put the record into', async () => {
@@ -2773,6 +2834,94 @@ describe('Open Food Facts allergen lookup', () => {
         await untilVisible('allergen-notice-open_food_facts.throttled');
         expect(screen.queryByTestId('allergen-reference-empty')).toBeNull();
         expect(screen.getByTestId('allergen-reference-select-off:3017620422003')).toBeDisabled();
+    });
+
+    it('says so when a barcode finds a product that declares nothing, and not for a name', async () => {
+        const onNothingDeclared = jest.fn();
+        await renderStubScreen(
+            <AllergenReferencePicker
+                name="water"
+                classes={[]}
+                value={undefined}
+                onChange={jest.fn()}
+                onNothingDeclared={onNothingDeclared}
+            />,
+            {
+                repositories: {
+                    kitchenAdmin: {
+                        searchAllergenReferences: async () => ({
+                            candidates: [
+                                {
+                                    ...ALLERGEN_CANDIDATE,
+                                    mappings: [],
+                                    importable: false,
+                                    selection_token: null,
+                                },
+                            ],
+                            notices: [],
+                        }),
+                    },
+                },
+            },
+        );
+
+        // By name: a list of lookalikes, so nothing is ticked for the cook.
+        await fireEvent.press(screen.getByTestId('allergen-reference-search'));
+        await untilVisible('allergen-reference-off:3017620422003');
+        expect(onNothingDeclared).not.toHaveBeenCalled();
+
+        await fireEvent.changeText(
+            screen.getByTestId('allergen-reference-barcode-input'),
+            '5281023000030',
+        );
+        await fireEvent.press(screen.getByTestId('allergen-reference-search'));
+        await waitFor(() => expect(onNothingDeclared).toHaveBeenCalledTimes(1));
+    });
+
+    it('folds the edit form to one ticked "no allergens" box when a barcode declares nothing', async () => {
+        const record = ingredient(94, { allergens: [] });
+        const { repositories } = await renderStubScreen(
+            <IngredientAllergenEditor ingredient={record} classes={[]} />,
+            {
+                repositories: {
+                    kitchenAdmin: {
+                        searchAllergenReferences: async () => ({
+                            candidates: [
+                                {
+                                    ...ALLERGEN_CANDIDATE,
+                                    mappings: [],
+                                    importable: false,
+                                    selection_token: null,
+                                },
+                            ],
+                            notices: [],
+                        }),
+                        setIngredientAllergens: async () => record,
+                    },
+                },
+            },
+        );
+        expect(screen.getByTestId('kitchen-ingredient-mapping-grid')).toBeTruthy();
+
+        await fireEvent.changeText(
+            screen.getByTestId('allergen-reference-barcode-input'),
+            '5281023000030',
+        );
+        await fireEvent.press(screen.getByTestId('allergen-reference-search'));
+        await untilVisible('kitchen-ingredient-mapping-none');
+        expect(screen.queryByTestId('kitchen-ingredient-mapping-grid')).toBeNull();
+
+        await fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-save'));
+        await waitFor(() =>
+            expect(repositories.kitchenAdmin.setIngredientAllergens).toHaveBeenCalledWith(
+                record.id,
+                { lockVersion: record.meta.lockVersion, mappings: [] },
+            ),
+        );
+
+        // Unticked, the boxes come back for the cook to fill.
+        await fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-none-control'));
+        expect(screen.getByTestId('kitchen-ingredient-mapping-grid')).toBeTruthy();
     });
 
     it('drops the product lookup once allergens are recorded, and lists them instead', async () => {
