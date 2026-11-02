@@ -9,6 +9,7 @@ use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderPaymentReceipt;
 use Healthy360\Orders\Models\OrderRefund;
+use Healthy360\Orders\Services\OrderRefunds;
 use Healthy360\Orders\Tests\Fixtures\RunWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
@@ -184,6 +185,22 @@ it('lets the owner approve what waited, once', function (): void {
 
     $this->postJson($url.'/reject', [], $this->world->headers)->assertConflict();
 });
+
+it('tells whoever asked what the owner decided', function (bool $approved, StaffAlertType $type): void {
+    $order = paidOrder($this);
+    $entryId = refund($this, $order, ['amount_minor' => 6000])->json('data.entries.0.id');
+
+    app(OrderRefunds::class)->decide($order, $entryId, $approved, (string) $this->world->ownerAlerted->getKey());
+
+    expect(StaffNotification::withoutTenancy()
+        ->where('user_id', $this->world->tenant->user->getKey())
+        ->where('type', $type->value)
+        ->where('subject_id', $order->getKey())
+        ->exists())->toBeTrue();
+})->with([
+    'approved' => [true, StaffAlertType::RefundApproved],
+    'rejected' => [false, StaffAlertType::RefundRejected],
+]);
 
 it('frees the cap when the owner rejects', function (): void {
     $order = paidOrder($this);

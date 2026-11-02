@@ -42,7 +42,9 @@ use RuntimeException;
  *   bucketed by `confirmed_at` and grouped by `currency_code`. The food alone:
  *   a delivery fee pays for a driver, and against food cost it would read as
  *   margin. Integer *minor* units, converted to major for display (see the
- *   unit-scale note).
+ *   unit-scale note). Published **net of refunds**: see below.
+ * - **Refunds** = Σ `order_refunds.amount_minor` for completed entries of kind
+ *   `refund`, bucketed by the month the money went back. See below.
  * - **Waste value** = Σ `stock_movements.cost_amount` for `reason = waste` when a
  *   cost is present; the total wasted *quantity* is reported alongside as the
  *   honest note for the (current) common case where waste carries no cost.
@@ -57,6 +59,20 @@ use RuntimeException;
  * cancelled ones. That is coherent with the revenue side, which counts only
  * `confirmed`/`fulfilled` orders: the same order set drives both figures, so the
  * margin is the margin on food actually sold.
+ *
+ * ## Refunds come off revenue in the month the money went back
+ *
+ * `revenue_amount` is net of them, so the margin is too, and `refunds_amount` says
+ * how much came off. The month a refund lands in is the month it completed rather
+ * than the month of the sale, so a month somebody has already read does not move
+ * under them; a refund the following month reads as that month's cost of the
+ * mistake. A `receipt_correction` is left out: it says a payment was written down
+ * by mistake, and the food was still sold. So is a refund on a cancelled order,
+ * whose revenue was never counted.
+ *
+ * Revenue here is the food alone and a refund can include the delivery fee, so each
+ * order's refunds count up to its subtotal and no further. The line-of-business
+ * split stays gross, because a refund names no line.
  *
  * ## Month anchors coincide where it matters
  *
@@ -166,6 +182,7 @@ final readonly class MonthlyCostReportService
      *     waste_amount: numeric-string|null,
      *     waste_quantity: numeric-string|null,
      *     revenue_amount: numeric-string,
+     *     refunds_amount: numeric-string,
      *     gross_margin_amount: numeric-string|null,
      *     gross_margin_percent: numeric-string|null,
      *     is_margin_withheld: bool,
@@ -205,6 +222,7 @@ final readonly class MonthlyCostReportService
         $waste = $this->wasteByMonthCurrency($organisationId, $from, $to);
         $wasteQuantity = $this->wasteQuantityByMonth($organisationId, $from, $to);
         $revenue = $this->revenueByMonthCurrency($organisationId, $from, $to);
+        $refunds = $this->refundsByMonthCurrency($organisationId, $from, $to);
         $revenueSplit = $this->revenueSplitByMonthCurrency($organisationId, $from, $to);
         $exceptions = $this->exceptionCountByMonth($organisationId, $from, $to);
         $productionConsumption = $this->productionMovementByMonthCurrency($organisationId, 'consume', $from, $to);
@@ -218,7 +236,7 @@ final readonly class MonthlyCostReportService
         // Union every (month, currency) key any source produced — a month may
         // have spend without a sale, or a sale without a receipt that month.
         $keys = [];
-        foreach ([$spend, $cogs, $waste, $revenue, $productionConsumption, $productionWaste, $productionYield, $estimates] as $source) {
+        foreach ([$spend, $cogs, $waste, $revenue, $refunds, $productionConsumption, $productionWaste, $productionYield, $estimates] as $source) {
             foreach ($source as $month => $byCurrency) {
                 foreach (array_keys($byCurrency) as $currency) {
                     $keys[$month.'|'.$currency] = ['month' => $month, 'currency' => $currency];
@@ -233,7 +251,8 @@ final readonly class MonthlyCostReportService
             $cogsAmount = $cogs[$month][$currency] ?? '0';
             $wasteAmount = $waste[$month][$currency] ?? null;
 
-            $revenueMinor = $revenue[$month][$currency] ?? '0';
+            $refundsMinor = $refunds[$month][$currency] ?? '0';
+            $revenueMinor = bcsub($revenue[$month][$currency] ?? '0', $refundsMinor, 0);
             $revenueAmount = $this->minorToMajor($revenueMinor, $currency, $minorUnits);
 
             $split = $revenueSplit[$month][$currency] ?? [];
@@ -317,6 +336,7 @@ final readonly class MonthlyCostReportService
                 'waste_amount' => $wasteAmount,
                 'waste_quantity' => $wasteQuantity[$month] ?? null,
                 'revenue_amount' => $revenueAmount,
+                'refunds_amount' => $this->minorToMajor($refundsMinor, $currency, $minorUnits),
                 'gross_margin_amount' => $margin,
                 'gross_margin_percent' => $marginPercent,
                 'is_margin_withheld' => $marginWithheld,
@@ -797,6 +817,52 @@ final readonly class MonthlyCostReportService
         $this->boundMonths($query, "to_char(orders.confirmed_at, 'YYYY-MM')", $from, $to);
 
         return $this->pivot($query->get());
+    }
+
+    /**
+     * What went back to customers, by the month it completed, in minor units.
+     *
+     * The window function runs over the order's whole refund history before the
+     * month bound applies, so a refund in the bounded range still sees what earlier
+     * refunds already took off the subtotal. The class docblock has the reasons for
+     * every predicate.
+     *
+     * @return array<string, array<string, numeric-string>>
+     */
+    private function refundsByMonthCurrency(string $organisationId, ?string $from, ?string $to): array
+    {
+        $earlier = 'sum(order_refunds.amount_minor) over (partition by order_refunds.order_id order by order_refunds.decided_at, order_refunds.id rows between unbounded preceding and 1 preceding)';
+
+        $entries = DB::table('order_refunds')
+            ->join('orders', 'orders.id', '=', 'order_refunds.order_id')
+            ->where('order_refunds.organisation_id', $organisationId)
+            ->where('order_refunds.kind', 'refund')
+            ->where('order_refunds.status', 'completed')
+            ->whereIn('orders.status', ['confirmed', 'fulfilled'])
+            ->whereNotNull('orders.confirmed_at')
+            ->selectRaw("to_char(order_refunds.decided_at, 'YYYY-MM') as month")
+            ->selectRaw('order_refunds.currency_code as currency')
+            ->selectRaw("least(order_refunds.amount_minor, greatest(0, orders.subtotal_minor - coalesce({$earlier}, 0))) as counted");
+
+        $query = DB::query()->fromSub($entries, 'entries')
+            ->selectRaw('month, currency, sum(counted) as total')
+            ->groupBy('month', 'currency');
+
+        if ($from !== null) {
+            $query->where('month', '>=', $from);
+        }
+
+        if ($to !== null) {
+            $query->where('month', '<=', $to);
+        }
+
+        $out = [];
+
+        foreach ($query->get() as $row) {
+            $out[(string) $row->month][(string) $row->currency] = $this->numeric((string) $row->total);
+        }
+
+        return $out;
     }
 
     /**

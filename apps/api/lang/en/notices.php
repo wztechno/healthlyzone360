@@ -104,7 +104,9 @@ return [
     ],
     'staff_alert' => [
         'action' => 'Open kitchen orders',
+        'action_page' => 'Open the page',
         'total' => 'Order total: :total.',
+        'amount' => 'Amount: :total.',
         'unaccepted_manager' => [
             'heading' => 'Order :number has not been accepted',
             'line' => 'It has passed its alert time and nobody in the kitchen has accepted it.',
@@ -134,6 +136,30 @@ return [
         'refund_approval' => [
             'heading' => 'A refund on order :number needs your approval',
             'line' => 'It is above your kitchen limit. Open the order to approve or reject it.',
+        ],
+        'refund_approved' => [
+            'heading' => 'Your refund on order :number was approved',
+            'line' => 'The owner approved it, so it now counts as paid back.',
+        ],
+        'refund_rejected' => [
+            'heading' => 'Your refund on order :number was rejected',
+            'line' => 'The owner rejected it, so nothing is paid back.',
+        ],
+        'short_hand_in' => [
+            'heading' => 'A cash hand-in came up short',
+            'line' => 'It needs a manager to sign it off.',
+        ],
+        'short_close' => [
+            'heading' => 'The cash close for :number came up short',
+            'line' => 'It needs a manager to sign it off.',
+        ],
+        'price_approval' => [
+            'heading' => 'A delivery from :number needs its price approved',
+            'line' => 'A price rose above your limit. The goods are received, and the invoice cannot be marked paid until it is approved.',
+        ],
+        'dish_below_target' => [
+            'heading' => ':number has fallen below your margin target',
+            'line' => 'Its cost has moved. Check the price or the recipe.',
         ],
         'stock_expiring' => [
             'heading' => 'Use by date coming up: :number',

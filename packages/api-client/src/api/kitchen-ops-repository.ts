@@ -834,6 +834,7 @@ function mapMonthlyCostReportRow(wire: WireMonthlyCostReportRow): MonthlyCostRep
         wasteAmount: wire.waste_amount,
         wasteQuantity: wire.waste_quantity,
         revenueAmount: wire.revenue_amount,
+        refundsAmount: wire.refunds_amount,
         grossMarginAmount: wire.gross_margin_amount,
         grossMarginPercent: wire.gross_margin_percent,
         isMarginWithheld: wire.is_margin_withheld,

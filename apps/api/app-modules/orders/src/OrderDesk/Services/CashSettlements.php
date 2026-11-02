@@ -9,6 +9,8 @@ use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Orders\Models\CashSettlement;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Services\OrderPaymentReceipts;
+use Healthy360\Support\Alerts\StaffAlerts;
+use Healthy360\Support\Alerts\StaffAlertType;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Database\Query\Builder;
@@ -38,8 +40,8 @@ use stdClass;
  * A short hand-in records its reason and waits for a manager's sign-off. The app
  * takes no pay decision: nothing else follows from it.
  *
- * ponytail: a run delivered before this shipped counts as unsettled, so the first
- * hand-in may be long. It clears once and needs nothing more.
+ * A driver's run from before settlement existed carries `predates_settlement` and
+ * is not waiting: its cash came back by hand long ago, and nothing recorded it.
  */
 final readonly class CashSettlements
 {
@@ -78,6 +80,7 @@ final readonly class CashSettlements
     public function __construct(
         private OrderPaymentReceipts $receipts,
         private AuditRecorder $audit,
+        private StaffAlerts $alerts,
     ) {}
 
     /**
@@ -224,6 +227,14 @@ final readonly class CashSettlements
             ],
         );
 
+        if ($settlement->short_minor > 0) {
+            $this->alerts->send(StaffAlertType::ShortHandIn, $organisationId, (string) $settlement->getKey(), [
+                'order_number' => '',
+                'total_minor' => $settlement->short_minor,
+                'currency_code' => $settlement->currency_code,
+            ]);
+        }
+
         return $settlement;
     }
 
@@ -297,6 +308,7 @@ final readonly class CashSettlements
             ->where('orders.organisation_id', $organisationId)
             ->where('jobs.status', 'delivered')
             ->whereNull('jobs.cash_settlement_id')
+            ->where('jobs.predates_settlement', false)
             ->when($jobIds !== null, fn (Builder $query): Builder => $query->whereIn('jobs.id', $jobIds ?? []))
             ->orderBy('jobs.delivered_at')
             ->orderBy('jobs.id');

@@ -11,6 +11,9 @@ use Healthy360\Orders\Models\OrderPaymentReceipt;
 use Healthy360\Orders\Tests\Fixtures\RunWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Healthy360\Support\Alerts\StaffAlertType;
+use Healthy360\Support\Models\StaffNotification;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
@@ -118,6 +121,28 @@ it('needs a reason for a short hand-in, and a manager to sign it, once', functio
     $this->postJson($url, [], $this->world->headers)->assertConflict();
 
     expect(AuditLog::query()->where('action', 'order.cash_short_signed_off')->where('subject_id', $id)->exists())->toBeTrue();
+});
+
+it('alerts the managers to a short hand-in, and links to the settlement page', function (): void {
+    $id = settle($this, [driverRun($this, 3000)], 2500, 'Change given from own pocket')->json('data.settlement.id');
+
+    expect(StaffNotification::withoutTenancy()
+        ->where('type', StaffAlertType::ShortHandIn->value)
+        ->where('subject_type', 'cash_settlement')
+        ->where('subject_id', $id)
+        ->exists())->toBeTrue();
+});
+
+it('leaves a run from before settlement off the list, and refuses to settle it', function (): void {
+    $old = driverRun($this, 3000);
+    DB::table('delivery_jobs')->where('id', $old->getKey())->update(['predates_settlement' => true]);
+    $new = driverRun($this, 2000);
+
+    $this->getJson('/api/v1/catalogue/order-desk/settlements', $this->world->headers)
+        ->assertJsonPath('data.drivers.0.collected_minor', 2000);
+
+    settle($this, [$old], 3000)->assertConflict();
+    settle($this, [$new], 2000)->assertCreated();
 });
 
 it('refuses to settle a run twice', function (): void {

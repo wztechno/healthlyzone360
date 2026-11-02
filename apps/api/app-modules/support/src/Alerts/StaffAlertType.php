@@ -19,15 +19,24 @@ enum StaffAlertType: string
     case NoCashCollected = 'no_cash_collected';
     case RefundApproval = 'refund_approval';
     case StockExpiring = 'stock_expiring';
+    case RefundApproved = 'refund_approved';
+    case RefundRejected = 'refund_rejected';
+    case ShortHandIn = 'short_hand_in';
+    case ShortClose = 'short_close';
+    case PriceApproval = 'price_approval';
+    case DishBelowTarget = 'dish_below_target';
 
     /**
-     * @return 'managers'|'owners'
+     * `requester` is the one person who asked, named by the caller.
+     *
+     * @return 'managers'|'owners'|'requester'
      */
     public function audience(): string
     {
         return match ($this) {
-            self::UnacceptedOwner, self::LateCancel, self::RefundApproval => 'owners',
-            self::UnacceptedManager, self::AllergyOrder, self::DeliveryFailed, self::NoCashCollected, self::StockExpiring => 'managers',
+            self::RefundApproved, self::RefundRejected => 'requester',
+            self::UnacceptedOwner, self::LateCancel, self::RefundApproval, self::PriceApproval, self::DishBelowTarget => 'owners',
+            self::UnacceptedManager, self::AllergyOrder, self::DeliveryFailed, self::NoCashCollected, self::StockExpiring, self::ShortHandIn, self::ShortClose => 'managers',
         };
     }
 
@@ -39,11 +48,16 @@ enum StaffAlertType: string
     /**
      * Whether a second alert about the same order is news rather than a repeat. A
      * re-delivered order can fail again, and managers must hear that as they did
-     * the first time. A second refund on one order needs its own approval.
+     * the first time. A second refund on one order needs its own approval, and its
+     * own answer. A dish can fall below target, recover and fall again: the job
+     * that sends that alert sends it only on the fall.
      */
     public function repeats(): bool
     {
-        return $this === self::DeliveryFailed || $this === self::RefundApproval;
+        return match ($this) {
+            self::DeliveryFailed, self::RefundApproval, self::RefundApproved, self::RefundRejected, self::DishBelowTarget => true,
+            default => false,
+        };
     }
 
     /**
@@ -53,6 +67,10 @@ enum StaffAlertType: string
     {
         return match ($this) {
             self::StockExpiring => 'stock',
+            self::ShortHandIn => 'cash_settlement',
+            self::ShortClose => 'daily_close',
+            self::PriceApproval => 'goods_receipt',
+            self::DishBelowTarget => 'dish_margin',
             default => 'order',
         };
     }
@@ -64,6 +82,10 @@ enum StaffAlertType: string
     {
         return match ($this) {
             self::StockExpiring => '/kitchen/stock',
+            self::ShortHandIn => '/kitchen/order-desk/settlement',
+            self::ShortClose => '/kitchen/order-desk/close',
+            self::PriceApproval => '/kitchen/payables',
+            self::DishBelowTarget => '/kitchen/dish-margins',
             default => '/kitchen/orders?view='.$subjectId,
         };
     }

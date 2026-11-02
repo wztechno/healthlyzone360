@@ -393,6 +393,12 @@ function CostReport() {
                         mono: true,
                     },
                     {
+                        key: 'refunds',
+                        label: t('kitchen:ops.costReport.columnRefunds'),
+                        value: withCode(viewing.refundsAmount),
+                        mono: true,
+                    },
+                    {
                         key: 'margin',
                         label: t('kitchen:ops.costReport.columnMargin'),
                         value: withCode(viewing.grossMarginAmount),

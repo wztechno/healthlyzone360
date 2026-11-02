@@ -1513,7 +1513,7 @@
             "flagged": "Understated",
             "hintSpend": "what arrived this month",
             "hintCogs": "what confirmed orders consumed",
-            "hintRevenue": "sold across every book",
+            "hintRevenue": "sold across every book, less refunds",
             "hintMargin": "after cost of goods",
             "tileSpend": "Spend · {{month}}",
             "tileCogs": "COGS · {{month}}",
@@ -1553,7 +1553,8 @@
             "columnProductionWaste": "Batch waste",
             "columnProductionYield": "Batch yield",
             "columnEstimatedMargin": "Est. margin",
-            "marginWithheld": "Margin withheld"
+            "marginWithheld": "Margin withheld",
+            "columnRefunds": "Refunds (already off revenue)"
         },
         "exceptions": {
             "title": "Stock gaps",
@@ -5080,7 +5081,13 @@
             "delivery_failed": "Delivery failed for order {{number}}",
             "no_cash_collected": "No cash was collected for order {{number}}",
             "refund_approval": "A refund on order {{number}} needs your approval",
-            "stock_expiring": "Use by date coming up: {{number}}"
+            "stock_expiring": "Use by date coming up: {{number}}",
+            "refund_approved": "Your refund on order {{number}} was approved",
+            "refund_rejected": "Your refund on order {{number}} was rejected",
+            "short_hand_in": "A cash hand-in came up short",
+            "short_close": "The cash close for {{number}} came up short",
+            "price_approval": "A delivery from {{number}} needs its price approved",
+            "dish_below_target": "{{number}} has fallen below your margin target"
         }
     },
     "serviceTimings": {

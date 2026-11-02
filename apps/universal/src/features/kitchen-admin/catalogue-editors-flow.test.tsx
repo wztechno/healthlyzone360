@@ -302,6 +302,7 @@ function costRow(overrides: Partial<MonthlyCostReportRow> = {}): MonthlyCostRepo
         wasteAmount: null,
         wasteQuantity: null,
         revenueAmount: '2000.00',
+        refundsAmount: '0.00',
         grossMarginAmount: '1200.00',
         grossMarginPercent: '60.0',
         isMarginWithheld: false,

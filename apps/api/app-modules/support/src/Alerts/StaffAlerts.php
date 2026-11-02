@@ -29,6 +29,10 @@ use function Illuminate\Support\defer;
  * closing an account does not visit this table; the link to the order shows
  * everything else, to whoever may see it.
  *
+ * **An alert about something other than an order** still carries `order_number`:
+ * for those it is the reference its wording names, a date, a supplier or a dish,
+ * or empty when the wording needs none. Rows already exist under that key.
+ *
  * **Each recipient hears once.** `(user_id, type, subject_id)` is unique, and only
  * a recipient whose row was really written is mailed, so a job that repeats every
  * minute costs nothing and alerts nobody twice. A type that repeats
@@ -68,15 +72,16 @@ final readonly class StaffAlerts
 
     /**
      * @param  array{order_number: string, total_minor?: int, currency_code?: string, severe?: bool}  $data  order number, money and a severity flag only; any other key is dropped
+     * @param  string|null  $requesterUserId  who to tell, for a type whose audience is `requester`
      */
-    public function send(StaffAlertType $type, string $organisationId, string $subjectId, array $data): void
+    public function send(StaffAlertType $type, string $organisationId, string $subjectId, array $data, ?string $requesterUserId = null): void
     {
         $data = array_intersect_key($data, array_flip(self::ALLOWED_DATA));
 
         try {
             /** @var list<array{user_id: string, email: string, locale: string}> $alerted */
             $alerted = $this->tenantContext->during(null, $organisationId, null, fn (): array => DB::transaction(
-                fn (): array => $this->writeRows($type, $organisationId, $subjectId, $data),
+                fn (): array => $this->writeRows($type, $organisationId, $subjectId, $data, $requesterUserId),
             ));
 
             DB::afterCommit(function () use ($type, $alerted, $subjectId, $data): void {
@@ -91,11 +96,13 @@ final readonly class StaffAlerts
      * @param  array{order_number: string, total_minor?: int, currency_code?: string, severe?: bool}  $data
      * @return list<array{user_id: string, email: string, locale: string}> the recipients not already alerted
      */
-    private function writeRows(StaffAlertType $type, string $organisationId, string $subjectId, array $data): array
+    private function writeRows(StaffAlertType $type, string $organisationId, string $subjectId, array $data, ?string $requesterUserId): array
     {
-        $recipients = $type->audience() === 'owners'
-            ? $this->recipients->owners($organisationId)
-            : $this->recipients->usersHolding($organisationId, self::MANAGER_PERMISSION);
+        $recipients = match ($type->audience()) {
+            'owners' => $this->recipients->owners($organisationId),
+            'requester' => $this->recipients->member($organisationId, (string) $requesterUserId),
+            'managers' => $this->recipients->usersHolding($organisationId, self::MANAGER_PERMISSION),
+        };
 
         // Escalations repeat every minute, so an hour between warnings is plenty.
         if ($recipients === [] && Cache::add("staff-alerts:no-recipients:{$organisationId}:{$type->value}", true, now()->addHour())) {
@@ -165,7 +172,7 @@ final readonly class StaffAlerts
         $lines = [(string) __("notices.staff_alert.{$type->value}.line", [], $locale)];
 
         if (isset($data['total_minor'], $data['currency_code'])) {
-            $lines[] = (string) __('notices.staff_alert.total', [
+            $lines[] = (string) __($type->subjectType() === 'order' && $type->audience() !== 'requester' ? 'notices.staff_alert.total' : 'notices.staff_alert.amount', [
                 'total' => number_format($data['total_minor'] / 100, 2).' '.$data['currency_code'],
             ], $locale);
         }
@@ -174,7 +181,7 @@ final readonly class StaffAlerts
             'staff_alert_'.$type->value,
             (string) __("notices.staff_alert.{$type->value}.heading", ['number' => $data['order_number']], $locale),
             $lines,
-            (string) __('notices.staff_alert.action', [], $locale),
+            (string) __($type->subjectType() === 'order' ? 'notices.staff_alert.action' : 'notices.staff_alert.action_page', [], $locale),
             rtrim((string) config('app.frontend_url'), '/').$type->page($subjectId),
             $locale,
         );

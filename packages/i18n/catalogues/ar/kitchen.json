@@ -1708,7 +1708,7 @@
             "flagged": "أقل من الواقع",
             "hintSpend": "ما وصل هذا الشهر",
             "hintCogs": "ما استهلكته الطلبات المؤكدة",
-            "hintRevenue": "المبيعات عبر كل الدفاتر",
+            "hintRevenue": "المبيعات عبر كل الدفاتر، بعد خصم المبالغ المستردة",
             "hintMargin": "بعد تكلفة البضاعة",
             "tileSpend": "الإنفاق · {{month}}",
             "tileCogs": "تكلفة البضاعة · {{month}}",
@@ -1752,7 +1752,8 @@
             "columnProductionWaste": "هدر الإنتاج",
             "columnProductionYield": "ناتج الإنتاج",
             "columnEstimatedMargin": "الهامش التقديري",
-            "marginWithheld": "الهامش محجوب"
+            "marginWithheld": "الهامش محجوب",
+            "columnRefunds": "المبالغ المستردة (مخصومة من الإيراد)"
         },
         "exceptions": {
             "title": "نواقص المخزون",
@@ -5763,7 +5764,13 @@
             "delivery_failed": "فشل توصيل الطلب {{number}}",
             "no_cash_collected": "لم يُحصَّل أي نقد عن الطلب {{number}}",
             "refund_approval": "استرداد على الطلب {{number}} بانتظار موافقتك",
-            "stock_expiring": "موعد انتهاء صلاحية يقترب: {{number}}"
+            "stock_expiring": "موعد انتهاء صلاحية يقترب: {{number}}",
+            "refund_approved": "تمت الموافقة على استردادك في الطلب {{number}}",
+            "refund_rejected": "رُفض استردادك في الطلب {{number}}",
+            "short_hand_in": "جاء تسليم نقدي ناقصًا",
+            "short_close": "جاء إقفال الصندوق ليوم {{number}} ناقصًا",
+            "price_approval": "توريدة من {{number}} تحتاج إلى الموافقة على سعرها",
+            "dish_below_target": "هبط {{number}} دون هامش الربح المستهدف"
         }
     },
     "serviceTimings": {

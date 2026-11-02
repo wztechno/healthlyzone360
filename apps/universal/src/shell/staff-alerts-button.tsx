@@ -36,6 +36,21 @@ const ROW_ICONS: Readonly<Record<StaffAlertType, IconName>> = {
     no_cash_collected: 'banknote',
     refund_approval: 'banknote',
     stock_expiring: 'clock',
+    refund_approved: 'banknote',
+    refund_rejected: 'banknote',
+    short_hand_in: 'banknote',
+    short_close: 'banknote',
+    price_approval: 'banknote',
+    dish_below_target: 'alert',
+};
+
+/** Where an alert about something other than an order opens. */
+const PAGES: Partial<Readonly<Record<StaffAlertType, string>>> = {
+    stock_expiring: '/kitchen/stock',
+    short_hand_in: '/kitchen/order-desk/settlement',
+    short_close: '/kitchen/order-desk/close',
+    price_approval: '/kitchen/payables',
+    dish_below_target: '/kitchen/dish-margins',
 };
 
 const WHEN: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
@@ -183,9 +198,8 @@ function AlertsBell() {
         guardNavigation(() => {
             if (alert.readAt === null) markRead.mutate(alert.id);
             router.push(
-                (alert.type === 'stock_expiring'
-                    ? '/kitchen/stock'
-                    : `/kitchen/orders?view=${encodeURIComponent(alert.orderId)}`) as never,
+                (PAGES[alert.type] ??
+                    `/kitchen/orders?view=${encodeURIComponent(alert.orderId)}`) as never,
             );
         });
     };

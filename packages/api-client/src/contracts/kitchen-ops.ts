@@ -1339,7 +1339,7 @@ export interface PurchaseLedgerFilter extends CursorPageRequest {
  * {@link currencyCode}: revenue is stored in minor units server-side and converted to major before
  * it reaches here, so it sits at the same scale as spend and COGS and the client never mixes the two.
  *
- * `revenueAmount` is the food alone: delivery fees stay out. `grossMarginAmount` is `revenueAmount −
+ * `revenueAmount` is the food alone, less refunds: delivery fees stay out. `grossMarginAmount` is `revenueAmount −
  * cogsAmount`; `grossMarginPercent` is that as a percentage of revenue, or `null` when there was no
  * revenue to divide by. Both are `null` when `isMarginWithheld`: the month's cost is incomplete. The `meal`/`product`/`other` revenue
  * split reconciles to the order-line subtotal — `other` collects subscription-plan and any non-meal,
@@ -1364,6 +1364,8 @@ export interface MonthlyCostReportRow {
     readonly wasteQuantity: string | null;
     /** Selling revenue — Σ order subtotals for confirmed/fulfilled orders, converted to major units. */
     readonly revenueAmount: string;
+    /** Refunds completed this month, major units. Already off `revenueAmount`. */
+    readonly refundsAmount: string;
     /** Revenue minus COGS, major units, or `null` when withheld. */
     readonly grossMarginAmount: string | null;
     /** Margin as a percentage of revenue, or `null` when revenue is zero or the margin is withheld. */

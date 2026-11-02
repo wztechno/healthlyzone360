@@ -18,6 +18,12 @@ export const STAFF_ALERT_TYPES = [
     'no_cash_collected',
     'refund_approval',
     'stock_expiring',
+    'refund_approved',
+    'refund_rejected',
+    'short_hand_in',
+    'short_close',
+    'price_approval',
+    'dish_below_target',
 ] as const;
 export type StaffAlertType = (typeof STAFF_ALERT_TYPES)[number];
 

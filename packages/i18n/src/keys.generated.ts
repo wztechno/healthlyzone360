@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9512 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9519 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3018,10 +3018,16 @@ export interface NamespaceKeys {
     | 'alerts.title'
     | 'alerts.type.allergy_order'
     | 'alerts.type.delivery_failed'
+    | 'alerts.type.dish_below_target'
     | 'alerts.type.late_cancel'
     | 'alerts.type.no_cash_collected'
+    | 'alerts.type.price_approval'
     | 'alerts.type.refund_approval'
+    | 'alerts.type.refund_approved'
+    | 'alerts.type.refund_rejected'
     | 'alerts.type.severe_allergy'
+    | 'alerts.type.short_close'
+    | 'alerts.type.short_hand_in'
     | 'alerts.type.stock_expiring'
     | 'alerts.type.unaccepted_manager'
     | 'alerts.type.unaccepted_owner'
@@ -4613,6 +4619,7 @@ export interface NamespaceKeys {
     | 'ops.costReport.columnProductionConsumption'
     | 'ops.costReport.columnProductionWaste'
     | 'ops.costReport.columnProductionYield'
+    | 'ops.costReport.columnRefunds'
     | 'ops.costReport.columnRevenue'
     | 'ops.costReport.columnSpend'
     | 'ops.costReport.currencyLabel'
@@ -12548,10 +12555,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:alerts.title',
   'kitchen:alerts.type.allergy_order',
   'kitchen:alerts.type.delivery_failed',
+  'kitchen:alerts.type.dish_below_target',
   'kitchen:alerts.type.late_cancel',
   'kitchen:alerts.type.no_cash_collected',
+  'kitchen:alerts.type.price_approval',
   'kitchen:alerts.type.refund_approval',
+  'kitchen:alerts.type.refund_approved',
+  'kitchen:alerts.type.refund_rejected',
   'kitchen:alerts.type.severe_allergy',
+  'kitchen:alerts.type.short_close',
+  'kitchen:alerts.type.short_hand_in',
   'kitchen:alerts.type.stock_expiring',
   'kitchen:alerts.type.unaccepted_manager',
   'kitchen:alerts.type.unaccepted_owner',
@@ -14143,6 +14156,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.columnProductionConsumption',
   'kitchen:ops.costReport.columnProductionWaste',
   'kitchen:ops.costReport.columnProductionYield',
+  'kitchen:ops.costReport.columnRefunds',
   'kitchen:ops.costReport.columnRevenue',
   'kitchen:ops.costReport.columnSpend',
   'kitchen:ops.costReport.currencyLabel',

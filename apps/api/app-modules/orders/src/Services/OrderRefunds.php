@@ -174,6 +174,14 @@ final readonly class OrderRefunds
 
             $this->auditEntry($approved ? 'order.refund_completed' : 'order.refund_rejected', $entry, $actorUserId);
 
+            if ($entry->requested_by !== $actorUserId) {
+                $this->alerts->send($approved ? StaffAlertType::RefundApproved : StaffAlertType::RefundRejected, $entry->organisation_id, $entry->order_id, [
+                    'order_number' => $order->order_number,
+                    'total_minor' => $entry->amount_minor,
+                    'currency_code' => $entry->currency_code,
+                ], $entry->requested_by);
+            }
+
             return $entry;
         });
     }

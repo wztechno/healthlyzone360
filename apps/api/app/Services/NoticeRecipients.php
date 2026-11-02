@@ -63,6 +63,16 @@ final readonly class NoticeRecipients
     }
 
     /**
+     * One person, while they are still an active member.
+     *
+     * @return list<array{user_id: string, email: string, locale: string}>
+     */
+    public function member(string $organisationId, string $userId): array
+    {
+        return $this->members($organisationId, static fn (Builder $query): Builder => $query->where('u.id', $userId));
+    }
+
+    /**
      * @param  Closure(Builder): Builder  $havingRole  narrows the active members by their roles (`mr`)
      * @return list<array{user_id: string, email: string, locale: string}>
      */
