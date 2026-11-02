@@ -14,6 +14,30 @@ declare(strict_types=1);
 */
 
 return [
+    'order' => [
+        'action' => 'See your order',
+        'confirmed' => [
+            'heading' => ':kitchen confirmed your order :number',
+            'body' => 'The kitchen has your order and will start on it in time for your delivery.',
+        ],
+        'out_for_delivery' => [
+            'heading' => 'Your order :number is on its way',
+            'body' => 'Your order has left :kitchen and is coming to you now.',
+        ],
+        'delivered' => [
+            'heading' => 'Your order :number was delivered',
+            'body' => 'Thank you for ordering from :kitchen. Enjoy your meal.',
+        ],
+        'cancelled' => [
+            'heading' => 'Your order :number was cancelled',
+            'body' => ':kitchen cancelled this order. If you have any questions, please contact the kitchen.',
+        ],
+        'delivery_failed' => [
+            'heading' => 'We could not deliver your order :number',
+            'body' => 'The driver could not reach you. :kitchen will contact you about what happens next.',
+        ],
+    ],
+
     'quotation' => [
         'submitted' => [
             'heading' => 'New quotation request :reference from :buyer',

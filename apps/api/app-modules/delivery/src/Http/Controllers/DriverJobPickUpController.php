@@ -7,6 +7,9 @@ namespace Healthy360\Delivery\Http\Controllers;
 use Carbon\CarbonImmutable;
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Delivery\Models\DeliveryJob;
+use Healthy360\Orders\Enums\CustomerOrderEvent;
+use Healthy360\Orders\Models\Order;
+use Healthy360\Orders\Services\CustomerOrderNotices;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -42,6 +45,7 @@ final class DriverJobPickUpController
     public function __construct(
         private readonly AuditRecorder $audit,
         private readonly TenantContext $context,
+        private readonly CustomerOrderNotices $notices,
     ) {}
 
     /**
@@ -87,6 +91,12 @@ final class DriverJobPickUpController
         }
 
         $record->refresh();
+
+        $order = Order::query()->whereKey($record->order_id)->first();
+
+        if ($order instanceof Order) {
+            $this->notices->send($order, CustomerOrderEvent::OutForDelivery);
+        }
 
         $this->audit->record(
             'delivery.job_picked_up',

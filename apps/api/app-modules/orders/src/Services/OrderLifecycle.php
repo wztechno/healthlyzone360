@@ -11,6 +11,7 @@ use Healthy360\Orders\Contracts\DeliveryJobProjection;
 use Healthy360\Orders\Contracts\OrderStockConsumption;
 use Healthy360\Orders\Enums\CancellationDisposition;
 use Healthy360\Orders\Enums\CancellationReason;
+use Healthy360\Orders\Enums\CustomerOrderEvent;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Enums\PaymentMethod;
@@ -58,6 +59,7 @@ final readonly class OrderLifecycle
         private DeliveryJobProjection $jobs,
         private OrderPaymentReceipts $receipts,
         private CalendarPortions $portions,
+        private CustomerOrderNotices $notices,
     ) {}
 
     /**
@@ -81,7 +83,7 @@ final readonly class OrderLifecycle
      */
     public function confirm(Order $order, ?int $expectedLockVersion = null): Order
     {
-        return $this->transition(
+        $confirmed = $this->transition(
             $order,
             OrderStatus::Confirmed,
             $expectedLockVersion,
@@ -94,6 +96,10 @@ final readonly class OrderLifecycle
                 }
             },
         );
+
+        $this->notices->send($confirmed, CustomerOrderEvent::Confirmed);
+
+        return $confirmed;
     }
 
     /**
@@ -218,7 +224,7 @@ final readonly class OrderLifecycle
      */
     public function fulfil(Order $order, ?int $expectedLockVersion = null): Order
     {
-        return $this->transition(
+        $fulfilled = $this->transition(
             $order,
             OrderStatus::Fulfilled,
             $expectedLockVersion,
@@ -234,6 +240,10 @@ final readonly class OrderLifecycle
                 }
             },
         );
+
+        $this->notices->send($fulfilled, CustomerOrderEvent::Delivered);
+
+        return $fulfilled;
     }
 
     /**
@@ -289,7 +299,7 @@ final readonly class OrderLifecycle
      */
     public function cancel(Order $order, CancellationReason $reason, ?int $expectedLockVersion = null, ?CancellationDisposition $disposition = null): Order
     {
-        return $this->transition(
+        $cancelledOrder = $this->transition(
             $order,
             OrderStatus::Cancelled,
             $expectedLockVersion,
@@ -307,6 +317,10 @@ final readonly class OrderLifecycle
                 }
             },
         );
+
+        $this->notices->send($cancelledOrder, CustomerOrderEvent::Cancelled);
+
+        return $cancelledOrder;
     }
 
     /**

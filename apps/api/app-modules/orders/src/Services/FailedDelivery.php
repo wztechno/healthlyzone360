@@ -12,6 +12,7 @@ use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Orders\Contracts\DeliveryJobProjection;
 use Healthy360\Orders\Enums\CancellationDisposition;
 use Healthy360\Orders\Enums\CancellationReason;
+use Healthy360\Orders\Enums\CustomerOrderEvent;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Exceptions\PlacementRefused;
 use Healthy360\Orders\Models\Order;
@@ -42,6 +43,7 @@ final readonly class FailedDelivery
 {
     public function __construct(
         private DeliveryJobProjection $jobs,
+        private CustomerOrderNotices $notices,
         private OrderLifecycle $lifecycle,
         private OrderDeliveryRuns $runs,
         private OrderTimingRules $timing,
@@ -57,6 +59,7 @@ final readonly class FailedDelivery
     public function fail(Order $order, DeliveryFailureReason $reason, ?string $note): void
     {
         $this->jobs->fail($order, $reason, $note);
+        $this->notices->send($order, CustomerOrderEvent::DeliveryFailed);
 
         $this->audit->record(
             'delivery.job_failed',
@@ -146,6 +149,7 @@ final readonly class FailedDelivery
         }
 
         $this->jobs->handToCourier($order, $name, $reference, $feeMinor);
+        $this->notices->send($order, CustomerOrderEvent::OutForDelivery);
 
         $this->audit->record(
             'delivery.job_handed_to_courier',

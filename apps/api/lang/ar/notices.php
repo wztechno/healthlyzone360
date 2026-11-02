@@ -9,6 +9,30 @@ declare(strict_types=1);
 */
 
 return [
+    'order' => [
+        'action' => 'عرض طلبك',
+        'confirmed' => [
+            'heading' => 'أكّد :kitchen طلبك :number',
+            'body' => 'استلم المطبخ طلبك وسيبدأ تحضيره في الوقت المناسب لموعد التوصيل.',
+        ],
+        'out_for_delivery' => [
+            'heading' => 'طلبك :number في الطريق إليك',
+            'body' => 'غادر طلبك :kitchen وهو في طريقه إليك الآن.',
+        ],
+        'delivered' => [
+            'heading' => 'تم توصيل طلبك :number',
+            'body' => 'شكرًا لطلبك من :kitchen. بالهناء والشفاء.',
+        ],
+        'cancelled' => [
+            'heading' => 'أُلغي طلبك :number',
+            'body' => 'ألغى :kitchen هذا الطلب. إن كانت لديك أي أسئلة، يُرجى التواصل مع المطبخ.',
+        ],
+        'delivery_failed' => [
+            'heading' => 'تعذّر توصيل طلبك :number',
+            'body' => 'لم يتمكن السائق من الوصول إليك. سيتواصل معك :kitchen بشأن الخطوة التالية.',
+        ],
+    ],
+
     'quotation' => [
         'submitted' => [
             'heading' => 'طلب عرض سعر جديد :reference من :buyer',
