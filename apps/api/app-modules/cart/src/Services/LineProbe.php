@@ -88,7 +88,7 @@ final readonly class LineProbe
      * @param  string  $quantity  decimal string, as `cart_items.quantity` is held
      * @param  CarbonImmutable|null  $on  the day the line is wanted; today when none is named
      * @param  string  $currencyCode  what the basket or order is denominated in
-     * @param  bool  $enforceCalendar  false where the day is not being sold: subscription deliveries, undated basket lines, and a line an edited order already holds
+     * @param  bool  $enforceCalendar  false where the day is not being sold: subscription deliveries, accepted quotations, undated basket lines, and a line an edited order already holds
      */
     public function probe(
         SalesChannel $channel,

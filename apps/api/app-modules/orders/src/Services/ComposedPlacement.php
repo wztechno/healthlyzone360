@@ -86,6 +86,14 @@ use Healthy360\Orders\Enums\PaymentMethod;
  * see `OrderPlacementService::composedTimingReasons()`. Every other caller
  * leaves it at the default.
  *
+ * ## `agreedInWriting` is the quotation exemption
+ *
+ * An accepted quotation's day was agreed in writing, and a refusal partway
+ * through a multi-week acceptance could strand it, so it skips the same timing
+ * and calendar rules a subscription does. It is a second flag because it must
+ * not borrow the first: a quotation naming a slot its zone does not run is still
+ * refused `window_not_offered`. Both are read through `keepsAgreedDay()`.
+ *
  * `requestedDate` is effectively required for a composed placement: a
  * subscription delivery is for one named day, and the branch cut-off cannot be
  * asked about a day nobody named. It is nullable only because the type mirrors
@@ -99,6 +107,7 @@ final readonly class ComposedPlacement
      * @param  list<ComposedLine>  $lines
      * @param  string|null  $placedOnBehalfBy  the staff `users` id; non-null IS the staff marker
      * @param  bool  $enforceWindowOffer  false only for subscription generation
+     * @param  bool  $agreedInWriting  true only for an accepted quotation
      */
     public function __construct(
         public ?CustomerAccount $account,
@@ -114,5 +123,15 @@ final readonly class ComposedPlacement
         public ?string $placedOnBehalfBy = null,
         public PaymentMethod $paymentMethod = PaymentMethod::CashOnDelivery,
         public bool $enforceWindowOffer = true,
+        public bool $agreedInWriting = false,
     ) {}
+
+    /**
+     * Whether the day was settled before this placement, so the timing rules and
+     * the item calendar are not asked about it again.
+     */
+    public function keepsAgreedDay(): bool
+    {
+        return ! $this->enforceWindowOffer || $this->agreedInWriting;
+    }
 }

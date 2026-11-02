@@ -1208,14 +1208,14 @@ final readonly class OrderPlacementService
     /**
      * What a composed order is asked about its day and slot.
      *
-     * **A subscription keeps the path it always had** (`enforceWindowOffer`
-     * false): its own branch's schedule when it has one, and nothing when it
-     * does not. A standing subscriber is not refused retroactively, so none of
-     * the wider rules a one-off order now meets reach it.
+     * **A subscription and an accepted quotation keep the path they always had**
+     * (`ComposedPlacement::keepsAgreedDay()`): their own branch's schedule when
+     * they have one, and nothing when they do not. A standing subscriber is not
+     * refused retroactively and a quotation's day was agreed in writing, so none
+     * of the wider rules a one-off order now meets reach either.
      *
-     * **Everything else composed — a desk sale, an accepted quotation — is an
-     * agreed sale.** A person has already spoken to the kitchen or signed for
-     * the order, so the lead time and the zone minimum do not apply; a closed
+     * **Everything else composed is a desk sale.** A cashier is talking to the
+     * kitchen, so the lead time and the zone minimum do not apply; a closed
      * kitchen and a slot that has ended still do. No named day means nothing to
      * ask, as `ComposedPlacement` says of `requestedDate`.
      *
@@ -1231,7 +1231,7 @@ final readonly class OrderPlacementService
             return [];
         }
 
-        if (! $placement->enforceWindowOffer) {
+        if ($placement->keepsAgreedDay()) {
             $refusal = $placement->branchId === null
                 ? null
                 : $this->timing->scheduleRefusal($placement->branchId, $effectiveDate, $now);
@@ -1263,8 +1263,9 @@ final readonly class OrderPlacementService
      * `currency_mismatch` in the override itself, which is checked here rather
      * than trusted.
      *
-     * The calendar is asked of everything but a subscription, which is exempt
-     * for the reason `composedTimingReasons()` gives, and `$heldItemIds`, the
+     * The calendar is asked of everything but a subscription and an accepted
+     * quotation, exempt for the reason `composedTimingReasons()` gives, and
+     * `$heldItemIds`, the
      * articles an order being edited already holds for that day.
      *
      * @param  list<string>  $heldItemIds
@@ -1292,7 +1293,7 @@ final readonly class OrderPlacementService
                 $on,
                 $placement->currencyCode,
                 $placement->account,
-                enforceCalendar: $placement->enforceWindowOffer && ! in_array($line->catalogueItemId, $heldItemIds, true),
+                enforceCalendar: ! $placement->keepsAgreedDay() && ! in_array($line->catalogueItemId, $heldItemIds, true),
             );
 
             // A grandfathered line answers price and currency itself. A

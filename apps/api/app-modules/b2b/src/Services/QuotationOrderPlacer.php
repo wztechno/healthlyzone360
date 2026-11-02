@@ -105,6 +105,9 @@ final readonly class QuotationOrderPlacer
                     lines: $composed,
                     deliveryWindowCode: $deliveryWindowCode,
                     requestedDate: $date,
+                    // The day was agreed in writing, and a refusal on a later
+                    // week could strand a run that has already started.
+                    agreedInWriting: true,
                 ),
                 // The first week keeps the key a single delivery always had.
                 $week === 0 ? 'quotation:'.$quotation->getKey() : 'quotation:'.$quotation->getKey().':'.($week + 1),

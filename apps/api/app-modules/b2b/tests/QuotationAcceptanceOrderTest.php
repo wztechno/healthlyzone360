@@ -12,6 +12,7 @@ use Healthy360\B2b\Models\QuotationLine;
 use Healthy360\B2b\Services\QuotationService;
 use Healthy360\B2b\Tests\Fixtures\B2bCheckoutWorld;
 use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
+use Healthy360\Catalogues\Models\CatalogueItemAvailabilityDay;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Orders\Models\Order;
@@ -114,7 +115,7 @@ function acceptBody(mixed $test, string $window = 'midday'): array
     ];
 }
 
-it('refuses an acceptance for a day the kitchen is shut, though the order names no branch', function (): void {
+it('places an accepted quotation for a closed day, and every week of a run the calendar has since ruled out', function (): void {
     $quoted = quotedForAcceptance($this, unitMinor: 1500);
 
     $branch = OrganisationBranch::withoutTenancy()
@@ -130,13 +131,22 @@ it('refuses an acceptance for a day the kitchen is shut, though the order names 
         'order_cut_off_at' => null,
     ]);
 
+    // The second week, so a refusal here would strand the run partway.
+    CatalogueItemAvailabilityDay::factory()->create([
+        'organisation_id' => $branch->organisation_id,
+        'catalogue_item_id' => $this->world['meal']->getKey(),
+        'date' => CarbonImmutable::parse($this->deliveryDate)->addWeek()->toDateString(),
+        'is_available' => false,
+    ]);
+
     $this->postJson(
         "/api/v1/b2b/quotations/{$quoted->getKey()}/accept",
-        acceptBody($this),
+        acceptBody($this) + ['repeat_weeks' => 3],
         $this->buyer['headers'] + ['If-Match' => '"'.$quoted->lock_version.'"'],
-    )
-        ->assertStatus(409)
-        ->assertJsonPath('error.details.reasons.0.reason', 'closed');
+    )->assertOk();
+
+    expect(Order::query()->count())->toBe(3)
+        ->and(Order::query()->whereNotNull('branch_id')->count())->toBe(0);
 });
 
 it('places the order at the quoted price when the buyer accepts, and the kitchen calendar shows it', function (): void {

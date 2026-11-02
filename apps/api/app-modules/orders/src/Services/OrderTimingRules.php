@@ -20,7 +20,7 @@ use Healthy360\Orders\Contracts\OrderSchedulingLookup;
  *
  * **Who is asked what** is the caller's choice, and the table is the spec's:
  *
- * | rule | customer | desk, quotation | subscription |
+ * | rule | customer | desk | subscription, accepted quotation |
  * |---|---|---|---|
  * | `closed`, `date_in_the_past`, `cut_off_passed` | yes | yes | today's path |
  * | `window_ended` | yes | yes | no |

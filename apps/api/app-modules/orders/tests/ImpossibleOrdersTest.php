@@ -583,6 +583,37 @@ describe('the desk', function (): void {
     });
 });
 
+describe('an accepted quotation', function (): void {
+    it('keeps today\'s behaviour: no new rule reaches it', function (): void {
+        impossibleClosure($this->world->branch);
+        impossibleWindow($this->world, 'breakfast', '06:00:00', '07:30:00');
+        impossibleCalendarDay($this->world, '2026-11-03', ['is_available' => false]);
+        $this->world->zone->forceFill(['minimum_order_minor' => 500000])->save();
+
+        $order = $this->placement->placeComposed(impossibleComposed($this->world, [
+            'salesChannelId' => (string) $this->world->channel->getKey(),
+            'deliveryWindowCode' => 'breakfast',
+            'requestedDate' => $this->today,
+            'agreedInWriting' => true,
+        ]))->order;
+
+        expect($order->refresh()->branch_id)->toBeNull();
+    });
+
+    it('still refuses a slot its zone does not offer, unlike a subscription', function (): void {
+        CheckoutWorld::window($this->world->zone, 'unassigned', assigned: false);
+
+        $reasons = impossibleRefusals(fn () => $this->placement->placeComposed(impossibleComposed($this->world, [
+            'salesChannelId' => (string) $this->world->channel->getKey(),
+            'deliveryWindowCode' => 'unassigned',
+            'requestedDate' => $this->today,
+            'agreedInWriting' => true,
+        ])));
+
+        expect(array_column($reasons, 'reason'))->toBe(['window_not_offered']);
+    });
+});
+
 describe('subscription generation', function (): void {
     it('keeps today\'s behaviour on a branchless delivery: no new rule reaches it', function (): void {
         impossibleClosure($this->world->branch);
