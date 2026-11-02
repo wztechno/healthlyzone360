@@ -12,10 +12,13 @@ import type {
     OrderDeskCalendar,
     OrderDeskCalendarFilters,
     CashSettlementRecord,
+    DailyCloseRecord,
     OrderDeskCashReport,
     OrderDeskCashReportFilters,
+    OrderDeskCloses,
     OrderDeskSettlements,
     RecordCashSettlementRequest,
+    RecordDailyCloseRequest,
     OrderDeskCustomerAddress,
     OrderDeskCustomerCreated,
     OrderDeskCustomerAllergies,
@@ -44,6 +47,8 @@ import type {
     OrderDeskBasketLine as WireOrderDeskBasketLine,
     OrderDeskCalendarEnvelope,
     CashSettlementEnvelope,
+    DailyCloseEnvelope,
+    OrderDeskClosesEnvelope,
     OrderDeskCashReportEnvelope,
     OrderDeskSettlementsEnvelope,
     OrderDeskCustomer as WireOrderDeskCustomer,
@@ -71,6 +76,8 @@ import {
     mapOrderDeskCashReportMeta,
     mapCashReportAdjustment,
     mapCashSettlement,
+    mapDailyClose,
+    mapOrderDeskCloses,
     mapOrderDeskCashReportRow,
     mapOrderDeskSettlements,
     mapOrderDeskCashReportTotal,
@@ -410,6 +417,42 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                 path: '/catalogue/order-desk/delivery-areas',
             });
             return areas.map(mapServiceAreaFromDeliveryArea);
+        },
+
+        async getCloses(): Promise<OrderDeskCloses> {
+            return mapOrderDeskCloses(
+                await transport.request<OrderDeskClosesEnvelope['data']>({
+                    method: 'GET',
+                    path: '/catalogue/order-desk/closes',
+                }),
+            );
+        },
+
+        async recordClose(request: RecordDailyCloseRequest): Promise<DailyCloseRecord> {
+            const payload = await transport.request<DailyCloseEnvelope['data']>({
+                method: 'POST',
+                path: '/catalogue/order-desk/closes',
+                headers: { 'Idempotency-Key': generateRequestId() },
+                body: {
+                    currency_code: request.currencyCode,
+                    opening_float_minor: request.openingFloatMinor,
+                    counted_minor: request.countedMinor,
+                    ...(request.varianceReason === undefined
+                        ? {}
+                        : { variance_reason: request.varianceReason }),
+                },
+            });
+
+            return mapDailyClose(payload.close);
+        },
+
+        async signOffClose(closeId: string): Promise<DailyCloseRecord> {
+            const payload = await transport.request<DailyCloseEnvelope['data']>({
+                method: 'POST',
+                path: `/catalogue/order-desk/closes/${encodeURIComponent(closeId)}/sign-off`,
+            });
+
+            return mapDailyClose(payload.close);
         },
 
         async getSettlements(): Promise<OrderDeskSettlements> {

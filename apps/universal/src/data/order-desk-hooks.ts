@@ -8,10 +8,13 @@ import type {
     OrderDeskCalendar,
     OrderDeskCalendarFilters,
     CashSettlementRecord,
+    DailyCloseRecord,
     OrderDeskCashReport,
     OrderDeskCashReportFilters,
+    OrderDeskCloses,
     OrderDeskSettlements,
     RecordCashSettlementRequest,
+    RecordDailyCloseRequest,
     OrderDeskCustomerAddress,
     OrderDeskCustomerCreated,
     OrderDeskCustomerAllergies,
@@ -263,6 +266,55 @@ export function useOrderDeskCashReportQuery(
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (filters === null) throw new Error('There is no day to report.');
             return repositories.orderDesk.getCashReport(filters);
+        },
+    });
+}
+
+export function useDailyClosesQuery(): UseQueryResult<OrderDeskCloses> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.orderDesk.closes(),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.orderDesk.getCloses();
+        },
+    });
+}
+
+/** No retry: the server reads the figures again, and a retried count is a second shift. */
+export function useRecordDailyCloseMutation(): UseMutationResult<
+    DailyCloseRecord,
+    unknown,
+    RecordDailyCloseRequest
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (request: RecordDailyCloseRequest) =>
+            repositories.orderDesk.recordClose(request),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
+        },
+    });
+}
+
+export function useSignOffDailyCloseMutation(): UseMutationResult<
+    DailyCloseRecord,
+    unknown,
+    string
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (closeId: string) => repositories.orderDesk.signOffClose(closeId),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
         },
     });
 }

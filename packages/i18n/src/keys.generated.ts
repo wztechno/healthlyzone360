@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9523 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9562 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3953,6 +3953,8 @@ export interface NamespaceKeys {
     | 'families.orderCalendar.name'
     | 'families.orderCashReport.description'
     | 'families.orderCashReport.name'
+    | 'families.orderClose.description'
+    | 'families.orderClose.name'
     | 'families.orderDesk.description'
     | 'families.orderDesk.name'
     | 'families.orderRequirements.description'
@@ -4715,6 +4717,43 @@ export interface NamespaceKeys {
     | 'ops.customers.typeB2c'
     | 'ops.customers.typeGuest'
     | 'ops.customers.viewKind'
+    | 'ops.dailyClose.amountInvalid'
+    | 'ops.dailyClose.awaitingSignOff'
+    | 'ops.dailyClose.balanced'
+    | 'ops.dailyClose.clockNote'
+    | 'ops.dailyClose.close'
+    | 'ops.dailyClose.columnAction'
+    | 'ops.dailyClose.columnClosed'
+    | 'ops.dailyClose.columnCounted'
+    | 'ops.dailyClose.columnCounter'
+    | 'ops.dailyClose.columnExpected'
+    | 'ops.dailyClose.columnFloat'
+    | 'ops.dailyClose.columnHandedIn'
+    | 'ops.dailyClose.columnRefunds'
+    | 'ops.dailyClose.columnShift'
+    | 'ops.dailyClose.columnStatus'
+    | 'ops.dailyClose.columnVariance'
+    | 'ops.dailyClose.confirm'
+    | 'ops.dailyClose.countedLabel'
+    | 'ops.dailyClose.dialogBody'
+    | 'ops.dailyClose.dialogTitle'
+    | 'ops.dailyClose.expectedNote'
+    | 'ops.dailyClose.floatLabel'
+    | 'ops.dailyClose.loadErrorTitle'
+    | 'ops.dailyClose.openEmpty'
+    | 'ops.dailyClose.openHeading'
+    | 'ops.dailyClose.over'
+    | 'ops.dailyClose.overReasonLabel'
+    | 'ops.dailyClose.reasonLabel'
+    | 'ops.dailyClose.recentEmpty'
+    | 'ops.dailyClose.recentHeading'
+    | 'ops.dailyClose.saveError'
+    | 'ops.dailyClose.savedToast'
+    | 'ops.dailyClose.shortBody'
+    | 'ops.dailyClose.shortTitle'
+    | 'ops.dailyClose.signOff'
+    | 'ops.dailyClose.signedOff'
+    | 'ops.dailyClose.signedOffToast'
     | 'ops.exceptions.actionFailedToast'
     | 'ops.exceptions.chip'
     | 'ops.exceptions.clearBadge'
@@ -13494,6 +13533,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.orderCalendar.name',
   'kitchen:families.orderCashReport.description',
   'kitchen:families.orderCashReport.name',
+  'kitchen:families.orderClose.description',
+  'kitchen:families.orderClose.name',
   'kitchen:families.orderDesk.description',
   'kitchen:families.orderDesk.name',
   'kitchen:families.orderRequirements.description',
@@ -14256,6 +14297,43 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.customers.typeB2c',
   'kitchen:ops.customers.typeGuest',
   'kitchen:ops.customers.viewKind',
+  'kitchen:ops.dailyClose.amountInvalid',
+  'kitchen:ops.dailyClose.awaitingSignOff',
+  'kitchen:ops.dailyClose.balanced',
+  'kitchen:ops.dailyClose.clockNote',
+  'kitchen:ops.dailyClose.close',
+  'kitchen:ops.dailyClose.columnAction',
+  'kitchen:ops.dailyClose.columnClosed',
+  'kitchen:ops.dailyClose.columnCounted',
+  'kitchen:ops.dailyClose.columnCounter',
+  'kitchen:ops.dailyClose.columnExpected',
+  'kitchen:ops.dailyClose.columnFloat',
+  'kitchen:ops.dailyClose.columnHandedIn',
+  'kitchen:ops.dailyClose.columnRefunds',
+  'kitchen:ops.dailyClose.columnShift',
+  'kitchen:ops.dailyClose.columnStatus',
+  'kitchen:ops.dailyClose.columnVariance',
+  'kitchen:ops.dailyClose.confirm',
+  'kitchen:ops.dailyClose.countedLabel',
+  'kitchen:ops.dailyClose.dialogBody',
+  'kitchen:ops.dailyClose.dialogTitle',
+  'kitchen:ops.dailyClose.expectedNote',
+  'kitchen:ops.dailyClose.floatLabel',
+  'kitchen:ops.dailyClose.loadErrorTitle',
+  'kitchen:ops.dailyClose.openEmpty',
+  'kitchen:ops.dailyClose.openHeading',
+  'kitchen:ops.dailyClose.over',
+  'kitchen:ops.dailyClose.overReasonLabel',
+  'kitchen:ops.dailyClose.reasonLabel',
+  'kitchen:ops.dailyClose.recentEmpty',
+  'kitchen:ops.dailyClose.recentHeading',
+  'kitchen:ops.dailyClose.saveError',
+  'kitchen:ops.dailyClose.savedToast',
+  'kitchen:ops.dailyClose.shortBody',
+  'kitchen:ops.dailyClose.shortTitle',
+  'kitchen:ops.dailyClose.signOff',
+  'kitchen:ops.dailyClose.signedOff',
+  'kitchen:ops.dailyClose.signedOffToast',
   'kitchen:ops.exceptions.actionFailedToast',
   'kitchen:ops.exceptions.chip',
   'kitchen:ops.exceptions.clearBadge',

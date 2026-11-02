@@ -91,6 +91,7 @@ use Healthy360\Catalogues\Http\Controllers\CatalogueItemAllergensAssessedControl
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemAvailabilityReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemOffTodayController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemChannelReplaceController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemOptionController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemDietClassificationReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemIndexController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemIngredientReplaceController;
@@ -259,6 +260,7 @@ use Healthy360\Orders\OrderDesk\Http\Controllers\KitchenCustomerShowController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskAmendmentController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCalendarController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCashReportController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCloseController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAddressStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAllergyController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerIndexController;
@@ -266,6 +268,7 @@ use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerStoreControlle
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerUpdateController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDeliveryAreaIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDeliveryWindowIndexController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDishChoicesController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDriverIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlacementController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQueueController;
@@ -1317,6 +1320,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/items', CatalogueItemIndexController::class)->name('catalogue.items.index');
                 Route::get('/items/{item}', CatalogueItemShowController::class)->name('catalogue.items.show');
                 Route::get('/items/{item}/allergens', CatalogueItemAllergenIndexController::class)->name('catalogue.items.allergens.index');
+                Route::get('/items/{item}/options', [CatalogueItemOptionController::class, 'index'])->name('catalogue.items.options.index');
 
                 // K1.8, and the same argument as its recipe twin: whoever has
                 // to complete a listing must be able to see what it is still
@@ -1348,6 +1352,9 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::patch('/items/{item}', CatalogueItemUpdateController::class)
                     ->middleware('precondition')
                     ->name('catalogue.items.update');
+
+                Route::put('/items/{item}/options', [CatalogueItemOptionController::class, 'replace'])
+                    ->name('catalogue.items.options.replace');
 
                 Route::put('/items/{item}/variants', CatalogueItemVariantReplaceController::class)
                     ->middleware('precondition')
@@ -2242,6 +2249,8 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 */
                 Route::post('/order-desk/quote', OrderDeskQuoteController::class)
                     ->name('catalogue.order-desk.quote');
+                Route::get('/order-desk/items/{item}/choices', OrderDeskDishChoicesController::class)
+                    ->name('catalogue.order-desk.items.choices');
             });
 
             /*
@@ -2459,7 +2468,17 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/order-desk/settlements', [OrderDeskSettlementController::class, 'store'])
                     ->middleware('idempotency')
                     ->name('catalogue.order-desk.settlements.store');
+                Route::get('/order-desk/closes', [OrderDeskCloseController::class, 'index'])
+                    ->name('catalogue.order-desk.closes.index');
+                Route::post('/order-desk/closes', [OrderDeskCloseController::class, 'store'])
+                    ->middleware('idempotency')
+                    ->name('catalogue.order-desk.closes.store');
             });
+
+            Route::post('/order-desk/closes/{close}/sign-off', [OrderDeskCloseController::class, 'signOff'])
+                ->middleware('permission:order.supervise_organisation')
+                ->whereUuid('close')
+                ->name('catalogue.order-desk.closes.sign-off');
 
             Route::post('/order-desk/settlements/{settlement}/sign-off', [OrderDeskSettlementController::class, 'signOff'])
                 ->middleware('permission:order.supervise_organisation')

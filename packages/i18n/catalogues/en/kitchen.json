@@ -1904,6 +1904,45 @@
             "emptyTitle": "Nothing was recorded in this period.",
             "truncated": "Showing the newest 500. Narrow the dates to see the rest.",
             "loadErrorTitle": "The activity could not be loaded."
+        },
+        "dailyClose": {
+            "openHeading": "Shifts to close",
+            "openEmpty": "No cash has moved since the last close.",
+            "recentHeading": "Recent closes",
+            "recentEmpty": "No shift has been closed yet.",
+            "clockNote": "Days are read on the kitchen clock, {{timezone}}.",
+            "loadErrorTitle": "The daily close could not be loaded.",
+            "columnShift": "Shift",
+            "columnCounter": "Counter cash",
+            "columnHandedIn": "Handed in",
+            "columnRefunds": "Cash refunds",
+            "columnAction": "Action",
+            "columnClosed": "Closed",
+            "columnFloat": "Float",
+            "columnExpected": "Expected",
+            "columnCounted": "Counted",
+            "columnVariance": "Variance",
+            "columnStatus": "Status",
+            "close": "Close",
+            "balanced": "Balanced",
+            "over": "Over",
+            "signOff": "Sign off",
+            "signedOff": "Signed off",
+            "signedOffToast": "The short close was signed off.",
+            "awaitingSignOff": "Waiting for a manager",
+            "dialogTitle": "Close {{date}}, {{currency}}",
+            "dialogBody": "Count what is in the till. The figures are read again when you confirm.",
+            "floatLabel": "Opening float ({{currency}})",
+            "countedLabel": "Counted now ({{currency}})",
+            "expectedNote": "Expected in the till: {{amount}}",
+            "amountInvalid": "Enter an amount.",
+            "shortTitle": "{{amount}} short",
+            "shortBody": "A manager signs this off. The app takes no pay decision.",
+            "reasonLabel": "Why is it short?",
+            "overReasonLabel": "Note (optional)",
+            "confirm": "Close the shift",
+            "savedToast": "The shift was closed.",
+            "saveError": "The shift was not closed."
         }
     },
     "kds": {
@@ -2588,6 +2627,10 @@
         "activity": {
             "name": "Activity",
             "description": "Who moved the stock, what the waste cost, and everything the audit trail recorded."
+        },
+        "orderClose": {
+            "name": "Daily close",
+            "description": "Float, cash count and variance for each shift."
         }
     },
     "analytics": {

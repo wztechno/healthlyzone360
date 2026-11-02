@@ -1145,7 +1145,59 @@ export interface RecordCashSettlementRequest {
     readonly shortReason?: string | undefined;
 }
 
+/** A currency with cash moving since its last close. A shift is everything since then. */
+export interface OpenDailyClose {
+    readonly currencyCode: CurrencyCode;
+    /** The kitchen's local day the shift opened on. */
+    readonly businessDate: string;
+    readonly openedAt: IsoDateTime;
+    readonly suggestedFloatMinor: number;
+    readonly counterCashMinor: number;
+    readonly handedInMinor: number;
+    readonly cashRefundsMinor: number;
+}
+
+export interface DailyCloseRecord {
+    readonly id: string;
+    readonly currencyCode: CurrencyCode;
+    readonly businessDate: string;
+    readonly openedAt: IsoDateTime;
+    readonly closedAt: IsoDateTime;
+    readonly openingFloatMinor: number;
+    readonly counterCashMinor: number;
+    readonly handedInMinor: number;
+    readonly cashRefundsMinor: number;
+    readonly expectedMinor: number;
+    readonly countedMinor: number;
+    /** Counted less expected. Negative is short. */
+    readonly varianceMinor: number;
+    readonly varianceReason: string | null;
+    readonly recordedByName: string | null;
+    readonly signedOffByName: string | null;
+    readonly signedOffAt: IsoDateTime | null;
+}
+
+export interface OrderDeskCloses {
+    /** The clock the business dates are read on. */
+    readonly timezone: string;
+    readonly open: readonly OpenDailyClose[];
+    /** The last fifty, newest first. */
+    readonly closes: readonly DailyCloseRecord[];
+}
+
+export interface RecordDailyCloseRequest {
+    readonly currencyCode: CurrencyCode;
+    readonly openingFloatMinor: number;
+    readonly countedMinor: number;
+    /** Required when the count is short. */
+    readonly varianceReason?: string | undefined;
+}
+
 export interface OrderDeskRepository {
+    getCloses(): Promise<OrderDeskCloses>;
+    recordClose(request: RecordDailyCloseRequest): Promise<DailyCloseRecord>;
+    /** A manager accepts a short close. */
+    signOffClose(closeId: string): Promise<DailyCloseRecord>;
     getSettlements(): Promise<OrderDeskSettlements>;
     recordSettlement(request: RecordCashSettlementRequest): Promise<CashSettlementRecord>;
     /** A manager accepts a short hand-in. */

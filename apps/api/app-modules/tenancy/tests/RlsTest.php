@@ -933,12 +933,15 @@ it('protects exactly the fourteen declared tables and no others', function (): v
     // P1 Wave A's `branch_closures` joins for its writes. Reads stay open, as
     // `branch_opening_hours` is: a closure is a public fact about a place, read
     // from carts with no organisation declared.
+    //
+    // P1 Wave C's `daily_closes` joins on the plain organisation policy.
     expect($protected)->toBe([
         'audit_logs',
         'branch_closures',
         'cash_settlements',
         'consent_grants',
         'customer_accounts',
+        'daily_closes',
         'feature_entitlements',
         'kitchen_customer_links',
         'kitchen_service_settings',

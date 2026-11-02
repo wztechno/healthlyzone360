@@ -1,0 +1,515 @@
+import { minorAmountToInput, parseMinorAmount } from '@healthy360/domain-types';
+import type { DailyCloseRecord, OpenDailyClose } from '@healthy360/api-client/contracts';
+import {
+    Badge,
+    Button,
+    Callout,
+    Cascade,
+    Dialog,
+    EmptyState,
+    ErrorState,
+    Stack,
+    TableSkeleton,
+    Text,
+    TextInputField,
+    useToast,
+} from '@healthy360/design-system';
+import { useFormatter } from '@healthy360/i18n';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
+
+import { Gate, useCan } from '../../../access/gate.tsx';
+import { toFailure } from '../../../data/hooks.ts';
+import {
+    useDailyClosesQuery,
+    useRecordDailyCloseMutation,
+    useSignOffDailyCloseMutation,
+} from '../../../data/order-desk-hooks.ts';
+import { formatMoney } from '../../marketplace/format.ts';
+import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
+
+/**
+ * `/kitchen/order-desk/close` — counting the till at the end of a shift.
+ *
+ * Copied from the settlement page: two lists in the cash report's table, the open shifts and the
+ * recent closes, and a dialog behind Close. A shift is everything since the last close, one per
+ * currency, and its days are the kitchen's. The figures on the page are the same receipts and
+ * hand-ins the cash report and the settlement read.
+ *
+ * A short close needs a reason and waits for a manager's sign-off. The app takes no pay decision.
+ */
+
+const EM_DASH = '—';
+
+export function OrderDeskCloseScreen() {
+    return (
+        <Gate
+            area="kitchen"
+            requirement={{ allOf: [ORDER_SETTLE_CASH_PERMISSION] }}
+            testID="kitchen-order-desk-close"
+        >
+            <OrderDeskClose />
+        </Gate>
+    );
+}
+
+function OrderDeskClose() {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const toast = useToast();
+    const canSignOff = useCan(ORDER_SUPERVISE_PERMISSION);
+    const report = useDailyClosesQuery();
+    const signOff = useSignOffDailyCloseMutation();
+    const [closing, setClosing] = useState<OpenDailyClose | null>(null);
+
+    const failure = toFailure(report.error);
+
+    const openColumns: readonly CatalogueColumn<OpenDailyClose>[] = [
+        {
+            key: 'shift',
+            role: 'title',
+            value: (row) => row.businessDate,
+            label: t('kitchen:ops.dailyClose.columnShift'),
+            width: 200,
+            priority: 100,
+            render: (row) => (
+                <Stack space="xs">
+                    <Text variant="strong">{row.businessDate}</Text>
+                    <Text variant="caption" tone="secondary">
+                        {row.currencyCode}
+                    </Text>
+                </Stack>
+            ),
+        },
+        {
+            key: 'counter',
+            label: t('kitchen:ops.dailyClose.columnCounter'),
+            width: 140,
+            priority: 95,
+            render: (row) => (
+                <Text variant="mono">
+                    {formatMoney(formatter, {
+                        amount: row.counterCashMinor,
+                        currency: row.currencyCode,
+                    })}
+                </Text>
+            ),
+        },
+        {
+            key: 'handedIn',
+            label: t('kitchen:ops.dailyClose.columnHandedIn'),
+            width: 140,
+            priority: 90,
+            render: (row) => (
+                <Text variant="mono">
+                    {formatMoney(formatter, {
+                        amount: row.handedInMinor,
+                        currency: row.currencyCode,
+                    })}
+                </Text>
+            ),
+        },
+        {
+            key: 'refunds',
+            label: t('kitchen:ops.dailyClose.columnRefunds'),
+            width: 140,
+            priority: 85,
+            render: (row) => (
+                <Text variant="mono" tone="secondary">
+                    {formatMoney(formatter, {
+                        amount: row.cashRefundsMinor,
+                        currency: row.currencyCode,
+                    })}
+                </Text>
+            ),
+        },
+        {
+            key: 'close',
+            label: t('kitchen:ops.dailyClose.columnAction'),
+            width: 120,
+            priority: 99,
+            render: (row) => (
+                <Button
+                    testID={`kitchen-close-${row.currencyCode}-open`}
+                    variant="secondary"
+                    size="sm"
+                    label={t('kitchen:ops.dailyClose.close')}
+                    onPress={() => {
+                        setClosing(row);
+                    }}
+                />
+            ),
+        },
+    ];
+
+    const recentColumns: readonly CatalogueColumn<DailyCloseRecord>[] = [
+        {
+            key: 'shift',
+            role: 'title',
+            value: (row) => row.businessDate,
+            label: t('kitchen:ops.dailyClose.columnShift'),
+            width: 170,
+            priority: 100,
+            render: (row) => (
+                <Stack space="xs">
+                    <Text variant="strong">{row.businessDate}</Text>
+                    <Text variant="caption" tone="secondary">
+                        {row.recordedByName ?? EM_DASH}
+                    </Text>
+                </Stack>
+            ),
+        },
+        {
+            key: 'closed',
+            label: t('kitchen:ops.dailyClose.columnClosed'),
+            width: 170,
+            priority: 60,
+            render: (row) => (
+                <Text tone="secondary" className="tabular-nums">
+                    {formatter.formatDate(row.closedAt, {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                    })}
+                </Text>
+            ),
+        },
+        {
+            key: 'float',
+            label: t('kitchen:ops.dailyClose.columnFloat'),
+            width: 120,
+            priority: 70,
+            render: (row) => (
+                <Text variant="mono" tone="secondary">
+                    {formatMoney(formatter, {
+                        amount: row.openingFloatMinor,
+                        currency: row.currencyCode,
+                    })}
+                </Text>
+            ),
+        },
+        {
+            key: 'expected',
+            label: t('kitchen:ops.dailyClose.columnExpected'),
+            width: 120,
+            priority: 90,
+            render: (row) => (
+                <Text variant="mono">
+                    {formatMoney(formatter, {
+                        amount: row.expectedMinor,
+                        currency: row.currencyCode,
+                    })}
+                </Text>
+            ),
+        },
+        {
+            key: 'counted',
+            role: 'metric',
+            label: t('kitchen:ops.dailyClose.columnCounted'),
+            width: 120,
+            priority: 95,
+            render: (row) => (
+                <Text variant="mono">
+                    {formatMoney(formatter, {
+                        amount: row.countedMinor,
+                        currency: row.currencyCode,
+                    })}
+                </Text>
+            ),
+        },
+        {
+            key: 'variance',
+            label: t('kitchen:ops.dailyClose.columnVariance'),
+            width: 220,
+            priority: 92,
+            render: (row) =>
+                row.varianceMinor === 0 ? (
+                    <Text tone="secondary">{EM_DASH}</Text>
+                ) : (
+                    <Stack space="xs">
+                        <Text variant="mono">
+                            {formatMoney(formatter, {
+                                amount: row.varianceMinor,
+                                currency: row.currencyCode,
+                            })}
+                        </Text>
+                        {row.varianceReason === null ? null : (
+                            <Text variant="caption" tone="secondary">
+                                {row.varianceReason}
+                            </Text>
+                        )}
+                    </Stack>
+                ),
+        },
+        {
+            key: 'status',
+            label: t('kitchen:ops.dailyClose.columnStatus'),
+            width: 180,
+            priority: 93,
+            render: (row) =>
+                row.varianceMinor === 0 ? (
+                    <Badge tone="success" label={t('kitchen:ops.dailyClose.balanced')} />
+                ) : row.varianceMinor > 0 ? (
+                    <Badge tone="neutral" label={t('kitchen:ops.dailyClose.over')} />
+                ) : row.signedOffAt !== null ? (
+                    <Badge tone="neutral" label={t('kitchen:ops.dailyClose.signedOff')} />
+                ) : canSignOff ? (
+                    <Button
+                        testID={`kitchen-close-${row.id}-sign-off`}
+                        variant="secondary"
+                        size="sm"
+                        label={t('kitchen:ops.dailyClose.signOff')}
+                        disabled={signOff.isPending}
+                        onPress={() => {
+                            signOff.mutate(row.id, {
+                                onSuccess: () => {
+                                    toast.show({
+                                        testID: 'kitchen-close-toast',
+                                        tone: 'success',
+                                        message: t('kitchen:ops.dailyClose.signedOffToast'),
+                                    });
+                                },
+                            });
+                        }}
+                    />
+                ) : (
+                    <Badge
+                        tone="warning"
+                        icon="warning"
+                        label={t('kitchen:ops.dailyClose.awaitingSignOff')}
+                    />
+                ),
+        },
+    ];
+
+    const data = report.data;
+
+    return (
+        <Cascade space="md" testID="kitchen-order-desk-close-screen">
+            {report.isPending ? (
+                <TableSkeleton testID="kitchen-order-desk-close-loading" rows={6} />
+            ) : failure !== null ? (
+                <ErrorState
+                    testID="kitchen-order-desk-close-error"
+                    title={t('kitchen:ops.dailyClose.loadErrorTitle')}
+                    failure={failure}
+                    onRetry={() => {
+                        void report.refetch();
+                    }}
+                    retrying={report.isFetching}
+                />
+            ) : data === undefined ? null : (
+                <View className="flex-col gap-loose">
+                    <Text variant="section" accessibilityRole="header">
+                        {t('kitchen:ops.dailyClose.openHeading')}
+                    </Text>
+                    <Text variant="caption" tone="secondary" testID="kitchen-close-clock">
+                        {t('kitchen:ops.dailyClose.clockNote', { timezone: data.timezone })}
+                    </Text>
+                    {data.open.length === 0 ? (
+                        <EmptyState
+                            testID="kitchen-close-open-empty"
+                            title={t('kitchen:ops.dailyClose.openEmpty')}
+                        />
+                    ) : (
+                        <CatalogueList<OpenDailyClose>
+                            testID="kitchen-close-open"
+                            label={t('kitchen:ops.dailyClose.openHeading')}
+                            columns={openColumns}
+                            rows={data.open}
+                            rowKey={(row) => row.currencyCode}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                        />
+                    )}
+
+                    <Text variant="section" accessibilityRole="header">
+                        {t('kitchen:ops.dailyClose.recentHeading')}
+                    </Text>
+                    {data.closes.length === 0 ? (
+                        <EmptyState
+                            testID="kitchen-close-recent-empty"
+                            title={t('kitchen:ops.dailyClose.recentEmpty')}
+                        />
+                    ) : (
+                        <CatalogueList<DailyCloseRecord>
+                            testID="kitchen-close-recent"
+                            label={t('kitchen:ops.dailyClose.recentHeading')}
+                            columns={recentColumns}
+                            rows={data.closes}
+                            rowKey={(row) => row.id}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                        />
+                    )}
+                </View>
+            )}
+
+            {closing === null ? null : (
+                <CloseDialog
+                    closing={closing}
+                    onClose={() => {
+                        setClosing(null);
+                    }}
+                />
+            )}
+        </Cascade>
+    );
+}
+
+/** The float, the count, and why if it is short. Open only while closing. */
+function CloseDialog({
+    closing,
+    onClose,
+}: {
+    readonly closing: OpenDailyClose;
+    readonly onClose: () => void;
+}) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const toast = useToast();
+    const record = useRecordDailyCloseMutation();
+
+    const currency = closing.currencyCode;
+    const money = (value: number) => formatMoney(formatter, { amount: value, currency });
+
+    const [float, setFloat] = useState(() =>
+        minorAmountToInput(closing.suggestedFloatMinor, currency),
+    );
+    const [counted, setCounted] = useState('');
+    const [reason, setReason] = useState('');
+
+    const floatMinor = parseMinorAmount(float, currency);
+    const countedMinor = parseMinorAmount(counted, currency);
+    const expected =
+        (floatMinor ?? 0) +
+        closing.counterCashMinor +
+        closing.handedInMinor -
+        closing.cashRefundsMinor;
+    const variance = countedMinor === null ? 0 : countedMinor - expected;
+    const short = variance < 0;
+    const ready =
+        floatMinor !== null && countedMinor !== null && (!short || reason.trim() !== '');
+    const failure = toFailure(record.error);
+
+    function submit() {
+        if (floatMinor === null || countedMinor === null || !ready) return;
+        record.mutate(
+            {
+                currencyCode: currency,
+                openingFloatMinor: floatMinor,
+                countedMinor,
+                ...(variance === 0 || reason.trim() === ''
+                    ? {}
+                    : { varianceReason: reason.trim() }),
+            },
+            {
+                onSuccess: () => {
+                    onClose();
+                    toast.show({
+                        testID: 'kitchen-close-toast',
+                        tone: 'success',
+                        message: t('kitchen:ops.dailyClose.savedToast'),
+                    });
+                },
+            },
+        );
+    }
+
+    return (
+        <Dialog
+            testID="kitchen-close-dialog"
+            open
+            onClose={onClose}
+            title={t('kitchen:ops.dailyClose.dialogTitle', {
+                date: closing.businessDate,
+                currency,
+            })}
+            description={t('kitchen:ops.dailyClose.dialogBody')}
+            actions={
+                <>
+                    <Button
+                        testID="kitchen-close-dismiss"
+                        variant="quiet"
+                        label={t('kitchen:common.cancel')}
+                        onPress={onClose}
+                    />
+                    <Button
+                        testID="kitchen-close-confirm"
+                        label={t('kitchen:ops.dailyClose.confirm')}
+                        loading={record.isPending}
+                        disabled={!ready || record.isPending}
+                        onPress={submit}
+                    />
+                </>
+            }
+        >
+            <Stack space="sm">
+                <TextInputField
+                    testID="kitchen-close-float"
+                    id="kitchen-close-float"
+                    label={t('kitchen:ops.dailyClose.floatLabel', { currency })}
+                    {...(float.trim() !== '' && floatMinor === null
+                        ? { error: t('kitchen:ops.dailyClose.amountInvalid') }
+                        : {})}
+                    value={float}
+                    onChangeText={setFloat}
+                    inputMode="decimal"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                />
+                <Text variant="caption" tone="secondary" testID="kitchen-close-expected">
+                    {t('kitchen:ops.dailyClose.expectedNote', { amount: money(expected) })}
+                </Text>
+                <TextInputField
+                    testID="kitchen-close-counted"
+                    id="kitchen-close-counted"
+                    label={t('kitchen:ops.dailyClose.countedLabel', { currency })}
+                    {...(counted.trim() !== '' && countedMinor === null
+                        ? { error: t('kitchen:ops.dailyClose.amountInvalid') }
+                        : {})}
+                    value={counted}
+                    onChangeText={setCounted}
+                    inputMode="decimal"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                />
+                {!short ? null : (
+                    <Callout
+                        testID="kitchen-close-short"
+                        tone="warning"
+                        role="status"
+                        title={t('kitchen:ops.dailyClose.shortTitle', {
+                            amount: money(-variance),
+                        })}
+                        body={t('kitchen:ops.dailyClose.shortBody')}
+                    />
+                )}
+                {variance === 0 ? null : (
+                    <TextInputField
+                        testID="kitchen-close-reason"
+                        id="kitchen-close-reason"
+                        label={t(
+                            short
+                                ? 'kitchen:ops.dailyClose.reasonLabel'
+                                : 'kitchen:ops.dailyClose.overReasonLabel',
+                        )}
+                        value={reason}
+                        onChangeText={setReason}
+                        multiline
+                        maxLength={300}
+                        required={short}
+                    />
+                )}
+                {failure === null ? null : (
+                    <Callout
+                        testID="kitchen-close-error"
+                        tone="danger"
+                        title={t('kitchen:ops.dailyClose.saveError')}
+                        body={failure.message}
+                    />
+                )}
+            </Stack>
+        </Dialog>
+    );
+}

@@ -5,6 +5,7 @@ import type {
     AssignedDeliveryJob,
     CashRun,
     CashSettlementRecord,
+    DailyCloseRecord,
     OrderDeskCalendarCounts,
     OrderDeskCalendarDay,
     OrderDeskCalendarMeta,
@@ -28,6 +29,7 @@ import type {
     OrderDeskRefusal,
     OrderDeskRequirement,
     OrderDeskRequirementsMeta,
+    OrderDeskCloses,
     OrderDeskSettlements,
     OrderDeskShortfallCount,
     WeeklyStockCheck,
@@ -42,6 +44,8 @@ import type {
     OrderDeskCashReportEnvelope,
     CashRun as WireCashRun,
     CashSettlement as WireCashSettlement,
+    DailyClose as WireDailyClose,
+    OrderDeskClosesEnvelope,
     OrderDeskCashReportAdjustment as WireCashReportAdjustment,
     OrderDeskCashReportRow as WireCashReportRow,
     OrderDeskSettlementsEnvelope,
@@ -395,6 +399,43 @@ function mapCashRun(wire: WireCashRun): CashRun {
         orderNumber: wire.order_number,
         deliveredAt: wire.delivered_at as IsoDateTime | null,
         amountMinor: wire.amount_minor,
+    };
+}
+
+export function mapDailyClose(wire: WireDailyClose): DailyCloseRecord {
+    return {
+        id: wire.id,
+        currencyCode: wire.currency_code as CurrencyCode,
+        businessDate: wire.business_date,
+        openedAt: wire.opened_at as IsoDateTime,
+        closedAt: wire.closed_at as IsoDateTime,
+        openingFloatMinor: wire.opening_float_minor,
+        counterCashMinor: wire.counter_cash_minor,
+        handedInMinor: wire.handed_in_minor,
+        cashRefundsMinor: wire.cash_refunds_minor,
+        expectedMinor: wire.expected_minor,
+        countedMinor: wire.counted_minor,
+        varianceMinor: wire.variance_minor,
+        varianceReason: wire.variance_reason,
+        recordedByName: wire.recorded_by_name,
+        signedOffByName: wire.signed_off_by_name,
+        signedOffAt: wire.signed_off_at as IsoDateTime | null,
+    };
+}
+
+export function mapOrderDeskCloses(wire: OrderDeskClosesEnvelope['data']): OrderDeskCloses {
+    return {
+        timezone: wire.timezone,
+        open: wire.open.map((row) => ({
+            currencyCode: row.currency_code as CurrencyCode,
+            businessDate: row.business_date,
+            openedAt: row.opened_at as IsoDateTime,
+            suggestedFloatMinor: row.suggested_float_minor,
+            counterCashMinor: row.counter_cash_minor,
+            handedInMinor: row.handed_in_minor,
+            cashRefundsMinor: row.cash_refunds_minor,
+        })),
+        closes: wire.closes.map(mapDailyClose),
     };
 }
 

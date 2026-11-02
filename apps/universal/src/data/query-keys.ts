@@ -698,6 +698,7 @@ export const queryKeys = {
          */
         cashReport: (filter?: QueryScope) => ['orderDesk', 'cash-report', scope(filter)] as const,
         settlements: () => ['orderDesk', 'settlements'] as const,
+        closes: () => ['orderDesk', 'closes'] as const,
     },
 
     /**

@@ -2159,6 +2159,45 @@
             "emptyTitle": "لم يُسجَّل شيء في هذه الفترة.",
             "truncated": "تُعرض أحدث 500 حركة. ضيّق التواريخ لرؤية الباقي.",
             "loadErrorTitle": "تعذّر تحميل النشاط."
+        },
+        "dailyClose": {
+            "openHeading": "ورديات للإقفال",
+            "openEmpty": "لم يتحرك أي نقد منذ آخر إقفال.",
+            "recentHeading": "عمليات الإقفال الأخيرة",
+            "recentEmpty": "لم تُقفل أي وردية بعد.",
+            "clockNote": "تُحتسب الأيام حسب توقيت المطبخ، {{timezone}}.",
+            "loadErrorTitle": "تعذّر تحميل إقفال اليوم.",
+            "columnShift": "الوردية",
+            "columnCounter": "نقد الكاونتر",
+            "columnHandedIn": "المسلَّم",
+            "columnRefunds": "المردود نقدًا",
+            "columnAction": "الإجراء",
+            "columnClosed": "وقت الإقفال",
+            "columnFloat": "الرصيد الافتتاحي",
+            "columnExpected": "المتوقع",
+            "columnCounted": "المعدود",
+            "columnVariance": "الفرق",
+            "columnStatus": "الحالة",
+            "close": "إقفال",
+            "balanced": "متوازن",
+            "over": "زيادة",
+            "signOff": "توقيع",
+            "signedOff": "تم التوقيع",
+            "signedOffToast": "تم توقيع الإقفال الناقص.",
+            "awaitingSignOff": "بانتظار مدير",
+            "dialogTitle": "إقفال {{date}}، {{currency}}",
+            "dialogBody": "عُدّ ما في الصندوق. تُقرأ الأرقام مجددًا عند التأكيد.",
+            "floatLabel": "الرصيد الافتتاحي ({{currency}})",
+            "countedLabel": "المعدود الآن ({{currency}})",
+            "expectedNote": "المتوقع في الصندوق: {{amount}}",
+            "amountInvalid": "أدخل مبلغًا.",
+            "shortTitle": "ناقص {{amount}}",
+            "shortBody": "يوقّع المدير على ذلك. لا يتخذ التطبيق أي قرار بشأن الرواتب.",
+            "reasonLabel": "لماذا النقص؟",
+            "overReasonLabel": "ملاحظة (اختيارية)",
+            "confirm": "أقفل الوردية",
+            "savedToast": "تم إقفال الوردية.",
+            "saveError": "لم تُقفل الوردية."
         }
     },
     "kds": {
@@ -2879,6 +2918,10 @@
         "activity": {
             "name": "النشاط",
             "description": "من حرّك المخزون، وكم كلّف الهدر، وكل ما سجّله سجل التدقيق."
+        },
+        "orderClose": {
+            "name": "إقفال اليوم",
+            "description": "الرصيد الافتتاحي وعدّ النقد والفرق لكل وردية."
         }
     },
     "analytics": {

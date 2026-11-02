@@ -377,6 +377,18 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: null,
     },
     {
+        key: 'order-close',
+        kind: 'workbench',
+        group: 'orderDesk',
+        nameKey: 'kitchen:families.orderClose.name',
+        descriptionKey: 'kitchen:families.orderClose.description',
+        icon: 'banknote',
+        href: '/kitchen/order-desk/close',
+        // The settlement's seat: whoever counts the cash. Sign-off asks the manager code on the page.
+        permission: ORDER_SETTLE_CASH_PERMISSION,
+        managePermission: null,
+    },
+    {
         key: 'order-cash-report',
         // A view like its three siblings, and the plainest of them: it reads one append-only ledger
         // and writes nothing. The receipts it counts are created by the sale wizard and by the

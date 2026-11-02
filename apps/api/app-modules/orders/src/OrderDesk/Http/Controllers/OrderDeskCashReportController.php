@@ -36,12 +36,10 @@ use Illuminate\Validation\ValidationException;
  * a manager must be able to ask "what did each agent take yesterday?" and get an
  * answer they can stand a cash box next to.
  *
- * This is that answer and it is deliberately not more. A real drawer
- * reconciliation is a later table — a shift with an opening float, a closing
- * count, a named variance and its own lifecycle — and when it lands this
- * operation stays useful as the ledger it reads from rather than being replaced
- * by it. What this cannot tell anybody is whether the cash box balances, because
- * nothing on this platform has ever been told what was in it.
+ * This is that answer and it is deliberately not more. The drawer reconciliation
+ * is `DailyCloses`: an opening float, a closing count and a named variance, read
+ * from these same receipts. This report stays what it was, and cannot tell anybody
+ * whether the cash box balanced.
  *
  * ## The day boundary is UTC, and that is stated rather than assumed
  *

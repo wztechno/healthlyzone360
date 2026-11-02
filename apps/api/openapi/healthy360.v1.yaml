@@ -16327,6 +16327,118 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/order-desk/closes:
+    get:
+      operationId: getOrderDeskCloses
+      tags: [Order desk]
+      summary: What should be in the till, and recent closes
+      description: |
+        Each currency with cash moving since its last close, in the kitchen's
+        local time, and the last fifty closes. A shift is everything since the
+        last close. Requires `order.settle_cash_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The open shifts and the recent closes.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskClosesEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: storeOrderDeskClose
+      tags: [Order desk]
+      summary: Close the shift against a cash count
+      description: |
+        Expected is the float, plus counter cash, plus hand-ins, less cash refunds,
+        all read at the moment of the close. `422` when short with no
+        `variance_reason`. A short close waits for a manager's sign-off; the app
+        takes no pay decision from it. Audited as `order.daily_closed`.
+        Requires `order.settle_cash_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreOrderDeskCloseRequest'
+      responses:
+        '201':
+          description: The close.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyCloseEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/closes/{close}/sign-off:
+    post:
+      operationId: signOffOrderDeskClose
+      tags: [Order desk]
+      summary: Accept a short close
+      description: |
+        `409` unless it is short and unsigned. Audited as
+        `order.daily_close_signed_off`. Requires `order.supervise_organisation`.
+      parameters:
+        - name: close
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The close.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyCloseEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/order-desk/cash-report:
     get:
       operationId: getOrderDeskCashReport
@@ -16345,9 +16457,8 @@ paths:
         This is that answer and deliberately not more. **It cannot tell anybody
         whether the cash box balances**, because nothing on this platform has
         ever been told what was in it. A real drawer reconciliation is a later
-        table — an opening float, a closing count, a named variance — and when it
-        lands, this operation keeps reading the same ledger rather than being
-        replaced by it.
+        table — an opening float, a closing count, a named variance — and that is
+        now `/catalogue/order-desk/closes`, which reads this same ledger.
 
         ## The day boundary is UTC, and `meta.timezone` says so
 
@@ -41520,6 +41631,118 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CourierCashRun'
+
+    OpenDailyClose:
+      type: object
+      required: [currency_code, business_date, opened_at, suggested_float_minor, counter_cash_minor, handed_in_minor, cash_refunds_minor]
+      properties:
+        currency_code:
+          type: string
+        business_date:
+          type: string
+          format: date
+        opened_at:
+          type: string
+          format: date-time
+        suggested_float_minor:
+          type: integer
+        counter_cash_minor:
+          type: integer
+        handed_in_minor:
+          type: integer
+        cash_refunds_minor:
+          type: integer
+
+    DailyClose:
+      type: object
+      required: [id, currency_code, business_date, opened_at, closed_at, opening_float_minor, counter_cash_minor, handed_in_minor, cash_refunds_minor, expected_minor, counted_minor, variance_minor, variance_reason, recorded_by_name, signed_off_by_name, signed_off_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        currency_code:
+          type: string
+        business_date:
+          type: string
+          format: date
+        opened_at:
+          type: string
+          format: date-time
+        closed_at:
+          type: string
+          format: date-time
+        opening_float_minor:
+          type: integer
+        counter_cash_minor:
+          type: integer
+        handed_in_minor:
+          type: integer
+        cash_refunds_minor:
+          type: integer
+        expected_minor:
+          type: integer
+        counted_minor:
+          type: integer
+        variance_minor:
+          type: integer
+          description: Counted less expected. Negative is short.
+        variance_reason:
+          type: [string, 'null']
+        recorded_by_name:
+          type: [string, 'null']
+        signed_off_by_name:
+          type: [string, 'null']
+        signed_off_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+
+    OrderDeskClosesEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [timezone, open, closes]
+          properties:
+            timezone:
+              type: string
+              description: The kitchen's clock, which the business dates are read on.
+            open:
+              type: array
+              items:
+                $ref: '#/components/schemas/OpenDailyClose'
+            closes:
+              type: array
+              items:
+                $ref: '#/components/schemas/DailyClose'
+
+    DailyCloseEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [close]
+          properties:
+            close:
+              $ref: '#/components/schemas/DailyClose'
+
+    StoreOrderDeskCloseRequest:
+      type: object
+      required: [currency_code, opening_float_minor, counted_minor]
+      properties:
+        currency_code:
+          type: string
+        opening_float_minor:
+          type: integer
+          minimum: 0
+        counted_minor:
+          type: integer
+          minimum: 0
+        variance_reason:
+          type: [string, 'null']
+          maxLength: 300
 
     CashSettlement:
       type: object
