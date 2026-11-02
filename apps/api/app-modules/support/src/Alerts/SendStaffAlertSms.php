@@ -18,10 +18,20 @@ use Illuminate\Foundation\Queue\Queueable;
  * The job carries the user, not the number, and looks the number up when it runs,
  * so no phone number sits in the queue or on Horizon's failed-job screen. A
  * recipient with no phone contact gets the bell and email only.
+ *
+ * Twilio being briefly down throws out of `attempt()` and comes back through
+ * `tries` and `backoff`, over about five minutes. An escalation is the one text
+ * that must not be lost to a blip. The cost is a rare double text, when a timeout
+ * hid a message that did go, and a manager can live with that.
  */
 final class SendStaffAlertSms implements ShouldQueue
 {
     use Queueable;
+
+    public int $tries = 4;
+
+    /** @var list<int> */
+    public array $backoff = [30, 90, 180];
 
     public function __construct(public string $userId, public string $body) {}
 
@@ -37,7 +47,7 @@ final class SendStaffAlertSms implements ShouldQueue
         $phone = $phones->firstWhere('is_primary', true) ?? $phones->first();
 
         if ($phone instanceof ContactPoint) {
-            $sms->send($phone->value_normalised, $this->body);
+            $sms->attempt($phone->value_normalised, $this->body);
         }
     }
 }

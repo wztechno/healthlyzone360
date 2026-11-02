@@ -262,6 +262,18 @@ it('sends nothing and logs once when Twilio is unconfigured', function (): void 
     Log::shouldHaveReceived('warning')->with('SMS not sent: Twilio is not configured.', ['missing' => ['TWILIO_TOKEN']])->once();
 });
 
+it('warns, once, when an organisation has nobody to alert', function (): void {
+    Log::spy();
+
+    $this->alerts->send(StaffAlertType::UnacceptedManager, $this->organisationId, $this->subjectId, STAFF_ALERT_ORDER);
+    $this->alerts->send(StaffAlertType::UnacceptedManager, $this->organisationId, (string) Str::uuid7(), STAFF_ALERT_ORDER);
+
+    Log::shouldHaveReceived('warning')->with('Staff alert reached nobody: the organisation has no recipients.', [
+        'organisation_id' => $this->organisationId,
+        'type' => StaffAlertType::UnacceptedManager->value,
+    ])->once();
+});
+
 it('a recipient with no phone gets no SMS', function (): void {
     staffManager($this->organisationId);
 

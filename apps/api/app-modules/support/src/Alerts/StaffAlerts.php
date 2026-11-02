@@ -10,7 +10,9 @@ use Healthy360\Support\Identifiers\IdentifierService;
 use Healthy360\Support\Mail\NoticeMessage;
 use Healthy360\Support\Models\StaffNotification;
 use Healthy360\Tenancy\Database\DatabaseTenantContext;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
 
@@ -98,6 +100,14 @@ final readonly class StaffAlerts
         $recipients = $type->audience() === 'owners'
             ? $this->recipients->owners($organisationId)
             : $this->recipients->usersHolding($organisationId, self::MANAGER_PERMISSION);
+
+        // Escalations repeat every minute, so an hour between warnings is plenty.
+        if ($recipients === [] && Cache::add("staff-alerts:no-recipients:{$organisationId}:{$type->value}", true, now()->addHour())) {
+            Log::warning('Staff alert reached nobody: the organisation has no recipients.', [
+                'organisation_id' => $organisationId,
+                'type' => $type->value,
+            ]);
+        }
 
         $alerted = [];
 
