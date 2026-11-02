@@ -14,7 +14,7 @@ import type {
     PublishableStatus,
 } from '@healthy360/api-client/contracts';
 import type { BadgeTone } from '@healthy360/design-system';
-import { hasPrivatePricing, isCurrencyCode, minorUnitExponent } from '@healthy360/domain-types';
+import { hasPrivatePricing, isCurrencyCode } from '@healthy360/domain-types';
 import type {
     CurrencyCode,
     DietClassification,
@@ -764,48 +764,7 @@ export function priceItemKindKey(kind: CatalogueItemRef['kind']): string {
     return ITEM_KIND_KEYS[kind];
 }
 
-/**
- * Minor units as the string a **major-unit** input field holds.
- *
- * String arithmetic, not `amountMinor / 100`. `555 / 100` is `5.55` today and
- * `5.550000000000001` for the next value somebody tries, and a form that re-renders a figure
- * differently from the one it was given is a form people stop trusting. The exponent comes from the
- * currency, because the Kuwaiti, Bahraini and Omani minor units are thousandths (D-030).
- */
-export function minorAmountToInput(amountMinor: number, currency: CurrencyCode): string {
-    const exponent = minorUnitExponent(currency);
-    const sign = amountMinor < 0 ? '-' : '';
-    const digits = String(Math.abs(Math.trunc(amountMinor))).padStart(exponent + 1, '0');
-    const whole = digits.slice(0, digits.length - exponent);
-    const fraction = digits.slice(digits.length - exponent);
-    return exponent === 0 ? `${sign}${whole}` : `${sign}${whole}.${fraction}`;
-}
-
-/**
- * A major-unit amount typed into a field, as integer minor units.
- *
- * The inverse of {@link minorAmountToInput}, and string-based for the same reason: `Number('5.50') *
- * 100` is not reliably `550`, and this value goes into a `bigint` column. `null` for anything that
- * is not a plain non-negative decimal, **including** one with more decimal places than the currency
- * has — `5.505` in dollars is not half a cent, it is a typo, and silently rounding it would put a
- * figure in the database that nobody typed.
- *
- * Latin digits only, exactly as {@link parseQuantity}: the display of a price follows the reader's
- * locale, but the value being edited is on its way to an integer column and an input that localised
- * it would make round-tripping a figure depend on the interface language.
- */
-export function parseMinorAmount(value: string, currency: CurrencyCode): number | null {
-    const trimmed = value.trim();
-    if (trimmed === '' || !/^\d*\.?\d*$/.test(trimmed) || trimmed === '.') return null;
-
-    const exponent = minorUnitExponent(currency);
-    const [whole = '', fraction = ''] = trimmed.split('.');
-    if (fraction.length > exponent) return null;
-
-    const digits = `${whole === '' ? '0' : whole}${fraction.padEnd(exponent, '0')}`;
-    const parsed = Number(digits);
-    return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
-}
+export { minorAmountToInput, parseMinorAmount } from '@healthy360/domain-types';
 
 /**
  * A price's date as the Kitchen Forms draw every date — day, short month, year: `21 Sep 2026`.

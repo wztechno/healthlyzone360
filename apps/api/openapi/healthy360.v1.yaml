@@ -17316,28 +17316,27 @@ paths:
       tags: [Delivery]
       summary: Mark a run delivered
       description: |
-        Sets the job to `delivered`, stamps the time, and stores whatever the
-        driver typed as proof.
+        Sets the job to `delivered`, stamps the time, and stores the driver's
+        `note` on the job.
 
         **It also fulfils the order, as the driver**, in the same transaction:
-        the customer sees it delivered at once, and whatever cash is still owed
-        on a cash order is receipted to the driver who took it. An order that is
-        already fulfilled or was cancelled is left as it is.
+        the customer sees it delivered at once. An order that is already
+        fulfilled or was cancelled is left as it is.
+
+        **`collected_minor` is what becomes a receipt**, against the driver. It
+        is required on a cash order. A short amount leaves the rest outstanding,
+        and more than is owed is `422`. Zero needs a `note` and alerts the
+        managers, unless nothing is owed. On a WISH order it is ignored and no
+        receipt is written, because a transfer is only paid once somebody has
+        checked its reference.
 
         **A job that is not the caller's is `404`, and it is decided before
         the body is looked at.** A request with somebody else's job and a
         thousand-character note answers `404`, not `422` — which is the right
         order, because the note is nobody's business until the job is.
 
-        **`proof_of_delivery_notes` is replace-or-clear.** Omitting the key
-        writes `null` over whatever was there. There is no partial update: the
-        one field this endpoint owns is stated every time or not at all.
-
-        **No state guard and no `Idempotency-Key`.** A job already delivered
-        is delivered again, which succeeds — a driver on a bad connection
-        pressing the button twice must not meet a conflict dialog — but it
-        does overwrite the note and the timestamp, so a client should not
-        retry blindly with a different body.
+        **A closed run is `409`.** The job update is conditional on the run being
+        open, so a second press writes no second receipt.
       parameters:
         - $ref: '#/components/parameters/DeliveryJobPath'
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -17389,6 +17388,8 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '429':
@@ -42869,7 +42870,7 @@ components:
 
     DriverJob:
       type: object
-      required: [id, order_id, order_number, status, tracking_status, assigned_at, picked_up_at, ready_at, allergy_allergen_codes, delivery]
+      required: [id, order_id, order_number, status, tracking_status, assigned_at, picked_up_at, ready_at, allergy_allergen_codes, amount_due_minor, currency_code, payment_method, delivery]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -42901,6 +42902,15 @@ components:
           description: |
             The allergens declared on this order, empty when there are none.
             Names only: the notes and severities stay with the kitchen.
+        amount_due_minor:
+          type: integer
+          minimum: 0
+          description: The order's total less its receipts, never below zero.
+        currency_code:
+          type: ['string', 'null']
+        payment_method:
+          type: ['string', 'null']
+          description: A `wish` order has nothing to collect at the door, whatever it still owes.
         delivery:
           $ref: '#/components/schemas/DriverJobDelivery'
       additionalProperties: false
@@ -42913,10 +42923,7 @@ components:
 
         `driver_user_id` is absent because it would say the same thing on every
         row — the caller's own id, which they already have — and the dispatch
-        board is the surface where whose job it is is worth answering. Money is
-        absent for a related reason: a driver collecting cash on delivery is a
-        real flow and it belongs to the receipts ledger, not bolted onto a run
-        sheet.
+        board is the surface where whose job it is is worth answering.
 
     AssignDeliveryJobRequest:
       type: object
@@ -42963,12 +42970,14 @@ components:
     DeliverDriverJobRequest:
       type: object
       properties:
-        proof_of_delivery_notes:
+        collected_minor:
+          type: ['integer', 'null']
+          minimum: 0
+          description: What the driver took, in the order's currency. Required on a cash order, ignored on WISH.
+        note:
           type: [string, 'null']
           maxLength: 1000
-          description: |
-            **Replace-or-clear.** Omitting the key writes `null` over whatever
-            was there; there is no partial update of this field.
+          description: Stored on the job. Required when `collected_minor` is zero and money is owed.
       additionalProperties: false
 
     PaymentMethodKind:

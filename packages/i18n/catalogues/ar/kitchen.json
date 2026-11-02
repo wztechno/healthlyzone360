@@ -2100,7 +2100,13 @@
         "pickedUpAt": "استلمته في {{at}}",
         "deliveredToast": "تم التسليم. أُغلق الطلب {{reference}}.",
         "waitingForKitchen": "بانتظار المطبخ",
-        "allergyTitle": "حساسية في هذا الطلب"
+        "allergyTitle": "حساسية في هذا الطلب",
+        "amountDue": "حصّل {{amount}}",
+        "collectedLabel": "النقد المحصّل ({{currency}})",
+        "collectedHint": "المبلغ المستحق {{amount}}. عدّله إذا دفع الزبون أقل.",
+        "collectedInvalid": "أدخل مبلغاً، مثل 12.50.",
+        "collectedTooMuch": "هذا أكثر مما يستحق على هذا الطلب.",
+        "noCashNote": "اذكر سبب عدم تحصيل النقد."
     },
     "desk": {
         "title": "مكتب الطلبات",

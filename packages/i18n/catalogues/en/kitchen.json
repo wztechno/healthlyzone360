@@ -1849,7 +1849,13 @@
         "pickedUpAt": "Picked up at {{at}}",
         "deliveredToast": "Delivered. Order {{reference}} is closed.",
         "waitingForKitchen": "Waiting for the kitchen",
-        "allergyTitle": "Allergy on this order"
+        "allergyTitle": "Allergy on this order",
+        "amountDue": "Collect {{amount}}",
+        "collectedLabel": "Cash collected ({{currency}})",
+        "collectedHint": "{{amount}} is due. Change it if the customer paid less.",
+        "collectedInvalid": "Enter an amount, like 12.50.",
+        "collectedTooMuch": "That is more than this order owes.",
+        "noCashNote": "Say why no cash was collected."
     },
     "desk": {
         "title": "Order desk",

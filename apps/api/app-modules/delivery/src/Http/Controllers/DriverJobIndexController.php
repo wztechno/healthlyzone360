@@ -99,10 +99,16 @@ use Illuminate\Support\Facades\DB;
  *
  * `driver_user_id`. It would say the same thing on every row — the caller's own
  * id, which they already have — and the dispatch board is the surface where
- * whose job it is is a question worth answering. Money is absent for the same
- * class of reason: a driver collecting cash on delivery is a real flow, and it
- * is `order_payment_receipts`' to build when somebody builds it, not a total
- * bolted onto a run sheet.
+ * whose job it is is a question worth answering.
+ *
+ * ## What the driver has to collect
+ *
+ * `amount_due_minor` is the order's total less its receipts, never below zero. It
+ * is worked out in the sheet's own statement, so a long run sheet costs no extra
+ * reads, and `order_payment_receipts` is read as a table for the reason `orders`
+ * is. The driver needs it at the door, and what they say they took is what
+ * becomes a receipt (`DriverJobDeliverController`). `payment_method` comes with
+ * it because a WISH order has nothing to collect, whatever it still owes.
  *
  * **Scoped in the query, not filtered afterwards.** `jobs`' `where
  * driver_user_id = me` *is* its isolation, on top of the organisation scope the
@@ -141,6 +147,8 @@ final class DriverJobIndexController
         'orders.requested_delivery_date as requested_delivery_date',
         'orders.ready_at as order_ready_at',
         'orders.allergy_snapshot as allergy_snapshot',
+        'orders.currency_code as currency_code',
+        'orders.payment_method as payment_method',
         'ca.display_name as customer_name',
     ];
 
@@ -167,6 +175,15 @@ final class DriverJobIndexController
                      fallback.id
             limit 1
         )) as delivery_phone
+        SQL;
+
+    /** What is still owed, in the row's own statement rather than a read per job. */
+    private const string AMOUNT_DUE_SQL = <<<'SQL'
+        greatest(orders.total_minor - coalesce((
+            select sum(receipts.amount_minor)
+            from order_payment_receipts as receipts
+            where receipts.order_id = orders.id
+        ), 0), 0) as amount_due_minor
         SQL;
 
     public function __construct(private readonly AuditRecorder $audit) {}
@@ -207,6 +224,7 @@ final class DriverJobIndexController
             ->select('delivery_jobs.*')
             ->addSelect(self::ORDER_COLUMNS)
             ->addSelect(DB::raw(self::PHONE_SQL))
+            ->addSelect(DB::raw(self::AMOUNT_DUE_SQL))
             // An inner join would be the truer statement of the schema — the
             // foreign key is NOT NULL and cascades — but a left join is what
             // keeps a driver's whole sheet from disappearing if one order ever
@@ -237,6 +255,9 @@ final class DriverJobIndexController
      *     picked_up_at: string|null,
      *     ready_at: string|null,
      *     allergy_allergen_codes: list<string>,
+     *     amount_due_minor: int,
+     *     currency_code: string|null,
+     *     payment_method: string|null,
      *     delivery: array{
      *         line_one: string|null,
      *         building: string|null,
@@ -266,6 +287,9 @@ final class DriverJobIndexController
             // waits for it (HA-28).
             'ready_at' => $this->instant($job, 'order_ready_at'),
             'allergy_allergen_codes' => $this->allergenCodes($job),
+            'amount_due_minor' => (int) $job->getAttribute('amount_due_minor'),
+            'currency_code' => $this->text($job, 'currency_code'),
+            'payment_method' => $this->text($job, 'payment_method'),
             'delivery' => [
                 'line_one' => $this->text($job, 'delivery_line_one'),
                 // The half of the snapshot a courier navigates by: the street

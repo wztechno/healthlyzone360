@@ -236,17 +236,22 @@ final readonly class OrderLifecycle
     }
 
     /**
-     * A cash order handed over is a cash order paid: the driver took it at the
-     * door, the counter took it on collection. Whatever is still outstanding is
-     * receipted to whoever fulfilled it, so the cash report sees it. WISH is left
-     * alone — a transfer is only paid once somebody has checked its reference.
-     * A counter sale arrives here already settled, so nothing is written twice.
+     * A cash order handed over at the counter is a cash order paid: whatever is
+     * still outstanding is receipted to whoever fulfilled it, so the cash report
+     * sees it. A counter sale arrives here already settled, so nothing is written
+     * twice. WISH is left alone, because a transfer is only paid once somebody
+     * has checked its reference.
+     *
+     * **A delivery is left alone too.** Whoever pressed Fulfil at the display has
+     * no cash in their hand, and receipting the total to them was the audit's
+     * finding. The driver says what they took (`DeliveredOrderFulfilment`), and
+     * anything else stays unpaid and shows up in Unsettled.
      */
     private function takeCashRemainder(Order $order): void
     {
         $userId = $this->context->userId();
 
-        if ($order->payment_method === PaymentMethod::Wish || $userId === null) {
+        if ($order->fulfilment_type === FulfilmentType::Delivery || $order->payment_method === PaymentMethod::Wish || $userId === null) {
             return;
         }
 

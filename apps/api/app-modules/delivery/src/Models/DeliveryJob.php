@@ -32,10 +32,9 @@ use Healthy360\Tenancy\Contracts\OrganisationScoped;
  *
  * **`lock_version` guards assignment, and nothing else on this row.** A
  * dispatch board is a shared screen, and two dispatchers can see the same
- * unassigned run and the same free driver. The driver's own `deliver` stamp is
- * deliberately unguarded — nobody is racing a driver for their own job, and a
- * conflict dialog on a phone at somebody's door is worse than a re-stamped
- * timestamp.
+ * unassigned run and the same free driver. The driver's own `deliver` takes no
+ * validator, because nobody is racing a driver for their own job, but it is
+ * conditional on the run being open: a second press would be a second receipt.
  *
  * @property string $id
  * @property string $organisation_id

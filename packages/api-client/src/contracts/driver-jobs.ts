@@ -1,4 +1,4 @@
-import type { IsoDateTime, OrderId } from '@healthy360/domain-types';
+import type { CurrencyCode, IsoDateTime, OrderId } from '@healthy360/domain-types';
 
 /**
  * A driver's own run sheet — the delivery jobs assigned to the signed-in person, the unassigned pool
@@ -26,10 +26,9 @@ import type { IsoDateTime, OrderId } from '@healthy360/domain-types';
  * ## What a row carries, and the one thing it deliberately does not
  *
  * The order's *number*, where it is going in enough detail to find a door, when the run was handed
- * over, and the number to ring when the building still cannot be found. `driverUserId` is absent
- * because it would say the same thing on every row — the caller's own id, which they already have.
- * Money is absent for a related reason: a driver collecting cash on delivery is a real flow and it
- * belongs to the receipts ledger, not bolted onto a run sheet.
+ * over, the number to ring when the building still cannot be found, and what is still owed.
+ * `driverUserId` is absent because it would say the same thing on every row — the caller's own id,
+ * which they already have.
  *
  * ## No cursor, no cap, no filters
  *
@@ -48,12 +47,11 @@ import type { IsoDateTime, OrderId } from '@healthy360/domain-types';
  * and the mapper reads it literally — a narrower union here would be a second, quieter copy of the
  * server's filter, and the day the filter changes the two would disagree silently.
  *
- * ## Delivering is a stamp, not a transition
+ * ## Delivering says how much was collected
  *
- * There is no lock version on a delivery job and therefore no `If-Match` anywhere in this contract.
- * `deliverJob` writes `delivered` over whatever was there, twice if asked — the wire's own note
- * says a driver on a bad connection who taps again gets the same answer rather than a conflict. So
- * the action is idempotent by construction and nothing here re-reads before writing.
+ * There is no lock version on a delivery job and therefore no `If-Match` anywhere in this contract,
+ * but `deliverJob` is no longer a stamp: what the driver says they took becomes a receipt, so a
+ * closed run answers `resource.conflict` and a second tap writes nothing. It is safe to press twice.
  *
  * It answers nothing worth keeping, which is why it answers `void`. The acknowledgement on the wire
  * is `{id, status}` with `status` typed as a bare string — not the enum — so mapping it into a
@@ -153,6 +151,11 @@ export interface DriverJob {
     readonly trackingStatus: DriverJobTrackingStatus;
     /** The allergens on this order, for the handover. Names only, never notes or severity. */
     readonly allergyAllergenCodes: readonly string[];
+    /** The order's total less its receipts, in {@link DriverJob.currencyCode}. Never negative. */
+    readonly amountDueMinor: number;
+    readonly currencyCode: CurrencyCode;
+    /** `wish` has nothing to collect at the door, whatever it still owes. `null` only on a fault. */
+    readonly paymentMethod: string | null;
     /** When this run was handed to the caller. `null` on a job nobody has assigned. */
     readonly assignedAt: IsoDateTime | null;
     /** When the caller said they had collected the food. `null` until they press Picked up. */
@@ -163,17 +166,15 @@ export interface DriverJob {
     readonly delivery: DriverJobDelivery;
 }
 
-/**
- * What a driver may attach when they close a job.
- *
- * **Replace-or-clear**, exactly as the wire has it: omitting the notes writes `null` over whatever
- * was there. There is no partial update of this field, so the repository always sends the key —
- * "leave it alone" is not something this endpoint can be asked for, and pretending otherwise here
- * would put a difference between the two call shapes that the server does not honour.
- */
+/** What a driver says when they close a job. */
 export interface DeliverDriverJobRequest {
-    /** Free text the driver typed as proof. Up to 1000 characters; `undefined` clears it. */
-    readonly notes?: string | undefined;
+    /**
+     * What they took, in minor units. Required on a cash order, and never asked for on WISH. Above
+     * what is owed is refused; zero with money owed needs a {@link DeliverDriverJobRequest.note}.
+     */
+    readonly collectedMinor?: number | undefined;
+    /** Free text kept on the job. Up to 1000 characters. */
+    readonly note?: string | undefined;
 }
 
 /** The two lists one read of the run sheet answers. */
@@ -200,10 +201,10 @@ export interface DriverJobsRepository {
     pickUpJob(jobId: string): Promise<void>;
 
     /**
-     * Stamp a job delivered, optionally with proof-of-delivery notes.
+     * Close a job, saying what was collected.
      *
-     * Idempotent and answers nothing — see the header. A job that is not the caller's is
-     * `resource.not_found`, which is the same answer as a job that does not exist: the endpoint
+     * Answers nothing — see the header. A closed job is `resource.conflict`, and a job that is not
+     * the caller's is `resource.not_found`, which is the same answer as a job that does not exist: the endpoint
      * declines to confirm that somebody else's job is out there.
      */
     deliverJob(jobId: string, request?: DeliverDriverJobRequest): Promise<void>;

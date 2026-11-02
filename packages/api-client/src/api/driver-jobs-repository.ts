@@ -27,17 +27,8 @@ import type { Transport } from './transport.ts';
  *
  * `kitchen-orders-repository.ts` sends `If-Match` on all three of its writes because an order's
  * lifecycle is a state machine several tablets race on. A delivery job has no `lock_version` on the
- * wire at all, and `deliver` is a stamp rather than a transition: it writes `delivered` over
- * whatever was there and answers the same thing the second time. So there is no validator to send
- * and no conflict to resolve, and a driver on a bad connection who taps twice gets one delivered
- * job rather than a `resource.conflict` they did nothing to earn.
- *
- * ## The write always sends the notes key
- *
- * `proof_of_delivery_notes` is replace-or-clear on the wire — omitting it writes `null`. Sending
- * `null` explicitly when the driver typed nothing is therefore the same request with one fewer way
- * to read it, and it keeps the two call shapes (`deliverJob(id)` and `deliverJob(id, { notes })`)
- * from meaning something the server does not honour.
+ * wire at all: the guard on `deliver` is that the run is still open, so a driver on a bad connection
+ * who taps twice writes one receipt and has the second tap answered `resource.conflict`.
  */
 export function createApiDriverJobsRepository(transport: Transport): DriverJobsRepository {
     return {
@@ -74,11 +65,12 @@ export function createApiDriverJobsRepository(transport: Transport): DriverJobsR
                 method: 'POST',
                 path: `/driver/jobs/${encodeURIComponent(jobId)}/deliver`,
                 body: {
-                    // See the header: the key is always present, `null` when nothing was typed.
-                    proof_of_delivery_notes:
-                        request.notes === undefined || request.notes.trim() === ''
-                            ? null
-                            : request.notes.trim(),
+                    ...(request.collectedMinor === undefined
+                        ? {}
+                        : { collected_minor: request.collectedMinor }),
+                    ...(request.note === undefined || request.note.trim() === ''
+                        ? {}
+                        : { note: request.note.trim() }),
                 },
             });
         },

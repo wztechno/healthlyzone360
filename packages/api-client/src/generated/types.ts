@@ -12059,10 +12059,7 @@ export type DriverJobDelivery = {
  *
  * `driver_user_id` is absent because it would say the same thing on every
  * row — the caller's own id, which they already have — and the dispatch
- * board is the surface where whose job it is is worth answering. Money is
- * absent for a related reason: a driver collecting cash on delivery is a
- * real flow and it belongs to the receipts ledger, not bolted onto a run
- * sheet.
+ * board is the surface where whose job it is is worth answering.
  *
  */
 export type DriverJob = {
@@ -12092,6 +12089,15 @@ export type DriverJob = {
      *
      */
     allergy_allergen_codes: Array<string>;
+    /**
+     * The order's total less its receipts, never below zero.
+     */
+    amount_due_minor: number;
+    currency_code: string | null;
+    /**
+     * A `wish` order has nothing to collect at the door, whatever it still owes.
+     */
+    payment_method: string | null;
     delivery: DriverJobDelivery;
 };
 
@@ -12127,11 +12133,13 @@ export type AssignedDeliveryJob = {
 
 export type DeliverDriverJobRequest = {
     /**
-     * **Replace-or-clear.** Omitting the key writes `null` over whatever
-     * was there; there is no partial update of this field.
-     *
+     * What the driver took, in the order's currency. Required on a cash order, ignored on WISH.
      */
-    proof_of_delivery_notes?: string | null;
+    collected_minor?: number | null;
+    /**
+     * Stored on the job. Required when `collected_minor` is zero and money is owed.
+     */
+    note?: string | null;
 };
 
 /**
@@ -35927,6 +35935,14 @@ export type DeliverDriverJobErrors = {
      * The resource does not exist, or is not the caller's to see.
      */
     404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
     /**
      * The submitted data is invalid.
      */

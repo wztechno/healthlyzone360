@@ -71,6 +71,9 @@ function driverJob(overrides: Partial<DriverJob> = {}): DriverJob {
         pickedUpAt: null,
         readyAt: '2026-08-16T06:35:00.000Z',
         allergyAllergenCodes: [],
+        amountDueMinor: 3000,
+        currencyCode: 'USD',
+        paymentMethod: 'cash_on_delivery',
         delivery: driverDelivery(),
         ...overrides,
     };
@@ -149,7 +152,10 @@ function renderRunSheet(
     overrides: {
         readonly listJobs?: () => readonly DriverJob[] | Promise<readonly DriverJob[]>;
         readonly available?: () => readonly DriverJob[];
-        readonly deliverJob?: (jobId: string, request?: { notes?: string | undefined }) => void;
+        readonly deliverJob?: (
+            jobId: string,
+            request?: { collectedMinor?: number | undefined; note?: string | undefined },
+        ) => void;
         readonly claimJob?: (jobId: string) => void;
         readonly pickUpJob?: (jobId: string) => void;
     } = {},
@@ -183,7 +189,10 @@ function renderRunSheet(
                 ...(overrides.deliverJob === undefined
                     ? {}
                     : {
-                          deliverJob: async (jobId: string, request?: { notes?: string }) => {
+                          deliverJob: async (
+                              jobId: string,
+                              request?: { collectedMinor?: number; note?: string },
+                          ) => {
                               overrides.deliverJob!(jobId, request);
                           },
                       }),
@@ -429,7 +438,7 @@ describe('what a run-sheet card says about the delivery', () => {
 });
 
 describe('delivering a job', () => {
-    it('confirms first, sends the notes, and the delivered job leaves the sheet', async () => {
+    it('confirms first, sends the amount and note, and the job leaves the sheet', async () => {
         const sheet = createRunSheet();
         const { repositories } = await renderRunSheet({
             listJobs: () => sheet.listJobs(),
@@ -466,7 +475,8 @@ describe('delivering a job', () => {
 
         await waitFor(() => {
             expect(repositories.driverJobs.deliverJob).toHaveBeenCalledWith(JOB_TWO, {
-                notes: 'Left with the concierge',
+                collectedMinor: 3000,
+                note: 'Left with the concierge',
             });
         });
 
@@ -486,7 +496,7 @@ describe('delivering a job', () => {
         expect(sheet.jobs().map((job) => job.id)).toEqual([JOB_ONE]);
     });
 
-    it('sends no notes at all when the driver typed none — the field is replace-or-clear', async () => {
+    it('sends no note when the driver typed none', async () => {
         const sheet = createRunSheet();
         const { repositories } = await renderRunSheet({
             listJobs: () => sheet.listJobs(),
@@ -510,7 +520,8 @@ describe('delivering a job', () => {
 
         await waitFor(() => {
             expect(repositories.driverJobs.deliverJob).toHaveBeenCalledWith(JOB_TWO, {
-                notes: undefined,
+                collectedMinor: 3000,
+                note: undefined,
             });
         });
     });

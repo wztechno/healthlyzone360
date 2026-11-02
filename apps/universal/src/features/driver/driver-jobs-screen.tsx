@@ -16,7 +16,9 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
+import { minorAmountToInput, minorUnitExponent, parseMinorAmount } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
+import type { Formatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -47,10 +49,11 @@ import { useOnlineStatus } from '../../online/online-status.tsx';
  * ## What a row says
  *
  * The number printed on the bag, both status axes, where the food is going in enough detail to find
- * a door, when the run was handed over, and who to ask for and the number to ring when the building
- * still cannot be found. That is what somebody standing next to a van needs and it is the whole of what the wire
- * carries — no money (a driver collecting cash belongs to the receipts ledger, not to a run sheet)
- * and no `driverUserId` (it would say "you" on every row).
+ * a door, when the run was handed over, who to ask for and the number to ring when the building
+ * still cannot be found, and the cash to collect. That is what somebody standing next to a van needs
+ * and it is the whole of what the wire carries. The amount is the order's total less what has
+ * already been received, drawn on a cash order that still owes something; a WISH order has nothing
+ * to collect at the door. `driverUserId` is absent, because it would say "you" on every row.
  *
  * **The allergens on the order are named and nothing more.** Whoever takes the bag at the door may
  * need to hear it. The notes and the severity stay with the kitchen, and the wire does not carry
@@ -75,14 +78,13 @@ import { useOnlineStatus } from '../../online/online-status.tsx';
  * collected" and "collected" are one dispatch state and two promises, and a driver deciding what to
  * do next needs the second as much as the first.
  *
- * ## Delivering is a stamp, and the dialog is why it is not a single tap
+ * ## Delivering says what was collected, and the dialog is why it is not a single tap
  *
- * The write is idempotent and irreversible in the same breath: it sets `delivered` over whatever
- * was there, and there is no lock version, no conflict and no undo. A bare button on a phone in a
- * pocket would close jobs by accident, so the action opens a confirmation — which is also the only
- * place the optional proof-of-delivery note can be typed. The note is replace-or-clear on the wire;
- * leaving the field empty is the same request with `null` in it, which is what an empty field
- * honestly means here.
+ * The write is irreversible and there is no undo. A bare button on a phone in a pocket would close
+ * jobs by accident, so the action opens a confirmation, which is also where the driver says what
+ * they took. The field opens on the amount due and they change it if the customer paid less; what
+ * they say becomes a receipt against them. Zero needs a note, because it tells a manager something
+ * went wrong at the door. A paid order asks nothing, and a WISH order hides the field.
  *
  * After a successful stamp the run sheet re-reads and the job leaves the list, because the endpoint
  * excludes terminal jobs, and a toast says so — once the server has answered, never before.
@@ -155,6 +157,19 @@ function areaNameFor(delivery: DriverJobDelivery, locale: string): string | null
     return preferred ?? other;
 }
 
+/** The cash a job asks for, or nothing to collect: paid already, or a WISH transfer. */
+function amountToCollect(job: DriverJob): number {
+    return job.paymentMethod === 'wish' ? 0 : job.amountDueMinor;
+}
+
+/**
+ * Money in the reader's format. Inline rather than `marketplace/format.ts`'s `formatMoney` for the
+ * reason {@link areaNameFor} is: that module pulls the nutrition package into a phone bundle.
+ */
+function moneyText(formatter: Formatter, amountMinor: number, currency: DriverJob['currencyCode']) {
+    return formatter.formatCurrency(amountMinor / 10 ** minorUnitExponent(currency), currency);
+}
+
 export function DriverJobsScreen() {
     return (
         <Gate area="driver" testID="driver-jobs">
@@ -166,6 +181,7 @@ export function DriverJobsScreen() {
 function DriverJobs() {
     const { t } = useTranslation();
     const { locale } = useLocale();
+    const formatter = useFormatter();
     const { online } = useOnlineStatus();
 
     const jobs = useDriverJobsQuery(true, { refetchInterval: online ? DRIVER_POLL_MS : false });
@@ -177,6 +193,16 @@ function DriverJobs() {
     /** The job the confirmation is open for. `null` closes the dialog. */
     const [delivering, setDelivering] = useState<DriverJob | null>(null);
     const [notes, setNotes] = useState('');
+    const [collected, setCollected] = useState('');
+
+    const owed = delivering === null ? 0 : amountToCollect(delivering);
+    const collectedMinor =
+        delivering === null || owed === 0
+            ? 0
+            : parseMinorAmount(collected, delivering.currencyCode);
+    const tooMuch = collectedMinor !== null && collectedMinor > owed;
+    const noCash = owed > 0 && collectedMinor === 0;
+    const canDeliver = collectedMinor !== null && !tooMuch && !(noCash && notes.trim() === '');
 
     const listFailure = toFailure(jobs.error);
     const actionFailure = toFailure(deliver.error);
@@ -189,6 +215,7 @@ function DriverJobs() {
     function openDeliver(job: DriverJob) {
         deliver.reset();
         setNotes('');
+        setCollected(minorAmountToInput(amountToCollect(job), job.currencyCode));
         setDelivering(job);
     }
 
@@ -201,7 +228,13 @@ function DriverJobs() {
         if (delivering === null) return;
         const reference = delivering.orderNumber ?? String(delivering.orderId);
         deliver.mutate(
-            { jobId: delivering.id, notes: notes.trim() === '' ? undefined : notes },
+            {
+                jobId: delivering.id,
+                // Never asked of a WISH order; zero on a cash order with nothing left to pay.
+                collectedMinor:
+                    delivering.paymentMethod === 'wish' ? undefined : (collectedMinor ?? undefined),
+                note: notes.trim() === '' ? undefined : notes,
+            },
             {
                 onSuccess: () => {
                     closeDeliver();
@@ -343,7 +376,7 @@ function DriverJobs() {
                             testID="driver-jobs-deliver-confirm"
                             label={t('kitchen:driver.deliverConfirm')}
                             loading={deliver.isPending}
-                            disabled={deliver.isPending}
+                            disabled={!canDeliver || deliver.isPending}
                             onPress={submitDeliver}
                         />
                     </>
@@ -359,12 +392,38 @@ function DriverJobs() {
                             })}
                         </Text>
                     )}
+                    {delivering === null || owed === 0 ? null : (
+                        <TextInputField
+                            testID="driver-jobs-deliver-amount"
+                            id="driver-jobs-deliver-amount"
+                            label={t('kitchen:driver.collectedLabel', {
+                                currency: delivering.currencyCode,
+                            })}
+                            hint={t('kitchen:driver.collectedHint', {
+                                amount: moneyText(formatter, owed, delivering.currencyCode),
+                            })}
+                            placeholder={t('kitchen:fields.amountPlaceholder')}
+                            {...(collected.trim() !== '' && collectedMinor === null
+                                ? { error: t('kitchen:driver.collectedInvalid') }
+                                : tooMuch
+                                  ? { error: t('kitchen:driver.collectedTooMuch') }
+                                  : {})}
+                            value={collected}
+                            onChangeText={setCollected}
+                            inputMode="decimal"
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                        />
+                    )}
                     <TextInputField
                         testID="driver-jobs-deliver-notes"
                         id="driver-jobs-deliver-notes"
                         label={t('kitchen:driver.notesLabel')}
                         placeholder={t('kitchen:driver.notesPlaceholder')}
                         hint={t('kitchen:driver.notesHint')}
+                        {...(noCash && notes.trim() === ''
+                            ? { error: t('kitchen:driver.noCashNote') }
+                            : {})}
                         value={notes}
                         onChangeText={setNotes}
                         multiline
@@ -456,6 +515,14 @@ function JobCard({ job, locale, disabled, action, onAction }: JobCardProps) {
                 <Heading level={2} testID={`${testID}-order`}>
                     {job.orderNumber ?? String(job.orderId)}
                 </Heading>
+
+                {amountToCollect(job) === 0 ? null : (
+                    <Text variant="bodyStrong" testID={`${testID}-amount-due`}>
+                        {t('kitchen:driver.amountDue', {
+                            amount: moneyText(formatter, amountToCollect(job), job.currencyCode),
+                        })}
+                    </Text>
+                )}
 
                 {job.allergyAllergenCodes.length === 0 ? null : (
                     <Callout

@@ -7879,10 +7879,7 @@ export const zDriverJobDelivery = z.object({
  *
  * `driver_user_id` is absent because it would say the same thing on every
  * row — the caller's own id, which they already have — and the dispatch
- * board is the surface where whose job it is is worth answering. Money is
- * absent for a related reason: a driver collecting cash on delivery is a
- * real flow and it belongs to the receipts ledger, not bolted onto a run
- * sheet.
+ * board is the surface where whose job it is is worth answering.
  *
  */
 export const zDriverJob = z.object({
@@ -7895,6 +7892,9 @@ export const zDriverJob = z.object({
     picked_up_at: z.iso.datetime({ offset: true }).nullable(),
     ready_at: z.iso.datetime({ offset: true }).nullable(),
     allergy_allergen_codes: z.array(z.string()),
+    amount_due_minor: z.int().gte(0),
+    currency_code: z.string().nullable(),
+    payment_method: z.string().nullable(),
     delivery: zDriverJobDelivery
 });
 
@@ -7919,7 +7919,8 @@ export const zAssignedDeliveryJob = z.object({
 });
 
 export const zDeliverDriverJobRequest = z.object({
-    proof_of_delivery_notes: z.string().max(1000).nullish()
+    collected_minor: z.int().gte(0).nullish(),
+    note: z.string().max(1000).nullish()
 });
 
 /**

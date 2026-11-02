@@ -93,8 +93,10 @@ export {
     addMoney,
     isCurrencyCode,
     isMoney,
+    minorAmountToInput,
     minorUnitExponent,
     money,
+    parseMinorAmount,
 } from './money.ts';
 export type { CurrencyCode, Money } from './money.ts';
 

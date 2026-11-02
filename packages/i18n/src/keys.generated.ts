@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9252 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9258 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3745,11 +3745,16 @@ export interface NamespaceKeys {
     | 'dressings.title'
     | 'dressings.viewKind'
     | 'driver.allergyTitle'
+    | 'driver.amountDue'
     | 'driver.assignedAt'
     | 'driver.availableHint'
     | 'driver.availableTitle'
     | 'driver.claim'
     | 'driver.claimTaken'
+    | 'driver.collectedHint'
+    | 'driver.collectedInvalid'
+    | 'driver.collectedLabel'
+    | 'driver.collectedTooMuch'
     | 'driver.customer'
     | 'driver.deliver'
     | 'driver.deliverBody'
@@ -3763,6 +3768,7 @@ export interface NamespaceKeys {
     | 'driver.loadErrorTitle'
     | 'driver.mineTitle'
     | 'driver.noAddress'
+    | 'driver.noCashNote'
     | 'driver.notesHint'
     | 'driver.notesLabel'
     | 'driver.notesPlaceholder'
@@ -13015,11 +13021,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:dressings.title',
   'kitchen:dressings.viewKind',
   'kitchen:driver.allergyTitle',
+  'kitchen:driver.amountDue',
   'kitchen:driver.assignedAt',
   'kitchen:driver.availableHint',
   'kitchen:driver.availableTitle',
   'kitchen:driver.claim',
   'kitchen:driver.claimTaken',
+  'kitchen:driver.collectedHint',
+  'kitchen:driver.collectedInvalid',
+  'kitchen:driver.collectedLabel',
+  'kitchen:driver.collectedTooMuch',
   'kitchen:driver.customer',
   'kitchen:driver.deliver',
   'kitchen:driver.deliverBody',
@@ -13033,6 +13044,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:driver.loadErrorTitle',
   'kitchen:driver.mineTitle',
   'kitchen:driver.noAddress',
+  'kitchen:driver.noCashNote',
   'kitchen:driver.notesHint',
   'kitchen:driver.notesLabel',
   'kitchen:driver.notesPlaceholder',
