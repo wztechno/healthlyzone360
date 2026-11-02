@@ -7,6 +7,7 @@ use Healthy360\B2b\Jobs\PurgeExpiredInvitations;
 use Healthy360\B2b\Jobs\PurgeExpiredKycDocuments;
 use Healthy360\B2b\Jobs\PurgeExpiredRecordExports;
 use Healthy360\Cart\Jobs\ExpireStaleCarts;
+use Healthy360\Catalogues\Jobs\RefreshDishMargins;
 use Healthy360\Customers\Closure\Jobs\ProcessScheduledClosures;
 use Healthy360\Customers\Guest\Jobs\ExpireGuestData;
 use Healthy360\Customers\Guest\Jobs\PurgeExpiredGuestSessions;
@@ -370,6 +371,19 @@ Schedule::job(new RetryOpenConsumptionExceptions)
 /*
 | Chase an order nobody has accepted. Every minute, because the limits are in
 | minutes; the alert's unique index makes the repeats safe.
+*/
+Schedule::job(new RefreshDishMargins)
+    ->dailyAt('02:00')
+    ->timezone('UTC')
+    ->name('catalogues:refresh-dish-margins')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+/*
+| Above: recost every kitchen's dishes while nobody is cooking, and alert on the
+| ones the cost moved below target. Daily, because prices move on deliveries and
+| a dish's margin does not need chasing by the minute. 02:00 UTC is before
+| breakfast in Beirut and Dubai.
 */
 Schedule::job(new EscalateUnacceptedOrders)
     ->everyMinute()

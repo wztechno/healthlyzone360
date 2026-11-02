@@ -112,6 +112,8 @@ import type {
     UpdateSupplierRequest,
     UpsertSupplierLinkRequest,
     StockActivity,
+    DishMargin,
+    DishMargins,
     Payable,
     Payables,
 } from '../contracts/kitchen-ops.ts';
@@ -159,6 +161,7 @@ import type {
     SupplierOption as WireSupplierOption,
     SupplierRef as WireSupplierRef,
     UnpricedReceipt as WireUnpricedReceipt,
+    DishMarginsEnvelope,
     Payable as WirePayable,
     PayablesEnvelope,
 } from '../generated/types.ts';
@@ -2022,6 +2025,30 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                 from: envelope.data.from,
                 to: envelope.data.to,
                 periods: envelope.data.periods.map(mapSpendSummaryPeriod),
+            };
+        },
+
+        async getDishMargins(): Promise<DishMargins> {
+            const wire = await transport.request<DishMarginsEnvelope['data']>({
+                method: 'GET',
+                path: '/catalogue/reports/dish-margins',
+            });
+
+            return {
+                targetPercent: wire.target_percent,
+                computedAt: wire.computed_at as IsoDateTime | null,
+                dishes: wire.dishes.map((dish) => ({
+                    id: dish.id,
+                    catalogueItemId: dish.catalogue_item_id,
+                    name: { en: dish.name_en, ar: dish.name_ar ?? '' },
+                    channel: dish.channel,
+                    priceAmount: dish.price_amount,
+                    costAmount: dish.cost_amount,
+                    currencyCode: dish.currency_code,
+                    marginPercent: dish.margin_percent,
+                    withheldReason: dish.withheld_reason as DishMargin['withheldReason'],
+                    isBelowTarget: dish.is_below_target,
+                })),
             };
         },
 

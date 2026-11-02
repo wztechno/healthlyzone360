@@ -901,6 +901,31 @@ export interface PayablePriceRise {
     readonly priceVariancePercent: string;
 }
 
+/**
+ * What one dish earns on one channel, as of the last overnight run. `marginPercent` is `null` with
+ * a `withheldReason` whenever the figure would be a guess. Major-unit decimal strings.
+ */
+export interface DishMargin {
+    readonly id: string;
+    readonly catalogueItemId: string;
+    readonly name: LocalisedText;
+    readonly channel: 'b2c' | 'b2b';
+    readonly priceAmount: string | null;
+    readonly costAmount: string | null;
+    readonly currencyCode: string | null;
+    readonly marginPercent: string | null;
+    readonly withheldReason: 'no_recipe' | 'no_price' | 'cost_incomplete' | 'currency_mismatch' | null;
+    readonly isBelowTarget: boolean;
+}
+
+export interface DishMargins {
+    readonly targetPercent: number | null;
+    /** When the figures were worked out, or `null` before the first run. */
+    readonly computedAt: IsoDateTime | null;
+    /** Lowest margin first, withheld last. */
+    readonly dishes: readonly DishMargin[];
+}
+
 /** One delivery's money: what it comes to, when it falls due, and what holds it back. */
 export interface Payable {
     readonly id: string;
@@ -2488,6 +2513,7 @@ export interface KitchenOpsRepository {
      * kitchen's trading months are few, so the bounded range is answered whole.
      */
     listCostReport(filter?: MonthlyCostReportFilter): Promise<readonly MonthlyCostReportRow[]>;
+    getDishMargins(): Promise<DishMargins>;
     getPayables(): Promise<Payables>;
     approvePayablePrice(receiptId: string): Promise<Payables>;
     /** Writes down a payment made by hand. Nothing here sends money. */

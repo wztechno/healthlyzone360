@@ -31,6 +31,7 @@ import type {
     KitchenAnalyticsReport,
     MonthlyCostReportFilter,
     MonthlyCostReportRow,
+    DishMargins,
     Payables,
     OrderProposal,
     PostGoodsReceiptRequest,
@@ -1012,6 +1013,19 @@ export function useSpendSummaryQuery(
  * Behind `inventory.view_costs_organisation` on the server, so a caller without that code gets a
  * failure rather than the kitchen's economics; the screen gates its card on the same permission.
  */
+export function useDishMarginsQuery(): UseQueryResult<DishMargins> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.dishMargins(),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.getDishMargins();
+        },
+    });
+}
+
 export function usePayablesQuery(): UseQueryResult<Payables> {
     const { repositories } = useRepositoryContext();
 
