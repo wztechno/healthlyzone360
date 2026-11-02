@@ -57,6 +57,7 @@ final readonly class OrderLifecycle
         private OrderStockConsumption $consumption,
         private DeliveryJobProjection $jobs,
         private OrderPaymentReceipts $receipts,
+        private CalendarPortions $portions,
     ) {}
 
     /**
@@ -302,6 +303,7 @@ final readonly class OrderLifecycle
 
                 if ($disposition !== CancellationDisposition::Wasted) {
                     $this->consumption->restore($cancelled);
+                    $this->portions->release($cancelled);
                 }
             },
         );

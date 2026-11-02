@@ -207,6 +207,7 @@ final readonly class OrderPlacementService
         private OrderStockConsumption $stock,
         private OrderAmendability $amendability,
         private StaffAlerts $alerts,
+        private CalendarPortions $portions,
     ) {}
 
     /**
@@ -485,6 +486,9 @@ final readonly class OrderPlacementService
             allergenConflictsAcknowledged: $placement->allergenConflictsAcknowledged,
             // False only for subscription generation, which would alert daily.
             alertsManagers: $placement->enforceWindowOffer,
+            // A subscription day and an accepted quotation were settled earlier:
+            // the calendar is not asked about them, so it is not charged for them.
+            countsPortions: ! $placement->keepsAgreedDay(),
         );
 
         $this->audit->record(
@@ -676,6 +680,8 @@ final readonly class OrderPlacementService
             $now,
             leadTime: true,
         )];
+        $reasons = [...$reasons, ...$this->timing->pauseRefusals($cart->organisation_id, $now)];
+        $reasons = [...$reasons, ...$this->timing->capacityRefusals($cart->organisation_id, $effectiveDate, $deliveryWindowCode)];
 
         $channel = SalesChannel::withoutTenancy()->whereKey($cart->sales_channel_id)->first();
 
@@ -719,7 +725,10 @@ final readonly class OrderPlacementService
             allergenConflictsAcknowledged: $allergenConflictsAcknowledged,
             // Same transaction, deliberately. An order beside a still-open
             // basket is how a customer orders the same food twice.
-            within: fn (Order $order): mixed => $this->carts->markConverted($cart, (string) $order->getKey()),
+            within: function (Order $order) use ($cart): void {
+                $this->timing->holdCapacity($order);
+                $this->carts->markConverted($cart, (string) $order->getKey());
+            },
         );
 
         $this->audit->record(
@@ -809,6 +818,7 @@ final readonly class OrderPlacementService
         ?string $allergyNote = null,
         bool $allergenConflictsAcknowledged = false,
         bool $alertsManagers = true,
+        bool $countsPortions = true,
     ): Order {
         $subtotal = array_sum(array_map(static fn (array $line): int => $line['line_total_minor'], $snapshots));
         $fee = $zone instanceof DeliveryZone ? $zone->delivery_fee_minor : null;
@@ -817,7 +827,7 @@ final readonly class OrderPlacementService
             $account, $address, $organisationId, $salesChannelId, $branchId, $currencyCode,
             $snapshots, $zone, $fee, $subtotal, $deliveryWindowCode, $effectiveDate, $now, $within,
             $b2bAgreementId, $priceListId, $fulfilmentType, $paymentMethod, $placedOnBehalfBy,
-            $allergyNote, $allergenConflictsAcknowledged, $alertsManagers,
+            $allergyNote, $allergenConflictsAcknowledged, $alertsManagers, $countsPortions,
         ): Order {
             $order = new Order;
             $order->order_number = $this->numbers->next();
@@ -856,6 +866,12 @@ final readonly class OrderPlacementService
             $lines = array_map(fn (array $snapshot): OrderLine => $this->writeLine($order, $snapshot), $snapshots);
 
             $this->snapshotAllergy($order, $account, $lines, $allergenConflictsAcknowledged, $placedOnBehalfBy, $now);
+
+            if ($countsPortions) {
+                $this->portions->take($order);
+                $order->portions_counted = true;
+            }
+
             $order->save();
 
             if ($within !== null) {
@@ -1231,6 +1247,9 @@ final readonly class OrderPlacementService
         $totalBefore = $locked->total_minor;
         $confirmed = $locked->status === OrderStatus::Confirmed;
 
+        // Against the day and the lines still on the order, before either moves.
+        $this->portions->release($locked);
+
         /** @var array<string, OrderLine> $remaining */
         $remaining = [];
 
@@ -1319,6 +1338,10 @@ final readonly class OrderPlacementService
             $this->context->userId(),
             $now,
         );
+
+        if ($locked->portions_counted) {
+            $this->portions->take($locked);
+        }
 
         $locked->lock_version = $ifMatch + 1;
         $locked->save();

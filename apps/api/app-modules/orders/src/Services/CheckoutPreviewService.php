@@ -126,6 +126,8 @@ final readonly class CheckoutPreviewService
                             CarbonImmutable::now(),
                             leadTime: true,
                         ),
+                        ...$this->timing->pauseRefusals($cart->organisation_id, CarbonImmutable::now()),
+                        ...$this->timing->capacityRefusals($cart->organisation_id, $day, $deliveryWindowCode),
                         ...($lineWarnings === [] ? $this->timing->minimumRefusals($zone, $subtotal, $cart->currency_code) : []),
                     ];
 

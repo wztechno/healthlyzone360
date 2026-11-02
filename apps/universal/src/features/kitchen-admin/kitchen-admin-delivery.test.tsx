@@ -1785,6 +1785,8 @@ describe('the kitchen service timings', () => {
     const TIMINGS = {
         orderLeadMinutes: 120,
         alarmAfterMinutes: 5,
+        ordersPerWindow: null,
+        pausedUntil: null,
         managerAlertAfterMinutes: 10,
         ownerAlertAfterMinutes: 20,
         refundApprovalAboveMinor: 5000,

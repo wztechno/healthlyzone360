@@ -45,6 +45,10 @@ export interface KitchenServiceSettings {
     readonly ownerAlertAfterMinutes: number;
     /** Refunds on one order above this, in minor units, wait for the owner. */
     readonly refundApprovalAboveMinor: number;
+    /** The most orders one window takes on one day. `null` means no limit. */
+    readonly ordersPerWindow: number | null;
+    /** New customer orders are refused until then. Read here, set through `pauseKitchen`. */
+    readonly pausedUntil: string | null;
 }
 
 export interface StaffAlertsRepository {
@@ -52,5 +56,9 @@ export interface StaffAlertsRepository {
     markAlertRead(alertId: string): Promise<void>;
     markAllAlertsRead(): Promise<void>;
     getServiceSettings(): Promise<KitchenServiceSettings>;
-    saveServiceSettings(settings: KitchenServiceSettings): Promise<KitchenServiceSettings>;
+    saveServiceSettings(
+        settings: Omit<KitchenServiceSettings, 'pausedUntil'>,
+    ): Promise<KitchenServiceSettings>;
+    pauseKitchen(minutes: number): Promise<KitchenServiceSettings>;
+    resumeKitchen(): Promise<KitchenServiceSettings>;
 }

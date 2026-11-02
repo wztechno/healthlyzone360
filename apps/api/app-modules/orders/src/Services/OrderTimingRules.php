@@ -9,6 +9,10 @@ use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Kitchens\Services\KitchenServiceSettingsLookup;
 use Healthy360\Orders\Contracts\OrderSchedulingLookup;
+use Healthy360\Orders\Enums\OrderStatus;
+use Healthy360\Orders\Exceptions\PlacementRefused;
+use Healthy360\Orders\Models\Order;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Whether the kitchen can still make this order, as refusals.
@@ -26,6 +30,13 @@ use Healthy360\Orders\Contracts\OrderSchedulingLookup;
  * | `window_ended` | yes | yes | no |
  * | `lead_time_not_met` | yes | no | no |
  * | `below_zone_minimum` | yes | no | no |
+ * | `kitchen_paused` | yes | warned | no |
+ * | `window_full` | yes | warned | no |
+ *
+ * **The desk's override of the two brakes is the desk itself.** A cashier is
+ * talking to the kitchen, so the quote says the kitchen is paused or the slot is
+ * full, and the agent decides. What the desk sells still fills the window, as a
+ * subscription day and an accepted quotation do: they are all plates to cook.
  *
  * **A branch answers for itself.** Each is tested on its own clock, and the order
  * is refused only when every serving branch refuses it, reporting the first
@@ -127,6 +138,100 @@ final readonly class OrderTimingRules
             'currency_code' => $zone->currency_code,
             'delivery_zone_id' => (string) $zone->getKey(),
         ]];
+    }
+
+    /**
+     * `kitchen_paused` while the kitchen's timed pause runs.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function pauseRefusals(string $organisationId, CarbonImmutable $now): array
+    {
+        $pausedUntil = $this->settings->for($organisationId)->paused_until;
+
+        if ($pausedUntil === null || $pausedUntil->lessThanOrEqualTo($now)) {
+            return [];
+        }
+
+        return [['reason' => 'kitchen_paused', 'paused_until' => $pausedUntil->toIso8601String()]];
+    }
+
+    /**
+     * `window_full` once this day's window holds as many orders as the kitchen said
+     * it can take. The early answer, for the preview and the desk's warning;
+     * {@see holdCapacity()} is the one that holds under concurrent placement.
+     *
+     * An order with no day or no window fills no window, and a kitchen with no
+     * limit set has no such thing as full.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function capacityRefusals(string $organisationId, ?CarbonImmutable $date, ?string $deliveryWindowCode): array
+    {
+        $limit = $this->settings->for($organisationId)->orders_per_window;
+
+        if ($limit === null || ! $date instanceof CarbonImmutable || $deliveryWindowCode === null) {
+            return [];
+        }
+
+        if ($this->ordersIn($organisationId, $date, $deliveryWindowCode) < $limit) {
+            return [];
+        }
+
+        return [[
+            'reason' => 'window_full',
+            'requested_date' => $date->toDateString(),
+            'delivery_window_code' => $deliveryWindowCode,
+        ]];
+    }
+
+    /**
+     * Refuse the order just written if it took the window past the limit.
+     *
+     * Inside the placement's transaction, after the row exists. The advisory lock
+     * lasts until commit, so of two checkouts racing for the last place the second
+     * waits, counts the first and rolls itself back. Counting before the insert
+     * could not do this: neither would see the other. The lock is per kitchen, day
+     * and window, so nothing else queues behind it.
+     *
+     * @throws PlacementRefused
+     */
+    public function holdCapacity(Order $order): void
+    {
+        $date = $order->requested_delivery_date;
+        $code = $order->delivery_window_code;
+        $limit = $this->settings->for($order->organisation_id)->orders_per_window;
+
+        if ($limit === null || $date === null || $code === null) {
+            return;
+        }
+
+        DB::select('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [
+            "window-capacity:{$order->organisation_id}:{$date->toDateString()}:{$code}",
+        ]);
+
+        if ($this->ordersIn($order->organisation_id, $date, $code) > $limit) {
+            throw new PlacementRefused([[
+                'reason' => 'window_full',
+                'requested_date' => $date->toDateString(),
+                'delivery_window_code' => $code,
+            ]]);
+        }
+    }
+
+    /**
+     * Every order the kitchen still owes or already cooked for that window. A
+     * fulfilled order took its place on the line as much as an open one did; only
+     * a cancelled one gave it back.
+     */
+    private function ordersIn(string $organisationId, CarbonImmutable $date, string $deliveryWindowCode): int
+    {
+        return DB::table('orders')
+            ->where('organisation_id', $organisationId)
+            ->where('requested_delivery_date', $date->toDateString())
+            ->where('delivery_window_code', $deliveryWindowCode)
+            ->where('status', '<>', OrderStatus::Cancelled->value)
+            ->count();
     }
 
     /**

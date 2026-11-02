@@ -34,6 +34,8 @@ export const CHECKOUT_TIMING_WARNINGS = [
     'checkout.lead_time_not_met',
     'checkout.below_zone_minimum',
     'checkout.item_unavailable_on_date',
+    'checkout.kitchen_paused',
+    'checkout.window_full',
 ] as const;
 /** `item_not_assessed` — nobody has assessed a dish in the basket for allergens, so it is off sale. */
 export const CHECKOUT_ITEM_NOT_ASSESSED = 'checkout.item_not_assessed';

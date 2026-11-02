@@ -233,7 +233,7 @@ final readonly class LineProbe
             ];
         }
 
-        $unavailable = $enforceCalendar ? $this->calendarRefusal($item, $on) : null;
+        $unavailable = $enforceCalendar ? $this->calendarRefusal($item, $on, $quantity) : null;
 
         if ($unavailable !== null) {
             $refusals[] = $unavailable;
@@ -274,11 +274,13 @@ final readonly class LineProbe
      * of many lines stays linear, as every other read in this probe is. An
      * undated probe adds one for the timezone, because "today" is the branch's.
      *
-     * Portions are read, never counted down; that is a later stage's.
+     * Portions are read here and counted down by `CalendarPortions` at placement.
+     * This read is the early answer; that write is the one two checkouts cannot
+     * both win.
      *
      * @return array<string, mixed>|null
      */
-    private function calendarRefusal(CatalogueItem $item, ?CarbonImmutable $on): ?array
+    private function calendarRefusal(CatalogueItem $item, ?CarbonImmutable $on, string $quantity): ?array
     {
         $date = $on?->toDateString() ?? $this->branchNow($item)->toDateString();
 
@@ -293,7 +295,7 @@ final readonly class LineProbe
 
         $cause = match (true) {
             ! $row->is_available => 'day_off',
-            $row->remaining_portions === 0 => 'sold_out',
+            $row->remaining_portions !== null && $row->remaining_portions < ceil((float) $quantity) => 'sold_out',
             default => null,
         };
 

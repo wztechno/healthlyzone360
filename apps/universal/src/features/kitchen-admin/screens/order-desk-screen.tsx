@@ -72,6 +72,7 @@ import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
+import { KitchenPauseBanner, KitchenPauseButton } from '../order-desk/kitchen-pause.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
@@ -2348,16 +2349,21 @@ function OrderDeskQueueList() {
                 {...(filtered ? { onClear: clearFilters } : {})}
                 trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                 actions={
-                    <Button
-                        testID="kitchen-order-desk-new-sale"
-                        label={t('kitchen:desk.newSale')}
-                        iconStart={<Icon name="plus" size="sm" />}
-                        onPress={() => {
-                            router.push('/kitchen/order-desk/sale');
-                        }}
-                    />
+                    <Inline space="xs">
+                        <KitchenPauseButton />
+                        <Button
+                            testID="kitchen-order-desk-new-sale"
+                            label={t('kitchen:desk.newSale')}
+                            iconStart={<Icon name="plus" size="sm" />}
+                            onPress={() => {
+                                router.push('/kitchen/order-desk/sale');
+                            }}
+                        />
+                    </Inline>
                 }
             />
+
+            <KitchenPauseBanner />
 
             {queue.isPending ? (
                 <TableSkeleton

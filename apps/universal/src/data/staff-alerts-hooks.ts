@@ -71,16 +71,48 @@ export function useKitchenServiceSettingsQuery(
     });
 }
 
-export function useSaveKitchenServiceSettingsMutation(): UseMutationResult<
+export function usePauseKitchenMutation(): UseMutationResult<
     KitchenServiceSettings,
     unknown,
-    KitchenServiceSettings
+    number
 > {
     const repositories = useRepositories();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (settings: KitchenServiceSettings) =>
+        mutationFn: (minutes: number) => repositories.staffAlerts.pauseKitchen(minutes),
+        onSuccess: (saved) => {
+            queryClient.setQueryData(queryKeys.staffAlerts.serviceSettings(), saved);
+        },
+    });
+}
+
+export function useResumeKitchenMutation(): UseMutationResult<
+    KitchenServiceSettings,
+    unknown,
+    void
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: () => repositories.staffAlerts.resumeKitchen(),
+        onSuccess: (saved) => {
+            queryClient.setQueryData(queryKeys.staffAlerts.serviceSettings(), saved);
+        },
+    });
+}
+
+export function useSaveKitchenServiceSettingsMutation(): UseMutationResult<
+    KitchenServiceSettings,
+    unknown,
+    Omit<KitchenServiceSettings, 'pausedUntil'>
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (settings: Omit<KitchenServiceSettings, 'pausedUntil'>) =>
             repositories.staffAlerts.saveServiceSettings(settings),
         onSuccess: (saved) => {
             queryClient.setQueryData(queryKeys.staffAlerts.serviceSettings(), saved);

@@ -54,7 +54,7 @@ export function createApiStaffAlertsRepository(transport: Transport): StaffAlert
         },
 
         async saveServiceSettings(
-            settings: KitchenServiceSettings,
+            settings: Omit<KitchenServiceSettings, 'pausedUntil'>,
         ): Promise<KitchenServiceSettings> {
             return mapServiceSettings(
                 await transport.request<WireKitchenServiceSettings>({
@@ -65,8 +65,28 @@ export function createApiStaffAlertsRepository(transport: Transport): StaffAlert
                         alarm_after_minutes: settings.alarmAfterMinutes,
                         manager_alert_after_minutes: settings.managerAlertAfterMinutes,
                         owner_alert_after_minutes: settings.ownerAlertAfterMinutes,
+                        orders_per_window: settings.ordersPerWindow,
                         refund_approval_above_minor: settings.refundApprovalAboveMinor,
                     },
+                }),
+            );
+        },
+
+        async pauseKitchen(minutes: number): Promise<KitchenServiceSettings> {
+            return mapServiceSettings(
+                await transport.request<WireKitchenServiceSettings>({
+                    method: 'POST',
+                    path: '/catalogue/kitchen-pause',
+                    body: { minutes },
+                }),
+            );
+        },
+
+        async resumeKitchen(): Promise<KitchenServiceSettings> {
+            return mapServiceSettings(
+                await transport.request<WireKitchenServiceSettings>({
+                    method: 'DELETE',
+                    path: '/catalogue/kitchen-pause',
                 }),
             );
         },
@@ -91,6 +111,8 @@ function mapServiceSettings(wire: WireKitchenServiceSettings): KitchenServiceSet
         alarmAfterMinutes: wire.alarm_after_minutes,
         managerAlertAfterMinutes: wire.manager_alert_after_minutes,
         ownerAlertAfterMinutes: wire.owner_alert_after_minutes,
+        ordersPerWindow: wire.orders_per_window ?? null,
+        pausedUntil: wire.paused_until ?? null,
         refundApprovalAboveMinor: wire.refund_approval_above_minor,
     };
 }

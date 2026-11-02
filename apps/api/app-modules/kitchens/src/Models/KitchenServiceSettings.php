@@ -24,10 +24,13 @@ use Healthy360\Tenancy\Contracts\OrganisationScoped;
  * @property int $manager_alert_after_minutes
  * @property int $owner_alert_after_minutes
  * @property int $refund_approval_above_minor
+ * @property int|null $orders_per_window the most orders one window takes on one day; null means no limit
+ * @property CarbonImmutable|null $paused_until new customer orders are refused until then
+ * @property string|null $paused_by
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-#[Classified(DataClassification::Internal, 'order_lead_minutes', 'alarm_after_minutes', 'manager_alert_after_minutes', 'owner_alert_after_minutes', 'refund_approval_above_minor')]
+#[Classified(DataClassification::Internal, 'order_lead_minutes', 'alarm_after_minutes', 'manager_alert_after_minutes', 'owner_alert_after_minutes', 'refund_approval_above_minor', 'orders_per_window', 'paused_until', 'paused_by')]
 class KitchenServiceSettings extends BaseModel implements OrganisationScoped
 {
     use BelongsToOrganisation;
@@ -56,6 +59,8 @@ class KitchenServiceSettings extends BaseModel implements OrganisationScoped
             'manager_alert_after_minutes' => 'integer',
             'owner_alert_after_minutes' => 'integer',
             'refund_approval_above_minor' => 'integer',
+            'orders_per_window' => 'integer',
+            'paused_until' => 'datetime',
         ];
     }
 }

@@ -97,6 +97,7 @@ use Illuminate\Support\Facades\DB;
  * @property string|null $allergy_note free text taken at the desk
  * @property CarbonImmutable|null $allergy_acknowledged_at
  * @property string|null $allergy_acknowledged_by the cashier; null when the customer acknowledged it
+ * @property bool $portions_counted placing this took portions off the calendar, so cancelling gives them back
  * @property int $lock_version
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
@@ -105,7 +106,7 @@ use Illuminate\Support\Facades\DB;
  * @property-read CustomerAccount|null $customerAccount
  */
 #[Classified(DataClassification::Confidential, 'delivery_label', 'delivery_line_one', 'delivery_line_two', 'delivery_city', 'delivery_building', 'delivery_floor', 'delivery_apartment', 'delivery_directions')]
-#[Classified(DataClassification::Internal, 'order_number', 'subtotal_minor', 'delivery_fee_minor', 'total_minor', 'status', 'fulfilment_type', 'delivery_window_code', 'requested_delivery_date')]
+#[Classified(DataClassification::Internal, 'order_number', 'subtotal_minor', 'delivery_fee_minor', 'total_minor', 'status', 'fulfilment_type', 'delivery_window_code', 'requested_delivery_date', 'portions_counted')]
 #[Classified(DataClassification::Public, 'delivery_area_name_en', 'delivery_area_name_ar')]
 #[Classified(DataClassification::SpecialCategory, 'allergy_snapshot', 'allergy_note', 'allergy_acknowledged_at', 'allergy_acknowledged_by')]
 class Order extends BaseModel

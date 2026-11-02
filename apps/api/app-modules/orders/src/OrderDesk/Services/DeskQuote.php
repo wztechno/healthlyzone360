@@ -91,6 +91,12 @@ use Healthy360\Tenancy\TenantContext;
  * call `composeNow()` makes. Those are the three families the agent can do
  * something about.
  *
+ * ## The two brakes are warnings here
+ *
+ * A pause and a full window refuse a customer and warn the desk, so
+ * `service_warnings` sits beside `refusals` in the same `{reason, …}` shape and
+ * leaves `quotable` alone. The agent reads it and decides: that is the override.
+ *
  * ## Allergen conflicts are not refusals
  *
  * A refusal means the sale cannot go ahead as it stands, and `quotable` says so.
@@ -141,7 +147,8 @@ final readonly class DeskQuote
      *     refusals: list<array<string, mixed>>,
      *     quotable: bool,
      *     offered_window_codes: list<string>|null,
-     *     allergen_conflicts: list<array{catalogue_item_id: string, reason: string, allergen_codes: list<string>}>
+     *     allergen_conflicts: list<array{catalogue_item_id: string, reason: string, allergen_codes: list<string>}>,
+     *     service_warnings: list<array<string, mixed>>
      * }
      */
     public function for(
@@ -173,7 +180,8 @@ final readonly class DeskQuote
      *     refusals: list<array<string, mixed>>,
      *     quotable: bool,
      *     offered_window_codes: list<string>|null,
-     *     allergen_conflicts: list<array{catalogue_item_id: string, reason: string, allergen_codes: list<string>}>
+     *     allergen_conflicts: list<array{catalogue_item_id: string, reason: string, allergen_codes: list<string>}>,
+     *     service_warnings: list<array<string, mixed>>
      * }
      */
     private function quoteNow(
@@ -344,6 +352,10 @@ final readonly class DeskQuote
             // Null unless a delivery address resolved to a serving zone.
             'offered_window_codes' => $offeredWindowCodes,
             'allergen_conflicts' => $this->allergenConflicts($account, $quoted),
+            'service_warnings' => $amending instanceof Order ? [] : [
+                ...$this->timing->pauseRefusals((string) $channel->organisation_id, $now),
+                ...$this->timing->capacityRefusals((string) $channel->organisation_id, $timingDate, $deliveryWindowCode),
+            ],
         ];
     }
 

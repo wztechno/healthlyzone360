@@ -18,7 +18,9 @@ final class KitchenServiceSettingsPresenter
      *     alarm_after_minutes: int,
      *     manager_alert_after_minutes: int,
      *     owner_alert_after_minutes: int,
-     *     refund_approval_above_minor: int
+     *     refund_approval_above_minor: int,
+     *     orders_per_window: int|null,
+     *     paused_until: string|null
      * }
      */
     public function settings(KitchenServiceSettings $settings): array
@@ -29,6 +31,9 @@ final class KitchenServiceSettingsPresenter
             'manager_alert_after_minutes' => $settings->manager_alert_after_minutes,
             'owner_alert_after_minutes' => $settings->owner_alert_after_minutes,
             'refund_approval_above_minor' => $settings->refund_approval_above_minor,
+            'orders_per_window' => $settings->orders_per_window,
+            // A pause that has run out is no pause, whatever the column still holds.
+            'paused_until' => $settings->paused_until?->isFuture() === true ? $settings->paused_until->toIso8601String() : null,
         ];
     }
 }

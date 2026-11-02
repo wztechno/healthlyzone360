@@ -50,6 +50,7 @@ import {
     useOrderDeskDriversQuery,
     useOrderDeskQuoteQuery,
     usePlaceOrderDeskSaleMutation,
+    useSetItemOffTodayMutation,
 } from '../../../data/order-desk-hooks.ts';
 import { EntityImage } from '../../../media/entity-image.tsx';
 import { todayIso } from '../../commerce/dates.ts';
@@ -57,7 +58,11 @@ import { formatMoney } from '../../marketplace/format.ts';
 import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import { ORDER_CREATE_ON_BEHALF_PERMISSION, ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
+import {
+    CATALOGUE_MANAGE_PERMISSION,
+    ORDER_CREATE_ON_BEHALF_PERMISSION,
+    ORDER_MANAGE_PERMISSION,
+} from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { ChoiceTiles } from '../choice-tiles.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
@@ -1267,6 +1272,12 @@ function MenuGrid({
         [tiles, customerAccountId, amendingOrderId, saleDay],
     );
     const shelf = useOrderDeskQuoteQuery(shelfRequest);
+    /* Off today is about today: on another day's menu, or an edit, the button would mislead. */
+    const canSwitch =
+        useCan(CATALOGUE_MANAGE_PERMISSION) &&
+        amendingOrderId === null &&
+        (saleDay === null || saleDay === todayIso());
+    const offToday = useSetItemOffTodayMutation();
     const shelfById = useMemo(() => {
         const map = new Map<string, OrderDeskQuoteLine>();
         for (const line of shelf.data?.lines ?? []) {
@@ -1324,27 +1335,52 @@ function MenuGrid({
                     <View className="flex-row flex-wrap gap-snug">
                         {tiles.map((tile) => {
                             const quoted = shelfById.get(tile.id) ?? null;
+                            const isOff = (quoted?.refusals ?? []).some(
+                                (refusal) => refusal.context['cause'] === 'day_off',
+                            );
                             return (
-                                <MenuTileButton
+                                <View
                                     key={tile.id}
-                                    tile={tile}
-                                    name={displayName(tile.name, locale).value}
-                                    width={tileWidth}
-                                    price={
-                                        quoted?.unitPriceMinor == null
-                                            ? null
-                                            : formatMoney(formatter, {
-                                                  amount: quoted.unitPriceMinor,
-                                                  currency: quoted.currencyCode,
-                                              })
-                                    }
-                                    refused={quoted !== null && quoted.refusals.length > 0}
-                                    conflict={conflictsById.get(tile.id) ?? null}
-                                    count={quantities.get(tile.id) ?? 0}
-                                    onAdd={() => {
-                                        onAdd(tile);
-                                    }}
-                                />
+                                    className="flex-col gap-hair"
+                                    style={{ width: tileWidth }}
+                                >
+                                    <MenuTileButton
+                                        tile={tile}
+                                        name={displayName(tile.name, locale).value}
+                                        width={tileWidth}
+                                        price={
+                                            quoted?.unitPriceMinor == null
+                                                ? null
+                                                : formatMoney(formatter, {
+                                                      amount: quoted.unitPriceMinor,
+                                                      currency: quoted.currencyCode,
+                                                  })
+                                        }
+                                        refused={quoted !== null && quoted.refusals.length > 0}
+                                        conflict={conflictsById.get(tile.id) ?? null}
+                                        count={quantities.get(tile.id) ?? 0}
+                                        onAdd={() => {
+                                            onAdd(tile);
+                                        }}
+                                    />
+                                    {canSwitch ? (
+                                        <Button
+                                            testID={`kitchen-order-desk-sale-tile-${tile.id}-off-today`}
+                                            size="sm"
+                                            variant="quiet"
+                                            block
+                                            label={t(
+                                                isOff
+                                                    ? 'kitchen:desk.sale.backOnToday'
+                                                    : 'kitchen:desk.sale.offToday',
+                                            )}
+                                            disabled={offToday.isPending}
+                                            onPress={() => {
+                                                offToday.mutate({ itemId: tile.id, off: !isOff });
+                                            }}
+                                        />
+                                    ) : null}
+                                </View>
                             );
                         })}
                     </View>
@@ -1817,6 +1853,18 @@ function Ticket({
                             refusalText={refusalText}
                         />
                     )}
+
+                    {/* The agent's to weigh: a customer would be refused, the desk is only told. */}
+                    {(quote?.serviceWarnings ?? []).map((warning) => (
+                        <Text
+                            key={warning.reason}
+                            variant="caption"
+                            tone="warning"
+                            testID={`kitchen-order-desk-sale-service-warning-${warning.reason}`}
+                        >
+                            {refusalText(warning)}
+                        </Text>
+                    ))}
 
                     {paying ? (
                         <PaymentMethods

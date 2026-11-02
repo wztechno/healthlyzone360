@@ -37,6 +37,7 @@ class UpdateKitchenServiceSettingsRequest extends FormRequest
             'manager_alert_after_minutes' => ['required', 'integer', 'min:1', $max, 'lt:owner_alert_after_minutes'],
             'owner_alert_after_minutes' => ['required', 'integer', 'min:1', $max],
             'refund_approval_above_minor' => ['required', 'integer', 'min:0'],
+            'orders_per_window' => ['nullable', 'integer', 'min:1', 'max:1000'],
         ];
     }
 }

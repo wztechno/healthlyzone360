@@ -71,6 +71,10 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  *    `lead_minutes` say why. Customers only.
  *  * `below_zone_minimum` — the subtotal is under the delivery zone's minimum;
  *    `minimum_minor` and `currency_code` carry it. Customers only.
+ *  * `kitchen_paused` — the kitchen stopped taking orders for a while;
+ *    `paused_until` says when it starts again. Customers only.
+ *  * `window_full` — that window has taken as many orders as the kitchen said it
+ *    can on that day. Customers only.
  *  * the whole line vocabulary from `LineRefused` — `item_not_published`,
  *    `item_not_assessed`, `unpriced`, `channel_unavailable`, `item_unavailable_on_date` and the rest — folded in per line with
  *    the offending `catalogue_item_id` attached, because at checkout they are

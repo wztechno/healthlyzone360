@@ -176,6 +176,7 @@ function quoteFor(request: OrderDeskSaleRequest, rules: QuoteRules = {}): OrderD
         quotable: orderRefusals.length === 0 && lines.every((line) => line.refusals.length === 0),
         offeredWindowCodes: rules.offeredWindowCodes ?? null,
         allergenConflicts: [],
+        serviceWarnings: [],
     };
 }
 
