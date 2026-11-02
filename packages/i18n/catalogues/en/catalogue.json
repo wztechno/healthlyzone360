@@ -316,7 +316,7 @@
             },
             "cancel": {
                 "title": "Cancel whenever",
-                "body": "Deliveries stop after the change cut-off. Unused days are credited back at the per-day price you actually paid."
+                "body": "Deliveries stop after the change cut-off. You pay per delivery, so no money is held."
             }
         },
         "calculator": {
@@ -360,8 +360,6 @@
             "legendNone": "No delivery",
             "moreWeeks_one": "…and {{count}} more week before the balance runs out.",
             "moreWeeks_other": "…and {{count}} more weeks before the balance runs out.",
-            "credit": "Cancel after week 2? You'd have used {{used}} days. The other {{unused}} are credited back at {{price}} each — {{credit}} in all. The discount on days already delivered is never taken back.",
-            "creditNone": "Cancel after week 2? You'd have used all {{used}} days by then, so there is nothing left to credit.",
             "pickWeekday": "Pick at least one delivery weekday to see your schedule.",
             "empty": "No plans are published yet, so there is nothing to calculate with.",
             "leftValue_one": "{{count}}d",
@@ -405,7 +403,7 @@
             },
             "cancelled": {
                 "name": "Cancelled",
-                "body": "Deliveries stop after the change cut-off and the unused days are credited back.",
+                "body": "Deliveries stop after the change cut-off.",
                 "next": "Final"
             }
         },

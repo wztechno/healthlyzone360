@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9500 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9494 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1584,8 +1584,6 @@ export interface NamespaceKeys {
     | 'howPlans.calculator.cell.none'
     | 'howPlans.calculator.cell.skipped'
     | 'howPlans.calculator.cellLabel'
-    | 'howPlans.calculator.credit'
-    | 'howPlans.calculator.creditNone'
     | 'howPlans.calculator.empty'
     | 'howPlans.calculator.eyebrow'
     | 'howPlans.calculator.lastDelivery'
@@ -2009,13 +2007,9 @@ export interface NamespaceKeys {
     | 'cancel.confirm'
     | 'cancel.consequenceBody'
     | 'cancel.consequenceTitle'
-    | 'cancel.doneMemo'
-    | 'cancel.doneNoMemo'
+    | 'cancel.doneBody'
     | 'cancel.doneTitle'
-    | 'cancel.estimate'
     | 'cancel.keep'
-    | 'cancel.manualSettlement'
-    | 'cancel.noRefund'
     | 'cancel.open'
     | 'cancel.title'
     | 'cart.addMoreBody'
@@ -11109,8 +11103,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:howPlans.calculator.cell.none',
   'catalogue:howPlans.calculator.cell.skipped',
   'catalogue:howPlans.calculator.cellLabel',
-  'catalogue:howPlans.calculator.credit',
-  'catalogue:howPlans.calculator.creditNone',
   'catalogue:howPlans.calculator.empty',
   'catalogue:howPlans.calculator.eyebrow',
   'catalogue:howPlans.calculator.lastDelivery',
@@ -11533,13 +11525,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:cancel.confirm',
   'commerce:cancel.consequenceBody',
   'commerce:cancel.consequenceTitle',
-  'commerce:cancel.doneMemo',
-  'commerce:cancel.doneNoMemo',
+  'commerce:cancel.doneBody',
   'commerce:cancel.doneTitle',
-  'commerce:cancel.estimate',
   'commerce:cancel.keep',
-  'commerce:cancel.manualSettlement',
-  'commerce:cancel.noRefund',
   'commerce:cancel.open',
   'commerce:cancel.title',
   'commerce:cart.addMoreBody',

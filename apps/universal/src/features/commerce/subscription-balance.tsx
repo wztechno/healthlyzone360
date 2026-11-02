@@ -2,7 +2,6 @@ import { Badge, Heading, Inline, Stack, Table, Text } from '@healthy360/design-s
 import type { TableColumn } from '@healthy360/design-system';
 import type { SubscriptionBalance, SubscriptionDelivery } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
-import type { Formatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
 
@@ -22,10 +21,8 @@ import { CardPanel } from './summary-card.tsx';
  *
  * ## The per-day price is stated, not implied
  *
- * `perDayPrice` is the effective rate after the duration discount, and it is printed beside the
- * remaining count because it is the multiplicand in any future refund. Somebody looking at a
- * cancellation dialog should be able to do the arithmetic themselves before they press the button,
- * and this card is where the two numbers they need already are.
+ * `perDayPrice` is the effective rate after the duration discount, printed beside the remaining
+ * count so a person can see what each delivery costs.
  */
 
 export interface SubscriptionBalanceCardProps {
@@ -174,9 +171,4 @@ export function SubscriptionDeliveries({
             )}
         </CardPanel>
     );
-}
-
-/** Shared by the balance card and the cancellation dialog, so one refund is formatted one way. */
-export function formatPerDay(formatter: Formatter, balance: SubscriptionBalance): string {
-    return formatMoney(formatter, balance.perDayPrice);
 }

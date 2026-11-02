@@ -7555,17 +7555,28 @@ export type MonthlyCostReportRow = {
      */
     waste_quantity: string | null;
     /**
-     * Selling revenue — Σ order totals for confirmed/fulfilled orders, converted from minor to major units.
+     * Selling revenue — Σ order subtotals for confirmed/fulfilled orders, delivery fees left out, converted from minor to major units.
      */
     revenue_amount: string;
     /**
-     * Revenue minus COGS, major units.
+     * Revenue minus COGS, major units; null when `is_margin_withheld`.
      */
-    gross_margin_amount: string;
+    gross_margin_amount: string | null;
     /**
-     * Margin as a percentage of revenue; null when revenue is zero.
+     * Margin as a percentage of revenue; null when revenue is zero or when `is_margin_withheld`.
      */
     gross_margin_percent: string | null;
+    /**
+     * The month's cost is known to be incomplete, so no margin is published:
+     * `exception_count`, `uncosted_line_count` and `unvalued_batch_count`
+     * say why.
+     *
+     */
+    is_margin_withheld: boolean;
+    /**
+     * Sold lines that drew no costed stock, such as a dish on sale with an empty recipe.
+     */
+    uncosted_line_count: number;
     /**
      * Revenue from meal lines, major units.
      */
@@ -13913,15 +13924,6 @@ export type SubscriptionDaysEnvelope = {
 };
 
 /**
- * `recorded` means the platform has computed what is owed; `settled`
- * means a human has told it the money changed hands. There is deliberately
- * no `paid` or `refunded` — the platform has no payment rail, and a status
- * implying it had one would be the first thing a report believed.
- *
- */
-export type CreditMemoStatus = 'recorded' | 'settled';
-
-/**
  * What is left, what was used, and what is coming. **`skipped_days` is
  * beside them rather than subtracted from them**: a skip costs nothing,
  * and the number a customer most wants to check is that the two facts are
@@ -14155,35 +14157,6 @@ export type SubscriptionsEnvelope = {
 };
 
 /**
- * What a kitchen owes a customer whose subscription was cancelled early —
- * a record of an **obligation**, never of a payment.
- *
- * `settlement` is stated on the wire rather than left to be inferred from
- * the status vocabulary. It is the one sentence a customer cancelling most
- * needs: no money has moved, and somebody will be in touch. A client left
- * to infer it would eventually render `recorded` as "refunded".
- *
- */
-export type CreditMemo = {
-    id: Uuid;
-    reason: string;
-    unused_days: number;
-    /**
-     * The effective price actually paid, so the discount already enjoyed on delivered days is not clawed back.
-     */
-    per_day_minor: number;
-    amount_minor: number;
-    currency_code: CurrencyCode;
-    status: CreditMemoStatus;
-    /**
-     * Always `manual` in this phase. The platform has no payment rail.
-     */
-    settlement: 'manual';
-    recorded_at: string;
-    settled_at?: string | null;
-};
-
-/**
  * What fills one slot of one day. `replaced_catalogue_item_id` is what the
  * choice stands in for when generation substituted it — the customer is
  * owed the difference between "you chose this" and "we sent this instead".
@@ -14266,13 +14239,6 @@ export type SubscriptionSkipEnvelope = {
 export type SubscriptionCancellationEnvelope = {
     data: {
         subscription: Subscription;
-        /**
-         * Null when nothing is owed, and that is not the same as an empty
-         * object: a zero memo would be an obligation somebody eventually
-         * tries to settle, so none is written.
-         *
-         */
-        credit_memo: CreditMemo | null;
     };
     meta: Meta;
 };

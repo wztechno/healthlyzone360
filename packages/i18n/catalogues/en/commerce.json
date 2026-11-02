@@ -424,14 +424,8 @@
         "consequenceTitle": "What stops",
         "consequenceBody_one": "Your 1 remaining delivery day will not be delivered.",
         "consequenceBody_other": "Your {{count}} remaining delivery days will not be delivered.",
-        "estimate_one": "We will record a credit of {{amount}} — 1 unused day at {{perDay}}.",
-        "estimate_other": "We will record a credit of {{amount}} — {{count}} unused days at {{perDay}}.",
-        "noRefund": "There is no unused balance left, so nothing will be credited.",
-        "manualSettlement": "A credit is recorded against your account and settled by hand. No money moves automatically.",
         "doneTitle": "Subscription cancelled",
-        "doneMemo_one": "A credit of {{amount}} has been recorded for 1 unused day.",
-        "doneMemo_other": "A credit of {{amount}} has been recorded for {{count}} unused days.",
-        "doneNoMemo": "There was no unused balance, so nothing was credited."
+        "doneBody": "No more deliveries will be made."
     },
     "weekdays": {
         "open": "Change delivery days",

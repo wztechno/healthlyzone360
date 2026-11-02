@@ -22,7 +22,6 @@ import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import {
     balanceDaysFor,
     balanceTotal,
-    cancellationCredit,
     effectiveDayPrice,
     listDayPrice,
     maxDiscountPercent,
@@ -265,18 +264,6 @@ describe('plan balance arithmetic', () => {
         expect(empty.lastDelivery).toBeNull();
     });
 
-    it('credits the unused days at the effective per-day price', () => {
-        const simulation = simulateBalance({
-            days: 28,
-            weekdays: [1, 2, 3, 4],
-            skippedWeeks: [1],
-            start: new Date(2026, 9, 5),
-        });
-        const credit = cancellationCredit(simulation, 28, 2, { amount: 2850, currency: 'AED' });
-        expect(credit.usedDays).toBe(4);
-        expect(credit.unusedDays).toBe(24);
-        expect(credit.credit).toEqual({ amount: 24 * 2850, currency: 'AED' });
-    });
 });
 
 /* ── /plans ──────────────────────────────────────────────────────────────────────────────────── */
@@ -740,9 +727,8 @@ describe('PlanBalanceCalculator', () => {
         );
         // Mon–Thu with week 2 skipped: 4, skip, then 24 ÷ 4 = 6 more weeks.
         expect(screen.getByTestId('plans-calculator-lasts-value')).toHaveTextContent(/8/);
-        expect(screen.getByTestId('plans-calculator-credit')).toHaveTextContent(
-            moneyPattern(24 * 2850),
-        );
+        // Paid per delivery: no money is held, so no credit is worked out or shown.
+        expect(screen.queryByTestId('plans-calculator-note')).toBeNull();
     });
 
     it('moves the end date, not the price, when a week is un-skipped', async () => {
@@ -797,6 +783,6 @@ describe('PlanBalanceCalculator', () => {
         }
 
         expect(screen.queryByTestId('plans-calculator-weeks')).toBeNull();
-        expect(screen.getByTestId('plans-calculator-credit')).toHaveTextContent(/weekday/);
+        expect(screen.getByTestId('plans-calculator-note')).toHaveTextContent(/weekday/);
     });
 });

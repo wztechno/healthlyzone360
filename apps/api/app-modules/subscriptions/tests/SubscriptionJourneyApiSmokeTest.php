@@ -6,7 +6,6 @@ use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
-use Healthy360\Subscriptions\Enums\CreditMemoStatus;
 use Healthy360\Subscriptions\Enums\SubscriptionStatus;
 use Healthy360\Subscriptions\Models\CreditMemo;
 use Healthy360\Subscriptions\Models\Subscription;
@@ -34,9 +33,8 @@ use Healthy360\Subscriptions\Tests\Fixtures\SubscriptionWorld;
 |     minus a skip count would look plausible in every code review.
 |  2. **The captured price reaches the customer.** All three columns, so "why
 |     am I paying 1 800 when the plan says 2 000" is answerable on the screen.
-|  3. **The credit memo comes back with the cancellation**, carrying
-|     `settlement: manual` on the wire. A client left to infer that from the
-|     status vocabulary would eventually render `recorded` as "refunded".
+|  3. **Cancelling works out no credit.** A subscription is paid per delivery, so
+|     no money is held, nothing is recorded and no figure reaches the wire.
 |
 | SPEED MODE: one smoke per route family, per the wave protocol. The exhaustive
 | per-endpoint refusal matrix is on the deferred list.
@@ -180,17 +178,10 @@ it('quotes, buys, skips, pauses and cancels without ever losing a balance day', 
         ->assertOk()
         ->assertJsonPath('data.subscription.status', SubscriptionStatus::Cancelled->value)
         ->assertJsonPath('data.subscription.cancellation_reason', 'moving_away')
-        // Twenty unused days at the grandfathered 1 800: the discount already
-        // enjoyed is not clawed back.
-        ->assertJsonPath('data.credit_memo.unused_days', 20)
-        ->assertJsonPath('data.credit_memo.per_day_minor', 1800)
-        ->assertJsonPath('data.credit_memo.amount_minor', 36000)
-        ->assertJsonPath('data.credit_memo.status', CreditMemoStatus::Recorded->value)
-        // The one sentence a customer needs, stated rather than inferred.
-        ->assertJsonPath('data.credit_memo.settlement', 'manual');
+        ->assertJsonMissingPath('data.credit_memo');
 
-    expect(CreditMemo::query()->where('subscription_id', $id)->count())->toBe(1)
-        ->and($cancelled->json('data.credit_memo.currency_code'))->toBe($this->world->priceList->currency_code);
+    expect(CreditMemo::query()->where('subscription_id', $id)->count())->toBe(0)
+        ->and(array_keys($cancelled->json('data')))->toBe(['subscription']);
 
     // Terminal, and the state machine says so rather than a 500.
     $this->postJson("/api/v1/me/subscriptions/{$id}/resume", [], firstPartyHeaders())

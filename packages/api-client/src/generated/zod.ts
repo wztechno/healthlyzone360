@@ -5006,8 +5006,10 @@ export const zMonthlyCostReportRow = z.object({
     waste_amount: z.string().nullable(),
     waste_quantity: z.string().nullable(),
     revenue_amount: z.string(),
-    gross_margin_amount: z.string(),
+    gross_margin_amount: z.string().nullable(),
     gross_margin_percent: z.string().nullable(),
+    is_margin_withheld: z.boolean(),
+    uncosted_line_count: z.int(),
     meal_revenue_amount: z.string(),
     product_revenue_amount: z.string(),
     other_revenue_amount: z.string(),
@@ -9279,15 +9281,6 @@ export const zChosenDay = z.object({
 });
 
 /**
- * `recorded` means the platform has computed what is owed; `settled`
- * means a human has told it the money changed hands. There is deliberately
- * no `paid` or `refunded` — the platform has no payment rail, and a status
- * implying it had one would be the first thing a report believed.
- *
- */
-export const zCreditMemoStatus = z.enum(['recorded', 'settled']);
-
-/**
  * What is left, what was used, and what is coming. **`skipped_days` is
  * beside them rather than subtracted from them**: a skip costs nothing,
  * and the number a customer most wants to check is that the two facts are
@@ -9473,29 +9466,6 @@ export const zSubscriptionsEnvelope = z.object({
 });
 
 /**
- * What a kitchen owes a customer whose subscription was cancelled early —
- * a record of an **obligation**, never of a payment.
- *
- * `settlement` is stated on the wire rather than left to be inferred from
- * the status vocabulary. It is the one sentence a customer cancelling most
- * needs: no money has moved, and somebody will be in touch. A client left
- * to infer it would eventually render `recorded` as "refunded".
- *
- */
-export const zCreditMemo = z.object({
-    id: zUuid,
-    reason: z.string(),
-    unused_days: z.int(),
-    per_day_minor: z.int(),
-    amount_minor: z.int(),
-    currency_code: zCurrencyCode,
-    status: zCreditMemoStatus,
-    settlement: z.enum(['manual']),
-    recorded_at: z.iso.datetime({ offset: true }),
-    settled_at: z.iso.datetime({ offset: true }).nullish()
-});
-
-/**
  * What fills one slot of one day. `replaced_catalogue_item_id` is what the
  * choice stands in for when generation substituted it — the customer is
  * owed the difference between "you chose this" and "we sent this instead".
@@ -9582,8 +9552,7 @@ export const zSubscriptionSkipEnvelope = z.object({
 
 export const zSubscriptionCancellationEnvelope = z.object({
     data: z.object({
-        subscription: zSubscription,
-        credit_memo: zCreditMemo.nullable()
+        subscription: zSubscription
     }),
     meta: zMeta
 });

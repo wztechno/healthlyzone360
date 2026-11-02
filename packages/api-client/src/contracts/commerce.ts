@@ -356,44 +356,13 @@ export interface SubscriptionBalance {
     readonly changeCutoffHours: number;
 }
 
-/**
- * The refund of an unused balance, recorded rather than paid.
- *
- * `settlement: 'manual'` is a literal and not a nullable field on purpose. There is no payments
- * module (PAY1 is discovery-gated), so nothing in this system moves money; the memo is a record
- * somebody settles by hand. A `settledAt: string | null` would read to a screen as "we will pay
- * this automatically, eventually", which is not true and would be the most expensive kind of
- * plausible interface copy.
- */
-export interface CreditMemo {
-    readonly id: string;
-    readonly subscriptionId: SubscriptionId;
-    /** The one reason the backend's CHECK constraint admits. */
-    readonly reason: 'subscription_cancelled';
-    readonly unusedDays: number;
-    /** The effective per-day price paid. `amount = unusedDays × perDayPrice`. */
-    readonly perDayPrice: Money;
-    readonly amount: Money;
-    readonly status: 'recorded' | 'settled';
-    readonly settlement: 'manual';
-    readonly recordedAt: IsoDateTime;
-}
-
 export interface CancelSubscriptionRequest {
     readonly reason?: string | undefined;
 }
 
-/**
- * Cancellation's answer.
- *
- * Both halves, in one shape, because they are one fact. `creditMemo` is `null` when there was no
- * unused balance to refund — a subscription cancelled on its last day owes nothing — and a screen
- * that had to make a second request to find out would render a cancellation dialog that could not
- * state its own consequence.
- */
+/** Cancellation's answer. It is paid per delivery, so no money is held and no credit comes back. */
 export interface SubscriptionCancellation {
     readonly subscription: Subscription;
-    readonly creditMemo: CreditMemo | null;
 }
 
 export interface SetSubscriptionWeekdaysRequest {

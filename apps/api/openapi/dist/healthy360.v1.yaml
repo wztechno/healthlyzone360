@@ -23748,23 +23748,13 @@ paths:
       operationId: cancelSubscription
       tags:
         - Subscriptions
-      summary: End a subscription and record what is owed
+      summary: End a subscription
       description: |
-        **The credit memo comes back in the same response, and that is the point
-        of the operation rather than a convenience.** The refund is recorded as
-        an obligation for manual settlement — no money moves — and a customer
-        who cancels twelve unused days of a plan they paid for is owed a number
-        on the screen at that moment. A client that had to make a second call
-        would render "cancelled" with nothing beside it, which reads as "and that
-        is that".
-
-        `credit_memo` is **null** when nothing is owed, which is not the same as
-        an empty object: a zero memo would be an obligation somebody eventually
-        tries to settle.
+        Nothing comes back beside the subscription. It is paid per delivery, so no
+        money is held and there is nothing to credit.
 
         There is no DELETE. A cancelled subscription keeps its captured price and
-        its history, because the memo multiplies the price it actually paid and a
-        deleted row could not explain the number.
+        its history.
       parameters:
         - $ref: '#/components/parameters/SubscriptionPath'
         - $ref: '#/components/parameters/IfMatch'
@@ -40486,6 +40476,8 @@ components:
         - revenue_amount
         - gross_margin_amount
         - gross_margin_percent
+        - is_margin_withheld
+        - uncosted_line_count
         - meal_revenue_amount
         - product_revenue_amount
         - other_revenue_amount
@@ -40556,15 +40548,26 @@ components:
           description: Total wasted quantity this month, the honest note when waste carries no cost.
         revenue_amount:
           type: string
-          description: Selling revenue — Σ order totals for confirmed/fulfilled orders, converted from minor to major units.
+          description: Selling revenue — Σ order subtotals for confirmed/fulfilled orders, delivery fees left out, converted from minor to major units.
         gross_margin_amount:
-          type: string
-          description: Revenue minus COGS, major units.
+          type:
+            - string
+            - 'null'
+          description: Revenue minus COGS, major units; null when `is_margin_withheld`.
         gross_margin_percent:
           type:
             - string
             - 'null'
-          description: Margin as a percentage of revenue; null when revenue is zero.
+          description: Margin as a percentage of revenue; null when revenue is zero or when `is_margin_withheld`.
+        is_margin_withheld:
+          type: boolean
+          description: |
+            The month's cost is known to be incomplete, so no margin is published:
+            `exception_count`, `uncosted_line_count` and `unvalued_batch_count`
+            say why.
+        uncosted_line_count:
+          type: integer
+          description: Sold lines that drew no costed stock, such as a dish on sale with an empty recipe.
         meal_revenue_amount:
           type: string
           description: Revenue from meal lines, major units.
@@ -51799,16 +51802,6 @@ components:
                 $ref: '#/components/schemas/SubscriptionDay'
         meta:
           $ref: '#/components/schemas/Meta'
-    CreditMemoStatus:
-      type: string
-      description: |
-        `recorded` means the platform has computed what is owed; `settled`
-        means a human has told it the money changed hands. There is deliberately
-        no `paid` or `refunded` — the platform has no payment rail, and a status
-        implying it had one would be the first thing a report believed.
-      enum:
-        - recorded
-        - settled
     SubscriptionBalance:
       type: object
       description: |
@@ -52220,57 +52213,6 @@ components:
               properties:
                 count:
                   type: integer
-    CreditMemo:
-      type: object
-      description: |
-        What a kitchen owes a customer whose subscription was cancelled early —
-        a record of an **obligation**, never of a payment.
-
-        `settlement` is stated on the wire rather than left to be inferred from
-        the status vocabulary. It is the one sentence a customer cancelling most
-        needs: no money has moved, and somebody will be in touch. A client left
-        to infer it would eventually render `recorded` as "refunded".
-      required:
-        - id
-        - reason
-        - unused_days
-        - per_day_minor
-        - amount_minor
-        - currency_code
-        - status
-        - settlement
-        - recorded_at
-      properties:
-        id:
-          $ref: '#/components/schemas/Uuid'
-        reason:
-          type: string
-          examples:
-            - subscription_cancelled
-        unused_days:
-          type: integer
-        per_day_minor:
-          type: integer
-          description: The effective price actually paid, so the discount already enjoyed on delivered days is not clawed back.
-        amount_minor:
-          type: integer
-        currency_code:
-          $ref: '#/components/schemas/CurrencyCode'
-        status:
-          $ref: '#/components/schemas/CreditMemoStatus'
-        settlement:
-          type: string
-          enum:
-            - manual
-          description: Always `manual` in this phase. The platform has no payment rail.
-        recorded_at:
-          type: string
-          format: date-time
-        settled_at:
-          type:
-            - string
-            - 'null'
-          format: date-time
     SubscriptionMealChoice:
       type: object
       description: |
@@ -52430,18 +52372,9 @@ components:
           type: object
           required:
             - subscription
-            - credit_memo
           properties:
             subscription:
               $ref: '#/components/schemas/Subscription'
-            credit_memo:
-              description: |
-                Null when nothing is owed, and that is not the same as an empty
-                object: a zero memo would be an obligation somebody eventually
-                tries to settle, so none is written.
-              oneOf:
-                - $ref: '#/components/schemas/CreditMemo'
-                - type: 'null'
         meta:
           $ref: '#/components/schemas/Meta'
     PlanQuote:

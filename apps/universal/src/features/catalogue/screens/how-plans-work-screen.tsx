@@ -24,9 +24,9 @@ import type { StatePillTone } from '../plan-controls.tsx';
  *
  * The design's model — "a plan is a balance of delivery days, not a calendar" — is the approved S1
  * semantics (`docs/s1-subscription-semantics-proposal.md`, D-077), and the backend implements it:
- * `subscriptions.balance_days_total` / `balance_days_consumed`, a captured per-day price, a credit
- * memo for the unused days on cancellation. The copy keeps the design's sentences and follows the
- * implementation where the drawing says more than it does:
+ * `subscriptions.balance_days_total` / `balance_days_consumed` and a captured per-day price. The copy
+ * keeps the design's sentences and follows the implementation where the drawing says more than it
+ * does:
  *
  * - **Balances are 7, 14, 28 or 84 days**, the closed duration vocabulary, not 10/20/30.
  * - **The cut-off is the plan's, not a constant.** `change_cutoff_hours` defaults to 24 and a
@@ -35,8 +35,8 @@ import type { StatePillTone } from '../plan-controls.tsx';
  *   (`GenerationService`); a kitchen-cancelled order gives the day back.
  * - **Skips and pauses are the plan's to allow** (`skip_allowed`, `pause_allowed`), and a skip is
  *   one delivery, not a week.
- * - **A cancellation credits, it does not refund.** The unused days are recorded as a credit for
- *   the kitchen to settle by hand until payments exist (§3).
+ * - **A cancellation promises no money.** A subscription is paid per delivery, so nothing is held
+ *   and nothing is credited back.
  * - **"No swaps — skip instead"** is a per-subscription switch the API accepts and this app does
  *   not yet offer, so the FAQ does not offer it either.
  * - **Choosing each meal** is a plan's `allows_free_selection`, not a right on every plan.

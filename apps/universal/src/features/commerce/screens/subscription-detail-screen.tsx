@@ -1090,18 +1090,17 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                 }}
             />
 
-            {/* ── cancel, and the credit memo it records ─────────────────────────────────────── */}
+            {/* ── cancel ───────────────────────────────────────────────────────────────────── */}
             <CancelSubscriptionDialog
                 open={dialog === 'cancel'}
                 balance={balanceQuery.data}
-                memo={cancel.data === undefined ? undefined : cancel.data.creditMemo}
+                cancelled={cancel.data !== undefined}
                 pending={cancel.isPending}
                 error={cancel.error}
                 onClose={close}
                 onConfirm={() => {
                     if (subscription === undefined) return;
-                    // No `onSuccess: close`. The dialog stays open to report the memo the server
-                    // actually wrote — the one number a person needs to take away from this.
+                    // No `onSuccess: close`. The dialog stays open to say it happened.
                     cancel.mutate({ subscriptionId: subscription.id });
                 }}
             />

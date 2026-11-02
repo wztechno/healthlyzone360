@@ -28,7 +28,6 @@ use Healthy360\Subscriptions\Enums\SubscriptionDeliveryStatus;
 use Healthy360\Subscriptions\Enums\SubscriptionStatus;
 use Healthy360\Subscriptions\Exceptions\SubscriptionChangeRefused;
 use Healthy360\Subscriptions\Exceptions\SubscriptionRefused;
-use Healthy360\Subscriptions\Models\CreditMemo;
 use Healthy360\Subscriptions\Models\Subscription;
 use Healthy360\Subscriptions\Models\SubscriptionDelivery;
 use Healthy360\Support\Api\ErrorCode;
@@ -74,12 +73,10 @@ use Illuminate\Support\Facades\DB;
  *
  * ## Cancelling one
  *
- * `cancelled` is terminal and the refund is a `credit_memo` for manual
- * settlement — unused days × the effective per-day price actually paid, after
- * the duration discount, so the discount already enjoyed on delivered days is
- * not clawed back (§3). No money moves. The memo's unique index makes a second
- * one impossible, which matters because a double refund is much harder to
- * notice than a missing one.
+ * `cancelled` is terminal and nothing is owed. A subscription is paid per
+ * delivery (owner ruling, 2 November 2026), so no money is held and there is no
+ * credit to work out. `credit_memos` keeps any row already recorded, for the
+ * account-closure check, and gains none.
  */
 final readonly class SubscriptionService
 {
@@ -551,13 +548,11 @@ final readonly class SubscriptionService
     }
 
     /**
-     * Stop the subscription for good and record what is owed.
-     *
-     * @return array{subscription: Subscription, credit_memo: CreditMemo|null}
+     * Stop the subscription for good.
      *
      * @throws SubscriptionChangeRefused
      */
-    public function cancel(Subscription $subscription, string $reason = 'customer_request', ?int $expectedLockVersion = null): array
+    public function cancel(Subscription $subscription, string $reason = 'customer_request', ?int $expectedLockVersion = null): Subscription
     {
         $now = CarbonImmutable::now();
         $reasons = $this->versionReasons($subscription, $expectedLockVersion);
@@ -569,7 +564,7 @@ final readonly class SubscriptionService
 
         $unused = $subscription->remainingDays();
 
-        $result = DB::transaction(function () use ($subscription, $reason, $now, $unused): array {
+        DB::transaction(function () use ($subscription, $reason, $now): void {
             $subscription->status = SubscriptionStatus::Cancelled;
             $subscription->cancelled_at = $now;
             $subscription->cancellation_reason = $reason;
@@ -578,51 +573,16 @@ final readonly class SubscriptionService
             $subscription->lock_version = $subscription->lock_version + 1;
             $subscription->updated_by = $this->context->userId();
             $subscription->save();
-
-            if ($unused < 1) {
-                // Nothing is owed, so nothing is recorded. A zero memo would be
-                // an obligation somebody eventually tries to settle.
-                return ['subscription' => $subscription, 'credit_memo' => null];
-            }
-
-            $memo = new CreditMemo;
-            $memo->organisation_id = $subscription->organisation_id;
-            $memo->customer_account_id = $subscription->customer_account_id;
-            $memo->subscription_id = (string) $subscription->getKey();
-            $memo->reason = 'subscription_cancelled';
-            $memo->unused_days = $unused;
-            $memo->per_day_minor = $subscription->effective_day_price_minor;
-            $memo->amount_minor = $unused * $subscription->effective_day_price_minor;
-            $memo->currency_code = $subscription->currency_code;
-            $memo->recorded_at = $now;
-            $memo->save();
-
-            return ['subscription' => $subscription, 'credit_memo' => $memo];
         });
-
-        $memo = $result['credit_memo'];
-        $refundMinor = $memo === null ? 0 : $memo->amount_minor;
 
         $this->journal->record(
             $subscription,
             'cancelled',
-            detail: [
-                'cancellation_reason' => $reason,
-                'unused_days' => $unused,
-                'refund_minor' => $refundMinor,
-                'currency' => $subscription->currency_code,
-                // The one sentence the customer most needs: no money has moved.
-                'settlement' => 'manual',
-            ],
-            auditMetadata: [
-                'cancellation_reason' => $reason,
-                'unused_days' => $unused,
-                'refund_minor' => $refundMinor,
-                'credit_memo_id' => $memo === null ? null : (string) $memo->getKey(),
-            ],
+            detail: ['cancellation_reason' => $reason, 'unused_days' => $unused],
+            auditMetadata: ['cancellation_reason' => $reason, 'unused_days' => $unused],
         );
 
-        return $result;
+        return $subscription;
     }
 
     /**
