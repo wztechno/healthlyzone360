@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9176 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9179 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4372,6 +4372,7 @@ export interface NamespaceKeys {
     | 'ops.batch.packagingWasteIncluded'
     | 'ops.batch.pickRecipeBody'
     | 'ops.batch.pickRecipeTitle'
+    | 'ops.batch.piecesNoneInfo'
     | 'ops.batch.portionsUnit'
     | 'ops.batch.positionCovered'
     | 'ops.batch.positionShort'
@@ -4383,11 +4384,13 @@ export interface NamespaceKeys {
     | 'ops.batch.recipesErrorTitle'
     | 'ops.batch.roundedFrom'
     | 'ops.batch.roundedUpFrom'
+    | 'ops.batch.targetLabel'
     | 'ops.batch.targetNeededBody'
     | 'ops.batch.targetNeededTitle'
     | 'ops.batch.targetPortionsLabel'
     | 'ops.batch.targetQuantityLabel'
     | 'ops.batch.versionCell'
+    | 'ops.batch.versionFigure'
     | 'ops.batch.wasteAddedToInputs'
     | 'ops.cashReport.a11y.unnamedAgent'
     | 'ops.cashReport.caption'
@@ -13566,6 +13569,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.packagingWasteIncluded',
   'kitchen:ops.batch.pickRecipeBody',
   'kitchen:ops.batch.pickRecipeTitle',
+  'kitchen:ops.batch.piecesNoneInfo',
   'kitchen:ops.batch.portionsUnit',
   'kitchen:ops.batch.positionCovered',
   'kitchen:ops.batch.positionShort',
@@ -13577,11 +13581,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.recipesErrorTitle',
   'kitchen:ops.batch.roundedFrom',
   'kitchen:ops.batch.roundedUpFrom',
+  'kitchen:ops.batch.targetLabel',
   'kitchen:ops.batch.targetNeededBody',
   'kitchen:ops.batch.targetNeededTitle',
   'kitchen:ops.batch.targetPortionsLabel',
   'kitchen:ops.batch.targetQuantityLabel',
   'kitchen:ops.batch.versionCell',
+  'kitchen:ops.batch.versionFigure',
   'kitchen:ops.batch.wasteAddedToInputs',
   'kitchen:ops.cashReport.a11y.unnamedAgent',
   'kitchen:ops.cashReport.caption',

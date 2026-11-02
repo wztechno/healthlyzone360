@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import type { ColumnControls, ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 
 /**
@@ -47,7 +47,26 @@ export interface ProductionTableProps<Row> {
     readonly empty?: ReactNode | undefined;
 }
 
-export function ProductionTable<Row>({
+export function ProductionTable<Row>(props: ProductionTableProps<Row>) {
+    const controls = useColumnControls(props.rows, props.columns, props.testID);
+    return <ProductionTableSection {...props} controls={controls} picker />;
+}
+
+export interface ProductionTableSectionProps<Row> extends Omit<
+    ProductionTableProps<Row>,
+    'columns'
+> {
+    /** The table's column controls, from a `useColumnControls` the screen owns. */
+    readonly controls: ColumnControls<Row, CatalogueColumn<Row>>;
+    /** Draws the `ColumnPicker` at the section's end. Off when the screen draws it elsewhere. */
+    readonly picker?: boolean | undefined;
+}
+
+/**
+ * The same section over column controls its screen holds — the batch planner's, whose picker sits
+ * on its Lens bar rather than over the table, as every other page's does.
+ */
+export function ProductionTableSection<Row>({
     testID,
     sectionTestID,
     title,
@@ -55,12 +74,12 @@ export function ProductionTable<Row>({
     description,
     first = false,
     rows,
-    columns,
     rowKey,
     empty,
-}: ProductionTableProps<Row>) {
+    controls,
+    picker = false,
+}: ProductionTableSectionProps<Row>) {
     const { t } = useTranslation();
-    const controls = useColumnControls(rows, columns, testID);
 
     return (
         <FormSection
@@ -70,7 +89,7 @@ export function ProductionTable<Row>({
             aside={aside}
             description={description}
             actions={
-                rows.length === 0 && empty !== undefined ? undefined : (
+                !picker || (rows.length === 0 && empty !== undefined) ? undefined : (
                     <ColumnPicker {...controls.picker} />
                 )
             }

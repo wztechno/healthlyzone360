@@ -353,9 +353,9 @@ describe('the batch planner', () => {
         // The version's own facts are on the page before anything is scaled.
         await waitFor(
             () => {
-                expect(screen.getByTestId('kitchen-batch-facts-yield-value')).toHaveTextContent(
-                    '4',
-                );
+                expect(
+                    screen.getByTestId('kitchen-batch-facts-figure-yield-value'),
+                ).toHaveTextContent('4 Kg');
             },
             { timeout: 10_000 },
         );
@@ -370,8 +370,10 @@ describe('the batch planner', () => {
         await untilVisible('kitchen-batch-ingredients');
 
         // 10 kg of a 4 kg recipe is two and a half batches, which a kitchen runs as three.
-        expect(screen.getByTestId('kitchen-batch-facts-batches-value')).toHaveTextContent('3');
-        // The factor itself is said once, beside the raw materials' title, not under the form.
+        expect(screen.getByTestId('kitchen-batch-facts-figure-batches-value')).toHaveTextContent(
+            '3',
+        );
+        // The factor itself is said once, behind the raw materials' (i), not under the form.
         expect(screen.queryByTestId('kitchen-batch-factor')).toBeNull();
 
         // The name can only have come from the ingredient record: the line carries none.
@@ -388,7 +390,8 @@ describe('the batch planner', () => {
         expect(
             screen.getByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-quantity`),
         ).toHaveTextContent('0.515');
-        expect(screen.getByTestId('kitchen-batch-base-times')).toHaveTextContent(
+        expect(screen.getByTestId('kitchen-batch-consume-info-trigger')).toHaveProp(
+            'accessibilityHint',
             '×2.5 · +3 % waste',
         );
 
