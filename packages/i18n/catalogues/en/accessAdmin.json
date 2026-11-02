@@ -379,6 +379,12 @@
         },
         "user.manage_organisation": {
             "name": "Create logins"
+        },
+        "order.approve_refund_organisation": {
+            "name": "Approve refunds above the kitchen limit"
+        },
+        "order.settle_cash_organisation": {
+            "name": "Record cash handed in by drivers and couriers"
         }
     }
 }

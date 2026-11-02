@@ -135,9 +135,11 @@ export interface NamespaceKeys {
     | 'codes.membership.invite_organisation.name'
     | 'codes.membership.update_organisation.name'
     | 'codes.membership.view_organisation.name'
+    | 'codes.order.approve_refund_organisation.name'
     | 'codes.order.create_on_behalf_organisation.name'
     | 'codes.order.manage_organisation.name'
     | 'codes.order.prepare_organisation.name'
+    | 'codes.order.settle_cash_organisation.name'
     | 'codes.order.supervise_organisation.name'
     | 'codes.order.view_customer_contact_organisation.name'
     | 'codes.order.view_organisation.name'
@@ -6602,8 +6604,6 @@ export interface NamespaceKeys {
     | 'recipes.archiveFailed'
     | 'recipes.archiveTitle'
     | 'recipes.archivedToast'
-    | 'recipes.b2bPriceHint'
-    | 'recipes.b2cPriceHint'
     | 'recipes.backToCurrentVersion'
     | 'recipes.backToList'
     | 'recipes.caption'
@@ -9659,9 +9659,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:codes.membership.invite_organisation.name',
   'accessAdmin:codes.membership.update_organisation.name',
   'accessAdmin:codes.membership.view_organisation.name',
+  'accessAdmin:codes.order.approve_refund_organisation.name',
   'accessAdmin:codes.order.create_on_behalf_organisation.name',
   'accessAdmin:codes.order.manage_organisation.name',
   'accessAdmin:codes.order.prepare_organisation.name',
+  'accessAdmin:codes.order.settle_cash_organisation.name',
   'accessAdmin:codes.order.supervise_organisation.name',
   'accessAdmin:codes.order.view_customer_contact_organisation.name',
   'accessAdmin:codes.order.view_organisation.name',
@@ -16114,8 +16116,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.archiveFailed',
   'kitchen:recipes.archiveTitle',
   'kitchen:recipes.archivedToast',
-  'kitchen:recipes.b2bPriceHint',
-  'kitchen:recipes.b2cPriceHint',
   'kitchen:recipes.backToCurrentVersion',
   'kitchen:recipes.backToList',
   'kitchen:recipes.caption',

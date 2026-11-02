@@ -399,6 +399,12 @@
         },
         "user.manage_organisation": {
             "name": "إنشاء حسابات دخول"
+        },
+        "order.approve_refund_organisation": {
+            "name": "الموافقة على الاسترداد فوق حد المطبخ"
+        },
+        "order.settle_cash_organisation": {
+            "name": "تسجيل النقد الذي يسلّمه السائقون وشركات التوصيل"
         }
     }
 }

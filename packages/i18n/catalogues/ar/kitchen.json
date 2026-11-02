@@ -3687,8 +3687,6 @@
         "costPerPieceWithWaste": "للقطعة + {{percent}}% هدر",
         "productionWastePercent": "هدر الإنتاج (%)",
         "packagingWastePercent": "هدر التعبئة (%)",
-        "b2bPriceHint": "للمطابخ والمشترين المؤسسيين، غير شامل ضريبة القيمة المضافة",
-        "b2cPriceHint": "للمستهلك، شامل ضريبة القيمة المضافة",
         "marginNoBasis": "يتطلّب سعر شركات وتركيبة مُكلَّفة",
         "compositionHint": "محسوب من قاعدة بيانات المكوّنات — غير قابل للتعديل هنا",
         "sectionAllergenClasses": "فئات مسبّبات الحساسية",

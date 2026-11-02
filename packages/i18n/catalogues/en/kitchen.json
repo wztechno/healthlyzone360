@@ -3316,8 +3316,6 @@
         "costPerPieceWithWaste": "Per piece + {{percent}}% waste",
         "productionWastePercent": "Production waste (%)",
         "packagingWastePercent": "Packaging waste (%)",
-        "b2bPriceHint": "To a kitchen or corporate buyer, excl. VAT",
-        "b2cPriceHint": "To a diner, incl. VAT",
         "marginNoBasis": "Needs a B2B price and a costed formulation",
         "compositionHint": "Computed from the ingredient database — not editable here",
         "sectionAllergenClasses": "Allergen classes",
