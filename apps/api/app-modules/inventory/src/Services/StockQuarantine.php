@@ -154,8 +154,17 @@ final readonly class StockQuarantine
 
     /**
      * Whether a sale of `$required` from this shelf could only come out of held
-     * stock. A shelf with nothing set aside never answers yes: short of stock with
-     * no hold is a counting problem, and a sale is not refused for that.
+     * stock. Only a quality hold refuses a sale. The owner's rule of 13 October,
+     * "warn, never refuse", stands for every other shortage, so three things that
+     * read as short answer no here:
+     *
+     *  - a shelf with nothing set aside;
+     *  - an empty or negative shelf, which is a counting problem;
+     *  - a shelf short of `$required` with free stock left, which was short before
+     *    any hold and meets its warning at the deduction.
+     *
+     * Production's claims are ignored on purpose: a batch spoken for tomorrow is
+     * ordinary shortage, not suspect food. `$free` is what the hold leaves.
      *
      * Summed across branches, because a sale often names none. A kitchen whose
      * other branch has free stock passes here and meets the hold at the deduction.
@@ -164,26 +173,30 @@ final readonly class StockQuarantine
      */
     public function coversOnlyHeld(string $organisationId, string $stockItemId, string $required): bool
     {
-        $claims = StockReservation::withoutTenancy()
+        $held = number_format((float) StockReservation::withoutTenancy()
             ->where('organisation_id', $organisationId)
             ->where('stock_item_id', $stockItemId)
+            ->where('holder_type', StockReservation::HOLDER_QUALITY_HOLD)
             ->where('status', ReservationStatus::Open->value)
-            ->get(['holder_type', 'quantity']);
+            ->sum('quantity'), self::SCALE, '.', '');
 
-        if ($claims->where('holder_type', StockReservation::HOLDER_QUALITY_HOLD)->isEmpty()) {
+        if (bccomp($held, '0', self::SCALE) <= 0) {
             return false;
         }
 
-        $free = number_format((float) StockLevel::withoutTenancy()
+        $onHand = number_format((float) StockLevel::withoutTenancy()
             ->where('organisation_id', $organisationId)
             ->where('stock_item_id', $stockItemId)
             ->sum('quantity'), self::SCALE, '.', '');
 
-        foreach ($claims as $claim) {
-            $free = bcsub($free, (string) $claim->quantity, self::SCALE);
+        if (bccomp($onHand, '0', self::SCALE) <= 0) {
+            return false;
         }
 
-        return bccomp($free, $required, self::SCALE) < 0;
+        $free = bcsub($onHand, $held, self::SCALE);
+
+        return bccomp($free, '0', self::SCALE) <= 0
+            || (bccomp($onHand, $required, self::SCALE) >= 0 && bccomp($free, $required, self::SCALE) < 0);
     }
 
     /**

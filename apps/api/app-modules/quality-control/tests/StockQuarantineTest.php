@@ -6,17 +6,21 @@ use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Catalogues\Models\Catalogue;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Inventory\Enums\ReservationStatus;
 use Healthy360\Inventory\Exceptions\InsufficientStock;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockReservation;
 use Healthy360\Inventory\Services\HeldStockForSale;
 use Healthy360\Inventory\Services\InventoryService;
 use Healthy360\Inventory\Services\ReservationService;
+use Healthy360\Inventory\Services\StockQuarantine;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
+use Healthy360\Tenancy\TenantContext;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /*
@@ -37,6 +41,8 @@ beforeEach(function (): void {
     $this->branchId = (string) $this->branch->getKey();
     $this->actingAs($this->tenant->user);
     $this->headers = PricingWorld::headers($this->tenant) + ['X-Branch-Id' => $this->branchId];
+
+    quarantineContext($this);
 
     $ingredient = Ingredient::factory()->create(['organisation_id' => $this->orgId]);
     $this->stockItem = StockItem::withoutTenancy()->firstOrCreate(
@@ -64,8 +70,22 @@ beforeEach(function (): void {
     ], $this->headers)->assertCreated()->json('data.quality_check.id');
 });
 
+afterEach(function (): void {
+    app(TenantContext::class)->clear();
+});
+
+/**
+ * The kitchen's context for calling the services directly. A request clears it on
+ * the way out, so it goes back after each one.
+ */
+function quarantineContext(object $test): void
+{
+    app(TenantContext::class)->setOrganisation((string) $test->tenant->user->getKey(), $test->orgId);
+}
+
 it('sets aside what the held delivery brought in and no more', function (): void {
     $this->postJson("/api/v1/catalogue/quality-control/checks/{$this->check}/hold", [], $this->headers)->assertOk();
+    quarantineContext($this);
 
     expect(app(ReservationService::class)->availableQuantity($this->branchId, $this->itemId))->toBe('3.000000');
 
@@ -80,6 +100,7 @@ it('refuses a sale only once nothing but held stock is left, and lifts on releas
     $sale = app(HeldStockForSale::class);
 
     $this->postJson("/api/v1/catalogue/quality-control/checks/{$this->check}/hold", [], $this->headers)->assertOk();
+    quarantineContext($this);
 
     expect($sale->refuses($this->orgId, $this->sauce, '1'))->toBeFalse();
 
@@ -88,9 +109,45 @@ it('refuses a sale only once nothing but held stock is left, and lifts on releas
     expect($sale->refuses($this->orgId, $this->sauce, '1'))->toBeTrue();
 
     $this->postJson("/api/v1/catalogue/quality-control/checks/{$this->check}/release", [], $this->headers)->assertOk();
+    quarantineContext($this);
 
     expect($sale->refuses($this->orgId, $this->sauce, '1'))->toBeFalse()
         ->and(app(ReservationService::class)->availableQuantity($this->branchId, $this->itemId))->toBe('5.000000');
+});
+
+it('does not refuse a sale because of a production claim', function (): void {
+    $this->postJson("/api/v1/catalogue/quality-control/checks/{$this->check}/hold", [], $this->headers)->assertOk();
+
+    // The three free kilos are spoken for by a batch. That is ordinary shortage.
+    $claim = new StockReservation;
+    $claim->organisation_id = $this->orgId;
+    $claim->branch_id = $this->branchId;
+    $claim->stock_item_id = $this->itemId;
+    $claim->quantity = '3';
+    $claim->holder_type = StockReservation::HOLDER_PRODUCTION_ORDER;
+    $claim->holder_id = (string) Str::uuid();
+    $claim->status = ReservationStatus::Open;
+    $claim->save();
+
+    expect(app(HeldStockForSale::class)->refuses($this->orgId, $this->sauce, '1'))->toBeFalse();
+});
+
+it('refuses only what the hold takes away, never a shelf already short', function (): void {
+    $this->postJson("/api/v1/catalogue/quality-control/checks/{$this->check}/hold", [], $this->headers)->assertOk();
+    $quarantine = app(StockQuarantine::class);
+
+    // Eight on hand, five held: four is what the hold stops, ten was never there.
+    expect($quarantine->coversOnlyHeld($this->orgId, $this->itemId, '3'))->toBeFalse()
+        ->and($quarantine->coversOnlyHeld($this->orgId, $this->itemId, '4'))->toBeTrue()
+        ->and($quarantine->coversOnlyHeld($this->orgId, $this->itemId, '10'))->toBeFalse();
+});
+
+it('leaves an empty shelf to the counters, hold or no hold', function (): void {
+    $this->postJson("/api/v1/catalogue/quality-control/checks/{$this->check}/hold", [], $this->headers)->assertOk();
+
+    DB::table('stock_levels')->where('stock_item_id', $this->itemId)->update(['quantity' => 0]);
+
+    expect(app(StockQuarantine::class)->coversOnlyHeld($this->orgId, $this->itemId, '1'))->toBeFalse();
 });
 
 it('holds a shelf once however many checks hold the subject, until the last is released', function (): void {
