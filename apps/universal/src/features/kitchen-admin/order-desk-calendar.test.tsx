@@ -426,8 +426,11 @@ describe('order desk calendar — the squares', () => {
         const cell = screen.getByTestId(`kitchen-order-desk-calendar-${FIRST}-slot-breakfast`);
         const header = screen.getByTestId(`kitchen-order-desk-calendar-day-${FIRST}`);
 
-        // The day header is the date alone — no figures to sum.
-        expect(header).not.toHaveTextContent(/\b[234]\b/);
+        // The day header is the date alone — no figures, and no sum. `FIRST` is this week's Monday,
+        // so its own day of the month (a Monday the 2nd, 3rd, 4th or 9th) is not one of them.
+        const dayOfMonth = Number(FIRST.slice(8, 10));
+        const figures = [2, 3, 4, 9].filter((figure) => figure !== dayOfMonth);
+        expect(header).not.toHaveTextContent(new RegExp(`\\b(${figures.join('|')})\\b`));
 
         for (const node of [cell]) {
             // The parts, each on its own.
