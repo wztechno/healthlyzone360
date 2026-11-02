@@ -2853,6 +2853,59 @@ export const zMarketplaceNutritionFacts = z.object({
     calculation: zMarketplaceNutritionCalculation
 });
 
+export const zTemperatureUnitRequest = z.object({
+    name: z.string().max(80),
+    kind: z.enum(['fridge', 'freezer']),
+    min_c: z.union([
+        z.number(),
+        z.string()
+    ]),
+    max_c: z.union([
+        z.number(),
+        z.string()
+    ]),
+    active: z.boolean().optional()
+});
+
+export const zTemperatureUnit = z.object({
+    id: zUuid,
+    name: z.string(),
+    kind: z.enum(['fridge', 'freezer']),
+    min_c: z.string(),
+    max_c: z.string(),
+    active: z.boolean()
+});
+
+export const zTemperatureReading = z.object({
+    id: zUuid,
+    temperature_unit_id: zUuid,
+    unit_name: z.string(),
+    reading_date: z.iso.date(),
+    slot: z.enum(['am', 'pm']),
+    celsius: z.string(),
+    out_of_range: z.boolean(),
+    note: z.string().nullable(),
+    recorded_by_name: z.string().nullable(),
+    recorded_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zCookingTemperature = z.object({
+    id: zUuid,
+    production_order_id: zUuid,
+    batch_label: z.string().nullable(),
+    recipe: z.string().nullable(),
+    celsius: z.string(),
+    note: z.string().nullable(),
+    recorded_by_name: z.string().nullable(),
+    recorded_at: z.iso.datetime({ offset: true })
+});
+
+export const zTemperatureLog = z.object({
+    units: z.array(zTemperatureUnit),
+    readings: z.array(zTemperatureReading),
+    cooking: z.array(zCookingTemperature)
+});
+
 export const zOrderComplaintCause = z.enum([
     'wrong_item',
     'missing_item',
@@ -3421,8 +3474,8 @@ export const zCartLine = z.object({
     catalogue_item_variant_id: z.uuid().nullable(),
     quantity: z.string(),
     delivery_date: z.iso.date().nullable(),
-    options: z.array(zDishOption),
-    note: z.string().max(300).nullable(),
+    options: z.array(zDishOption).optional(),
+    note: z.string().max(300).nullish(),
     created_at: z.iso.datetime({ offset: true }).nullable(),
     updated_at: z.iso.datetime({ offset: true }).nullable()
 });
@@ -3591,8 +3644,8 @@ export const zCustomerOrderLine = z.object({
     currency_code: z.string().length(3),
     allergens: z.array(zOrderLineAllergen),
     pack_summary: z.record(z.string(), z.unknown()).nullable(),
-    options: z.array(zDishOption),
-    note: z.string().max(300).nullable()
+    options: z.array(zDishOption).optional(),
+    note: z.string().max(300).nullish()
 });
 
 export const zKitchenOrderLine = zCustomerOrderLine.and(z.object({
@@ -6312,6 +6365,7 @@ export const zStaffNotificationType = z.enum([
     'no_cash_collected',
     'refund_approval',
     'stock_expiring',
+    'temperature_out_of_range',
     'refund_approved',
     'refund_rejected',
     'short_hand_in',
@@ -12810,6 +12864,110 @@ export const zMarkCatalogueItemAllergensAssessedPath = z.object({
  * The assessed item.
  */
 export const zMarkCatalogueItemAllergensAssessedResponse = zCatalogueItemEnvelope;
+
+export const zGetTemperatureLogHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid
+});
+
+export const zGetTemperatureLogQuery = z.object({
+    month: z.string().regex(/^[0-9]{4}-[0-9]{2}$/).optional()
+});
+
+/**
+ * Its units, and the month's readings and cooking temperatures.
+ */
+export const zGetTemperatureLogResponse = z.object({
+    data: zTemperatureLog
+});
+
+export const zRecordTemperatureReadingBody = z.object({
+    temperature_unit_id: zUuid,
+    slot: z.enum(['am', 'pm']),
+    celsius: z.union([
+        z.number(),
+        z.string()
+    ]),
+    note: z.string().max(200).nullish()
+});
+
+export const zRecordTemperatureReadingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid
+});
+
+/**
+ * The reading.
+ */
+export const zRecordTemperatureReadingResponse = z.object({
+    data: z.object({
+        reading: z.object({
+            id: zUuid,
+            out_of_range: z.boolean()
+        })
+    })
+});
+
+export const zRecordCookingTemperatureBody = z.object({
+    production_order_id: zUuid,
+    celsius: z.union([
+        z.number(),
+        z.string()
+    ]),
+    note: z.string().max(200).nullish()
+});
+
+export const zRecordCookingTemperatureHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid
+});
+
+/**
+ * The reading.
+ */
+export const zRecordCookingTemperatureResponse = z.object({
+    data: z.object({
+        cooking: z.object({
+            id: zUuid
+        })
+    })
+});
+
+export const zCreateTemperatureUnitBody = zTemperatureUnitRequest;
+
+export const zCreateTemperatureUnitHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid
+});
+
+/**
+ * The unit.
+ */
+export const zCreateTemperatureUnitResponse = z.object({
+    data: z.object({
+        unit: zTemperatureUnit
+    })
+});
+
+export const zUpdateTemperatureUnitBody = zTemperatureUnitRequest;
+
+export const zUpdateTemperatureUnitHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid
+});
+
+export const zUpdateTemperatureUnitPath = z.object({
+    unit: zUuid
+});
+
+/**
+ * The unit.
+ */
+export const zUpdateTemperatureUnitResponse = z.object({
+    data: z.object({
+        unit: zTemperatureUnit
+    })
+});
 
 export const zListOrderComplaintsHeaders = z.object({
     'X-Organisation-Id': zUuid

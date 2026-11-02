@@ -4313,6 +4313,53 @@ export type MarketplaceNutritionFacts = {
     calculation: MarketplaceNutritionCalculation;
 };
 
+export type TemperatureUnitRequest = {
+    name: string;
+    kind: 'fridge' | 'freezer';
+    min_c: number | string;
+    max_c: number | string;
+    active?: boolean;
+};
+
+export type TemperatureUnit = {
+    id: Uuid;
+    name: string;
+    kind: 'fridge' | 'freezer';
+    min_c: string;
+    max_c: string;
+    active: boolean;
+};
+
+export type TemperatureReading = {
+    id: Uuid;
+    temperature_unit_id: Uuid;
+    unit_name: string;
+    reading_date: string;
+    slot: 'am' | 'pm';
+    celsius: string;
+    out_of_range: boolean;
+    note: string | null;
+    recorded_by_name: string | null;
+    recorded_at: string | null;
+};
+
+export type CookingTemperature = {
+    id: Uuid;
+    production_order_id: Uuid;
+    batch_label: string | null;
+    recipe: string | null;
+    celsius: string;
+    note: string | null;
+    recorded_by_name: string | null;
+    recorded_at: string;
+};
+
+export type TemperatureLog = {
+    units: Array<TemperatureUnit>;
+    readings: Array<TemperatureReading>;
+    cooking: Array<CookingTemperature>;
+};
+
 export type OrderComplaintCause = 'wrong_item' | 'missing_item' | 'quality' | 'late' | 'foreign_object' | 'other';
 
 /**
@@ -5184,8 +5231,8 @@ export type CartLine = {
      * may still cross-contact.
      *
      */
-    options: Array<DishOption>;
-    note: string | null;
+    options?: Array<DishOption>;
+    note?: string | null;
     created_at: string | null;
     updated_at: string | null;
 };
@@ -5477,8 +5524,8 @@ export type CustomerOrderLine = {
      * may still cross-contact.
      *
      */
-    options: Array<DishOption>;
-    note: string | null;
+    options?: Array<DishOption>;
+    note?: string | null;
 };
 
 export type KitchenOrderLine = CustomerOrderLine & {
@@ -9768,7 +9815,7 @@ export type KitchenCustomerDetail = KitchenCustomer & {
     company: KitchenCustomerCompany | null;
 };
 
-export type StaffNotificationType = 'unaccepted_manager' | 'unaccepted_owner' | 'allergy_order' | 'late_cancel' | 'delivery_failed' | 'no_cash_collected' | 'refund_approval' | 'stock_expiring' | 'refund_approved' | 'refund_rejected' | 'short_hand_in' | 'short_close' | 'price_approval' | 'dish_below_target';
+export type StaffNotificationType = 'unaccepted_manager' | 'unaccepted_owner' | 'allergy_order' | 'late_cancel' | 'delivery_failed' | 'no_cash_collected' | 'refund_approval' | 'stock_expiring' | 'temperature_out_of_range' | 'refund_approved' | 'refund_rejected' | 'short_hand_in' | 'short_close' | 'price_approval' | 'dish_below_target';
 
 export type StaffNotification = {
     id: Uuid;
@@ -22713,6 +22760,365 @@ export type MarkCatalogueItemAllergensAssessedResponses = {
 };
 
 export type MarkCatalogueItemAllergensAssessedResponse = MarkCatalogueItemAllergensAssessedResponses[keyof MarkCatalogueItemAllergensAssessedResponses];
+
+export type GetTemperatureLogData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The active branch. Validated against the membership scope: a
+         * branch-scoped membership may only work inside its own branch.
+         *
+         * Required here rather than optional, because the resource *is* one
+         * branch's. An absent header is `400 context.branch_required` — the
+         * endpoint refuses rather than guessing which location the caller meant.
+         *
+         */
+        'X-Branch-Id': Uuid;
+    };
+    path?: never;
+    query?: {
+        month?: string;
+    };
+    url: '/catalogue/quality-control/temperature-log';
+};
+
+export type GetTemperatureLogErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetTemperatureLogError = GetTemperatureLogErrors[keyof GetTemperatureLogErrors];
+
+export type GetTemperatureLogResponses = {
+    /**
+     * Its units, and the month's readings and cooking temperatures.
+     */
+    200: {
+        data: TemperatureLog;
+    };
+};
+
+export type GetTemperatureLogResponse = GetTemperatureLogResponses[keyof GetTemperatureLogResponses];
+
+export type RecordTemperatureReadingData = {
+    body: {
+        temperature_unit_id: Uuid;
+        slot: 'am' | 'pm';
+        celsius: number | string;
+        note?: string | null;
+    };
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The active branch. Validated against the membership scope: a
+         * branch-scoped membership may only work inside its own branch.
+         *
+         * Required here rather than optional, because the resource *is* one
+         * branch's. An absent header is `400 context.branch_required` — the
+         * endpoint refuses rather than guessing which location the caller meant.
+         *
+         */
+        'X-Branch-Id': Uuid;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/quality-control/temperature-readings';
+};
+
+export type RecordTemperatureReadingErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RecordTemperatureReadingError = RecordTemperatureReadingErrors[keyof RecordTemperatureReadingErrors];
+
+export type RecordTemperatureReadingResponses = {
+    /**
+     * The reading.
+     */
+    201: {
+        data: {
+            reading: {
+                id: Uuid;
+                out_of_range: boolean;
+            };
+        };
+    };
+};
+
+export type RecordTemperatureReadingResponse = RecordTemperatureReadingResponses[keyof RecordTemperatureReadingResponses];
+
+export type RecordCookingTemperatureData = {
+    body: {
+        production_order_id: Uuid;
+        celsius: number | string;
+        note?: string | null;
+    };
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The active branch. Validated against the membership scope: a
+         * branch-scoped membership may only work inside its own branch.
+         *
+         * Required here rather than optional, because the resource *is* one
+         * branch's. An absent header is `400 context.branch_required` — the
+         * endpoint refuses rather than guessing which location the caller meant.
+         *
+         */
+        'X-Branch-Id': Uuid;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/quality-control/cooking-temperatures';
+};
+
+export type RecordCookingTemperatureErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RecordCookingTemperatureError = RecordCookingTemperatureErrors[keyof RecordCookingTemperatureErrors];
+
+export type RecordCookingTemperatureResponses = {
+    /**
+     * The reading.
+     */
+    201: {
+        data: {
+            cooking: {
+                id: Uuid;
+            };
+        };
+    };
+};
+
+export type RecordCookingTemperatureResponse = RecordCookingTemperatureResponses[keyof RecordCookingTemperatureResponses];
+
+export type CreateTemperatureUnitData = {
+    body: TemperatureUnitRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The active branch. Validated against the membership scope: a
+         * branch-scoped membership may only work inside its own branch.
+         *
+         * Required here rather than optional, because the resource *is* one
+         * branch's. An absent header is `400 context.branch_required` — the
+         * endpoint refuses rather than guessing which location the caller meant.
+         *
+         */
+        'X-Branch-Id': Uuid;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/quality-control/temperature-units';
+};
+
+export type CreateTemperatureUnitErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateTemperatureUnitError = CreateTemperatureUnitErrors[keyof CreateTemperatureUnitErrors];
+
+export type CreateTemperatureUnitResponses = {
+    /**
+     * The unit.
+     */
+    201: {
+        data: {
+            unit: TemperatureUnit;
+        };
+    };
+};
+
+export type CreateTemperatureUnitResponse = CreateTemperatureUnitResponses[keyof CreateTemperatureUnitResponses];
+
+export type UpdateTemperatureUnitData = {
+    body: TemperatureUnitRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The active branch. Validated against the membership scope: a
+         * branch-scoped membership may only work inside its own branch.
+         *
+         * Required here rather than optional, because the resource *is* one
+         * branch's. An absent header is `400 context.branch_required` — the
+         * endpoint refuses rather than guessing which location the caller meant.
+         *
+         */
+        'X-Branch-Id': Uuid;
+    };
+    path: {
+        unit: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/quality-control/temperature-units/{unit}';
+};
+
+export type UpdateTemperatureUnitErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateTemperatureUnitError = UpdateTemperatureUnitErrors[keyof UpdateTemperatureUnitErrors];
+
+export type UpdateTemperatureUnitResponses = {
+    /**
+     * The unit.
+     */
+    200: {
+        data: {
+            unit: TemperatureUnit;
+        };
+    };
+};
+
+export type UpdateTemperatureUnitResponse = UpdateTemperatureUnitResponses[keyof UpdateTemperatureUnitResponses];
 
 export type ListOrderComplaintsData = {
     body?: never;

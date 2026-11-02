@@ -5848,6 +5848,273 @@ paths:
           $ref: '#/components/responses/ResourceConflict'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/quality-control/temperature-log:
+    get:
+      operationId: getTemperatureLog
+      tags:
+        - Kitchen inventory & production
+      summary: A month of the branch's temperature log
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchIdRequired'
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: ^[0-9]{4}-[0-9]{2}$
+      responses:
+        '200':
+          description: Its units, and the month's readings and cooking temperatures.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TemperatureLog'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/quality-control/temperature-readings:
+    post:
+      operationId: recordTemperatureReading
+      tags:
+        - Kitchen inventory & production
+      summary: Record a unit's morning or evening reading
+      description: |
+        Once per unit, day and slot. The day and the person are the server's, so
+        a reading cannot be backdated. Outside the unit's range it alerts the
+        managers.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchIdRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - temperature_unit_id
+                - slot
+                - celsius
+              properties:
+                temperature_unit_id:
+                  $ref: '#/components/schemas/Uuid'
+                slot:
+                  type: string
+                  enum:
+                    - am
+                    - pm
+                celsius:
+                  type:
+                    - number
+                    - string
+                note:
+                  type:
+                    - string
+                    - 'null'
+                  maxLength: 200
+              additionalProperties: false
+      responses:
+        '201':
+          description: The reading.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - reading
+                    properties:
+                      reading:
+                        type: object
+                        required:
+                          - id
+                          - out_of_range
+                        properties:
+                          id:
+                            $ref: '#/components/schemas/Uuid'
+                          out_of_range:
+                            type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/quality-control/cooking-temperatures:
+    post:
+      operationId: recordCookingTemperature
+      tags:
+        - Kitchen inventory & production
+      summary: Record a batch's core temperature
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchIdRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - production_order_id
+                - celsius
+              properties:
+                production_order_id:
+                  $ref: '#/components/schemas/Uuid'
+                celsius:
+                  type:
+                    - number
+                    - string
+                note:
+                  type:
+                    - string
+                    - 'null'
+                  maxLength: 200
+              additionalProperties: false
+      responses:
+        '201':
+          description: The reading.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - cooking
+                    properties:
+                      cooking:
+                        type: object
+                        required:
+                          - id
+                        properties:
+                          id:
+                            $ref: '#/components/schemas/Uuid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/quality-control/temperature-units:
+    post:
+      operationId: createTemperatureUnit
+      tags:
+        - Kitchen inventory & production
+      summary: Add a fridge or a freezer
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchIdRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemperatureUnitRequest'
+      responses:
+        '201':
+          description: The unit.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - unit
+                    properties:
+                      unit:
+                        $ref: '#/components/schemas/TemperatureUnit'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/quality-control/temperature-units/{unit}:
+    patch:
+      operationId: updateTemperatureUnit
+      tags:
+        - Kitchen inventory & production
+      summary: Change a unit, its range, or retire it
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchIdRequired'
+        - name: unit
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemperatureUnitRequest'
+      responses:
+        '200':
+          description: The unit.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - unit
+                    properties:
+                      unit:
+                        $ref: '#/components/schemas/TemperatureUnit'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/complaints:
     get:
       operationId: listOrderComplaints
@@ -35727,6 +35994,163 @@ components:
         calculation:
           $ref: '#/components/schemas/MarketplaceNutritionCalculation'
       additionalProperties: false
+    TemperatureUnitRequest:
+      type: object
+      required:
+        - name
+        - kind
+        - min_c
+        - max_c
+      properties:
+        name:
+          type: string
+          maxLength: 80
+        kind:
+          type: string
+          enum:
+            - fridge
+            - freezer
+        min_c:
+          type:
+            - number
+            - string
+        max_c:
+          type:
+            - number
+            - string
+        active:
+          type: boolean
+      additionalProperties: false
+    TemperatureUnit:
+      type: object
+      required:
+        - id
+        - name
+        - kind
+        - min_c
+        - max_c
+        - active
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+        kind:
+          type: string
+          enum:
+            - fridge
+            - freezer
+        min_c:
+          type: string
+        max_c:
+          type: string
+        active:
+          type: boolean
+      additionalProperties: false
+    TemperatureReading:
+      type: object
+      required:
+        - id
+        - temperature_unit_id
+        - unit_name
+        - reading_date
+        - slot
+        - celsius
+        - out_of_range
+        - note
+        - recorded_by_name
+        - recorded_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        temperature_unit_id:
+          $ref: '#/components/schemas/Uuid'
+        unit_name:
+          type: string
+        reading_date:
+          type: string
+          format: date
+        slot:
+          type: string
+          enum:
+            - am
+            - pm
+        celsius:
+          type: string
+        out_of_range:
+          type: boolean
+        note:
+          type:
+            - string
+            - 'null'
+        recorded_by_name:
+          type:
+            - string
+            - 'null'
+        recorded_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      additionalProperties: false
+    CookingTemperature:
+      type: object
+      required:
+        - id
+        - production_order_id
+        - batch_label
+        - recipe
+        - celsius
+        - note
+        - recorded_by_name
+        - recorded_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        production_order_id:
+          $ref: '#/components/schemas/Uuid'
+        batch_label:
+          type:
+            - string
+            - 'null'
+        recipe:
+          type:
+            - string
+            - 'null'
+        celsius:
+          type: string
+        note:
+          type:
+            - string
+            - 'null'
+        recorded_by_name:
+          type:
+            - string
+            - 'null'
+        recorded_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+    TemperatureLog:
+      type: object
+      required:
+        - units
+        - readings
+        - cooking
+      properties:
+        units:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemperatureUnit'
+        readings:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemperatureReading'
+        cooking:
+          type: array
+          items:
+            $ref: '#/components/schemas/CookingTemperature'
+      additionalProperties: false
     OrderComplaintCause:
       type: string
       enum:
@@ -37270,8 +37694,6 @@ components:
         - catalogue_item_variant_id
         - quantity
         - delivery_date
-        - options
-        - note
         - created_at
         - updated_at
       properties:
@@ -37707,8 +38129,6 @@ components:
         - currency_code
         - allergens
         - pack_summary
-        - options
-        - note
       description: |
         The article as it stood the moment the order was placed — a snapshot,
         not a join. Renaming the catalogue item tomorrow does not rewrite what a
@@ -45087,6 +45507,7 @@ components:
         - no_cash_collected
         - refund_approval
         - stock_expiring
+        - temperature_out_of_range
         - refund_approved
         - refund_rejected
         - short_hand_in

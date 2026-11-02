@@ -83,7 +83,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE order_refunds ADD CONSTRAINT order_refunds_amount_check CHECK (amount_minor > 0)');
 
         DB::unprepared(<<<'SQL'
-            CREATE FUNCTION order_refunds_append_only() RETURNS trigger AS $$
+            CREATE OR REPLACE FUNCTION order_refunds_append_only() RETURNS trigger AS $$
             BEGIN
                 IF TG_OP = 'DELETE' OR OLD.status <> 'pending_approval' THEN
                     RAISE EXCEPTION 'order_refunds is append-only';
