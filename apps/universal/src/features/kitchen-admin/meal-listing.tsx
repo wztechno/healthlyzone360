@@ -1355,7 +1355,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                     </Inline>
                 </FormSection>
 
-                <DishOptionsSection itemId={String(meal.id)} canManage={canManage} />
+                <DishOptionsSection itemId={String(meal)} canManage={canManage} />
 
                 {/* ── source transcription ──────────────────────────────────────────────────── */}
                 {data?.composition == null && data?.kitchenCategory == null ? null : (

@@ -301,6 +301,7 @@ function TemperatureLogs() {
                     columns={readingColumns}
                     rows={readings}
                     rowKey={(row) => row.id}
+                    rowActionsLabel={t('kitchen:list.rowActions')}
                 />
             );
         }
@@ -318,6 +319,7 @@ function TemperatureLogs() {
                     columns={cookingColumns}
                     rows={cooking}
                     rowKey={(row) => row.id}
+                    rowActionsLabel={t('kitchen:list.rowActions')}
                 />
             );
         }
@@ -334,6 +336,7 @@ function TemperatureLogs() {
                 columns={unitColumns}
                 rows={units}
                 rowKey={(row) => row.id}
+                rowActionsLabel={t('kitchen:list.rowActions')}
                 {...(canManage ? { onRowPress: setEditing } : {})}
             />
         );

@@ -144,7 +144,7 @@ export function DishOptionsSection({
                         {canManage ? (
                             <IconButton
                                 testID={`kitchen-dish-option-${String(index)}-remove`}
-                                icon={<Icon name="trash" size="sm" />}
+                                icon={<Icon name="close" size="sm" />}
                                 variant="secondary"
                                 size="sm"
                                 label={t('kitchen:dishOptions.removeRow')}
