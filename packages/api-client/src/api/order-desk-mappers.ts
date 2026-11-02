@@ -36,7 +36,11 @@ import type {
     OrderDeskCalendarEnvelope,
     OrderDeskCalendarWindow as WireCalendarWindow,
     OrderDeskCashReportEnvelope,
+    CashRun as WireCashRun,
+    CashSettlement as WireCashSettlement,
+    OrderDeskCashReportAdjustment as WireCashReportAdjustment,
     OrderDeskCashReportRow as WireCashReportRow,
+    OrderDeskSettlementsEnvelope,
     OrderDeskCashReportTotal as WireCashReportTotal,
     OrderDeskCustomer as WireOrderDeskCustomer,
     OrderDeskCustomerContact as WireOrderDeskCustomerContact,
@@ -367,6 +371,73 @@ export function mapOrderDeskDriver(wire: WireOrderDeskDriver): OrderDeskDriver {
  * malformed field would be a confident "this agent took nothing", which is the one sentence a cash
  * report must never say by accident.
  */
+export function mapCashReportAdjustment(
+    wire: WireCashReportAdjustment,
+): OrderDeskCashReportAdjustment {
+    return {
+        day: wire.day,
+        kind: wire.kind,
+        displayName: wire.display_name,
+        currencyCode: wire.currency_code as CurrencyCode,
+        entryCount: wire.entry_count,
+        amountMinorSum: wire.amount_minor_sum,
+    };
+}
+
+function mapCashRun(wire: WireCashRun): CashRun {
+    return {
+        jobId: wire.job_id,
+        orderId: wire.order_id,
+        orderNumber: wire.order_number,
+        deliveredAt: wire.delivered_at as IsoDateTime | null,
+        amountMinor: wire.amount_minor,
+    };
+}
+
+export function mapCashSettlement(wire: WireCashSettlement): CashSettlementRecord {
+    return {
+        id: wire.id,
+        kind: wire.kind,
+        partyName: wire.party_name,
+        currencyCode: wire.currency_code as CurrencyCode,
+        expectedMinor: wire.expected_minor,
+        feeMinor: wire.fee_minor,
+        handedInMinor: wire.handed_in_minor,
+        shortMinor: wire.short_minor,
+        shortReason: wire.short_reason,
+        recordedByName: wire.recorded_by_name,
+        recordedAt: wire.recorded_at as IsoDateTime,
+        signedOffByName: wire.signed_off_by_name,
+        signedOffAt: wire.signed_off_at as IsoDateTime | null,
+    };
+}
+
+export function mapOrderDeskSettlements(
+    wire: OrderDeskSettlementsEnvelope['data'],
+): OrderDeskSettlements {
+    return {
+        drivers: wire.drivers.map((driver) => ({
+            driverUserId: driver.driver_user_id,
+            displayName: driver.display_name,
+            currencyCode: driver.currency_code as CurrencyCode,
+            collectedMinor: driver.collected_minor,
+            runs: driver.runs.map(mapCashRun),
+        })),
+        couriers: wire.couriers.map((courier) => ({
+            courierName: courier.courier_name,
+            currencyCode: courier.currency_code as CurrencyCode,
+            dueMinor: courier.due_minor,
+            feeMinor: courier.fee_minor,
+            runs: courier.runs.map((run) => ({
+                ...mapCashRun(run),
+                feeMinor: run.fee_minor,
+                reference: run.reference,
+            })),
+        })),
+        settlements: wire.settlements.map(mapCashSettlement),
+    };
+}
+
 export function mapOrderDeskCashReportRow(wire: WireCashReportRow): OrderDeskCashReportRow {
     return {
         day: wire.day,
@@ -477,6 +548,7 @@ export function mapOrderDeskQuote(wire: WireOrderDeskQuote): OrderDeskQuote {
         quotable: wire.quotable,
         offeredWindowCodes: wire.offered_window_codes ?? null,
         allergenConflicts: (wire.allergen_conflicts ?? []).map(mapAllergenConflict),
+        serviceWarnings: (wire.service_warnings ?? []).map(mapOrderDeskRefusal),
     };
 }
 

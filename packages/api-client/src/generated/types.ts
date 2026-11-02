@@ -5253,7 +5253,8 @@ export type CheckoutPreview = {
      * `area_not_served`, `zone_suspended`, `currency_mismatch`,
      * `window_not_offered`, `allergen_conflict`, `closed`, `date_in_the_past`,
      * `cut_off_passed`, `kitchen_closed`, `window_ended`, `lead_time_not_met`,
-     * `below_zone_minimum`, plus the line-probe vocabulary. Deduplicated — three lines refused for the
+     * `below_zone_minimum`, `kitchen_paused`, `window_full`, plus the
+     * line-probe vocabulary. Deduplicated — three lines refused for the
      * same reason read as one fact, not three repeats of it.
      *
      */
@@ -7828,6 +7829,30 @@ export type ConsumptionExceptionRetryEnvelope = {
     meta: Meta;
 };
 
+export type BranchClosure = {
+    id: string;
+    closed_from: string;
+    closed_to: string;
+    note: string | null;
+};
+
+export type DuplicateStockEnvelope = {
+    data: Array<{
+        name: string;
+        reason: 'different_units' | 'not_a_copy' | 'both_have_history' | 'both_sold_as_products' | 'open_work';
+        shelves: Array<{
+            id: string;
+            code: string;
+            unit_code: string;
+            quantity: string;
+            has_history: boolean;
+        }>;
+    }>;
+    meta: {
+        [key: string]: unknown;
+    };
+};
+
 export type ConsumptionExceptionCountEnvelope = {
     data: {
         /**
@@ -9490,6 +9515,12 @@ export type OrderDeskQuote = {
      *
      */
     allergen_conflicts: Array<AllergenConflict>;
+    /**
+     * `kitchen_paused` and `window_full`, which refuse a customer and only
+     * warn the desk: the agent reads them and decides. No part of `quotable`.
+     *
+     */
+    service_warnings: Array<OrderDeskQuoteRefusal>;
 };
 
 export type OrderDeskQuoteEnvelope = {
@@ -9616,6 +9647,14 @@ export type KitchenServiceSettings = {
      * Refunds on one order above this, in minor units, need the owner.
      */
     refund_approval_above_minor: number;
+    /**
+     * The most orders one window takes on one day. Null means no limit.
+     */
+    orders_per_window?: number | null;
+    /**
+     * New customer orders are refused until then. Set through `kitchen-pause`.
+     */
+    readonly paused_until?: string | null;
 };
 
 export type KitchenDisplayEnvelope = {
@@ -10169,6 +10208,88 @@ export type AddOrderDeskCustomerAddressRequest = {
     postal_code?: string | null;
 };
 
+export type CashRun = {
+    job_id: Uuid;
+    order_id: Uuid;
+    order_number: string;
+    delivered_at: string | null;
+    /**
+     * The driver's cash from this run, or what the order still owes a courier's run.
+     */
+    amount_minor: number;
+};
+
+export type CourierCashRun = CashRun & {
+    fee_minor: number;
+    reference: string | null;
+};
+
+export type DriverCashOwed = {
+    driver_user_id: Uuid;
+    display_name: string | null;
+    currency_code: string;
+    collected_minor: number;
+    runs: Array<CashRun>;
+};
+
+export type CourierCashOwed = {
+    courier_name: string;
+    currency_code: string;
+    due_minor: number;
+    fee_minor: number;
+    runs: Array<CourierCashRun>;
+};
+
+export type CashSettlement = {
+    id: Uuid;
+    kind: 'driver' | 'courier';
+    party_name: string | null;
+    currency_code: string;
+    expected_minor: number;
+    fee_minor: number;
+    handed_in_minor: number;
+    short_minor: number;
+    short_reason: string | null;
+    recorded_by_name: string | null;
+    recorded_at: string;
+    signed_off_by_name: string | null;
+    signed_off_at: string | null;
+};
+
+export type StoreOrderDeskSettlementRequest = {
+    job_ids: Array<Uuid>;
+    handed_in_minor: number;
+    short_reason?: string | null;
+};
+
+export type CashSettlementEnvelope = {
+    data: {
+        settlement: CashSettlement;
+    };
+    meta: Meta;
+};
+
+export type OrderDeskSettlementsEnvelope = {
+    data: {
+        drivers: Array<DriverCashOwed>;
+        couriers: Array<CourierCashOwed>;
+        settlements: Array<CashSettlement>;
+    };
+    meta: Meta;
+};
+
+export type OrderDeskCashReportAdjustment = {
+    day: string;
+    kind: 'refund' | 'receipt_correction' | 'courier_fee' | 'short';
+    /**
+     * The person who recorded a refund, the courier, or the driver who was short.
+     */
+    display_name: string | null;
+    currency_code: string;
+    entry_count: number;
+    amount_minor_sum: number;
+};
+
 /**
  * What one agent took, one way, in one currency, on one day.
  *
@@ -10232,6 +10353,13 @@ export type OrderDeskCashReportTotal = {
 
 export type OrderDeskCashReportEnvelope = {
     data: {
+        /**
+         * What came off those takings: refunds and corrections that
+         * completed, couriers' fees and short hand-ins. Beside the rows
+         * rather than netted into them.
+         *
+         */
+        adjustments: Array<OrderDeskCashReportAdjustment>;
         /**
          * Oldest day first, then named agents first, nameless last, then a
          * total order over the remaining key columns — so two identical requests cannot return
@@ -15096,6 +15224,26 @@ export type PlatformKitchenOwnerRevocationEnvelope = {
          */
         remaining_owners: number;
     };
+    meta: Meta;
+};
+
+export type KitchenServiceSettingsWritable = {
+    order_lead_minutes: number;
+    alarm_after_minutes: number;
+    manager_alert_after_minutes: number;
+    owner_alert_after_minutes: number;
+    /**
+     * Refunds on one order above this, in minor units, need the owner.
+     */
+    refund_approval_above_minor: number;
+    /**
+     * The most orders one window takes on one day. Null means no limit.
+     */
+    orders_per_window?: number | null;
+};
+
+export type KitchenServiceSettingsEnvelopeWritable = {
+    data: KitchenServiceSettingsWritable;
     meta: Meta;
 };
 
@@ -22926,6 +23074,130 @@ export type ShowCatalogueItemAllergensResponses = {
 
 export type ShowCatalogueItemAllergensResponse = ShowCatalogueItemAllergensResponses[keyof ShowCatalogueItemAllergensResponses];
 
+export type PutCatalogueItemBackOnTodayData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        item: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/off-today';
+};
+
+export type PutCatalogueItemBackOnTodayErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type PutCatalogueItemBackOnTodayError = PutCatalogueItemBackOnTodayErrors[keyof PutCatalogueItemBackOnTodayErrors];
+
+export type PutCatalogueItemBackOnTodayResponses = {
+    /**
+     * The day it applied to, and where the item now stands.
+     */
+    200: {
+        data: {
+            date: string;
+            off_today: boolean;
+        };
+    };
+};
+
+export type PutCatalogueItemBackOnTodayResponse = PutCatalogueItemBackOnTodayResponses[keyof PutCatalogueItemBackOnTodayResponses];
+
+export type TakeCatalogueItemOffTodayData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        item: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/off-today';
+};
+
+export type TakeCatalogueItemOffTodayErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type TakeCatalogueItemOffTodayError = TakeCatalogueItemOffTodayErrors[keyof TakeCatalogueItemOffTodayErrors];
+
+export type TakeCatalogueItemOffTodayResponses = {
+    /**
+     * The day it applied to, and where the item now stands.
+     */
+    200: {
+        data: {
+            date: string;
+            off_today: boolean;
+        };
+    };
+};
+
+export type TakeCatalogueItemOffTodayResponse = TakeCatalogueItemOffTodayResponses[keyof TakeCatalogueItemOffTodayResponses];
+
 export type ReplaceCatalogueItemAvailabilityData = {
     body: ReplaceCatalogueItemAvailabilityRequest;
     headers: {
@@ -26087,6 +26359,313 @@ export type ArchiveDeliveryWindowResponses = {
 };
 
 export type ArchiveDeliveryWindowResponse = ArchiveDeliveryWindowResponses[keyof ArchiveDeliveryWindowResponses];
+
+export type ListBranchClosuresData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The active branch. Validated against the membership scope: a
+         * branch-scoped membership may only work inside its own branch.
+         *
+         * Required here rather than optional, because the resource *is* one
+         * branch's. An absent header is `400 context.branch_required` — the
+         * endpoint refuses rather than guessing which location the caller meant.
+         *
+         */
+        'X-Branch-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/kitchen/branch-closures';
+};
+
+export type ListBranchClosuresErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListBranchClosuresError = ListBranchClosuresErrors[keyof ListBranchClosuresErrors];
+
+export type ListBranchClosuresResponses = {
+    /**
+     * The closures.
+     */
+    200: {
+        data: Array<BranchClosure>;
+        meta: {
+            [key: string]: unknown;
+        };
+    };
+};
+
+export type ListBranchClosuresResponse = ListBranchClosuresResponses[keyof ListBranchClosuresResponses];
+
+export type AddBranchClosureData = {
+    body: {
+        closed_from: string;
+        closed_to: string;
+        note?: string | null;
+    };
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The active branch. Validated against the membership scope: a
+         * branch-scoped membership may only work inside its own branch.
+         *
+         * Required here rather than optional, because the resource *is* one
+         * branch's. An absent header is `400 context.branch_required` — the
+         * endpoint refuses rather than guessing which location the caller meant.
+         *
+         */
+        'X-Branch-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/kitchen/branch-closures';
+};
+
+export type AddBranchClosureErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type AddBranchClosureError = AddBranchClosureErrors[keyof AddBranchClosureErrors];
+
+export type AddBranchClosureResponses = {
+    /**
+     * The closure.
+     */
+    201: {
+        data: BranchClosure;
+        meta: {
+            [key: string]: unknown;
+        };
+    };
+};
+
+export type AddBranchClosureResponse = AddBranchClosureResponses[keyof AddBranchClosureResponses];
+
+export type RemoveBranchClosureData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The active branch. Validated against the membership scope: a
+         * branch-scoped membership may only work inside its own branch.
+         *
+         * Required here rather than optional, because the resource *is* one
+         * branch's. An absent header is `400 context.branch_required` — the
+         * endpoint refuses rather than guessing which location the caller meant.
+         *
+         */
+        'X-Branch-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        closure: string;
+    };
+    query?: never;
+    url: '/kitchen/branch-closures/{closure}';
+};
+
+export type RemoveBranchClosureErrors = {
+    /**
+     * A context the endpoint needs was not supplied —
+     * `context.organisation_required` for a missing `X-Organisation-Id`, and
+     * `context.branch_required` for a missing `X-Branch-Id` on the
+     * branch-scoped operations. Distinct from
+     * `context.branch_out_of_scope` (403): the caller has not asked for a
+     * branch they may not have, they have not asked for one at all.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type RemoveBranchClosureError = RemoveBranchClosureErrors[keyof RemoveBranchClosureErrors];
+
+export type RemoveBranchClosureResponses = {
+    /**
+     * Removed.
+     */
+    204: void;
+};
+
+export type RemoveBranchClosureResponse = RemoveBranchClosureResponses[keyof RemoveBranchClosureResponses];
+
+export type CreateKitchenBranchData = {
+    body: {
+        name: string;
+        city?: string | null;
+        address?: string | null;
+        timezone?: string | null;
+    };
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/kitchen/branches';
+};
+
+export type CreateKitchenBranchErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CreateKitchenBranchError = CreateKitchenBranchErrors[keyof CreateKitchenBranchErrors];
+
+export type CreateKitchenBranchResponses = {
+    /**
+     * The branch.
+     */
+    201: {
+        data: {
+            id: string;
+            name: string;
+            city: string | null;
+            timezone: string;
+        };
+        meta: {
+            [key: string]: unknown;
+        };
+    };
+};
+
+export type CreateKitchenBranchResponse = CreateKitchenBranchResponses[keyof CreateKitchenBranchResponses];
 
 export type GetBranchOperatingData = {
     body?: never;
@@ -30238,6 +30817,57 @@ export type ListConsumptionExceptionsResponses = {
 
 export type ListConsumptionExceptionsResponse = ListConsumptionExceptionsResponses[keyof ListConsumptionExceptionsResponses];
 
+export type ListDuplicateStockData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/inventory/duplicates';
+};
+
+export type ListDuplicateStockErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListDuplicateStockError = ListDuplicateStockErrors[keyof ListDuplicateStockErrors];
+
+export type ListDuplicateStockResponses = {
+    /**
+     * The groups of shelves waiting for a person.
+     */
+    200: DuplicateStockEnvelope;
+};
+
+export type ListDuplicateStockResponse = ListDuplicateStockResponses[keyof ListDuplicateStockResponses];
+
 export type CountUnresolvedConsumptionExceptionsData = {
     body?: never;
     headers: {
@@ -33553,6 +34183,118 @@ export type GetKitchenDisplayResponses = {
 
 export type GetKitchenDisplayResponse = GetKitchenDisplayResponses[keyof GetKitchenDisplayResponses];
 
+export type ResumeKitchenData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/kitchen-pause';
+};
+
+export type ResumeKitchenErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ResumeKitchenError = ResumeKitchenErrors[keyof ResumeKitchenErrors];
+
+export type ResumeKitchenResponses = {
+    /**
+     * The kitchen's service settings, with the pause cleared.
+     */
+    200: {
+        data: KitchenServiceSettings;
+    };
+};
+
+export type ResumeKitchenResponse = ResumeKitchenResponses[keyof ResumeKitchenResponses];
+
+export type PauseKitchenData = {
+    body: {
+        minutes: number;
+    };
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/kitchen-pause';
+};
+
+export type PauseKitchenErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type PauseKitchenError = PauseKitchenErrors[keyof PauseKitchenErrors];
+
+export type PauseKitchenResponses = {
+    /**
+     * The kitchen's service settings, with the pause set.
+     */
+    200: {
+        data: KitchenServiceSettings;
+    };
+};
+
+export type PauseKitchenResponse = PauseKitchenResponses[keyof PauseKitchenResponses];
+
 export type GetKitchenServiceSettingsData = {
     body?: never;
     headers: {
@@ -33605,7 +34347,7 @@ export type GetKitchenServiceSettingsResponses = {
 export type GetKitchenServiceSettingsResponse = GetKitchenServiceSettingsResponses[keyof GetKitchenServiceSettingsResponses];
 
 export type UpdateKitchenServiceSettingsData = {
-    body: KitchenServiceSettings;
+    body: KitchenServiceSettingsWritable;
     headers: {
         /**
          * The active organisation. Never trusted without server-side validation
@@ -34908,6 +35650,210 @@ export type ListOrderDeskDriversResponses = {
 };
 
 export type ListOrderDeskDriversResponse = ListOrderDeskDriversResponses[keyof ListOrderDeskDriversResponses];
+
+export type GetOrderDeskSettlementsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/order-desk/settlements';
+};
+
+export type GetOrderDeskSettlementsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderDeskSettlementsError = GetOrderDeskSettlementsErrors[keyof GetOrderDeskSettlementsErrors];
+
+export type GetOrderDeskSettlementsResponses = {
+    /**
+     * What is owed, and what came back.
+     */
+    200: OrderDeskSettlementsEnvelope;
+};
+
+export type GetOrderDeskSettlementsResponse = GetOrderDeskSettlementsResponses[keyof GetOrderDeskSettlementsResponses];
+
+export type StoreOrderDeskSettlementData = {
+    body: StoreOrderDeskSettlementRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * A client-chosen key that makes this command safe to retry (§4.14). The
+         * same key with the same request body replays the original envelope,
+         * status included, and carries `Idempotency-Replayed: true`. The same key
+         * with a *different* body is **409** `request.idempotency_key_reused` —
+         * the caller has reused a key that already means something else.
+         *
+         * Keys are scoped per endpoint and per caller and are honoured for
+         * twenty-four hours. The client attaches one deliberately; it is never
+         * inferred server-side.
+         *
+         */
+        'Idempotency-Key'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/order-desk/settlements';
+};
+
+export type StoreOrderDeskSettlementErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type StoreOrderDeskSettlementError = StoreOrderDeskSettlementErrors[keyof StoreOrderDeskSettlementErrors];
+
+export type StoreOrderDeskSettlementResponses = {
+    /**
+     * The settlement.
+     */
+    201: CashSettlementEnvelope;
+};
+
+export type StoreOrderDeskSettlementResponse = StoreOrderDeskSettlementResponses[keyof StoreOrderDeskSettlementResponses];
+
+export type SignOffOrderDeskSettlementData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        settlement: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/order-desk/settlements/{settlement}/sign-off';
+};
+
+export type SignOffOrderDeskSettlementErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SignOffOrderDeskSettlementError = SignOffOrderDeskSettlementErrors[keyof SignOffOrderDeskSettlementErrors];
+
+export type SignOffOrderDeskSettlementResponses = {
+    /**
+     * The settlement.
+     */
+    200: CashSettlementEnvelope;
+};
+
+export type SignOffOrderDeskSettlementResponse = SignOffOrderDeskSettlementResponses[keyof SignOffOrderDeskSettlementResponses];
 
 export type GetOrderDeskCashReportData = {
     body?: never;

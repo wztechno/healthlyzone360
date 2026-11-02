@@ -151,6 +151,7 @@ final class OrderDeskCashReportController
         return ApiResponse::data([
             'rows' => $rows,
             'totals' => $this->totals($rows),
+            'adjustments' => $this->adjustments($this->locator->sellerId(), $from, $to, $branchId),
         ], [
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
@@ -269,6 +270,78 @@ final class OrderDeskCashReportController
     }
 
     /**
+     * What came off those takings in the window: refunds and corrections that
+     * completed, couriers' fees, and hand-ins that came up short.
+     *
+     * Beside the rows rather than netted into them, so a row stays what somebody
+     * was handed and the reader can see each deduction. A settlement has no order
+     * of its own, so a branch filter leaves it out rather than guess a site.
+     *
+     * @return list<array{day: string, kind: string, display_name: string|null, currency_code: string, entry_count: int, amount_minor_sum: int}>
+     */
+    private function adjustments(string $organisationId, CarbonImmutable $from, CarbonImmutable $to, ?string $branchId): array
+    {
+        $name = "nullif(trim(coalesce(user_profiles.given_name, '') || ' ' || coalesce(user_profiles.family_name, '')), '')";
+        $refundDay = "(order_refunds.decided_at at time zone '".self::TIMEZONE."')::date";
+
+        $refunds = DB::table('order_refunds')
+            ->selectRaw($refundDay.' as day')
+            ->addSelect(['order_refunds.kind', 'order_refunds.currency_code'])
+            ->selectRaw($name.' as display_name')
+            ->selectRaw('count(*) as entry_count')
+            ->selectRaw('sum(order_refunds.amount_minor) as amount_minor_sum')
+            ->leftJoin('user_profiles', 'user_profiles.user_id', '=', 'order_refunds.requested_by')
+            ->where('order_refunds.organisation_id', $organisationId)
+            ->where('order_refunds.status', 'completed')
+            ->where('order_refunds.decided_at', '>=', $from)
+            ->where('order_refunds.decided_at', '<', $to->addDay())
+            ->groupByRaw($refundDay)
+            ->groupBy(['order_refunds.kind', 'order_refunds.currency_code'])
+            ->groupByRaw($name);
+
+        $this->applyBranch($refunds, $branchId, 'order_refunds');
+
+        $rows = [...$refunds->get()];
+
+        if ($branchId === null) {
+            $settlementDay = "(recorded_at at time zone '".self::TIMEZONE."')::date";
+            $settlements = DB::table('cash_settlements')
+                ->leftJoin('user_profiles', 'user_profiles.user_id', '=', 'cash_settlements.driver_user_id')
+                ->where('cash_settlements.organisation_id', $organisationId)
+                ->where('cash_settlements.recorded_at', '>=', $from)
+                ->where('cash_settlements.recorded_at', '<', $to->addDay());
+
+            foreach (['courier_fee' => 'fee_minor', 'short' => 'short_minor'] as $kind => $column) {
+                $rows = [...$rows, ...(clone $settlements)
+                    ->selectRaw($settlementDay.' as day')
+                    ->selectRaw('? as kind', [$kind])
+                    ->addSelect('cash_settlements.currency_code')
+                    ->selectRaw('coalesce(cash_settlements.courier_name, '.$name.') as display_name')
+                    ->selectRaw('count(*) as entry_count')
+                    ->selectRaw('sum('.$column.') as amount_minor_sum')
+                    ->where($column, '>', 0)
+                    ->groupByRaw($settlementDay)
+                    ->groupBy('cash_settlements.currency_code', 'cash_settlements.courier_name')
+                    ->groupByRaw($name)
+                    ->get()];
+            }
+        }
+
+        $adjustments = array_map(static fn (object $row): array => [
+            'day' => (string) $row->day,
+            'kind' => (string) $row->kind,
+            'display_name' => is_string($row->display_name) && $row->display_name !== '' ? $row->display_name : null,
+            'currency_code' => (string) $row->currency_code,
+            'entry_count' => (int) $row->entry_count,
+            'amount_minor_sum' => (int) $row->amount_minor_sum,
+        ], $rows);
+
+        usort($adjustments, static fn (array $left, array $right): int => [$left['day'], $left['kind'], (string) $left['display_name']] <=> [$right['day'], $right['kind'], (string) $right['display_name']]);
+
+        return $adjustments;
+    }
+
+    /**
      * Narrow to the site that cooked it.
      *
      * A join rather than a column, because a receipt has no branch — see the
@@ -286,13 +359,13 @@ final class OrderDeskCashReportController
      * identifier gets an empty intersection rather than a leak — the filter can
      * remove rows from the answer and can never add one.
      */
-    private function applyBranch(QueryBuilder $query, ?string $branchId): void
+    private function applyBranch(QueryBuilder $query, ?string $branchId, string $table = 'order_payment_receipts'): void
     {
         if ($branchId === null || $branchId === '') {
             return;
         }
 
-        $query->whereIn('order_payment_receipts.order_id', function (QueryBuilder $orders) use ($branchId): void {
+        $query->whereIn($table.'.order_id', function (QueryBuilder $orders) use ($branchId): void {
             $orders->select('orders.id')
                 ->from('orders')
                 ->where('orders.branch_id', $branchId);

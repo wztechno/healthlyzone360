@@ -7,8 +7,11 @@ import type {
     KitchenOrder,
     OrderDeskCalendar,
     OrderDeskCalendarFilters,
+    CashSettlementRecord,
     OrderDeskCashReport,
     OrderDeskCashReportFilters,
+    OrderDeskSettlements,
+    RecordCashSettlementRequest,
     OrderDeskCustomerAddress,
     OrderDeskCustomerCreated,
     OrderDeskCustomerAllergies,
@@ -264,6 +267,55 @@ export function useOrderDeskCashReportQuery(
     });
 }
 
+export function useCashSettlementsQuery(): UseQueryResult<OrderDeskSettlements> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.orderDesk.settlements(),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.orderDesk.getSettlements();
+        },
+    });
+}
+
+/** No retry: a settled run answers `409`, and the screen reloads rather than guessing. */
+export function useRecordCashSettlementMutation(): UseMutationResult<
+    CashSettlementRecord,
+    unknown,
+    RecordCashSettlementRequest
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (request: RecordCashSettlementRequest) =>
+            repositories.orderDesk.recordSettlement(request),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
+        },
+    });
+}
+
+export function useSignOffCashSettlementMutation(): UseMutationResult<
+    CashSettlementRecord,
+    unknown,
+    string
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (settlementId: string) => repositories.orderDesk.signOffSettlement(settlementId),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
+        },
+    });
+}
+
 export function useOrderDeskDriversQuery(enabled = true): UseQueryResult<OrderDeskDrivers> {
     const { repositories } = useRepositoryContext();
 
@@ -418,6 +470,23 @@ export function useOrderDeskCustomerSearchQuery(
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.orderDesk.searchCustomers(trimmed);
+        },
+    });
+}
+
+/** Off today, or back on. The menu's prices and refusals are the quote's, so they are re-asked. */
+export function useSetItemOffTodayMutation(): UseMutationResult<
+    void,
+    unknown,
+    { readonly itemId: string; readonly off: boolean }
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ itemId, off }) => repositories.orderDesk.setItemOffToday(itemId, off),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: ['orderDesk', 'quote'] });
         },
     });
 }

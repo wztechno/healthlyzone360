@@ -5162,6 +5162,34 @@ export const zConsumptionExceptionRetryEnvelope = z.object({
     meta: zMeta
 });
 
+export const zBranchClosure = z.object({
+    id: z.uuid(),
+    closed_from: z.iso.date(),
+    closed_to: z.iso.date(),
+    note: z.string().nullable()
+});
+
+export const zDuplicateStockEnvelope = z.object({
+    data: z.array(z.object({
+        name: z.string(),
+        reason: z.enum([
+            'different_units',
+            'not_a_copy',
+            'both_have_history',
+            'both_sold_as_products',
+            'open_work'
+        ]),
+        shelves: z.array(z.object({
+            id: z.uuid(),
+            code: z.string(),
+            unit_code: z.string(),
+            quantity: z.string(),
+            has_history: z.boolean()
+        }))
+    })),
+    meta: z.record(z.string(), z.unknown())
+});
+
 export const zConsumptionExceptionCountEnvelope = z.object({
     data: z.object({
         count: z.int().gte(0),
@@ -6052,7 +6080,8 @@ export const zOrderDeskQuote = z.object({
     refusals: z.array(zOrderDeskQuoteRefusal),
     quotable: z.boolean(),
     offered_window_codes: z.array(z.string()).nullable(),
-    allergen_conflicts: z.array(zAllergenConflict)
+    allergen_conflicts: z.array(zAllergenConflict),
+    service_warnings: z.array(zOrderDeskQuoteRefusal)
 });
 
 export const zOrderDeskQuoteEnvelope = z.object({
@@ -6194,7 +6223,9 @@ export const zKitchenServiceSettings = z.object({
     alarm_after_minutes: z.int().gte(1).lte(10080),
     manager_alert_after_minutes: z.int().gte(1).lte(10080),
     owner_alert_after_minutes: z.int().gte(1).lte(10080),
-    refund_approval_above_minor: z.int().gte(0)
+    refund_approval_above_minor: z.int().gte(0),
+    orders_per_window: z.int().gte(1).lte(1000).nullish(),
+    paused_until: z.iso.datetime({ offset: true }).readonly().nullish()
 });
 
 export const zKitchenServiceSettingsEnvelope = z.object({
@@ -6451,6 +6482,87 @@ export const zAddOrderDeskCustomerAddressRequest = z.object({
     postal_code: z.string().max(20).nullish()
 });
 
+export const zCashRun = z.object({
+    job_id: zUuid,
+    order_id: zUuid,
+    order_number: z.string(),
+    delivered_at: z.iso.datetime({ offset: true }).nullable(),
+    amount_minor: z.int()
+});
+
+export const zCourierCashRun = zCashRun.and(z.object({
+    fee_minor: z.int().gte(0),
+    reference: z.string().nullable()
+}));
+
+export const zDriverCashOwed = z.object({
+    driver_user_id: zUuid,
+    display_name: z.string().nullable(),
+    currency_code: z.string(),
+    collected_minor: z.int(),
+    runs: z.array(zCashRun)
+});
+
+export const zCourierCashOwed = z.object({
+    courier_name: z.string(),
+    currency_code: z.string(),
+    due_minor: z.int(),
+    fee_minor: z.int(),
+    runs: z.array(zCourierCashRun)
+});
+
+export const zCashSettlement = z.object({
+    id: zUuid,
+    kind: z.enum(['driver', 'courier']),
+    party_name: z.string().nullable(),
+    currency_code: z.string(),
+    expected_minor: z.int(),
+    fee_minor: z.int(),
+    handed_in_minor: z.int(),
+    short_minor: z.int(),
+    short_reason: z.string().nullable(),
+    recorded_by_name: z.string().nullable(),
+    recorded_at: z.iso.datetime({ offset: true }),
+    signed_off_by_name: z.string().nullable(),
+    signed_off_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zStoreOrderDeskSettlementRequest = z.object({
+    job_ids: z.array(zUuid).min(1).max(200),
+    handed_in_minor: z.int().gte(0),
+    short_reason: z.string().max(300).nullish()
+});
+
+export const zCashSettlementEnvelope = z.object({
+    data: z.object({
+        settlement: zCashSettlement
+    }),
+    meta: zMeta
+});
+
+export const zOrderDeskSettlementsEnvelope = z.object({
+    data: z.object({
+        drivers: z.array(zDriverCashOwed),
+        couriers: z.array(zCourierCashOwed),
+        settlements: z.array(zCashSettlement)
+    }),
+    meta: zMeta
+});
+
+export const zOrderDeskCashReportAdjustment = z.object({
+    day: z.iso.date(),
+    kind: z.enum([
+        'refund',
+        'receipt_correction',
+        'courier_fee',
+        'short'
+    ]),
+    display_name: z.string().nullable(),
+    currency_code: z.string(),
+    entry_count: z.int(),
+    amount_minor_sum: z.int()
+});
+
 /**
  * What one agent took, one way, in one currency, on one day.
  *
@@ -6491,6 +6603,7 @@ export const zOrderDeskCashReportTotal = z.object({
 
 export const zOrderDeskCashReportEnvelope = z.object({
     data: z.object({
+        adjustments: z.array(zOrderDeskCashReportAdjustment),
         rows: z.array(zOrderDeskCashReportRow),
         totals: z.array(zOrderDeskCashReportTotal)
     }),
@@ -10169,6 +10282,20 @@ export const zPlatformKitchenOwnerRevocationEnvelope = z.object({
     meta: zMeta
 });
 
+export const zKitchenServiceSettingsWritable = z.object({
+    order_lead_minutes: z.int().gte(0).lte(10080),
+    alarm_after_minutes: z.int().gte(1).lte(10080),
+    manager_alert_after_minutes: z.int().gte(1).lte(10080),
+    owner_alert_after_minutes: z.int().gte(1).lte(10080),
+    refund_approval_above_minor: z.int().gte(0),
+    orders_per_window: z.int().gte(1).lte(1000).nullish()
+});
+
+export const zKitchenServiceSettingsEnvelopeWritable = z.object({
+    data: zKitchenServiceSettingsWritable,
+    meta: zMeta
+});
+
 /**
  * The active organisation. Never trusted without server-side validation
  * against an active membership.
@@ -12586,6 +12713,44 @@ export const zShowCatalogueItemAllergensResponse = z.object({
     meta: zDerivedAllergenMeta
 });
 
+export const zPutCatalogueItemBackOnTodayHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zPutCatalogueItemBackOnTodayPath = z.object({
+    item: zUuid
+});
+
+/**
+ * The day it applied to, and where the item now stands.
+ */
+export const zPutCatalogueItemBackOnTodayResponse = z.object({
+    data: z.object({
+        date: z.iso.date(),
+        off_today: z.boolean()
+    })
+});
+
+export const zTakeCatalogueItemOffTodayHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zTakeCatalogueItemOffTodayPath = z.object({
+    item: zUuid
+});
+
+/**
+ * The day it applied to, and where the item now stands.
+ */
+export const zTakeCatalogueItemOffTodayResponse = z.object({
+    data: z.object({
+        date: z.iso.date(),
+        off_today: z.boolean()
+    })
+});
+
 export const zReplaceCatalogueItemAvailabilityBody = zReplaceCatalogueItemAvailabilityRequest;
 
 export const zReplaceCatalogueItemAvailabilityHeaders = z.object({
@@ -13307,6 +13472,80 @@ export const zArchiveDeliveryWindowPath = z.object({
  * The archived window, in no zone.
  */
 export const zArchiveDeliveryWindowResponse = zDeliveryWindowEnvelope;
+
+export const zListBranchClosuresHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The closures.
+ */
+export const zListBranchClosuresResponse = z.object({
+    data: z.array(zBranchClosure),
+    meta: z.record(z.string(), z.unknown())
+});
+
+export const zAddBranchClosureBody = z.object({
+    closed_from: z.iso.date(),
+    closed_to: z.iso.date(),
+    note: z.string().max(160).nullish()
+});
+
+export const zAddBranchClosureHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The closure.
+ */
+export const zAddBranchClosureResponse = z.object({
+    data: zBranchClosure,
+    meta: z.record(z.string(), z.unknown())
+});
+
+export const zRemoveBranchClosureHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRemoveBranchClosurePath = z.object({
+    closure: z.uuid()
+});
+
+/**
+ * Removed.
+ */
+export const zRemoveBranchClosureResponse = z.void();
+
+export const zCreateKitchenBranchBody = z.object({
+    name: z.string().max(160),
+    city: z.string().max(120).nullish(),
+    address: z.string().max(255).nullish(),
+    timezone: z.string().nullish()
+});
+
+export const zCreateKitchenBranchHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The branch.
+ */
+export const zCreateKitchenBranchResponse = z.object({
+    data: z.object({
+        id: z.uuid(),
+        name: z.string(),
+        city: z.string().nullable(),
+        timezone: z.string()
+    }),
+    meta: z.record(z.string(), z.unknown())
+});
 
 export const zGetBranchOperatingHeaders = z.object({
     'X-Organisation-Id': zUuid,
@@ -14208,6 +14447,16 @@ export const zListConsumptionExceptionsQuery = z.object({
  */
 export const zListConsumptionExceptionsResponse = zConsumptionExceptionCollection;
 
+export const zListDuplicateStockHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The groups of shelves waiting for a person.
+ */
+export const zListDuplicateStockResponse = zDuplicateStockEnvelope;
+
 export const zCountUnresolvedConsumptionExceptionsHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Branch-Id': zUuid.optional(),
@@ -14844,6 +15093,34 @@ export const zGetKitchenDisplayHeaders = z.object({
  */
 export const zGetKitchenDisplayResponse = zKitchenDisplayEnvelope;
 
+export const zResumeKitchenHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The kitchen's service settings, with the pause cleared.
+ */
+export const zResumeKitchenResponse = z.object({
+    data: zKitchenServiceSettings
+});
+
+export const zPauseKitchenBody = z.object({
+    minutes: z.int().gte(1).lte(720)
+});
+
+export const zPauseKitchenHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The kitchen's service settings, with the pause set.
+ */
+export const zPauseKitchenResponse = z.object({
+    data: zKitchenServiceSettings
+});
+
 export const zGetKitchenServiceSettingsHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
@@ -14854,7 +15131,7 @@ export const zGetKitchenServiceSettingsHeaders = z.object({
  */
 export const zGetKitchenServiceSettingsResponse = zKitchenServiceSettingsEnvelope;
 
-export const zUpdateKitchenServiceSettingsBody = zKitchenServiceSettings;
+export const zUpdateKitchenServiceSettingsBody = zKitchenServiceSettingsWritable;
 
 export const zUpdateKitchenServiceSettingsHeaders = z.object({
     'X-Organisation-Id': zUuid,
@@ -15163,6 +15440,43 @@ export const zListOrderDeskDriversHeaders = z.object({
  * This organisation's active members, named where a name exists.
  */
 export const zListOrderDeskDriversResponse = zOrderDeskDriversEnvelope;
+
+export const zGetOrderDeskSettlementsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * What is owed, and what came back.
+ */
+export const zGetOrderDeskSettlementsResponse = zOrderDeskSettlementsEnvelope;
+
+export const zStoreOrderDeskSettlementBody = zStoreOrderDeskSettlementRequest;
+
+export const zStoreOrderDeskSettlementHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Idempotency-Key': z.string().max(255).optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The settlement.
+ */
+export const zStoreOrderDeskSettlementResponse = zCashSettlementEnvelope;
+
+export const zSignOffOrderDeskSettlementHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSignOffOrderDeskSettlementPath = z.object({
+    settlement: zUuid
+});
+
+/**
+ * The settlement.
+ */
+export const zSignOffOrderDeskSettlementResponse = zCashSettlementEnvelope;
 
 export const zGetOrderDeskCashReportHeaders = z.object({
     'X-Organisation-Id': zUuid,

@@ -11,8 +11,11 @@ import type {
     OrderDeskBasketLine,
     OrderDeskCalendar,
     OrderDeskCalendarFilters,
+    CashSettlementRecord,
     OrderDeskCashReport,
     OrderDeskCashReportFilters,
+    OrderDeskSettlements,
+    RecordCashSettlementRequest,
     OrderDeskCustomerAddress,
     OrderDeskCustomerCreated,
     OrderDeskCustomerAllergies,
@@ -40,7 +43,9 @@ import type {
     KitchenOrder as WireKitchenOrder,
     OrderDeskBasketLine as WireOrderDeskBasketLine,
     OrderDeskCalendarEnvelope,
+    CashSettlementEnvelope,
     OrderDeskCashReportEnvelope,
+    OrderDeskSettlementsEnvelope,
     OrderDeskCustomer as WireOrderDeskCustomer,
     OrderDeskCustomerEnvelope,
     OrderDeskCustomersEnvelope,
@@ -64,7 +69,10 @@ import {
     mapCalendarDay,
     mapCalendarMeta,
     mapOrderDeskCashReportMeta,
+    mapCashReportAdjustment,
+    mapCashSettlement,
     mapOrderDeskCashReportRow,
+    mapOrderDeskSettlements,
     mapOrderDeskCashReportTotal,
     mapOrderDeskCustomer,
     mapOrderDeskCustomerAddress,
@@ -404,6 +412,43 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
             return areas.map(mapServiceAreaFromDeliveryArea);
         },
 
+        async getSettlements(): Promise<OrderDeskSettlements> {
+            return mapOrderDeskSettlements(
+                await transport.request<OrderDeskSettlementsEnvelope['data']>({
+                    method: 'GET',
+                    path: '/catalogue/order-desk/settlements',
+                }),
+            );
+        },
+
+        async recordSettlement(
+            request: RecordCashSettlementRequest,
+        ): Promise<CashSettlementRecord> {
+            const payload = await transport.request<CashSettlementEnvelope['data']>({
+                method: 'POST',
+                path: '/catalogue/order-desk/settlements',
+                headers: { 'Idempotency-Key': generateRequestId() },
+                body: {
+                    job_ids: request.jobIds,
+                    handed_in_minor: request.handedInMinor,
+                    ...(request.shortReason === undefined
+                        ? {}
+                        : { short_reason: request.shortReason }),
+                },
+            });
+
+            return mapCashSettlement(payload.settlement);
+        },
+
+        async signOffSettlement(settlementId: string): Promise<CashSettlementRecord> {
+            const payload = await transport.request<CashSettlementEnvelope['data']>({
+                method: 'POST',
+                path: `/catalogue/order-desk/settlements/${encodeURIComponent(settlementId)}/sign-off`,
+            });
+
+            return mapCashSettlement(payload.settlement);
+        },
+
         async getCashReport(filters: OrderDeskCashReportFilters): Promise<OrderDeskCashReport> {
             // `data` is an object carrying two arrays rather than the bare array the queue answers
             // — the wire's own shape, left alone here. The envelope is read whole because `meta`
@@ -420,6 +465,7 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                 // query so they cannot disagree, and the only way a client-side fold would differ
                 // is by grouping on method alone and adding two currencies together.
                 totals: payload.data.totals.map(mapOrderDeskCashReportTotal),
+                adjustments: payload.data.adjustments.map(mapCashReportAdjustment),
                 meta: mapOrderDeskCashReportMeta(
                     payload.meta as OrderDeskCashReportEnvelope['meta'],
                 ),
@@ -524,6 +570,13 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                 rows: envelope.data.map(mapOrderDeskCustomer),
                 limit: meta.limit,
             };
+        },
+
+        async setItemOffToday(itemId: string, off: boolean): Promise<void> {
+            await transport.request({
+                method: off ? 'PUT' : 'DELETE',
+                path: `/catalogue/items/${encodeURIComponent(itemId)}/off-today`,
+            });
         },
 
         async getCustomerAllergies(customerId: string): Promise<OrderDeskCustomerAllergies> {

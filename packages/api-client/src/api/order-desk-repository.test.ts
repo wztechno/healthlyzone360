@@ -1384,6 +1384,7 @@ describe('createApiOrderDeskRepository — getCashReport', () => {
 
     const CASH_BODY = {
         data: {
+            adjustments: [],
             rows: [
                 {
                     day: '2026-05-10',

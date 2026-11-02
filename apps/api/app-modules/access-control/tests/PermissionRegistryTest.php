@@ -151,6 +151,7 @@ it('lets the order desk read the range it sells without deciding it', function (
         'order.view_customer_contact_organisation',
         'subscription.view_organisation',
         'inventory.view_organisation',
+        'order.settle_cash_organisation',
     ]);
 
     foreach ([
@@ -315,16 +316,16 @@ function templateRolesHolding(string $code): array
 it('grants each template role the expected number of codes', function (string $role, int $expectedGrants): void {
     expect(PermissionRegistry::templateRoles()[$role]['permissions'])->toHaveCount($expectedGrants);
 })->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 49],
+    'organisation owner grants every organisation permission' => ['organisation_owner', 50],
     // The same count either way, which is why this row stayed green through AA1 while
     // its name stopped being true: the console swapped `role.manage_organisation`
     // in and `organisation.update_current` out, one for one. The count is the
     // weakest half of the pin; `separates the administrator from the owner`
     // above names which code is missing.
-    'organisation administrator runs everything except the legal identity of the business' => ['organisation_admin', 47],
-    'branch manager runs the service: its branch, the wall, the order book, the counter and the reads they stand on' => ['branch_manager', 14],
+    'organisation administrator runs everything except the legal identity of the business' => ['organisation_admin', 48],
+    'branch manager runs the service: its branch, the wall, the order book, the counter and the reads they stand on' => ['branch_manager', 15],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
-    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book, runs inventory including its costs, orders its supplies and holds the order desk in full' => ['kitchen_manager', 33],
+    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book, runs inventory including its costs, orders its supplies and holds the order desk in full' => ['kitchen_manager', 34],
     // Nine since PROD1: the chef gained `production.view_organisation` and
     // `production.manage_organisation` and not the costs code. Running the line
     // is the job; what the line cost is the commercial side's, which is the same
@@ -337,7 +338,7 @@ it('grants each template role the expected number of codes', function (string $r
     // find out what there is to sell and 403s without it. Reading the range is
     // still not deciding it — the manage and publish codes stay absent, which
     // is the half of this row the name is about.
-    'order desk agent works the queue, sells across the counter and opens accounts for cold callers, reads the range and decides neither it nor the tariff' => ['order_desk_agent', 8],
+    'order desk agent works the queue, sells across the counter and opens accounts for cold callers, reads the range and decides neither it nor the tariff' => ['order_desk_agent', 9],
     // AA1's two. They were absent from this dataset for a day after the console
     // shipped — and a dataset only asserts about the rows it lists, so their
     // absence was silent rather than red. `classifies every template role as
@@ -349,6 +350,12 @@ it('grants each template role the expected number of codes', function (string $r
     'finance manager reads every number and can change exactly one, the unit cost of a recipe line' => ['finance_manager', 12],
     'driver signs in and sees their own account, and the run sheet does the rest' => ['kitchen_driver', 7],
 ]);
+
+it('gives cash settlement to the cashier and the managers above them', function (): void {
+    expect(templateRolesHolding('order.settle_cash_organisation'))->toEqualCanonicalizing([
+        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'branch_manager', 'order_desk_agent',
+    ]);
+});
 
 it('gives refund approval to the owner and to nobody else', function (): void {
     expect(templateRolesHolding('order.approve_refund_organisation'))->toBe(['organisation_owner']);

@@ -101,6 +101,9 @@ export const ORDER_CREATE_ON_BEHALF_PERMISSION = 'order.create_on_behalf_organis
  */
 export const ORDER_SUPERVISE_PERMISSION = 'order.supervise_organisation';
 
+/** Counting what drivers and couriers hand in. The cashier's and the managers' above them. */
+export const ORDER_SETTLE_CASH_PERMISSION = 'order.settle_cash_organisation';
+
 /** The owner's answer to a refund above the kitchen's limit. */
 export const ORDER_APPROVE_REFUND_PERMISSION = 'order.approve_refund_organisation';
 
@@ -352,6 +355,18 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         permission: INVENTORY_VIEW_PERMISSION,
         // Nothing is written from a buy list. Ordering the goods is the purchasing surface's, and
         // counting them is the stock family's.
+        managePermission: null,
+    },
+    {
+        key: 'order-settlement',
+        kind: 'workbench',
+        group: 'orderDesk',
+        nameKey: 'kitchen:families.orderSettlement.name',
+        descriptionKey: 'kitchen:families.orderSettlement.description',
+        icon: 'banknote',
+        href: '/kitchen/order-desk/settlement',
+        permission: ORDER_SETTLE_CASH_PERMISSION,
+        // Its writes are this one code too: a page that only reads it has nothing to show.
         managePermission: null,
     },
     {

@@ -51,6 +51,7 @@ export const KITCHEN_MANAGER_PERMISSIONS: readonly string[] = [
     'customer.create_on_behalf_organisation',
     'order.view_customer_contact_organisation',
     'order.supervise_organisation',
+    'order.settle_cash_organisation',
     'order.prepare_organisation',
     // B1/B4. The backend grants this pair to `kitchen_manager` alongside the tariff pair — reading
     // what corporate buyers submitted against this kitchen's programmes, and naming a price against

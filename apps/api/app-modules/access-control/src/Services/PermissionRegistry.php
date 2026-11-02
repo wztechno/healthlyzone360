@@ -284,6 +284,11 @@ final class PermissionRegistry
             // kitchen may reasonably want the first without the second.
             'customer.create_on_behalf_organisation' => ['domain' => 'customer', 'description' => 'Open a customer account at the order desk and record its contact details and delivery addresses'],
 
+            // P0 Stage 3. Counting what a driver or courier hands in is the
+            // cashier's job as much as a manager's, and a code of its own
+            // because the cash report's manage code is about moving orders.
+            'order.settle_cash_organisation' => ['domain' => 'order', 'description' => 'Record cash handed in by drivers and couriers'],
+
             // P0 Stage 3. A manager refunds; above the kitchen's limit the owner
             // decides, and the owner alone, so this code stops short of the
             // administrator too.
@@ -599,6 +604,7 @@ final class PermissionRegistry
                     'order.manage_organisation',
                     'order.prepare_organisation',
                     'order.supervise_organisation',
+                    'order.settle_cash_organisation',
                     'order.view_customer_contact_organisation',
                     'order.create_on_behalf_organisation',
                     'customer.create_on_behalf_organisation',
@@ -688,6 +694,9 @@ final class PermissionRegistry
                     // who decides about an order already being cooked, and who
                     // hears about one nobody accepted.
                     'order.supervise_organisation',
+
+                    // P0 Stage 3. The cash the cashier counts, for when no cashier is on.
+                    'order.settle_cash_organisation',
 
                     // P1 Wave A. The wall's own code, beside the manage code that
                     // already passes it, so a manager's role reads what it does.
@@ -1135,6 +1144,7 @@ final class PermissionRegistry
                     'order.view_customer_contact_organisation',
                     'subscription.view_organisation',
                     'inventory.view_organisation',
+                    'order.settle_cash_organisation',
                 ],
             ],
 

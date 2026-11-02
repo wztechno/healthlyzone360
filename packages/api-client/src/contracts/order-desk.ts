@@ -667,9 +667,21 @@ export interface OrderDeskCashReportMeta {
 }
 
 /** A window's takings, day by day, by agent and by method. */
+/** What came off the takings. Beside the rows, never netted into them. */
+export interface OrderDeskCashReportAdjustment {
+    readonly day: string;
+    readonly kind: 'refund' | 'receipt_correction' | 'courier_fee' | 'short';
+    /** Who recorded a refund, the courier, or the driver who was short. */
+    readonly displayName: string | null;
+    readonly currencyCode: CurrencyCode;
+    readonly entryCount: number;
+    readonly amountMinorSum: number;
+}
+
 export interface OrderDeskCashReport {
     readonly rows: readonly OrderDeskCashReportRow[];
     readonly totals: readonly OrderDeskCashReportTotal[];
+    readonly adjustments: readonly OrderDeskCashReportAdjustment[];
     readonly meta: OrderDeskCashReportMeta;
 }
 
@@ -904,6 +916,8 @@ export interface OrderDeskQuote {
      * `quotable`: the sale goes ahead once the agent says the customer was told.
      */
     readonly allergenConflicts: readonly AllergenConflict[];
+    /** `kitchen_paused` and `window_full`: a customer is refused, the desk is told and decides. */
+    readonly serviceWarnings: OrderDeskQuote['refusals'];
 }
 
 /**
@@ -1070,7 +1084,73 @@ export interface OrderDeskCustomerAddress {
     readonly isDeliverable: boolean;
 }
 
+/** One delivered run a hand-in can cover. */
+export interface CashRun {
+    readonly jobId: string;
+    readonly orderId: string;
+    readonly orderNumber: string;
+    readonly deliveredAt: IsoDateTime | null;
+    /** The driver's cash from this run, or what the order still owes on a courier's. */
+    readonly amountMinor: number;
+}
+
+export interface CourierCashRun extends CashRun {
+    readonly feeMinor: number;
+    readonly reference: string | null;
+}
+
+export interface DriverCashOwed {
+    readonly driverUserId: string;
+    readonly displayName: string | null;
+    readonly currencyCode: CurrencyCode;
+    readonly collectedMinor: number;
+    readonly runs: readonly CashRun[];
+}
+
+export interface CourierCashOwed {
+    readonly courierName: string;
+    readonly currencyCode: CurrencyCode;
+    readonly dueMinor: number;
+    readonly feeMinor: number;
+    readonly runs: readonly CourierCashRun[];
+}
+
+export interface CashSettlementRecord {
+    readonly id: string;
+    readonly kind: 'driver' | 'courier';
+    readonly partyName: string | null;
+    readonly currencyCode: CurrencyCode;
+    readonly expectedMinor: number;
+    readonly feeMinor: number;
+    readonly handedInMinor: number;
+    readonly shortMinor: number;
+    readonly shortReason: string | null;
+    readonly recordedByName: string | null;
+    readonly recordedAt: IsoDateTime;
+    readonly signedOffByName: string | null;
+    readonly signedOffAt: IsoDateTime | null;
+}
+
+export interface OrderDeskSettlements {
+    readonly drivers: readonly DriverCashOwed[];
+    readonly couriers: readonly CourierCashOwed[];
+    /** The last fifty, newest first. */
+    readonly settlements: readonly CashSettlementRecord[];
+}
+
+export interface RecordCashSettlementRequest {
+    readonly jobIds: readonly string[];
+    readonly handedInMinor: number;
+    /** Required when the hand-in is short. */
+    readonly shortReason?: string | undefined;
+}
+
 export interface OrderDeskRepository {
+    getSettlements(): Promise<OrderDeskSettlements>;
+    recordSettlement(request: RecordCashSettlementRequest): Promise<CashSettlementRecord>;
+    /** A manager accepts a short hand-in. */
+    signOffSettlement(settlementId: string): Promise<CashSettlementRecord>;
+
     /**
      * The open queue in due order, capped, with the day and clock it was measured against.
      *
@@ -1209,6 +1289,9 @@ export interface OrderDeskRepository {
      * error.
      */
     searchCustomers(query: string): Promise<OrderDeskCustomerSearch>;
+
+    /** Take a dish off today, or put it back: one row on the kitchen's calendar. */
+    setItemOffToday(itemId: string, off: boolean): Promise<void>;
 
     /** What the chosen customer has declared. The server records the read. */
     getCustomerAllergies(customerId: string): Promise<OrderDeskCustomerAllergies>;
