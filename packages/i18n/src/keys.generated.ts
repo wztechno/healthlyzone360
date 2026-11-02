@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9179 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9191 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4055,9 +4055,11 @@ export interface NamespaceKeys {
     | 'lens.allGaps'
     | 'lens.allIngredients'
     | 'lens.allLines'
+    | 'lens.allMonths'
     | 'lens.allOrders'
     | 'lens.allPackaging'
     | 'lens.allPeople'
+    | 'lens.allPeriodsAction'
     | 'lens.allPlans'
     | 'lens.allPriceLists'
     | 'lens.allProducts'
@@ -4068,11 +4070,13 @@ export interface NamespaceKeys {
     | 'lens.allRoles'
     | 'lens.allStock'
     | 'lens.allSuppliers'
+    | 'lens.allWeeks'
     | 'lens.allZones'
     | 'lens.allergenMix'
     | 'lens.archivedAction'
     | 'lens.batchMix'
     | 'lens.clear'
+    | 'lens.completePeriodsAction'
     | 'lens.confirmedBatchesAction'
     | 'lens.deskMix'
     | 'lens.draftBatchesAction'
@@ -4080,6 +4084,7 @@ export interface NamespaceKeys {
     | 'lens.gapsMix'
     | 'lens.holdChecksAction'
     | 'lens.inProductionBatchesAction'
+    | 'lens.incompletePeriodsAction'
     | 'lens.issuedOnPage'
     | 'lens.label'
     | 'lens.ledgerMix'
@@ -4097,6 +4102,7 @@ export interface NamespaceKeys {
     | 'lens.period.year'
     | 'lens.period.yesterday'
     | 'lens.periodLabel'
+    | 'lens.periodsMix'
     | 'lens.publishedAction'
     | 'lens.qcMix'
     | 'lens.quotationsMix'
@@ -4118,6 +4124,7 @@ export interface NamespaceKeys {
     | 'lens.stockOutAction'
     | 'lens.token'
     | 'lens.unpricedAction'
+    | 'lens.unpricedLines'
     | 'lens.unpricedReceiptsMix'
     | 'lens.unresolvedAction'
     | 'lens.zoneMix'
@@ -4617,28 +4624,29 @@ export interface NamespaceKeys {
     | 'ops.ledger.columnDate'
     | 'ops.ledger.columnItem'
     | 'ops.ledger.columnLineTotal'
+    | 'ops.ledger.columnMonth'
     | 'ops.ledger.columnQuantity'
     | 'ops.ledger.columnState'
+    | 'ops.ledger.columnStatus'
     | 'ops.ledger.columnSupplier'
     | 'ops.ledger.columnUnitPrice'
+    | 'ops.ledger.columnWeek'
     | 'ops.ledger.completeBadge'
     | 'ops.ledger.emptyBody'
     | 'ops.ledger.emptyTitle'
     | 'ops.ledger.filterFrom'
     | 'ops.ledger.filterTo'
     | 'ops.ledger.fromPlaceholder'
-    | 'ops.ledger.hideCharges'
     | 'ops.ledger.incompleteBadge'
     | 'ops.ledger.modeDetail'
     | 'ops.ledger.modeLabel'
     | 'ops.ledger.modeMonthly'
     | 'ops.ledger.modeWeekly'
-    | 'ops.ledger.noPricedDeliveries'
     | 'ops.ledger.noSupplier'
-    | 'ops.ledger.pendingFxNote'
+    | 'ops.ledger.nothingPriced'
+    | 'ops.ledger.pendingFxBadge'
     | 'ops.ledger.periodDates'
     | 'ops.ledger.searchPlaceholder'
-    | 'ops.ledger.showCharges'
     | 'ops.ledger.statLinesUnit'
     | 'ops.ledger.statPendingFxCaption'
     | 'ops.ledger.statPricedCaption'
@@ -4646,19 +4654,23 @@ export interface NamespaceKeys {
     | 'ops.ledger.statePendingFx'
     | 'ops.ledger.statePriced'
     | 'ops.ledger.stateUnpriced'
-    | 'ops.ledger.summaryEmptyBody'
+    | 'ops.ledger.statusNothingPriced'
+    | 'ops.ledger.statusPendingFxInfo'
+    | 'ops.ledger.statusUnpricedInfo'
     | 'ops.ledger.summaryEmptyTitle'
     | 'ops.ledger.summaryInvoiceTotal'
     | 'ops.ledger.summaryLines'
-    | 'ops.ledger.summaryRange'
+    | 'ops.ledger.summaryMonthlyLabel'
     | 'ops.ledger.summarySubtotal'
+    | 'ops.ledger.summaryWeeklyLabel'
     | 'ops.ledger.title'
     | 'ops.ledger.toPlaceholder'
-    | 'ops.ledger.unpricedLines'
+    | 'ops.ledger.unpricedBadge'
     | 'ops.ledger.viewFoot'
     | 'ops.ledger.viewKind'
     | 'ops.ledger.viewPendingFxNote'
     | 'ops.ledger.viewUnpricedNote'
+    | 'ops.ledger.weekLabel'
     | 'ops.metricUnavailable'
     | 'ops.orders.actionsHeading'
     | 'ops.orders.backToOrders'
@@ -13252,9 +13264,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.allGaps',
   'kitchen:lens.allIngredients',
   'kitchen:lens.allLines',
+  'kitchen:lens.allMonths',
   'kitchen:lens.allOrders',
   'kitchen:lens.allPackaging',
   'kitchen:lens.allPeople',
+  'kitchen:lens.allPeriodsAction',
   'kitchen:lens.allPlans',
   'kitchen:lens.allPriceLists',
   'kitchen:lens.allProducts',
@@ -13265,11 +13279,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.allRoles',
   'kitchen:lens.allStock',
   'kitchen:lens.allSuppliers',
+  'kitchen:lens.allWeeks',
   'kitchen:lens.allZones',
   'kitchen:lens.allergenMix',
   'kitchen:lens.archivedAction',
   'kitchen:lens.batchMix',
   'kitchen:lens.clear',
+  'kitchen:lens.completePeriodsAction',
   'kitchen:lens.confirmedBatchesAction',
   'kitchen:lens.deskMix',
   'kitchen:lens.draftBatchesAction',
@@ -13277,6 +13293,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.gapsMix',
   'kitchen:lens.holdChecksAction',
   'kitchen:lens.inProductionBatchesAction',
+  'kitchen:lens.incompletePeriodsAction',
   'kitchen:lens.issuedOnPage',
   'kitchen:lens.label',
   'kitchen:lens.ledgerMix',
@@ -13294,6 +13311,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.period.year',
   'kitchen:lens.period.yesterday',
   'kitchen:lens.periodLabel',
+  'kitchen:lens.periodsMix',
   'kitchen:lens.publishedAction',
   'kitchen:lens.qcMix',
   'kitchen:lens.quotationsMix',
@@ -13315,6 +13333,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.stockOutAction',
   'kitchen:lens.token',
   'kitchen:lens.unpricedAction',
+  'kitchen:lens.unpricedLines',
   'kitchen:lens.unpricedReceiptsMix',
   'kitchen:lens.unresolvedAction',
   'kitchen:lens.zoneMix',
@@ -13814,28 +13833,29 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.columnDate',
   'kitchen:ops.ledger.columnItem',
   'kitchen:ops.ledger.columnLineTotal',
+  'kitchen:ops.ledger.columnMonth',
   'kitchen:ops.ledger.columnQuantity',
   'kitchen:ops.ledger.columnState',
+  'kitchen:ops.ledger.columnStatus',
   'kitchen:ops.ledger.columnSupplier',
   'kitchen:ops.ledger.columnUnitPrice',
+  'kitchen:ops.ledger.columnWeek',
   'kitchen:ops.ledger.completeBadge',
   'kitchen:ops.ledger.emptyBody',
   'kitchen:ops.ledger.emptyTitle',
   'kitchen:ops.ledger.filterFrom',
   'kitchen:ops.ledger.filterTo',
   'kitchen:ops.ledger.fromPlaceholder',
-  'kitchen:ops.ledger.hideCharges',
   'kitchen:ops.ledger.incompleteBadge',
   'kitchen:ops.ledger.modeDetail',
   'kitchen:ops.ledger.modeLabel',
   'kitchen:ops.ledger.modeMonthly',
   'kitchen:ops.ledger.modeWeekly',
-  'kitchen:ops.ledger.noPricedDeliveries',
   'kitchen:ops.ledger.noSupplier',
-  'kitchen:ops.ledger.pendingFxNote',
+  'kitchen:ops.ledger.nothingPriced',
+  'kitchen:ops.ledger.pendingFxBadge',
   'kitchen:ops.ledger.periodDates',
   'kitchen:ops.ledger.searchPlaceholder',
-  'kitchen:ops.ledger.showCharges',
   'kitchen:ops.ledger.statLinesUnit',
   'kitchen:ops.ledger.statPendingFxCaption',
   'kitchen:ops.ledger.statPricedCaption',
@@ -13843,19 +13863,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.statePendingFx',
   'kitchen:ops.ledger.statePriced',
   'kitchen:ops.ledger.stateUnpriced',
-  'kitchen:ops.ledger.summaryEmptyBody',
+  'kitchen:ops.ledger.statusNothingPriced',
+  'kitchen:ops.ledger.statusPendingFxInfo',
+  'kitchen:ops.ledger.statusUnpricedInfo',
   'kitchen:ops.ledger.summaryEmptyTitle',
   'kitchen:ops.ledger.summaryInvoiceTotal',
   'kitchen:ops.ledger.summaryLines',
-  'kitchen:ops.ledger.summaryRange',
+  'kitchen:ops.ledger.summaryMonthlyLabel',
   'kitchen:ops.ledger.summarySubtotal',
+  'kitchen:ops.ledger.summaryWeeklyLabel',
   'kitchen:ops.ledger.title',
   'kitchen:ops.ledger.toPlaceholder',
-  'kitchen:ops.ledger.unpricedLines',
+  'kitchen:ops.ledger.unpricedBadge',
   'kitchen:ops.ledger.viewFoot',
   'kitchen:ops.ledger.viewKind',
   'kitchen:ops.ledger.viewPendingFxNote',
   'kitchen:ops.ledger.viewUnpricedNote',
+  'kitchen:ops.ledger.weekLabel',
   'kitchen:ops.metricUnavailable',
   'kitchen:ops.orders.actionsHeading',
   'kitchen:ops.orders.backToOrders',
